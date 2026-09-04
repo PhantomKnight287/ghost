@@ -1,0 +1,1 @@
+ALTER TABLE "repository" ADD COLUMN "lastPushedAt" timestamp DEFAULT now() NOT NULL;

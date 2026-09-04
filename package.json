@@ -8,15 +8,16 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "test": "turbo run test",
-    "check-types": "turbo run check-types",
-    "db:generate": "turbo run db:generate",
-    "db:migrate": "turbo run db:migrate",
-    "db:push": "turbo run db:push",
-    "db:studio": "bun run --filter @ghost/db db:studio"
+    "build": "dotenv -e .env turbo run build",
+    "dev": "dotenv -e .env turbo run dev",
+    "lint": "dotenv -e .env turbo run lint",
+    "test": "dotenv -e .env turbo run test",
+    "check-types": "dotenv -e .env turbo run check-types",
+    "db:generate": "dotenv -e .env turbo run db:generate",
+    "db:migrate": "dotenv -e .env turbo run db:migrate",
+    "db:push": "dotenv -e .env turbo run db:push",
+    "db:studio": "dotenv -e .env -- bun run --filter @ghost/db db:studio",
+    "openapi": "dotenv -e .env -- bun run --filter @ghost/api openapi && bun run --filter @ghost/web generate"
   },
   "devDependencies": {
     "turbo": "^2.5.6",
@@ -24,5 +25,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv-cli": "^11.0.0"
   }
 }
