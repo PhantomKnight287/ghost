@@ -1,6 +1,4 @@
-import {
-  type Database,
-} from '@ghost/db';
+import { type Database } from '@ghost/db';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { organization, username } from 'better-auth/plugins';
@@ -12,7 +10,6 @@ export type AuthConfig = {
   baseURL: string;
   trustedOrigins?: string[];
 };
-
 
 export function createAuth(db: Database, config: AuthConfig) {
   return betterAuth({
@@ -32,14 +29,14 @@ export function createAuth(db: Database, config: AuthConfig) {
         creatorRole: 'owner',
         defaultRole: 'read',
         dynamicAccessControl: {
-          enabled:true,
+          enabled: true,
         },
         teams: {
           enabled: true,
           allowRemovingAllTeams: true,
         },
       }),
-      username({})
+      username({}),
     ],
   });
 }

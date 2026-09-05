@@ -9,7 +9,7 @@ export class DomainErrorFilter implements ExceptionFilter<DomainError> {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    console.dir(exception,{depth:null})
+    console.dir(exception, { depth: null });
     response.status(exception.status).json({
       statusCode: exception.status,
       error: exception.name,

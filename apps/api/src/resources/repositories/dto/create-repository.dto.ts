@@ -12,13 +12,12 @@ export class CreateRepositoryRequestDTO {
   description?: string;
 }
 
-
-export class CreateRepositoryResponseDTO{
+export class CreateRepositoryResponseDTO {
   @ApiProperty()
   @IsString()
-  id: string
+  id: string;
 
   @ApiProperty()
   @IsString()
-  slug:string
+  slug: string;
 }

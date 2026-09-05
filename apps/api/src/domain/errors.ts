@@ -1,3 +1,3 @@
-export abstract class DomainError extends Error{
-  abstract readonly status:number
+export abstract class DomainError extends Error {
+  abstract readonly status: number;
 }

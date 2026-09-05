@@ -200,6 +200,157 @@
           "Repositories"
         ]
       }
+    },
+    "/api/repositories/{username}/{slug}/contents": {
+      "get": {
+        "description": "One level of a directory on the requested branch, or the default branch when none is given, with the newest commit touching each entry. Directories report the newest commit anywhere beneath them.",
+        "operationId": "RepositoriesController_getRepositoryContents",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": false,
+            "in": "query",
+            "description": "Directory to list, relative to the repository root. Omit for the root. Slashes may be sent percent-encoded (`src%2Fdeep`); they are decoded once, so an already-decoded `src/deep` works too.",
+            "schema": {
+              "maxLength": 4096,
+              "example": "src/services",
+              "type": "string"
+            }
+          },
+          {
+            "name": "branch",
+            "required": false,
+            "in": "query",
+            "description": "Branch to list. Accepts `main` or `refs/heads/main`. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryContentsResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The `path` query parameter is not a repository-relative directory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List repository contents",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/branches": {
+      "get": {
+        "description": "Every branch of the repository, and which one it opens on.",
+        "operationId": "RepositoriesController_getRepositoryBranches",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryBranchesResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List repository branches",
+        "tags": [
+          "Repositories"
+        ]
+      }
     }
   },
   "info": {
@@ -323,6 +474,155 @@
           "repositories",
           "nextCursor",
           "hasMore"
+        ]
+      },
+      "CommitSummaryDTO": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string",
+            "description": "Full 40-character commit sha."
+          },
+          "message": {
+            "type": "string",
+            "description": "Commit subject — the first line of the message."
+          },
+          "committedAt": {
+            "type": "string",
+            "description": "Committer timestamp, ISO 8601."
+          }
+        },
+        "required": [
+          "sha",
+          "message",
+          "committedAt"
+        ]
+      },
+      "TreeEntryType": {
+        "type": "string",
+        "enum": [
+          "blob",
+          "tree",
+          "commit"
+        ],
+        "description": "`tree` is a directory, `commit` a submodule."
+      },
+      "TreeEntryDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Entry name within the listed directory."
+          },
+          "path": {
+            "type": "string",
+            "description": "Full path from the repository root."
+          },
+          "type": {
+            "description": "`tree` is a directory, `commit` a submodule.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TreeEntryType"
+              }
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "description": "Git file mode, e.g. `100644`.",
+            "example": "100644"
+          },
+          "oid": {
+            "type": "string",
+            "description": "Object id of the blob or tree."
+          },
+          "size": {
+            "type": "number",
+            "nullable": true,
+            "description": "Blob size in bytes; `null` for trees and submodules."
+          },
+          "lastCommit": {
+            "nullable": true,
+            "description": "Newest commit touching this entry, or anything beneath it for a tree. `null` only if the index has not caught up with the ref.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommitSummaryDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "type",
+          "mode",
+          "oid",
+          "size",
+          "lastCommit"
+        ]
+      },
+      "GetRepositoryContentsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Ref that was listed, always fully qualified.",
+            "example": "refs/heads/main"
+          },
+          "path": {
+            "type": "string",
+            "description": "Normalized directory that was listed, with a trailing slash. Empty at the root.",
+            "example": "src/services/"
+          },
+          "commit": {
+            "nullable": true,
+            "description": "Tip commit of the ref. `null` when nothing has been pushed yet.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommitSummaryDTO"
+              }
+            ]
+          },
+          "entries": {
+            "description": "One level of the directory: directories first (submodules among them), then files, each group alphabetical. Case is a minor difference, so `readme.md` and `README.md` sit together rather than in separate blocks, and embedded numbers order naturally (`file2` before `file10`). Empty for an unborn ref or a path that is not a directory.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TreeEntryDTO"
+            }
+          }
+        },
+        "required": [
+          "ref",
+          "path",
+          "commit",
+          "entries"
+        ]
+      },
+      "GetRepositoryBranchesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "defaultBranch": {
+            "type": "string",
+            "nullable": true,
+            "description": "Branch the repository opens on. `null` when nothing has been pushed yet.",
+            "example": "main"
+          },
+          "branches": {
+            "description": "Branch names, without the `refs/heads/` prefix, ordered by name.",
+            "example": [
+              "main",
+              "feat/contents"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "defaultBranch",
+          "branches"
         ]
       }
     }

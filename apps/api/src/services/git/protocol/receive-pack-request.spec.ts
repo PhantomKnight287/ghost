@@ -17,10 +17,7 @@ function pkt(payload: string) {
 }
 
 function body(lines: string[], pack = Buffer.alloc(0)) {
-  return Buffer.concat([
-    Buffer.from(lines.join('') + '0000', 'utf8'),
-    pack,
-  ]);
+  return Buffer.concat([Buffer.from(lines.join('') + '0000', 'utf8'), pack]);
 }
 
 describe('parseReceivePackRequest', () => {
@@ -71,7 +68,9 @@ describe('parseReceivePackRequest', () => {
     const push = bufferBody(body([pkt(`${ZERO} ${NEW} refs/heads/main\n`)]));
     expect(await isProbeRequest(push)).toBe(false);
     expect(await isProbeRequest(bufferBody(Buffer.alloc(0)))).toBe(false);
-    expect(await isProbeRequest(bufferBody(Buffer.from('0000PACK')))).toBe(false);
+    expect(await isProbeRequest(bufferBody(Buffer.from('0000PACK')))).toBe(
+      false,
+    );
   });
 
   it('locates the packfile without reading it', async () => {
@@ -95,14 +94,19 @@ describe('parseReceivePackRequest', () => {
 
   it('rejects a truncated pkt-line', () => {
     expect(() =>
-      parseReceivePackRequest(Buffer.from(`00ff${ZERO} ${NEW} refs/heads/main`)),
+      parseReceivePackRequest(
+        Buffer.from(`00ff${ZERO} ${NEW} refs/heads/main`),
+      ),
     ).toThrow(InvalidReceivePackRequestError);
   });
 
   it('rejects a payload that is not a packfile', () => {
     expect(() =>
       parseReceivePackRequest(
-        body([pkt(`${ZERO} ${NEW} refs/heads/main\n`)], Buffer.from('NOTAPACK')),
+        body(
+          [pkt(`${ZERO} ${NEW} refs/heads/main\n`)],
+          Buffer.from('NOTAPACK'),
+        ),
       ),
     ).toThrow(InvalidReceivePackRequestError);
   });

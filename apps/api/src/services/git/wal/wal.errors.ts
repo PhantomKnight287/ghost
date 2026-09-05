@@ -13,7 +13,9 @@ export class NonFastForwardError extends DomainError {
   status: number = HttpStatus.CONFLICT;
 
   constructor(readonly ref: string) {
-    super(`Updates were rejected because the remote contains work you do not have locally: ${ref}`);
+    super(
+      `Updates were rejected because the remote contains work you do not have locally: ${ref}`,
+    );
   }
 }
 

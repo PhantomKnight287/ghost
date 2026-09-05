@@ -2,7 +2,11 @@ import { Readable } from 'node:stream';
 import { buffer as readStream } from 'node:stream/consumers';
 
 import { prefixed, type GitRequestBody } from '../protocol/git-request-body.js';
-import { decodeEntryHeader, decodeIndex, encodeIndex } from '../wal/wal-codec.js';
+import {
+  decodeEntryHeader,
+  decodeIndex,
+  encodeIndex,
+} from '../wal/wal-codec.js';
 import type { WalIndex } from '../wal/wal.types.js';
 
 /** In-memory stand-in for object storage that keeps the real codec and CAS semantics. */

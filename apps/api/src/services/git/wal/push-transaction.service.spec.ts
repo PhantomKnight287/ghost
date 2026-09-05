@@ -7,11 +7,16 @@ import { NonFastForwardError } from './wal.errors.js';
 import { emptyIndex, type RefTransition, type WalIndex } from './wal.types.js';
 import { Readable } from 'node:stream';
 
-import { bufferBody, type GitRequestBody } from '../protocol/git-request-body.js';
+import {
+  bufferBody,
+  type GitRequestBody,
+} from '../protocol/git-request-body.js';
 
 const oid = (byte: number) => Buffer.alloc(20, byte);
 const PACK_OFFSET = 8;
-const body = bufferBody(Buffer.concat([Buffer.from('00000000'), Buffer.from('PACKDATA')]));
+const body = bufferBody(
+  Buffer.concat([Buffer.from('00000000'), Buffer.from('PACKDATA')]),
+);
 
 function transition(oldByte: number, newByte: number): RefTransition {
   return { ref: 'refs/heads/main', oldOid: oid(oldByte), newOid: oid(newByte) };
@@ -57,7 +62,11 @@ describe('PushTransactionService', () => {
   });
 
   it('uploads the pack once and reuses it across CAS retries', async () => {
-    const first: WalIndex = { ...emptyIndex(), seq: 5, refs: new Map([['refs/heads/main', oid(0xaa)]]) };
+    const first: WalIndex = {
+      ...emptyIndex(),
+      seq: 5,
+      refs: new Map([['refs/heads/main', oid(0xaa)]]),
+    };
     const second: WalIndex = { ...first, seq: 6 };
     store.readIndex
       .mockResolvedValueOnce({ index: first, etag: '"one"' })
@@ -104,7 +113,11 @@ describe('PushTransactionService', () => {
 
   it('rejects a stale ref instead of clobbering it', async () => {
     store.readIndex.mockResolvedValue({
-      index: { ...emptyIndex(), seq: 3, refs: new Map([['refs/heads/main', oid(0xff)]]) },
+      index: {
+        ...emptyIndex(),
+        seq: 3,
+        refs: new Map([['refs/heads/main', oid(0xff)]]),
+      },
       etag: '"three"',
     });
 
@@ -113,7 +126,7 @@ describe('PushTransactionService', () => {
         repoId: 'phantomknight287/ghost',
         transitions: [transition(0xaa, 0xbb)],
         body,
-      packOffset: PACK_OFFSET,
+        packOffset: PACK_OFFSET,
       }),
     ).rejects.toBeInstanceOf(NonFastForwardError);
     expect(store.casIndex).not.toHaveBeenCalled();
@@ -126,7 +139,11 @@ describe('PushTransactionService', () => {
         seq: 9,
         refs: new Map([['refs/heads/main', oid(0xbb)]]),
         layers: [
-          { ulid: store.putEntry.mock.calls[0][1], packSha: Buffer.alloc(32), size: body.size - PACK_OFFSET },
+          {
+            ulid: store.putEntry.mock.calls[0][1],
+            packSha: Buffer.alloc(32),
+            size: body.size - PACK_OFFSET,
+          },
         ],
       },
       etag: '"nine"',

@@ -80,6 +80,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List repository contents
+         * @description One level of a directory on the requested branch, or the default branch when none is given, with the newest commit touching each entry. Directories report the newest commit anywhere beneath them.
+         */
+        get: operations["RepositoriesController_getRepositoryContents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List repository branches
+         * @description Every branch of the repository, and which one it opens on.
+         */
+        get: operations["RepositoriesController_getRepositoryBranches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -112,6 +152,69 @@ export interface components {
             /** @description Pass back as `cursor` for the next page. `null` on the last page. */
             nextCursor: string | null;
             hasMore: boolean;
+        };
+        CommitSummaryDTO: {
+            /** @description Full 40-character commit sha. */
+            sha: string;
+            /** @description Commit subject — the first line of the message. */
+            message: string;
+            /** @description Committer timestamp, ISO 8601. */
+            committedAt: string;
+        };
+        /**
+         * @description `tree` is a directory, `commit` a submodule.
+         * @enum {string}
+         */
+        TreeEntryType: "blob" | "tree" | "commit";
+        TreeEntryDTO: {
+            /** @description Entry name within the listed directory. */
+            name: string;
+            /** @description Full path from the repository root. */
+            path: string;
+            /** @description `tree` is a directory, `commit` a submodule. */
+            type: components["schemas"]["TreeEntryType"];
+            /**
+             * @description Git file mode, e.g. `100644`.
+             * @example 100644
+             */
+            mode: string;
+            /** @description Object id of the blob or tree. */
+            oid: string;
+            /** @description Blob size in bytes; `null` for trees and submodules. */
+            size: number | null;
+            /** @description Newest commit touching this entry, or anything beneath it for a tree. `null` only if the index has not caught up with the ref. */
+            lastCommit: components["schemas"]["CommitSummaryDTO"] | null;
+        };
+        GetRepositoryContentsResponseDTO: {
+            /**
+             * @description Ref that was listed, always fully qualified.
+             * @example refs/heads/main
+             */
+            ref: string;
+            /**
+             * @description Normalized directory that was listed, with a trailing slash. Empty at the root.
+             * @example src/services/
+             */
+            path: string;
+            /** @description Tip commit of the ref. `null` when nothing has been pushed yet. */
+            commit: components["schemas"]["CommitSummaryDTO"] | null;
+            /** @description One level of the directory: directories first (submodules among them), then files, each group alphabetical. Case is a minor difference, so `readme.md` and `README.md` sit together rather than in separate blocks, and embedded numbers order naturally (`file2` before `file10`). Empty for an unborn ref or a path that is not a directory. */
+            entries: components["schemas"]["TreeEntryDTO"][];
+        };
+        GetRepositoryBranchesResponseDTO: {
+            /**
+             * @description Branch the repository opens on. `null` when nothing has been pushed yet.
+             * @example main
+             */
+            defaultBranch: string | null;
+            /**
+             * @description Branch names, without the `refs/heads/` prefix, ordered by name.
+             * @example [
+             *       "main",
+             *       "feat/contents"
+             *     ]
+             */
+            branches: string[];
         };
     };
     responses: never;
@@ -238,6 +341,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RepositoryEntity"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryContents: {
+        parameters: {
+            query?: {
+                /** @description Directory to list, relative to the repository root. Omit for the root. Slashes may be sent percent-encoded (`src%2Fdeep`); they are decoded once, so an already-decoded `src/deep` works too. */
+                path?: string;
+                /** @description Branch to list. Accepts `main` or `refs/heads/main`. Omit for the default branch. */
+                branch?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryContentsResponseDTO"];
+                };
+            };
+            /** @description The `path` query parameter is not a repository-relative directory. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryBranches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryBranchesResponseDTO"];
                 };
             };
             404: {

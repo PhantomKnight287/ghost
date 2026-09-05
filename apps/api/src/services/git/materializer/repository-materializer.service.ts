@@ -62,7 +62,9 @@ export class RepositoryMaterializerService {
 
     await this.reconcileRefs(repoDirectory, index);
     await this.writeCachedSeq(repoDirectory, index.seq);
-    this.logger.log(`Materialized ${repoId} from seq ${cachedSeq} to ${index.seq}`);
+    this.logger.log(
+      `Materialized ${repoId} from seq ${cachedSeq} to ${index.seq}`,
+    );
 
     return index;
   }

@@ -55,7 +55,8 @@ export function encodeIndex(index: WalIndex): Buffer {
 
 export function decodeIndex(buffer: Buffer): WalIndex {
   const reader = new Reader(buffer);
-  if (reader.u32() !== INDEX_MAGIC) throw new WalCorruptError('bad index magic');
+  if (reader.u32() !== INDEX_MAGIC)
+    throw new WalCorruptError('bad index magic');
 
   const version = reader.u8();
   if (version !== FORMAT_VERSION) {
@@ -113,7 +114,8 @@ export function decodeEntryHeader(buffer: Buffer): {
   packOffset: number;
 } {
   const reader = new Reader(buffer);
-  if (reader.u32() !== ENTRY_MAGIC) throw new WalCorruptError('bad entry magic');
+  if (reader.u32() !== ENTRY_MAGIC)
+    throw new WalCorruptError('bad entry magic');
 
   const version = reader.u8();
   if (version !== FORMAT_VERSION) {

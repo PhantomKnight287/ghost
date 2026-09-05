@@ -55,7 +55,8 @@ export class GitRawBodyMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
-      if (directory) await rm(directory, { recursive: true, force: true }).catch(() => {});
+      if (directory)
+        await rm(directory, { recursive: true, force: true }).catch(() => {});
       next(error);
     }
   }

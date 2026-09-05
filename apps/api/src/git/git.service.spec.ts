@@ -13,15 +13,21 @@ import { GitService } from './git.service.js';
 
 describe('GitService', () => {
   let service: GitService;
-  const storage = { getRepoPath: vi.fn().mockResolvedValue('/repos/ghost.git') };
-  const refAdvertisement = { advertise: vi.fn().mockReturnValue(new PassThrough()) };
+  const storage = {
+    getRepoPath: vi.fn().mockResolvedValue('/repos/ghost.git'),
+  };
+  const refAdvertisement = {
+    advertise: vi.fn().mockReturnValue(new PassThrough()),
+  };
   const packProcess = {
     streamUploadPack: vi.fn().mockReturnValue(new PassThrough()),
     streamReceivePack: vi.fn().mockReturnValue(new PassThrough()),
   };
   const materializer = { materialize: vi.fn().mockResolvedValue(undefined) };
   const pushTransaction = {
-    commitPush: vi.fn().mockResolvedValue({ seq: 1, ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' }),
+    commitPush: vi
+      .fn()
+      .mockResolvedValue({ seq: 1, ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' }),
   };
 
   beforeEach(async () => {
@@ -95,7 +101,9 @@ describe('GitService', () => {
       body: bufferBody(Buffer.from('0000')),
     });
 
-    expect(headers['Content-Type']).toBe('application/x-git-receive-pack-result');
+    expect(headers['Content-Type']).toBe(
+      'application/x-git-receive-pack-result',
+    );
     expect(pushTransaction.commitPush).not.toHaveBeenCalled();
     expect(packProcess.streamReceivePack).not.toHaveBeenCalled();
   });
@@ -107,7 +115,9 @@ describe('GitService', () => {
       body: bufferBody(receivePackBody()),
     });
 
-    expect(headers['Content-Type']).toBe('application/x-git-receive-pack-result');
+    expect(headers['Content-Type']).toBe(
+      'application/x-git-receive-pack-result',
+    );
     expect(pushTransaction.commitPush).toHaveBeenCalledWith(
       expect.objectContaining({ repoId: 'phantomknight287/ghost' }),
     );
@@ -115,9 +125,11 @@ describe('GitService', () => {
     const [{ transitions }] = pushTransaction.commitPush.mock.calls[0];
     expect(transitions[0].ref).toBe('refs/heads/main');
 
-    const materializeOrder = materializer.materialize.mock.invocationCallOrder[0];
+    const materializeOrder =
+      materializer.materialize.mock.invocationCallOrder[0];
     const commitOrder = pushTransaction.commitPush.mock.invocationCallOrder[0];
-    const spawnOrder = packProcess.streamReceivePack.mock.invocationCallOrder[0];
+    const spawnOrder =
+      packProcess.streamReceivePack.mock.invocationCallOrder[0];
     expect(materializeOrder).toBeLessThan(commitOrder);
     expect(commitOrder).toBeLessThan(spawnOrder);
   });

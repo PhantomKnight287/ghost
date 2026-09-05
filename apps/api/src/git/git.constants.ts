@@ -39,12 +39,12 @@ export function toRepoId(username: string, repo: string) {
  * they have to sit at the root rather than behind the `/api` prefix — they are
  * the only routes excluded from it.
  */
-export const GIT_PACK_ROUTES: RouteInfo[] = [
+export const GIT_PACK_ROUTES = [
   { path: ':username/:repo/git-upload-pack', method: RequestMethod.POST },
   { path: ':username/:repo/git-receive-pack', method: RequestMethod.POST },
 ];
 
-export const GIT_TRANSPORT_ROUTES: RouteInfo[] = [
+export const GIT_TRANSPORT_ROUTES = [
   { path: ':username/:repo/info/refs', method: RequestMethod.GET },
   ...GIT_PACK_ROUTES,
 ];

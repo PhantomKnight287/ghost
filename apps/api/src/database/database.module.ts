@@ -1,4 +1,9 @@
-import { Global, Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Module,
+  type OnApplicationShutdown,
+} from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { createDatabase, type Database, type Pool } from '@ghost/db';
 

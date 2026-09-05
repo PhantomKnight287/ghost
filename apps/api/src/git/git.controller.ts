@@ -20,7 +20,10 @@ export class GitController {
     @Query('service') service: string,
     @Res() res: Response,
   ) {
-    this.send(res, await this.gitService.advertiseRefs({ username, repo, service }));
+    this.send(
+      res,
+      await this.gitService.advertiseRefs({ username, repo, service }),
+    );
   }
 
   @Post('git-upload-pack')

@@ -80,7 +80,12 @@ const adminStatements = {
 /** Owner: admin, plus the actions that end the organization or move it. */
 const ownerStatements = {
   ...adminStatements,
-  organization: [...adminStatements.organization, 'delete', 'transfer', 'billing'],
+  organization: [
+    ...adminStatements.organization,
+    'delete',
+    'transfer',
+    'billing',
+  ],
   repository: [...adminStatements.repository, 'transfer'],
 } as const;
 

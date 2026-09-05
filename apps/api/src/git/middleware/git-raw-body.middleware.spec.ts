@@ -3,10 +3,15 @@ import { buffer as readStream } from 'node:stream/consumers';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 
-import { GitRawBodyMiddleware, type GitRequest } from './git-raw-body.middleware.js';
+import {
+  GitRawBodyMiddleware,
+  type GitRequest,
+} from './git-raw-body.middleware.js';
 
 function request(body: Buffer, headers: Record<string, string> = {}) {
-  return Object.assign(Readable.from(body), { headers }) as unknown as GitRequest;
+  return Object.assign(Readable.from(body), {
+    headers,
+  }) as unknown as GitRequest;
 }
 
 describe('GitRawBodyMiddleware', () => {
@@ -19,7 +24,9 @@ describe('GitRawBodyMiddleware', () => {
 
     await middleware.use(req, response, next);
 
-    expect((await readStream(req.gitBody!.open())).toString()).toBe('0032command\n0000PACK');
+    expect((await readStream(req.gitBody!.open())).toString()).toBe(
+      '0032command\n0000PACK',
+    );
     expect(next).toHaveBeenCalledWith();
   });
 
@@ -33,7 +40,9 @@ describe('GitRawBodyMiddleware', () => {
   });
 
   it('passes a decode failure to the error handler', async () => {
-    const req = request(Buffer.from('not gzip'), { 'content-encoding': 'gzip' });
+    const req = request(Buffer.from('not gzip'), {
+      'content-encoding': 'gzip',
+    });
     const next = vi.fn();
 
     await middleware.use(req, response, next);

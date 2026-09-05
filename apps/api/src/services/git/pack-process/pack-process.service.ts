@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { PassThrough, Readable } from 'node:stream';
-import { toGitBinary, type GitServiceName } from '../../../git/git.constants.js';
+import {
+  toGitBinary,
+  type GitServiceName,
+} from '../../../git/git.constants.js';
 
 interface StreamOptions {
   repoDirectory: string;

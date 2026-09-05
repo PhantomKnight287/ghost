@@ -1,6 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 import { RepositoryEntity } from '../entities/repository.entity.js';
 
@@ -34,7 +41,8 @@ export class GetRepositoriesResponseDTO {
   @ApiProperty({
     type: String,
     nullable: true,
-    description: 'Pass back as `cursor` for the next page. `null` on the last page.',
+    description:
+      'Pass back as `cursor` for the next page. `null` on the last page.',
   })
   @IsString()
   @IsOptional()

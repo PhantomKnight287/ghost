@@ -15,7 +15,9 @@ const PACK_SIGNATURE = 'PACK';
  */
 export async function isProbeRequest(body: GitRequestBody) {
   if (body.size !== PKT_LENGTH_CHARS) return false;
-  return (await readHead(body, PKT_LENGTH_CHARS)).toString('ascii') === FLUSH_PACKET;
+  return (
+    (await readHead(body, PKT_LENGTH_CHARS)).toString('ascii') === FLUSH_PACKET
+  );
 }
 
 /** A push touching thousands of refs still keeps its command section well inside this. */
@@ -84,7 +86,10 @@ function parseCommandSection(body: Buffer) {
 
   for (;;) {
     if (offset + PKT_LENGTH_CHARS > body.length) {
-      throw new InvalidReceivePackRequestError('truncated command section', body);
+      throw new InvalidReceivePackRequestError(
+        'truncated command section',
+        body,
+      );
     }
 
     const marker = body.toString('ascii', offset, offset + PKT_LENGTH_CHARS);
@@ -95,13 +100,23 @@ function parseCommandSection(body: Buffer) {
 
     const length = Number.parseInt(marker, 16);
     if (!Number.isInteger(length) || length < PKT_LENGTH_CHARS) {
-      throw new InvalidReceivePackRequestError(`bad pkt-line length ${marker}`, body);
+      throw new InvalidReceivePackRequestError(
+        `bad pkt-line length ${marker}`,
+        body,
+      );
     }
     if (offset + length > body.length) {
-      throw new InvalidReceivePackRequestError('pkt-line runs past end of body', body);
+      throw new InvalidReceivePackRequestError(
+        'pkt-line runs past end of body',
+        body,
+      );
     }
 
-    const payload = body.toString('utf8', offset + PKT_LENGTH_CHARS, offset + length);
+    const payload = body.toString(
+      'utf8',
+      offset + PKT_LENGTH_CHARS,
+      offset + length,
+    );
     offset += length;
 
     const [command, capabilityList] = payload.split('\0');

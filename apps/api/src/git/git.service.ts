@@ -11,7 +11,11 @@ import {
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
 import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
-import { isGitServiceName, toRepoId, type GitServiceName } from './git.constants.js';
+import {
+  isGitServiceName,
+  toRepoId,
+  type GitServiceName,
+} from './git.constants.js';
 import { UnsupportedGitServiceError } from './git.errors.js';
 
 export interface GitTransportResponse {
@@ -87,7 +91,10 @@ export class GitService {
     pushedBy?: string | null;
   }): Promise<GitTransportResponse> {
     if (await isProbeRequest(body)) {
-      return { headers: resultHeaders('git-receive-pack'), body: Readable.from([]) };
+      return {
+        headers: resultHeaders('git-receive-pack'),
+        body: Readable.from([]),
+      };
     }
 
     const { transitions, packOffset } = await readReceivePackHeader(body);
@@ -112,7 +119,10 @@ export class GitService {
 
   private async openCache({ username, repo }: RepositoryRef) {
     const repoDirectory = await this.storage.getRepoPath({ username, repo });
-    await this.materializer.materialize(toRepoId(username, repo), repoDirectory);
+    await this.materializer.materialize(
+      toRepoId(username, repo),
+      repoDirectory,
+    );
     return repoDirectory;
   }
 }

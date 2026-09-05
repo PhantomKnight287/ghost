@@ -27,8 +27,6 @@ import { GitService } from './git.service.js';
 })
 export class GitModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(GitRawBodyMiddleware)
-      .forRoutes(...GIT_PACK_ROUTES);
+    consumer.apply(GitRawBodyMiddleware).forRoutes(...GIT_PACK_ROUTES);
   }
 }

@@ -1,30 +1,49 @@
-"use client";
-
-import { use } from "react";
 import Link from "next/link";
-import { BookMarked, Copy, GitFork, Star } from "lucide-react";
+import { notFound } from "next/navigation";
+import { BookMarked, GitFork, Star } from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
-import { useAuthenticate } from "@better-auth-ui/react";
+import { RepositoryContents } from "@/components/repositories/repository-contents";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { authClient } from "@/lib/auth-client";
+import { createServerClient, getServerSession } from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
 
-export default function RepositoryPage({
+import { CloneUrlField, RepositoryTabs } from "./page.client";
+
+export default async function RepositoryPage({
   params,
 }: PageProps<"/[username]/[repo]">) {
-  const { username, repo } = use(params);
-  const { data } = useAuthenticate(authClient);
-  const viewer = data?.user.username ?? "";
+  const { username, repo } = await params;
+
+  const [session, client] = await Promise.all([
+    getServerSession(),
+    createServerClient(),
+  ]);
+
+  const viewer = session?.user.username ?? "";
   const cloneUrl = `${API_URL}/${username}/${repo}.git`;
+
+  const repository = await client.GET("/api/repositories/{username}/{slug}", {
+    params: { path: { username, slug: repo } },
+  });
+
+  if (repository.response.status === 404) {
+    notFound();
+  }
+
+  if (repository.error || !repository.data) {
+    throw new Error(`Failed to load ${username}/${repo}`);
+  }
+
+  const [contents,branches] = await Promise.all([
+    client.GET(
+      "/api/repositories/{username}/{slug}/contents",
+      { params: { path: { username, slug: repo } } },
+    ),
+    client.GET('/api/repositories/{username}/{slug}/branches',{params:{path:{username,slug:repo}}}),]
+  )
+
 
   return (
     <div className="flex min-h-full flex-col">
@@ -42,11 +61,11 @@ export default function RepositoryPage({
               {username}
             </Link>
             <span className="text-muted-foreground">/</span>
-            <span className="font-semibold">{repo}</span>
+            <span className="font-semibold">{repository.data.name}</span>
           </h1>
 
-          <Badge variant="outline" className="rounded-full">
-            Public
+          <Badge variant="outline" className="rounded-full capitalize">
+            {repository.data.visibility}
           </Badge>
 
           <div className="ml-auto flex gap-2">
@@ -61,48 +80,43 @@ export default function RepositoryPage({
           </div>
         </div>
 
-        <Tabs defaultValue="code">
-          <TabsList>
-            <TabsTrigger value="code">Code</TabsTrigger>
-            <TabsTrigger value="issues">Issues</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
+        {repository.data.description && (
+          <p className="text-sm text-muted-foreground">
+            {repository.data.description}
+          </p>
+        )}
 
-          <TabsContent value="code" className="flex flex-col gap-6 pt-6">
-            <div className="flex flex-col gap-2">
-              <h2 className="text-sm font-semibold">
-                Push an existing repository
-              </h2>
-              <InputGroup>
-                <InputGroupInput readOnly value={cloneUrl} aria-label="Clone URL" />
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton size="icon-xs" aria-label="Copy clone URL">
-                    <Copy />
-                  </InputGroupButton>
-                </InputGroupAddon>
-              </InputGroup>
-            </div>
+        <RepositoryTabs
+          defaultBranch={branches.data?.defaultBranch ?? null}
+          branches={branches.data?.branches}
+          code={
+            <>
+              <div className="flex flex-col gap-2">
+                <h2 className="text-sm font-semibold">
+                  Push an existing repository
+                </h2>
+                <CloneUrlField cloneUrl={cloneUrl} />
+              </div>
 
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
-              <p className="text-sm font-medium">This repository is empty</p>
-              <p className="max-w-sm text-sm text-muted-foreground">
-                Push a commit to see its files here.
-              </p>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="issues" className="pt-6">
-            <p className="text-sm text-muted-foreground">
-              There aren&apos;t any issues yet.
-            </p>
-          </TabsContent>
-
-          <TabsContent value="settings" className="pt-6">
-            <p className="text-sm text-muted-foreground">
-              Repository settings will live here.
-            </p>
-          </TabsContent>
-        </Tabs>
+              {contents.data ? (
+                <RepositoryContents
+                  contents={contents.data}
+                  owner={username}
+                  slug={repository.data.slug}
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
+                  <p className="text-sm font-medium">
+                    Could not load repository files
+                  </p>
+                  <p className="max-w-sm text-sm text-muted-foreground">
+                    Try refreshing the page.
+                  </p>
+                </div>
+              )}
+            </>
+          }
+        />
       </main>
     </div>
   );

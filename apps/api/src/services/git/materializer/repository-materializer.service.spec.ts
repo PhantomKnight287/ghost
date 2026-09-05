@@ -87,12 +87,18 @@ describe('RepositoryMaterializerService', () => {
 
   /** The objects reachable from main but not from `exclude` — a thin pack. */
   function packSince(exclude: string) {
-    const revs = exclude ? `refs/heads/main\n^${exclude}\n` : 'refs/heads/main\n';
-    return execFileSync('git', ['pack-objects', '--stdout', '--revs', '--thin'], {
-      cwd: source,
-      input: revs,
-      maxBuffer: 1 << 28,
-    });
+    const revs = exclude
+      ? `refs/heads/main\n^${exclude}\n`
+      : 'refs/heads/main\n';
+    return execFileSync(
+      'git',
+      ['pack-objects', '--stdout', '--revs', '--thin'],
+      {
+        cwd: source,
+        input: revs,
+        maxBuffer: 1 << 28,
+      },
+    );
   }
 
   it('leaves a cache untouched when the log is empty', async () => {
@@ -175,7 +181,9 @@ describe('RepositoryMaterializerService', () => {
 
     await materializer.materialize(REPO_ID, cache);
 
-    expect(git(cache, 'for-each-ref', '--format=%(refname)')).toBe('refs/heads/main');
+    expect(git(cache, 'for-each-ref', '--format=%(refname)')).toBe(
+      'refs/heads/main',
+    );
   });
 
   it('collapses concurrent materializations of the same repository', async () => {

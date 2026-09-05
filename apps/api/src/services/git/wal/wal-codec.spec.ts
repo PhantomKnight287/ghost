@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { decodeEntryHeader, decodeIndex, encodeEntryHeader, encodeIndex } from './wal-codec.js';
+import {
+  decodeEntryHeader,
+  decodeIndex,
+  encodeEntryHeader,
+  encodeIndex,
+} from './wal-codec.js';
 import { createUlid } from './ulid.js';
 import { WalCorruptError } from './wal.errors.js';
 import type { WalIndex } from './wal.types.js';
@@ -31,7 +36,12 @@ describe('wal-codec', () => {
 
   it('round-trips an empty index', () => {
     const decoded = decodeIndex(
-      encodeIndex({ seq: 0, compactedThroughSeq: 0, refs: new Map(), layers: [] }),
+      encodeIndex({
+        seq: 0,
+        compactedThroughSeq: 0,
+        refs: new Map(),
+        layers: [],
+      }),
     );
 
     expect(decoded.seq).toBe(0);
@@ -49,7 +59,9 @@ describe('wal-codec', () => {
       ulid,
       createdAt: 1_700_000_000_000,
       pushedBy: 'phantomknight287',
-      transitions: [{ ref: 'refs/heads/main', oldOid: oid(0), newOid: oid(0x22) }],
+      transitions: [
+        { ref: 'refs/heads/main', oldOid: oid(0), newOid: oid(0x22) },
+      ],
     });
     const pack = Buffer.from('PACKDATA');
 

@@ -13,7 +13,9 @@ export function createUlid(now = Date.now()): string {
 
 export function ulidToBytes(ulid: string): Buffer {
   if (ulid.length !== ULID_CHARS) {
-    throw new TypeError(`ulid must be ${ULID_CHARS} characters, got ${ulid.length}`);
+    throw new TypeError(
+      `ulid must be ${ULID_CHARS} characters, got ${ulid.length}`,
+    );
   }
   let bits = 0n;
   for (const char of ulid) {
@@ -31,7 +33,9 @@ export function ulidToBytes(ulid: string): Buffer {
 
 export function bytesToUlid(bytes: Buffer): string {
   if (bytes.length !== ULID_BYTES) {
-    throw new TypeError(`ulid must be ${ULID_BYTES} bytes, got ${bytes.length}`);
+    throw new TypeError(
+      `ulid must be ${ULID_BYTES} bytes, got ${bytes.length}`,
+    );
   }
   let bits = 0n;
   for (const byte of bytes) bits = (bits << 8n) | BigInt(byte);
