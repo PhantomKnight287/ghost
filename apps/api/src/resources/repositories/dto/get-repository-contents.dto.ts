@@ -47,12 +47,13 @@ export class GetRepositoryContentsQueryDTO {
 
   @ApiPropertyOptional({
     description:
-      'Branch to list. Accepts `main` or `refs/heads/main`. Omit for the default branch.',
+      'Branch or commit sha to list. Accepts `main`, `refs/heads/main` or a ' +
+      'commit sha. Omit for the default branch.',
     example: 'main',
   })
   @IsString()
   @IsOptional()
-  branch?: string;
+  ref?: string;
 }
 
 export class CommitSummaryDTO {
@@ -61,7 +62,7 @@ export class CommitSummaryDTO {
   sha: string;
 
   @ApiProperty({
-    description: 'Commit subject — the first line of the message.',
+    description: 'Commit subject - the first line of the message.',
   })
   @IsString()
   message: string;
@@ -136,6 +137,13 @@ export class GetRepositoryContentsResponseDTO {
   })
   @IsString()
   path: string;
+
+  @ApiProperty({
+    description: 'Commits reachable from the ref. `0` for an unborn ref.',
+    example: 128,
+  })
+  @IsInt()
+  commitCount: number;
 
   @ApiProperty({
     type: CommitSummaryDTO,

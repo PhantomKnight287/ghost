@@ -8,6 +8,7 @@ import { RepositoryPathIndexService } from '../../services/git/path-index/reposi
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 
 @Module({
   controllers: [RepositoriesController],
@@ -20,6 +21,7 @@ import { BranchesService } from '../../services/git/branches/branches.service.js
     WalStoreService,
     S3Service,
     BranchesService,
+    RepositoryAccessService,
   ],
 })
 export class RepositoriesModule {}

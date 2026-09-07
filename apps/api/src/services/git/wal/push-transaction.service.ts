@@ -50,7 +50,9 @@ export class PushTransactionService {
   }: CommitPushOptions): Promise<CommitPushResult> {
     const ulid = createUlid();
     const packSize = body.size - packOffset;
-    const packSha = await hashFrom(body, packOffset);
+    const packHash = createHash('sha256');
+    await pipeline(body.open(packOffset), packHash);
+    const packSha = packHash.digest();
 
     // Durable before the loop: expensive, idempotent, and unaffected by ordering.
     // An entry orphaned by a failed transaction is garbage, never corruption.
@@ -98,12 +100,6 @@ export class PushTransactionService {
       }
     }
   }
-}
-
-async function hashFrom(body: GitRequestBody, start: number) {
-  const hash = createHash('sha256');
-  await pipeline(body.open(start), hash);
-  return hash.digest();
 }
 
 function seqOfLayer(index: WalIndex, ulid: string) {

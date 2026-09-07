@@ -65,7 +65,8 @@ export class WalStoreService {
       });
       return true;
     } catch (error) {
-      if (isConditionalWriteLoss(error)) return false;
+      const status = statusOf(error);
+      if (status === 412 || status === 409) return false;
       throw error;
     }
   }
@@ -139,7 +140,3 @@ function isNotFound(error: unknown) {
 }
 
 /** 412 lost the race outright, 409 collided with a concurrent conditional write. */
-function isConditionalWriteLoss(error: unknown) {
-  const status = statusOf(error);
-  return status === 412 || status === 409;
-}

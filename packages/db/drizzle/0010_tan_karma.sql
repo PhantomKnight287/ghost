@@ -1,0 +1,2 @@
+ALTER TABLE "repository" ADD COLUMN "parentRepositoryId" text;--> statement-breakpoint
+ALTER TABLE "repository" ADD CONSTRAINT "repository_parentRepositoryId_repository_id_fk" FOREIGN KEY ("parentRepositoryId") REFERENCES "public"."repository"("id") ON DELETE set null ON UPDATE no action;

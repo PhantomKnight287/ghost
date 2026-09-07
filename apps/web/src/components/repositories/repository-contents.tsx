@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { File, Folder, GitCommitHorizontal } from "lucide-react";
+import {
+  File,
+  Folder,
+  GitCommitHorizontal,
+  RotateCcwClock,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 import type { components } from "@/lib/api/v1";
+import { buttonVariants } from "../ui/button";
 
 type Contents = components["schemas"]["GetRepositoryContentsResponseDTO"];
 type TreeEntry = components["schemas"]["TreeEntryDTO"];
@@ -64,6 +70,16 @@ export function RepositoryContents({
               addSuffix: true,
             })}
           </span>
+          <Link
+            href={`/${owner}/${slug}/commits/${encodeURIComponent(branch)}`}
+            className={buttonVariants({
+              className: "flex flex-row text-sm py-0 max-h-fit",
+              variant: "ghost",
+            })}
+          >
+            <RotateCcwClock />
+            {contents.commitCount} Commits
+          </Link>
         </div>
       )}
 

@@ -1,26 +1,26 @@
-"use client"
+"use client";
 
-import { getFormFieldErrors } from "@better-auth-ui/core"
-import type { UsernameAuthClient } from "@better-auth-ui/core/plugins/username"
-import { useAuth, useAuthPlugin } from "@better-auth-ui/react"
-import { useIsUsernameAvailable } from "@better-auth-ui/react/plugins/username"
-import { useDebouncer } from "@tanstack/react-pacer"
-import { Check, X } from "lucide-react"
-import { useState } from "react"
-import type { AdditionalFieldProps } from "@/components/auth/additional-field"
-import { Field, FieldError, FieldLabel } from "@/components/ui/field"
+import { getFormFieldErrors } from "@better-auth-ui/core";
+import type { UsernameAuthClient } from "@better-auth-ui/core/plugins/username";
+import { useAuth, useAuthPlugin } from "@better-auth-ui/react";
+import { useIsUsernameAvailable } from "@better-auth-ui/react/plugins/username";
+import { useDebouncer } from "@tanstack/react-pacer";
+import { Check, X } from "lucide-react";
+import { useState } from "react";
+import type { AdditionalFieldProps } from "@/components/auth/additional-field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import {
   InputGroup,
   InputGroupAddon,
-  InputGroupInput
-} from "@/components/ui/input-group"
-import { Spinner } from "@/components/ui/spinner"
-import { usernamePlugin } from "@/lib/auth/username-plugin"
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
+import { usernamePlugin } from "@/lib/auth/username-plugin";
 
 /**
  * Renderer for the `username` additional field. Owns availability checking,
  * length limits, and visual indicators. `isInvalid` reflects only browser
- * validation (minLength, required, etc.) — availability feedback is shown
+ * validation (minLength, required, etc.) - availability feedback is shown
  * via the icon and `aria-label` without affecting the field's invalid state.
  */
 export function UsernameField({
@@ -31,59 +31,59 @@ export function UsernameField({
   onChange,
   isInvalid,
   errors,
-  isPending
+  isPending,
 }: AdditionalFieldProps) {
   const { authClient, localization: authLocalization } =
-    useAuth<UsernameAuthClient>()
+    useAuth<UsernameAuthClient>();
   const {
     localization,
     minUsernameLength,
     maxUsernameLength,
     isUsernameAvailable: checkAvailability,
-    usernamePrefix
-  } = useAuthPlugin(usernamePlugin)
+    usernamePrefix,
+  } = useAuthPlugin(usernamePlugin);
 
-  const currentUsername = String(field.defaultValue ?? "")
-  const username = typeof value === "string" ? value : ""
-  const [nativeError, setNativeError] = useState<string>()
-  const fieldErrors = getFormFieldErrors(errors ?? [])
+  const currentUsername = String(field.defaultValue ?? "");
+  const username = typeof value === "string" ? value : "";
+  const [nativeError, setNativeError] = useState<string>();
+  const fieldErrors = getFormFieldErrors(errors ?? []);
 
   const {
     mutate: requestAvailability,
     data: availability,
     error: availabilityError,
-    reset: resetAvailability
+    reset: resetAvailability,
   } = useIsUsernameAvailable(authClient, {
-    onError: () => {}
-  })
+    onError: () => {},
+  });
 
   const debouncer = useDebouncer(
     (next: string) => {
-      const trimmed = next.trim()
+      const trimmed = next.trim();
       if (!trimmed || trimmed === currentUsername) {
-        resetAvailability()
-        return
+        resetAvailability();
+        return;
       }
 
-      requestAvailability({ username: trimmed })
+      requestAvailability({ username: trimmed });
     },
-    { wait: 500 }
-  )
+    { wait: 500 },
+  );
 
   function handleChange(next: string) {
-    onChange(next || null)
-    setNativeError(undefined)
-    resetAvailability()
+    onChange(next || null);
+    setNativeError(undefined);
+    resetAvailability();
 
     if (checkAvailability) {
-      debouncer.maybeExecute(next)
+      debouncer.maybeExecute(next);
     }
   }
 
   const isCheckingAvailability =
     !!checkAvailability &&
     !!username.trim() &&
-    username.trim() !== currentUsername
+    username.trim() !== currentUsername;
 
   return (
     <Field data-invalid={isInvalid || !!nativeError}>
@@ -110,20 +110,20 @@ export function UsernameField({
           onBlur={onBlur}
           onChange={(e) => handleChange(e.target.value)}
           onInvalid={(e) => {
-            e.preventDefault()
-            const el = e.target as HTMLInputElement
+            e.preventDefault();
+            const el = e.target as HTMLInputElement;
             const msg = el.validity.valueMissing
               ? authLocalization.auth.fieldRequired
               : el.validity.tooShort
                 ? authLocalization.auth.tooShort.replace(
                     "{{min}}",
-                    String(minUsernameLength)
+                    String(minUsernameLength),
                   )
                 : authLocalization.auth.tooLong.replace(
                     "{{max}}",
-                    String(maxUsernameLength)
-                  )
-            setNativeError(msg)
+                    String(maxUsernameLength),
+                  );
+            setNativeError(msg);
           }}
           aria-invalid={isInvalid || !!nativeError}
           placeholder={field.placeholder}
@@ -153,5 +153,5 @@ export function UsernameField({
 
       <FieldError errors={fieldErrors}>{nativeError}</FieldError>
     </Field>
-  )
+  );
 }

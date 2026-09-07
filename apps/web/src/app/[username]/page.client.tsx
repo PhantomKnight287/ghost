@@ -50,7 +50,6 @@ export function ProfileTabs({
     );
   }, [filter, repositories]);
 
-
   return (
     <Tabs defaultValue="repositories">
       <TabsList>
@@ -128,7 +127,7 @@ export function ProfileTabs({
           <Button
             variant="outline"
             className="self-center"
-            onClick={()=>{}}
+            onClick={() => {}}
             disabled={isLoadingMore}
           >
             {isLoadingMore ? "Loading..." : "Load more"}

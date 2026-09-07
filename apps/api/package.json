@@ -9,7 +9,7 @@
   "scripts": {
     "build": "nest build",
     "deploy": "nest deploy",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "biome format --write .",
     "start": "nest start",
     "start:dev": "node scripts/free-port.mjs && nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -27,6 +27,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1125.0",
     "@aws-sdk/s3-request-presigner": "^3.1125.0",
+    "@better-auth/api-key": "^1.7.3",
     "@ghost/db": "workspace:*",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^4.0.2",

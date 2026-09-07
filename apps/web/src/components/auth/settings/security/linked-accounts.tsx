@@ -1,23 +1,23 @@
-"use client"
+"use client";
 
-import { getProviderId } from "@better-auth-ui/core"
-import { useAuth, useListAccounts } from "@better-auth-ui/react"
-import { Fragment } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { getProviderId } from "@better-auth-ui/core";
+import { useAuth, useListAccounts } from "@better-auth-ui/react";
+import { Fragment } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Item,
   ItemContent,
   ItemGroup,
   ItemMedia,
-  ItemSeparator
-} from "@/components/ui/item"
-import { Skeleton } from "@/components/ui/skeleton"
-import { cn } from "@/lib/utils"
-import { LinkedAccount } from "./linked-account"
+  ItemSeparator,
+} from "@/components/ui/item";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { LinkedAccount } from "./linked-account";
 
 export type LinkedAccountsProps = {
-  className?: string
-}
+  className?: string;
+};
 
 /**
  * Render a card showing linked social accounts and available social providers to link.
@@ -34,25 +34,25 @@ export function LinkedAccounts({ className }: LinkedAccountsProps) {
     allowUnlinkingAllAccounts,
     localization,
     multipleAccountsPerProvider,
-    socialProviders
-  } = useAuth()
+    socialProviders,
+  } = useAuth();
 
-  const { data: accounts, isPending } = useListAccounts(authClient)
+  const { data: accounts, isPending } = useListAccounts(authClient);
 
   const linkedAccounts = accounts?.filter(
-    (account) => account.providerId !== "credential"
-  )
+    (account) => account.providerId !== "credential",
+  );
   const canUnlink =
-    allowUnlinkingAllAccounts === true || (accounts?.length ?? 0) > 1
+    allowUnlinkingAllAccounts === true || (accounts?.length ?? 0) > 1;
 
-  const linkedProviderIds = new Set(linkedAccounts?.map((a) => a.providerId))
+  const linkedProviderIds = new Set(linkedAccounts?.map((a) => a.providerId));
 
   const availableProviders =
     multipleAccountsPerProvider === false
       ? socialProviders?.filter(
-          (provider) => !linkedProviderIds.has(getProviderId(provider))
+          (provider) => !linkedProviderIds.has(getProviderId(provider)),
         )
-      : socialProviders
+      : socialProviders;
 
   const allRows = [
     ...(linkedAccounts?.map((account) => ({
@@ -60,15 +60,15 @@ export function LinkedAccounts({ className }: LinkedAccountsProps) {
       account,
       provider:
         socialProviders?.find(
-          (provider) => getProviderId(provider) === account.providerId
-        ) ?? account.providerId
+          (provider) => getProviderId(provider) === account.providerId,
+        ) ?? account.providerId,
     })) ?? []),
     ...(availableProviders?.map((provider) => ({
       key: getProviderId(provider),
       account: undefined,
-      provider
-    })) ?? [])
-  ]
+      provider,
+    })) ?? []),
+  ];
 
   return (
     <div>
@@ -100,7 +100,7 @@ export function LinkedAccounts({ className }: LinkedAccountsProps) {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 function AccountRowSkeleton() {
@@ -114,5 +114,5 @@ function AccountRowSkeleton() {
         <Skeleton className="h-3 w-32" />
       </ItemContent>
     </Item>
-  )
+  );
 }

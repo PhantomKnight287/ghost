@@ -22,7 +22,7 @@ export interface WalkCommitsOptions {
   gitDir: string;
   /** Anything `git log` accepts: a tip, or `<since>..<tip>` for a top-up. */
   range: string;
-  /** Limits the walk — and the reported paths — to one subtree. */
+  /** Limits the walk - and the reported paths - to one subtree. */
   pathspec?: string;
 }
 
@@ -31,7 +31,7 @@ export interface WalkCommitsOptions {
  *
  * Merges are left opaque (no `--diff-merges`), so a file that arrived on a side
  * branch is attributed to the commit that actually wrote it rather than to the
- * merge that carried it — which is what a file listing wants to show. Combined
+ * merge that carried it - which is what a file listing wants to show. Combined
  * with `--reverse --topo-order`, a caller that keeps the last write per path
  * ends up with the newest commit touching it.
  */

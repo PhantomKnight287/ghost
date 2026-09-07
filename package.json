@@ -17,9 +17,12 @@
     "db:migrate": "dotenv -e .env turbo run db:migrate",
     "db:push": "dotenv -e .env turbo run db:push",
     "db:studio": "dotenv -e .env -- bun run --filter @ghost/db db:studio",
-    "openapi": "dotenv -e .env -- bun run --filter @ghost/api openapi && bun run --filter @ghost/web generate"
+    "openapi": "dotenv -e .env -- bun run --filter @ghost/api openapi && bun run --filter @ghost/web generate",
+    "format": "turbo run format",
+    "format:check": "biome format ."
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.12",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
   },

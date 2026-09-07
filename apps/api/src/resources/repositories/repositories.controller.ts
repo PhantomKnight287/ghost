@@ -1,13 +1,15 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
   Query,
+  Res,
   Session,
+  StreamableFile,
 } from '@nestjs/common';
-import { RepositoriesService } from './repositories.service.js';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -17,22 +19,34 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { Response } from 'express';
+import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   CreateRepositoryRequestDTO,
   CreateRepositoryResponseDTO,
 } from './dto/create-repository.dto.js';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
-import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   GetRepositoriesQueryDTO,
   GetRepositoriesResponseDTO,
 } from './dto/get-repositories.dto.js';
-import { RepositoryEntity } from './entities/repository.entity.js';
+import {
+  GetRepositoryBlobQueryDTO,
+  GetRepositoryBlobResponseDTO,
+} from './dto/get-repository-blob.dto.js';
+import { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
+import {
+  GetRepositoryCommitResponseDTO,
+  GetRepositoryCommitsQueryDTO,
+  GetRepositoryCommitsResponseDTO,
+} from './dto/get-repository-commits.dto.js';
 import {
   GetRepositoryContentsQueryDTO,
   GetRepositoryContentsResponseDTO,
 } from './dto/get-repository-contents.dto.js';
-import { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
+import { StarRepositoryResponseDTO } from './dto/star-repository.dto.js';
+import { RepositoryEntity } from './entities/repository.entity.js';
+import { RepositoriesService } from './repositories.service.js';
 
 @Controller('repositories')
 @ApiTags('Repositories')
@@ -114,12 +128,66 @@ export class RepositoriesController {
     });
   }
 
+  @Post(':username/:slug/star')
+  @ApiOperation({
+    summary: 'Star repository',
+    description:
+      'Star a repository. Starring twice leaves the count unchanged.',
+  })
+  @ApiOkResponse({
+    type: StarRepositoryResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiInternalServerErrorResponse({
+    type: ErrorResponseDTO,
+  })
+  starRepository(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession,
+  ) {
+    return this.repositoriesService.starRepository({
+      username,
+      slug,
+      requesterId: session.user.id,
+    });
+  }
+
+  @Delete(':username/:slug/star')
+  @ApiOperation({
+    summary: 'Unstar repository',
+    description: "Remove the requester's star from a repository.",
+  })
+  @ApiOkResponse({
+    type: StarRepositoryResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiInternalServerErrorResponse({
+    type: ErrorResponseDTO,
+  })
+  unstarRepository(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession,
+  ) {
+    return this.repositoriesService.unstarRepository({
+      username,
+      slug,
+      requesterId: session.user.id,
+    });
+  }
+
   @Get(':username/:slug/contents')
   @OptionalAuth()
   @ApiOperation({
     summary: 'List repository contents',
     description:
-      'One level of a directory on the requested branch, or the default branch ' +
+      'One level of a directory at the requested ref - a branch or a commit sha - ' +
+      'or the default branch ' +
       'when none is given, with the newest commit ' +
       'touching each entry. Directories report the newest commit anywhere beneath them.',
   })
@@ -147,9 +215,188 @@ export class RepositoriesController {
       username,
       repo: slug,
       path: query.path,
-      branch: query.branch,
+      ref: query.ref,
       requesterId: session?.user?.id,
     });
+  }
+
+  @Get(':username/:slug/blob')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'Read a file',
+    description:
+      'Contents of a single file at the requested ref - a branch or a commit sha - ' +
+      'or the default branch ' +
+      'when none is given. Binary files come back base64-encoded, and a file past ' +
+      'the inline size limit comes back without contents.',
+  })
+  @ApiOkResponse({
+    type: GetRepositoryBlobResponseDTO,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'The `path` query parameter is not a repository-relative file.',
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiInternalServerErrorResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryBlob(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryBlobQueryDTO,
+  ): Promise<GetRepositoryBlobResponseDTO> {
+    return this.repositoriesService.getRepositoryBlob({
+      username,
+      repo: slug,
+      path: query.path,
+      ref: query.ref,
+      requesterId: session?.user?.id,
+    });
+  }
+
+  @Get(':username/:slug/raw')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'Download a file',
+    description:
+      'The raw bytes of a file. Images, audio, video and PDFs are served inline ' +
+      'for the browser to render; everything else downloads.',
+  })
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  async getRawBlob(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryBlobQueryDTO,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const blob = await this.repositoriesService.getRawBlob({
+      username,
+      repo: slug,
+      path: query.path,
+      ref: query.ref,
+      requesterId: session?.user?.id,
+    });
+
+    response.set({
+      'Content-Type': blob.type,
+      'Content-Length': String(blob.size),
+      'Content-Disposition': `${blob.inline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(blob.filename)}"`,
+      // the bytes are user-controlled: never sniffed, never scripted
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox",
+      // content is addressed by commit-stable oid, so a hit can never be stale
+      'Cache-Control': 'private, max-age=31536000, immutable',
+      ETag: `"${blob.oid}"`,
+    });
+
+    return new StreamableFile(blob.stream);
+  }
+
+  @Get(':username/:slug/commits')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'List commits',
+    description:
+      'History of a branch or commit, newest first, optionally narrowed to one path. ' +
+      'Pages are cursor-based: pass a response `nextCursor` back as `cursor`.',
+  })
+  @ApiOkResponse({
+    type: GetRepositoryCommitsResponseDTO,
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryCommits(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryCommitsQueryDTO,
+  ): Promise<GetRepositoryCommitsResponseDTO> {
+    return this.repositoriesService.getRepositoryCommits({
+      username,
+      repo: slug,
+      requesterId: session?.user?.id,
+      query,
+    });
+  }
+
+  @Get(':username/:slug/commits/:sha')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'Read a commit',
+    description:
+      'One commit with the paths it changed, against its first parent. ' +
+      'Accepts a full sha or any unambiguous prefix.',
+  })
+  @ApiOkResponse({
+    type: GetRepositoryCommitResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryCommit(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Param('sha') sha: string,
+    @Session() session: UserSession | undefined,
+  ): Promise<GetRepositoryCommitResponseDTO> {
+    return this.repositoriesService.getRepositoryCommit({
+      username,
+      repo: slug,
+      sha,
+      requesterId: session?.user?.id,
+    });
+  }
+
+  @Get(':username/:slug/commits/:sha/patch')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'Read a commit as a patch',
+    description: 'The commit as a git patch file, unparsed.',
+  })
+  @ApiOkResponse({
+    content: {
+      'text/x-patch': {
+        example: '',
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  async getCommitPatch(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Param('sha') sha: string,
+    @Session() session: UserSession | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<string> {
+    const patch = await this.repositoriesService.getCommitPatch({
+      username,
+      repo: slug,
+      sha,
+      requesterId: session?.user?.id,
+    });
+
+    response.set({
+      'Content-Type': 'text/x-patch; charset=utf-8',
+      'Content-Disposition': `inline; filename="${sha}.patch"`,
+      'X-Content-Type-Options': 'nosniff',
+    });
+
+    return patch;
   }
 
   @Get(':username/:slug/branches')

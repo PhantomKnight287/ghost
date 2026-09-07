@@ -85,7 +85,7 @@ describe('RepositoryMaterializerService', () => {
     }
   }
 
-  /** The objects reachable from main but not from `exclude` — a thin pack. */
+  /** The objects reachable from main but not from `exclude` - a thin pack. */
   function packSince(exclude: string) {
     const revs = exclude
       ? `refs/heads/main\n^${exclude}\n`

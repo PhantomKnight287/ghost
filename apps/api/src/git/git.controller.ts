@@ -3,9 +3,8 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { OptionalAuth } from '@thallesp/nestjs-better-auth';
 import type { Response } from 'express';
 
-import { bufferBody } from '../services/git/protocol/git-request-body.js';
 import { GitService, type GitTransportResponse } from './git.service.js';
-import type { GitRequest } from './middleware/git-raw-body.middleware.js';
+import type { GitPackRequest } from './types.js';
 
 @Controller(':username/:repo')
 @ApiExcludeController()
@@ -30,12 +29,12 @@ export class GitController {
   async uploadPack(
     @Param('username') username: string,
     @Param('repo') repo: string,
-    @Req() req: GitRequest,
+    @Req() req: GitPackRequest,
     @Res() res: Response,
   ) {
     this.send(
       res,
-      await this.gitService.uploadPack({ username, repo, body: bodyOf(req) }),
+      await this.gitService.uploadPack({ username, repo, body: req.gitBody }),
     );
   }
 
@@ -43,12 +42,17 @@ export class GitController {
   async receivePack(
     @Param('username') username: string,
     @Param('repo') repo: string,
-    @Req() req: GitRequest,
+    @Req() req: GitPackRequest,
     @Res() res: Response,
   ) {
     this.send(
       res,
-      await this.gitService.receivePack({ username, repo, body: bodyOf(req) }),
+      await this.gitService.receivePack({
+        username,
+        repo,
+        body: req.gitBody,
+        pushedBy: req.actor?.userId ?? null,
+      }),
     );
   }
 
@@ -56,9 +60,4 @@ export class GitController {
     res.set(headers);
     body.pipe(res);
   }
-}
-
-/** GitRawBodyMiddleware has already spooled the socket; see its comment for why. */
-function bodyOf(req: GitRequest) {
-  return req.gitBody ?? bufferBody(Buffer.alloc(0));
 }

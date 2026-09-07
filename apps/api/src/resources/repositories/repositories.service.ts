@@ -1,35 +1,61 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { isUtf8 } from 'node:buffer';
 import { type Database, schema } from '@ghost/db';
-import { and, desc, eq, inArray, lt, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { CreateRepositoryRequestDTO } from './dto/create-repository.dto.js';
 import { GetRepositoriesQueryDTO } from './dto/get-repositories.dto.js';
 import { UsersService } from '../../services/users/users.service.js';
 import {
+  BlobNotFoundError,
   BranchNotFoundError,
+  CommitNotFoundError,
   InvalidCursorError,
-  InvalidRepositoryPathError,
   RepositoryNotFoundError,
 } from './repositories.errors.js';
 import { decodeCursor, encodeCursor, titleToSlug } from '../../utils/index.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
+import { runGit } from '../../services/git/exec/run-git.js';
 import { listTree } from '../../services/git/tree/list-tree.js';
 import {
+  isSha,
+  listCommits,
+  readCommit,
+  type Commit,
+} from '../../services/git/commits/list-commits.js';
+import {
+  readBlob,
+  statBlob,
+  streamBlob,
+} from '../../services/git/blob/read-blob.js';
+import { mediaTypeFor } from '../../services/git/blob/media-type.js';
+import {
+  normalizeBlobPath,
   normalizeTreePath,
-  UnsafeTreePathError,
 } from '../../services/git/tree/tree-path.js';
-import { resolveDefaultRef } from '../../services/git/tree/resolve-ref.js';
+import {
+  resolveDefaultRef,
+  resolveRevision,
+} from '../../services/git/tree/resolve-ref.js';
 import type { PathCommit } from '../../services/git/path-index/repository-path-index.service.js';
 import type {
   CommitSummaryDTO,
   GetRepositoryContentsResponseDTO,
 } from './dto/get-repository-contents.dto.js';
 import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
+import type { GetRepositoryBlobResponseDTO } from './dto/get-repository-blob.dto.js';
+import type {
+  CommitDTO,
+  GetRepositoryCommitResponseDTO,
+  GetRepositoryCommitsQueryDTO,
+  GetRepositoryCommitsResponseDTO,
+} from './dto/get-repository-commits.dto.js';
 import { toRepoId } from '../../git/git.constants.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -43,6 +69,7 @@ export class RepositoriesService {
     private readonly materializer: RepositoryMaterializerService,
     private readonly pathIndex: RepositoryPathIndexService,
     private readonly branches: BranchesService,
+    private readonly access: RepositoryAccessService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -117,16 +144,101 @@ export class RepositoriesService {
     slug: string;
     requesterId?: string;
   }) {
-    const owner = await this.usersService.getUserByUsername(username);
-    const repository = await this.getRepositoryBySlug({
-      ownerId: owner.id,
+    const repository = await this.authorizeRead({
+      username,
       slug,
+      requesterId,
+    });
+    return {
+      ...repository,
+      ...(await this.readStars(repository.id, requesterId)),
+    };
+  }
+
+  /** Stars are a toggle, so a repeat press is a no-op rather than an error. */
+  async starRepository({
+    username,
+    slug,
+    requesterId,
+  }: {
+    username: string;
+    slug: string;
+    requesterId: string;
+  }) {
+    const repository = await this.authorizeRead({
+      username,
+      slug,
+      requesterId,
     });
 
-    if (repository.visibility === 'private' && owner.id !== requesterId) {
-      throw new RepositoryNotFoundError();
-    }
-    return repository;
+    await this.db
+      .insert(schema.stars)
+      .values({ userId: requesterId, repositoryId: repository.id })
+      .onConflictDoNothing();
+
+    return this.readStars(repository.id, requesterId);
+  }
+
+  async unstarRepository({
+    username,
+    slug,
+    requesterId,
+  }: {
+    username: string;
+    slug: string;
+    requesterId: string;
+  }) {
+    const repository = await this.authorizeRead({
+      username,
+      slug,
+      requesterId,
+    });
+
+    await this.db
+      .delete(schema.stars)
+      .where(
+        and(
+          eq(schema.stars.userId, requesterId),
+          eq(schema.stars.repositoryId, repository.id),
+        ),
+      );
+
+    return this.readStars(repository.id, requesterId);
+  }
+
+  private authorizeRead({
+    username,
+    slug,
+    requesterId,
+  }: {
+    username: string;
+    slug: string;
+    requesterId?: string;
+  }) {
+    return this.access.authorize({
+      username,
+      repo: slug,
+      actor: requesterId ? { userId: requesterId } : null,
+      operation: 'read',
+    });
+  }
+
+  private async readStars(repositoryId: string, requesterId?: string) {
+    const [row] = await this.db
+      .select({
+        starCount: count(),
+        // bool_or is null over no rows, and an anonymous viewer has starred nothing
+        viewerHasStarred: requesterId
+          ? sql<boolean>`coalesce(bool_or(${schema.stars.userId} = ${requesterId}), false)`
+          : sql<boolean>`false`,
+      })
+      .from(schema.stars)
+      .where(eq(schema.stars.repositoryId, repositoryId));
+
+    return {
+      starCount: row?.starCount ?? 0,
+      viewerHasStarred: row?.viewerHasStarred ?? false,
+    };
   }
 
   async getRepositoryContents({
@@ -134,36 +246,42 @@ export class RepositoriesService {
     repo,
     path = '',
     requesterId,
-    branch,
+    ref: requestedRef,
   }: {
     username: string;
     repo: string;
     path?: string;
     requesterId?: string;
-    branch?: string;
+    ref?: string;
   }): Promise<GetRepositoryContentsResponseDTO> {
-    // The query DTO rejects a bad path first; this is the guard for every
-    // other caller, and the only place the prefix is allowed to come from.
-    const prefix = this.toTreePrefix(path);
+    const prefix = normalizeTreePath(path);
 
-    const owner = await this.usersService.getUserByUsername(username);
-    const repository = await this.getRepositoryBySlug({
-      ownerId: owner.id,
-      slug: repo,
+    const { repository, directory, ref, detached } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: requestedRef,
     });
-    if (repository.visibility === 'private' && owner.id !== requesterId) {
-      throw new RepositoryNotFoundError();
+
+    // a commit is a fixed point in history, so there is no moving tip to index
+    if (detached) {
+      const [entries, commitCount, commit] = await Promise.all([
+        listTree({ gitDir: directory, ref, prefix }),
+        this.countCommits({ directory, range: ref }),
+        readCommit({ gitDir: directory, sha: ref }),
+      ]);
+
+      return {
+        ref,
+        path: prefix,
+        commitCount,
+        commit: commit ? toCommitSummaryOf(commit) : null,
+        // per-entry history would be one walk per path, which only the index
+        // makes cheap; a point-in-time listing does without it
+        entries: entries.map((entry) => ({ ...entry, lastCommit: null })),
+      };
     }
 
-    const directory = await this.storage.getRepoPath({ username, repo });
-    await this.materializer.materialize(toRepoId(username, repo), directory);
-
-    const ref = branch
-      ? await this.resolveBranchRef({ directory, branch })
-      : await resolveDefaultRef({
-          gitDir: directory,
-          defaultBranch: repository.defaultBranch,
-        });
     const tip = await this.pathIndex.sync({
       repositoryId: repository.id,
       repoDirectory: directory,
@@ -171,9 +289,14 @@ export class RepositoriesService {
     });
 
     // No tip means the ref does not exist yet, i.e. nothing has been pushed.
-    if (!tip) return { ref, path: prefix, commit: null, entries: [] };
+    if (!tip) {
+      return { ref, path: prefix, commitCount: 0, commit: null, entries: [] };
+    }
 
-    const entries = await listTree({ gitDir: directory, ref, prefix });
+    const [entries, commitCount] = await Promise.all([
+      listTree({ gitDir: directory, ref, prefix }),
+      this.countCommits({ directory, range: ref }),
+    ]);
     const commits = await this.pathIndex.lookup({
       repositoryId: repository.id,
       ref,
@@ -184,12 +307,238 @@ export class RepositoriesService {
     return {
       ref,
       path: prefix,
+      commitCount,
       commit: toCommitSummary(commits.get('')),
       entries: entries.map((entry) => ({
         ...entry,
         lastCommit: toCommitSummary(commits.get(entry.path)),
       })),
     };
+  }
+
+  async getRepositoryBlob({
+    username,
+    repo,
+    path,
+    requesterId,
+    ref: requestedRef,
+  }: {
+    username: string;
+    repo: string;
+    path: string;
+    requesterId?: string;
+    ref?: string;
+  }): Promise<GetRepositoryBlobResponseDTO> {
+    const filePath = normalizeBlobPath(path);
+
+    const { repository, directory, ref, detached } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: requestedRef,
+    });
+
+    const blob = await readBlob({ gitDir: directory, ref, path: filePath });
+    if (!blob) throw new BlobNotFoundError(filePath);
+
+    // one file is one history walk, cheap enough to skip the index for
+    const lastCommit = detached
+      ? (
+          await listCommits({
+            gitDir: directory,
+            ref,
+            path: filePath,
+            limit: 1,
+          })
+        ).commits[0]
+      : null;
+
+    if (!detached) {
+      await this.pathIndex.sync({
+        repositoryId: repository.id,
+        repoDirectory: directory,
+        ref,
+      });
+    }
+    const commits = detached
+      ? new Map()
+      : await this.pathIndex.lookup({
+          repositoryId: repository.id,
+          ref,
+          paths: [filePath],
+        });
+
+    // git's own heuristic: a NUL anywhere means binary
+    const text =
+      blob.content !== null &&
+      !blob.content.includes(0) &&
+      isUtf8(blob.content);
+
+    return {
+      ref,
+      path: filePath,
+      oid: blob.oid,
+      size: blob.size,
+      encoding: text ? 'utf-8' : 'base64',
+      content: blob.content?.toString(text ? 'utf8' : 'base64') ?? null,
+      commit: lastCommit
+        ? toCommitSummaryOf(lastCommit)
+        : toCommitSummary(commits.get(filePath)),
+    };
+  }
+
+  /** The raw bytes of a file, for the browser to render or download. */
+  async getRawBlob({
+    username,
+    repo,
+    path,
+    requesterId,
+    ref: requestedRef,
+  }: {
+    username: string;
+    repo: string;
+    path: string;
+    requesterId?: string;
+    ref?: string;
+  }) {
+    const filePath = normalizeBlobPath(path);
+    const { directory, ref } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: requestedRef,
+    });
+
+    const blob = await statBlob({ gitDir: directory, ref, path: filePath });
+    if (!blob) throw new BlobNotFoundError(filePath);
+
+    const filename = filePath.split('/').pop() ?? filePath;
+
+    return {
+      ...blob,
+      ...mediaTypeFor(filename),
+      filename,
+      stream: streamBlob({ gitDir: directory, oid: blob.oid }),
+    };
+  }
+
+  async getRepositoryCommits({
+    username,
+    repo,
+    requesterId,
+    query,
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    query: GetRepositoryCommitsQueryDTO;
+  }): Promise<GetRepositoryCommitsResponseDTO> {
+    const { directory, ref } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: query.ref,
+    });
+
+    if (query.cursor && !isSha(query.cursor)) {
+      throw new InvalidCursorError();
+    }
+
+    // an unborn ref has no history to walk, and git would fail on the revision
+    const tip = await runGit({
+      args: ['rev-parse', '--quiet', '--verify', '--end-of-options', ref],
+      gitDir: directory,
+    }).catch(() => '');
+    if (!tip.trim()) {
+      return { ref, from: 0, to: 0, total: 0, commits: [], nextCursor: null };
+    }
+
+    const path = query.path
+      ? normalizeTreePath(query.path).slice(0, -1)
+      : undefined;
+
+    const [{ commits, nextCursor }, total, before] = await Promise.all([
+      listCommits({
+        gitDir: directory,
+        ref,
+        path,
+        limit: query.limit ?? DEFAULT_PAGE_SIZE,
+        cursor: query.cursor,
+      }),
+      this.countCommits({ directory, range: ref, path }),
+      // commits above the cursor are the pages already behind this one
+      query.cursor
+        ? this.countCommits({
+            directory,
+            range: `${query.cursor}..${ref}`,
+            path,
+          })
+        : 0,
+    ]);
+
+    return {
+      ref,
+      from: commits.length ? before + 1 : 0,
+      to: before + commits.length,
+      total,
+      commits: commits.map(toCommitDTO),
+      nextCursor,
+    };
+  }
+
+  async getRepositoryCommit({
+    username,
+    repo,
+    sha,
+    requesterId,
+  }: {
+    username: string;
+    repo: string;
+    sha: string;
+    requesterId?: string;
+  }): Promise<GetRepositoryCommitResponseDTO> {
+    if (!isSha(sha)) throw new CommitNotFoundError(sha);
+
+    const { directory } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+    });
+
+    const commit = await readCommit({ gitDir: directory, sha });
+    if (!commit) throw new CommitNotFoundError(sha);
+
+    return { ...toCommitDTO(commit), files: commit.files };
+  }
+
+  /** The commit as a patch file, straight from git. */
+  async getCommitPatch({
+    username,
+    repo,
+    sha,
+    requesterId,
+  }: {
+    username: string;
+    repo: string;
+    sha: string;
+    requesterId?: string;
+  }) {
+    if (!isSha(sha)) throw new CommitNotFoundError(sha);
+
+    const { directory } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+    });
+
+    // -1 keeps it to this commit; a merge legitimately produces no patch
+    const patch = await runGit({
+      args: ['format-patch', '-1', '--stdout', '--end-of-options', sha],
+      gitDir: directory,
+    }).catch(() => null);
+    if (patch === null) throw new CommitNotFoundError(sha);
+
+    return patch;
   }
 
   async getRepositoryBranches({
@@ -201,21 +550,10 @@ export class RepositoriesService {
     repo: string;
     requesterId?: string;
   }): Promise<GetRepositoryBranchesResponseDTO> {
-    const owner = await this.usersService.getUserByUsername(username);
-    const repository = await this.getRepositoryBySlug({
-      ownerId: owner.id,
-      slug: repo,
-    });
-    if (repository.visibility === 'private' && owner.id !== requesterId) {
-      throw new RepositoryNotFoundError();
-    }
-
-    const directory = await this.storage.getRepoPath({ username, repo });
-    await this.materializer.materialize(toRepoId(username, repo), directory);
-
-    const ref = await resolveDefaultRef({
-      gitDir: directory,
-      defaultBranch: repository.defaultBranch,
+    const { directory, ref } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
     });
 
     const branches = await this.branches.getGitBranches(directory);
@@ -227,37 +565,75 @@ export class RepositoriesService {
     };
   }
 
-  /**
-   * Only an existing branch may become a ref: the name is re-prefixed rather
-   * than trusted, so it can never reach git as an option or another ref
-   * namespace.
-   */
-  private async resolveBranchRef({
+  private async countCommits({
     directory,
-    branch,
+    range,
+    path,
   }: {
     directory: string;
-    branch: string;
+    range: string;
+    path?: string;
   }) {
-    const name = branch.replace(/^refs\/heads\//, '');
-    const branches = await this.branches.getGitBranches(directory);
+    const count = await runGit({
+      args: [
+        'rev-list',
+        '--count',
+        '--end-of-options',
+        range,
+        ...(path ? ['--', path] : []),
+      ],
+      gitDir: directory,
+    });
 
-    if (!branches.includes(name)) {
-      throw new BranchNotFoundError(name);
-    }
-
-    return `refs/heads/${name}`;
+    return Number(count.trim());
   }
 
-  private toTreePrefix(path: string) {
-    try {
-      return normalizeTreePath(path);
-    } catch (error) {
-      if (error instanceof UnsafeTreePathError) {
-        throw new InvalidRepositoryPathError(error.reason);
-      }
-      throw error;
+  /**
+   * Resolves what the caller asked for to a revision git can be handed. A
+   * branch and a commit sha are the same kind of thing to git, so both live at
+   * the same URL; `detached` says which one came back, because a sha has no
+   * moving tip and so is never worth indexing.
+   */
+  private async openRepository({
+    username,
+    repo,
+    requesterId,
+    ref: requested,
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    ref?: string;
+  }) {
+    const repository = await this.authorizeRead({
+      username,
+      slug: repo,
+      requesterId,
+    });
+
+    const directory = await this.storage.getRepoPath({ username, repo });
+    await this.materializer.materialize(toRepoId(username, repo), directory);
+
+    const name = requested?.trim();
+    if (!name) {
+      return {
+        repository,
+        directory,
+        detached: false,
+        ref: await resolveDefaultRef({
+          gitDir: directory,
+        }),
+      };
     }
+
+    const resolved = await resolveRevision({
+      gitDir: directory,
+      branches: await this.branches.getGitBranches(directory),
+      requested: name,
+    });
+    if (resolved) return { repository, directory, ...resolved };
+
+    throw new BranchNotFoundError(name);
   }
 
   private async getUserRepositories({
@@ -323,6 +699,18 @@ export class RepositoriesService {
       hasMore,
     };
   }
+}
+
+function toCommitDTO(commit: Commit): CommitDTO {
+  return { ...commit, committedAt: commit.committedAt.toISOString() };
+}
+
+function toCommitSummaryOf(commit: Commit): CommitSummaryDTO {
+  return {
+    sha: commit.sha,
+    message: commit.subject,
+    committedAt: commit.committedAt.toISOString(),
+  };
 }
 
 function toCommitSummary(commit?: PathCommit): CommitSummaryDTO | null {

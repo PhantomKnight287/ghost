@@ -11,11 +11,16 @@ export interface RunGitOptions {
   input?: Buffer | Readable;
 }
 
-export async function runGit({
+export async function runGit(options: RunGitOptions): Promise<string> {
+  return (await runGitBuffer(options)).toString('utf8');
+}
+
+/** Same as {@link runGit}, for output that is not text. */
+export async function runGitBuffer({
   args,
   gitDir,
   input,
-}: RunGitOptions): Promise<string> {
+}: RunGitOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const child = spawn('git', args, {
       env: { ...process.env, GIT_DIR: gitDir },
@@ -28,7 +33,7 @@ export async function runGit({
 
     child.on('error', reject);
     child.on('close', (code) => {
-      if (code === 0) return resolve(Buffer.concat(stdout).toString('utf8'));
+      if (code === 0) return resolve(Buffer.concat(stdout));
       reject(
         new GitCommandFailedError(
           args[0],
@@ -44,11 +49,22 @@ export async function runGit({
   });
 }
 
+/** git's stdout as a stream, for output too large to hold in memory. */
+export function runGitReadable({ args, gitDir }: RunGitOptions): Readable {
+  const child = spawn('git', args, {
+    env: { ...process.env, GIT_DIR: gitDir },
+  });
+  child.stdin.end();
+  child.on('error', (error) => child.stdout.destroy(error));
+
+  return child.stdout;
+}
+
 /**
  * Same as {@link runGit}, but hands stdout back in chunks as git produces it.
  *
- * History walks can outrun what the caller needs — a listing is answered once
- * every entry has a commit — so a consumer that stops iterating kills git
+ * History walks can outrun what the caller needs - a listing is answered once
+ * every entry has a commit - so a consumer that stops iterating kills git
  * rather than paying for output nobody will read. The exit status is only
  * checked when the stream is drained: a deliberate early exit leaves git dying
  * on a closed pipe, which is not a failure.

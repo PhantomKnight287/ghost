@@ -7,14 +7,8 @@ import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip, createInflate } from 'node:zlib';
 
-import {
-  fileBody,
-  type GitRequestBody,
-} from '../../services/git/protocol/git-request-body.js';
-
-export interface GitRequest extends Request {
-  gitBody?: GitRequestBody;
-}
+import { fileBody } from '../../services/git/protocol/git-request-body.js';
+import { GitAuthenticatedBufferedRequest } from '../types.js';
 
 /**
  * Spools the request to a temp file before guards, pipes or handlers get a
@@ -22,14 +16,17 @@ export interface GitRequest extends Request {
  *
  * Two reasons it is here and not in a handler. An unattended request stream
  * loses whatever arrives while the handler is busy, and git writes its command
- * section in its own socket write — so a slow await costs exactly the ref
- * updates. And a push can be gigabytes: it must never become a Buffer.
+ * section in its own socket write - so a slow await costs ref updates. And a push can be gigabytes: it must never become a Buffer(learnt it the hard way trying to push Nextjs's and Linux Kernel's repo)
  */
 @Injectable()
 export class GitRawBodyMiddleware implements NestMiddleware {
   private readonly logger = new Logger(GitRawBodyMiddleware.name);
 
-  async use(req: GitRequest, res: Response, next: NextFunction) {
+  async use(
+    req: GitAuthenticatedBufferedRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
     let directory: string | undefined;
 
     try {

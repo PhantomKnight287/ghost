@@ -38,7 +38,7 @@ export interface ReceivePackHeader {
 
 /**
  * Reads only the command section, leaving the packfile on disk. A 2 GiB push
- * cannot be a Buffer — `Hash.update` and most Buffer operations cap at INT_MAX.
+ * cannot be a Buffer - `Hash.update` and most Buffer operations cap at INT_MAX.
  */
 export async function readReceivePackHeader(
   body: GitRequestBody,

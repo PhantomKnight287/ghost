@@ -183,7 +183,9 @@ export function NewRepositoryDialog({
               )}
             />
 
-            {result.serverError && <FieldError>{result.serverError}</FieldError>}
+            {result.serverError && (
+              <FieldError>{result.serverError}</FieldError>
+            )}
           </FieldGroup>
 
           <DialogFooter className="mt-6">

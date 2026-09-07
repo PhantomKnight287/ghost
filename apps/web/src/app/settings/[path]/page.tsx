@@ -15,7 +15,7 @@ export default async function SettingsPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl p-4 md:p-6">
+    <div className="mx-auto w-full max-w-3xl">
       <Settings path={path} />
     </div>
   );

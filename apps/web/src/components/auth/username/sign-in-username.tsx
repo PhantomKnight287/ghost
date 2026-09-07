@@ -1,57 +1,57 @@
-"use client"
+"use client";
 
-import { authMutationKeys, validateStringLength } from "@better-auth-ui/core"
+import { authMutationKeys, validateStringLength } from "@better-auth-ui/core";
 import {
   isPasskeyAutoFillEnabled,
-  withPasskeyAutoFill
-} from "@better-auth-ui/core/plugins/passkey"
-import type { UsernameAuthClient } from "@better-auth-ui/core/plugins/username"
+  withPasskeyAutoFill,
+} from "@better-auth-ui/core/plugins/passkey";
+import type { UsernameAuthClient } from "@better-auth-ui/core/plugins/username";
 import {
   AuthPrompts,
   useAuth,
   useAuthPlugin,
   useFetchOptions,
-  useSignInEmail
-} from "@better-auth-ui/react"
-import { useSignInUsername } from "@better-auth-ui/react/plugins/username"
-import { useIsMutating } from "@tanstack/react-query"
-import { Eye, EyeOff } from "lucide-react"
-import { useState } from "react"
+  useSignInEmail,
+} from "@better-auth-ui/react";
+import { useSignInUsername } from "@better-auth-ui/react/plugins/username";
+import { useIsMutating } from "@tanstack/react-query";
+import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
 import {
   ProviderButtons,
-  type SocialLayout
-} from "@/components/auth/provider-buttons"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
+  type SocialLayout,
+} from "@/components/auth/provider-buttons";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldSeparator
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+  FieldSeparator,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
-  InputGroupInput
-} from "@/components/ui/input-group"
-import { Spinner } from "@/components/ui/spinner"
-import { useSignInContinuation } from "@/lib/auth/use-sign-in-continuation"
-import { usernamePlugin } from "@/lib/auth/username-plugin"
-import { cn } from "@/lib/utils"
-import { isAuthFormFieldInvalid, useAuthForm } from "../auth-form"
-import { LastUsedBadge } from "../last-login-method/last-used-badge"
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
+import { useSignInContinuation } from "@/lib/auth/use-sign-in-continuation";
+import { usernamePlugin } from "@/lib/auth/username-plugin";
+import { cn } from "@/lib/utils";
+import { isAuthFormFieldInvalid, useAuthForm } from "../auth-form";
+import { LastUsedBadge } from "../last-login-method/last-used-badge";
 
 export type SignInUsernameProps = {
-  className?: string
-  socialLayout?: SocialLayout
-  socialPosition?: "top" | "bottom"
-}
+  className?: string;
+  socialLayout?: SocialLayout;
+  socialPosition?: "top" | "bottom";
+};
 
 function isEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 /**
@@ -62,7 +62,7 @@ function isEmail(value: string): boolean {
 export function SignInUsername({
   className,
   socialLayout,
-  socialPosition = "bottom"
+  socialPosition = "bottom",
 }: SignInUsernameProps) {
   const {
     authClient,
@@ -73,71 +73,71 @@ export function SignInUsername({
     socialProviders,
     viewPaths,
     navigate,
-    Link
-  } = useAuth<UsernameAuthClient>()
+    Link,
+  } = useAuth<UsernameAuthClient>();
 
-  const { fetchOptions, resetFetchOptions } = useFetchOptions()
-  const continueSignIn = useSignInContinuation()
+  const { fetchOptions, resetFetchOptions } = useFetchOptions();
+  const continueSignIn = useSignInContinuation();
 
-  const { localization: usernameLocalization } = useAuthPlugin(usernamePlugin)
+  const { localization: usernameLocalization } = useAuthPlugin(usernamePlugin);
 
   const { mutate: signInEmail, isPending: isSignInEmailPending } =
     useSignInEmail(authClient, {
       onError: (error, { email }) => {
-        form.setFieldValue("password", "")
+        form.setFieldValue("password", "");
 
         if (error.error?.code === "EMAIL_NOT_VERIFIED") {
-          sessionStorage.setItem("better-auth-ui.verify-email", email)
+          sessionStorage.setItem("better-auth-ui.verify-email", email);
           navigate({
-            to: `${basePaths.auth}/${viewPaths.auth.verifyEmail}`
-          })
+            to: `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
+          });
         }
 
-        resetFetchOptions()
+        resetFetchOptions();
       },
       onSuccess: (data) => {
-        sessionStorage.removeItem("better-auth-ui.verify-email")
-        continueSignIn(data)
-      }
-    })
+        sessionStorage.removeItem("better-auth-ui.verify-email");
+        continueSignIn(data);
+      },
+    });
 
   const { mutate: signInUsername, isPending: isSignInUsernamePending } =
     useSignInUsername(authClient, {
       onError: (error) => {
-        form.setFieldValue("password", "")
+        form.setFieldValue("password", "");
 
         if (error.error?.code === "EMAIL_NOT_VERIFIED") {
-          sessionStorage.removeItem("better-auth-ui.verify-email")
+          sessionStorage.removeItem("better-auth-ui.verify-email");
 
           navigate({
-            to: `${basePaths.auth}/${viewPaths.auth.verifyEmail}`
-          })
+            to: `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
+          });
         }
 
-        resetFetchOptions()
+        resetFetchOptions();
       },
       onSuccess: (data) => {
-        sessionStorage.removeItem("better-auth-ui.verify-email")
-        continueSignIn(data)
-      }
-    })
+        sessionStorage.removeItem("better-auth-ui.verify-email");
+        continueSignIn(data);
+      },
+    });
 
   const signInMutating = useIsMutating({
-    mutationKey: authMutationKeys.signIn.all
-  })
+    mutationKey: authMutationKeys.signIn.all,
+  });
   const signUpMutating = useIsMutating({
-    mutationKey: authMutationKeys.signUp.all
-  })
-  const isPending = signInMutating + signUpMutating > 0
-  const isSignInPending = isSignInEmailPending || isSignInUsernamePending
+    mutationKey: authMutationKeys.signUp.all,
+  });
+  const isPending = signInMutating + signUpMutating > 0;
+  const isSignInPending = isSignInEmailPending || isSignInUsernamePending;
 
   const Captcha = plugins.find(
-    (plugin) => plugin.captchaComponent
-  )?.captchaComponent
+    (plugin) => plugin.captchaComponent,
+  )?.captchaComponent;
 
-  const passkeyAutoFill = isPasskeyAutoFillEnabled(plugins)
+  const passkeyAutoFill = isPasskeyAutoFillEnabled(plugins);
 
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const form = useAuthForm({
     defaultValues: { identifier: "", password: "", rememberMe: false },
     onSubmit: ({ value }) => {
@@ -148,8 +148,8 @@ export function SignInUsername({
           ...(emailAndPassword?.rememberMe
             ? { rememberMe: value.rememberMe }
             : {}),
-          fetchOptions
-        })
+          fetchOptions,
+        });
       } else {
         signInUsername({
           username: value.identifier,
@@ -157,14 +157,14 @@ export function SignInUsername({
           ...(emailAndPassword?.rememberMe
             ? { rememberMe: value.rememberMe }
             : {}),
-          fetchOptions
-        })
+          fetchOptions,
+        });
       }
-    }
-  })
+    },
+  });
 
   const showSeparator =
-    emailAndPassword?.enabled && socialProviders && socialProviders.length > 0
+    emailAndPassword?.enabled && socialProviders && socialProviders.length > 0;
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
@@ -201,12 +201,14 @@ export function SignInUsername({
                       onChange: ({ value }) =>
                         validateStringLength(value, {
                           requiredMessage: localization.auth.fieldRequired,
-                          trim: true
-                        })
+                          trim: true,
+                        }),
                     }}
                   >
                     {(field) => {
-                      const isInvalid = isAuthFormFieldInvalid(field.state.meta)
+                      const isInvalid = isAuthFormFieldInvalid(
+                        field.state.meta,
+                      );
                       return (
                         <Field data-invalid={isInvalid}>
                           <FieldLabel htmlFor="email">
@@ -219,7 +221,7 @@ export function SignInUsername({
                             type="text"
                             autoComplete={withPasskeyAutoFill(
                               "username",
-                              passkeyAutoFill
+                              passkeyAutoFill,
                             )}
                             placeholder={
                               usernameLocalization.usernameOrEmailPlaceholder
@@ -235,7 +237,7 @@ export function SignInUsername({
                           />
                           <field.AuthFormFieldError />
                         </Field>
-                      )
+                      );
                     }}
                   </form.AppField>
 
@@ -247,19 +249,21 @@ export function SignInUsername({
                           maxLength: emailAndPassword?.maxPasswordLength,
                           maxLengthMessage: localization.auth.tooLong.replace(
                             "{{max}}",
-                            String(emailAndPassword?.maxPasswordLength)
+                            String(emailAndPassword?.maxPasswordLength),
                           ),
                           minLength: emailAndPassword?.minPasswordLength,
                           minLengthMessage: localization.auth.tooShort.replace(
                             "{{min}}",
-                            String(emailAndPassword?.minPasswordLength)
+                            String(emailAndPassword?.minPasswordLength),
                           ),
-                          requiredMessage: localization.auth.fieldRequired
-                        })
+                          requiredMessage: localization.auth.fieldRequired,
+                        }),
                     }}
                   >
                     {(field) => {
-                      const isInvalid = isAuthFormFieldInvalid(field.state.meta)
+                      const isInvalid = isAuthFormFieldInvalid(
+                        field.state.meta,
+                      );
                       return (
                         <Field data-invalid={isInvalid}>
                           <FieldLabel htmlFor="password">
@@ -273,7 +277,7 @@ export function SignInUsername({
                               type={isPasswordVisible ? "text" : "password"}
                               autoComplete={withPasskeyAutoFill(
                                 "current-password",
-                                passkeyAutoFill
+                                passkeyAutoFill,
                               )}
                               value={field.state.value}
                               onBlur={field.handleBlur}
@@ -304,7 +308,7 @@ export function SignInUsername({
                                     : localization.auth.showPassword
                                 }
                                 onClick={() => {
-                                  setIsPasswordVisible((visible) => !visible)
+                                  setIsPasswordVisible((visible) => !visible);
                                 }}
                               >
                                 {isPasswordVisible ? <EyeOff /> : <Eye />}
@@ -314,7 +318,7 @@ export function SignInUsername({
 
                           <field.AuthFormFieldError />
                         </Field>
-                      )
+                      );
                     }}
                   </form.AppField>
 
@@ -367,7 +371,7 @@ export function SignInUsername({
                           key={`${plugin.id}-${index.toString()}`}
                           view="signIn"
                         />
-                      ))
+                      )),
                     )}
                   </div>
                 </FieldGroup>
@@ -414,5 +418,5 @@ export function SignInUsername({
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

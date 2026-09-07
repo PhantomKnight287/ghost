@@ -1,6 +1,12 @@
 import { schema } from '@ghost/db';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsISO8601, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsISO8601,
+  IsInt,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class RepositoryEntity {
   @ApiProperty()
@@ -38,4 +44,12 @@ export class RepositoryEntity {
   @ApiProperty()
   @IsISO8601()
   updatedAt: string;
+
+  @ApiProperty()
+  @IsInt()
+  starCount: number;
+
+  @ApiProperty()
+  @IsBoolean()
+  viewerHasStarred: boolean;
 }

@@ -32,3 +32,19 @@ export class BranchNotFoundError extends DomainError {
     super(`Branch not found: ${branch}`);
   }
 }
+
+export class BlobNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor(path: string) {
+    super(`File not found: ${path}`);
+  }
+}
+
+export class CommitNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor(sha: string) {
+    super(`Commit not found: ${sha}`);
+  }
+}

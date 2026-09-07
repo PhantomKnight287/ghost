@@ -1,25 +1,11 @@
 /** biome-ignore-all lint/suspicious/noArrayIndexKey: <explanation> */
-import { BookMarked, Ghost } from "lucide-react";
+import { BookMarked, } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function RepositoryLoadingPage() {
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 md:px-6">
-          <span className="flex items-center gap-2 font-semibold tracking-tight">
-            <Ghost className="size-5" />
-            Ghost
-          </span>
-
-          <div className="ml-auto flex items-center gap-2">
-            <Skeleton className="hidden h-9 w-56 sm:block" />
-            <Skeleton className="size-9 rounded-full" />
-          </div>
-        </div>
-      </header>
-
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 md:px-6">
         <div className="flex flex-wrap items-center gap-3">
           <BookMarked className="size-5 text-muted-foreground" />

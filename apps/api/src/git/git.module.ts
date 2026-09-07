@@ -7,10 +7,12 @@ import { RepositoryStorageService } from '../services/git/repository-storage/rep
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
 import { S3Service } from '../services/s3/s3.service.js';
+import { RepositoryAccessService } from '../services/git/repository-access/repository-access.service.js';
 import { GitController } from './git.controller.js';
-import { GIT_PACK_ROUTES } from './git.constants.js';
+import { GIT_PACK_ROUTES, GIT_TRANSPORT_ROUTES } from './git.constants.js';
 import { GitRawBodyMiddleware } from './middleware/git-raw-body.middleware.js';
 import { GitService } from './git.service.js';
+import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-auth.middleware.js';
 
 @Module({
   controllers: [GitController],
@@ -23,10 +25,13 @@ import { GitService } from './git.service.js';
     PushTransactionService,
     WalStoreService,
     S3Service,
+    RepositoryAccessService,
+    GitBasicAuthMiddleware,
   ],
 })
 export class GitModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer.apply(GitBasicAuthMiddleware).forRoutes(...GIT_TRANSPORT_ROUTES);
     consumer.apply(GitRawBodyMiddleware).forRoutes(...GIT_PACK_ROUTES);
   }
 }

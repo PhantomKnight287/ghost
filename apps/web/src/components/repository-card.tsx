@@ -73,7 +73,9 @@ export function RepositoryCard({
             <span
               aria-hidden="true"
               className="size-2.5 rounded-full"
-              style={{ backgroundColor: languageColor ?? "var(--muted-foreground)" }}
+              style={{
+                backgroundColor: languageColor ?? "var(--muted-foreground)",
+              }}
             />
             {language}
           </span>

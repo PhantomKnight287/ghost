@@ -22,7 +22,10 @@ const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 function run(cmd, args) {
   try {
-    return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return execFileSync(cmd, args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
   } catch {
     // A non-zero exit just means "no matches".
     return '';
@@ -52,7 +55,9 @@ function pidsOnPort() {
  */
 function rivalWatchers() {
   if (process.platform === 'win32') return [];
-  const ancestry = new Set(descendantsOf(String(process.pid)).concat(String(process.pid)));
+  const ancestry = new Set(
+    descendantsOf(String(process.pid)).concat(String(process.pid)),
+  );
   return lines(run('pgrep', ['-f', `${appDir}/node_modules/.bin/nest`])).filter(
     (pid) => !ancestry.has(pid),
   );

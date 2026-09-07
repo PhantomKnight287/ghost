@@ -89,7 +89,7 @@ describe('PushTransactionService', () => {
     store.casIndex.mockResolvedValue(true);
 
     const chunk = Buffer.alloc(1024 * 1024, 0x5a);
-    const chunks = 2200; // 2.15 GiB — past INT_MAX, where Hash.update throws
+    const chunks = 2200; // 2.15 GiB - past INT_MAX, where Hash.update throws
     const huge: GitRequestBody = {
       size: chunk.length * chunks,
       open: () =>

@@ -201,9 +201,127 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/star": {
+      "post": {
+        "description": "Star a repository. Starring twice leaves the count unchanged.",
+        "operationId": "RepositoriesController_starRepository",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarRepositoryResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Star repository",
+        "tags": [
+          "Repositories"
+        ]
+      },
+      "delete": {
+        "description": "Remove the requester's star from a repository.",
+        "operationId": "RepositoriesController_unstarRepository",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarRepositoryResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Unstar repository",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
     "/api/repositories/{username}/{slug}/contents": {
       "get": {
-        "description": "One level of a directory on the requested branch, or the default branch when none is given, with the newest commit touching each entry. Directories report the newest commit anywhere beneath them.",
+        "description": "One level of a directory at the requested ref - a branch or a commit sha - or the default branch when none is given, with the newest commit touching each entry. Directories report the newest commit anywhere beneath them.",
         "operationId": "RepositoriesController_getRepositoryContents",
         "parameters": [
           {
@@ -234,10 +352,10 @@
             }
           },
           {
-            "name": "branch",
+            "name": "ref",
             "required": false,
             "in": "query",
-            "description": "Branch to list. Accepts `main` or `refs/heads/main`. Omit for the default branch.",
+            "description": "Branch or commit sha to list. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch.",
             "schema": {
               "example": "main",
               "type": "string"
@@ -287,6 +405,384 @@
           }
         },
         "summary": "List repository contents",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/blob": {
+      "get": {
+        "description": "Contents of a single file at the requested ref - a branch or a commit sha - or the default branch when none is given. Binary files come back base64-encoded, and a file past the inline size limit comes back without contents.",
+        "operationId": "RepositoriesController_getRepositoryBlob",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": true,
+            "in": "query",
+            "description": "File to read, relative to the repository root.",
+            "schema": {
+              "maxLength": 4096,
+              "example": "src/main.ts",
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryBlobResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The `path` query parameter is not a repository-relative file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a file",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/raw": {
+      "get": {
+        "description": "The raw bytes of a file. Images, audio, video and PDFs are served inline for the browser to render; everything else downloads.",
+        "operationId": "RepositoriesController_getRawBlob",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": true,
+            "in": "query",
+            "description": "File to read, relative to the repository root.",
+            "schema": {
+              "maxLength": 4096,
+              "example": "src/main.ts",
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download a file",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/commits": {
+      "get": {
+        "description": "History of a branch or commit, newest first, optionally narrowed to one path. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
+        "operationId": "RepositoriesController_getRepositoryCommits",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch or commit sha to walk. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": false,
+            "in": "query",
+            "description": "Only commits touching this path.",
+            "schema": {
+              "maxLength": 4096,
+              "example": "apps/api",
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Sha to resume from, taken from a previous `nextCursor`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryCommitsResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List commits",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/commits/{sha}": {
+      "get": {
+        "description": "One commit with the paths it changed, against its first parent. Accepts a full sha or any unambiguous prefix.",
+        "operationId": "RepositoriesController_getRepositoryCommit",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sha",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryCommitResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a commit",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/commits/{sha}/patch": {
+      "get": {
+        "description": "The commit as a git patch file, unparsed.",
+        "operationId": "RepositoriesController_getCommitPatch",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sha",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/x-patch": {
+                "example": ""
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a commit as a patch",
         "tags": [
           "Repositories"
         ]
@@ -440,6 +936,12 @@
           },
           "updatedAt": {
             "type": "string"
+          },
+          "starCount": {
+            "type": "number"
+          },
+          "viewerHasStarred": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -449,7 +951,9 @@
           "visibility",
           "lastPushedAt",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "starCount",
+          "viewerHasStarred"
         ]
       },
       "GetRepositoriesResponseDTO": {
@@ -476,6 +980,21 @@
           "hasMore"
         ]
       },
+      "StarRepositoryResponseDTO": {
+        "type": "object",
+        "properties": {
+          "starCount": {
+            "type": "number"
+          },
+          "viewerHasStarred": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "starCount",
+          "viewerHasStarred"
+        ]
+      },
       "CommitSummaryDTO": {
         "type": "object",
         "properties": {
@@ -485,7 +1004,7 @@
           },
           "message": {
             "type": "string",
-            "description": "Commit subject — the first line of the message."
+            "description": "Commit subject - the first line of the message."
           },
           "committedAt": {
             "type": "string",
@@ -574,6 +1093,11 @@
             "description": "Normalized directory that was listed, with a trailing slash. Empty at the root.",
             "example": "src/services/"
           },
+          "commitCount": {
+            "type": "number",
+            "description": "Commits reachable from the ref. `0` for an unborn ref.",
+            "example": 128
+          },
           "commit": {
             "nullable": true,
             "description": "Tip commit of the ref. `null` when nothing has been pushed yet.",
@@ -595,8 +1119,211 @@
         "required": [
           "ref",
           "path",
+          "commitCount",
           "commit",
           "entries"
+        ]
+      },
+      "BlobEncoding": {
+        "type": "string",
+        "enum": [
+          "utf-8",
+          "base64"
+        ],
+        "description": "`base64` for binary files, and for anything that is not valid UTF-8."
+      },
+      "GetRepositoryBlobResponseDTO": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Ref that was read, always fully qualified.",
+            "example": "refs/heads/main"
+          },
+          "path": {
+            "type": "string",
+            "description": "Normalized path of the file.",
+            "example": "src/main.ts"
+          },
+          "oid": {
+            "type": "string",
+            "description": "Object id of the blob."
+          },
+          "size": {
+            "type": "number",
+            "description": "File size in bytes."
+          },
+          "encoding": {
+            "description": "`base64` for binary files, and for anything that is not valid UTF-8.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BlobEncoding"
+              }
+            ]
+          },
+          "content": {
+            "type": "string",
+            "nullable": true,
+            "description": "File contents, `null` when the file is past the inline size limit."
+          },
+          "commit": {
+            "nullable": true,
+            "description": "Newest commit touching this file.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommitSummaryDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ref",
+          "path",
+          "oid",
+          "size",
+          "encoding",
+          "content",
+          "commit"
+        ]
+      },
+      "CommitDTO": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string",
+            "description": "Full 40-character commit sha."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Commit subject, the first line of the message."
+          },
+          "body": {
+            "type": "string",
+            "description": "The rest of the message. Empty when there is none."
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "authorEmail": {
+            "type": "string"
+          },
+          "committedAt": {
+            "type": "string",
+            "description": "Committer timestamp, ISO 8601."
+          }
+        },
+        "required": [
+          "sha",
+          "subject",
+          "body",
+          "authorName",
+          "authorEmail",
+          "committedAt"
+        ]
+      },
+      "GetRepositoryCommitsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Ref that was walked, always fully qualified.",
+            "example": "refs/heads/main"
+          },
+          "from": {
+            "type": "number",
+            "description": "Position of this page's first commit in the walk, 1-based. `0` when the page is empty.",
+            "example": 41
+          },
+          "to": {
+            "type": "number",
+            "description": "Position of this page's last commit. `0` when the page is empty.",
+            "example": 60
+          },
+          "total": {
+            "type": "number",
+            "description": "Commits the walk can reach in total, narrowed by `path` when one is given.",
+            "example": 128
+          },
+          "commits": {
+            "description": "Newest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitDTO"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass back as `cursor` for the next page. `null` on the last page."
+          }
+        },
+        "required": [
+          "ref",
+          "from",
+          "to",
+          "total",
+          "commits",
+          "nextCursor"
+        ]
+      },
+      "CommitFileDTO": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "`A` added, `M` modified, `D` deleted."
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "path"
+        ]
+      },
+      "GetRepositoryCommitResponseDTO": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string",
+            "description": "Full 40-character commit sha."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Commit subject, the first line of the message."
+          },
+          "body": {
+            "type": "string",
+            "description": "The rest of the message. Empty when there is none."
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "authorEmail": {
+            "type": "string"
+          },
+          "committedAt": {
+            "type": "string",
+            "description": "Committer timestamp, ISO 8601."
+          },
+          "files": {
+            "description": "Paths this commit changed, against its first parent.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitFileDTO"
+            }
+          }
+        },
+        "required": [
+          "sha",
+          "subject",
+          "body",
+          "authorName",
+          "authorEmail",
+          "committedAt",
+          "files"
         ]
       },
       "GetRepositoryBranchesResponseDTO": {

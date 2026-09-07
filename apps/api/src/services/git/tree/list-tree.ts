@@ -38,7 +38,7 @@ export async function listTree({
       ref,
       '--',
       // git reads a leading ":" as pathspec magic, and ":/" alone means "from
-      // the root" — :(literal) keeps the prefix an exact, unglobbed path.
+      // the root" - :(literal) keeps the prefix an exact, unglobbed path.
       // "." is git's spelling of the root; an empty pathspec is rejected.
       prefix ? `:(literal)${prefix}` : '.',
     ],
@@ -78,7 +78,7 @@ export async function listTree({
  * `numeric` is what puts `file2.ts` ahead of `file10.ts`. The default
  * sensitivity keeps case a tertiary difference, so `readme.md` and `README.md`
  * land next to each other instead of in separate uppercase/lowercase blocks the
- * way raw byte order leaves them — and it stays a total order, so nothing
+ * way raw byte order leaves them - and it stays a total order, so nothing
  * depends on sort stability.
  */
 const COLLATOR = new Intl.Collator('en', { numeric: true });
@@ -93,7 +93,7 @@ const byName = (a: TreeEntry, b: TreeEntry) => COLLATOR.compare(a.name, b.name);
  *
  * Partitioning in one pass and sorting the two groups separately beats one
  * comparator that has to check the type on every comparison, but neither is
- * close to being worth optimizing — see the note in the listing docs.
+ * close to being worth optimizing - see the note in the listing docs.
  */
 export function orderTreeEntries(entries: TreeEntry[]): TreeEntry[] {
   const directories: TreeEntry[] = [];

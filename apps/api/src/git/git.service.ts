@@ -73,7 +73,7 @@ export class GitService {
   }
 
   /**
-   * `POST /:username/:repo/git-receive-pack` — a push.
+   * `POST /:username/:repo/git-receive-pack` - a push.
    *
    * Materialize first so the local ref checks run against the same state the log
    * holds, then commit, then let git apply the push to the cache. The cache's

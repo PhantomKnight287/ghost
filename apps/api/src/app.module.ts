@@ -13,6 +13,7 @@ import { GitModule } from './git/git.module.js';
 import { S3Service } from './services/s3/s3.service.js';
 import { WalService } from './services/git/wal/wal.service.js';
 import { BranchesService } from './services/git/branches/branches.service.js';
+import { RepositoryAccessService } from './services/git/repository-access/repository-access.service.js';
 
 @Module({
   imports: [
@@ -43,6 +44,13 @@ import { BranchesService } from './services/git/branches/branches.service.js';
     GitModule,
   ],
   controllers: [AppController],
-  providers: [AppService, UsersService, S3Service, WalService, BranchesService],
+  providers: [
+    AppService,
+    UsersService,
+    S3Service,
+    WalService,
+    BranchesService,
+    RepositoryAccessService,
+  ],
 })
 export class AppModule {}

@@ -80,6 +80,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/star": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Star repository
+         * @description Star a repository. Starring twice leaves the count unchanged.
+         */
+        post: operations["RepositoriesController_starRepository"];
+        /**
+         * Unstar repository
+         * @description Remove the requester's star from a repository.
+         */
+        delete: operations["RepositoriesController_unstarRepository"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{slug}/contents": {
         parameters: {
             query?: never;
@@ -89,9 +113,109 @@ export interface paths {
         };
         /**
          * List repository contents
-         * @description One level of a directory on the requested branch, or the default branch when none is given, with the newest commit touching each entry. Directories report the newest commit anywhere beneath them.
+         * @description One level of a directory at the requested ref - a branch or a commit sha - or the default branch when none is given, with the newest commit touching each entry. Directories report the newest commit anywhere beneath them.
          */
         get: operations["RepositoriesController_getRepositoryContents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/blob": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a file
+         * @description Contents of a single file at the requested ref - a branch or a commit sha - or the default branch when none is given. Binary files come back base64-encoded, and a file past the inline size limit comes back without contents.
+         */
+        get: operations["RepositoriesController_getRepositoryBlob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a file
+         * @description The raw bytes of a file. Images, audio, video and PDFs are served inline for the browser to render; everything else downloads.
+         */
+        get: operations["RepositoriesController_getRawBlob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/commits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List commits
+         * @description History of a branch or commit, newest first, optionally narrowed to one path. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.
+         */
+        get: operations["RepositoriesController_getRepositoryCommits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/commits/{sha}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a commit
+         * @description One commit with the paths it changed, against its first parent. Accepts a full sha or any unambiguous prefix.
+         */
+        get: operations["RepositoriesController_getRepositoryCommit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/commits/{sha}/patch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a commit as a patch
+         * @description The commit as a git patch file, unparsed.
+         */
+        get: operations["RepositoriesController_getCommitPatch"];
         put?: never;
         post?: never;
         delete?: never;
@@ -146,6 +270,8 @@ export interface components {
             lastPushedAt: string;
             createdAt: string;
             updatedAt: string;
+            starCount: number;
+            viewerHasStarred: boolean;
         };
         GetRepositoriesResponseDTO: {
             repositories: components["schemas"]["RepositoryEntity"][];
@@ -153,10 +279,14 @@ export interface components {
             nextCursor: string | null;
             hasMore: boolean;
         };
+        StarRepositoryResponseDTO: {
+            starCount: number;
+            viewerHasStarred: boolean;
+        };
         CommitSummaryDTO: {
             /** @description Full 40-character commit sha. */
             sha: string;
-            /** @description Commit subject — the first line of the message. */
+            /** @description Commit subject - the first line of the message. */
             message: string;
             /** @description Committer timestamp, ISO 8601. */
             committedAt: string;
@@ -196,10 +326,99 @@ export interface components {
              * @example src/services/
              */
             path: string;
+            /**
+             * @description Commits reachable from the ref. `0` for an unborn ref.
+             * @example 128
+             */
+            commitCount: number;
             /** @description Tip commit of the ref. `null` when nothing has been pushed yet. */
             commit: components["schemas"]["CommitSummaryDTO"] | null;
             /** @description One level of the directory: directories first (submodules among them), then files, each group alphabetical. Case is a minor difference, so `readme.md` and `README.md` sit together rather than in separate blocks, and embedded numbers order naturally (`file2` before `file10`). Empty for an unborn ref or a path that is not a directory. */
             entries: components["schemas"]["TreeEntryDTO"][];
+        };
+        /**
+         * @description `base64` for binary files, and for anything that is not valid UTF-8.
+         * @enum {string}
+         */
+        BlobEncoding: "utf-8" | "base64";
+        GetRepositoryBlobResponseDTO: {
+            /**
+             * @description Ref that was read, always fully qualified.
+             * @example refs/heads/main
+             */
+            ref: string;
+            /**
+             * @description Normalized path of the file.
+             * @example src/main.ts
+             */
+            path: string;
+            /** @description Object id of the blob. */
+            oid: string;
+            /** @description File size in bytes. */
+            size: number;
+            /** @description `base64` for binary files, and for anything that is not valid UTF-8. */
+            encoding: components["schemas"]["BlobEncoding"];
+            /** @description File contents, `null` when the file is past the inline size limit. */
+            content: string | null;
+            /** @description Newest commit touching this file. */
+            commit: components["schemas"]["CommitSummaryDTO"] | null;
+        };
+        CommitDTO: {
+            /** @description Full 40-character commit sha. */
+            sha: string;
+            /** @description Commit subject, the first line of the message. */
+            subject: string;
+            /** @description The rest of the message. Empty when there is none. */
+            body: string;
+            authorName: string;
+            authorEmail: string;
+            /** @description Committer timestamp, ISO 8601. */
+            committedAt: string;
+        };
+        GetRepositoryCommitsResponseDTO: {
+            /**
+             * @description Ref that was walked, always fully qualified.
+             * @example refs/heads/main
+             */
+            ref: string;
+            /**
+             * @description Position of this page's first commit in the walk, 1-based. `0` when the page is empty.
+             * @example 41
+             */
+            from: number;
+            /**
+             * @description Position of this page's last commit. `0` when the page is empty.
+             * @example 60
+             */
+            to: number;
+            /**
+             * @description Commits the walk can reach in total, narrowed by `path` when one is given.
+             * @example 128
+             */
+            total: number;
+            /** @description Newest first. */
+            commits: components["schemas"]["CommitDTO"][];
+            /** @description Pass back as `cursor` for the next page. `null` on the last page. */
+            nextCursor: string | null;
+        };
+        CommitFileDTO: {
+            /** @description `A` added, `M` modified, `D` deleted. */
+            status: string;
+            path: string;
+        };
+        GetRepositoryCommitResponseDTO: {
+            /** @description Full 40-character commit sha. */
+            sha: string;
+            /** @description Commit subject, the first line of the message. */
+            subject: string;
+            /** @description The rest of the message. Empty when there is none. */
+            body: string;
+            authorName: string;
+            authorEmail: string;
+            /** @description Committer timestamp, ISO 8601. */
+            committedAt: string;
+            /** @description Paths this commit changed, against its first parent. */
+            files: components["schemas"]["CommitFileDTO"][];
         };
         GetRepositoryBranchesResponseDTO: {
             /**
@@ -361,13 +580,89 @@ export interface operations {
             };
         };
     };
+    RepositoriesController_starRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StarRepositoryResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_unstarRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StarRepositoryResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     RepositoriesController_getRepositoryContents: {
         parameters: {
             query?: {
                 /** @description Directory to list, relative to the repository root. Omit for the root. Slashes may be sent percent-encoded (`src%2Fdeep`); they are decoded once, so an already-decoded `src/deep` works too. */
                 path?: string;
-                /** @description Branch to list. Accepts `main` or `refs/heads/main`. Omit for the default branch. */
-                branch?: string;
+                /** @description Branch or commit sha to list. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch. */
+                ref?: string;
             };
             header?: never;
             path: {
@@ -404,6 +699,202 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryBlob: {
+        parameters: {
+            query: {
+                /** @description File to read, relative to the repository root. */
+                path: string;
+                /** @description Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch. */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryBlobResponseDTO"];
+                };
+            };
+            /** @description The `path` query parameter is not a repository-relative file. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRawBlob: {
+        parameters: {
+            query: {
+                /** @description File to read, relative to the repository root. */
+                path: string;
+                /** @description Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch. */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryCommits: {
+        parameters: {
+            query?: {
+                /** @description Branch or commit sha to walk. Omit for the default branch. */
+                ref?: string;
+                /** @description Only commits touching this path. */
+                path?: string;
+                /** @description Sha to resume from, taken from a previous `nextCursor`. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryCommitsResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryCommit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+                sha: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryCommitResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getCommitPatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+                sha: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /** @example  */
+                    "text/x-patch": unknown;
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

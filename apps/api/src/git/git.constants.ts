@@ -36,7 +36,7 @@ export function toRepoId(username: string, repo: string) {
 
 /**
  * Git's smart-HTTP endpoints. Clients append these paths to the clone URL, so
- * they have to sit at the root rather than behind the `/api` prefix — they are
+ * they have to sit at the root rather than behind the `/api` prefix - they are
  * the only routes excluded from it.
  */
 export const GIT_PACK_ROUTES = [
