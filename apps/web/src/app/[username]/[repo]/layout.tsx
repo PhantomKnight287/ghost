@@ -40,6 +40,8 @@ export default async function RepositoryLayout({
       branches={branches.data?.branches}
       starCount={repository.data.starCount}
       viewerHasStarred={repository.data.viewerHasStarred}
+      forkCount={repository.data.forkCount}
+      parent={repository.data.parent}
     >
       {children}
     </RepositoryFrame>

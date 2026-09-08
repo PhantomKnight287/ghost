@@ -22,15 +22,15 @@ header; it is `null` until this lands.
 
 ## Repository resolution
 
-`RepositoryStorageService.getRepoPath` writes to `os.tmpdir()` and auto-creates
-any repository anyone names — which is why pushing to a non-existent repository
-silently succeeds rather than returning 404. It should resolve through
-`getRepositoryBySlug`, which currently returns `void` (it only throws or does
-not) and needs a real return value before the transport can build on it.
+**Resolved.** `toRepoId()` is gone. `GitBasicAuthMiddleware` already authorized
+the repository and now keeps the row, so the transport carries
+`repository.id` and both the log key and the cache path are the stable row id.
+Renaming a user or a repository no longer orphans its log, and `getRepoPath`
+can no longer auto-create a repository nobody owns, because every caller now
+comes from an authorized row rather than a URL segment.
 
-`toRepoId()` returns `username/repo` as a placeholder. It should return the
-database row's stable id, so that renaming a user or repository does not orphan
-its log.
+Existing deployments have logs under the old `username/repo` keys. There is no
+migration for that: the keyspace changed, and this is a prototype.
 
 ## Entry uploads are a single PutObject
 

@@ -47,6 +47,26 @@ export class WalStoreService {
   }
 
   /**
+   * Copies a repository's log to a new id: the packs first, then the index that
+   * names them, so a fork is never pointed at objects that have not landed yet.
+   * Layers are immutable once written, so this needs no lock.
+   */
+  async copyLog(fromRepoId: string, toRepoId: string) {
+    const stored = await this.readIndex(fromRepoId);
+    if (!stored) return;
+
+    for (const layer of stored.index.layers) {
+      await this.s3.copyObject({
+        Bucket: this.s3.bucket,
+        Key: this.entryKey(toRepoId, layer.ulid),
+        CopySource: `${this.s3.bucket}/${this.entryKey(fromRepoId, layer.ulid)}`,
+      });
+    }
+
+    await this.casIndex(toRepoId, stored.index, null);
+  }
+
+  /**
    * The commit point of a push. A null etag means create-if-absent.
    * Returns false when another writer won the race.
    */

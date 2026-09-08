@@ -11,11 +11,7 @@ import {
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
 import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
-import {
-  isGitServiceName,
-  toRepoId,
-  type GitServiceName,
-} from './git.constants.js';
+import { isGitServiceName, type GitServiceName } from './git.constants.js';
 import { UnsupportedGitServiceError } from './git.errors.js';
 
 export interface GitTransportResponse {
@@ -24,8 +20,7 @@ export interface GitTransportResponse {
 }
 
 interface RepositoryRef {
-  username: string;
-  repo: string;
+  repositoryId: string;
 }
 
 @Injectable()
@@ -39,13 +34,12 @@ export class GitService {
   ) {}
 
   async advertiseRefs({
-    username,
-    repo,
+    repositoryId,
     service,
   }: RepositoryRef & { service: string }): Promise<GitTransportResponse> {
     if (!isGitServiceName(service)) throw new UnsupportedGitServiceError();
 
-    const repoDirectory = await this.openCache({ username, repo });
+    const repoDirectory = await this.openCache(repositoryId);
 
     return {
       headers: {
@@ -57,11 +51,10 @@ export class GitService {
   }
 
   async uploadPack({
-    username,
-    repo,
+    repositoryId,
     body,
   }: RepositoryRef & { body: GitRequestBody }): Promise<GitTransportResponse> {
-    const repoDirectory = await this.openCache({ username, repo });
+    const repoDirectory = await this.openCache(repositoryId);
 
     return {
       headers: resultHeaders('git-upload-pack'),
@@ -82,8 +75,7 @@ export class GitService {
    * against the log.
    */
   async receivePack({
-    username,
-    repo,
+    repositoryId,
     body,
     pushedBy = null,
   }: RepositoryRef & {
@@ -98,10 +90,10 @@ export class GitService {
     }
 
     const { transitions, packOffset } = await readReceivePackHeader(body);
-    const repoDirectory = await this.openCache({ username, repo });
+    const repoDirectory = await this.openCache(repositoryId);
 
     await this.pushTransaction.commitPush({
-      repoId: toRepoId(username, repo),
+      repoId: repositoryId,
       transitions,
       body,
       packOffset,
@@ -117,12 +109,9 @@ export class GitService {
     };
   }
 
-  private async openCache({ username, repo }: RepositoryRef) {
-    const repoDirectory = await this.storage.getRepoPath({ username, repo });
-    await this.materializer.materialize(
-      toRepoId(username, repo),
-      repoDirectory,
-    );
+  private async openCache(repositoryId: string) {
+    const repoDirectory = await this.storage.getRepoPath(repositoryId);
+    await this.materializer.materialize(repositoryId, repoDirectory);
     return repoDirectory;
   }
 }

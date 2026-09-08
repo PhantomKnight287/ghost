@@ -45,12 +45,14 @@ function parse(record: string): Commit | null {
  */
 export async function listCommits({
   gitDir,
+  env,
   ref,
   path,
   limit,
   cursor,
 }: {
   gitDir: string;
+  env?: Record<string, string>;
   ref: string;
   path?: string;
   limit: number;
@@ -67,7 +69,7 @@ export async function listCommits({
   ];
   if (path) args.push('--', path);
 
-  const raw = await runGit({ args, gitDir });
+  const raw = await runGit({ args, gitDir, env });
   const commits = raw.split(RECORD).flatMap((record) => parse(record) ?? []);
 
   return {

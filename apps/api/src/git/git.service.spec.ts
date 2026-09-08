@@ -52,8 +52,7 @@ describe('GitService', () => {
 
   it('materializes the cache before advertising refs', async () => {
     const { headers } = await service.advertiseRefs({
-      username: 'phantomknight287',
-      repo: 'ghost.git',
+      repositoryId: 'repo_ghost',
       service: 'git-upload-pack',
     });
 
@@ -61,7 +60,7 @@ describe('GitService', () => {
       'application/x-git-upload-pack-advertisement',
     );
     expect(materializer.materialize).toHaveBeenCalledWith(
-      'phantomknight287/ghost',
+      'repo_ghost',
       '/repos/ghost.git',
     );
     expect(refAdvertisement.advertise).toHaveBeenCalledWith({
@@ -73,8 +72,7 @@ describe('GitService', () => {
   it('rejects the dumb protocol', async () => {
     await expect(
       service.advertiseRefs({
-        username: 'phantomknight287',
-        repo: 'ghost',
+        repositoryId: 'repo_ghost',
         service: '',
       }),
     ).rejects.toBeInstanceOf(UnsupportedGitServiceError);
@@ -86,8 +84,7 @@ describe('GitService', () => {
     });
 
     await service.receivePack({
-      username: 'phantomknight287',
-      repo: 'ghost',
+      repositoryId: 'repo_ghost',
       body: bufferBody(receivePackBody()),
     });
 
@@ -96,8 +93,7 @@ describe('GitService', () => {
 
   it('answers the pre-push probe without touching the log', async () => {
     const { headers } = await service.receivePack({
-      username: 'phantomknight287',
-      repo: 'ghost',
+      repositoryId: 'repo_ghost',
       body: bufferBody(Buffer.from('0000')),
     });
 
@@ -110,8 +106,7 @@ describe('GitService', () => {
 
   it('commits to the log before touching the local repository', async () => {
     const { headers } = await service.receivePack({
-      username: 'phantomknight287',
-      repo: 'ghost',
+      repositoryId: 'repo_ghost',
       body: bufferBody(receivePackBody()),
     });
 
@@ -119,7 +114,7 @@ describe('GitService', () => {
       'application/x-git-receive-pack-result',
     );
     expect(pushTransaction.commitPush).toHaveBeenCalledWith(
-      expect.objectContaining({ repoId: 'phantomknight287/ghost' }),
+      expect.objectContaining({ repoId: 'repo_ghost' }),
     );
 
     const [{ transitions }] = pushTransaction.commitPush.mock.calls[0];

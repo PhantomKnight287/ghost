@@ -23,6 +23,10 @@ rejected, and the consequences — including the bad ones.
 - [0012 — Materialization is forward-only replay](0012-forward-only-materialization.md)
 - [0015 — Nothing holds a packfile in memory](0015-nothing-holds-a-packfile.md)
 
+## Review
+
+- [0016 — A pull request spans two logs, and lends objects rather than copying them](0016-a-pull-request-spans-two-logs.md)
+
 ## Open
 
 - [0011 — Deferred decisions](0011-deferred.md)

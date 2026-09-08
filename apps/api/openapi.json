@@ -201,6 +201,86 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/fork": {
+      "post": {
+        "description": "Copy a repository under the requester. One fork per repository per owner.",
+        "operationId": "RepositoriesController_forkRepository",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForkRepositoryRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForkRepositoryResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Fork repository",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
     "/api/repositories/{username}/{slug}/star": {
       "post": {
         "description": "Star a repository. Starring twice leaves the count unchanged.",
@@ -760,6 +840,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "path",
+            "required": false,
+            "in": "query",
+            "description": "Limit the patch to one path.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -847,6 +936,693 @@
           "Repositories"
         ]
       }
+    },
+    "/api/repositories/{username}/{repo}/pulls": {
+      "post": {
+        "operationId": "PullRequestsController_createPullRequest",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePullRequestRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Open a pull request",
+        "tags": [
+          "Pull requests"
+        ]
+      },
+      "get": {
+        "operationId": "PullRequestsController_getPullRequests",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/PullRequestStateFilter"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPullRequestsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List pull requests",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/compare/patch": {
+      "get": {
+        "operationId": "PullRequestsController_comparePatch",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "base",
+            "required": true,
+            "in": "query",
+            "description": "Branch the changes would merge into.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "head",
+            "required": true,
+            "in": "query",
+            "description": "Branch the changes come from, `owner:branch` for a fork.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": false,
+            "in": "query",
+            "description": "Limit the patch to one path.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The patch two branches would open a request with",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/compare": {
+      "get": {
+        "operationId": "PullRequestsController_compare",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "base",
+            "required": true,
+            "in": "query",
+            "description": "Branch the changes would merge into.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "head",
+            "required": true,
+            "in": "query",
+            "description": "Branch the changes come from, `owner:branch` for a fork.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The files two branches would open a request with",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}": {
+      "get": {
+        "operationId": "PullRequestsController_getPullRequest",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestDetailDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get a pull request",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/commits": {
+      "get": {
+        "operationId": "PullRequestsController_getCommits",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Sha to resume from, taken from a previous `nextCursor`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPullRequestCommitsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Commits a pull request adds",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/files": {
+      "get": {
+        "operationId": "PullRequestsController_getFiles",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPullRequestFilesResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Paths a pull request changes",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/patch": {
+      "get": {
+        "operationId": "PullRequestsController_getPatch",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "path",
+            "required": false,
+            "in": "query",
+            "description": "Limit the patch to one path.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The patch itself, as text",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/merge": {
+      "post": {
+        "operationId": "PullRequestsController_mergePullRequest",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergePullRequestRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergePullRequestResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Merge a pull request into its base branch",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/close": {
+      "patch": {
+        "operationId": "PullRequestsController_closePullRequest",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Close a pull request without merging",
+        "tags": [
+          "Pull requests"
+        ]
+      }
     }
   },
   "info": {
@@ -906,6 +1682,25 @@
           "private"
         ]
       },
+      "RepositoryParentEntity": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "slug",
+          "name"
+        ]
+      },
       "RepositoryEntity": {
         "type": "object",
         "properties": {
@@ -942,6 +1737,24 @@
           },
           "viewerHasStarred": {
             "type": "boolean"
+          },
+          "forkCount": {
+            "type": "number"
+          },
+          "viewerForkSlug": {
+            "type": "string",
+            "nullable": true,
+            "description": "Slug of the viewer's own fork of this repository, if any"
+          },
+          "parent": {
+            "nullable": true,
+            "description": "The repository this one was forked from",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryParentEntity"
+              }
+            ]
           }
         },
         "required": [
@@ -953,7 +1766,8 @@
           "createdAt",
           "updatedAt",
           "starCount",
-          "viewerHasStarred"
+          "viewerHasStarred",
+          "forkCount"
         ]
       },
       "GetRepositoriesResponseDTO": {
@@ -978,6 +1792,47 @@
           "repositories",
           "nextCursor",
           "hasMore"
+        ]
+      },
+      "ForkRepositoryRequestDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "visibility": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryVisibility"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "visibility"
+        ]
+      },
+      "ForkRepositoryResponseDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "username"
         ]
       },
       "StarRepositoryResponseDTO": {
@@ -1350,6 +2205,375 @@
         "required": [
           "defaultBranch",
           "branches"
+        ]
+      },
+      "CreatePullRequestRequestDTO": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Add a rate limiter"
+          },
+          "body": {
+            "type": "string"
+          },
+          "base": {
+            "type": "string",
+            "description": "Branch to merge into, in this repository.",
+            "example": "main"
+          },
+          "head": {
+            "type": "string",
+            "description": "Branch to merge from. `owner:branch` for a fork, or a bare branch name for this repository.",
+            "example": "alice:feature"
+          }
+        },
+        "required": [
+          "title",
+          "base",
+          "head"
+        ]
+      },
+      "PullRequestState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "closed",
+          "merged"
+        ]
+      },
+      "PullRequestSideDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "bob"
+          },
+          "slug": {
+            "type": "string",
+            "example": "ghost"
+          },
+          "ref": {
+            "type": "string",
+            "example": "main"
+          }
+        },
+        "required": [
+          "username",
+          "slug",
+          "ref"
+        ]
+      },
+      "PullRequestDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "number",
+            "description": "Per base repository, and what the URL carries."
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PullRequestState"
+              }
+            ]
+          },
+          "base": {
+            "$ref": "#/components/schemas/PullRequestSideDTO"
+          },
+          "head": {
+            "$ref": "#/components/schemas/PullRequestSideDTO"
+          },
+          "headSha": {
+            "type": "string",
+            "description": "Head tip as of the last read."
+          },
+          "mergeCommitSha": {
+            "type": "string",
+            "nullable": true
+          },
+          "authorUsername": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "body",
+          "state",
+          "base",
+          "head",
+          "headSha",
+          "mergeCommitSha",
+          "authorUsername",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PullRequestStateFilter": {
+        "type": "string",
+        "enum": [
+          "open",
+          "closed",
+          "merged",
+          "all"
+        ]
+      },
+      "GetPullRequestsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "pullRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PullRequestDTO"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pullRequests",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
+      "PullRequestFileDTO": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "`A` added, `M` modified, `D` deleted."
+          },
+          "path": {
+            "type": "string"
+          },
+          "additions": {
+            "type": "number"
+          },
+          "deletions": {
+            "type": "number"
+          },
+          "binary": {
+            "type": "boolean",
+            "description": "Line counts are meaningless when true."
+          }
+        },
+        "required": [
+          "status",
+          "path",
+          "additions",
+          "deletions",
+          "binary"
+        ]
+      },
+      "CompareResponseDTO": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Merge base of the two branches."
+          },
+          "to": {
+            "type": "string",
+            "description": "Head tip the diff is taken to."
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PullRequestFileDTO"
+            }
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "files"
+        ]
+      },
+      "PullRequestDetailDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "number",
+            "description": "Per base repository, and what the URL carries."
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PullRequestState"
+              }
+            ]
+          },
+          "base": {
+            "$ref": "#/components/schemas/PullRequestSideDTO"
+          },
+          "head": {
+            "$ref": "#/components/schemas/PullRequestSideDTO"
+          },
+          "headSha": {
+            "type": "string",
+            "description": "Head tip as of the last read."
+          },
+          "mergeCommitSha": {
+            "type": "string",
+            "nullable": true
+          },
+          "authorUsername": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "mergeBase": {
+            "type": "string",
+            "nullable": true,
+            "description": "Commit the two branches diverged from."
+          },
+          "commitCount": {
+            "type": "number",
+            "description": "Commits the head branch adds on top of the base."
+          },
+          "changedFiles": {
+            "type": "number"
+          },
+          "additions": {
+            "type": "number"
+          },
+          "deletions": {
+            "type": "number"
+          },
+          "mergeable": {
+            "type": "boolean",
+            "description": "Whether the merge is conflict-free right now. Never cached."
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "body",
+          "state",
+          "base",
+          "head",
+          "headSha",
+          "mergeCommitSha",
+          "authorUsername",
+          "createdAt",
+          "updatedAt",
+          "mergeBase",
+          "commitCount",
+          "changedFiles",
+          "additions",
+          "deletions",
+          "mergeable"
+        ]
+      },
+      "GetPullRequestCommitsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "commits": {
+            "description": "Newest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitDTO"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "commits",
+          "total",
+          "nextCursor"
+        ]
+      },
+      "GetPullRequestFilesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Commit the diff is taken from, the merge base of the two branches."
+          },
+          "to": {
+            "type": "string",
+            "description": "Head tip the diff is taken to."
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PullRequestFileDTO"
+            }
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "files"
+        ]
+      },
+      "MergePullRequestRequestDTO": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Merge commit subject. Defaults to the request title."
+          }
+        }
+      },
+      "MergePullRequestResponseDTO": {
+        "type": "object",
+        "properties": {
+          "mergeCommitSha": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "number",
+            "description": "Sequence the merge landed at in the base log."
+          }
+        },
+        "required": [
+          "mergeCommitSha",
+          "seq"
         ]
       }
     }

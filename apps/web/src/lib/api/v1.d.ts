@@ -80,6 +80,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/fork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fork repository
+         * @description Copy a repository under the requester. One fork per repository per owner.
+         */
+        post: operations["RepositoriesController_forkRepository"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{slug}/star": {
         parameters: {
             query?: never;
@@ -244,6 +264,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/pulls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List pull requests */
+        get: operations["PullRequestsController_getPullRequests"];
+        put?: never;
+        /** Open a pull request */
+        post: operations["PullRequestsController_createPullRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/compare/patch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patch two branches would open a request with */
+        get: operations["PullRequestsController_comparePatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The files two branches would open a request with */
+        get: operations["PullRequestsController_compare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a pull request */
+        get: operations["PullRequestsController_getPullRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/commits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Commits a pull request adds */
+        get: operations["PullRequestsController_getCommits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paths a pull request changes */
+        get: operations["PullRequestsController_getFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/patch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patch itself, as text */
+        get: operations["PullRequestsController_getPatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merge a pull request into its base branch */
+        post: operations["PullRequestsController_mergePullRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Close a pull request without merging */
+        patch: operations["PullRequestsController_closePullRequest"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -261,6 +435,11 @@ export interface components {
         };
         /** @enum {string} */
         RepositoryVisibility: "public" | "private";
+        RepositoryParentEntity: {
+            username: string;
+            slug: string;
+            name: string;
+        };
         RepositoryEntity: {
             id: string;
             name: string;
@@ -272,12 +451,27 @@ export interface components {
             updatedAt: string;
             starCount: number;
             viewerHasStarred: boolean;
+            forkCount: number;
+            /** @description Slug of the viewer's own fork of this repository, if any */
+            viewerForkSlug?: string | null;
+            /** @description The repository this one was forked from */
+            parent?: components["schemas"]["RepositoryParentEntity"] | null;
         };
         GetRepositoriesResponseDTO: {
             repositories: components["schemas"]["RepositoryEntity"][];
             /** @description Pass back as `cursor` for the next page. `null` on the last page. */
             nextCursor: string | null;
             hasMore: boolean;
+        };
+        ForkRepositoryRequestDTO: {
+            name: string;
+            description?: string;
+            visibility: components["schemas"]["RepositoryVisibility"];
+        };
+        ForkRepositoryResponseDTO: {
+            id: string;
+            slug: string;
+            username: string;
         };
         StarRepositoryResponseDTO: {
             starCount: number;
@@ -435,6 +629,117 @@ export interface components {
              */
             branches: string[];
         };
+        CreatePullRequestRequestDTO: {
+            /** @example Add a rate limiter */
+            title: string;
+            body?: string;
+            /**
+             * @description Branch to merge into, in this repository.
+             * @example main
+             */
+            base: string;
+            /**
+             * @description Branch to merge from. `owner:branch` for a fork, or a bare branch name for this repository.
+             * @example alice:feature
+             */
+            head: string;
+        };
+        /** @enum {string} */
+        PullRequestState: "open" | "closed" | "merged";
+        PullRequestSideDTO: {
+            /** @example bob */
+            username: string;
+            /** @example ghost */
+            slug: string;
+            /** @example main */
+            ref: string;
+        };
+        PullRequestDTO: {
+            id: string;
+            /** @description Per base repository, and what the URL carries. */
+            number: number;
+            title: string;
+            body: string | null;
+            state: components["schemas"]["PullRequestState"];
+            base: components["schemas"]["PullRequestSideDTO"];
+            head: components["schemas"]["PullRequestSideDTO"];
+            /** @description Head tip as of the last read. */
+            headSha: string;
+            mergeCommitSha: string | null;
+            authorUsername: string;
+            createdAt: string;
+            updatedAt: string;
+        };
+        /** @enum {string} */
+        PullRequestStateFilter: "open" | "closed" | "merged" | "all";
+        GetPullRequestsResponseDTO: {
+            pullRequests: components["schemas"]["PullRequestDTO"][];
+            nextCursor: string | null;
+            hasMore: boolean;
+        };
+        PullRequestFileDTO: {
+            /** @description `A` added, `M` modified, `D` deleted. */
+            status: string;
+            path: string;
+            additions: number;
+            deletions: number;
+            /** @description Line counts are meaningless when true. */
+            binary: boolean;
+        };
+        CompareResponseDTO: {
+            /** @description Merge base of the two branches. */
+            from: string;
+            /** @description Head tip the diff is taken to. */
+            to: string;
+            files: components["schemas"]["PullRequestFileDTO"][];
+        };
+        PullRequestDetailDTO: {
+            id: string;
+            /** @description Per base repository, and what the URL carries. */
+            number: number;
+            title: string;
+            body: string | null;
+            state: components["schemas"]["PullRequestState"];
+            base: components["schemas"]["PullRequestSideDTO"];
+            head: components["schemas"]["PullRequestSideDTO"];
+            /** @description Head tip as of the last read. */
+            headSha: string;
+            mergeCommitSha: string | null;
+            authorUsername: string;
+            createdAt: string;
+            updatedAt: string;
+            /** @description Commit the two branches diverged from. */
+            mergeBase: string | null;
+            /** @description Commits the head branch adds on top of the base. */
+            commitCount: number;
+            changedFiles: number;
+            additions: number;
+            deletions: number;
+            /** @description Whether the merge is conflict-free right now. Never cached. */
+            mergeable: boolean;
+        };
+        GetPullRequestCommitsResponseDTO: {
+            /** @description Newest first. */
+            commits: components["schemas"]["CommitDTO"][];
+            total: number;
+            nextCursor: string | null;
+        };
+        GetPullRequestFilesResponseDTO: {
+            /** @description Commit the diff is taken from, the merge base of the two branches. */
+            from: string;
+            /** @description Head tip the diff is taken to. */
+            to: string;
+            files: components["schemas"]["PullRequestFileDTO"][];
+        };
+        MergePullRequestRequestDTO: {
+            /** @description Merge commit subject. Defaults to the request title. */
+            title?: string;
+        };
+        MergePullRequestResponseDTO: {
+            mergeCommitSha: string;
+            /** @description Sequence the merge landed at in the base log. */
+            seq: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -563,6 +868,56 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_forkRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForkRepositoryRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForkRepositoryResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -874,7 +1229,10 @@ export interface operations {
     };
     RepositoriesController_getCommitPatch: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Limit the patch to one path. */
+                path?: string;
+            };
             header?: never;
             path: {
                 username: string;
@@ -933,6 +1291,367 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_getPullRequests: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["PullRequestStateFilter"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetPullRequestsResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_createPullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePullRequestRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_comparePatch: {
+        parameters: {
+            query: {
+                /** @description Branch the changes would merge into. */
+                base: string;
+                /** @description Branch the changes come from, `owner:branch` for a fork. */
+                head: string;
+                /** @description Limit the patch to one path. */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_compare: {
+        parameters: {
+            query: {
+                /** @description Branch the changes would merge into. */
+                base: string;
+                /** @description Branch the changes come from, `owner:branch` for a fork. */
+                head: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_getPullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestDetailDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_getCommits: {
+        parameters: {
+            query?: {
+                /** @description Sha to resume from, taken from a previous `nextCursor`. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetPullRequestCommitsResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_getFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetPullRequestFilesResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_getPatch: {
+        parameters: {
+            query?: {
+                /** @description Limit the patch to one path. */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_mergePullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergePullRequestRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergePullRequestResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_closePullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

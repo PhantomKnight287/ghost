@@ -10,8 +10,10 @@ import { UsersService } from '../../services/users/users.service.js';
 import {
   BlobNotFoundError,
   BranchNotFoundError,
+  CannotForkOwnRepositoryError,
   CommitNotFoundError,
   InvalidCursorError,
+  RepositoryAlreadyForkedError,
   RepositoryNotFoundError,
 } from './repositories.errors.js';
 import { decodeCursor, encodeCursor, titleToSlug } from '../../utils/index.js';
@@ -53,9 +55,9 @@ import type {
   GetRepositoryCommitsQueryDTO,
   GetRepositoryCommitsResponseDTO,
 } from './dto/get-repository-commits.dto.js';
-import { toRepoId } from '../../git/git.constants.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -70,25 +72,18 @@ export class RepositoriesService {
     private readonly pathIndex: RepositoryPathIndexService,
     private readonly branches: BranchesService,
     private readonly access: RepositoryAccessService,
+    private readonly wal: WalStoreService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
     const user = await this.usersService.getUserById(userId);
-    const { slugified, slugifiedWithSuffix } = titleToSlug(body.name);
-    let slug = slugified;
-    try {
-      await this.getRepositoryBySlug({ ownerId: user.id, slug: slugified });
-      slug = slugifiedWithSuffix;
-    } catch (_) {
-      slug = slugified;
-    }
 
     const [newRepo] = await this.db
       .insert(schema.repository)
       .values({
         name: body.name,
         ownerId: user.id,
-        slug,
+        slug: await this.freeSlug(user.id, body.name),
         description: body.description,
       })
       .returning();
@@ -105,12 +100,59 @@ export class RepositoriesService {
     query: GetRepositoriesQueryDTO = {},
   ) {
     const user = await this.usersService.getUserByUsername(username);
-    return this.getUserRepositories({
-      userId: user.id,
-      cursor: query.cursor,
-      limit: query.limit,
-      includePrivate: user.id === requesterId,
-    });
+    const includePrivate = user.id === requesterId;
+
+    const requested = Number(query.limit);
+    const pageSize = Number.isFinite(requested)
+      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
+      : DEFAULT_PAGE_SIZE;
+
+    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
+    if (query.cursor && !decoded) {
+      throw new InvalidCursorError();
+    }
+
+    // Keyset predicate matching the (lastPushedAt, id) ordering below. `id`
+    // breaks ties so repos sharing a lastPushedAt are never skipped or repeated.
+    const after = decoded
+      ? or(
+          lt(schema.repository.lastPushedAt, decoded.date),
+          and(
+            eq(schema.repository.lastPushedAt, decoded.date),
+            lt(schema.repository.id, decoded.id),
+          ),
+        )
+      : undefined;
+
+    const rows = await this.db
+      .select()
+      .from(schema.repository)
+      .where(
+        and(
+          eq(schema.repository.ownerId, user.id),
+          inArray(
+            schema.repository.visibility,
+            includePrivate ? ['private', 'public'] : ['public'],
+          ),
+          after,
+        ),
+      )
+      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
+      // one extra row tells us whether another page exists
+      .limit(pageSize + 1);
+
+    const hasMore = rows.length > pageSize;
+    const repositories = hasMore ? rows.slice(0, pageSize) : rows;
+    const last = repositories.at(-1);
+
+    return {
+      repositories,
+      nextCursor:
+        hasMore && last
+          ? encodeCursor({ date: last.lastPushedAt, id: last.id })
+          : null,
+      hasMore,
+    };
   }
 
   async getRepositoryBySlug({
@@ -149,10 +191,105 @@ export class RepositoriesService {
       slug,
       requesterId,
     });
+    const [stars, forks, parent] = await Promise.all([
+      this.readStars(repository.id, requesterId),
+
+      this.db
+        .select({
+          forkCount: count(),
+          // the viewer's own fork, so the UI can send them there instead of offering another
+          viewerForkSlug: requesterId
+            ? sql<
+                string | null
+              >`max(${schema.repository.slug}) filter (where ${schema.repository.ownerId} = ${requesterId})`
+            : sql<string | null>`null`,
+        })
+        .from(schema.repository)
+        .where(eq(schema.repository.parentRepositoryId, repository.id)),
+
+      repository.parentRepositoryId
+        ? this.db
+            .select({
+              username: schema.user.username,
+              slug: schema.repository.slug,
+              name: schema.repository.name,
+            })
+            .from(schema.repository)
+            .innerJoin(
+              schema.user,
+              eq(schema.user.id, schema.repository.ownerId),
+            )
+            .where(eq(schema.repository.id, repository.parentRepositoryId))
+        : [],
+    ]);
+
     return {
       ...repository,
-      ...(await this.readStars(repository.id, requesterId)),
+      ...stars,
+      forkCount: forks[0]?.forkCount ?? 0,
+      viewerForkSlug: forks[0]?.viewerForkSlug ?? null,
+      parent: parent[0]?.username
+        ? { ...parent[0], username: parent[0].username }
+        : null,
     };
+  }
+
+  async forkRepository({
+    username,
+    slug,
+    requesterId,
+    name,
+    description,
+    visibility,
+  }: {
+    username: string;
+    slug: string;
+    requesterId: string;
+    name: string;
+    description?: string;
+    visibility: 'public' | 'private';
+  }) {
+    const parent = await this.authorizeRead({ username, slug, requesterId });
+    if (parent.ownerId === requesterId)
+      throw new CannotForkOwnRepositoryError();
+
+    const [existing] = await this.db
+      .select({ slug: schema.repository.slug })
+      .from(schema.repository)
+      .where(
+        and(
+          eq(schema.repository.ownerId, requesterId),
+          eq(schema.repository.parentRepositoryId, parent.id),
+        ),
+      );
+    if (existing) throw new RepositoryAlreadyForkedError(existing.slug);
+
+    const owner = await this.usersService.getUserById(requesterId);
+    const [fork] = await this.db
+      .insert(schema.repository)
+      .values({
+        name,
+        description,
+        visibility,
+        slug: await this.freeSlug(requesterId, name),
+        ownerId: requesterId,
+        parentRepositoryId: parent.id,
+      })
+      .returning();
+
+    await this.wal.copyLog(parent.id, fork.id);
+
+    return { id: fork.id, slug: fork.slug, username: owner.username ?? '' };
+  }
+
+  private async freeSlug(ownerId: string, name: string) {
+    const { slugified, slugifiedWithSuffix } = titleToSlug(name);
+    try {
+      await this.getRepositoryBySlug({ ownerId, slug: slugified });
+      return slugifiedWithSuffix;
+    } catch (_) {
+      return slugified;
+    }
   }
 
   /** Stars are a toggle, so a repeat press is a no-op rather than an error. */
@@ -516,11 +653,13 @@ export class RepositoriesService {
     username,
     repo,
     sha,
+    path,
     requesterId,
   }: {
     username: string;
     repo: string;
     sha: string;
+    path?: string;
     requesterId?: string;
   }) {
     if (!isSha(sha)) throw new CommitNotFoundError(sha);
@@ -533,7 +672,14 @@ export class RepositoriesService {
 
     // -1 keeps it to this commit; a merge legitimately produces no patch
     const patch = await runGit({
-      args: ['format-patch', '-1', '--stdout', '--end-of-options', sha],
+      args: [
+        'format-patch',
+        '-1',
+        '--stdout',
+        '--end-of-options',
+        sha,
+        ...(path ? ['--', `:(literal)${path}`] : []),
+      ],
       gitDir: directory,
     }).catch(() => null);
     if (patch === null) throw new CommitNotFoundError(sha);
@@ -611,8 +757,8 @@ export class RepositoriesService {
       requesterId,
     });
 
-    const directory = await this.storage.getRepoPath({ username, repo });
-    await this.materializer.materialize(toRepoId(username, repo), directory);
+    const directory = await this.storage.getRepoPath(repository.id);
+    await this.materializer.materialize(repository.id, directory);
 
     const name = requested?.trim();
     if (!name) {
@@ -634,70 +780,6 @@ export class RepositoriesService {
     if (resolved) return { repository, directory, ...resolved };
 
     throw new BranchNotFoundError(name);
-  }
-
-  private async getUserRepositories({
-    cursor,
-    includePrivate = false,
-    limit = DEFAULT_PAGE_SIZE,
-    userId,
-  }: {
-    userId: string;
-    cursor?: string;
-    limit?: number;
-    includePrivate?: boolean;
-  }) {
-    const requested = Number(limit);
-    const pageSize = Number.isFinite(requested)
-      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
-      : DEFAULT_PAGE_SIZE;
-
-    const decoded = cursor ? decodeCursor(cursor) : null;
-    if (cursor && !decoded) {
-      throw new InvalidCursorError();
-    }
-
-    // Keyset predicate matching the (lastPushedAt, id) ordering below. `id`
-    // breaks ties so repos sharing a lastPushedAt are never skipped or repeated.
-    const after = decoded
-      ? or(
-          lt(schema.repository.lastPushedAt, decoded.date),
-          and(
-            eq(schema.repository.lastPushedAt, decoded.date),
-            lt(schema.repository.id, decoded.id),
-          ),
-        )
-      : undefined;
-
-    const rows = await this.db
-      .select()
-      .from(schema.repository)
-      .where(
-        and(
-          eq(schema.repository.ownerId, userId),
-          inArray(
-            schema.repository.visibility,
-            includePrivate ? ['private', 'public'] : ['public'],
-          ),
-          after,
-        ),
-      )
-      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      // one extra row tells us whether another page exists
-      .limit(pageSize + 1);
-
-    const hasMore = rows.length > pageSize;
-    const repositories = hasMore ? rows.slice(0, pageSize) : rows;
-    const last = repositories.at(-1);
-
-    return {
-      repositories,
-      nextCursor:
-        hasMore && last
-          ? encodeCursor({ date: last.lastPushedAt, id: last.id })
-          : null,
-      hasMore,
-    };
   }
 }
 

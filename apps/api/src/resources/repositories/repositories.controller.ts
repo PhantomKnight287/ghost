@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
@@ -36,6 +37,7 @@ import {
 } from './dto/get-repository-blob.dto.js';
 import { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
 import {
+  GetCommitPatchQueryDTO,
   GetRepositoryCommitResponseDTO,
   GetRepositoryCommitsQueryDTO,
   GetRepositoryCommitsResponseDTO,
@@ -45,6 +47,10 @@ import {
   GetRepositoryContentsResponseDTO,
 } from './dto/get-repository-contents.dto.js';
 import { StarRepositoryResponseDTO } from './dto/star-repository.dto.js';
+import {
+  ForkRepositoryRequestDTO,
+  ForkRepositoryResponseDTO,
+} from './dto/fork-repository.dto.js';
 import { RepositoryEntity } from './entities/repository.entity.js';
 import { RepositoriesService } from './repositories.service.js';
 
@@ -125,6 +131,38 @@ export class RepositoriesController {
       username,
       slug,
       requesterId: session?.user?.id,
+    });
+  }
+
+  @Post(':username/:slug/fork')
+  @ApiOperation({
+    summary: 'Fork repository',
+    description:
+      'Copy a repository under the requester. One fork per repository per owner.',
+  })
+  @ApiCreatedResponse({
+    type: ForkRepositoryResponseDTO,
+  })
+  @ApiConflictResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiInternalServerErrorResponse({
+    type: ErrorResponseDTO,
+  })
+  forkRepository(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Body() body: ForkRepositoryRequestDTO,
+    @Session() session: UserSession,
+  ) {
+    return this.repositoriesService.forkRepository({
+      username,
+      slug,
+      requesterId: session.user.id,
+      ...body,
     });
   }
 
@@ -380,6 +418,7 @@ export class RepositoriesController {
     @Param('username') username: string,
     @Param('slug') slug: string,
     @Param('sha') sha: string,
+    @Query() query: GetCommitPatchQueryDTO,
     @Session() session: UserSession | undefined,
     @Res({ passthrough: true }) response: Response,
   ): Promise<string> {
@@ -387,6 +426,7 @@ export class RepositoriesController {
       username,
       repo: slug,
       sha,
+      path: query.path,
       requesterId: session?.user?.id,
     });
 

@@ -9,6 +9,22 @@ export class RepositoryNotFoundError extends DomainError {
   }
 }
 
+export class RepositoryAlreadyForkedError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor(slug: string) {
+    super(`You already have a fork of this repository: ${slug}`);
+  }
+}
+
+export class CannotForkOwnRepositoryError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor() {
+    super('You already own this repository');
+  }
+}
+
 export class InvalidCursorError extends DomainError {
   status: number = HttpStatus.BAD_REQUEST;
 

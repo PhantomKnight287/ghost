@@ -148,3 +148,11 @@ export class GetRepositoryCommitResponseDTO extends CommitDTO {
   @Type(() => CommitFileDTO)
   files: CommitFileDTO[];
 }
+
+export class GetCommitPatchQueryDTO {
+  @ApiPropertyOptional({ description: 'Limit the patch to one path.' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(4096)
+  path?: string;
+}

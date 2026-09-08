@@ -1,12 +1,11 @@
+import { GitCommitHorizontal } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { preloadPatchFile } from "@pierre/diffs/ssr";
-import { GitCommitHorizontal } from "lucide-react";
 
+import { FileDiffs } from "@/components/diffs/file-diffs";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { createServerClient } from "@/lib/api/server";
-
-import { CommitDiff } from "./page.client";
+import { API_URL } from "@/lib/env";
 
 export default async function RepositoryCommitPage({
   params,
@@ -15,26 +14,13 @@ export default async function RepositoryCommitPage({
 
   const client = await createServerClient();
 
-  const [commit, patch] = await Promise.all([
-    client.GET("/api/repositories/{username}/{slug}/commits/{sha}", {
-      params: { path: { username, slug: repo, sha: hash } },
-    }),
-    client.GET("/api/repositories/{username}/{slug}/commits/{sha}/patch", {
-      params: { path: { username, slug: repo, sha: hash } },
-      parseAs: "text",
-    }),
-  ]);
+  const commit = await client.GET(
+    "/api/repositories/{username}/{slug}/commits/{sha}",
+    { params: { path: { username, slug: repo, sha: hash } } },
+  );
 
   if (commit.response.status === 404) notFound();
   if (!commit.data) throw new Error(`Failed to read commit ${hash}`);
-
-  const files = await preloadPatchFile({
-    patch: typeof patch.data === "string" ? patch.data : "",
-    options: {
-      theme: { light: "pierre-light", dark: "pierre-dark" },
-      diffStyle: "split",
-    },
-  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -65,12 +51,15 @@ export default async function RepositoryCommitPage({
         )}
       </div>
 
-      {files.length === 0 ? (
+      {commit.data.files.length === 0 ? (
         <p className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
           This commit has no textual changes.
         </p>
       ) : (
-        <CommitDiff files={files} />
+        <FileDiffs
+          patchUrl={`${API_URL}/api/repositories/${username}/${repo}/commits/${hash}/patch`}
+          files={commit.data.files}
+        />
       )}
     </div>
   );

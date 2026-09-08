@@ -20,3 +20,7 @@ export const createRepositorySchema = z.object({
 });
 
 export type CreateRepositoryInput = z.infer<typeof createRepositorySchema>;
+
+export const forkRepositorySchema = createRepositorySchema;
+
+export type ForkRepositoryInput = CreateRepositoryInput;

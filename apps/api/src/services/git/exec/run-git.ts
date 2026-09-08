@@ -9,6 +9,8 @@ export interface RunGitOptions {
   args: string[];
   gitDir: string;
   input?: Buffer | Readable;
+  /** Merged over the inherited environment, after `GIT_DIR`. */
+  env?: Record<string, string>;
 }
 
 export async function runGit(options: RunGitOptions): Promise<string> {
@@ -20,10 +22,11 @@ export async function runGitBuffer({
   args,
   gitDir,
   input,
+  env,
 }: RunGitOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const child = spawn('git', args, {
-      env: { ...process.env, GIT_DIR: gitDir },
+      env: { ...process.env, GIT_DIR: gitDir, ...env },
     });
 
     const stdout: Buffer[] = [];
@@ -50,9 +53,9 @@ export async function runGitBuffer({
 }
 
 /** git's stdout as a stream, for output too large to hold in memory. */
-export function runGitReadable({ args, gitDir }: RunGitOptions): Readable {
+export function runGitReadable({ args, gitDir, env }: RunGitOptions): Readable {
   const child = spawn('git', args, {
-    env: { ...process.env, GIT_DIR: gitDir },
+    env: { ...process.env, GIT_DIR: gitDir, ...env },
   });
   child.stdin.end();
   child.on('error', (error) => child.stdout.destroy(error));
@@ -73,9 +76,10 @@ export async function* runGitStream({
   args,
   gitDir,
   input,
+  env,
 }: RunGitOptions): AsyncGenerator<string> {
   const child = spawn('git', args, {
-    env: { ...process.env, GIT_DIR: gitDir },
+    env: { ...process.env, GIT_DIR: gitDir, ...env },
   });
 
   if (input === undefined) child.stdin.end();

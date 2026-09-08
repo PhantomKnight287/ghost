@@ -8,6 +8,20 @@ import {
   IsString,
 } from 'class-validator';
 
+export class RepositoryParentEntity {
+  @ApiProperty()
+  @IsString()
+  username: string;
+
+  @ApiProperty()
+  @IsString()
+  slug: string;
+
+  @ApiProperty()
+  @IsString()
+  name: string;
+}
+
 export class RepositoryEntity {
   @ApiProperty()
   @IsString()
@@ -52,4 +66,25 @@ export class RepositoryEntity {
   @ApiProperty()
   @IsBoolean()
   viewerHasStarred: boolean;
+
+  @ApiProperty()
+  @IsInt()
+  forkCount: number;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: "Slug of the viewer's own fork of this repository, if any",
+  })
+  @IsString()
+  @IsOptional()
+  viewerForkSlug: string | null;
+
+  @ApiPropertyOptional({
+    type: RepositoryParentEntity,
+    nullable: true,
+    description: 'The repository this one was forked from',
+  })
+  @IsOptional()
+  parent: RepositoryParentEntity | null;
 }

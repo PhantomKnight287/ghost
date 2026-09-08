@@ -4,17 +4,22 @@ import os from 'node:os';
 import fs, { mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
+import { InvalidRepositoryPathError } from '../../../resources/repositories/repositories.errors.js';
+
+const CACHE_ROOT = path.join(os.tmpdir(), 'ghost');
+
 @Injectable()
 export class RepositoryStorageService {
   /**
-   * This function converts the username and repo to safe string and then ensures that the folder exists. WAL replay will be added soon.
+   * Local cache directory for a repository. Keyed by the row id so renaming a
+   * user or a repository never moves the cache or orphans its log.
    */
-  async getRepoPath({ repo, username }: { username: string; repo: string }) {
-    const potentiallyUnsafePath = `${username}/${repo}`;
-    const safe = potentiallyUnsafePath
-      .replace(/\.git$/, '')
-      .replace(/[^a-zA-Z0-9._/-]/g, '');
-    const dir = path.join(os.tmpdir(), safe + '.git');
+  async getRepoPath(repositoryId: string) {
+    if (!/^[A-Za-z0-9_-]+$/.test(repositoryId)) {
+      throw new InvalidRepositoryPathError(`bad repository id`);
+    }
+
+    const dir = path.join(CACHE_ROOT, `${repositoryId}.git`);
     if (!fs.existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
       spawnSync('git', ['init', '--bare', dir]);

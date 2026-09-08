@@ -29,11 +29,6 @@ export function toGitBinary(service: GitServiceName) {
 
 export const FLUSH_PACKET = '0000';
 
-/** Stable identity for a repository in object storage. */
-export function toRepoId(username: string, repo: string) {
-  return `${username}/${repo}`.replace(/\.git$/, '');
-}
-
 /**
  * Git's smart-HTTP endpoints. Clients append these paths to the clone URL, so
  * they have to sit at the root rather than behind the `/api` prefix - they are

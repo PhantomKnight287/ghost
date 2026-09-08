@@ -9,7 +9,7 @@ import {
   RepositoryForbiddenError,
 } from './repository-access.errors.js';
 
-type Repository = typeof schema.repository.$inferSelect;
+export type Repository = typeof schema.repository.$inferSelect;
 
 export type Actor = { userId: string } | null;
 
