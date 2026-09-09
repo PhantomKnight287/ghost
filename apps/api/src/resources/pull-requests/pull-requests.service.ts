@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { listCommits } from '../../services/git/commits/list-commits.js';
@@ -32,7 +32,10 @@ import {
   BranchNotFoundError,
   InvalidCursorError,
 } from '../repositories/repositories.errors.js';
-import { CreatePullRequestRequestDTO } from './dto/create-pull-request.dto.js';
+import {
+  CreatePullRequestRequestDTO,
+  UpdatePullRequestRequestDTO,
+} from './dto/create-pull-request.dto.js';
 import { GetPullRequestsQueryDTO } from './dto/pull-request.dto.js';
 import {
   NothingToMergeError,
@@ -236,8 +239,19 @@ export class PullRequestsService {
     const page = hasMore ? rows.slice(0, pageSize) : rows;
     const last = page.at(-1);
 
+    const [totals] = await this.db
+      .select({ total: count() })
+      .from(schema.pullRequest)
+      .where(
+        and(
+          eq(schema.pullRequest.baseRepositoryId, base.id),
+          state === 'all' ? undefined : eq(schema.pullRequest.state, state),
+        ),
+      );
+
     return {
       pullRequests: await Promise.all(page.map((row) => this.toDTO(row))),
+      total: totals?.total ?? 0,
       nextCursor:
         hasMore && last
           ? encodeCursor({ date: last.createdAt, id: last.id })
@@ -427,6 +441,35 @@ export class PullRequestsService {
     }
   }
 
+  /** Title and description only - the branches a request spans never move. */
+  async updatePullRequest(
+    params: PullRequestRef & {
+      requesterId: string;
+      body: UpdatePullRequestRequestDTO;
+    },
+  ) {
+    const { pullRequest } = await this.load(params);
+    if (pullRequest.authorId !== params.requesterId) {
+      await this.authorize({ ...params, operation: 'write' });
+    }
+
+    const { title, body } = params.body;
+    if (title === undefined && body === undefined) {
+      return this.toDTO(pullRequest);
+    }
+
+    const [updated] = await this.db
+      .update(schema.pullRequest)
+      .set({
+        ...(title === undefined ? {} : { title }),
+        ...(body === undefined ? {} : { body }),
+      })
+      .where(eq(schema.pullRequest.id, pullRequest.id))
+      .returning();
+
+    return this.toDTO(updated);
+  }
+
   async closePullRequest(params: PullRequestRef) {
     const { pullRequest } = await this.load(params);
     if (pullRequest.authorId !== params.requesterId) {
@@ -443,6 +486,54 @@ export class PullRequestsService {
       .returning();
 
     return this.toDTO(closed);
+  }
+
+  /**
+   * Anyone who can read the request can read its comments, and anyone who can
+   * read it can add one - the same bar GitHub sets for a public repository.
+   */
+  async getComments(params: PullRequestRef) {
+    const { pullRequest } = await this.load(params);
+
+    // ponytail: unpaginated, add a cursor if a thread ever outgrows one page
+    const rows = await this.db
+      .select({
+        id: schema.pullRequestComment.id,
+        body: schema.pullRequestComment.body,
+        authorUsername: schema.user.username,
+        createdAt: schema.pullRequestComment.createdAt,
+        updatedAt: schema.pullRequestComment.updatedAt,
+      })
+      .from(schema.pullRequestComment)
+      .innerJoin(
+        schema.user,
+        eq(schema.user.id, schema.pullRequestComment.authorId),
+      )
+      .where(eq(schema.pullRequestComment.pullRequestId, pullRequest.id))
+      .orderBy(
+        asc(schema.pullRequestComment.createdAt),
+        asc(schema.pullRequestComment.id),
+      );
+
+    return { comments: rows.map((row) => toCommentDTO(row)) };
+  }
+
+  async createComment(
+    params: PullRequestRef & { requesterId: string; body: string },
+  ) {
+    const { pullRequest } = await this.load(params);
+
+    const [created] = await this.db
+      .insert(schema.pullRequestComment)
+      .values({
+        pullRequestId: pullRequest.id,
+        authorId: params.requesterId,
+        body: params.body,
+      })
+      .returning();
+
+    const author = await this.users.getUserById(params.requesterId);
+    return toCommentDTO({ ...created, authorUsername: author.username });
   }
 
   /** Materializes both sides and resolves the range the request covers. */
@@ -673,4 +764,20 @@ function isUniqueViolation(error: unknown) {
     'code' in error &&
     (error as { code?: string }).code === '23505'
   );
+}
+
+function toCommentDTO(row: {
+  id: string;
+  body: string;
+  authorUsername: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: row.id,
+    body: row.body,
+    authorUsername: row.authorUsername ?? '',
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
 }

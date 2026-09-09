@@ -18,6 +18,8 @@ export type RepositoryFrameProps = {
   starCount: number;
   viewerHasStarred: boolean;
   forkCount: number;
+  /** Open requests only, shown on the Pull requests tab. */
+  openPullRequestCount?: number;
   parent?: RepositoryParent | null;
   children: ReactNode;
 };

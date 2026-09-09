@@ -23,10 +23,14 @@ export default async function RepositoryLayout({
     throw new Error(`Failed to load ${username}/${repo}`);
   }
 
-  const branches = await client.GET(
-    "/api/repositories/{username}/{slug}/branches",
-    { params: { path: { username, slug: repo } } },
-  );
+  const [branches, pulls] = await Promise.all([
+    client.GET("/api/repositories/{username}/{slug}/branches", {
+      params: { path: { username, slug: repo } },
+    }),
+    client.GET("/api/repositories/{username}/{repo}/pulls", {
+      params: { path: { username, repo }, query: { state: "open", limit: 1 } },
+    }),
+  ]);
 
   return (
     <RepositoryFrame
@@ -41,6 +45,7 @@ export default async function RepositoryLayout({
       starCount={repository.data.starCount}
       viewerHasStarred={repository.data.viewerHasStarred}
       forkCount={repository.data.forkCount}
+      openPullRequestCount={pulls.data?.total}
       parent={repository.data.parent}
     >
       {children}

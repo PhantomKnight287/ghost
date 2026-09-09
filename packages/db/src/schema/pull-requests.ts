@@ -79,3 +79,34 @@ export const pullRequest = pgTable(
     index("pull_request_base_state_idx").on(t.baseRepositoryId, t.state),
   ],
 );
+
+/** Timeline comments on a pull request, oldest first. */
+export const pullRequestComment = pgTable(
+  "pull_request_comment",
+  {
+    id: text()
+      .primaryKey()
+      .unique()
+      .notNull()
+      .$defaultFn(() => `prc_${createId()}`),
+    pullRequestId: text()
+      .references(() => pullRequest.id, { onDelete: "cascade" })
+      .notNull(),
+    authorId: text()
+      .references(() => user.id, { onDelete: "cascade" })
+      .notNull(),
+    body: text().notNull(),
+
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp()
+      .notNull()
+      .defaultNow()
+      .$onUpdateFn(() => new Date()),
+  },
+  (t) => [
+    index("pull_request_comment_pull_request_idx").on(
+      t.pullRequestId,
+      t.createdAt,
+    ),
+  ],
+);

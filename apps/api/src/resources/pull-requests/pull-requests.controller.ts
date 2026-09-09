@@ -26,7 +26,15 @@ import {
   CompareQueryDTO,
   CompareResponseDTO,
 } from './dto/compare.dto.js';
-import { CreatePullRequestRequestDTO } from './dto/create-pull-request.dto.js';
+import {
+  CreatePullRequestRequestDTO,
+  UpdatePullRequestRequestDTO,
+} from './dto/create-pull-request.dto.js';
+import {
+  CreatePullRequestCommentRequestDTO,
+  GetPullRequestCommentsResponseDTO,
+  PullRequestCommentDTO,
+} from './dto/pull-request-comment.dto.js';
 import {
   GetPullRequestsQueryDTO,
   GetPullRequestsResponseDTO,
@@ -212,6 +220,45 @@ export class PullRequestsController {
     );
   }
 
+  @Get(':number/comments')
+  @OptionalAuth()
+  @ApiOperation({ summary: 'Comments on a pull request' })
+  @ApiOkResponse({ type: GetPullRequestCommentsResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  getComments(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Session() session: UserSession,
+  ) {
+    return this.pullRequests.getComments({
+      username,
+      repo,
+      number,
+      requesterId: session?.user?.id,
+    });
+  }
+
+  @Post(':number/comments')
+  @ApiOperation({ summary: 'Comment on a pull request' })
+  @ApiCreatedResponse({ type: PullRequestCommentDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  createComment(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Body() body: CreatePullRequestCommentRequestDTO,
+    @Session() session: UserSession,
+  ) {
+    return this.pullRequests.createComment({
+      username,
+      repo,
+      number,
+      requesterId: session.user.id,
+      body: body.body,
+    });
+  }
+
   @Post(':number/merge')
   @ApiOperation({ summary: 'Merge a pull request into its base branch' })
   @ApiOkResponse({ type: MergePullRequestResponseDTO })
@@ -230,6 +277,26 @@ export class PullRequestsController {
       number,
       requesterId: session.user.id,
       title: body.title,
+    });
+  }
+
+  @Patch(':number')
+  @ApiOperation({ summary: 'Edit a pull request title or description' })
+  @ApiOkResponse({ type: PullRequestDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  updatePullRequest(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Body() body: UpdatePullRequestRequestDTO,
+    @Session() session: UserSession,
+  ) {
+    return this.pullRequests.updatePullRequest({
+      username,
+      repo,
+      number,
+      requesterId: session.user.id,
+      body,
     });
   }
 

@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 
+import { FromNowHoverCard } from "@/components/from-now-card";
+import { Markdown } from "@/components/markdown";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 
-import { MergePanel } from "./page.client";
+import { CommentBox, EditableField, MergePanel } from "./page.client";
 
 export default async function PullRequestPage({
   params,
@@ -14,15 +16,23 @@ export default async function PullRequestPage({
     createServerClient(),
   ]);
 
-  const pull = await client.GET(
-    "/api/repositories/{username}/{repo}/pulls/{number}",
-    { params: { path: { username, repo, number: Number(number) } } },
-  );
+  const path = { username, repo, number: Number(number) };
+  const [pull, comments] = await Promise.all([
+    client.GET("/api/repositories/{username}/{repo}/pulls/{number}", {
+      params: { path },
+    }),
+    client.GET("/api/repositories/{username}/{repo}/pulls/{number}/comments", {
+      params: { path },
+    }),
+  ]);
 
   if (pull.response.status === 404) notFound();
   if (!pull.data) throw new Error(`Failed to load pull request #${number}`);
 
   const viewer = session?.user.username;
+  const canEdit =
+    Boolean(viewer) &&
+    (viewer === pull.data.authorUsername || viewer === username);
 
   return (
     <div className="flex flex-col gap-4">
@@ -31,13 +41,20 @@ export default async function PullRequestPage({
           {pull.data.authorUsername}
         </div>
         <div className="px-4 py-3 text-sm">
-          {pull.data.body ? (
-            <pre className="whitespace-pre-wrap font-sans">
-              {pull.data.body}
-            </pre>
-          ) : (
-            <p className="text-muted-foreground">No description provided.</p>
-          )}
+          <EditableField
+            username={username}
+            repo={repo}
+            number={Number(number)}
+            field="body"
+            value={pull.data.body ?? ""}
+            canEdit={canEdit}
+          >
+            {pull.data.body ? (
+              <Markdown>{pull.data.body}</Markdown>
+            ) : (
+              <p className="text-muted-foreground">No description provided.</p>
+            )}
+          </EditableField>
         </div>
       </div>
 
@@ -54,6 +71,27 @@ export default async function PullRequestPage({
           </div>
         ))}
       </dl>
+
+      {(comments.data?.comments ?? []).map((comment) => (
+        <div key={comment.id} className="rounded-lg border">
+          <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {comment.authorUsername}
+            </span>
+            commented <FromNowHoverCard date={comment.createdAt} />
+          </div>
+          <div className="px-4 py-3">
+            <Markdown>{comment.body}</Markdown>
+          </div>
+        </div>
+      ))}
+
+      <CommentBox
+        username={username}
+        repo={repo}
+        number={Number(number)}
+        signedIn={Boolean(viewer)}
+      />
 
       <MergePanel
         username={username}

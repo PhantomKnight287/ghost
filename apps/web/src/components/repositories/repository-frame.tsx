@@ -37,6 +37,7 @@ export function RepositoryFrame({
   starCount,
   viewerHasStarred,
   forkCount,
+  openPullRequestCount,
   parent,
   children,
 }: RepositoryFrameProps) {
@@ -57,12 +58,13 @@ export function RepositoryFrame({
   const treeBase = `${base}/tree/${encodeURIComponent(rev ?? "")}`;
 
   const tabs = [
-    { value: "code", label: "Code", icon: Code2, href: base },
+    { value: "code", label: "Code", icon: Code2, href: base, count: null },
     {
       value: "pulls",
       label: "Pull requests",
       icon: GitPullRequest,
       href: `${base}/pulls`,
+      count: openPullRequestCount ?? null,
     },
   ];
   const activeTab = view === "pulls" ? "pulls" : "code";
@@ -138,7 +140,7 @@ export function RepositoryFrame({
           </div>
 
           <nav className="-mb-px flex gap-1 overflow-x-auto">
-            {tabs.map(({ value, label, icon: Icon, href }) => (
+            {tabs.map(({ value, label, icon: Icon, href, count }) => (
               <Link
                 key={value}
                 href={href}
@@ -148,6 +150,11 @@ export function RepositoryFrame({
               >
                 <Icon className="size-4" />
                 {label}
+                {count !== null && (
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+                    {count}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>

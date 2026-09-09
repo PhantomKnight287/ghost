@@ -1,16 +1,21 @@
 "use client";
 
-import { GitMerge } from "lucide-react";
+import { GitMerge, Pencil } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import {
   closePullRequest,
+  commentOnPullRequest,
   mergePullRequest,
+  updatePullRequest,
 } from "@/components/pull-requests/actions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 export function PullRequestNav({
@@ -157,5 +162,190 @@ export function MergePanel({
         )}
       </div>
     </div>
+  );
+}
+
+export function CommentBox({
+  username,
+  repo,
+  number,
+  signedIn,
+}: {
+  username: string;
+  repo: string;
+  number: number;
+  signedIn: boolean;
+}) {
+  const router = useRouter();
+  const [body, setBody] = useState("");
+
+  const comment = useAction(commentOnPullRequest, {
+    onSuccess: () => {
+      setBody("");
+      router.refresh();
+    },
+    onError: ({ error }) =>
+      toast.error(
+        error.validationErrors?.body?._errors?.[0] ??
+          error.serverError ??
+          "Could not post this comment.",
+      ),
+  });
+
+  if (!signedIn) {
+    return (
+      <p className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
+        <Link href="/auth/sign-in" className="text-primary hover:underline">
+          Sign in
+        </Link>{" "}
+        to comment on this pull request.
+      </p>
+    );
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2 rounded-lg border px-4 py-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        comment.execute({ username, repo, number, body });
+      }}
+    >
+      <Textarea
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+        rows={4}
+        maxLength={20000}
+        placeholder="Leave a comment. Markdown is supported."
+        disabled={comment.isExecuting}
+      />
+
+      <div className="flex justify-end">
+        <Button
+          type="submit"
+          size="sm"
+          disabled={comment.isExecuting || body.trim().length === 0}
+        >
+          {comment.isExecuting && <Spinner />}
+          Comment
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Read view until the pencil is clicked, then a single field editing the
+ * request's title or description. Both fields are the same PATCH, so both use
+ * this; nothing else about a request is editable.
+ */
+export function EditableField({
+  username,
+  repo,
+  number,
+  field,
+  value,
+  canEdit,
+  children,
+}: {
+  username: string;
+  repo: string;
+  number: number;
+  field: "title" | "body";
+  value: string;
+  canEdit: boolean;
+  children: ReactNode;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  const update = useAction(updatePullRequest, {
+    onSuccess: () => {
+      setEditing(false);
+      router.refresh();
+    },
+    onError: ({ error }) =>
+      toast.error(
+        error.validationErrors?.[field]?._errors?.[0] ??
+          error.serverError ??
+          "Could not save this change.",
+      ),
+  });
+
+  if (!canEdit) return children;
+
+  if (!editing) {
+    return (
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">{children}</div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0"
+          onClick={() => {
+            setDraft(value);
+            setEditing(true);
+          }}
+        >
+          <Pencil data-icon="inline-start" />
+          Edit
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        update.execute(
+          field === "title"
+            ? { username, repo, number, title: draft }
+            : { username, repo, number, body: draft.trim() ? draft : null },
+        );
+      }}
+    >
+      {field === "title" ? (
+        <Input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          maxLength={200}
+          autoFocus
+          disabled={update.isExecuting}
+        />
+      ) : (
+        <Textarea
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          rows={6}
+          maxLength={20000}
+          placeholder="Describe this pull request. Markdown is supported."
+          autoFocus
+          disabled={update.isExecuting}
+        />
+      )}
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={update.isExecuting}
+          onClick={() => setEditing(false)}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={update.isExecuting || (field === "title" && !draft.trim())}
+        >
+          {update.isExecuting && <Spinner />}
+          Save
+        </Button>
+      </div>
+    </form>
   );
 }

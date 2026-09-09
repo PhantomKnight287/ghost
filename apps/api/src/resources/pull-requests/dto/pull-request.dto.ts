@@ -147,6 +147,10 @@ export class GetPullRequestsResponseDTO {
   @Type(() => PullRequestDTO)
   pullRequests: PullRequestDTO[];
 
+  @ApiProperty({ description: 'Matching the state filter, ignoring the page.' })
+  @IsInt()
+  total: number;
+
   @ApiProperty({ type: String, nullable: true })
   @IsString()
   @IsOptional()

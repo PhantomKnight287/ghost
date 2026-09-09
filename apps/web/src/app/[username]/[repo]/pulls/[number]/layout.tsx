@@ -4,10 +4,10 @@ import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { Badge } from "@/components/ui/badge";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, getServerSession } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 
-import { PullRequestNav } from "./page.client";
+import { EditableField, PullRequestNav } from "./page.client";
 
 export default async function PullRequestLayout({
   params,
@@ -15,7 +15,10 @@ export default async function PullRequestLayout({
 }: LayoutProps<"/[username]/[repo]/pulls/[number]">) {
   const { username, repo, number } = await params;
 
-  const client = await createServerClient();
+  const [session, client] = await Promise.all([
+    getServerSession(),
+    createServerClient(),
+  ]);
   const pull = await client.GET(
     "/api/repositories/{username}/{repo}/pulls/{number}",
     { params: { path: { username, repo, number: Number(number) } } },
@@ -27,6 +30,11 @@ export default async function PullRequestLayout({
   }
 
   const { state, base, head } = pull.data;
+  const viewer = session?.user.username;
+  // the author, or whoever can write to the base repository
+  const canEdit =
+    Boolean(viewer) &&
+    (viewer === pull.data.authorUsername || viewer === username);
   const Icon =
     state === "merged"
       ? GitMerge
@@ -37,12 +45,21 @@ export default async function PullRequestLayout({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <h1 className="text-xl font-semibold">
-          {pull.data.title}{" "}
-          <span className="font-normal text-muted-foreground">
-            #{pull.data.number}
-          </span>
-        </h1>
+        <EditableField
+          username={username}
+          repo={repo}
+          number={pull.data.number}
+          field="title"
+          value={pull.data.title}
+          canEdit={canEdit}
+        >
+          <h1 className="text-xl font-semibold">
+            {pull.data.title}{" "}
+            <span className="font-normal text-muted-foreground">
+              #{pull.data.number}
+            </span>
+          </h1>
+        </EditableField>
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Badge

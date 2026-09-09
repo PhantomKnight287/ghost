@@ -1278,6 +1278,71 @@
         "tags": [
           "Pull requests"
         ]
+      },
+      "patch": {
+        "operationId": "PullRequestsController_updatePullRequest",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePullRequestRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Edit a pull request title or description",
+        "tags": [
+          "Pull requests"
+        ]
       }
     },
     "/api/repositories/{username}/{repo}/pulls/{number}/commits": {
@@ -1475,6 +1540,128 @@
           }
         },
         "summary": "The patch itself, as text",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments": {
+      "get": {
+        "operationId": "PullRequestsController_getComments",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPullRequestCommentsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Comments on a pull request",
+        "tags": [
+          "Pull requests"
+        ]
+      },
+      "post": {
+        "operationId": "PullRequestsController_createComment",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePullRequestCommentRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestCommentDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Comment on a pull request",
         "tags": [
           "Pull requests"
         ]
@@ -2345,6 +2532,10 @@
               "$ref": "#/components/schemas/PullRequestDTO"
             }
           },
+          "total": {
+            "type": "number",
+            "description": "Matching the state filter, ignoring the page."
+          },
           "nextCursor": {
             "type": "string",
             "nullable": true
@@ -2355,6 +2546,7 @@
         },
         "required": [
           "pullRequests",
+          "total",
           "nextCursor",
           "hasMore"
         ]
@@ -2551,6 +2743,60 @@
           "files"
         ]
       },
+      "PullRequestCommentDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown, rendered by the client."
+          },
+          "authorUsername": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body",
+          "authorUsername",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "GetPullRequestCommentsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PullRequestCommentDTO"
+            }
+          }
+        },
+        "required": [
+          "comments"
+        ]
+      },
+      "CreatePullRequestCommentRequestDTO": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
       "MergePullRequestRequestDTO": {
         "type": "object",
         "properties": {
@@ -2575,6 +2821,20 @@
           "mergeCommitSha",
           "seq"
         ]
+      },
+      "UpdatePullRequestRequestDTO": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Add a rate limiter"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown. `null` clears the description."
+          }
+        }
       }
     }
   }
