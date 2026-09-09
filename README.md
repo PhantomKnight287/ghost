@@ -57,21 +57,23 @@ Not built yet: webhooks, issues, CI.
 | Web      | Next.js 16, React 19, Tailwind, shadcn/ui             |
 | API      | NestJS 12, OpenAPI client generated for the web       |
 | Database | Postgres, Drizzle                                     |
-| Storage  | S3-compatible bucket (MinIO locally)                  |
+| Storage  | S3-compatible bucket (RustFS locally)                 |
 | Runtime  | Bun, Turborepo workspace                              |
 
 ## Running it
 
-Needs Bun, Postgres, and an S3-compatible bucket.
+Needs Bun and Docker.
 
 ```sh
+docker compose up -d      # Postgres, RustFS, and the ghost bucket
 bun install
-cp .env.example .env   # set BETTER_AUTH_SECRET and the S3 credentials
+cp .env.example .env      # set BETTER_AUTH_SECRET, the rest matches compose
 bun run db:migrate
 bun run dev
 ```
 
-Web on `http://localhost:3000`, API on `http://localhost:3001`.
+Web on `http://localhost:3000`, API on `http://localhost:3001`, RustFS console
+on `http://localhost:9001`.
 
 Push an existing repository. The password is a personal access token from
 account settings, not the login password.

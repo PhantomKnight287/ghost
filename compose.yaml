@@ -1,0 +1,61 @@
+name: ghost
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ghost
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ghost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    restart: unless-stopped
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ghost
+      RUSTFS_SECRET_KEY: ghostsecret
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # console
+    volumes:
+      - rustfs:/data
+      - rustfs_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  bucket:
+    image: amazon/aws-cli:latest
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ghost
+      AWS_SECRET_ACCESS_KEY: ghostsecret
+      AWS_DEFAULT_REGION: auto
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "aws --endpoint-url http://rustfs:9000 s3api create-bucket --bucket ghost || aws --endpoint-url http://rustfs:9000 s3api head-bucket --bucket ghost"
+    restart: "no"
+
+volumes:
+  postgres:
+  rustfs:
+  rustfs_logs:
