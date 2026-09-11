@@ -58,9 +58,9 @@ export const issue = pgTable(
 
     commentCount: integer().notNull().default(0),
 
-    closedAt: timestamp(),
-    createdAt: timestamp().notNull().defaultNow(),
-    updatedAt: timestamp()
+    closedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),
@@ -89,8 +89,8 @@ export const issueComment = pgTable(
       .notNull(),
     body: text().notNull(),
 
-    createdAt: timestamp().notNull().defaultNow(),
-    updatedAt: timestamp()
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),
@@ -118,8 +118,8 @@ export const label = pgTable(
     // 6 hex chars, lowercase, no `#` — the client adds `#` when rendering
     color: text().notNull().default("ededed"),
 
-    createdAt: timestamp().notNull().defaultNow(),
-    updatedAt: timestamp()
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),
@@ -180,7 +180,7 @@ export const issueEvent = pgTable(
     oldTitle: text(),
     newTitle: text(),
 
-    createdAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("issue_event_issue_idx").on(t.issueId, t.createdAt)],
 );

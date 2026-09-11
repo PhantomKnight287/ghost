@@ -18,8 +18,8 @@ export const stars = pgTable(
       .notNull()
       .references(() => repository.id, { onDelete: "cascade" }),
 
-    createdAt: timestamp().notNull().defaultNow(),
-    updatedAt: timestamp()
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),
