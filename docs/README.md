@@ -26,6 +26,7 @@ rejected, and the consequences — including the bad ones.
 ## Review
 
 - [0016 — A pull request spans two logs, and lends objects rather than copying them](0016-a-pull-request-spans-two-logs.md)
+- [0017 — Issues are rows, not branches](0017-issues-are-rows-not-branches.md)
 
 ## Open
 

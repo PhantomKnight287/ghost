@@ -3,6 +3,7 @@
 import {
   BookMarked,
   ChevronRight,
+  CircleDot,
   Code2,
   GitFork,
   GitPullRequest,
@@ -38,6 +39,7 @@ export function RepositoryFrame({
   viewerHasStarred,
   forkCount,
   openPullRequestCount,
+  openIssueCount,
   parent,
   children,
 }: RepositoryFrameProps) {
@@ -60,6 +62,13 @@ export function RepositoryFrame({
   const tabs = [
     { value: "code", label: "Code", icon: Code2, href: base, count: null },
     {
+      value: "issues",
+      label: "Issues",
+      icon: CircleDot,
+      href: `${base}/issues`,
+      count: openIssueCount ?? null,
+    },
+    {
       value: "pulls",
       label: "Pull requests",
       icon: GitPullRequest,
@@ -67,7 +76,8 @@ export function RepositoryFrame({
       count: openPullRequestCount ?? null,
     },
   ];
-  const activeTab = view === "pulls" ? "pulls" : "code";
+  const activeTab =
+    view === "pulls" ? "pulls" : view === "issues" ? "issues" : "code";
 
   return (
     <div className="flex min-h-full flex-col">

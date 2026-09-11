@@ -46,9 +46,10 @@ Split diff, computed from the merge base rather than the branch tips.
 - Forks, stars, public and private repositories
 - Pull requests across branches and across forks, with a real merge commit
 - Comments with markdown, editable title and description
+- Issues with comments, timeline events, labels, assignees, search and filters
 - Accounts, sessions, organizations, API keys (better-auth)
 
-Not built yet: webhooks, issues, CI.
+Not built yet: webhooks, CI.
 
 ## Stack
 
