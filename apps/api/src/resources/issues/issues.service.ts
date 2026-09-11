@@ -81,6 +81,9 @@ export class IssuesService {
         return this.db.insert(schema.issue).values(values).returning();
       });
 
+    // The opening is the first timeline entry; labels and assignees follow.
+    await this.recordEvent(created.id, requesterId, 'opened', {});
+
     if (labels.length > 0) {
       await this.db.insert(schema.issueLabel).values(
         labels.map((label) => ({
@@ -108,8 +111,6 @@ export class IssuesService {
         });
       }
     }
-
-    await this.recordEvent(created.id, requesterId, 'opened', {});
 
     return this.toDTO(created);
   }
