@@ -1029,6 +1029,8 @@ export interface components {
             closedAt: string | null;
             createdAt: string;
             updatedAt: string;
+            /** @description True when the requesting user is the author or can write to the repository. */
+            viewerCanEdit: boolean;
         };
         /** @enum {string} */
         IssueStateFilter: "open" | "closed" | "all";
@@ -1061,6 +1063,8 @@ export interface components {
             closedAt: string | null;
             createdAt: string;
             updatedAt: string;
+            /** @description True when the requesting user is the author or can write to the repository. */
+            viewerCanEdit: boolean;
         };
         UpdateIssueRequestDTO: {
             /** @example Login fails with 500 on Safari */

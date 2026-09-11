@@ -42,10 +42,8 @@ export default async function IssuePage({
   if (timeline.response.status === 404) notFound();
 
   const viewer = session?.user.username;
-  // the author, or whoever can write to the repository
-  const canEdit =
-    Boolean(viewer) &&
-    (viewer === issue.data.authorUsername || viewer === username);
+  // Server-computed: the author, or whoever can write to the repository.
+  const canEdit = issue.data.viewerCanEdit;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">

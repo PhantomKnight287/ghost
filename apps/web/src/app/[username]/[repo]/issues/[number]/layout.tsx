@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { Badge } from "@/components/ui/badge";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 
 import { EditableField } from "./page.client";
@@ -14,10 +14,7 @@ export default async function IssueLayout({
 }: LayoutProps<"/[username]/[repo]/issues/[number]">) {
   const { username, repo, number } = await params;
 
-  const [session, client] = await Promise.all([
-    getServerSession(),
-    createServerClient(),
-  ]);
+  const client = await createServerClient();
   const issue = await client.GET(
     "/api/repositories/{username}/{repo}/issues/{number}",
     { params: { path: { username, repo, number: Number(number) } } },
@@ -28,11 +25,8 @@ export default async function IssueLayout({
     throw new Error(`Failed to load issue #${number}`);
   }
 
-  const viewer = session?.user.username;
-  // the author, or whoever can write to the repository
-  const canEdit =
-    Boolean(viewer) &&
-    (viewer === issue.data.authorUsername || viewer === username);
+  // Server-computed: the author, or whoever can write to the repository.
+  const canEdit = issue.data.viewerCanEdit;
   const Icon = issue.data.state === "open" ? CircleDot : CircleCheck;
 
   return (

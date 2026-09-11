@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -12,6 +13,7 @@ import {
 export class CreateIssueRequestDTO {
   @ApiProperty({ example: 'Login fails with 500 on Safari' })
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MinLength(1)
   @MaxLength(200)
   title: string;
@@ -47,6 +49,7 @@ export class UpdateIssueRequestDTO {
   @ApiPropertyOptional({ example: 'Login fails with 500 on Safari' })
   @IsString()
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MinLength(1)
   @MaxLength(200)
   title?: string;

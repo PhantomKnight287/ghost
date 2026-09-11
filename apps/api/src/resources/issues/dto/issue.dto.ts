@@ -80,6 +80,13 @@ export class IssueDTO {
   @ApiProperty()
   @IsISO8601()
   updatedAt: string;
+
+  @ApiProperty({
+    description:
+      'True when the requesting user is the author or can write to the repository.',
+  })
+  @IsBoolean()
+  viewerCanEdit: boolean;
 }
 
 export class IssueDetailDTO extends IssueDTO {}

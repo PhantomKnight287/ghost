@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsISO8601,
   IsOptional,
   IsString,
@@ -43,6 +45,7 @@ export class LabelDTO {
 export class CreateLabelRequestDTO {
   @ApiProperty({ example: 'bug' })
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MinLength(1)
   @MaxLength(50)
   name: string;
@@ -65,6 +68,7 @@ export class UpdateLabelRequestDTO {
   @ApiPropertyOptional({ example: 'bug' })
   @IsString()
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MinLength(1)
   @MaxLength(50)
   name?: string;
@@ -100,7 +104,10 @@ export class SetIssueLabelsRequestDTO {
     description: 'Full replacement set. Label names in this repository.',
     example: ['bug', 'help wanted'],
   })
+  @IsArray()
   @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  @ArrayMaxSize(20)
   names: string[];
 }
 
@@ -109,6 +116,9 @@ export class SetIssueAssigneesRequestDTO {
     description: 'Full replacement set. Usernames to assign.',
     example: ['octocat'],
   })
+  @IsArray()
   @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  @ArrayMaxSize(10)
   usernames: string[];
 }

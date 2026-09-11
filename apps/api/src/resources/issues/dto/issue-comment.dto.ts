@@ -4,6 +4,7 @@ import {
   IsISO8601,
   IsNotEmpty,
   IsString,
+  Matches,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -34,6 +35,7 @@ export class CreateIssueCommentRequestDTO {
   @ApiProperty({ maxLength: 20000 })
   @IsString()
   @IsNotEmpty()
+  @Matches(/.*\S.*/, { message: 'Write something first.' })
   @MaxLength(20000)
   body: string;
 }
@@ -42,6 +44,7 @@ export class UpdateIssueCommentRequestDTO {
   @ApiProperty({ maxLength: 20000 })
   @IsString()
   @IsNotEmpty()
+  @Matches(/.*\S.*/, { message: 'Write something first.' })
   @MaxLength(20000)
   body: string;
 }

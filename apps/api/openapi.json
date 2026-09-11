@@ -4124,6 +4124,10 @@
           },
           "updatedAt": {
             "type": "string"
+          },
+          "viewerCanEdit": {
+            "type": "boolean",
+            "description": "True when the requesting user is the author or can write to the repository."
           }
         },
         "required": [
@@ -4139,7 +4143,8 @@
           "commentCount",
           "closedAt",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "viewerCanEdit"
         ]
       },
       "IssueStateFilter": {
@@ -4244,6 +4249,10 @@
           },
           "updatedAt": {
             "type": "string"
+          },
+          "viewerCanEdit": {
+            "type": "boolean",
+            "description": "True when the requesting user is the author or can write to the repository."
           }
         },
         "required": [
@@ -4259,7 +4268,8 @@
           "commentCount",
           "closedAt",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "viewerCanEdit"
         ]
       },
       "UpdateIssueRequestDTO": {

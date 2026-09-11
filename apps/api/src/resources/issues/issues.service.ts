@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   ilike,
   inArray,
   lt,
@@ -71,48 +72,57 @@ export class IssuesService {
     };
 
     // Two concurrent opens read the same max; the unique index rejects the
-    // loser, whose retry then reads the winner's number.
-    const [created] = await this.db
-      .insert(schema.issue)
-      .values(values)
-      .returning()
-      .catch((error) => {
-        if (!isUniqueViolation(error)) throw error;
-        return this.db.insert(schema.issue).values(values).returning();
-      });
+    // loser, whose retry then reads the winner's number. The whole open
+    // (issue + opened event + labels + assignees) is one transaction so a
+    // mid-way failure never leaves a partial issue behind.
+    let created: Issue | undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        created = await this.db.transaction(async (tx) => {
+          const [row] = await tx.insert(schema.issue).values(values).returning();
+          if (!row) throw new Error('Issue insert returned no rows');
 
-    // The opening is the first timeline entry; labels and assignees follow.
-    await this.recordEvent(created.id, requesterId, 'opened', {});
+          // The opening is the first timeline entry; labels and assignees follow.
+          await this.recordEventWith(tx, row.id, requesterId, 'opened', {});
 
-    if (labels.length > 0) {
-      await this.db.insert(schema.issueLabel).values(
-        labels.map((label) => ({
-          issueId: created.id,
-          labelId: label.id,
-        })),
-      );
-      for (const label of labels) {
-        await this.recordEvent(created.id, requesterId, 'labeled', {
-          labelName: label.name,
+          if (labels.length > 0) {
+            await tx.insert(schema.issueLabel).values(
+              labels.map((label) => ({
+                issueId: row.id,
+                labelId: label.id,
+              })),
+            );
+            for (const label of labels) {
+              await this.recordEventWith(tx, row.id, requesterId, 'labeled', {
+                labelName: label.name,
+              });
+            }
+          }
+
+          if (assignees.length > 0) {
+            await tx.insert(schema.issueAssignee).values(
+              assignees.map((user) => ({
+                issueId: row.id,
+                userId: user.id,
+              })),
+            );
+            for (const user of assignees) {
+              await this.recordEventWith(tx, row.id, requesterId, 'assigned', {
+                assigneeUsername: user.username ?? '',
+              });
+            }
+          }
+
+          return row;
         });
+        break;
+      } catch (error) {
+        if (!isUniqueViolation(error) || attempt === 2) throw error;
       }
     }
+    if (!created) throw new Error('Failed to create issue after retries');
 
-    if (assignees.length > 0) {
-      await this.db.insert(schema.issueAssignee).values(
-        assignees.map((user) => ({
-          issueId: created.id,
-          userId: user.id,
-        })),
-      );
-      for (const user of assignees) {
-        await this.recordEvent(created.id, requesterId, 'assigned', {
-          assigneeUsername: user.username ?? '',
-        });
-      }
-    }
-
-    return this.toDTO(created);
+    return this.toDTO(created, requesterId, repository.ownerId);
   }
 
   async getIssues({
@@ -261,10 +271,12 @@ export class IssuesService {
         ? or(
             direction === 'desc'
               ? lt(sortColumn(sort), decoded.date)
-              : sql`${sortColumn(sort)} > ${decoded.date}`,
+              : gt(sortColumn(sort), decoded.date),
             and(
               eq(sortColumn(sort), decoded.date),
-              lt(schema.issue.id, decoded.id),
+              direction === 'desc'
+                ? lt(schema.issue.id, decoded.id)
+                : gt(schema.issue.id, decoded.id),
             ),
           )
         : decoded && sort === 'comments' && isCommentsCursor(decoded)
@@ -297,7 +309,7 @@ export class IssuesService {
       this.db
         .select({ total: count() })
         .from(schema.issue)
-        .where(baseClause(state === 'all' ? 'all' : state)),
+        .where(baseClause('all')),
       this.db
         .select({ total: count() })
         .from(schema.issue)
@@ -309,7 +321,7 @@ export class IssuesService {
     ]);
 
     return {
-      issues: await Promise.all(page.map((row) => this.toDTO(row))),
+      issues: await this.toDTOBatch(page, requesterId, repository.ownerId),
       total: totalRow?.total ?? 0,
       openCount: openRow?.total ?? 0,
       closedCount: closedRow?.total ?? 0,
@@ -328,8 +340,8 @@ export class IssuesService {
   }
 
   async getIssue(params: IssueRef) {
-    const { issue } = await this.load(params);
-    return this.toDTO(issue);
+    const { issue, base } = await this.load(params);
+    return this.toDTO(issue, params.requesterId, base.ownerId);
   }
 
   /** Title and body only — state moves through close/reopen. */
@@ -339,14 +351,14 @@ export class IssuesService {
       body: { title?: string; body?: string | null };
     },
   ) {
-    const { issue } = await this.load(params);
+    const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
       await this.authorize({ ...params, operation: 'write' });
     }
 
     const { title, body } = params.body;
     if (title === undefined && body === undefined) {
-      return this.toDTO(issue);
+      return this.toDTO(issue, params.requesterId, base.ownerId);
     }
 
     const oldTitle = issue.title;
@@ -358,21 +370,23 @@ export class IssuesService {
       })
       .where(eq(schema.issue.id, issue.id))
       .returning();
+    if (!updated) throw new IssueNotFoundError();
 
     if (title !== undefined && title !== oldTitle) {
       await this.recordEvent(issue.id, params.requesterId, 'renamed', {
         oldTitle,
         newTitle: title,
       });
-    } else if (body !== undefined) {
+    }
+    if (body !== undefined) {
       await this.recordEvent(issue.id, params.requesterId, 'edited', {});
     }
 
-    return this.toDTO(updated);
+    return this.toDTO(updated, params.requesterId, base.ownerId);
   }
 
   async closeIssue(params: IssueRef & { requesterId: string }) {
-    const { issue } = await this.load(params);
+    const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
       await this.authorize({ ...params, operation: 'write' });
     }
@@ -387,13 +401,14 @@ export class IssuesService {
       })
       .where(eq(schema.issue.id, issue.id))
       .returning();
+    if (!closed) throw new IssueNotFoundError();
 
     await this.recordEvent(issue.id, params.requesterId, 'closed', {});
-    return this.toDTO(closed);
+    return this.toDTO(closed, params.requesterId, base.ownerId);
   }
 
   async reopenIssue(params: IssueRef & { requesterId: string }) {
-    const { issue } = await this.load(params);
+    const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
       await this.authorize({ ...params, operation: 'write' });
     }
@@ -404,9 +419,10 @@ export class IssuesService {
       .set({ state: 'open', closedAt: null, closedById: null })
       .where(eq(schema.issue.id, issue.id))
       .returning();
+    if (!reopened) throw new IssueNotFoundError();
 
     await this.recordEvent(issue.id, params.requesterId, 'reopened', {});
-    return this.toDTO(reopened);
+    return this.toDTO(reopened, params.requesterId, base.ownerId);
   }
 
   /**
@@ -438,19 +454,27 @@ export class IssuesService {
   ) {
     const { issue } = await this.load(params);
 
-    const [created] = await this.db
-      .insert(schema.issueComment)
-      .values({
-        issueId: issue.id,
-        authorId: params.requesterId,
-        body: params.body,
-      })
-      .returning();
+    const created = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(schema.issueComment)
+        .values({
+          issueId: issue.id,
+          authorId: params.requesterId,
+          body: params.body,
+        })
+        .returning();
+      if (!row) throw new Error('Comment insert returned no rows');
 
-    await this.db
-      .update(schema.issue)
-      .set({ commentCount: sql`${schema.issue.commentCount} + 1` })
-      .where(eq(schema.issue.id, issue.id));
+      await tx
+        .update(schema.issue)
+        .set({
+          commentCount: sql`${schema.issue.commentCount} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.issue.id, issue.id));
+
+      return row;
+    });
 
     const author = await this.users.getUserById(params.requesterId);
     return toCommentDTO({ ...created, authorUsername: author.username });
@@ -483,6 +507,12 @@ export class IssuesService {
       .set({ body: params.body })
       .where(eq(schema.issueComment.id, comment.id))
       .returning();
+    if (!updated) throw new IssueCommentNotFoundError();
+
+    await this.db
+      .update(schema.issue)
+      .set({ updatedAt: new Date() })
+      .where(eq(schema.issue.id, issue.id));
 
     const author = await this.users.getUserById(updated.authorId);
     return toCommentDTO({ ...updated, authorUsername: author.username });
@@ -506,15 +536,18 @@ export class IssuesService {
       await this.authorize({ ...params, operation: 'write' });
     }
 
-    await this.db
-      .delete(schema.issueComment)
-      .where(eq(schema.issueComment.id, comment.id));
-    await this.db
-      .update(schema.issue)
-      .set({
-        commentCount: sql`greatest(${schema.issue.commentCount} - 1, 0)`,
-      })
-      .where(eq(schema.issue.id, issue.id));
+    await this.db.transaction(async (tx) => {
+      await tx
+        .delete(schema.issueComment)
+        .where(eq(schema.issueComment.id, comment.id));
+      await tx
+        .update(schema.issue)
+        .set({
+          commentCount: sql`greatest(${schema.issue.commentCount} - 1, 0)`,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.issue.id, issue.id));
+    });
 
     return { deleted: true };
   }
@@ -604,7 +637,15 @@ export class IssuesService {
         },
         createdAt: event.createdAt.toISOString(),
       })),
-    ].sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+    ].sort((a, b) => {
+      if (a.createdAt < b.createdAt) return -1;
+      if (a.createdAt > b.createdAt) return 1;
+      const aId = a.kind === 'comment' ? a.id : a.event.id;
+      const bId = b.kind === 'comment' ? b.id : b.event.id;
+      if (aId < bId) return -1;
+      if (aId > bId) return 1;
+      return 0;
+    });
 
     return { timeline };
   }
@@ -750,34 +791,44 @@ export class IssuesService {
 
     const added = labels.filter((label) => !currentIds.has(label.id));
     const removedIds = [...currentIds].filter((id) => !nextIds.has(id));
+    const removed =
+      removedIds.length > 0
+        ? await this.db
+            .select()
+            .from(schema.label)
+            .where(inArray(schema.label.id, removedIds))
+        : [];
 
-    await this.db
-      .delete(schema.issueLabel)
-      .where(eq(schema.issueLabel.issueId, issue.id));
-    if (labels.length > 0) {
-      await this.db
-        .insert(schema.issueLabel)
-        .values(
-          labels.map((label) => ({ issueId: issue.id, labelId: label.id })),
-        );
-    }
+    await this.db.transaction(async (tx) => {
+      await tx
+        .delete(schema.issueLabel)
+        .where(eq(schema.issueLabel.issueId, issue.id));
+      if (labels.length > 0) {
+        await tx
+          .insert(schema.issueLabel)
+          .values(
+            labels.map((label) => ({ issueId: issue.id, labelId: label.id })),
+          );
+      }
 
-    if (removedIds.length > 0) {
-      const removed = await this.db
-        .select()
-        .from(schema.label)
-        .where(inArray(schema.label.id, removedIds));
       for (const label of removed) {
-        await this.recordEvent(issue.id, params.requesterId, 'unlabeled', {
+        await this.recordEventWith(tx, issue.id, params.requesterId, 'unlabeled', {
           labelName: label.name,
         });
       }
-    }
-    for (const label of added) {
-      await this.recordEvent(issue.id, params.requesterId, 'labeled', {
-        labelName: label.name,
-      });
-    }
+      for (const label of added) {
+        await this.recordEventWith(tx, issue.id, params.requesterId, 'labeled', {
+          labelName: label.name,
+        });
+      }
+
+      if (added.length > 0 || removed.length > 0) {
+        await tx
+          .update(schema.issue)
+          .set({ updatedAt: new Date() })
+          .where(eq(schema.issue.id, issue.id));
+      }
+    });
 
     return { labels: labels.map(toLabelDTO) };
   }
@@ -805,32 +856,42 @@ export class IssuesService {
 
     const added = users.filter((user) => !currentIds.has(user.id));
     const removedIds = [...currentIds].filter((id) => !nextIds.has(id));
+    const removed =
+      removedIds.length > 0
+        ? await this.db
+            .select()
+            .from(schema.user)
+            .where(inArray(schema.user.id, removedIds))
+        : [];
 
-    await this.db
-      .delete(schema.issueAssignee)
-      .where(eq(schema.issueAssignee.issueId, issue.id));
-    if (users.length > 0) {
-      await this.db
-        .insert(schema.issueAssignee)
-        .values(users.map((user) => ({ issueId: issue.id, userId: user.id })));
-    }
+    await this.db.transaction(async (tx) => {
+      await tx
+        .delete(schema.issueAssignee)
+        .where(eq(schema.issueAssignee.issueId, issue.id));
+      if (users.length > 0) {
+        await tx
+          .insert(schema.issueAssignee)
+          .values(users.map((user) => ({ issueId: issue.id, userId: user.id })));
+      }
 
-    if (removedIds.length > 0) {
-      const removed = await this.db
-        .select()
-        .from(schema.user)
-        .where(inArray(schema.user.id, removedIds));
       for (const user of removed) {
-        await this.recordEvent(issue.id, params.requesterId, 'unassigned', {
+        await this.recordEventWith(tx, issue.id, params.requesterId, 'unassigned', {
           assigneeUsername: user.username ?? '',
         });
       }
-    }
-    for (const user of added) {
-      await this.recordEvent(issue.id, params.requesterId, 'assigned', {
-        assigneeUsername: user.username ?? '',
-      });
-    }
+      for (const user of added) {
+        await this.recordEventWith(tx, issue.id, params.requesterId, 'assigned', {
+          assigneeUsername: user.username ?? '',
+        });
+      }
+
+      if (added.length > 0 || removed.length > 0) {
+        await tx
+          .update(schema.issue)
+          .set({ updatedAt: new Date() })
+          .where(eq(schema.issue.id, issue.id));
+      }
+    });
 
     return { assignees: users.map((user) => user.username ?? '') };
   }
@@ -881,7 +942,7 @@ export class IssuesService {
     });
   }
 
-  private async toDTO(issueRow: Issue) {
+  private async toDTO(issueRow: Issue, requesterId?: string, ownerId?: string) {
     const [author, labels, assignees, closer] = await Promise.all([
       this.users.getUserById(issueRow.authorId),
       this.db
@@ -920,7 +981,91 @@ export class IssuesService {
       closedAt: issueRow.closedAt?.toISOString() ?? null,
       createdAt: issueRow.createdAt.toISOString(),
       updatedAt: issueRow.updatedAt.toISOString(),
+      viewerCanEdit: canEditIssue(issueRow, requesterId, ownerId),
     };
+  }
+
+  private async toDTOBatch(
+    rows: Issue[],
+    requesterId?: string,
+    ownerId?: string,
+  ) {
+    if (rows.length === 0) return [];
+    const ids = rows.map((row) => row.id);
+    const authorIds = [...new Set(rows.map((row) => row.authorId))];
+    const closerIds = [
+      ...new Set(
+        rows.map((row) => row.closedById).filter((id): id is string => !!id),
+      ),
+    ];
+
+    const [authors, closers, labelRows, assigneeRows] = await Promise.all([
+      this.db
+        .select({ id: schema.user.id, username: schema.user.username })
+        .from(schema.user)
+        .where(inArray(schema.user.id, authorIds)),
+      closerIds.length > 0
+        ? this.db
+            .select({ id: schema.user.id, username: schema.user.username })
+            .from(schema.user)
+            .where(inArray(schema.user.id, closerIds))
+        : Promise.resolve([] as Array<{ id: string; username: string | null }>),
+      this.db
+        .select({
+          issueId: schema.issueLabel.issueId,
+          id: schema.label.id,
+          name: schema.label.name,
+          description: schema.label.description,
+          color: schema.label.color,
+          createdAt: schema.label.createdAt,
+          updatedAt: schema.label.updatedAt,
+        })
+        .from(schema.issueLabel)
+        .innerJoin(schema.label, eq(schema.label.id, schema.issueLabel.labelId))
+        .where(inArray(schema.issueLabel.issueId, ids)),
+      this.db
+        .select({
+          issueId: schema.issueAssignee.issueId,
+          username: schema.user.username,
+        })
+        .from(schema.issueAssignee)
+        .innerJoin(schema.user, eq(schema.user.id, schema.issueAssignee.userId))
+        .where(inArray(schema.issueAssignee.issueId, ids)),
+    ]);
+
+    const authorById = new Map(authors.map((u) => [u.id, u.username ?? '']));
+    const closerById = new Map(closers.map((u) => [u.id, u.username ?? null]));
+    const labelsByIssue = new Map<string, typeof labelRows>();
+    for (const row of labelRows) {
+      const list = labelsByIssue.get(row.issueId) ?? [];
+      list.push(row);
+      labelsByIssue.set(row.issueId, list);
+    }
+    const assigneesByIssue = new Map<string, string[]>();
+    for (const row of assigneeRows) {
+      const list = assigneesByIssue.get(row.issueId) ?? [];
+      list.push(row.username ?? '');
+      assigneesByIssue.set(row.issueId, list);
+    }
+
+    return rows.map((issueRow) => ({
+      id: issueRow.id,
+      number: issueRow.number,
+      title: issueRow.title,
+      body: issueRow.body,
+      state: issueRow.state,
+      authorUsername: authorById.get(issueRow.authorId) ?? '',
+      closedByUsername: issueRow.closedById
+        ? (closerById.get(issueRow.closedById) ?? null)
+        : null,
+      labels: (labelsByIssue.get(issueRow.id) ?? []).map(toLabelDTO),
+      assignees: assigneesByIssue.get(issueRow.id) ?? [],
+      commentCount: issueRow.commentCount,
+      closedAt: issueRow.closedAt?.toISOString() ?? null,
+      createdAt: issueRow.createdAt.toISOString(),
+      updatedAt: issueRow.updatedAt.toISOString(),
+      viewerCanEdit: canEditIssue(issueRow, requesterId, ownerId),
+    }));
   }
 
   private async recordEvent(
@@ -934,7 +1079,22 @@ export class IssuesService {
       newTitle?: string;
     },
   ) {
-    await this.db.insert(schema.issueEvent).values({
+    await this.recordEventWith(this.db, issueId, actorId, type, extra);
+  }
+
+  private async recordEventWith(
+    db: Pick<Database, 'insert'>,
+    issueId: string,
+    actorId: string,
+    type: IssueEventType,
+    extra: {
+      labelName?: string;
+      assigneeUsername?: string;
+      oldTitle?: string;
+      newTitle?: string;
+    },
+  ) {
+    await db.insert(schema.issueEvent).values({
       issueId,
       actorId,
       type,
@@ -991,16 +1151,15 @@ export class IssuesService {
 
   private async resolveUsers(usernames: string[]) {
     if (usernames.length === 0) return [];
-    const rows: Array<{ id: string; username: string | null }> = [];
-    for (const username of usernames) {
-      try {
-        rows.push(await this.users.getUserByUsername(username));
-      } catch (error) {
-        if (error instanceof UserNotFoundError) throw error;
-        throw error;
-      }
-    }
-    return rows;
+    return Promise.all(
+      usernames.map((username) =>
+        this.users.getUserByUsername(username).catch((error) => {
+          // Preserve first-failure semantics: unknown users surface as
+          // UserNotFoundError, anything else rethrows.
+          throw error;
+        }),
+      ),
+    );
   }
 
   private async optionalUserId(username: string) {
@@ -1150,4 +1309,13 @@ function commentsCursorClause(
       ),
     ),
   );
+}
+
+function canEditIssue(
+  issueRow: Issue,
+  requesterId?: string,
+  ownerId?: string,
+) {
+  if (!requesterId) return false;
+  return requesterId === issueRow.authorId || requesterId === ownerId;
 }
