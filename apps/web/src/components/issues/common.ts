@@ -44,6 +44,13 @@ export const createLabelSchema = z.object({
 
 export type CreateLabelInput = z.infer<typeof createLabelSchema>;
 
+// `null` clears the description, which is why it is not just `.optional()`.
+export const updateLabelSchema = createLabelSchema.extend({
+  description: createLabelSchema.shape.description.unwrap().nullable(),
+});
+
+export type UpdateLabelInput = z.infer<typeof updateLabelSchema>;
+
 export function eventDescription(event: {
   type: string;
   actorUsername: string;

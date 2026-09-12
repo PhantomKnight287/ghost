@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, CircleDot, Pencil, Trash2 } from "lucide-react";
+import { CircleCheck, CircleDot, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import {
   closeIssue,
   commentOnIssue,
+  createLabel,
   deleteIssueComment,
   deleteLabel,
   reopenIssue,
@@ -18,7 +19,8 @@ import {
   updateIssue,
   updateIssueComment,
 } from "@/components/issues/actions";
-import { Badge } from "@/components/ui/badge";
+import { LabelBadge } from "@/components/issues/label-badge";
+import { LabelForm } from "@/components/issues/label-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -397,6 +399,7 @@ export function LabelEditor({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<string[]>(
     attached.map((label) => label.name),
   );
@@ -414,6 +417,17 @@ export function LabelEditor({
     onSuccess: () => router.refresh(),
     onError: ({ error }) =>
       toast.error(error.serverError ?? "Could not delete this label."),
+  });
+
+  const create = useAction(createLabel, {
+    onSuccess: ({ data }) => {
+      // Attach it right away: creating one from here means you want it.
+      if (data) setSelected((current) => [...current, data.name]);
+      setCreating(false);
+      router.refresh();
+    },
+    onError: ({ error }) =>
+      toast.error(error.serverError ?? "Could not create this label."),
   });
 
   function toggle(name: string) {
@@ -449,20 +463,7 @@ export function LabelEditor({
         ) : (
           <div className="flex flex-wrap gap-1">
             {attached.map((label) => (
-              <Badge
-                key={label.id}
-                className="rounded-full border font-normal"
-                style={{
-                  backgroundColor: `#${label.color}22`,
-                  borderColor: `#${label.color}66`,
-                }}
-              >
-                <span
-                  className="size-1.5 rounded-full"
-                  style={{ backgroundColor: `#${label.color}` }}
-                />
-                {label.name}
-              </Badge>
+              <LabelBadge key={label.id} label={label} />
             ))}
           </div>
         )}
@@ -470,14 +471,9 @@ export function LabelEditor({
     );
   }
 
+  // Not a `<form>`: the create form below is one, and forms cannot nest.
   return (
-    <form
-      className="flex flex-col gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        save.execute({ username, repo, number, names: selected });
-      }}
-    >
+    <div className="flex flex-col gap-2">
       <h2 className="text-xs font-medium text-muted-foreground">Labels</h2>
       {available.length === 0 ? (
         <p className="text-xs text-muted-foreground">
@@ -488,6 +484,7 @@ export function LabelEditor({
           {available.map((label) => (
             <label
               key={label.id}
+              title={label.description ?? undefined}
               className="group flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50"
             >
               <input
@@ -515,22 +512,60 @@ export function LabelEditor({
           ))}
         </div>
       )}
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={save.isExecuting}
-          onClick={() => setEditing(false)}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" size="sm" disabled={save.isExecuting}>
-          {save.isExecuting && <Spinner />}
-          Save
-        </Button>
+
+      <div className="border-t pt-2">
+        {creating ? (
+          <LabelForm
+            id={`issue-${number}-label`}
+            submitText="Create"
+            pending={create.isExecuting}
+            onCancel={() => setCreating(false)}
+            onSubmit={(values) => create.execute({ ...values, username, repo })}
+          />
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => setCreating(true)}
+          >
+            <Plus data-icon="inline-start" />
+            New label
+          </Button>
+        )}
       </div>
-    </form>
+
+      <div className="flex items-center justify-between gap-2">
+        <Link
+          href={`/${username}/${repo}/labels`}
+          className="text-xs text-muted-foreground hover:underline"
+        >
+          Manage labels
+        </Link>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={save.isExecuting}
+            onClick={() => setEditing(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={save.isExecuting}
+            onClick={() =>
+              save.execute({ username, repo, number, names: selected })
+            }
+          >
+            {save.isExecuting && <Spinner />}
+            Save
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -8,7 +8,11 @@ import { z } from "zod";
 
 import { fetchClient } from "@/lib/fetch-client";
 
-import { createIssueSchema, createLabelSchema } from "./common";
+import {
+  createIssueSchema,
+  createLabelSchema,
+  updateLabelSchema,
+} from "./common";
 
 const actionClient = createSafeActionClient({
   handleServerError: (error) => error.message,
@@ -239,7 +243,39 @@ export const createLabel = actionClient
 
       if (error) throw new Error(error.message);
 
-      revalidatePath(issuePath(username, repo));
+      revalidatePath(`/${username}/${repo}/labels`);
+      // A label change can surface on any issue in the repository.
+      revalidatePath(issuePath(username, repo), "layout");
+      return data;
+    },
+  );
+
+export const updateLabel = actionClient
+  .inputSchema(
+    updateLabelSchema.extend({
+      username: z.string(),
+      repo: z.string(),
+      labelId: z.string(),
+    }),
+  )
+  .action(
+    async ({
+      parsedInput: { username, repo, labelId, name, description, color },
+    }) => {
+      const { data, error } = await fetchClient.PATCH(
+        "/api/repositories/{username}/{repo}/labels/{labelId}",
+        {
+          params: { path: { username, repo, labelId } },
+          body: { name, description, color },
+          headers: { cookie: (await cookies()).toString() },
+        },
+      );
+
+      if (error) throw new Error(error.message);
+
+      revalidatePath(`/${username}/${repo}/labels`);
+      // A label change can surface on any issue in the repository.
+      revalidatePath(issuePath(username, repo), "layout");
       return data;
     },
   );
@@ -259,5 +295,7 @@ export const deleteLabel = actionClient
 
     if (error) throw new Error(error.message);
 
-    revalidatePath(issuePath(username, repo));
+    revalidatePath(`/${username}/${repo}/labels`);
+    // A label change can surface on any issue in the repository.
+    revalidatePath(issuePath(username, repo), "layout");
   });

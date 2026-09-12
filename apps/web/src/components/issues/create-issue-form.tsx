@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import type { IssueLabel } from "@/types/issue";
 import { cn } from "@/lib/utils";
 import { createIssue } from "./actions";
 import { type CreateIssueInput, createIssueSchema } from "./common";
@@ -27,7 +28,7 @@ export function CreateIssueForm({
 }: {
   username: string;
   repo: string;
-  labels: { id: string; name: string; color: string }[];
+  labels: IssueLabel[];
 }) {
   const {
     register,
@@ -109,6 +110,7 @@ export function CreateIssueForm({
                     type="button"
                     onClick={() => toggleLabel(label.name)}
                     aria-pressed={active}
+                    title={label.description ?? undefined}
                     className={cn(
                       "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
                       active ? "border-primary bg-muted" : "hover:bg-muted/50",

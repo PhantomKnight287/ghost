@@ -1,11 +1,17 @@
-import { CircleDot, CircleCheck, MessageSquare, PlusIcon } from "lucide-react";
+import {
+  CircleCheck,
+  CircleDot,
+  MessageSquare,
+  PlusIcon,
+  TagsIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import type { IssueFilter, IssueSort } from "@/components/issues/common";
 import { issueFilters, issueSorts } from "@/components/issues/common";
-import { Badge } from "@/components/ui/badge";
+import { LabelBadge } from "@/components/issues/label-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -98,6 +104,22 @@ export default async function IssuesPage({
     .map((name) => name.trim())
     .filter(Boolean);
 
+  const repoLabels = allLabels.data?.labels ?? [];
+  const filterChips = [
+    ...repoLabels,
+    // A name left in the URL by a deleted label still needs a way out.
+    ...selectedLabels
+      .filter((name) => !repoLabels.some((label) => label.name === name))
+      .map((name) => ({ id: `missing:${name}`, name, color: "9ca3af" })),
+  ];
+
+  function labelHref(name: string) {
+    const next = selectedLabels.includes(name)
+      ? selectedLabels.filter((label) => label !== name)
+      : [...selectedLabels, name];
+    return href({ labels: next.join(",") || undefined });
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -130,7 +152,13 @@ export default async function IssuesPage({
           </Link>
         </div>
 
-        <Button size="sm" className="ml-auto" asChild>
+        <Button size="sm" variant="ghost" className="ml-auto" asChild>
+          <Link href={`/${username}/${repo}/labels`}>
+            <TagsIcon data-icon="inline-start" />
+            Labels
+          </Link>
+        </Button>
+        <Button size="sm" asChild>
           <Link href={`${base}/new`}>
             <PlusIcon data-icon="inline-start" />
             New issue
@@ -182,38 +210,24 @@ export default async function IssuesPage({
         )}
       </form>
 
-      {(allLabels.data?.labels ?? []).length > 0 && (
+      {filterChips.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          {selectedLabels.map((name) => (
-            <Link
-              key={name}
-              href={href({
-                labels:
-                  selectedLabels.filter((label) => label !== name).join(",") ||
-                  undefined,
-              })}
-              className={buttonVariants({ variant: "secondary", size: "sm" })}
-            >
-              {name} ✕
+          <span className="text-xs text-muted-foreground">
+            Filter by label:
+          </span>
+          {filterChips.map((label) => (
+            <Link key={label.id} href={labelHref(label.name)}>
+              <LabelBadge
+                label={label}
+                className={cn(
+                  "cursor-pointer",
+                  selectedLabels.includes(label.name)
+                    ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                    : "opacity-75 hover:opacity-100",
+                )}
+              />
             </Link>
           ))}
-          {(allLabels.data?.labels ?? [])
-            .filter((label) => !selectedLabels.includes(label.name))
-            .map((label) => (
-              <Link
-                key={label.id}
-                href={href({
-                  labels: [...selectedLabels, label.name].join(","),
-                })}
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <span
-                  className="size-2.5 rounded-full"
-                  style={{ backgroundColor: `#${label.color}` }}
-                />
-                {label.name}
-              </Link>
-            ))}
         </div>
       )}
 
@@ -247,19 +261,7 @@ export default async function IssuesPage({
                     </Link>
                     {issue.labels.map((label) => (
                       <Link key={label.id} href={href({ labels: label.name })}>
-                        <Badge
-                          className="rounded-full border font-normal"
-                          style={{
-                            backgroundColor: `#${label.color}22`,
-                            borderColor: `#${label.color}66`,
-                          }}
-                        >
-                          <span
-                            className="size-1.5 rounded-full"
-                            style={{ backgroundColor: `#${label.color}` }}
-                          />
-                          {label.name}
-                        </Badge>
+                        <LabelBadge label={label} />
                       </Link>
                     ))}
                   </div>
