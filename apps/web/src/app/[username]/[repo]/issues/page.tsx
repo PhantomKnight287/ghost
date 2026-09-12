@@ -1,4 +1,4 @@
-import { CircleDot, CircleCheck, MessageSquare } from "lucide-react";
+import { CircleDot, CircleCheck, MessageSquare, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -132,7 +132,7 @@ export default async function IssuesPage({
 
         <Button size="sm" className="ml-auto" asChild>
           <Link href={`${base}/new`}>
-            <CircleDot data-icon="inline-start" />
+            <PlusIcon data-icon="inline-start" />
             New issue
           </Link>
         </Button>

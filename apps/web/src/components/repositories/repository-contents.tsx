@@ -73,7 +73,7 @@ export function RepositoryContents({
           <Link
             href={`/${owner}/${slug}/commits/${encodeURIComponent(branch)}`}
             className={buttonVariants({
-              className: "flex flex-row text-sm py-0 max-h-fit",
+              className: "flex flex-row text-xs pr-0 py-0 max-h-fit hover:bg-transparent! gap-0",
               variant: "ghost",
             })}
           >

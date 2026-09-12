@@ -26,20 +26,23 @@ import { Textarea } from "@/components/ui/textarea";
 import type { IssueLabel } from "@/types/issue";
 import { cn } from "@/lib/utils";
 
-export function IssueStatePanel({
+export function CommentBox({
   username,
   repo,
   number,
+  signedIn,
   state,
-  canChangeState,
+  canChangeState = false,
 }: {
   username: string;
   repo: string;
   number: number;
-  state: string;
-  canChangeState: boolean;
+  signedIn: boolean;
+  state?: string;
+  canChangeState?: boolean;
 }) {
   const router = useRouter();
+  const [body, setBody] = useState("");
 
   const close = useAction(closeIssue, {
     onSuccess: () => {
@@ -58,56 +61,6 @@ export function IssueStatePanel({
     onError: ({ error }) =>
       toast.error(error.serverError ?? "Could not reopen this issue."),
   });
-
-  if (!canChangeState) {
-    return (
-      <div className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
-        {state === "open" ? "This issue is open." : "This issue was closed."}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2 rounded-lg border px-4 py-3">
-      {state === "open" ? (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={close.isExecuting}
-          onClick={() => close.execute({ username, repo, number })}
-        >
-          {close.isExecuting && <Spinner />}
-          <CircleCheck data-icon="inline-start" />
-          Close issue
-        </Button>
-      ) : (
-        <Button
-          size="sm"
-          disabled={reopen.isExecuting}
-          onClick={() => reopen.execute({ username, repo, number })}
-        >
-          {reopen.isExecuting && <Spinner />}
-          <CircleDot data-icon="inline-start" />
-          Reopen issue
-        </Button>
-      )}
-    </div>
-  );
-}
-
-export function CommentBox({
-  username,
-  repo,
-  number,
-  signedIn,
-}: {
-  username: string;
-  repo: string;
-  number: number;
-  signedIn: boolean;
-}) {
-  const router = useRouter();
-  const [body, setBody] = useState("");
 
   const comment = useAction(commentOnIssue, {
     onSuccess: () => {
@@ -150,7 +103,33 @@ export function CommentBox({
         disabled={comment.isExecuting}
       />
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        {canChangeState &&
+          (state === "open" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={close.isExecuting}
+              onClick={() => close.execute({ username, repo, number })}
+            >
+              {close.isExecuting && <Spinner />}
+              <CircleCheck data-icon="inline-start" />
+              Close issue
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={reopen.isExecuting}
+              onClick={() => reopen.execute({ username, repo, number })}
+            >
+              {reopen.isExecuting && <Spinner />}
+              <CircleDot data-icon="inline-start" />
+              Reopen issue
+            </Button>
+          ))}
         <Button
           type="submit"
           size="sm"

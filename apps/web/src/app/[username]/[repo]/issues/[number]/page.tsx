@@ -10,7 +10,6 @@ import {
   CommentBox,
   CommentItem,
   EditableField,
-  IssueStatePanel,
   LabelEditor,
 } from "./page.client";
 
@@ -110,12 +109,6 @@ export default async function IssuePage({
           repo={repo}
           number={Number(number)}
           signedIn={Boolean(viewer)}
-        />
-
-        <IssueStatePanel
-          username={username}
-          repo={repo}
-          number={Number(number)}
           state={issue.data.state}
           canChangeState={canEdit}
         />
