@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 
-import { API_URL } from "@/lib/env";
+import { INTERNAL_API_URL } from "@/lib/env";
 
 /** Headers the API sets that the browser needs to see unchanged. */
 const FORWARDED = [
@@ -23,7 +23,7 @@ export async function GET(
 ) {
   const { username, repo, ref, path } = await params;
 
-  const url = new URL(`${API_URL}/api/repositories/${username}/${repo}/raw`);
+  const url = new URL(`${INTERNAL_API_URL}/api/repositories/${username}/${repo}/raw`);
   url.searchParams.set("ref", decodeURIComponent(ref));
   url.searchParams.set("path", (path ?? []).map(decodeURIComponent).join("/"));
 

@@ -35,4 +35,8 @@ COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /app/apps/web/public ./apps/web/public
 EXPOSE 3000
-CMD ["node", "apps/web/server.js"]
+# The standalone server binds to $HOSTNAME, which container runtimes set to the
+# container id: that is a single interface, so a platform proxy arriving on any
+# other one is refused. Overriding it here beats a runtime-injected value, which
+# an `ENV` line would not.
+CMD ["sh", "-c", "export HOSTNAME=0.0.0.0; exec node apps/web/server.js"]

@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import createFetchClient from "openapi-fetch";
 
 import { authClient } from "@/lib/auth-client";
-import { API_URL } from "@/lib/env";
+import { INTERNAL_API_URL } from "@/lib/env";
 
 import type { paths } from "@/lib/api/v1";
 
@@ -18,7 +18,7 @@ export async function createServerClient() {
   const cookie = await forwardedCookie();
 
   return createFetchClient<paths>({
-    baseUrl: API_URL,
+    baseUrl: INTERNAL_API_URL,
     headers: cookie ? { cookie } : undefined,
   });
 }
@@ -28,7 +28,7 @@ export async function getServerSession() {
   if (!cookie) return null;
 
   const { data } = await authClient.getSession({
-    fetchOptions: { headers: { cookie } },
+    fetchOptions: { headers: { cookie }, baseURL: INTERNAL_API_URL },
   });
 
   return data;
