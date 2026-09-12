@@ -20,6 +20,8 @@ export type RepositoryFrameProps = {
   forkCount: number;
   /** Open requests only, shown on the Pull requests tab. */
   openPullRequestCount?: number;
+  /** Open issues only, shown on the Issues tab. */
+  openIssueCount?: number;
   parent?: RepositoryParent | null;
   children: ReactNode;
 };

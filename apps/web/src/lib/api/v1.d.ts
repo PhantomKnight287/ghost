@@ -437,6 +437,199 @@ export interface paths {
         patch: operations["PullRequestsController_closePullRequest"];
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List issues */
+        get: operations["IssuesController_getIssues"];
+        put?: never;
+        /** Open an issue */
+        post: operations["IssuesController_createIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/issues/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an issue */
+        get: operations["IssuesController_getIssue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit an issue title or description */
+        patch: operations["IssuesController_updateIssue"];
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/issues/{number}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close an issue */
+        post: operations["IssuesController_closeIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/issues/{number}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen a closed issue */
+        post: operations["IssuesController_reopenIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/issues/{number}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comments on an issue */
+        get: operations["IssuesController_getComments"];
+        put?: never;
+        /** Comment on an issue */
+        post: operations["IssuesController_createComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/issues/{number}/comments/{commentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an issue comment */
+        delete: operations["IssuesController_deleteComment"];
+        options?: never;
+        head?: never;
+        /** Edit an issue comment */
+        patch: operations["IssuesController_updateComment"];
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/issues/{number}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comments and events interleaved oldest-first */
+        get: operations["IssuesController_getTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/issues/{number}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace the labels on an issue */
+        put: operations["IssuesController_setIssueLabels"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/issues/{number}/assignees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace the assignees on an issue */
+        put: operations["IssuesController_setIssueAssignees"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List labels in a repository */
+        get: operations["LabelsController_listLabels"];
+        put?: never;
+        /** Create a label */
+        post: operations["LabelsController_createLabel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/labels/{labelId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a label */
+        delete: operations["LabelsController_deleteLabel"];
+        options?: never;
+        head?: never;
+        /** Update a label */
+        patch: operations["LabelsController_updateLabel"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -780,6 +973,196 @@ export interface components {
             title?: string;
             /** @description Markdown. `null` clears the description. */
             body?: string | null;
+        };
+        CreateIssueRequestDTO: {
+            /** @example Login fails with 500 on Safari */
+            title: string;
+            /** @description Markdown. */
+            body?: string;
+            /**
+             * @description Label names in this repository.
+             * @example [
+             *       "bug"
+             *     ]
+             */
+            labels?: string[];
+            /**
+             * @description Usernames to assign.
+             * @example [
+             *       "octocat"
+             *     ]
+             */
+            assignees?: string[];
+        };
+        /** @enum {string} */
+        IssueState: "open" | "closed";
+        LabelDTO: {
+            id: string;
+            /** @example bug */
+            name: string;
+            description: string | null;
+            /**
+             * @description 6 hex chars, no `#`. The client adds `#` when rendering.
+             * @example d73a4a
+             */
+            color: string;
+            createdAt: string;
+            updatedAt: string;
+        };
+        IssueDTO: {
+            id: string;
+            /** @description Per repository, and what the URL carries. */
+            number: number;
+            title: string;
+            body: string | null;
+            state: components["schemas"]["IssueState"];
+            authorUsername: string;
+            closedByUsername: string | null;
+            labels: components["schemas"]["LabelDTO"][];
+            /**
+             * @example [
+             *       "octocat"
+             *     ]
+             */
+            assignees: string[];
+            commentCount: number;
+            closedAt: string | null;
+            createdAt: string;
+            updatedAt: string;
+            /** @description True when the requesting user is the author or can write to the repository. */
+            viewerCanEdit: boolean;
+        };
+        /** @enum {string} */
+        IssueStateFilter: "open" | "closed" | "all";
+        GetIssuesResponseDTO: {
+            issues: components["schemas"]["IssueDTO"][];
+            /** @description Matching every filter except `state`. */
+            total: number;
+            openCount: number;
+            closedCount: number;
+            nextCursor: string | null;
+            hasMore: boolean;
+        };
+        IssueDetailDTO: {
+            id: string;
+            /** @description Per repository, and what the URL carries. */
+            number: number;
+            title: string;
+            body: string | null;
+            state: components["schemas"]["IssueState"];
+            authorUsername: string;
+            closedByUsername: string | null;
+            labels: components["schemas"]["LabelDTO"][];
+            /**
+             * @example [
+             *       "octocat"
+             *     ]
+             */
+            assignees: string[];
+            commentCount: number;
+            closedAt: string | null;
+            createdAt: string;
+            updatedAt: string;
+            /** @description True when the requesting user is the author or can write to the repository. */
+            viewerCanEdit: boolean;
+        };
+        UpdateIssueRequestDTO: {
+            /** @example Login fails with 500 on Safari */
+            title?: string;
+            /** @description Markdown. `null` clears the description. */
+            body?: string | null;
+        };
+        IssueCommentDTO: {
+            id: string;
+            /** @description Markdown, rendered by the client. */
+            body: string;
+            authorUsername: string;
+            createdAt: string;
+            updatedAt: string;
+        };
+        GetIssueCommentsResponseDTO: {
+            comments: components["schemas"]["IssueCommentDTO"][];
+        };
+        CreateIssueCommentRequestDTO: {
+            body: string;
+        };
+        UpdateIssueCommentRequestDTO: {
+            body: string;
+        };
+        IssueTimelineCommentDTO: {
+            /**
+             * @example comment
+             * @enum {string}
+             */
+            kind: "comment";
+            id: string;
+            body: string;
+            authorUsername: string;
+            createdAt: string;
+            updatedAt: string;
+        };
+        /** @enum {string} */
+        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned";
+        IssueTimelineEventDTO: {
+            id: string;
+            type: components["schemas"]["IssueEventType"];
+            actorUsername: string;
+            labelName: string | null;
+            assigneeUsername: string | null;
+            oldTitle: string | null;
+            newTitle: string | null;
+            createdAt: string;
+        };
+        IssueTimelineEventItemDTO: {
+            /**
+             * @example event
+             * @enum {string}
+             */
+            kind: "event";
+            event: components["schemas"]["IssueTimelineEventDTO"];
+            createdAt: string;
+        };
+        GetIssueTimelineResponseDTO: {
+            /** @description Comments and events interleaved oldest-first, exactly as rendered. */
+            timeline: (components["schemas"]["IssueTimelineCommentDTO"] | components["schemas"]["IssueTimelineEventItemDTO"])[];
+        };
+        SetIssueLabelsRequestDTO: {
+            /**
+             * @description Full replacement set. Label names in this repository.
+             * @example [
+             *       "bug",
+             *       "help wanted"
+             *     ]
+             */
+            names: string[];
+        };
+        SetIssueAssigneesRequestDTO: {
+            /**
+             * @description Full replacement set. Usernames to assign.
+             * @example [
+             *       "octocat"
+             *     ]
+             */
+            usernames: string[];
+        };
+        GetLabelsResponseDTO: {
+            labels: components["schemas"]["LabelDTO"][];
+        };
+        CreateLabelRequestDTO: {
+            /** @example bug */
+            name: string;
+            /** @example Something is not working */
+            description?: string;
+            /** @example d73a4a */
+            color: string;
+        };
+        UpdateLabelRequestDTO: {
+            /** @example bug */
+            name?: string;
+            /** @description `null` clears the description. */
+            description?: string | null;
+            /** @example d73a4a */
+            color?: string;
         };
     };
     responses: never;
@@ -1783,6 +2166,609 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PullRequestDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_getIssues: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["IssueStateFilter"];
+                /** @description Full-text search over title and body. */
+                q?: string;
+                /** @description Filter by author username. */
+                author?: string;
+                /** @description Filter by assignee username. */
+                assignee?: string;
+                /** @description Comma-separated label names. An issue must carry all of them. */
+                labels?: string;
+                sort?: "created" | "updated" | "comments";
+                direction?: "asc" | "desc";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetIssuesResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_createIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIssueRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_getIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueDetailDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_updateIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIssueRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_closeIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_reopenIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_getComments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetIssueCommentsResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_createComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIssueCommentRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueCommentDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_deleteComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_updateComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIssueCommentRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueCommentDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_getTimeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetIssueTimelineResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_setIssueLabels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetIssueLabelsRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_setIssueAssignees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetIssueAssigneesRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    LabelsController_listLabels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetLabelsResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    LabelsController_createLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLabelRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    LabelsController_deleteLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                labelId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    LabelsController_updateLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                labelId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLabelRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelDTO"];
                 };
             };
             404: {

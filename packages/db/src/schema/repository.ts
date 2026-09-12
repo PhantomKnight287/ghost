@@ -37,14 +37,14 @@ export const repository = pgTable(
       .notNull(),
 
     visibility: repositoryVisiblity().notNull().default("private"),
-    lastPushedAt: timestamp().notNull().defaultNow(),
+    lastPushedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     // AnyPgColumn breaks the circular inference a self-reference would otherwise cause
     parentRepositoryId: text().references((): AnyPgColumn => repository.id, {
       onDelete: "set null",
     }),
 
-    createdAt: timestamp().notNull().defaultNow(),
-    updatedAt: timestamp()
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),
@@ -79,7 +79,7 @@ export const repositoryPathCommit = pgTable(
     // "" is the repository root, so its row is the tip commit of the ref
     path: text().notNull(),
     commitSha: text().notNull(),
-    committedAt: timestamp().notNull(),
+    committedAt: timestamp({ withTimezone: true }).notNull(),
     subject: text().notNull(),
   },
   (t) => [primaryKey({ columns: [t.repositoryId, t.ref, t.path] })],
@@ -98,7 +98,7 @@ export const repositoryRefIndex = pgTable(
       .notNull(),
     ref: text().notNull(),
     indexedCommitSha: text().notNull(),
-    updatedAt: timestamp()
+    updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),

@@ -23,11 +23,14 @@ export default async function RepositoryLayout({
     throw new Error(`Failed to load ${username}/${repo}`);
   }
 
-  const [branches, pulls] = await Promise.all([
+  const [branches, pulls, issues] = await Promise.all([
     client.GET("/api/repositories/{username}/{slug}/branches", {
       params: { path: { username, slug: repo } },
     }),
     client.GET("/api/repositories/{username}/{repo}/pulls", {
+      params: { path: { username, repo }, query: { state: "open", limit: 1 } },
+    }),
+    client.GET("/api/repositories/{username}/{repo}/issues", {
       params: { path: { username, repo }, query: { state: "open", limit: 1 } },
     }),
   ]);
@@ -46,6 +49,7 @@ export default async function RepositoryLayout({
       viewerHasStarred={repository.data.viewerHasStarred}
       forkCount={repository.data.forkCount}
       openPullRequestCount={pulls.data?.total}
+      openIssueCount={issues.data?.openCount}
       parent={repository.data.parent}
     >
       {children}

@@ -7,6 +7,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { DATABASE, DatabaseModule } from './database/database.module.js';
 import { createAuth } from './lib/auth.js';
+import { IssuesModule } from './resources/issues/issues.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
 import { UsersService } from './services/users/users.service.js';
@@ -43,6 +44,7 @@ import { RepositoryAccessService } from './services/git/repository-access/reposi
     }),
     RepositoriesModule,
     PullRequestsModule,
+    IssuesModule,
     GitModule,
   ],
   controllers: [AppController],

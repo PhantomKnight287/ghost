@@ -55,10 +55,10 @@ export const pullRequest = pgTable(
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
 
-    closedAt: timestamp(),
-    mergedAt: timestamp(),
-    createdAt: timestamp().notNull().defaultNow(),
-    updatedAt: timestamp()
+    closedAt: timestamp({ withTimezone: true }),
+    mergedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),
@@ -97,8 +97,8 @@ export const pullRequestComment = pgTable(
       .notNull(),
     body: text().notNull(),
 
-    createdAt: timestamp().notNull().defaultNow(),
-    updatedAt: timestamp()
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),
