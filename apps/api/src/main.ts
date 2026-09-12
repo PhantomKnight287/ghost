@@ -32,6 +32,7 @@ async function bootstrap() {
       .filter(Boolean),
     credentials: true,
   });
-  await app.listen(process.env.API_PORT ?? 3001);
+  // Railway (and most PaaS) inject PORT; API_PORT stays for local dev.
+  await app.listen(process.env.PORT ?? process.env.API_PORT ?? 3001);
 }
 await bootstrap();

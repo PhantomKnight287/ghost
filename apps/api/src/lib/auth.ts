@@ -10,6 +10,12 @@ export type AuthConfig = {
   secret: string;
   baseURL: string;
   trustedOrigins?: string[];
+  /**
+   * Registrable domain to pin session cookies to, e.g. `.example.com`, when the
+   * web app and the API sit on sibling subdomains. Unset in local development,
+   * where both share `localhost`.
+   */
+  cookieDomain?: string;
 };
 
 export function createAuth(db: Database, config: AuthConfig) {
@@ -17,6 +23,14 @@ export function createAuth(db: Database, config: AuthConfig) {
     secret: config.secret,
     baseURL: config.baseURL,
     trustedOrigins: config.trustedOrigins ?? [],
+    advanced: config.cookieDomain
+      ? {
+          crossSubDomainCookies: {
+            enabled: true,
+            domain: config.cookieDomain,
+          },
+        }
+      : undefined,
     database: drizzleAdapter(db, {
       provider: 'pg',
     }),

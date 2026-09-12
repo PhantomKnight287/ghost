@@ -26,7 +26,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "db:deploy": "node dist/migrate.js"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^3.3.0",

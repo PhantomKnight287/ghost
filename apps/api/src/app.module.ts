@@ -39,6 +39,7 @@ import { RepositoryAccessService } from './services/git/repository-access/reposi
             .split(',')
             .map((origin) => origin.trim())
             .filter(Boolean),
+          cookieDomain: config.get<string>('AUTH_COOKIE_DOMAIN'),
         }),
       }),
     }),
