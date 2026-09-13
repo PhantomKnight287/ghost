@@ -8,3 +8,7 @@ export const API_URL =
  * this is the public origin.
  */
 export const INTERNAL_API_URL = process.env.INTERNAL_API_URL ?? API_URL;
+
+/** Public origin of the web app, used to absolutize metadata URLs. */
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";

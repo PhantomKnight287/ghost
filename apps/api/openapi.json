@@ -2962,6 +2962,47 @@
           "Labels"
         ]
       }
+    },
+    "/api/users/{username}": {
+      "get": {
+        "operationId": "UserController_getProfile",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a user's public profile",
+        "tags": [
+          "Users"
+        ]
+      }
     }
   },
   "info": {
@@ -2974,6 +3015,13 @@
   "servers": [],
   "components": {
     "schemas": {
+      "RepositoryVisibility": {
+        "type": "string",
+        "enum": [
+          "public",
+          "private"
+        ]
+      },
       "CreateRepositoryRequestDTO": {
         "type": "object",
         "properties": {
@@ -2982,6 +3030,13 @@
           },
           "description": {
             "type": "string"
+          },
+          "visibility": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryVisibility"
+              }
+            ]
           }
         },
         "required": [
@@ -3012,13 +3067,6 @@
         },
         "required": [
           "message"
-        ]
-      },
-      "RepositoryVisibility": {
-        "type": "string",
-        "enum": [
-          "public",
-          "private"
         ]
       },
       "RepositoryParentEntity": {
@@ -4582,6 +4630,41 @@
             "example": "d73a4a"
           }
         }
+      },
+      "UserProfileResponseDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "joinedAt": {
+            "type": "string",
+            "description": "ISO timestamp the account was created"
+          },
+          "repositoryCount": {
+            "type": "number",
+            "description": "Public repositories owned by the user"
+          },
+          "starCount": {
+            "type": "number",
+            "description": "Stars across the user’s public repositories"
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "image",
+          "joinedAt",
+          "repositoryCount",
+          "starCount"
+        ]
       }
     }
   }

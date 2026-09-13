@@ -15,9 +15,9 @@ const actionClient = createSafeActionClient({
 
 export const createRepository = actionClient
   .inputSchema(createRepositorySchema)
-  .action(async ({ parsedInput: { owner, name, description } }) => {
+  .action(async ({ parsedInput: { owner, name, description,visibility } }) => {
     const { data, error } = await fetchClient.POST("/api/repositories", {
-      body: { name, description },
+      body: { name, description, visibility },
       headers: { cookie: (await cookies()).toString() },
     });
 

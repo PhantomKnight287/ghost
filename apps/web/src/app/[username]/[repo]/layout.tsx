@@ -1,7 +1,27 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { RepositoryFrame } from "@/components/repositories/repository-frame";
 import { createServerClient, getServerSession } from "@/lib/api/server";
+
+export async function generateMetadata({
+  params,
+}: LayoutProps<"/[username]/[repo]">): Promise<Metadata> {
+  const { username, repo } = await params;
+  const client = await createServerClient();
+  const { data } = await client.GET("/api/repositories/{username}/{slug}", {
+    params: { path: { username, slug: repo } },
+  });
+
+  const title = `${username}/${data?.slug ?? repo}`;
+  const description = data?.description ?? `${title} on Ghost`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, url: `/${username}/${repo}` },
+  };
+}
 
 export default async function RepositoryLayout({
   params,

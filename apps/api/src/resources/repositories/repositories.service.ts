@@ -85,6 +85,7 @@ export class RepositoriesService {
         ownerId: user.id,
         slug: await this.freeSlug(user.id, body.name),
         description: body.description,
+        visibility: body.visibility,
       })
       .returning();
 

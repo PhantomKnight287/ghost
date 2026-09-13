@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   bundledLanguages,
@@ -11,6 +12,24 @@ import pierreDark from "@pierre/theme/pierre-dark";
 import pierreLight from "@pierre/theme/pierre-light";
 
 import { createServerClient } from "@/lib/api/server";
+import { ogUrl } from "@/lib/og-url";
+
+export async function generateMetadata({
+  params,
+}: PageProps<"/[username]/[repo]/blob/[ref]/[[...path]]">): Promise<Metadata> {
+  const { username, repo, ref, path } = await params;
+  const segments = (path ?? []).map(decodeURIComponent);
+  const title = `${username}/${repo} · ${segments.join("/")} at ${decodeURIComponent(ref)}`;
+  const image = ogUrl({
+    username,
+    repo,
+    ref: decodeURIComponent(ref),
+    path: segments.join("/"),
+    kind: "blob",
+  });
+
+  return { title, openGraph: { title, images: [image] }, twitter: { images: [image] } };
+}
 
 export default async function RepositoryBlobPage({
   params,

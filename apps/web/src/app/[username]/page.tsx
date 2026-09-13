@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
@@ -9,6 +10,27 @@ import { createServerClient, getServerSession } from "@/lib/api/server";
 import { ProfileTabs } from "./page.client";
 import { REPOSITORIES_PAGE_SIZE } from "./constants";
 
+export async function generateMetadata({
+  params,
+}: PageProps<"/[username]">): Promise<Metadata> {
+  const { username } = await params;
+
+  const client = await createServerClient();
+  const { data } = await client.GET("/api/users/{username}", {
+    params: { path: { username } },
+  });
+  if (!data) return { title: username };
+
+  const title = `${data.name} (@${data.username})`;
+  const description = `${data.repositoryCount} public repositories · ${data.starCount} stars`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, url: `/${data.username}` },
+  };
+}
+
 export default async function ProfilePage({
   params,
 }: PageProps<"/[username]">) {
@@ -18,19 +40,18 @@ export default async function ProfilePage({
     getServerSession(),
     createServerClient(),
   ]);
-
   const viewer = session?.user.username ?? "";
   const isViewer = viewer === username;
 
-  const { data, error, response } = await client.GET(
-    "/api/repositories/{username}",
-    {
+  const [profile, { data, error, response }] = await Promise.all([
+    client.GET("/api/users/{username}", { params: { path: { username } } }),
+    client.GET("/api/repositories/{username}", {
       params: {
         path: { username },
         query: { limit: REPOSITORIES_PAGE_SIZE },
       },
-    },
-  );
+    }),
+  ]);
 
   if (response.status === 404) {
     notFound();
@@ -49,7 +70,7 @@ export default async function ProfilePage({
           <Avatar className="size-40 rounded-full md:size-64">
             <AvatarImage
               alt={username}
-              src={isViewer ? (session?.user.image ?? undefined) : undefined}
+              src={profile.data?.image ?? undefined}
             />
             <AvatarFallback className="text-4xl">
               {username.slice(0, 2).toUpperCase()}
@@ -58,7 +79,7 @@ export default async function ProfilePage({
 
           <div className="flex flex-col">
             <h1 className="text-2xl font-semibold tracking-tight">
-              {username}
+              {profile.data?.name ?? username}
             </h1>
             <p className="text-lg text-muted-foreground">{username}</p>
           </div>
@@ -69,7 +90,11 @@ export default async function ProfilePage({
 
           <Separator />
 
-          <p className="text-sm text-muted-foreground">No bio yet.</p>
+          <p className="text-sm text-muted-foreground">
+            {profile.data
+              ? `${profile.data.repositoryCount} repositories · ${profile.data.starCount} stars`
+              : "No bio yet."}
+          </p>
         </aside>
 
         <section className="flex flex-col gap-6">

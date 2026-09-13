@@ -1,4 +1,5 @@
 import { GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -8,6 +9,23 @@ import { createServerClient, getServerSession } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 
 import { EditableField, PullRequestNav } from "./page.client";
+
+export async function generateMetadata({
+  params,
+}: LayoutProps<"/[username]/[repo]/pulls/[number]">): Promise<Metadata> {
+  const { username, repo, number } = await params;
+  const client = await createServerClient();
+  const { data } = await client.GET(
+    "/api/repositories/{username}/{repo}/pulls/{number}",
+    { params: { path: { username, repo, number: Number(number) } } },
+  );
+
+  const title = data
+    ? `${data.title} · Pull request #${data.number} · ${username}/${repo}`
+    : `Pull request #${number} · ${username}/${repo}`;
+
+  return { title, openGraph: { title } };
+}
 
 export default async function PullRequestLayout({
   params,

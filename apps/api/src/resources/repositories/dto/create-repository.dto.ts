@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
+import { schema } from '@ghost/db';
 
 export class CreateRepositoryRequestDTO {
   @ApiProperty({})
@@ -10,6 +11,14 @@ export class CreateRepositoryRequestDTO {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiPropertyOptional({
+    enumName: 'RepositoryVisibility',
+    enum: schema.repositoryVisiblity.enumValues,
+  })
+  @IsIn(schema.repositoryVisiblity.enumValues)
+  @IsOptional()
+  visibility?: (typeof schema.repositoryVisiblity.enumValues)[number];
 }
 
 export class CreateRepositoryResponseDTO {

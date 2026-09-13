@@ -16,6 +16,7 @@ import { S3Service } from './services/s3/s3.service.js';
 import { WalService } from './services/git/wal/wal.service.js';
 import { BranchesService } from './services/git/branches/branches.service.js';
 import { RepositoryAccessService } from './services/git/repository-access/repository-access.service.js';
+import { UserModule } from './resources/user/user.module.js';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { RepositoryAccessService } from './services/git/repository-access/reposi
     PullRequestsModule,
     IssuesModule,
     GitModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [

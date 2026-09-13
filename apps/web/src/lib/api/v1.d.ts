@@ -630,13 +630,33 @@ export interface paths {
         patch: operations["LabelsController_updateLabel"];
         trace?: never;
     };
+    "/api/users/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a user's public profile */
+        get: operations["UserController_getProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        RepositoryVisibility: "public" | "private";
         CreateRepositoryRequestDTO: {
             name: string;
             description?: string;
+            visibility?: components["schemas"]["RepositoryVisibility"];
         };
         CreateRepositoryResponseDTO: {
             id: string;
@@ -645,8 +665,6 @@ export interface components {
         ErrorResponseDTO: {
             message: string;
         };
-        /** @enum {string} */
-        RepositoryVisibility: "public" | "private";
         RepositoryParentEntity: {
             username: string;
             slug: string;
@@ -1163,6 +1181,17 @@ export interface components {
             description?: string | null;
             /** @example d73a4a */
             color?: string;
+        };
+        UserProfileResponseDTO: {
+            username: string;
+            name: string;
+            image: string | null;
+            /** @description ISO timestamp the account was created */
+            joinedAt: string;
+            /** @description Public repositories owned by the user */
+            repositoryCount: number;
+            /** @description Stars across the user’s public repositories */
+            starCount: number;
         };
     };
     responses: never;
@@ -2780,6 +2809,35 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    UserController_getProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfileResponseDTO"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

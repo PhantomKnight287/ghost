@@ -1,4 +1,5 @@
 import { CircleCheck, CircleDot } from "lucide-react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
@@ -7,6 +8,23 @@ import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 
 import { EditableField } from "./page.client";
+
+export async function generateMetadata({
+  params,
+}: LayoutProps<"/[username]/[repo]/issues/[number]">): Promise<Metadata> {
+  const { username, repo, number } = await params;
+  const client = await createServerClient();
+  const { data } = await client.GET(
+    "/api/repositories/{username}/{repo}/issues/{number}",
+    { params: { path: { username, repo, number: Number(number) } } },
+  );
+
+  const title = data
+    ? `${data.title} · Issue #${data.number} · ${username}/${repo}`
+    : `Issue #${number} · ${username}/${repo}`;
+
+  return { title, openGraph: { title } };
+}
 
 export default async function IssueLayout({
   params,
