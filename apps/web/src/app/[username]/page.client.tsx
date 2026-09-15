@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -27,12 +27,15 @@ export function ProfileTabs({
   owners,
   initialRepositories,
   initialCursor,
+  overview,
 }: {
   username: string;
   isViewer: boolean;
   owners: string[];
   initialRepositories: RepositoryEntity[];
   initialCursor: string | null;
+  /** Rendered on the server: the profile README, or its empty state. */
+  overview: ReactNode;
 }) {
   const [repositories, setRepositories] = useState(initialRepositories);
   const [cursor, setCursor] = useState(initialCursor);
@@ -51,7 +54,7 @@ export function ProfileTabs({
   }, [filter, repositories]);
 
   return (
-    <Tabs defaultValue="repositories">
+    <Tabs defaultValue="overview">
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="repositories">Repositories</TabsTrigger>
@@ -59,9 +62,7 @@ export function ProfileTabs({
       </TabsList>
 
       <TabsContent value="overview" className="pt-6">
-        <p className="text-sm text-muted-foreground">
-          {username} hasn&apos;t written a profile README yet.
-        </p>
+        {overview}
       </TabsContent>
 
       <TabsContent value="repositories" className="flex flex-col gap-4 pt-6">

@@ -9,7 +9,8 @@
     "lint": "eslint",
     "check-types": "tsc --noEmit",
     "generate": "openapi-typescript ../api/openapi.json -o ./src/lib/api/v1.d.ts",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "test": "bun test"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -59,6 +60,8 @@
     "react-dom": "19.2.8",
     "react-hook-form": "^7.87.0",
     "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "shadcn": "^4.19.1",
     "shiki": "^4.4.3",
@@ -69,6 +72,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bun": "^1.4.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

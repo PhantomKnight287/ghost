@@ -490,6 +490,76 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/readme": {
+      "get": {
+        "description": "The README at the root of the repository at the requested ref - a branch or a commit sha - or the default branch when none is given. A repository without one answers with a null path, not a 404. Markdown is returned as source, for the client to render.",
+        "operationId": "RepositoriesController_getRepositoryReadme",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryReadmeResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read the README",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
     "/api/repositories/{username}/{slug}/blob": {
       "get": {
         "description": "Contents of a single file at the requested ref - a branch or a commit sha - or the default branch when none is given. Binary files come back base64-encoded, and a file past the inline size limit comes back without contents.",
@@ -3364,6 +3434,37 @@
           "commitCount",
           "commit",
           "entries"
+        ]
+      },
+      "GetRepositoryReadmeResponseDTO": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Ref that was read, always fully qualified.",
+            "example": "refs/heads/main"
+          },
+          "path": {
+            "type": "string",
+            "nullable": true,
+            "description": "Path of the README that was found, `null` when the repository has none.",
+            "example": "README.md"
+          },
+          "size": {
+            "type": "number",
+            "description": "README size in bytes, 0 when there is none."
+          },
+          "content": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown source. `null` when there is no README, when it is past the inline size limit, or when it is not valid UTF-8 text."
+          }
+        },
+        "required": [
+          "ref",
+          "path",
+          "size",
+          "content"
         ]
       },
       "BlobEncoding": {

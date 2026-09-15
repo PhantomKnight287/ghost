@@ -1,24 +1,62 @@
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
 import { cn } from "@/lib/utils";
 
-/**
- * Raw HTML is not enabled, so user markdown cannot inject markup. Keep it that
- * way: turning on `rehype-raw` here needs a sanitizer in front of it.
- */
+// we override some default tagNames to offer some flexibility
+const SCHEMA = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    // `target` and `rel` are kept so a README can open a link in a new tab;
+    // the anchor component below is what makes `_blank` safe.
+    a: [
+      ...(defaultSchema.attributes?.a ?? []),
+      ["target", "_blank", "_self", "_parent", "_top"],
+      "rel",
+    ],
+    // `align` on a cell is turned into `style="text-align:<value>"` after
+    // sanitizing, so an unconstrained value is a CSS injection: `align="right;
+    // position:fixed;inset:0"` becomes a full-page overlay. Pinning it to the
+    // four legal values closes that, here rather than downstream, because this
+    // is the last place the value is still an attribute.
+    "*": [
+      ...(defaultSchema.attributes?.["*"] ?? []).filter(
+        (attribute) => attribute !== "align" && attribute !== "vAlign",
+      ),
+      ["align", "left", "right", "center", "justify"],
+      ["vAlign", "top", "middle", "bottom", "baseline"],
+    ],
+  },
+  tagNames: [
+    ...(defaultSchema.tagNames ?? []),
+    "abbr",
+    "caption",
+    "center",
+    "figcaption",
+    "figure",
+    "mark",
+    "small",
+    "time",
+  ],
+};
+
 export function Markdown({
   children,
   className,
+  resolveUrl,
 }: {
   children: string;
   className?: string;
+  resolveUrl?: (url: string, key: string) => string;
 }) {
   return (
     <div
       className={cn(
-        "text-sm break-words",
-        "[&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
+        "text-sm wrap-break-word",
+        "[&_p]:block",
         "[&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold",
         "[&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold",
         "[&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-semibold",
@@ -37,7 +75,46 @@ export function Markdown({
         className,
       )}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, SCHEMA]]}
+        components={{
+          a({ node, className, target, rel, ...props }) {
+            return (
+              <a
+                {...props}
+                target={target}
+                rel={target === "_blank" ? noopener(rel) : rel}
+                className={cn("w-fit inline-flex", className)}
+              />
+            );
+          },
+        }}
+        urlTransform={
+          resolveUrl &&
+          ((url, key) => {
+            const safe = defaultUrlTransform(url);
+            return isRelative(safe) ? resolveUrl(safe, key) : safe;
+          })
+        }
+      >
+        {children}
+      </ReactMarkdown>
     </div>
   );
+}
+
+/**
+ * `rel` with `noopener noreferrer` added, keeping whatever the author wrote.
+ * A `_blank` link hands the opener to the page it opens without it.
+ */
+function noopener(rel: string | undefined) {
+  return [...new Set([...(rel ?? "").split(/\s+/), "noopener", "noreferrer"])]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Anything that is not an absolute URL, a protocol-relative one, or an anchor. */
+function isRelative(url: string) {
+  return url !== "" && !/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(url);
 }

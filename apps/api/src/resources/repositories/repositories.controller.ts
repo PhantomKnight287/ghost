@@ -46,6 +46,10 @@ import {
   GetRepositoryContentsQueryDTO,
   GetRepositoryContentsResponseDTO,
 } from './dto/get-repository-contents.dto.js';
+import {
+  GetRepositoryReadmeQueryDTO,
+  GetRepositoryReadmeResponseDTO,
+} from './dto/get-repository-readme.dto.js';
 import { StarRepositoryResponseDTO } from './dto/star-repository.dto.js';
 import {
   ForkRepositoryRequestDTO,
@@ -253,6 +257,35 @@ export class RepositoriesController {
       username,
       repo: slug,
       path: query.path,
+      ref: query.ref,
+      requesterId: session?.user?.id,
+    });
+  }
+
+  @Get(':username/:slug/readme')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'Read the README',
+    description: `The readme at the root of the repository at the requested ref`
+  })
+  @ApiOkResponse({
+    type: GetRepositoryReadmeResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiInternalServerErrorResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryReadme(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryReadmeQueryDTO,
+  ): Promise<GetRepositoryReadmeResponseDTO> {
+    return this.repositoriesService.getRepositoryReadme({
+      username,
+      repo: slug,
       ref: query.ref,
       requesterId: session?.user?.id,
     });

@@ -1,4 +1,10 @@
+import { Suspense } from "react";
+
 import { RepositoryContents } from "@/components/repositories/repository-contents";
+import {
+  RepositoryReadme,
+  RepositoryReadmeSkeleton,
+} from "@/components/repositories/repository-readme";
 import { createServerClient } from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
 
@@ -25,11 +31,16 @@ export default async function RepositoryPage({
       </div>
 
       {contents.data ? (
-        <RepositoryContents
-          contents={contents.data}
-          owner={username}
-          slug={repo}
-        />
+        <>
+          <RepositoryContents
+            contents={contents.data}
+            owner={username}
+            slug={repo}
+          />
+          <Suspense fallback={<RepositoryReadmeSkeleton />}>
+            <Readme username={username} repo={repo} />
+          </Suspense>
+        </>
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
           <p className="text-sm font-medium">Could not load repository files</p>
@@ -40,4 +51,16 @@ export default async function RepositoryPage({
       )}
     </>
   );
+}
+
+async function Readme({ username, repo }: { username: string; repo: string }) {
+  const client = await createServerClient();
+  const { data } = await client.GET(
+    "/api/repositories/{username}/{slug}/readme",
+    { params: { path: { username, slug: repo } } },
+  );
+
+  return data ? (
+    <RepositoryReadme readme={data} owner={username} slug={repo} />
+  ) : null;
 }

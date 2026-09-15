@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { AppHeader } from "@/components/app-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  RepositoryReadme,
+  RepositoryReadmeSkeleton,
+} from "@/components/repositories/repository-readme";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 
 import { ProfileTabs } from "./page.client";
@@ -104,9 +109,40 @@ export default async function ProfilePage({
             owners={viewer ? [viewer] : []}
             initialRepositories={data.repositories}
             initialCursor={data.nextCursor}
+            overview={
+              // its own fetch, so the tabs and the repository list paint first
+              <Suspense fallback={<RepositoryReadmeSkeleton bare />}>
+                <ProfileReadme username={username} />
+              </Suspense>
+            }
           />
         </section>
       </main>
     </div>
+  );
+}
+
+/**
+ * The repository named after its owner is that person's bio, the way GitHub
+ * treats it. There is no separate bio to store: the README of `user/user` is
+ * it, and the API already refuses to serve one the viewer may not read.
+ */
+async function ProfileReadme({ username }: { username: string }) {
+  const client = await createServerClient();
+  const { data } = await client.GET(
+    "/api/repositories/{username}/{slug}/readme",
+    { params: { path: { username, slug: username } } },
+  );
+
+  if (!data?.content) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {username} hasn&apos;t written a profile README yet.
+      </p>
+    );
+  }
+
+  return (
+    <RepositoryReadme readme={data} owner={username} slug={username} bare />
   );
 }

@@ -144,6 +144,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/readme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the README
+         * @description The README at the root of the repository at the requested ref - a branch or a commit sha - or the default branch when none is given. A repository without one answers with a null path, not a 404. Markdown is returned as source, for the client to render.
+         */
+        get: operations["RepositoriesController_getRepositoryReadme"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{slug}/blob": {
         parameters: {
             query?: never;
@@ -759,6 +779,22 @@ export interface components {
             commit: components["schemas"]["CommitSummaryDTO"] | null;
             /** @description One level of the directory: directories first (submodules among them), then files, each group alphabetical. Case is a minor difference, so `readme.md` and `README.md` sit together rather than in separate blocks, and embedded numbers order naturally (`file2` before `file10`). Empty for an unborn ref or a path that is not a directory. */
             entries: components["schemas"]["TreeEntryDTO"][];
+        };
+        GetRepositoryReadmeResponseDTO: {
+            /**
+             * @description Ref that was read, always fully qualified.
+             * @example refs/heads/main
+             */
+            ref: string;
+            /**
+             * @description Path of the README that was found, `null` when the repository has none.
+             * @example README.md
+             */
+            path: string | null;
+            /** @description README size in bytes, 0 when there is none. */
+            size: number;
+            /** @description Markdown source. `null` when there is no README, when it is past the inline size limit, or when it is not valid UTF-8 text. */
+            content: string | null;
         };
         /**
          * @description `base64` for binary files, and for anything that is not valid UTF-8.
@@ -1496,6 +1532,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryReadme: {
+        parameters: {
+            query?: {
+                /** @description Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch. */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryReadmeResponseDTO"];
                 };
             };
             404: {

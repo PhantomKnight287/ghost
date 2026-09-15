@@ -33,6 +33,7 @@ import {
   statBlob,
   streamBlob,
 } from '../../services/git/blob/read-blob.js';
+import { findReadmePath } from '../../services/git/blob/find-readme.js';
 import { mediaTypeFor } from '../../services/git/blob/media-type.js';
 import {
   normalizeBlobPath,
@@ -49,6 +50,7 @@ import type {
 } from './dto/get-repository-contents.dto.js';
 import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
 import type { GetRepositoryBlobResponseDTO } from './dto/get-repository-blob.dto.js';
+import type { GetRepositoryReadmeResponseDTO } from './dto/get-repository-readme.dto.js';
 import type {
   CommitDTO,
   GetRepositoryCommitResponseDTO,
@@ -522,6 +524,43 @@ export class RepositoriesService {
       commit: lastCommit
         ? toCommitSummaryOf(lastCommit)
         : toCommitSummary(commits.get(filePath)),
+    };
+  }
+
+  async getRepositoryReadme({
+    username,
+    repo,
+    requesterId,
+    ref: requestedRef,
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    ref?: string;
+  }): Promise<GetRepositoryReadmeResponseDTO> {
+    const { directory, ref } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: requestedRef,
+    });
+
+    const path = await findReadmePath({ gitDir: directory, ref });
+    if (!path) return { ref, path: null, size: 0, content: null };
+
+    const blob = await readBlob({ gitDir: directory, ref, path });
+    if (!blob) return { ref, path: null, size: 0, content: null };
+
+    const text =
+      blob.content !== null &&
+      !blob.content.includes(0) &&
+      isUtf8(blob.content);
+
+    return {
+      ref,
+      path,
+      size: blob.size,
+      content: text ? blob.content!.toString('utf8') : null,
     };
   }
 
