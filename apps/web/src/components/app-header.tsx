@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CircleUser, Ghost, Plus, Search } from "lucide-react";
 
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemePicker } from "@/components/theme-picker";
 import { UserButton } from "@/components/auth/user/user-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +50,7 @@ export function AppHeader({
             </Button>
           </NewRepositoryDialog>
 
-          <ThemeToggle />
+          <ThemePicker />
 
           <UserButton
             size="icon"

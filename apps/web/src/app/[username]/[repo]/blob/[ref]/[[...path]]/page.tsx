@@ -11,6 +11,8 @@ import { Download, GitCommitHorizontal } from "lucide-react";
 import pierreDark from "@pierre/theme/pierre-dark";
 import pierreLight from "@pierre/theme/pierre-light";
 
+import { APP_THEMES } from "@/lib/themes";
+
 import { createServerClient } from "@/lib/api/server";
 import { ogUrl } from "@/lib/og-url";
 
@@ -69,12 +71,19 @@ export default async function RepositoryBlobPage({
     ? (
         await codeToTokens(text, {
           lang: languageFor(filename),
-          // the themes ship as frozen TextMate objects, which shiki loads and
-          // caches by their own `name`
-          themes: {
-            light: pierreLight as ThemeRegistrationRaw,
-            dark: pierreDark as ThemeRegistrationRaw,
-          },
+          // the pierre themes ship as frozen TextMate objects, which shiki
+          // loads and caches by their own `name`; the rest are bundled names.
+          // keys line up with the `--shiki-<id>` selectors in globals.css.
+          themes: Object.fromEntries(
+            APP_THEMES.map((t) => [
+              t.id,
+              t.id === "light"
+                ? (pierreLight as ThemeRegistrationRaw)
+                : t.id === "dark"
+                  ? (pierreDark as ThemeRegistrationRaw)
+                  : t.shiki,
+            ]),
+          ),
           defaultColor: false,
         })
       ).tokens
