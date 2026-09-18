@@ -33,7 +33,12 @@ export default async function Image({
       { icon: "user", label: data.authorUsername },
       { icon: "messageSquare", label: plural(data.commentCount, "comment") },
       ...(data.labels.length
-        ? [{ icon: "bookMarked" as const, label: plural(data.labels.length, "label") }]
+        ? [
+            {
+              icon: "bookMarked" as const,
+              label: plural(data.labels.length, "label"),
+            },
+          ]
         : []),
     ],
   });

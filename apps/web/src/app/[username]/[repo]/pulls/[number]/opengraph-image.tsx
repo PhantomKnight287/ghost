@@ -35,7 +35,10 @@ export default async function Image({
     description: `${data.head.ref} → ${data.base.ref}`,
     stats: [
       { icon: "user", label: data.authorUsername },
-      { icon: "gitCommitHorizontal", label: plural(data.commitCount, "commit") },
+      {
+        icon: "gitCommitHorizontal",
+        label: plural(data.commitCount, "commit"),
+      },
       { icon: "fileDiff", label: plural(data.changedFiles, "file") },
     ],
   });

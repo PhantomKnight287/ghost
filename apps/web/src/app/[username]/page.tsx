@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 import { AppHeader } from "@/components/app-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   RepositoryReadme,
@@ -14,6 +14,7 @@ import { createServerClient, getServerSession } from "@/lib/api/server";
 
 import { ProfileTabs } from "./page.client";
 import { REPOSITORIES_PAGE_SIZE } from "./constants";
+import Link from "next/link";
 
 export async function generateMetadata({
   params,
@@ -89,10 +90,15 @@ export default async function ProfilePage({
             <p className="text-lg text-muted-foreground">{username}</p>
           </div>
 
-          <Button variant="outline" className="w-full">
+          <Link
+            href={`/settings`}
+            className={buttonVariants({
+              className: "w-full",
+              variant: "outline",
+            })}
+          >
             {isViewer ? "Edit profile" : "Follow"}
-          </Button>
-
+          </Link>
           <Separator />
 
           <p className="text-sm text-muted-foreground">

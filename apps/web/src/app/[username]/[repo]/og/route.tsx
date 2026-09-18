@@ -66,8 +66,14 @@ export async function GET(
       ? shortenPath(path.split("/").slice(0, -1).join("/")) || null
       : (data.commit?.message ?? null),
     stats: [
-      { icon: "fileCode", label: plural(data.entries.length, "entry", "entries") },
-      { icon: "gitCommitHorizontal", label: plural(data.commitCount, "commit") },
+      {
+        icon: "fileCode",
+        label: plural(data.entries.length, "entry", "entries"),
+      },
+      {
+        icon: "gitCommitHorizontal",
+        label: plural(data.commitCount, "commit"),
+      },
     ],
   });
 }
