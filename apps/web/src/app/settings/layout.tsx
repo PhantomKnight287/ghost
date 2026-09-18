@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuthenticate } from "@better-auth-ui/react";
+import { useAuthenticate } from "@/lib/auth/use-authenticate";
 
 import { AppHeader } from "@/components/app-header";
 import { authClient } from "@/lib/auth-client";
