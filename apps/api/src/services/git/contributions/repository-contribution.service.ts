@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { runGitStream, runGit } from '../exec/run-git.js';
@@ -78,7 +78,14 @@ export class RepositoryContributionService {
       .from(schema.repositoryContributionIndex)
       .where(eq(schema.repositoryContributionIndex.repositoryId, repositoryId));
 
-    if (state?.indexedCommitSha === tip) return tip;
+    if (state?.indexedCommitSha === tip) {
+      // No new commits, but an author may have registered since the last
+      // walk: link rows that are still unattributed.
+      if (await this.hasUnlinked(repositoryId)) {
+        await this.relink(repositoryId);
+      }
+      return tip;
+    }
 
     // Only a fast-forward can be topped up. A force push or a pruned object
     // makes the stored rows unrelated to the ref, so start over.
@@ -190,10 +197,19 @@ export class RepositoryContributionService {
     }));
     pending.clear();
 
+    const authorIds = await this.resolveAuthorIds(
+      rows.map((row) => row.authorEmail),
+    );
+
     for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
       await this.db
         .insert(schema.repositoryContribution)
-        .values(rows.slice(i, i + INSERT_CHUNK))
+        .values(
+          rows.slice(i, i + INSERT_CHUNK).map((row) => ({
+            ...row,
+            authorId: authorIds.get(row.authorEmail) ?? null,
+          })),
+        )
         .onConflictDoUpdate({
           target: [
             schema.repositoryContribution.repositoryId,
@@ -202,12 +218,58 @@ export class RepositoryContributionService {
           ],
           set: {
             commits: sql`${schema.repositoryContribution.commits} + excluded.commits`,
-            authorName: sql`excluded."authorName"`,
+            authorName: sql`excluded."author_name"`,
+            // Never unlink on a top-up: a missing match means "unknown",
+            // not "no longer theirs".
+            authorId: sql`coalesce(excluded."author_id", ${schema.repositoryContribution.authorId})`,
           },
         });
     }
 
     return rows.length;
+  }
+
+  /** Maps lowercased author emails to account ids, one query per flush. */
+  private async resolveAuthorIds(emails: string[]) {
+    const distinct = [...new Set(emails)];
+    if (distinct.length === 0) return new Map<string, string>();
+
+    const users = await this.db
+      .select({ id: schema.user.id, email: schema.user.email })
+      .from(schema.user)
+      .where(inArray(sql`lower(${schema.user.email})`, distinct));
+
+    return new Map(users.map((user) => [user.email.toLowerCase(), user.id]));
+  }
+
+  private async hasUnlinked(repositoryId: string) {
+    const [row] = await this.db
+      .select({ one: sql`1` })
+      .from(schema.repositoryContribution)
+      .where(
+        and(
+          eq(schema.repositoryContribution.repositoryId, repositoryId),
+          isNull(schema.repositoryContribution.authorId),
+        ),
+      )
+      .limit(1);
+    return row !== undefined;
+  }
+
+  /**
+   * Links unattributed rows to accounts that appeared after the commits were
+   * indexed - a registration, or an email added to an account later. The next
+   * sync then finds nothing left to link.
+   */
+  private async relink(repositoryId: string) {
+    await this.db.execute(sql`
+      UPDATE "repository_contribution" AS c
+      SET "author_id" = u."id"
+      FROM "user" AS u
+      WHERE c."repository_id" = ${repositoryId}
+        AND c."author_id" IS NULL
+        AND lower(u."email") = c."author_email"
+    `);
   }
 
   private async forget(repositoryId: string) {

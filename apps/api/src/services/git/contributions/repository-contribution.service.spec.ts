@@ -183,4 +183,63 @@ describe.skipIf(!CONNECTION)('RepositoryContributionService', () => {
     const rows = await dayCounts();
     expect(rows.get('alice@example.com 2026-04-01')?.commits).toBe(1);
   });
+
+  it('links rows to the account matching the author email', async () => {
+    await db.insert(schema.user).values({
+      id: 'user_contribution_alice',
+      name: 'Alice',
+      email: 'alice-link@example.com',
+    });
+
+    try {
+      commitAs(
+        'alice-link@example.com',
+        'Alice',
+        '2026-05-01T12:00:00Z',
+        'one',
+      );
+      commitAs('stranger@example.com', 'Stranger', '2026-05-02T12:00:00Z', 'two');
+      await sync();
+
+      const rows = await dayCounts();
+      expect(rows.get('alice-link@example.com 2026-05-01')?.authorId).toBe(
+        'user_contribution_alice',
+      );
+      expect(
+        rows.get('stranger@example.com 2026-05-02')?.authorId,
+      ).toBeNull();
+    } finally {
+      await db
+        .delete(schema.user)
+        .where(eq(schema.user.id, 'user_contribution_alice'));
+    }
+  });
+
+  it('links rows when the account registers after indexing', async () => {
+    commitAs('late@example.com', 'Late', '2026-06-01T12:00:00Z', 'one');
+    await sync();
+
+    let rows = await dayCounts();
+    expect(rows.get('late@example.com 2026-06-01')?.authorId).toBeNull();
+
+    await db.insert(schema.user).values({
+      id: 'user_contribution_late',
+      name: 'Late',
+      email: 'late@example.com',
+    });
+
+    try {
+      // No new commits: the sync is a no-op for the walk but still relinks.
+      await sync();
+
+      rows = await dayCounts();
+      expect(rows.get('late@example.com 2026-06-01')?.authorId).toBe(
+        'user_contribution_late',
+      );
+    } finally {
+      await db
+        .delete(schema.user)
+        .where(eq(schema.user.id, 'user_contribution_late'));
+    }
+  });
 });

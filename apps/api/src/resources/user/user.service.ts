@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { type Database, schema } from '@ghost/db';
-import { and, count, eq, gte, inArray, lt, sum } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, lt, or, sum } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { Readable } from 'node:stream';
 
@@ -180,8 +180,13 @@ export class UserService {
     const to = `${year + 1}-01-01`;
     const counts = new Map<string, number>();
 
+    // A row counts when it is linked to the account, or when its author email
+    // is one of the account's emails (a commit indexed before the author
+    // registered, or before the email was added to the account). Matching on
+    // both means adding an email never needs a reindex.
     // Private repositories are the owner's business: anyone else only sees
     // the public ones in the graph.
+    const emails = [user.email.toLowerCase()];
     const rows = await this.db
       .select({
         day: schema.repositoryContribution.day,
@@ -199,9 +204,9 @@ export class UserService {
             schema.repository.visibility,
             user.id === requesterId ? ['private', 'public'] : ['public'],
           ),
-          eq(
-            schema.repositoryContribution.authorEmail,
-            user.email.toLowerCase(),
+          or(
+            eq(schema.repositoryContribution.authorId, user.id),
+            inArray(schema.repositoryContribution.authorEmail, emails),
           ),
           gte(schema.repositoryContribution.day, from),
           lt(schema.repositoryContribution.day, to),

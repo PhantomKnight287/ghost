@@ -1,5 +1,5 @@
 {
-  "id": "923f919d-3a77-4936-ad08-8f5e04110019",
+  "id": "b17bb65c-4fe8-4862-9776-0dc897a327f3",
   "prevId": "8c4f4ea3-7153-49da-81ac-ffd7094699e8",
   "version": "7",
   "dialect": "postgresql",
@@ -1360,14 +1360,14 @@
       "name": "repository_contribution",
       "schema": "",
       "columns": {
-        "repositoryId": {
-          "name": "repositoryId",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "authorEmail": {
-          "name": "authorEmail",
+        "author_email": {
+          "name": "author_email",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1378,11 +1378,17 @@
           "primaryKey": false,
           "notNull": true
         },
-        "authorName": {
-          "name": "authorName",
+        "author_name": {
+          "name": "author_name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "author_id": {
+          "name": "author_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "commits": {
           "name": "commits",
@@ -1394,26 +1400,39 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "repository_contribution_repositoryId_repository_id_fk": {
-          "name": "repository_contribution_repositoryId_repository_id_fk",
+        "repository_contribution_repository_id_repository_id_fk": {
+          "name": "repository_contribution_repository_id_repository_id_fk",
           "tableFrom": "repository_contribution",
           "tableTo": "repository",
           "columnsFrom": [
-            "repositoryId"
+            "repository_id"
           ],
           "columnsTo": [
             "id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "repository_contribution_author_id_user_id_fk": {
+          "name": "repository_contribution_author_id_user_id_fk",
+          "tableFrom": "repository_contribution",
+          "tableTo": "user",
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
-        "repository_contribution_repositoryId_authorEmail_day_pk": {
-          "name": "repository_contribution_repositoryId_authorEmail_day_pk",
+        "repository_contribution_repository_id_author_email_day_pk": {
+          "name": "repository_contribution_repository_id_author_email_day_pk",
           "columns": [
-            "repositoryId",
-            "authorEmail",
+            "repository_id",
+            "author_email",
             "day"
           ]
         }
@@ -1427,20 +1446,20 @@
       "name": "repository_contribution_index",
       "schema": "",
       "columns": {
-        "repositoryId": {
-          "name": "repositoryId",
+        "repository_id": {
+          "name": "repository_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "indexedCommitSha": {
-          "name": "indexedCommitSha",
+        "indexed_commit_sha": {
+          "name": "indexed_commit_sha",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "updatedAt": {
-          "name": "updatedAt",
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -1449,12 +1468,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "repository_contribution_index_repositoryId_repository_id_fk": {
-          "name": "repository_contribution_index_repositoryId_repository_id_fk",
+        "repository_contribution_index_repository_id_repository_id_fk": {
+          "name": "repository_contribution_index_repository_id_repository_id_fk",
           "tableFrom": "repository_contribution_index",
           "tableTo": "repository",
           "columnsFrom": [
-            "repositoryId"
+            "repository_id"
           ],
           "columnsTo": [
             "id"
@@ -1464,10 +1483,10 @@
         }
       },
       "compositePrimaryKeys": {
-        "repository_contribution_index_repositoryId_pk": {
-          "name": "repository_contribution_index_repositoryId_pk",
+        "repository_contribution_index_repository_id_pk": {
+          "name": "repository_contribution_index_repository_id_pk",
           "columns": [
-            "repositoryId"
+            "repository_id"
           ]
         }
       },

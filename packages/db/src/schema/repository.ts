@@ -148,21 +148,29 @@ export const repositoryLanguageIndex = pgTable(
  * profile contribution graph costs one indexed query instead of materializing
  * and walking every repository the user owns.
  *
- * Emails are stored lowercased: git treats `Alice@x.com` and `alice@x.com` as
- * the same author for this purpose, and account emails compare case-insensitively.
+ * The grain is a git fact: emails are stored lowercased (`Alice@x.com` and
+ * `alice@x.com` count as one author). `authorId` links that fact to an
+ * account, resolved at sync time and nullable when the author has no account
+ * (yet) - accounts and their emails change, history does not. Readers match on
+ * both, so adding an email to an account never needs a reindex.
  */
 export const repositoryContribution = pgTable(
   "repository_contribution",
   {
-    repositoryId: text()
+    repositoryId: text("repository_id")
       .references(() => repository.id, { onDelete: "cascade" })
       .notNull(),
-    authorEmail: text().notNull(),
+    authorEmail: text("author_email").notNull(),
     // UTC calendar day, YYYY-MM-DD.
-    day: date().notNull(),
+    day: date("day").notNull(),
     // Name from the author's newest indexed commit.
-    authorName: text().notNull(),
-    commits: integer().notNull().default(0),
+    authorName: text("author_name").notNull(),
+    // Linked account, if the author email matches one. Null for
+    // not-yet-registered authors; backfilled once they register.
+    authorId: text("author_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    commits: integer("commits").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.repositoryId, t.authorEmail, t.day] })],
 );
@@ -176,11 +184,11 @@ export const repositoryContribution = pgTable(
 export const repositoryContributionIndex = pgTable(
   "repository_contribution_index",
   {
-    repositoryId: text()
+    repositoryId: text("repository_id")
       .references(() => repository.id, { onDelete: "cascade" })
       .notNull(),
-    indexedCommitSha: text().notNull(),
-    updatedAt: timestamp({ withTimezone: true })
+    indexedCommitSha: text("indexed_commit_sha").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
       .$onUpdateFn(() => new Date()),
