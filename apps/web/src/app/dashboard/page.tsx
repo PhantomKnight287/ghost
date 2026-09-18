@@ -6,7 +6,7 @@ import { BookMarked, GitBranch, Plus, Search, Users } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
 import { RepositoryCard, type Repository } from "@/components/repository-card";
-import { useAuthenticate } from "@better-auth-ui/react";
+import { useAuthenticate } from "@/lib/auth/use-authenticate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {

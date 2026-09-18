@@ -1,7 +1,9 @@
 "use client";
 
 import type { SettingsView } from "@better-auth-ui/core";
-import { useAuth, useAuthenticate } from "@better-auth-ui/react";
+import { useAuth } from "@better-auth-ui/react";
+
+import { useAuthenticate } from "@/lib/auth/use-authenticate";
 import { Shield, User2 } from "lucide-react";
 import { useMemo } from "react";
 
