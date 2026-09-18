@@ -7,11 +7,13 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { ThemeEffects } from "@/components/theme-effects";
 import { authClient } from "@/lib/auth-client";
 import { usernamePlugin } from "@/lib/auth/username-plugin";
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin";
 
 import { getQueryClient } from "@/lib/query-client";
+import { APP_THEME_IDS } from "@/lib/themes";
 
 export function Providers({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -23,7 +25,9 @@ export function Providers({ children }: { children: ReactNode }) {
       defaultTheme="system"
       enableSystem
       disableTransitionOnChange
+      themes={APP_THEME_IDS}
     >
+      <ThemeEffects />
       <QueryClientProvider client={queryClient}>
         <AuthProvider
           authClient={authClient}

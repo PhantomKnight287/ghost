@@ -21,7 +21,7 @@ import {
   Webhook,
 } from "lucide-react";
 
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemePicker } from "@/components/theme-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { languageColor } from "@ghost/languages";
@@ -222,7 +222,7 @@ export default async function LandingPage() {
           </span>
 
           <div className="ml-auto flex items-center gap-2">
-            <ThemeToggle />
+            <ThemePicker />
             <Button asChild variant="ghost" size="sm">
               <Link href="/auth/sign-in">Sign in</Link>
             </Button>
