@@ -10,6 +10,10 @@ import {
   RepositoryReadme,
   RepositoryReadmeSkeleton,
 } from "@/components/repositories/repository-readme";
+import {
+  ContributionGraph,
+  ContributionGraphSkeleton,
+} from "@/components/profile/contribution-graph";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 
 import { ProfileTabs } from "./page.client";
@@ -117,9 +121,14 @@ export default async function ProfilePage({
             initialCursor={data.nextCursor}
             overview={
               // its own fetch, so the tabs and the repository list paint first
-              <Suspense fallback={<RepositoryReadmeSkeleton bare />}>
-                <ProfileReadme username={username} />
-              </Suspense>
+              <>
+                <Suspense fallback={<ContributionGraphSkeleton />}>
+                  <ProfileContributions username={username} />
+                </Suspense>
+                <Suspense fallback={<RepositoryReadmeSkeleton bare />}>
+                  <ProfileReadme username={username} />
+                </Suspense>
+              </>
             }
           />
         </section>
@@ -151,4 +160,15 @@ async function ProfileReadme({ username }: { username: string }) {
   return (
     <RepositoryReadme readme={data} owner={username} slug={username} bare />
   );
+}
+
+async function ProfileContributions({ username }: { username: string }) {
+  const client = await createServerClient();
+  const { data } = await client.GET("/api/users/{username}/contributions", {
+    params: { path: { username } },
+  });
+
+  if (!data) return null;
+
+  return <ContributionGraph data={data} />;
 }

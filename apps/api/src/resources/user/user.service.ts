@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { type Database, schema } from '@ghost/db';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { Readable } from 'node:stream';
 
@@ -14,6 +14,14 @@ import {
   type AvatarContentType,
 } from './avatar.constants.js';
 import type { UploadAvatarResponseDTO } from './dto/avatar.dto.js';
+import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
+import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
+import { runGit } from '../../services/git/exec/run-git.js';
+import { resolveDefaultRef } from '../../services/git/tree/resolve-ref.js';
+import type {
+  GetUserContributionsQueryDTO,
+  GetUserContributionsResponseDTO,
+} from './dto/contributions.dto.js';
 import type { UserProfileResponseDTO } from './dto/profile.dto.js';
 import {
   AvatarNotFoundError,
@@ -36,6 +44,8 @@ export class UserService {
     private readonly users: UsersService,
     private readonly s3: S3Service,
     configService: ConfigService,
+    private readonly storage: RepositoryStorageService,
+    private readonly materializer: RepositoryMaterializerService,
   ) {
     this.publicUrl = configService
       .getOrThrow<string>('BETTER_AUTH_URL')
@@ -152,5 +162,90 @@ export class UserService {
       Bucket: this.s3.bucket,
       Delete: { Objects: stale.map((Key) => ({ Key })) },
     });
+  }
+
+  /**
+   * Daily commit counts for the contribution graph. Walks the default branch
+   * of every repository the requester may see that the user owns, bucketing
+   * commits authored by the user's account email per UTC day.
+   */
+  async getContributions(
+    username: string,
+    query: GetUserContributionsQueryDTO = {},
+    requesterId?: string,
+  ): Promise<GetUserContributionsResponseDTO> {
+    const user = await this.users.getUserByUsername(username);
+    const now = new Date();
+    const year =
+      Number.isFinite(Number(query.year)) && Number(query.year) >= 2000
+        ? Math.trunc(Number(query.year))
+        : now.getUTCFullYear();
+
+    const since = new Date(Date.UTC(year, 0, 1));
+    const until = new Date(Date.UTC(year + 1, 0, 1));
+    const counts = new Map<string, number>();
+
+    // Private repositories are the owner's business: anyone else only
+    // contributes the public ones to the graph.
+    const rows = await this.db
+      .select({ id: schema.repository.id })
+      .from(schema.repository)
+      .where(
+        and(
+          eq(schema.repository.ownerId, user.id),
+          inArray(
+            schema.repository.visibility,
+            user.id === requesterId ? ['private', 'public'] : ['public'],
+          ),
+        ),
+      );
+
+    await Promise.all(
+      rows.map(async ({ id }) => {
+        try {
+          const directory = await this.storage.getRepoPath(id);
+          await this.materializer.materialize(id, directory);
+          const ref = await resolveDefaultRef({ gitDir: directory });
+          const raw = await runGit({
+            args: [
+              'log',
+              '--format=%ct',
+              '--no-merges',
+              `--author=${user.email}`,
+              `--since=${since.toISOString()}`,
+              `--until=${until.toISOString()}`,
+              '--end-of-options',
+              ref,
+            ],
+            gitDir: directory,
+          }).catch(() => '');
+          for (const line of raw.split('\n')) {
+            const ct = Number(line.trim());
+            if (!Number.isFinite(ct) || ct <= 0) continue;
+            const day = new Date(ct * 1000).toISOString().slice(0, 10);
+            counts.set(day, (counts.get(day) ?? 0) + 1);
+          }
+        } catch {
+          // An unborn or unreadable repository contributes nothing.
+        }
+      }),
+    );
+
+    const days: { date: string; count: number }[] = [];
+    for (
+      let day = new Date(since);
+      day < until;
+      day = new Date(day.getTime() + 86_400_000)
+    ) {
+      const date = day.toISOString().slice(0, 10);
+      days.push({ date, count: counts.get(date) ?? 0 });
+    }
+
+    return {
+      username: user.username ?? username,
+      year,
+      totalContributions: days.reduce((sum, d) => sum + d.count, 0),
+      days,
+    };
   }
 }

@@ -1,4 +1,4 @@
-import { GitFork, Star } from "lucide-react";
+import { GitFork, Star, Users } from "lucide-react";
 import Link from "next/link";
 
 /** Description and the counts that have a page of their own behind them. */
@@ -46,6 +46,14 @@ export function RepositoryAbout({
             {forkCount}
           </span>
           {forkCount === 1 ? "fork" : "forks"}
+        </Link>
+
+        <Link
+          href={`${base}/contributors`}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <Users className="size-4" />
+          Contributors
         </Link>
       </div>
     </div>

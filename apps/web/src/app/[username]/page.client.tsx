@@ -61,7 +61,7 @@ export function ProfileTabs({
         <TabsTrigger value="organizations">Organizations</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="overview" className="pt-6">
+      <TabsContent value="overview" className="flex flex-col gap-6 pt-6">
         {overview}
       </TabsContent>
 

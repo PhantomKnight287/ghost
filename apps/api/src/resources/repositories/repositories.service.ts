@@ -57,6 +57,10 @@ import type {
   GetRepositoryForksResponseDTO,
 } from './dto/get-repository-forks.dto.js';
 import type {
+  GetRepositoryContributorsQueryDTO,
+  GetRepositoryContributorsResponseDTO,
+} from './dto/get-repository-contributors.dto.js';
+import type {
   GetRepositoryStargazersQueryDTO,
   GetRepositoryStargazersResponseDTO,
 } from './dto/get-repository-stargazers.dto.js';
@@ -948,6 +952,119 @@ export class RepositoriesService {
       ),
       nextCursor,
       hasMore,
+    };
+  }
+
+  /** Authors of the walked ref, most commits first, with linked accounts. */
+  async getRepositoryContributors({
+    username,
+    repo,
+    requesterId,
+    query = {},
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    query?: GetRepositoryContributorsQueryDTO;
+  }): Promise<GetRepositoryContributorsResponseDTO> {
+    const { directory, ref } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: query.ref,
+    });
+
+    const tip = await runGit({
+      args: ['rev-parse', '--quiet', '--verify', '--end-of-options', ref],
+      gitDir: directory,
+    }).catch(() => '');
+    if (!tip.trim()) {
+      return { contributors: [], totalCommits: 0, totalContributors: 0 };
+    }
+
+    const raw = await runGit({
+      args: [
+        'log',
+        '--format=%an%x1f%ae%x1f%ct',
+        '--no-merges',
+        '--end-of-options',
+        ref,
+      ],
+      gitDir: directory,
+    }).catch(() => '');
+    if (!raw.trim()) {
+      return { contributors: [], totalCommits: 0, totalContributors: 0 };
+    }
+
+    // Newest first, so the first name seen for an email is the latest one,
+    // and the first timestamp seen is the author's most recent commit.
+    const byEmail = new Map<
+      string,
+      { name: string; email: string; commits: number; lastCommittedAt: Date }
+    >();
+    for (const line of raw.split('\n')) {
+      if (!line) continue;
+      const [name, email, ct] = line.split('\x1f');
+      if (!email) continue;
+      const key = email.toLowerCase();
+      const when = new Date(Number(ct) * 1000);
+      const existing = byEmail.get(key);
+      if (existing) {
+        existing.commits += 1;
+      } else {
+        byEmail.set(key, {
+          name: name || email,
+          email,
+          commits: 1,
+          lastCommittedAt: when,
+        });
+      }
+    }
+
+    const totalCommits = [...byEmail.values()].reduce(
+      (sum, row) => sum + row.commits,
+      0,
+    );
+    const ranked = [...byEmail.values()].sort((a, b) => b.commits - a.commits);
+    const limit = Math.min(
+      Math.max(Math.trunc(Number(query.limit)) || 100, 1),
+      100,
+    );
+    const page = ranked.slice(0, limit);
+
+    const users =
+      page.length > 0
+        ? await this.db
+            .select({
+              email: schema.user.email,
+              username: schema.user.username,
+              name: schema.user.name,
+              image: schema.user.image,
+            })
+            .from(schema.user)
+            .where(
+              inArray(
+                schema.user.email,
+                page.map((row) => row.email),
+              ),
+            )
+        : [];
+    const byEmailLower = new Map(users.map((u) => [u.email.toLowerCase(), u]));
+
+    return {
+      contributors: page.map((row) => {
+        const linked = byEmailLower.get(row.email.toLowerCase());
+        return {
+          username: linked?.username ?? null,
+          name: linked?.name ?? row.name,
+          image: linked?.image ?? null,
+          commits: row.commits,
+          percent: totalCommits > 0 ? (row.commits / totalCommits) * 100 : 0,
+          lastCommittedAt: row.lastCommittedAt.toISOString(),
+        };
+      }),
+      totalCommits,
+      totalContributors: ranked.length,
     };
   }
 
