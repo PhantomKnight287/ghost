@@ -198,16 +198,19 @@ describe.skipIf(!CONNECTION)('RepositoryContributionService', () => {
         '2026-05-01T12:00:00Z',
         'one',
       );
-      commitAs('stranger@example.com', 'Stranger', '2026-05-02T12:00:00Z', 'two');
+      commitAs(
+        'stranger@example.com',
+        'Stranger',
+        '2026-05-02T12:00:00Z',
+        'two',
+      );
       await sync();
 
       const rows = await dayCounts();
       expect(rows.get('alice-link@example.com 2026-05-01')?.authorId).toBe(
         'user_contribution_alice',
       );
-      expect(
-        rows.get('stranger@example.com 2026-05-02')?.authorId,
-      ).toBeNull();
+      expect(rows.get('stranger@example.com 2026-05-02')?.authorId).toBeNull();
     } finally {
       await db
         .delete(schema.user)
@@ -241,5 +244,123 @@ describe.skipIf(!CONNECTION)('RepositoryContributionService', () => {
         .delete(schema.user)
         .where(eq(schema.user.id, 'user_contribution_late'));
     }
+  });
+
+  describe('listContributors', () => {
+    async function seedRow(
+      email: string,
+      name: string,
+      day: string,
+      commits: number,
+      authorId: string | null = null,
+    ) {
+      await db.insert(schema.repositoryContribution).values({
+        repositoryId,
+        authorEmail: email,
+        authorName: name,
+        day,
+        authorId,
+        commits,
+      });
+    }
+
+    it('ranks by commits with the linked account preferred', async () => {
+      await db.insert(schema.user).values({
+        id: 'user_contribution_zoe',
+        name: 'Zoe Account',
+        email: 'zoe@example.com',
+        username: 'zoe',
+      });
+
+      try {
+        await seedRow(
+          'zoe@example.com',
+          'Zoe Git',
+          '2026-07-01',
+          2,
+          'user_contribution_zoe',
+        );
+        await seedRow(
+          'zoe@example.com',
+          'Zoe Git',
+          '2026-07-03',
+          3,
+          'user_contribution_zoe',
+        );
+        await seedRow('stranger@example.com', 'Stranger', '2026-07-02', 10);
+
+        const page = await service.listContributors({ repositoryId });
+
+        expect(page.totalCommits).toBe(15);
+        expect(page.totalContributors).toBe(2);
+        expect(page.contributors.map((c) => c.authorEmail)).toEqual([
+          'stranger@example.com',
+          'zoe@example.com',
+        ]);
+
+        const [stranger, zoe] = page.contributors;
+        expect(stranger.username).toBeNull();
+        expect(stranger.authorName).toBe('Stranger');
+        expect(zoe.username).toBe('zoe');
+        expect(zoe.authorName).toBe('Zoe Account');
+        expect(zoe.commits).toBe(5);
+        expect(zoe.lastCommittedAt.toISOString()).toBe(
+          '2026-07-03T00:00:00.000Z',
+        );
+      } finally {
+        await db
+          .delete(schema.user)
+          .where(eq(schema.user.id, 'user_contribution_zoe'));
+      }
+    });
+
+    it('resolves the account over the foreign key', async () => {
+      await db.insert(schema.user).values({
+        id: 'user_contribution_yara',
+        name: 'Yara Account',
+        email: 'other@example.com',
+        username: 'yara',
+        image: 'https://example.com/yara.png',
+      });
+
+      try {
+        await seedRow(
+          'yara-git@example.com',
+          'Yara Git',
+          '2026-08-01',
+          4,
+          'user_contribution_yara',
+        );
+
+        const page = await service.listContributors({ repositoryId });
+        const [yara] = page.contributors;
+
+        // The git email matches no account email: only the FK links her.
+        expect(yara.authorEmail).toBe('yara-git@example.com');
+        expect(yara.username).toBe('yara');
+        expect(yara.authorName).toBe('Yara Account');
+        expect(yara.image).toBe('https://example.com/yara.png');
+        expect(yara.commits).toBe(4);
+      } finally {
+        await db
+          .delete(schema.user)
+          .where(eq(schema.user.id, 'user_contribution_yara'));
+      }
+    });
+
+    it('honours the limit', async () => {
+      await seedRow('a@example.com', 'A', '2026-09-01', 1);
+      await seedRow('b@example.com', 'B', '2026-09-01', 2);
+
+      const page = await service.listContributors({
+        repositoryId,
+        limit: 1,
+      });
+
+      expect(page.contributors).toHaveLength(1);
+      expect(page.contributors[0].authorEmail).toBe('b@example.com');
+      expect(page.totalContributors).toBe(2);
+      expect(page.totalCommits).toBe(3);
+    });
   });
 });

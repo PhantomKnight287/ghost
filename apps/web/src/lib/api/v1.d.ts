@@ -353,7 +353,7 @@ export interface paths {
         };
         /**
          * List contributors
-         * @description Authors of the default branch (or the requested ref), most commits first, with linked Ghost accounts when the commit email matches one.
+         * @description Authors of the default branch, most commits first, read from the contribution index with linked Ghost accounts. Never materializes the repository.
          */
         get: operations["RepositoriesController_getRepositoryContributors"];
         put?: never;
@@ -1083,18 +1083,18 @@ export interface components {
             name: string;
             /** @description Avatar of the linked account, if any. */
             image: string | null;
-            /** @description Commits by this author on the walked ref. */
+            /** @description Commits by this author on the default branch. */
             commits: number;
-            /** @description Share of the walked commits, 0-100. */
+            /** @description Share of the default-branch commits, 0-100. */
             percent: number;
-            /** @description Most recent commit by this author, ISO 8601. */
+            /** @description Day of the author’s most recent commit, ISO 8601 at UTC midnight. Day-granular: the index stores days, not timestamps. */
             lastCommittedAt: string;
         };
         GetRepositoryContributorsResponseDTO: {
             contributors: components["schemas"]["ContributorDTO"][];
-            /** @description Commits walked in total. */
+            /** @description Default-branch commits indexed in total. */
             totalCommits: number;
-            /** @description Distinct authors walked in total. */
+            /** @description Distinct indexed authors in total. */
             totalContributors: number;
         };
         CreatePullRequestRequestDTO: {
@@ -2186,8 +2186,6 @@ export interface operations {
     RepositoriesController_getRepositoryContributors: {
         parameters: {
             query?: {
-                /** @description Branch or commit sha to walk. Defaults to the repository default branch. */
-                ref?: string;
                 /** @description Maximum contributors to return. */
                 limit?: number;
             };

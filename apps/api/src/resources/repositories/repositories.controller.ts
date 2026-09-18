@@ -608,8 +608,9 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'List contributors',
     description:
-      'Authors of the default branch (or the requested ref), most commits ' +
-      'first, with linked Ghost accounts when the commit email matches one.',
+      'Authors of the default branch, most commits first, read from the ' +
+      'contribution index with linked Ghost accounts. Never materializes ' +
+      'the repository.',
   })
   @ApiOkResponse({
     type: GetRepositoryContributorsResponseDTO,

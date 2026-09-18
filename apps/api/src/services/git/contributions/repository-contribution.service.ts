@@ -1,6 +1,16 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import {
+  and,
+  countDistinct,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  max,
+  sql,
+  sum,
+} from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { runGitStream, runGit } from '../exec/run-git.js';
@@ -29,8 +39,20 @@ interface PendingDay {
  *
  * The index is a cache of git, not a second source of truth: it is rebuilt from
  * the object database whenever the stored position stops making sense. Only
- * the default branch is indexed, which is also what the graph renders.
+ * the default branch is indexed, which is also what the graph - and the
+ * contributors list - render.
  */
+export interface IndexedContributor {
+  authorEmail: string;
+  /** Name from the author's newest indexed commit, preferring the account's. */
+  authorName: string;
+  username: string | null;
+  image: string | null;
+  commits: number;
+  /** Newest indexed day, UTC midnight. Day-granular: the index has no times. */
+  lastCommittedAt: Date;
+}
+
 @Injectable()
 export class RepositoryContributionService {
   private readonly logger = new Logger(RepositoryContributionService.name);
@@ -57,6 +79,78 @@ export class RepositoryContributionService {
     );
     this.inFlight.set(repositoryId, run);
     return run;
+  }
+
+  /**
+   * The contributors list, straight from the index: per-author totals with the
+   * linked account resolved over the `author_id` foreign key. No git, no
+   * materialization - callers only need read access to the repository row.
+   */
+  async listContributors({
+    repositoryId,
+    limit = 100,
+  }: {
+    repositoryId: string;
+    limit?: number;
+  }): Promise<{
+    contributors: IndexedContributor[];
+    totalCommits: number;
+    totalContributors: number;
+  }> {
+    const pageSize = Math.min(Math.max(Math.trunc(limit) || 100, 1), 100);
+    const contribution = schema.repositoryContribution;
+
+    const [rows, [totals]] = await Promise.all([
+      this.db
+        .select({
+          authorEmail: contribution.authorEmail,
+          // Newest name wins: the name on the author's latest indexed day,
+          // preferring the linked account's below.
+          gitName: sql<string>`(array_agg(${contribution.authorName} ORDER BY ${contribution.day} DESC))[1]`,
+          username: schema.user.username,
+          name: schema.user.name,
+          image: schema.user.image,
+          commits: sum(contribution.commits),
+          lastDay: max(contribution.day),
+        })
+        .from(contribution)
+        .leftJoin(schema.user, eq(schema.user.id, contribution.authorId))
+        .where(eq(contribution.repositoryId, repositoryId))
+        .groupBy(
+          contribution.authorEmail,
+          contribution.authorId,
+          schema.user.username,
+          schema.user.name,
+          schema.user.image,
+        )
+        .orderBy(desc(sum(contribution.commits)))
+        .limit(pageSize),
+      this.db
+        .select({
+          commits: sum(contribution.commits),
+          authors: countDistinct(contribution.authorEmail),
+        })
+        .from(contribution)
+        .where(eq(contribution.repositoryId, repositoryId)),
+    ]);
+
+    return {
+      contributors: rows.flatMap((row) => {
+        if (!row.lastDay) return [];
+        return [
+          {
+            authorEmail: row.authorEmail,
+            authorName: row.name ?? row.gitName,
+            username: row.username,
+            image: row.image,
+            commits: Number(row.commits ?? 0),
+            lastCommittedAt: new Date(`${row.lastDay}T00:00:00Z`),
+          },
+        ];
+      }),
+      totalCommits: Number(totals?.commits ?? 0),
+      totalContributors: Number(totals?.authors ?? 0),
+    };
   }
 
   private async reindex({
