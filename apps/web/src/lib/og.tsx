@@ -104,9 +104,7 @@ export function ogCard({
             alt=""
             style={{ borderRadius: 200, border: `1px solid ${HAIRLINE}` }}
           />
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: 14 }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div
               style={{
                 display: "flex",
@@ -247,7 +245,13 @@ export function ogCard({
 /** Keeps a long title on three lines or fewer. `max` caps it when the avatar takes half the row. */
 function titleSize(title: string, max = 82) {
   const size =
-    title.length <= 22 ? 82 : title.length <= 34 ? 62 : title.length <= 52 ? 46 : 38;
+    title.length <= 22
+      ? 82
+      : title.length <= 34
+        ? 62
+        : title.length <= 52
+          ? 46
+          : 38;
 
   return Math.min(size, max);
 }

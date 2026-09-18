@@ -65,7 +65,10 @@ describe('UserService avatars', () => {
 
   it('drops the superseded avatars but keeps the one just written', async () => {
     s3.listObjectsV2.mockResolvedValue({
-      Contents: [{ Key: 'avatars/user-1/old.png' }, { Key: 'avatars/user-1/new.png' }],
+      Contents: [
+        { Key: 'avatars/user-1/old.png' },
+        { Key: 'avatars/user-1/new.png' },
+      ],
     });
 
     await service.uploadAvatar({
@@ -124,7 +127,10 @@ describe('UserService avatars', () => {
 
   it('deletes every avatar the user has when asked', async () => {
     s3.listObjectsV2.mockResolvedValue({
-      Contents: [{ Key: 'avatars/user-1/a.png' }, { Key: 'avatars/user-1/b.jpg' }],
+      Contents: [
+        { Key: 'avatars/user-1/a.png' },
+        { Key: 'avatars/user-1/b.jpg' },
+      ],
     });
 
     await service.deleteAvatar('user-1');
@@ -132,7 +138,10 @@ describe('UserService avatars', () => {
     expect(s3.deleteObjects).toHaveBeenCalledWith({
       Bucket: 'ghost',
       Delete: {
-        Objects: [{ Key: 'avatars/user-1/a.png' }, { Key: 'avatars/user-1/b.jpg' }],
+        Objects: [
+          { Key: 'avatars/user-1/a.png' },
+          { Key: 'avatars/user-1/b.jpg' },
+        ],
       },
     });
   });
