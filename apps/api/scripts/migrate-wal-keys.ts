@@ -64,7 +64,9 @@ for (const { id, username, slug } of rows) {
   const keys = await listPrefix(`repos/${from}/`);
   const entries = keys.filter((key) => key.includes('/entries/'));
 
-  console.log(`${apply ? 'migrating' : 'would move'}   ${label}  (${keys.length} objects)`);
+  console.log(
+    `${apply ? 'migrating' : 'would move'}   ${label}  (${keys.length} objects)`,
+  );
   if (!apply) {
     moved++;
     continue;
@@ -95,7 +97,9 @@ for (const { id, username, slug } of rows) {
 
 console.log(
   `\n${apply ? 'migrated' : 'to migrate'}: ${moved}, skipped: ${skipped}` +
-    (apply ? '' : '\nre-run with --apply to write, and --prune to drop old keys'),
+    (apply
+      ? ''
+      : '\nre-run with --apply to write, and --prune to drop old keys'),
 );
 
 await pool.end();

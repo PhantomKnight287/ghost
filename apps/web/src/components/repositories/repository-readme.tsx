@@ -24,16 +24,18 @@ export function RepositoryReadme({
   if (!readme.path) return null;
 
   const branch = readme.ref.replace(/^refs\/heads\//, "");
+  // a README in a subdirectory writes paths relative to that directory
+  const directory = readme.path.split("/").slice(0, -1).join("/");
   const rawHref = (path: string) =>
     `${API_URL}/api/repositories/${owner}/${slug}/raw?ref=${encodeURIComponent(branch)}&path=${encodeURIComponent(path)}`;
 
   /**
-   * A README writes paths relative to itself, which is the repository root, so
-   * a link out of it is either a file in this repository or nothing. Images go
-   * to the raw bytes; everything else goes to the page for that path.
+   * A README writes paths relative to itself, so a link out of it is either a
+   * file in this repository or nothing. Images go to the raw bytes; everything
+   * else goes to the page for that path.
    */
   const resolveUrl = (url: string, key: string) => {
-    const [path, hash] = splitHash(resolve(url));
+    const [path, hash] = splitHash(resolve(url, directory));
     if (!path) return `#${hash}`;
     return key === "src"
       ? rawHref(path)
@@ -77,15 +79,18 @@ function splitHash(url: string): [string, string] {
 }
 
 /**
- * A repository-relative path, resolved against the root: `./` drops, `../`
- * pops, and a leading `/` is root-relative rather than a host path.
+ * A repository-relative path, resolved against the directory the README sits
+ * in: `./` drops, `../` pops, and a leading `/` is root-relative rather than a
+ * host path.
  *
  * `..` past the root is dropped rather than escaping the repository.
  */
-function resolve(url: string) {
+export function resolve(url: string, directory = "") {
+  // a root-relative link ignores where the README is
+  const base = url.startsWith("/") || !directory ? "" : `${directory}/`;
   const segments: string[] = [];
 
-  for (const segment of url.replace(/^\/+/, "").split("/")) {
+  for (const segment of `${base}${url}`.replace(/^\/+/, "").split("/")) {
     if (segment === "" || segment === ".") continue;
     if (segment === "..") segments.pop();
     else segments.push(segment);

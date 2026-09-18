@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
+import { RepositoryAbout } from "@/components/repositories/repository-about";
 import { RepositoryFrame } from "@/components/repositories/repository-frame";
+import {
+  RepositoryLanguages,
+  RepositoryLanguagesSkeleton,
+} from "@/components/repositories/repository-languages";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 
 export async function generateMetadata({
@@ -71,8 +77,41 @@ export default async function RepositoryLayout({
       openPullRequestCount={pulls.data?.total}
       openIssueCount={issues.data?.openCount}
       parent={repository.data.parent}
+      sidebar={
+        <>
+          <RepositoryAbout
+            username={username}
+            slug={repository.data.slug}
+            description={repository.data.description}
+            starCount={repository.data.starCount}
+            forkCount={repository.data.forkCount}
+          />
+
+          {/* its own fetch: a first-ever language count of a big repository
+              must not hold up the file listing */}
+          <Suspense fallback={<RepositoryLanguagesSkeleton />}>
+            <Languages username={username} repo={repo} />
+          </Suspense>
+        </>
+      }
     >
       {children}
     </RepositoryFrame>
   );
+}
+
+async function Languages({
+  username,
+  repo,
+}: {
+  username: string;
+  repo: string;
+}) {
+  const client = await createServerClient();
+  const { data } = await client.GET(
+    "/api/repositories/{username}/{slug}/languages",
+    { params: { path: { username, slug: repo } } },
+  );
+
+  return data ? <RepositoryLanguages languages={data} /> : null;
 }

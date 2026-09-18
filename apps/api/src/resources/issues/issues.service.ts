@@ -79,7 +79,10 @@ export class IssuesService {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         created = await this.db.transaction(async (tx) => {
-          const [row] = await tx.insert(schema.issue).values(values).returning();
+          const [row] = await tx
+            .insert(schema.issue)
+            .values(values)
+            .returning();
           if (!row) throw new Error('Issue insert returned no rows');
 
           // The opening is the first timeline entry; labels and assignees follow.
@@ -812,14 +815,26 @@ export class IssuesService {
       }
 
       for (const label of removed) {
-        await this.recordEventWith(tx, issue.id, params.requesterId, 'unlabeled', {
-          labelName: label.name,
-        });
+        await this.recordEventWith(
+          tx,
+          issue.id,
+          params.requesterId,
+          'unlabeled',
+          {
+            labelName: label.name,
+          },
+        );
       }
       for (const label of added) {
-        await this.recordEventWith(tx, issue.id, params.requesterId, 'labeled', {
-          labelName: label.name,
-        });
+        await this.recordEventWith(
+          tx,
+          issue.id,
+          params.requesterId,
+          'labeled',
+          {
+            labelName: label.name,
+          },
+        );
       }
 
       if (added.length > 0 || removed.length > 0) {
@@ -871,18 +886,32 @@ export class IssuesService {
       if (users.length > 0) {
         await tx
           .insert(schema.issueAssignee)
-          .values(users.map((user) => ({ issueId: issue.id, userId: user.id })));
+          .values(
+            users.map((user) => ({ issueId: issue.id, userId: user.id })),
+          );
       }
 
       for (const user of removed) {
-        await this.recordEventWith(tx, issue.id, params.requesterId, 'unassigned', {
-          assigneeUsername: user.username ?? '',
-        });
+        await this.recordEventWith(
+          tx,
+          issue.id,
+          params.requesterId,
+          'unassigned',
+          {
+            assigneeUsername: user.username ?? '',
+          },
+        );
       }
       for (const user of added) {
-        await this.recordEventWith(tx, issue.id, params.requesterId, 'assigned', {
-          assigneeUsername: user.username ?? '',
-        });
+        await this.recordEventWith(
+          tx,
+          issue.id,
+          params.requesterId,
+          'assigned',
+          {
+            assigneeUsername: user.username ?? '',
+          },
+        );
       }
 
       if (added.length > 0 || removed.length > 0) {
@@ -1311,11 +1340,7 @@ function commentsCursorClause(
   );
 }
 
-function canEditIssue(
-  issueRow: Issue,
-  requesterId?: string,
-  ownerId?: string,
-) {
+function canEditIssue(issueRow: Issue, requesterId?: string, ownerId?: string) {
   if (!requesterId) return false;
   return requesterId === issueRow.authorId || requesterId === ownerId;
 }

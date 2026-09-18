@@ -57,11 +57,13 @@ describe("Markdown", () => {
       render('<a href="https://x.example.com" target="_blank">x</a>'),
     ).toContain('rel="noopener noreferrer"');
     expect(
-      render('<a href="https://x.example.com" target="_blank" rel="nofollow">x</a>'),
+      render(
+        '<a href="https://x.example.com" target="_blank" rel="nofollow">x</a>',
+      ),
     ).toContain('rel="nofollow noopener noreferrer"');
-    expect(render('<a href="https://x.example.com" target="_top">x</a>')).toContain(
-      'target="_top"',
-    );
+    expect(
+      render('<a href="https://x.example.com" target="_top">x</a>'),
+    ).toContain('target="_top"');
     // not a real target: dropped before the component ever sees it
     expect(
       render('<a href="https://x.example.com" target="evilframe">x</a>'),

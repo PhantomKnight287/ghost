@@ -36,6 +36,15 @@ import {
   GetRepositoryBlobResponseDTO,
 } from './dto/get-repository-blob.dto.js';
 import { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
+import { GetRepositoryLanguagesResponseDTO } from './dto/get-repository-languages.dto.js';
+import {
+  GetRepositoryForksQueryDTO,
+  GetRepositoryForksResponseDTO,
+} from './dto/get-repository-forks.dto.js';
+import {
+  GetRepositoryStargazersQueryDTO,
+  GetRepositoryStargazersResponseDTO,
+} from './dto/get-repository-stargazers.dto.js';
 import {
   GetCommitPatchQueryDTO,
   GetRepositoryCommitResponseDTO,
@@ -266,7 +275,9 @@ export class RepositoriesController {
   @OptionalAuth()
   @ApiOperation({
     summary: 'Read the README',
-    description: `The readme at the root of the repository at the requested ref`
+    description:
+      'The README of a directory - the root of the repository when no `path` is ' +
+      'given - at the requested ref.',
   })
   @ApiOkResponse({
     type: GetRepositoryReadmeResponseDTO,
@@ -287,6 +298,7 @@ export class RepositoriesController {
       username,
       repo: slug,
       ref: query.ref,
+      path: query.path,
       requesterId: session?.user?.id,
     });
   }
@@ -496,6 +508,94 @@ export class RepositoriesController {
       username,
       repo: slug,
       requesterId: session?.user?.id,
+    });
+  }
+
+  @Get(':username/:slug/languages')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'Language breakdown',
+    description: 'Bytes per language on the default branch, largest first',
+  })
+  @ApiOkResponse({
+    type: GetRepositoryLanguagesResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiInternalServerErrorResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryLanguages(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+  ): Promise<GetRepositoryLanguagesResponseDTO> {
+    return this.repositoriesService.getRepositoryLanguages({
+      username,
+      repo: slug,
+      requesterId: session?.user?.id,
+    });
+  }
+  @Get(':username/:slug/stargazers')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'List stargazers',
+    description:
+      'Who starred the repository, most recently first. Pages are cursor-based: ' +
+      'pass a response `nextCursor` back as `cursor`.',
+  })
+  @ApiOkResponse({
+    type: GetRepositoryStargazersResponseDTO,
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryStargazers(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryStargazersQueryDTO,
+  ): Promise<GetRepositoryStargazersResponseDTO> {
+    return this.repositoriesService.getRepositoryStargazers({
+      username,
+      repo: slug,
+      requesterId: session?.user?.id,
+      query,
+    });
+  }
+
+  @Get(':username/:slug/forks')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'List forks',
+    description:
+      'Forks of the repository, newest push first. A private fork is only listed ' +
+      'to its own owner.',
+  })
+  @ApiOkResponse({
+    type: GetRepositoryForksResponseDTO,
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryForks(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryForksQueryDTO,
+  ): Promise<GetRepositoryForksResponseDTO> {
+    return this.repositoriesService.getRepositoryForks({
+      username,
+      repo: slug,
+      requesterId: session?.user?.id,
+      query,
     });
   }
 }

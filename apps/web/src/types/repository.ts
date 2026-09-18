@@ -23,5 +23,7 @@ export type RepositoryFrameProps = {
   /** Open issues only, shown on the Issues tab. */
   openIssueCount?: number;
   parent?: RepositoryParent | null;
+  /** Second column on the repository root, under the listing on a phone. */
+  sidebar?: ReactNode;
   children: ReactNode;
 };

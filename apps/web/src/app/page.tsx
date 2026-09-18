@@ -1,25 +1,31 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  ChartPie,
+  Code2,
   FileCode2,
-  GitBranch,
-  GitPullRequest,
+  File,
+  Folder,
   Ghost,
+  GitBranch,
+  GitCommitHorizontal,
+  GitFork,
+  GitPullRequest,
   History,
   KeyRound,
   Lock,
   MessageSquare,
-  Network,
+  Package,
+  Star,
   Terminal,
   Webhook,
-  File,
-  Folder,
-  GitCommitHorizontal,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { languageColor } from "@ghost/languages";
+
 import { getServerSession } from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
 
@@ -31,22 +37,40 @@ const FEATURES = [
       "A real git remote. Clone, fetch and push with the git you already have - no client, no daemon, no extra port.",
   },
   {
+    icon: GitPullRequest,
+    title: "Pull requests, reviewed and merged",
+    description:
+      "Compare two branches, read the diff file by file, talk it through in the thread, and merge server-side when it is ready.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Issues with labels and assignees",
+    description:
+      "Threads on a repository, filtered by state, label, author or assignee, with a timeline that records every close, reopen and label change.",
+  },
+  {
     icon: FileCode2,
     title: "Read your code in the browser",
     description:
-      "Syntax highlighting for 300+ languages, images and PDFs rendered in place, and raw downloads for everything else.",
-  },
-  {
-    icon: GitBranch,
-    title: "Every branch, one click away",
-    description:
-      "Switch refs from any directory or file view. Trees, blobs and history all follow the branch you are on.",
+      "Syntax highlighting for 300+ languages, READMEs rendered in every directory, images and PDFs in place, raw downloads for the rest.",
   },
   {
     icon: History,
     title: "Commit context on every row",
     description:
       "Directory listings show the newest commit touching each entry, indexed up front instead of walked per request.",
+  },
+  {
+    icon: ChartPie,
+    title: "Language breakdown",
+    description:
+      "Bytes per language, counted from the tree rather than by reading files, so it stays fast on a repository with years of history.",
+  },
+  {
+    icon: GitFork,
+    title: "Forks and stars",
+    description:
+      "Fork any repository you can read, star the ones worth coming back to, and see who else did from the repository page.",
   },
   {
     icon: Lock,
@@ -89,6 +113,13 @@ const PREVIEW_ENTRIES = [
   },
 ];
 
+const PREVIEW_LANGUAGES = [
+  { language: "TypeScript", percent: 71.2 },
+  { language: "Rust", percent: 18.4 },
+  { language: "CSS", percent: 6.9 },
+  { language: "Shell", percent: 3.5 },
+];
+
 const FAQ = [
   {
     question: "Does it work with the git I already have?",
@@ -113,7 +144,12 @@ const FAQ = [
   {
     question: "Is it ready for a team?",
     answer:
-      "It is ready for your repositories today. It is not ready for a team review workflow - that arrives with pull requests and issues.",
+      "Issues and pull requests are both here: open a request from a branch, read the diff, review it in the thread and merge it from the page. What is still missing for a team is SSH access and webhooks.",
+  },
+  {
+    question: "Can I fork someone else's repository?",
+    answer:
+      "Any repository you can read, yes. The fork keeps its own history from the moment you make it, and the original keeps a link back from its page.",
   },
   {
     question: "What does it take to run?",
@@ -150,38 +186,24 @@ const STACK = [
 
 const ROADMAP = [
   {
-    icon: MessageSquare,
-    title: "Issues",
-    description:
-      "Threads attached to a repository, with labels and assignees. The tab is already waiting for them.",
-    status: "Next",
-  },
-  {
-    icon: GitPullRequest,
-    title: "Pull requests",
-    description:
-      "Branch comparison, review conversation on a diff, and a merge that runs server-side.",
-    status: "Next",
-  },
-  {
     icon: KeyRound,
     title: "SSH access",
     description:
       "git over SSH with your own keys, served by a dedicated process rather than bolted onto the API.",
-    status: "Planned",
-  },
-  {
-    icon: Network,
-    title: "A service split",
-    description:
-      "The SSH front end talks to the git core over gRPC, so the transport a client picks stops mattering.",
-    status: "Planned",
+    status: "Next",
   },
   {
     icon: Webhook,
     title: "Webhooks",
     description:
       "Push events posted to a URL you own - the hook every CI runner is waiting for.",
+    status: "Planned",
+  },
+  {
+    icon: Package,
+    title: "Large files",
+    description:
+      "Git LFS, so a repository that carries binaries is as ordinary as one that does not.",
     status: "Planned",
   },
 ];
@@ -222,8 +244,9 @@ export default async function LandingPage() {
           </h1>
 
           <p className="max-w-xl text-lg text-pretty text-muted-foreground">
-            Ghost is a git host you can run yourself. Push over HTTP, browse
-            your code, switch branches - and nothing you did not ask for.
+            Ghost is a git host you can run yourself. Push over HTTP, read your
+            code, open issues, review pull requests - and nothing you did not
+            ask for.
           </p>
 
           <div className="flex flex-wrap justify-center gap-3">
@@ -263,57 +286,111 @@ export default async function LandingPage() {
             </h2>
             <p className="mx-auto max-w-lg text-pretty text-muted-foreground">
               Directories first, the latest commit against every row, and the
-              branch you are on never more than a click away.
+              languages, stars and forks of the repository beside it.
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
-            <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
-              <span className="flex items-center gap-1 text-sm">
-                <span className="text-primary">you</span>
-                <span className="text-muted-foreground">/</span>
-                <span className="font-semibold">project</span>
-              </span>
-              <Badge variant="outline" className="rounded-full text-xs">
-                Public
-              </Badge>
-              <span className="ml-auto flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs">
-                <GitBranch className="size-3.5 text-muted-foreground" />
-                main
-              </span>
+          {/* the repository page in miniature, down to the sidebar it now has */}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs">
+                  <GitBranch className="size-3.5 text-muted-foreground" />
+                  main
+                </span>
+                <span className="ml-auto flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground">
+                  <Code2 className="size-3.5" />
+                  Code
+                </span>
+              </div>
+
+              <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+                <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-sm">
+                  <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate font-medium">
+                    serve raw file contents
+                  </span>
+                  <code className="ml-auto shrink-0 text-xs text-muted-foreground">
+                    a3f19c2
+                  </code>
+                </div>
+
+                <ul className="divide-y">
+                  {PREVIEW_ENTRIES.map((entry) => (
+                    <li
+                      key={entry.name}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm"
+                    >
+                      {entry.type === "tree" ? (
+                        <Folder className="size-4 shrink-0 fill-muted text-primary" />
+                      ) : (
+                        <File className="size-4 shrink-0 fill-muted text-muted-foreground" />
+                      )}
+                      <span className="truncate">{entry.name}</span>
+                      <span className="ml-auto hidden truncate text-xs text-muted-foreground md:block">
+                        {entry.message}
+                      </span>
+                      <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
+                        {entry.age}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-sm">
-              <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" />
-              <span className="truncate font-medium">
-                serve raw file contents
-              </span>
-              <code className="ml-auto shrink-0 text-xs text-muted-foreground">
-                a3f19c2
-              </code>
-            </div>
+            {/* plain, like the real sidebar: a second card here would read as a
+                panel bolted onto the listing */}
+            <aside className="flex w-full flex-col gap-5 lg:w-60 lg:shrink-0 lg:pt-11">
+              <div className="flex flex-col gap-3">
+                <h3 className="text-sm font-semibold">About</h3>
+                <p className="text-sm text-muted-foreground">
+                  The project you pushed five minutes ago.
+                </p>
+                <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Star className="size-4" />
+                    <span className="font-medium text-foreground">128</span>
+                    stars
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <GitFork className="size-4" />
+                    <span className="font-medium text-foreground">9</span>
+                    forks
+                  </span>
+                </div>
+              </div>
 
-            <ul className="divide-y">
-              {PREVIEW_ENTRIES.map((entry) => (
-                <li
-                  key={entry.name}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm"
-                >
-                  {entry.type === "tree" ? (
-                    <Folder className="size-4 shrink-0 fill-muted text-primary" />
-                  ) : (
-                    <File className="size-4 shrink-0 fill-muted text-muted-foreground" />
-                  )}
-                  <span className="truncate">{entry.name}</span>
-                  <span className="ml-auto hidden truncate text-xs text-muted-foreground md:block">
-                    {entry.message}
-                  </span>
-                  <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
-                    {entry.age}
-                  </span>
-                </li>
-              ))}
-            </ul>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-semibold">Languages</h3>
+                <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+                  {PREVIEW_LANGUAGES.map(({ language, percent }) => (
+                    <span
+                      key={language}
+                      style={{
+                        width: `${percent}%`,
+                        backgroundColor: languageColor(language),
+                      }}
+                    />
+                  ))}
+                </div>
+                <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {PREVIEW_LANGUAGES.map(({ language, percent }) => (
+                    <li key={language} className="flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: languageColor(language) }}
+                      />
+                      <span className="font-medium text-foreground">
+                        {language}
+                      </span>
+                      {percent.toFixed(1)}%
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </aside>
           </div>
         </section>
 
@@ -373,8 +450,8 @@ export default async function LandingPage() {
               What comes next
             </h2>
             <p className="mx-auto max-w-lg text-pretty text-muted-foreground">
-              Ghost is early and honest about it. These are being built, in
-              roughly this order - nothing here is shipped yet.
+              Issues, pull requests, forks and stars are done. These are not,
+              and they are being built in roughly this order.
             </p>
           </div>
 

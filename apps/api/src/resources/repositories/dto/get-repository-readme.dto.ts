@@ -11,6 +11,14 @@ export class GetRepositoryReadmeQueryDTO {
   @IsString()
   @IsOptional()
   ref?: string;
+
+  @ApiPropertyOptional({
+    description: 'Directory to look in. Omit for the root of the repository.',
+    example: 'packages/db',
+  })
+  @IsString()
+  @IsOptional()
+  path?: string;
 }
 
 export class GetRepositoryReadmeResponseDTO {

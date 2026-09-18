@@ -22,10 +22,14 @@ export function PullRequestNav({
   base,
   commitCount,
   changedFiles,
+  additions,
+  deletions,
 }: {
   base: string;
   commitCount: number;
   changedFiles: number;
+  additions: number;
+  deletions: number;
 }) {
   const pathname = usePathname();
   const tabs = [
@@ -35,13 +39,15 @@ export function PullRequestNav({
   ];
 
   return (
-    <nav className="flex gap-1 border-b">
+    // the tab labels carry counts, so on a phone the row wraps instead of
+    // pushing the whole page sideways
+    <nav className="flex flex-wrap items-center gap-1 border-b">
       {tabs.map((tab) => (
         <Link
           key={tab.href}
           href={tab.href}
           className={cn(
-            "-mb-px border-b-2 px-3 py-2 text-sm",
+            "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm",
             pathname === tab.href
               ? "border-primary font-medium"
               : "border-transparent text-muted-foreground hover:text-foreground",
@@ -55,6 +61,10 @@ export function PullRequestNav({
           )}
         </Link>
       ))}
+      <div className="ml-auto flex flex-row items-center justify-center gap-1 text-xs">
+        <span className="text-green-400">+{additions}</span>
+        <span className="text-red-400">-{deletions}</span>
+      </div>
     </nav>
   );
 }

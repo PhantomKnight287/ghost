@@ -119,6 +119,8 @@ export default async function PullRequestLayout({
         base={`/${username}/${repo}/pulls/${pull.data.number}`}
         commitCount={pull.data.commitCount}
         changedFiles={pull.data.changedFiles}
+        additions={pull.data.additions}
+        deletions={pull.data.deletions}
       />
 
       {children}

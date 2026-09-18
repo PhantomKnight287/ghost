@@ -14,9 +14,14 @@ export default async function Image({
   const { username, repo } = await params;
 
   const client = await createServerClient();
-  const { data } = await client.GET("/api/repositories/{username}/{slug}", {
-    params: { path: { username, slug: repo } },
-  });
+  const [{ data }, languages] = await Promise.all([
+    client.GET("/api/repositories/{username}/{slug}", {
+      params: { path: { username, slug: repo } },
+    }),
+    client.GET("/api/repositories/{username}/{slug}/languages", {
+      params: { path: { username, slug: repo } },
+    }),
+  ]);
 
   // A private repository answers 404 to the crawler, so nothing leaks here.
   if (!data) notFound();
@@ -30,5 +35,6 @@ export default async function Image({
       { icon: "star", label: plural(data.starCount, "star") },
       { icon: "gitFork", label: plural(data.forkCount, "fork") },
     ],
+    languages: languages.data?.languages,
   });
 }

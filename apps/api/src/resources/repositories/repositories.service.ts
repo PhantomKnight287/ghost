@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { isUtf8 } from 'node:buffer';
 import { type Database, schema } from '@ghost/db';
 import { and, count, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import type { PgColumn } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { CreateRepositoryRequestDTO } from './dto/create-repository.dto.js';
@@ -20,6 +21,7 @@ import { decodeCursor, encodeCursor, titleToSlug } from '../../utils/index.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
+import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { runGit } from '../../services/git/exec/run-git.js';
 import { listTree } from '../../services/git/tree/list-tree.js';
 import {
@@ -49,6 +51,15 @@ import type {
   GetRepositoryContentsResponseDTO,
 } from './dto/get-repository-contents.dto.js';
 import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
+import type { GetRepositoryLanguagesResponseDTO } from './dto/get-repository-languages.dto.js';
+import type {
+  GetRepositoryForksQueryDTO,
+  GetRepositoryForksResponseDTO,
+} from './dto/get-repository-forks.dto.js';
+import type {
+  GetRepositoryStargazersQueryDTO,
+  GetRepositoryStargazersResponseDTO,
+} from './dto/get-repository-stargazers.dto.js';
 import type { GetRepositoryBlobResponseDTO } from './dto/get-repository-blob.dto.js';
 import type { GetRepositoryReadmeResponseDTO } from './dto/get-repository-readme.dto.js';
 import type {
@@ -63,6 +74,7 @@ import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
+const MIN_LANGUAGE_PERCENT = 0.5;
 
 @Injectable()
 export class RepositoriesService {
@@ -72,6 +84,7 @@ export class RepositoriesService {
     private readonly storage: RepositoryStorageService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly pathIndex: RepositoryPathIndexService,
+    private readonly languages: RepositoryLanguageService,
     private readonly branches: BranchesService,
     private readonly access: RepositoryAccessService,
     private readonly wal: WalStoreService,
@@ -532,12 +545,17 @@ export class RepositoriesService {
     repo,
     requesterId,
     ref: requestedRef,
+    path: directoryPath = '',
   }: {
     username: string;
     repo: string;
     requesterId?: string;
     ref?: string;
+    /** Directory to look in; the root of the repository when omitted. */
+    path?: string;
   }): Promise<GetRepositoryReadmeResponseDTO> {
+    const prefix = normalizeTreePath(directoryPath);
+
     const { directory, ref } = await this.openRepository({
       username,
       repo,
@@ -545,7 +563,7 @@ export class RepositoriesService {
       ref: requestedRef,
     });
 
-    const path = await findReadmePath({ gitDir: directory, ref });
+    const path = await findReadmePath({ gitDir: directory, ref, prefix });
     if (!path) return { ref, path: null, size: 0, content: null };
 
     const blob = await readBlob({ gitDir: directory, ref, path });
@@ -751,6 +769,213 @@ export class RepositoriesService {
     };
   }
 
+  async getRepositoryLanguages({
+    username,
+    repo,
+    requesterId,
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+  }): Promise<GetRepositoryLanguagesResponseDTO> {
+    const { repository, directory, ref } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+    });
+
+    const languages = await this.languages.getLanguages({
+      repositoryId: repository.id,
+      repoDirectory: directory,
+      ref,
+    });
+
+    const total = languages.reduce((sum, { bytes }) => sum + bytes, 0);
+
+    // pool anything which is less than half a percentage
+    const rows = languages.map(({ language, bytes }) => ({
+      language,
+      bytes,
+      percent: (bytes / total) * 100,
+    }));
+    const shown = rows.filter(({ percent }) => percent >= MIN_LANGUAGE_PERCENT);
+    const pooled = rows.filter(({ percent }) => percent < MIN_LANGUAGE_PERCENT);
+
+    if (pooled.length === 0) return { languages: shown };
+
+    return {
+      languages: [
+        ...shown,
+        {
+          language: 'Others',
+          bytes: pooled.reduce((sum, { bytes }) => sum + bytes, 0),
+          percent: pooled.reduce((sum, { percent }) => sum + percent, 0),
+        },
+      ],
+    };
+  }
+
+  /** Who starred the repository, most recent first. */
+  async getRepositoryStargazers({
+    username,
+    repo,
+    requesterId,
+    query = {},
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    query?: GetRepositoryStargazersQueryDTO;
+  }): Promise<GetRepositoryStargazersResponseDTO> {
+    const repository = await this.authorizeRead({
+      username,
+      slug: repo,
+      requesterId,
+    });
+    const { pageSize, after } = this.page(
+      query,
+      schema.stars.createdAt,
+      schema.stars.id,
+    );
+
+    const rows = await this.db
+      .select({
+        id: schema.stars.id,
+        starredAt: schema.stars.createdAt,
+        username: schema.user.username,
+        name: schema.user.name,
+        image: schema.user.image,
+      })
+      .from(schema.stars)
+      .innerJoin(schema.user, eq(schema.user.id, schema.stars.userId))
+      .where(and(eq(schema.stars.repositoryId, repository.id), after))
+      .orderBy(desc(schema.stars.createdAt), desc(schema.stars.id))
+      .limit(pageSize + 1);
+
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
+      date: row.starredAt,
+      id: row.id,
+    }));
+
+    return {
+      // an account without a username has nothing to link to, so it is left out
+      stargazers: page.flatMap(
+        ({ username: handle, name, image, starredAt }) =>
+          handle
+            ? [
+                {
+                  username: handle,
+                  name,
+                  image,
+                  starredAt: starredAt.toISOString(),
+                },
+              ]
+            : [],
+      ),
+      nextCursor,
+      hasMore,
+    };
+  }
+
+  /** Forks of the repository the requester is allowed to see, newest push first. */
+  async getRepositoryForks({
+    username,
+    repo,
+    requesterId,
+    query = {},
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    query?: GetRepositoryForksQueryDTO;
+  }): Promise<GetRepositoryForksResponseDTO> {
+    const repository = await this.authorizeRead({
+      username,
+      slug: repo,
+      requesterId,
+    });
+    const { pageSize, after } = this.page(
+      query,
+      schema.repository.lastPushedAt,
+      schema.repository.id,
+    );
+
+    const rows = await this.db
+      .select({
+        id: schema.repository.id,
+        slug: schema.repository.slug,
+        name: schema.repository.name,
+        description: schema.repository.description,
+        lastPushedAt: schema.repository.lastPushedAt,
+        username: schema.user.username,
+      })
+      .from(schema.repository)
+      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .where(
+        and(
+          eq(schema.repository.parentRepositoryId, repository.id),
+          // a private fork is the forker's business, not the parent's
+          requesterId
+            ? or(
+                eq(schema.repository.visibility, 'public'),
+                eq(schema.repository.ownerId, requesterId),
+              )
+            : eq(schema.repository.visibility, 'public'),
+          after,
+        ),
+      )
+      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
+      .limit(pageSize + 1);
+
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
+      date: row.lastPushedAt,
+      id: row.id,
+    }));
+
+    return {
+      forks: page.flatMap((row) =>
+        row.username
+          ? [
+              {
+                username: row.username,
+                slug: row.slug,
+                name: row.name,
+                description: row.description,
+                lastPushedAt: row.lastPushedAt.toISOString(),
+              },
+            ]
+          : [],
+      ),
+      nextCursor,
+      hasMore,
+    };
+  }
+
+  /** Page size and the keyset predicate shared by the cursor-paged lists. */
+  private page(
+    query: { cursor?: string; limit?: number },
+    dateColumn: PgColumn,
+    idColumn: PgColumn,
+  ) {
+    const requested = Number(query.limit);
+    const pageSize = Number.isFinite(requested)
+      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
+      : DEFAULT_PAGE_SIZE;
+
+    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
+    if (query.cursor && !decoded) throw new InvalidCursorError();
+
+    return {
+      pageSize,
+      after: decoded
+        ? or(
+            lt(dateColumn, decoded.date),
+            and(eq(dateColumn, decoded.date), lt(idColumn, decoded.id)),
+          )
+        : undefined,
+    };
+  }
+
   private async countCommits({
     directory,
     range,
@@ -821,6 +1046,23 @@ export class RepositoriesService {
 
     throw new BranchNotFoundError(name);
   }
+}
+
+/** One extra row was fetched: it only tells us whether another page exists. */
+function paginate<T>(
+  rows: T[],
+  pageSize: number,
+  keyOf: (row: T) => { date: Date; id: string },
+) {
+  const hasMore = rows.length > pageSize;
+  const page = hasMore ? rows.slice(0, pageSize) : rows;
+  const last = page.at(-1);
+
+  return {
+    page,
+    hasMore,
+    nextCursor: hasMore && last ? encodeCursor(keyOf(last)) : null,
+  };
 }
 
 function toCommitDTO(commit: Commit): CommitDTO {

@@ -492,7 +492,7 @@
     },
     "/api/repositories/{username}/{slug}/readme": {
       "get": {
-        "description": "The README at the root of the repository at the requested ref - a branch or a commit sha - or the default branch when none is given. A repository without one answers with a null path, not a 404. Markdown is returned as source, for the client to render.",
+        "description": "The README of a directory - the root of the repository when no `path` is given - at the requested ref.",
         "operationId": "RepositoriesController_getRepositoryReadme",
         "parameters": [
           {
@@ -518,6 +518,16 @@
             "description": "Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch.",
             "schema": {
               "example": "main",
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": false,
+            "in": "query",
+            "description": "Directory to look in. Omit for the root of the repository.",
+            "schema": {
+              "example": "packages/db",
               "type": "string"
             }
           }
@@ -1002,6 +1012,228 @@
           }
         },
         "summary": "List repository branches",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/languages": {
+      "get": {
+        "description": "Bytes per language on the default branch, largest first",
+        "operationId": "RepositoriesController_getRepositoryLanguages",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryLanguagesResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Language breakdown",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/stargazers": {
+      "get": {
+        "description": "Who starred the repository, most recently first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
+        "operationId": "RepositoriesController_getRepositoryStargazers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryStargazersResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List stargazers",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/forks": {
+      "get": {
+        "description": "Forks of the repository, newest push first. A private fork is only listed to its own owner.",
+        "operationId": "RepositoriesController_getRepositoryForks",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryForksResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List forks",
         "tags": [
           "Repositories"
         ]
@@ -3693,6 +3925,145 @@
         "required": [
           "defaultBranch",
           "branches"
+        ]
+      },
+      "RepositoryLanguageDTO": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string",
+            "example": "TypeScript"
+          },
+          "bytes": {
+            "type": "number",
+            "description": "Total size of the files in this language.",
+            "example": 128400
+          },
+          "percent": {
+            "type": "number",
+            "description": "Share of the counted bytes, 0-100.",
+            "example": 72.4
+          }
+        },
+        "required": [
+          "language",
+          "bytes",
+          "percent"
+        ]
+      },
+      "GetRepositoryLanguagesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "languages": {
+            "description": "Languages on the default branch, largest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositoryLanguageDTO"
+            }
+          }
+        },
+        "required": [
+          "languages"
+        ]
+      },
+      "StargazerDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "starredAt": {
+            "type": "string",
+            "description": "When this user starred the repository."
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "image",
+          "starredAt"
+        ]
+      },
+      "GetRepositoryStargazersResponseDTO": {
+        "type": "object",
+        "properties": {
+          "stargazers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StargazerDTO"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "stargazers",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
+      "ForkDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Owner of the fork."
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastPushedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "slug",
+          "name",
+          "description",
+          "lastPushedAt"
+        ]
+      },
+      "GetRepositoryForksResponseDTO": {
+        "type": "object",
+        "properties": {
+          "forks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ForkDTO"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "forks",
+          "nextCursor",
+          "hasMore"
         ]
       },
       "CreatePullRequestRequestDTO": {

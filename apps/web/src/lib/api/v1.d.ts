@@ -153,7 +153,7 @@ export interface paths {
         };
         /**
          * Read the README
-         * @description The README at the root of the repository at the requested ref - a branch or a commit sha - or the default branch when none is given. A repository without one answers with a null path, not a 404. Markdown is returned as source, for the client to render.
+         * @description The README of a directory - the root of the repository when no `path` is given - at the requested ref.
          */
         get: operations["RepositoriesController_getRepositoryReadme"];
         put?: never;
@@ -276,6 +276,66 @@ export interface paths {
          * @description Every branch of the repository, and which one it opens on.
          */
         get: operations["RepositoriesController_getRepositoryBranches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/languages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Language breakdown
+         * @description Bytes per language on the default branch, largest first
+         */
+        get: operations["RepositoriesController_getRepositoryLanguages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/stargazers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List stargazers
+         * @description Who starred the repository, most recently first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.
+         */
+        get: operations["RepositoriesController_getRepositoryStargazers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/forks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List forks
+         * @description Forks of the repository, newest push first. A private fork is only listed to its own owner.
+         */
+        get: operations["RepositoriesController_getRepositoryForks"];
         put?: never;
         post?: never;
         delete?: never;
@@ -894,6 +954,49 @@ export interface components {
              *     ]
              */
             branches: string[];
+        };
+        RepositoryLanguageDTO: {
+            /** @example TypeScript */
+            language: string;
+            /**
+             * @description Total size of the files in this language.
+             * @example 128400
+             */
+            bytes: number;
+            /**
+             * @description Share of the counted bytes, 0-100.
+             * @example 72.4
+             */
+            percent: number;
+        };
+        GetRepositoryLanguagesResponseDTO: {
+            /** @description Languages on the default branch, largest first. */
+            languages: components["schemas"]["RepositoryLanguageDTO"][];
+        };
+        StargazerDTO: {
+            username: string;
+            name: string;
+            image: string | null;
+            /** @description When this user starred the repository. */
+            starredAt: string;
+        };
+        GetRepositoryStargazersResponseDTO: {
+            stargazers: components["schemas"]["StargazerDTO"][];
+            nextCursor: string | null;
+            hasMore: boolean;
+        };
+        ForkDTO: {
+            /** @description Owner of the fork. */
+            username: string;
+            slug: string;
+            name: string;
+            description: string | null;
+            lastPushedAt: string;
+        };
+        GetRepositoryForksResponseDTO: {
+            forks: components["schemas"]["ForkDTO"][];
+            nextCursor: string | null;
+            hasMore: boolean;
         };
         CreatePullRequestRequestDTO: {
             /** @example Add a rate limiter */
@@ -1557,6 +1660,8 @@ export interface operations {
             query?: {
                 /** @description Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch. */
                 ref?: string;
+                /** @description Directory to look in. Omit for the root of the repository. */
+                path?: string;
             };
             header?: never;
             path: {
@@ -1821,6 +1926,130 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryLanguages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryLanguagesResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryStargazers: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
+                cursor?: string;
+                /** @description Page size. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryStargazersResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryForks: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
+                cursor?: string;
+                /** @description Page size. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryForksResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

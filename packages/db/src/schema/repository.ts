@@ -1,5 +1,6 @@
 import { createId } from "@paralleldrive/cuid2";
 import {
+  bigint,
   pgEnum,
   pgTable,
   primaryKey,
@@ -92,6 +93,40 @@ export const repositoryPathCommit = pgTable(
  */
 export const repositoryRefIndex = pgTable(
   "repository_ref_index",
+  {
+    repositoryId: text()
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    ref: text().notNull(),
+    indexedCommitSha: text().notNull(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdateFn(() => new Date()),
+  },
+  (t) => [primaryKey({ columns: [t.repositoryId, t.ref] })],
+);
+
+export const repositoryLanguageStat = pgTable(
+  "repository_language_stat",
+  {
+    repositoryId: text()
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    ref: text().notNull(),
+    language: text().notNull(),
+    bytes: bigint({ mode: "number" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.repositoryId, t.ref, t.language] })],
+);
+
+/**
+ * How far the language stats have been computed for a ref. A stored sha that is
+ * still an ancestor of the tip lets the next sync apply only the changed blobs;
+ * anything else forces a full `ls-tree` recount.
+ */
+export const repositoryLanguageIndex = pgTable(
+  "repository_language_index",
   {
     repositoryId: text()
       .references(() => repository.id, { onDelete: "cascade" })

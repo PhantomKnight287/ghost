@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { createElement } from "react";
 
 import { type IconName, icons } from "./og-icons";
+import { languageColor } from "@ghost/languages";
 
 /** Shared by every card route. */
 export const size = { width: 1200, height: 630 };
@@ -15,6 +16,7 @@ const HAIRLINE = "#26262b";
 const ACCENT = "#a78bfa";
 
 export type OgStat = { icon: IconName; label: string };
+export type OgLanguage = { language: string; percent: number };
 export type OgBadge = { label: string; color?: string };
 
 export function ogCard({
@@ -25,6 +27,7 @@ export function ogCard({
   title,
   description,
   stats,
+  languages,
 }: {
   eyebrow: string;
   /** Sits before the eyebrow, unless an avatar takes its place. */
@@ -34,131 +37,185 @@ export function ogCard({
   title: string;
   description?: string | null;
   stats?: OgStat[];
+  /** Drawn as a bar above the footer, in the order the API returns. */
+  languages?: OgLanguage[];
 }) {
   return new ImageResponse(
-    (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        background: INK,
+        color: FOREGROUND,
+        padding: 72,
+        fontFamily: "sans-serif",
+      }}
+    >
       <div
         style={{
-          width: "100%",
-          height: "100%",
           display: "flex",
-          flexDirection: "column",
+          alignItems: "center",
           justifyContent: "space-between",
-          background: INK,
-          color: FOREGROUND,
-          padding: 72,
-          fontFamily: "sans-serif",
         }}
       >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {usable(avatar) ? (
+            <img
+              src={avatar}
+              width={56}
+              height={56}
+              alt=""
+              style={{ borderRadius: 56 }}
+            />
+          ) : icon ? (
+            <Icon name={icon} size={30} color={MUTED} />
+          ) : null}
+          <div style={{ display: "flex", fontSize: 30, color: MUTED }}>
+            {truncate(eyebrow, 58)}
+          </div>
+        </div>
+
+        {badge ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              fontSize: 24,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              color: badge.color ?? MUTED,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                width: 12,
+                height: 12,
+                borderRadius: 12,
+                background: badge.color ?? MUTED,
+              }}
+            />
+            {badge.label}
+          </div>
+        ) : null}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {description ? (
+          <div style={{ display: "flex", fontSize: 28, color: MUTED }}>
+            {truncate(description, 96)}
+          </div>
+        ) : null}
+        <div
+          style={{
+            display: "flex",
+            fontSize: titleSize(title),
+            fontWeight: 600,
+            letterSpacing: -1,
+            lineHeight: 1.15,
+            // long identifiers and file names have no spaces to break on
+            wordBreak: "break-word",
+          }}
+        >
+          {truncate(title, 110)}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+        {languages?.length ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div
+              style={{
+                display: "flex",
+                height: 10,
+                borderRadius: 10,
+                overflow: "hidden",
+                background: HAIRLINE,
+              }}
+            >
+              {languages.map(({ language, percent }) => (
+                <div
+                  key={language}
+                  style={{
+                    display: "flex",
+                    width: `${percent}%`,
+                    background: languageColor(language),
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* a card is read at a glance: the long tail would not be legible */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 28,
+                fontSize: 22,
+                color: MUTED,
+              }}
+            >
+              {languages.slice(0, 4).map(({ language, percent }) => (
+                <div
+                  key={language}
+                  style={{ display: "flex", alignItems: "center", gap: 10 }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      width: 12,
+                      height: 12,
+                      borderRadius: 12,
+                      background: languageColor(language),
+                    }}
+                  />
+                  {language} {percent.toFixed(1)}%
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div style={{ display: "flex", height: 1, background: HAIRLINE }} />
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            fontSize: 26,
+            color: MUTED,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {usable(avatar) ? (
-              <img
-                src={avatar}
-                width={56}
-                height={56}
-                alt=""
-                style={{ borderRadius: 56 }}
-              />
-            ) : icon ? (
-              <Icon name={icon} size={30} color={MUTED} />
-            ) : null}
-            <div style={{ display: "flex", fontSize: 30, color: MUTED }}>
-              {truncate(eyebrow, 58)}
-            </div>
-          </div>
-
-          {badge ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                fontSize: 24,
-                letterSpacing: 2,
-                textTransform: "uppercase",
-                color: badge.color ?? MUTED,
-              }}
-            >
+          <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+            {stats?.map((stat) => (
               <div
-                style={{
-                  display: "flex",
-                  width: 12,
-                  height: 12,
-                  borderRadius: 12,
-                  background: badge.color ?? MUTED,
-                }}
-              />
-              {badge.label}
-            </div>
-          ) : null}
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {description ? (
-            <div style={{ display: "flex", fontSize: 28, color: MUTED }}>
-              {truncate(description, 96)}
-            </div>
-          ) : null}
-          <div
-            style={{
-              display: "flex",
-              fontSize: titleSize(title),
-              fontWeight: 600,
-              letterSpacing: -1,
-              lineHeight: 1.15,
-              // long identifiers and file names have no spaces to break on
-              wordBreak: "break-word",
-            }}
-          >
-            {truncate(title, 110)}
+                key={stat.label}
+                style={{ display: "flex", alignItems: "center", gap: 12 }}
+              >
+                <Icon name={stat.icon} size={24} color={MUTED} />
+                {stat.label}
+              </div>
+            ))}
           </div>
-        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
-          <div style={{ display: "flex", height: 1, background: HAIRLINE }} />
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              fontSize: 26,
-              color: MUTED,
+              gap: 12,
+              color: FOREGROUND,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-              {stats?.map((stat) => (
-                <div
-                  key={stat.label}
-                  style={{ display: "flex", alignItems: "center", gap: 12 }}
-                >
-                  <Icon name={stat.icon} size={24} color={MUTED} />
-                  {stat.label}
-                </div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                color: FOREGROUND,
-              }}
-            >
-              <Icon name="ghost" size={26} color={ACCENT} />
-              Ghost
-            </div>
+            <Icon name="ghost" size={26} color={ACCENT} />
+            Ghost
           </div>
         </div>
       </div>
-    ),
+    </div>,
     size,
   );
 }

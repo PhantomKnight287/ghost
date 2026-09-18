@@ -1,15 +1,45 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
+import { Check, Code2, Copy } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+export function ClonePopover({ cloneUrl }: { cloneUrl: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="sm">
+          <Code2 data-icon="inline-start" />
+          Code
+        </Button>
+      </PopoverTrigger>
+
+      <PopoverContent align="end" className="w-80">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold">Clone</p>
+          <CloneUrlField cloneUrl={cloneUrl} />
+          <p className="text-xs text-muted-foreground">
+            Use this URL with <code>git clone</code>, or add it as a remote to
+            an existing repository.
+          </p>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function CloneUrlField({ cloneUrl }: { cloneUrl: string }) {
   const [copied, setCopied] = useState(false);

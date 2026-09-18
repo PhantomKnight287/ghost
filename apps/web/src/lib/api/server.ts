@@ -24,7 +24,6 @@ export async function createServerClient() {
 }
 
 export async function getServerSession() {
-  console.log({INTERNAL_API_URL})
   const cookie = await forwardedCookie();
   if (!cookie) return null;
 

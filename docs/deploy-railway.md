@@ -62,6 +62,15 @@ railway variables --service api \
   --set S3_SECRET_ACCESS_KEY=...
 ```
 
+Custom domains are the one thing configuration cannot create — `railway config
+apply` rejects them with *"Custom-domain registration is not supported by
+Railway configuration"*. Add both in the dashboard, then pull what Railway now
+knows:
+
+```sh
+railway config pull
+```
+
 `railway config plan` on every change, `railway config apply` to commit it.
 
 ## 3. What the file already sets
@@ -101,8 +110,9 @@ when both services sit under one registrable domain:
 
 `*.up.railway.app` is on the Public Suffix List, so a cookie cannot be shared
 across two generated Railway subdomains. **Sign-in will not work on the default
-domains.** `.railway/railway.ts` attaches both custom domains through `domains:`;
-point their DNS at Railway before testing auth.
+domains.** Add both domains in the dashboard (configuration cannot register
+them) and point their DNS at Railway before testing auth. The `ROOT_DOMAIN`
+constant in `.railway/railway.ts` only feeds the URL variables.
 
 Clone URLs follow the API domain:
 
@@ -127,3 +137,9 @@ docker build -f apps/web/Dockerfile \
 ```
 
 The API image carries the `git` binary — every fetch and push shells out to it.
+
+The web image starts with `HOSTNAME=0.0.0.0`. Next.js' standalone server binds
+to whatever `$HOSTNAME` holds, and container runtimes set that to the container
+id — a single interface, which answers a published Docker port but refuses the
+Railway proxy. The `CMD` sets it at boot so a runtime-injected `HOSTNAME` cannot
+win.
