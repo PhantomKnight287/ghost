@@ -1,17 +1,46 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { type Database, schema } from '@ghost/db';
 import { and, count, eq } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
+import type { Readable } from 'node:stream';
 
 import { DATABASE } from '../../database/database.module.js';
+import { S3Service } from '../../services/s3/s3.service.js';
 import { UsersService } from '../../services/users/users.service.js';
+import {
+  AVATAR_CONTENT_TYPES,
+  AVATAR_PREFIX,
+  type AvatarContentType,
+} from './avatar.constants.js';
+import type { UploadAvatarResponseDTO } from './dto/avatar.dto.js';
 import type { UserProfileResponseDTO } from './dto/profile.dto.js';
+import {
+  AvatarNotFoundError,
+  EmptyAvatarError,
+  UnsupportedAvatarTypeError,
+} from './user.errors.js';
+
+export type AvatarObject = {
+  stream: Readable;
+  contentType: string;
+  size?: number;
+};
 
 @Injectable()
 export class UserService {
+  private readonly publicUrl: string;
+
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly users: UsersService,
-  ) {}
+    private readonly s3: S3Service,
+    configService: ConfigService,
+  ) {
+    this.publicUrl = configService
+      .getOrThrow<string>('BETTER_AUTH_URL')
+      .replace(/\/+$/, '');
+  }
 
   /** The public profile: anything a signed-out visitor may see. */
   async getProfile(username: string): Promise<UserProfileResponseDTO> {
@@ -45,5 +74,83 @@ export class UserService {
       repositoryCount: repositories?.value ?? 0,
       starCount: stars?.value ?? 0,
     };
+  }
+
+  async uploadAvatar({
+    userId,
+    contentType,
+    body,
+  }: {
+    userId: string;
+    contentType: string;
+    body: Buffer | undefined;
+  }): Promise<UploadAvatarResponseDTO> {
+    const extension =
+      AVATAR_CONTENT_TYPES[
+        contentType.split(';')[0]?.trim() as AvatarContentType
+      ];
+
+    if (!extension) throw new UnsupportedAvatarTypeError(contentType);
+    if (!body?.length) throw new EmptyAvatarError();
+
+    const name = `${nanoid()}.${extension}`;
+
+    await this.s3.putObject({
+      Bucket: this.s3.bucket,
+      Key: this.avatarKey(userId, name),
+      Body: body,
+      ContentType: contentType,
+    });
+
+    await this.deleteAvatarObjects(userId, name);
+
+    return { url: `${this.publicUrl}/api/users/avatars/${userId}/${name}` };
+  }
+
+  async deleteAvatar(userId: string): Promise<void> {
+    await this.deleteAvatarObjects(userId);
+  }
+
+  async getAvatar(userId: string, name: string): Promise<AvatarObject> {
+    try {
+      const object = await this.s3.getObject({
+        Bucket: this.s3.bucket,
+        Key: this.avatarKey(userId, name),
+      });
+
+      if (!object.Body) throw new AvatarNotFoundError();
+
+      return {
+        stream: object.Body as Readable,
+        contentType: object.ContentType ?? 'application/octet-stream',
+        size: object.ContentLength,
+      };
+    } catch (error) {
+      if (error instanceof AvatarNotFoundError) throw error;
+      throw new AvatarNotFoundError();
+    }
+  }
+
+  private avatarKey(userId: string, name: string) {
+    return `${AVATAR_PREFIX}/${userId}/${name}`;
+  }
+
+  private async deleteAvatarObjects(userId: string, keep?: string) {
+    const listed = await this.s3.listObjectsV2({
+      Bucket: this.s3.bucket,
+      Prefix: `${AVATAR_PREFIX}/${userId}/`,
+    });
+
+    const keepKey = keep && this.avatarKey(userId, keep);
+    const stale = (listed.Contents ?? [])
+      .map((object) => object.Key)
+      .filter((key): key is string => Boolean(key) && key !== keepKey);
+
+    if (!stale.length) return;
+
+    await this.s3.deleteObjects({
+      Bucket: this.s3.bucket,
+      Delete: { Objects: stale.map((Key) => ({ Key })) },
+    });
   }
 }

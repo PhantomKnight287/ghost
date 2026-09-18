@@ -710,6 +710,44 @@ export interface paths {
         patch: operations["LabelsController_updateLabel"];
         trace?: never;
     };
+    "/api/users/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload the signed-in user’s avatar
+         * @description Takes the raw image bytes. Returns the URL to store on the user; writing `user.image` stays with Better Auth’s `update-user`.
+         */
+        put: operations["UserController_uploadAvatar"];
+        post?: never;
+        /** Delete the signed-in user’s stored avatar */
+        delete: operations["UserController_deleteAvatar"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/avatars/{userId}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Serve a stored avatar */
+        get: operations["UserController_getAvatar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/{username}": {
         parameters: {
             query?: never;
@@ -1320,6 +1358,13 @@ export interface components {
             description?: string | null;
             /** @example d73a4a */
             color?: string;
+        };
+        UploadAvatarResponseDTO: {
+            /**
+             * @description Absolute URL the stored avatar is served from
+             * @example http://localhost:3001/api/users/avatars/<userId>/<name>.png
+             */
+            url: string;
         };
         UserProfileResponseDTO: {
             username: string;
@@ -3115,6 +3160,95 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    UserController_uploadAvatar: {
+        parameters: {
+            query?: never;
+            header: {
+                "content-type": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadAvatarResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    UserController_deleteAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UserController_getAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

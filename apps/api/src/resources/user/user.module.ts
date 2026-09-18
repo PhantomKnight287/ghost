@@ -1,11 +1,25 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import express from 'express';
 
+import { S3Service } from '../../services/s3/s3.service.js';
 import { UsersService } from '../../services/users/users.service.js';
+import { AVATAR_CONTENT_TYPES, AVATAR_MAX_BYTES } from './avatar.constants.js';
 import { UserController } from './user.controller.js';
 import { UserService } from './user.service.js';
 
 @Module({
   controllers: [UserController],
-  providers: [UserService, UsersService],
+  providers: [UserService, UsersService, S3Service],
 })
-export class UserModule {}
+export class UserModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(
+        express.raw({
+          type: Object.keys(AVATAR_CONTENT_TYPES),
+          limit: AVATAR_MAX_BYTES,
+        }),
+      )
+      .forRoutes(UserController);
+  }
+}

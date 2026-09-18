@@ -30,8 +30,9 @@ export function ogCard({
   languages,
 }: {
   eyebrow: string;
-  /** Sits before the eyebrow, unless an avatar takes its place. */
+  /** Sits before the eyebrow. */
   icon?: IconName;
+  /** Drawn large beside the title, with the description under it. */
   avatar?: string | null;
   badge?: OgBadge;
   title: string;
@@ -62,17 +63,7 @@ export function ogCard({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {usable(avatar) ? (
-            <img
-              src={avatar}
-              width={56}
-              height={56}
-              alt=""
-              style={{ borderRadius: 56 }}
-            />
-          ) : icon ? (
-            <Icon name={icon} size={30} color={MUTED} />
-          ) : null}
+          {icon ? <Icon name={icon} size={30} color={MUTED} /> : null}
           <div style={{ display: "flex", fontSize: 30, color: MUTED }}>
             {truncate(eyebrow, 58)}
           </div>
@@ -104,26 +95,59 @@ export function ogCard({
         ) : null}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        {description ? (
-          <div style={{ display: "flex", fontSize: 28, color: MUTED }}>
-            {truncate(description, 96)}
+      {usable(avatar) ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
+          <img
+            src={avatar}
+            width={200}
+            height={200}
+            alt=""
+            style={{ borderRadius: 200, border: `1px solid ${HAIRLINE}` }}
+          />
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: 14 }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontSize: titleSize(title, 60),
+                fontWeight: 600,
+                letterSpacing: -1,
+                lineHeight: 1.15,
+                wordBreak: "break-word",
+              }}
+            >
+              {truncate(title, 60)}
+            </div>
+            {description ? (
+              <div style={{ display: "flex", fontSize: 34, color: MUTED }}>
+                {truncate(description, 52)}
+              </div>
+            ) : null}
           </div>
-        ) : null}
-        <div
-          style={{
-            display: "flex",
-            fontSize: titleSize(title),
-            fontWeight: 600,
-            letterSpacing: -1,
-            lineHeight: 1.15,
-            // long identifiers and file names have no spaces to break on
-            wordBreak: "break-word",
-          }}
-        >
-          {truncate(title, 110)}
         </div>
-      </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {description ? (
+            <div style={{ display: "flex", fontSize: 28, color: MUTED }}>
+              {truncate(description, 96)}
+            </div>
+          ) : null}
+          <div
+            style={{
+              display: "flex",
+              fontSize: titleSize(title),
+              fontWeight: 600,
+              letterSpacing: -1,
+              lineHeight: 1.15,
+              // long identifiers and file names have no spaces to break on
+              wordBreak: "break-word",
+            }}
+          >
+            {truncate(title, 110)}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
         {languages?.length ? (
@@ -220,12 +244,12 @@ export function ogCard({
   );
 }
 
-/** Keeps a long title on three lines or fewer. */
-function titleSize(title: string) {
-  if (title.length <= 22) return 82;
-  if (title.length <= 34) return 62;
-  if (title.length <= 52) return 46;
-  return 38;
+/** Keeps a long title on three lines or fewer. `max` caps it when the avatar takes half the row. */
+function titleSize(title: string, max = 82) {
+  const size =
+    title.length <= 22 ? 82 : title.length <= 34 ? 62 : title.length <= 52 ? 46 : 38;
+
+  return Math.min(size, max);
 }
 
 function truncate(value: string, max: number) {
@@ -251,8 +275,7 @@ export function shortenPath(path: string, max = 72) {
 }
 
 /**
- * Satori decodes png, jpeg, gif and svg only; a webp data URI (what the auth
- * provider stores) crashes it, so anything else falls back to the icon.
+ * Satori decodes png, jpeg, gif and svg only; a webp data URI (what the auth provider stores) crashes it, so anything else falls back to the icon.
  */
 function usable(avatar?: string | null): avatar is string {
   if (!avatar) return false;

@@ -1,20 +1,100 @@
-import { Controller, Get, Param } from '@nestjs/common';
 import {
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Put,
+  Req,
+  Res,
+  Session,
+  StreamableFile,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiConsumes,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnsupportedMediaTypeResponse,
 } from '@nestjs/swagger';
-import { OptionalAuth } from '@thallesp/nestjs-better-auth';
+import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { Request, Response } from 'express';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { AVATAR_NAME_PATTERN } from './avatar.constants.js';
+import { UploadAvatarResponseDTO } from './dto/avatar.dto.js';
 import { UserProfileResponseDTO } from './dto/profile.dto.js';
+import { AvatarNotFoundError } from './user.errors.js';
 import { UserService } from './user.service.js';
 
 @Controller('users')
 @ApiTags('Users')
 export class UserController {
   constructor(private readonly users: UserService) {}
+
+  @Put('avatar')
+  @ApiOperation({
+    summary: 'Upload the signed-in user’s avatar',
+    description:
+      'Takes the raw image bytes. Returns the URL to store on the user; ' +
+      'writing `user.image` stays with Better Auth’s `update-user`.',
+  })
+  @ApiConsumes('image/png', 'image/jpeg')
+  @ApiBody({ schema: { type: 'string', format: 'binary' } })
+  @ApiOkResponse({ type: UploadAvatarResponseDTO })
+  @ApiBadRequestResponse({ type: ErrorResponseDTO })
+  @ApiUnsupportedMediaTypeResponse({ type: ErrorResponseDTO })
+  uploadAvatar(
+    @Req() request: Request,
+    @Headers('content-type') contentType: string,
+    @Session() session: UserSession,
+  ) {
+    return this.users.uploadAvatar({
+      userId: session.user.id,
+      contentType: contentType ?? '',
+      body: Buffer.isBuffer(request.body) ? request.body : undefined,
+    });
+  }
+
+  @Delete('avatar')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete the signed-in user’s stored avatar' })
+  @ApiNoContentResponse()
+  deleteAvatar(@Session() session: UserSession) {
+    return this.users.deleteAvatar(session.user.id);
+  }
+
+  @Get('avatars/:userId/:name')
+  @OptionalAuth()
+  @ApiOperation({ summary: 'Serve a stored avatar' })
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  async getAvatar(
+    @Param('userId') userId: string,
+    @Param('name') name: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    // Only names this service generates; nothing user-authored reaches S3.
+    if (!AVATAR_NAME_PATTERN.test(name)) throw new AvatarNotFoundError();
+
+    const avatar = await this.users.getAvatar(userId, name);
+
+    response.set({
+      'Content-Type': avatar.contentType,
+      ...(avatar.size ? { 'Content-Length': String(avatar.size) } : {}),
+      'X-Content-Type-Options': 'nosniff',
+      // A new upload gets a new name, so a hit can never be stale.
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    });
+
+    return new StreamableFile(avatar.stream);
+  }
 
   @Get(':username')
   @OptionalAuth()

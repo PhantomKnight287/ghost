@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { ThemeEffects } from "@/components/theme-effects";
 import { authClient } from "@/lib/auth-client";
+import { avatar } from "@/lib/auth/avatar";
 import { usernamePlugin } from "@/lib/auth/username-plugin";
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin";
 
@@ -31,6 +32,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <AuthProvider
           authClient={authClient}
+          avatar={avatar}
           redirectTo="/dashboard"
           plugins={[usernamePlugin(), apiKeyPlugin()]}
           navigate={({ to, replace }) =>

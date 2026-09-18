@@ -18,17 +18,18 @@ export default async function Image({
     params: { path: { username } },
   });
 
-  // No user, no card: an unknown profile should not get a social preview.
   if (!data) notFound();
-
   return ogCard({
-    eyebrow: "profile",
+    eyebrow: "User Profile",
     icon: "user",
     avatar: data.image,
     title: data.name || data.username,
     description: `@${data.username}`,
     stats: [
-      { icon: "folder", label: plural(data.repositoryCount, "repository", "repositories") },
+      {
+        icon: "folder",
+        label: plural(data.repositoryCount, "repository", "repositories"),
+      },
       { icon: "star", label: plural(data.starCount, "star") },
       {
         icon: "clock",

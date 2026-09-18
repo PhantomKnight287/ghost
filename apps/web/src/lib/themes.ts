@@ -165,13 +165,16 @@ export function loadCustomTheme(): CustomThemeVars {
     const parsed = JSON.parse(raw) as Partial<CustomThemeVars>;
     return {
       base: parsed.base === "light" ? "light" : "dark",
-      background: validCssColor(parsed.background) ?? DEFAULT_CUSTOM_THEME.background,
-      foreground: validCssColor(parsed.foreground) ?? DEFAULT_CUSTOM_THEME.foreground,
+      background:
+        validCssColor(parsed.background) ?? DEFAULT_CUSTOM_THEME.background,
+      foreground:
+        validCssColor(parsed.foreground) ?? DEFAULT_CUSTOM_THEME.foreground,
       primary: validCssColor(parsed.primary) ?? DEFAULT_CUSTOM_THEME.primary,
       accent: validCssColor(parsed.accent) ?? DEFAULT_CUSTOM_THEME.accent,
-      radius: typeof parsed.radius === "string" && parsed.radius.trim() !== ""
-        ? parsed.radius
-        : DEFAULT_CUSTOM_THEME.radius,
+      radius:
+        typeof parsed.radius === "string" && parsed.radius.trim() !== ""
+          ? parsed.radius
+          : DEFAULT_CUSTOM_THEME.radius,
     };
   } catch {
     return DEFAULT_CUSTOM_THEME;
@@ -188,7 +191,8 @@ export function saveCustomTheme(vars: CustomThemeVars) {
 
 function validCssColor(value: unknown): string | undefined {
   if (typeof value !== "string" || value.trim() === "") return undefined;
-  if (typeof window === "undefined" || typeof Option === "undefined") return value;
+  if (typeof window === "undefined" || typeof Option === "undefined")
+    return value;
   const el = new Option().style;
   el.color = value;
   return el.color === "" ? undefined : value;

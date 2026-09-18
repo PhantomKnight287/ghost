@@ -30,7 +30,11 @@ export async function generateMetadata({
     kind: "blob",
   });
 
-  return { title, openGraph: { title, images: [image] }, twitter: { images: [image] } };
+  return {
+    title,
+    openGraph: { title, images: [image] },
+    twitter: { images: [image] },
+  };
 }
 
 export default async function RepositoryBlobPage({

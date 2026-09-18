@@ -58,7 +58,11 @@ function useMounted() {
   );
 }
 
-export function ThemePicker({ align = "end" }: { align?: "start" | "end" | "center" }) {
+export function ThemePicker({
+  align = "end",
+}: {
+  align?: "start" | "end" | "center";
+}) {
   const { theme, setTheme } = useTheme();
   const mounted = useMounted();
   const [customOpen, setCustomOpen] = useState(false);
@@ -151,8 +155,10 @@ function CustomThemeDialog({
     onOpenChange(next);
   };
 
-  const set = <K extends keyof CustomThemeVars>(key: K, value: CustomThemeVars[K]) =>
-    setDraft((d) => ({ ...d, [key]: value }));
+  const set = <K extends keyof CustomThemeVars>(
+    key: K,
+    value: CustomThemeVars[K],
+  ) => setDraft((d) => ({ ...d, [key]: value }));
 
   const save = () => {
     saveCustomTheme(draft);
@@ -230,7 +236,10 @@ function CustomThemeDialog({
           {/* live preview */}
           <div
             className="overflow-hidden rounded-lg border"
-            style={{ backgroundColor: draft.background, color: draft.foreground }}
+            style={{
+              backgroundColor: draft.background,
+              color: draft.foreground,
+            }}
           >
             <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium">
               <span
@@ -242,13 +251,19 @@ function CustomThemeDialog({
             <div className="flex items-center gap-2 px-3 pb-3">
               <span
                 className="rounded-md px-2.5 py-1 text-xs font-medium"
-                style={{ backgroundColor: draft.primary, color: draft.background }}
+                style={{
+                  backgroundColor: draft.primary,
+                  color: draft.background,
+                }}
               >
                 Primary button
               </span>
               <span
                 className="rounded-md px-2.5 py-1 text-xs"
-                style={{ backgroundColor: draft.accent, color: draft.foreground }}
+                style={{
+                  backgroundColor: draft.accent,
+                  color: draft.foreground,
+                }}
               >
                 Accent chip
               </span>
