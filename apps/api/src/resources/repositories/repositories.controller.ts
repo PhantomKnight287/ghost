@@ -42,6 +42,10 @@ import {
   GetRepositoryForksResponseDTO,
 } from './dto/get-repository-forks.dto.js';
 import {
+  GetRepositoryContributorsQueryDTO,
+  GetRepositoryContributorsResponseDTO,
+} from './dto/get-repository-contributors.dto.js';
+import {
   GetRepositoryStargazersQueryDTO,
   GetRepositoryStargazersResponseDTO,
 } from './dto/get-repository-stargazers.dto.js';
@@ -592,6 +596,35 @@ export class RepositoriesController {
     @Query() query: GetRepositoryForksQueryDTO,
   ): Promise<GetRepositoryForksResponseDTO> {
     return this.repositoriesService.getRepositoryForks({
+      username,
+      repo: slug,
+      requesterId: session?.user?.id,
+      query,
+    });
+  }
+
+  @Get(':username/:slug/contributors')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'List contributors',
+    description:
+      'Authors of the default branch, most commits first, read from the ' +
+      'contribution index with linked Ghost accounts. Never materializes ' +
+      'the repository.',
+  })
+  @ApiOkResponse({
+    type: GetRepositoryContributorsResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryContributors(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryContributorsQueryDTO,
+  ): Promise<GetRepositoryContributorsResponseDTO> {
+    return this.repositoriesService.getRepositoryContributors({
       username,
       repo: slug,
       requesterId: session?.user?.id,

@@ -344,6 +344,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/contributors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List contributors
+         * @description Authors of the default branch, most commits first, read from the contribution index with linked Ghost accounts. Never materializes the repository.
+         */
+        get: operations["RepositoriesController_getRepositoryContributors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/pulls": {
         parameters: {
             query?: never;
@@ -765,6 +785,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/{username}/contributions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a user's contribution calendar
+         * @description Daily commit counts for a calendar year, across the repositories the requester may see that the user owns. Days are UTC, in order.
+         */
+        get: operations["UserController_getContributions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1035,6 +1075,27 @@ export interface components {
             forks: components["schemas"]["ForkDTO"][];
             nextCursor: string | null;
             hasMore: boolean;
+        };
+        ContributorDTO: {
+            /** @description Linked Ghost username, when the commit email matches an account. */
+            username: string | null;
+            /** @description Commit author name, as written in git. */
+            name: string;
+            /** @description Avatar of the linked account, if any. */
+            image: string | null;
+            /** @description Commits by this author on the default branch. */
+            commits: number;
+            /** @description Share of the default-branch commits, 0-100. */
+            percent: number;
+            /** @description Day of the author’s most recent commit, ISO 8601 at UTC midnight. Day-granular: the index stores days, not timestamps. */
+            lastCommittedAt: string;
+        };
+        GetRepositoryContributorsResponseDTO: {
+            contributors: components["schemas"]["ContributorDTO"][];
+            /** @description Default-branch commits indexed in total. */
+            totalCommits: number;
+            /** @description Distinct indexed authors in total. */
+            totalContributors: number;
         };
         CreatePullRequestRequestDTO: {
             /** @example Add a rate limiter */
@@ -1376,6 +1437,24 @@ export interface components {
             repositoryCount: number;
             /** @description Stars across the user’s public repositories */
             starCount: number;
+        };
+        ContributionDayDTO: {
+            /**
+             * @description Calendar day, YYYY-MM-DD (UTC).
+             * @example 2026-09-18
+             */
+            date: string;
+            /** @description Commits authored that day. */
+            count: number;
+        };
+        GetUserContributionsResponseDTO: {
+            username: string;
+            /** @description Calendar year rendered. */
+            year: number;
+            /** @description Commits authored that year across visible owned repositories. */
+            totalContributions: number;
+            /** @description Every day of the year, in order. */
+            days: components["schemas"]["ContributionDayDTO"][];
         };
     };
     responses: never;
@@ -2092,6 +2171,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryContributors: {
+        parameters: {
+            query?: {
+                /** @description Maximum contributors to return. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryContributorsResponseDTO"];
                 };
             };
             404: {
@@ -3275,6 +3387,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserProfileResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    UserController_getContributions: {
+        parameters: {
+            query?: {
+                /** @description Calendar year to render. Defaults to the current year. */
+                year?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetUserContributionsResponseDTO"];
                 };
             };
             404: {

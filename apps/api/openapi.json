@@ -1239,6 +1239,68 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/contributors": {
+      "get": {
+        "description": "Authors of the default branch, most commits first, read from the contribution index with linked Ghost accounts. Never materializes the repository.",
+        "operationId": "RepositoriesController_getRepositoryContributors",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum contributors to return.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 100,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryContributorsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List contributors",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/pulls": {
       "post": {
         "operationId": "PullRequestsController_createPullRequest",
@@ -3437,6 +3499,58 @@
           "Users"
         ]
       }
+    },
+    "/api/users/{username}/contributions": {
+      "get": {
+        "description": "Daily commit counts for a calendar year, across the repositories the requester may see that the user owns. Days are UTC, in order.",
+        "operationId": "UserController_getContributions",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "Calendar year to render. Defaults to the current year.",
+            "schema": {
+              "example": 2026,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUserContributionsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a user's contribution calendar",
+        "tags": [
+          "Users"
+        ]
+      }
     }
   },
   "info": {
@@ -4196,6 +4310,69 @@
           "forks",
           "nextCursor",
           "hasMore"
+        ]
+      },
+      "ContributorDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Linked Ghost username, when the commit email matches an account.",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "description": "Commit author name, as written in git."
+          },
+          "image": {
+            "type": "string",
+            "description": "Avatar of the linked account, if any.",
+            "nullable": true
+          },
+          "commits": {
+            "type": "number",
+            "description": "Commits by this author on the default branch."
+          },
+          "percent": {
+            "type": "number",
+            "description": "Share of the default-branch commits, 0-100."
+          },
+          "lastCommittedAt": {
+            "type": "string",
+            "description": "Day of the author’s most recent commit, ISO 8601 at UTC midnight. Day-granular: the index stores days, not timestamps."
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "image",
+          "commits",
+          "percent",
+          "lastCommittedAt"
+        ]
+      },
+      "GetRepositoryContributorsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "contributors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContributorDTO"
+            }
+          },
+          "totalCommits": {
+            "type": "number",
+            "description": "Default-branch commits indexed in total."
+          },
+          "totalContributors": {
+            "type": "number",
+            "description": "Distinct indexed authors in total."
+          }
+        },
+        "required": [
+          "contributors",
+          "totalCommits",
+          "totalContributors"
         ]
       },
       "CreatePullRequestRequestDTO": {
@@ -5281,6 +5458,53 @@
           "joinedAt",
           "repositoryCount",
           "starCount"
+        ]
+      },
+      "ContributionDayDTO": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Calendar day, YYYY-MM-DD (UTC).",
+            "example": "2026-09-18"
+          },
+          "count": {
+            "type": "number",
+            "description": "Commits authored that day."
+          }
+        },
+        "required": [
+          "date",
+          "count"
+        ]
+      },
+      "GetUserContributionsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number",
+            "description": "Calendar year rendered."
+          },
+          "totalContributions": {
+            "type": "number",
+            "description": "Commits authored that year across visible owned repositories."
+          },
+          "days": {
+            "description": "Every day of the year, in order.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContributionDayDTO"
+            }
+          }
+        },
+        "required": [
+          "username",
+          "year",
+          "totalContributions",
+          "days"
         ]
       }
     }

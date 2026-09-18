@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Readable } from 'node:stream';
 
 import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
@@ -10,6 +10,7 @@ import {
 } from '../services/git/protocol/receive-pack-request.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
 import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
+import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { isGitServiceName, type GitServiceName } from './git.constants.js';
 import { UnsupportedGitServiceError } from './git.errors.js';
@@ -25,12 +26,15 @@ interface RepositoryRef {
 
 @Injectable()
 export class GitService {
+  private readonly logger = new Logger(GitService.name);
+
   constructor(
     private readonly storage: RepositoryStorageService,
     private readonly refAdvertisement: RefAdvertisementService,
     private readonly packProcess: PackProcessService,
     private readonly pushTransaction: PushTransactionService,
     private readonly materializer: RepositoryMaterializerService,
+    private readonly contributions: RepositoryContributionService,
   ) {}
 
   async advertiseRefs({
@@ -100,12 +104,28 @@ export class GitService {
       pushedBy,
     });
 
+    const result = this.packProcess.streamReceivePack({
+      repoDirectory,
+      input: body.open(),
+    });
+
+    // Index contributions once the push lands: the cache holds the new objects
+    // once the response finishes streaming. Fire-and-forget on purpose - the
+    // push response must not wait on a history walk, and an interrupted index
+    // leaves a stale cursor that the next sync tops up.
+    result.once('close', () => {
+      this.contributions
+        .sync({ repositoryId, repoDirectory })
+        .catch((error: unknown) =>
+          this.logger.warn(
+            `Contribution index update failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+    });
+
     return {
       headers: resultHeaders('git-receive-pack'),
-      body: this.packProcess.streamReceivePack({
-        repoDirectory,
-        input: body.open(),
-      }),
+      body: result,
     };
   }
 

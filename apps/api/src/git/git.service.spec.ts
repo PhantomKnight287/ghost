@@ -8,6 +8,7 @@ import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-a
 import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
+import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { UnsupportedGitServiceError } from './git.errors.js';
 import { GitService } from './git.service.js';
 
@@ -29,6 +30,9 @@ describe('GitService', () => {
       .fn()
       .mockResolvedValue({ seq: 1, ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' }),
   };
+  const contributions = {
+    sync: vi.fn().mockResolvedValue('55ff3318cbb1ad74a1e1a1e6f4bd91f4b5a9c0d2'),
+  };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -40,6 +44,7 @@ describe('GitService', () => {
         { provide: PackProcessService, useValue: packProcess },
         { provide: PushTransactionService, useValue: pushTransaction },
         { provide: RepositoryMaterializerService, useValue: materializer },
+        { provide: RepositoryContributionService, useValue: contributions },
       ],
     }).compile();
 
@@ -127,6 +132,23 @@ describe('GitService', () => {
       packProcess.streamReceivePack.mock.invocationCallOrder[0];
     expect(materializeOrder).toBeLessThan(commitOrder);
     expect(commitOrder).toBeLessThan(spawnOrder);
+  });
+
+  it('indexes contributions once the pushed pack finishes streaming', async () => {
+    const { body } = await service.receivePack({
+      repositoryId: 'repo_ghost',
+      body: bufferBody(receivePackBody()),
+    });
+
+    expect(contributions.sync).not.toHaveBeenCalled();
+
+    body.emit('close');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(contributions.sync).toHaveBeenCalledWith({
+      repositoryId: 'repo_ghost',
+      repoDirectory: '/repos/ghost.git',
+    });
   });
 });
 

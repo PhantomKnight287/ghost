@@ -4,6 +4,7 @@ import { RepositoryMaterializerService } from '../services/git/materializer/repo
 import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
 import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
+import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
 import { S3Service } from '../services/s3/s3.service.js';
@@ -22,6 +23,7 @@ import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-au
     RefAdvertisementService,
     RepositoryStorageService,
     RepositoryMaterializerService,
+    RepositoryContributionService,
     PushTransactionService,
     WalStoreService,
     S3Service,

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { type Database, schema } from '@ghost/db';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, lt, or, sum } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { Readable } from 'node:stream';
 
@@ -14,6 +14,10 @@ import {
   type AvatarContentType,
 } from './avatar.constants.js';
 import type { UploadAvatarResponseDTO } from './dto/avatar.dto.js';
+import type {
+  GetUserContributionsQueryDTO,
+  GetUserContributionsResponseDTO,
+} from './dto/contributions.dto.js';
 import type { UserProfileResponseDTO } from './dto/profile.dto.js';
 import {
   AvatarNotFoundError,
@@ -152,5 +156,83 @@ export class UserService {
       Bucket: this.s3.bucket,
       Delete: { Objects: stale.map((Key) => ({ Key })) },
     });
+  }
+
+  /**
+   * Daily commit counts for the contribution graph, read straight from the
+   * contribution index. This endpoint never touches git: indexing happens when
+   * repositories are pushed or browsed, so rendering a profile cannot
+   * materialize every repository the user owns.
+   */
+  async getContributions(
+    username: string,
+    query: GetUserContributionsQueryDTO = {},
+    requesterId?: string,
+  ): Promise<GetUserContributionsResponseDTO> {
+    const user = await this.users.getUserByUsername(username);
+    const now = new Date();
+    const year =
+      Number.isFinite(Number(query.year)) && Number(query.year) >= 2000
+        ? Math.trunc(Number(query.year))
+        : now.getUTCFullYear();
+
+    const from = `${year}-01-01`;
+    const to = `${year + 1}-01-01`;
+    const counts = new Map<string, number>();
+
+    // A row counts when it is linked to the account, or when its author email
+    // is one of the account's emails (a commit indexed before the author
+    // registered, or before the email was added to the account). Matching on
+    // both means adding an email never needs a reindex.
+    // Private repositories are the owner's business: anyone else only sees
+    // the public ones in the graph.
+    const emails = [user.email.toLowerCase()];
+    const rows = await this.db
+      .select({
+        day: schema.repositoryContribution.day,
+        count: sum(schema.repositoryContribution.commits),
+      })
+      .from(schema.repositoryContribution)
+      .innerJoin(
+        schema.repository,
+        eq(schema.repository.id, schema.repositoryContribution.repositoryId),
+      )
+      .where(
+        and(
+          eq(schema.repository.ownerId, user.id),
+          inArray(
+            schema.repository.visibility,
+            user.id === requesterId ? ['private', 'public'] : ['public'],
+          ),
+          or(
+            eq(schema.repositoryContribution.authorId, user.id),
+            inArray(schema.repositoryContribution.authorEmail, emails),
+          ),
+          gte(schema.repositoryContribution.day, from),
+          lt(schema.repositoryContribution.day, to),
+        ),
+      )
+      .groupBy(schema.repositoryContribution.day);
+
+    for (const row of rows) {
+      counts.set(row.day, Number(row.count ?? 0));
+    }
+
+    const days: { date: string; count: number }[] = [];
+    for (
+      let day = new Date(Date.UTC(year, 0, 1));
+      day < new Date(Date.UTC(year + 1, 0, 1));
+      day = new Date(day.getTime() + 86_400_000)
+    ) {
+      const date = day.toISOString().slice(0, 10);
+      days.push({ date, count: counts.get(date) ?? 0 });
+    }
+
+    return {
+      username: user.username ?? username,
+      year,
+      totalContributions: days.reduce((total, d) => total + d.count, 0),
+      days,
+    };
   }
 }

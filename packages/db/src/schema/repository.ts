@@ -1,6 +1,8 @@
 import { createId } from "@paralleldrive/cuid2";
 import {
   bigint,
+  date,
+  integer,
   pgEnum,
   pgTable,
   primaryKey,
@@ -139,4 +141,57 @@ export const repositoryLanguageIndex = pgTable(
       .$onUpdateFn(() => new Date()),
   },
   (t) => [primaryKey({ columns: [t.repositoryId, t.ref] })],
+);
+
+/**
+ * Daily commit counts per author on a repository's default branch, so the
+ * profile contribution graph costs one indexed query instead of materializing
+ * and walking every repository the user owns.
+ *
+ * The grain is a git fact: emails are stored lowercased (`Alice@x.com` and
+ * `alice@x.com` count as one author). `authorId` links that fact to an
+ * account, resolved at sync time and nullable when the author has no account
+ * (yet) - accounts and their emails change, history does not. Readers match on
+ * both, so adding an email to an account never needs a reindex.
+ */
+export const repositoryContribution = pgTable(
+  "repository_contribution",
+  {
+    repositoryId: text("repository_id")
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    authorEmail: text("author_email").notNull(),
+    // UTC calendar day, YYYY-MM-DD.
+    day: date("day").notNull(),
+    // Name from the author's newest indexed commit.
+    authorName: text("author_name").notNull(),
+    // Linked account, if the author email matches one. Null for
+    // not-yet-registered authors; backfilled once they register.
+    authorId: text("author_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    commits: integer("commits").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.repositoryId, t.authorEmail, t.day] })],
+);
+
+/**
+ * How far `repository_contribution` has been walked. One cursor per repository,
+ * since only the default branch is indexed. A stored sha that is still an
+ * ancestor of the default tip means the next sync only covers the new commits;
+ * anything else (force push, dropped objects) forces a full rebuild.
+ */
+export const repositoryContributionIndex = pgTable(
+  "repository_contribution_index",
+  {
+    repositoryId: text("repository_id")
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    indexedCommitSha: text("indexed_commit_sha").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdateFn(() => new Date()),
+  },
+  (t) => [primaryKey({ columns: [t.repositoryId] })],
 );

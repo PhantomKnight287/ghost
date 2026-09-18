@@ -57,6 +57,10 @@ import type {
   GetRepositoryForksResponseDTO,
 } from './dto/get-repository-forks.dto.js';
 import type {
+  GetRepositoryContributorsQueryDTO,
+  GetRepositoryContributorsResponseDTO,
+} from './dto/get-repository-contributors.dto.js';
+import type {
   GetRepositoryStargazersQueryDTO,
   GetRepositoryStargazersResponseDTO,
 } from './dto/get-repository-stargazers.dto.js';
@@ -69,6 +73,7 @@ import type {
   GetRepositoryCommitsResponseDTO,
 } from './dto/get-repository-commits.dto.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
+import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 
@@ -88,6 +93,7 @@ export class RepositoriesService {
     private readonly branches: BranchesService,
     private readonly access: RepositoryAccessService,
     private readonly wal: WalStoreService,
+    private readonly contributions: RepositoryContributionService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -951,6 +957,47 @@ export class RepositoriesService {
     };
   }
 
+  /** Authors of the default branch, most commits first, read from the index. */
+  async getRepositoryContributors({
+    username,
+    repo,
+    requesterId,
+    query = {},
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    query?: GetRepositoryContributorsQueryDTO;
+  }): Promise<GetRepositoryContributorsResponseDTO> {
+    // Authorize only: the index answers the listing, so this never
+    // materializes the repository. Cold repositories (never pushed or browsed
+    // since indexing landed) list nothing until something warms the index.
+    const repository = await this.authorizeRead({
+      username,
+      slug: repo,
+      requesterId,
+    });
+
+    const { contributors, totalCommits, totalContributors } =
+      await this.contributions.listContributors({
+        repositoryId: repository.id,
+        limit: query.limit,
+      });
+
+    return {
+      contributors: contributors.map((row) => ({
+        username: row.username,
+        name: row.authorName,
+        image: row.image,
+        commits: row.commits,
+        percent: totalCommits > 0 ? (row.commits / totalCommits) * 100 : 0,
+        lastCommittedAt: row.lastCommittedAt.toISOString(),
+      })),
+      totalCommits,
+      totalContributors,
+    };
+  }
+
   /** Page size and the keyset predicate shared by the cursor-paged lists. */
   private page(
     query: { cursor?: string; limit?: number },
@@ -1024,6 +1071,14 @@ export class RepositoriesService {
 
     const directory = await this.storage.getRepoPath(repository.id);
     await this.materializer.materialize(repository.id, directory);
+
+    // Keep the contribution index warm while the objects are hot. The profile
+    // graph reads the index only, so rendering it never materializes anything
+    // itself. A no-op once the default tip is indexed.
+    await this.contributions.sync({
+      repositoryId: repository.id,
+      repoDirectory: directory,
+    });
 
     const name = requested?.trim();
     if (!name) {

@@ -120,6 +120,13 @@
       "when": 1789707969106,
       "tag": "0016_needy_sharon_carter",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789751284964,
+      "tag": "0017_pink_vampiro",
+      "breakpoints": true
     }
   ]
 }
