@@ -8,12 +8,14 @@ COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY packages/languages/package.json packages/languages/package.json
 RUN bun install --frozen-lockfile
 
 FROM deps AS build
 WORKDIR /app
 COPY . .
 RUN bun run --filter @ghost/db build \
+ && bun run --filter @ghost/languages build \
  && bun run --filter @ghost/api build
 
 # A second, clean install: the runtime needs neither the web app's dependencies
@@ -24,8 +26,9 @@ COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY packages/languages/package.json packages/languages/package.json
 RUN bun install --frozen-lockfile --production \
-      --filter '@ghost/api' --filter '@ghost/db'
+      --filter '@ghost/api' --filter '@ghost/db' --filter '@ghost/languages'
 
 FROM node:22-slim AS runtime
 # Every pack operation shells out to the real git binary.
@@ -37,6 +40,7 @@ ENV NODE_ENV=production
 COPY --from=prod-deps /app ./
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/packages/db/dist ./packages/db/dist
+COPY --from=build /app/packages/languages/dist ./packages/languages/dist
 COPY packages/db/drizzle ./packages/db/drizzle
 EXPOSE 3001
 CMD ["node", "apps/api/dist/main.js"]
