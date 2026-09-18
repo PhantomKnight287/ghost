@@ -122,11 +122,11 @@ export default async function ProfilePage({
             overview={
               // its own fetch, so the tabs and the repository list paint first
               <>
-                <Suspense fallback={<ContributionGraphSkeleton />}>
-                  <ProfileContributions username={username} />
-                </Suspense>
                 <Suspense fallback={<RepositoryReadmeSkeleton bare />}>
                   <ProfileReadme username={username} />
+                </Suspense>
+                <Suspense fallback={<ContributionGraphSkeleton />}>
+                  <ProfileContributions username={username} />
                 </Suspense>
               </>
             }

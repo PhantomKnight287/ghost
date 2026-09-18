@@ -73,6 +73,7 @@ import type {
   GetRepositoryCommitsResponseDTO,
 } from './dto/get-repository-commits.dto.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
+import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 
@@ -92,6 +93,7 @@ export class RepositoriesService {
     private readonly branches: BranchesService,
     private readonly access: RepositoryAccessService,
     private readonly wal: WalStoreService,
+    private readonly contributions: RepositoryContributionService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -1141,6 +1143,14 @@ export class RepositoriesService {
 
     const directory = await this.storage.getRepoPath(repository.id);
     await this.materializer.materialize(repository.id, directory);
+
+    // Keep the contribution index warm while the objects are hot. The profile
+    // graph reads the index only, so rendering it never materializes anything
+    // itself. A no-op once the default tip is indexed.
+    await this.contributions.sync({
+      repositoryId: repository.id,
+      repoDirectory: directory,
+    });
 
     const name = requested?.trim();
     if (!name) {
