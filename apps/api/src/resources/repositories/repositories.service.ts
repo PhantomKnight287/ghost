@@ -969,9 +969,6 @@ export class RepositoriesService {
     requesterId?: string;
     query?: GetRepositoryContributorsQueryDTO;
   }): Promise<GetRepositoryContributorsResponseDTO> {
-    // Authorize only: the index answers the listing, so this never
-    // materializes the repository. Cold repositories (never pushed or browsed
-    // since indexing landed) list nothing until something warms the index.
     const repository = await this.authorizeRead({
       username,
       slug: repo,

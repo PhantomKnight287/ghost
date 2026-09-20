@@ -18,6 +18,7 @@
     "db:push": "dotenv -e .env turbo run db:push",
     "db:studio": "dotenv -e .env -- bun run --filter @ghost/db db:studio",
     "openapi": "dotenv -e .env -- bun run --filter @ghost/api openapi && bun run --filter @ghost/web generate",
+    "email:dev": "dotenv -e .env -- bun run --filter @ghost/api email:dev",
     "format": "turbo run format",
     "format:check": "biome format ."
   },
