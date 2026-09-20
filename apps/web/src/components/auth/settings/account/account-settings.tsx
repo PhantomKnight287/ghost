@@ -5,6 +5,7 @@ import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 import { ChangeEmail } from "./change-email";
+import { EmailAddresses } from "./email-addresses";
 import { UserProfile } from "./user-profile";
 
 export type AccountSettingsProps = {
@@ -49,6 +50,7 @@ export function AccountSettings({
     >
       <UserProfile />
       {showChangeEmail && <ChangeEmailCard />}
+      <EmailAddresses />
       {plugins.flatMap(
         (plugin) =>
           plugin.accountCards?.map((Card, index) => (

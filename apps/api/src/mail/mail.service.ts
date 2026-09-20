@@ -22,6 +22,25 @@ export class MailService {
     await this.send(to, 'Verify your email', 'verify-email', context);
   }
 
+  async sendVerifyAliasEmail(
+    to: string,
+    context: { name?: string; verifyUrl: string },
+  ): Promise<void> {
+    await this.send(to, 'Confirm your email address', 'verify-alias', context);
+  }
+
+  async sendChangeEmailEmail(
+    to: string,
+    context: { name?: string; newEmail: string; approveUrl: string },
+  ): Promise<void> {
+    await this.send(
+      to,
+      'Approve your new email address',
+      'change-email',
+      context,
+    );
+  }
+
   async sendResetPasswordEmail(
     to: string,
     context: { name?: string; resetUrl: string },

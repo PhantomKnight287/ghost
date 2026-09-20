@@ -1,11 +1,11 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
+  index,
+  integer,
   pgTable,
   text,
   timestamp,
-  boolean,
-  integer,
-  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -246,8 +246,44 @@ export const apikey = pgTable(
   ],
 );
 
+/**
+ * Additional addresses an account owns, so one person can be reached - and
+ * recognised as a commit author - under every address they push with.
+ *
+ * Better Auth only ever knows `user.email`; these rows are resolved to it
+ * before its endpoints run. Only a verified row counts, otherwise adding an
+ * address would be enough to claim someone else's commits or sign-in.
+ */
+export const userEmail = pgTable(
+  "user_email",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // Stored lowercased; addresses are matched case-insensitively.
+    email: text("email").notNull().unique(),
+    verified: boolean("verified").default(false).notNull(),
+    // Single-use verification token, cleared once the address is confirmed.
+    token: text("token").unique(),
+    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("user_email_user_id_idx").on(table.userId)],
+);
+
+export const userEmailRelations = relations(userEmail, ({ one }) => ({
+  user: one(user, {
+    fields: [userEmail.userId],
+    references: [user.id],
+  }),
+}));
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
+  emails: many(userEmail),
   accounts: many(account),
   teamMembers: many(teamMember),
   members: many(member),

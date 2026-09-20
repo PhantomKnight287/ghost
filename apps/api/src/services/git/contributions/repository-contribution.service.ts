@@ -1,5 +1,5 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   and,
   countDistinct,
@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { runGitStream, runGit } from '../exec/run-git.js';
+import { runGit, runGitStream } from '../exec/run-git.js';
 import { resolveDefaultRef } from '../tree/resolve-ref.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
@@ -99,11 +99,15 @@ export class RepositoryContributionService {
   }> {
     const pageSize = Math.min(Math.max(Math.trunc(limit) || 100, 1), 100);
     const contribution = schema.repositoryContribution;
+    // One person can commit from several addresses, so the grain of the list
+    // is the account where there is one, and the address where there is not.
+    const identity = sql`coalesce(${contribution.authorId}, ${contribution.authorEmail})`;
 
     const [rows, [totals]] = await Promise.all([
       this.db
         .select({
-          authorEmail: contribution.authorEmail,
+          // Newest address wins, for an author with no account to name.
+          authorEmail: sql<string>`(array_agg(${contribution.authorEmail} ORDER BY ${contribution.day} DESC))[1]`,
           // Newest name wins: the name on the author's latest indexed day,
           // preferring the linked account's below.
           gitName: sql<string>`(array_agg(${contribution.authorName} ORDER BY ${contribution.day} DESC))[1]`,
@@ -117,8 +121,7 @@ export class RepositoryContributionService {
         .leftJoin(schema.user, eq(schema.user.id, contribution.authorId))
         .where(eq(contribution.repositoryId, repositoryId))
         .groupBy(
-          contribution.authorEmail,
-          contribution.authorId,
+          identity,
           schema.user.username,
           schema.user.name,
           schema.user.image,
@@ -128,7 +131,7 @@ export class RepositoryContributionService {
       this.db
         .select({
           commits: sum(contribution.commits),
-          authors: countDistinct(contribution.authorEmail),
+          authors: countDistinct(identity),
         })
         .from(contribution)
         .where(eq(contribution.repositoryId, repositoryId)),
@@ -323,17 +326,34 @@ export class RepositoryContributionService {
     return rows.length;
   }
 
-  /** Maps lowercased author emails to account ids, one query per flush. */
+  /**
+   * Maps lowercased author emails to account ids. An account is reachable
+   * under its primary address and under every verified extra, so a person who
+   * commits from two addresses attributes to one account.
+   */
   private async resolveAuthorIds(emails: string[]) {
     const distinct = [...new Set(emails)];
     if (distinct.length === 0) return new Map<string, string>();
 
-    const users = await this.db
-      .select({ id: schema.user.id, email: schema.user.email })
-      .from(schema.user)
-      .where(inArray(sql`lower(${schema.user.email})`, distinct));
+    const [primaries, extras] = await Promise.all([
+      this.db
+        .select({ id: schema.user.id, email: schema.user.email })
+        .from(schema.user)
+        .where(inArray(sql`lower(${schema.user.email})`, distinct)),
+      this.db
+        .select({ id: schema.userEmail.userId, email: schema.userEmail.email })
+        .from(schema.userEmail)
+        .where(
+          and(
+            inArray(schema.userEmail.email, distinct),
+            eq(schema.userEmail.verified, true),
+          ),
+        ),
+    ]);
 
-    return new Map(users.map((user) => [user.email.toLowerCase(), user.id]));
+    return new Map(
+      [...extras, ...primaries].map((row) => [row.email.toLowerCase(), row.id]),
+    );
   }
 
   private async hasUnlinked(repositoryId: string) {
@@ -363,6 +383,15 @@ export class RepositoryContributionService {
       WHERE c."repository_id" = ${repositoryId}
         AND c."author_id" IS NULL
         AND lower(u."email") = c."author_email"
+    `);
+    await this.db.execute(sql`
+      UPDATE "repository_contribution" AS c
+      SET "author_id" = e."user_id"
+      FROM "user_email" AS e
+      WHERE c."repository_id" = ${repositoryId}
+        AND c."author_id" IS NULL
+        AND e."verified" = true
+        AND e."email" = c."author_email"
     `);
   }
 

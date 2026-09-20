@@ -1,11 +1,11 @@
-import { Test, type TestingModule } from '@nestjs/testing';
-import { createDatabase, schema, type Database, type Pool } from '@ghost/db';
-import { eq } from 'drizzle-orm';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
+import { Test, type TestingModule } from '@nestjs/testing';
+import { eq } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import {
   afterAll,
   afterEach,
@@ -246,6 +246,77 @@ describe.skipIf(!CONNECTION)('RepositoryContributionService', () => {
     }
   });
 
+  it("links commits pushed from an account's extra address", async () => {
+    await db.insert(schema.user).values({
+      id: 'user_contribution_mai',
+      name: 'Mai',
+      email: 'mai@example.com',
+    });
+    await db.insert(schema.userEmail).values([
+      {
+        id: 'uem_spec_verified',
+        userId: 'user_contribution_mai',
+        email: 'mai-work@example.com',
+        verified: true,
+      },
+      {
+        id: 'uem_spec_unverified',
+        userId: 'user_contribution_mai',
+        email: 'mai-claimed@example.com',
+        verified: false,
+      },
+    ]);
+
+    try {
+      commitAs('mai-work@example.com', 'Mai', '2026-06-10T12:00:00Z', 'one');
+      commitAs('mai-claimed@example.com', 'Mai', '2026-06-11T12:00:00Z', 'two');
+      await sync();
+
+      const rows = await dayCounts();
+      expect(rows.get('mai-work@example.com 2026-06-10')?.authorId).toBe(
+        'user_contribution_mai',
+      );
+      // An unverified address is a claim, not proof: it attributes to nobody.
+      expect(
+        rows.get('mai-claimed@example.com 2026-06-11')?.authorId,
+      ).toBeNull();
+    } finally {
+      await db
+        .delete(schema.user)
+        .where(eq(schema.user.id, 'user_contribution_mai'));
+    }
+  });
+
+  it('relinks an address verified after indexing', async () => {
+    commitAs('later@example.com', 'Later', '2026-06-20T12:00:00Z', 'one');
+    await sync();
+
+    await db.insert(schema.user).values({
+      id: 'user_contribution_nils',
+      name: 'Nils',
+      email: 'nils@example.com',
+    });
+    await db.insert(schema.userEmail).values({
+      id: 'uem_spec_later',
+      userId: 'user_contribution_nils',
+      email: 'later@example.com',
+      verified: true,
+    });
+
+    try {
+      await sync();
+
+      const rows = await dayCounts();
+      expect(rows.get('later@example.com 2026-06-20')?.authorId).toBe(
+        'user_contribution_nils',
+      );
+    } finally {
+      await db
+        .delete(schema.user)
+        .where(eq(schema.user.id, 'user_contribution_nils'));
+    }
+  });
+
   describe('listContributors', () => {
     async function seedRow(
       email: string,
@@ -345,6 +416,46 @@ describe.skipIf(!CONNECTION)('RepositoryContributionService', () => {
         await db
           .delete(schema.user)
           .where(eq(schema.user.id, 'user_contribution_yara'));
+      }
+    });
+
+    it("folds an account's addresses into one contributor", async () => {
+      await db.insert(schema.user).values({
+        id: 'user_contribution_wren',
+        name: 'Wren Account',
+        email: 'wren@example.com',
+        username: 'wren',
+      });
+
+      try {
+        // Same person, two addresses, both linked to the account.
+        await seedRow(
+          'wren@example.com',
+          'Wren Git',
+          '2026-10-01',
+          2,
+          'user_contribution_wren',
+        );
+        await seedRow(
+          'wren-work@example.com',
+          'Wren Work',
+          '2026-10-05',
+          3,
+          'user_contribution_wren',
+        );
+
+        const page = await service.listContributors({ repositoryId });
+
+        expect(page.contributors).toHaveLength(1);
+        expect(page.totalContributors).toBe(1);
+        expect(page.contributors[0].commits).toBe(5);
+        expect(page.contributors[0].username).toBe('wren');
+        // The newest address names the row.
+        expect(page.contributors[0].authorEmail).toBe('wren-work@example.com');
+      } finally {
+        await db
+          .delete(schema.user)
+          .where(eq(schema.user.id, 'user_contribution_wren'));
       }
     });
 

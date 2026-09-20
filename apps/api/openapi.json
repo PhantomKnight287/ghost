@@ -3327,6 +3327,180 @@
         ]
       }
     },
+    "/api/emails": {
+      "get": {
+        "operationId": "EmailsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEmailsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the addresses on the signed-in account",
+        "tags": [
+          "Emails"
+        ]
+      },
+      "post": {
+        "description": "Mails a verification link. The address counts for nothing - sign-in, commit attribution - until that link is followed.",
+        "operationId": "EmailsController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddEmailDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEmailDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Add an address to the signed-in account",
+        "tags": [
+          "Emails"
+        ]
+      }
+    },
+    "/api/emails/verify": {
+      "get": {
+        "description": "Redirects to the web app either way; the link is single use.",
+        "operationId": "EmailsController_verify",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Follow an address verification link",
+        "tags": [
+          "Emails"
+        ]
+      }
+    },
+    "/api/emails/{id}/primary": {
+      "post": {
+        "description": "Swaps it with the current primary, which stays on the account as an extra so sign-in with it keeps working.",
+        "operationId": "EmailsController_makePrimary",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEmailsResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Make a verified address the account address",
+        "tags": [
+          "Emails"
+        ]
+      }
+    },
+    "/api/emails/{id}": {
+      "delete": {
+        "operationId": "EmailsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove an address from the signed-in account",
+        "tags": [
+          "Emails"
+        ]
+      }
+    },
     "/api/users/avatar": {
       "put": {
         "description": "Takes the raw image bytes. Returns the URL to store on the user; writing `user.image` stays with Better Auth’s `update-user`.",
@@ -5411,6 +5585,58 @@
             "example": "d73a4a"
           }
         }
+      },
+      "UserEmailDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Row id, or `primary` for the account address itself"
+          },
+          "email": {
+            "type": "string"
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "Only verified addresses are usable"
+          },
+          "primary": {
+            "type": "boolean",
+            "description": "The address Better Auth signs the user in with"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "verified",
+          "primary"
+        ]
+      },
+      "ListEmailsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "emails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserEmailDTO"
+            }
+          }
+        },
+        "required": [
+          "emails"
+        ]
+      },
+      "AddEmailDTO": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Address to add to the signed-in account"
+          }
+        },
+        "required": [
+          "email"
+        ]
       },
       "UploadAvatarResponseDTO": {
         "type": "object",

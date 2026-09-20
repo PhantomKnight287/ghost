@@ -186,7 +186,7 @@ export class UserService {
     // both means adding an email never needs a reindex.
     // Private repositories are the owner's business: anyone else only sees
     // the public ones in the graph.
-    const emails = [user.email.toLowerCase()];
+    const emails = await this.users.listVerifiedEmails(user);
     const rows = await this.db
       .select({
         day: schema.repositoryContribution.day,

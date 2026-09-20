@@ -14,6 +14,7 @@ import {
   mailConfigured,
 } from './mail/mail.module.js';
 import { MailService } from './mail/mail.service.js';
+import { EmailsModule } from './resources/emails/emails.module.js';
 import { IssuesModule } from './resources/issues/issues.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
@@ -49,6 +50,14 @@ import { UsersService } from './services/users/users.service.js';
             .filter(Boolean),
           cookieDomain: config.get<string>('AUTH_COOKIE_DOMAIN'),
           webAppUrl: config.get<string>('WEB_APP_URL', 'http://localhost:3000'),
+          sendChangeEmail: mailConfigured(config)
+            ? ({ email, name, newEmail, url }) =>
+                mail.sendChangeEmailEmail(email, {
+                  name,
+                  newEmail,
+                  approveUrl: url,
+                })
+            : undefined,
           sendResetPassword: mailConfigured(config)
             ? ({ email, name, url }) =>
                 mail.sendResetPasswordEmail(email, { name, resetUrl: url })
@@ -63,6 +72,7 @@ import { UsersService } from './services/users/users.service.js';
     RepositoriesModule,
     PullRequestsModule,
     IssuesModule,
+    EmailsModule,
     GitModule,
     UserModule,
   ],
