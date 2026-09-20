@@ -18,6 +18,22 @@ export class EmailNotFoundError extends DomainError {
   }
 }
 
+export class EmailAlreadyVerifiedError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor(email: string) {
+    super(`${email} is already verified`);
+  }
+}
+
+export class ResendTooSoonError extends DomainError {
+  status: number = HttpStatus.TOO_MANY_REQUESTS;
+
+  constructor() {
+    super('A link was just sent. Check your inbox, then try again in a minute');
+  }
+}
+
 export class EmailNotVerifiedError extends DomainError {
   status: number = HttpStatus.BAD_REQUEST;
 

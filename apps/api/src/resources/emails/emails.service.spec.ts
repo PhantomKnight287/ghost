@@ -19,8 +19,10 @@ import { MailService } from '../../mail/mail.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import {
   EmailAlreadyTakenError,
+  EmailAlreadyVerifiedError,
   EmailNotVerifiedError,
   InvalidVerificationTokenError,
+  ResendTooSoonError,
 } from './emails.errors.js';
 import { EmailsService } from './emails.service.js';
 
@@ -57,6 +59,14 @@ describe.skipIf(!CONNECTION)('EmailsService', () => {
       .from(schema.userEmail)
       .where(eq(schema.userEmail.email, email));
     return row!.token!;
+  }
+
+  /** Pushes a row's token past the resend throttle. */
+  async function ageToken(email: string) {
+    await db
+      .update(schema.userEmail)
+      .set({ tokenExpiresAt: new Date(Date.now() + 30 * 60 * 1000) })
+      .where(eq(schema.userEmail.email, email));
   }
 
   beforeAll(async () => {
@@ -159,6 +169,53 @@ describe.skipIf(!CONNECTION)('EmailsService', () => {
       .from(schema.repositoryContribution)
       .where(eq(schema.repositoryContribution.repositoryId, repository!.id));
     expect(row!.authorId).toBe(USER_ID);
+  });
+
+  it('resends a fresh link and retires the old one', async () => {
+    await service.add(USER_ID, 'again@example.com');
+    const first = await tokenFor('again@example.com');
+    const { id } = (await service.list(USER_ID)).emails.find(
+      (entry) => entry.email === 'again@example.com',
+    )!;
+
+    // The throttle reads the stored expiry, so age the row instead of waiting.
+    await ageToken('again@example.com');
+    await service.resend(USER_ID, id);
+
+    const second = await tokenFor('again@example.com');
+    expect(second).not.toBe(first);
+    expect(mail.sendVerifyAliasEmail).toHaveBeenCalledTimes(2);
+
+    // The link that was replaced is dead.
+    await expect(service.verify(first)).rejects.toBeInstanceOf(
+      InvalidVerificationTokenError,
+    );
+    await expect(service.verify(second)).resolves.toEqual({
+      email: 'again@example.com',
+    });
+  });
+
+  it('refuses a resend straight after the last one', async () => {
+    await service.add(USER_ID, 'slowdown@example.com');
+    const { id } = (await service.list(USER_ID)).emails.find(
+      (entry) => entry.email === 'slowdown@example.com',
+    )!;
+
+    await expect(service.resend(USER_ID, id)).rejects.toBeInstanceOf(
+      ResendTooSoonError,
+    );
+  });
+
+  it('refuses a resend for an address already verified', async () => {
+    await service.add(USER_ID, 'done@example.com');
+    const { id } = (await service.list(USER_ID)).emails.find(
+      (entry) => entry.email === 'done@example.com',
+    )!;
+    await service.verify(await tokenFor('done@example.com'));
+
+    await expect(service.resend(USER_ID, id)).rejects.toBeInstanceOf(
+      EmailAlreadyVerifiedError,
+    );
   });
 
   it('swaps a verified address with the primary, keeping the old one', async () => {

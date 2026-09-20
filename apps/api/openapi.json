@@ -3415,6 +3415,51 @@
         ]
       }
     },
+    "/api/emails/{id}/resend": {
+      "post": {
+        "description": "For the mail that never arrived or expired. The previous link stops working, and a resend is refused for a minute after the last one.",
+        "operationId": "EmailsController_resend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send the verification link again",
+        "tags": [
+          "Emails"
+        ]
+      }
+    },
     "/api/emails/{id}/primary": {
       "post": {
         "description": "Swaps it with the current primary, which stays on the account as an extra so sign-in with it keeps working.",

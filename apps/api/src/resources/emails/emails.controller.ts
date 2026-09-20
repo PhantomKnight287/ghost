@@ -72,6 +72,21 @@ export class EmailsController {
     }
   }
 
+  @Post(':id/resend')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Send the verification link again',
+    description:
+      'For the mail that never arrived or expired. The previous link stops ' +
+      'working, and a resend is refused for a minute after the last one.',
+  })
+  @ApiNoContentResponse()
+  @ApiConflictResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  resend(@Session() session: UserSession, @Param('id') id: string) {
+    return this.emails.resend(session.user.id, id);
+  }
+
   @Post(':id/primary')
   @ApiOperation({
     summary: 'Make a verified address the account address',

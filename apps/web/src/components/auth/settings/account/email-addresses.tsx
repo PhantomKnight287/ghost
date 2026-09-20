@@ -81,6 +81,17 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const resend = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await apiClient.POST("/api/emails/{id}/resend", {
+        params: { path: { id } },
+      });
+      if (error) throw new Error(apiErrorMessage(error));
+    },
+    onSuccess: () => toast.success("Verification email sent again"),
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const makePrimary = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await apiClient.POST("/api/emails/{id}/primary", {
@@ -109,7 +120,11 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const isBusy = add.isPending || makePrimary.isPending || remove.isPending;
+  const isBusy =
+    add.isPending ||
+    resend.isPending ||
+    makePrimary.isPending ||
+    remove.isPending;
   const emails = data ?? [];
 
   return (
@@ -149,6 +164,16 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
                         )}
                         {entry.primary && (
                           <Badge variant="secondary">Primary</Badge>
+                        )}
+                        {!entry.verified && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isBusy}
+                            onClick={() => resend.mutate(entry.id)}
+                          >
+                            Resend
+                          </Button>
                         )}
                         {!entry.primary && entry.verified && (
                           <Button

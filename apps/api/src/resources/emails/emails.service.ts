@@ -11,14 +11,18 @@ import { UsersService } from '../../services/users/users.service.js';
 import type { ListEmailsResponseDTO, UserEmailDTO } from './dto/email.dto.js';
 import {
   EmailAlreadyTakenError,
+  EmailAlreadyVerifiedError,
   EmailNotFoundError,
   EmailNotVerifiedError,
   InvalidVerificationTokenError,
   MailNotConfiguredError,
+  ResendTooSoonError,
 } from './emails.errors.js';
 
 /** Long enough that a link cannot be guessed, short enough to stay pasteable. */
 const TOKEN_TTL_MS = 60 * 60 * 1000;
+/** A fresh link is useless twice over, so resends wait this long. */
+const RESEND_INTERVAL_MS = 60 * 1000;
 
 /**
  * Addresses an account owns beyond the one Better Auth signs it in with.
@@ -88,23 +92,12 @@ export class EmailsService {
     const email = input.trim().toLowerCase();
     await this.assertAvailable(email);
 
-    const token = nanoid(48);
     const [row] = await this.db
       .insert(schema.userEmail)
-      .values({
-        id: `uem_${nanoid(16)}`,
-        userId,
-        email,
-        token,
-        tokenExpiresAt: new Date(Date.now() + TOKEN_TTL_MS),
-      })
+      .values({ id: `uem_${nanoid(16)}`, userId, email })
       .returning();
 
-    const user = await this.users.getUserById(userId);
-    await this.mail.sendVerifyAliasEmail(email, {
-      name: user.name,
-      verifyUrl: `${this.apiUrl}/api/emails/verify?token=${token}`,
-    });
+    await this.mailLink(userId, row!.id, email);
 
     return {
       id: row!.id,
@@ -112,6 +105,43 @@ export class EmailsService {
       verified: row!.verified,
       primary: false,
     };
+  }
+
+  /**
+   * Sends a fresh link to an address that has not been confirmed yet, for the
+   * mail that never arrived or expired. The previous link stops working.
+   */
+  async resend(userId: string, id: string): Promise<void> {
+    if (!this.canSendMail) throw new MailNotConfiguredError();
+
+    const row = await this.own(userId, id);
+    if (row.verified) throw new EmailAlreadyVerifiedError(row.email);
+
+    // The stored expiry doubles as the "last sent" stamp: a token issued less
+    // than a minute ago still has all but a minute of its life left.
+    const issuedAt = row.tokenExpiresAt
+      ? row.tokenExpiresAt.getTime() - TOKEN_TTL_MS
+      : 0;
+    if (Date.now() - issuedAt < RESEND_INTERVAL_MS) {
+      throw new ResendTooSoonError();
+    }
+
+    await this.mailLink(userId, row.id, row.email);
+  }
+
+  /** Issues a single-use token for a row and mails the link that carries it. */
+  private async mailLink(userId: string, id: string, email: string) {
+    const token = nanoid(48);
+    await this.db
+      .update(schema.userEmail)
+      .set({ token, tokenExpiresAt: new Date(Date.now() + TOKEN_TTL_MS) })
+      .where(eq(schema.userEmail.id, id));
+
+    const user = await this.users.getUserById(userId);
+    await this.mail.sendVerifyAliasEmail(email, {
+      name: user.name,
+      verifyUrl: `${this.apiUrl}/api/emails/verify?token=${token}`,
+    });
   }
 
   /**
