@@ -14,6 +14,16 @@
     "AUTH_TRUSTED_ORIGINS",
     "AUTH_COOKIE_DOMAIN",
     "NEXT_PUBLIC_API_URL",
+    "WEB_APP_URL",
+    "EMAIL_VERIFICATION_ENABLED",
+    "EMAIL_SENDER",
+    "EMAIL_PROXY",
+    "EMAIL_PROXY_SECRET",
+    "MAIL_HOST",
+    "MAIL_PORT",
+    "MAIL_SECURE",
+    "MAIL_USER",
+    "MAIL_PASSWORD",
     "INTERNAL_API_URL",
     "S3_BUCKET",
     "S3_ENDPOINT",
@@ -71,6 +81,10 @@
     },
     "format": {
       "cache": false
+    },
+    "email:dev": {
+      "cache": false,
+      "persistent": true
     }
   }
 }

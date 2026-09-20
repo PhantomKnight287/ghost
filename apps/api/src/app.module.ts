@@ -1,22 +1,28 @@
+import type { Database } from '@ghost/db';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import type { Database } from '@ghost/db';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { DATABASE, DatabaseModule } from './database/database.module.js';
+import { GitModule } from './git/git.module.js';
 import { createAuth } from './lib/auth.js';
+import {
+  emailVerificationEnabled,
+  MailModule,
+  mailConfigured,
+} from './mail/mail.module.js';
+import { MailService } from './mail/mail.service.js';
 import { IssuesModule } from './resources/issues/issues.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
-import { UsersService } from './services/users/users.service.js';
-import { GitModule } from './git/git.module.js';
-import { S3Service } from './services/s3/s3.service.js';
-import { WalService } from './services/git/wal/wal.service.js';
+import { UserModule } from './resources/user/user.module.js';
 import { BranchesService } from './services/git/branches/branches.service.js';
 import { RepositoryAccessService } from './services/git/repository-access/repository-access.service.js';
-import { UserModule } from './resources/user/user.module.js';
+import { WalService } from './services/git/wal/wal.service.js';
+import { S3Service } from './services/s3/s3.service.js';
+import { UsersService } from './services/users/users.service.js';
 
 @Module({
   imports: [
@@ -28,10 +34,11 @@ import { UserModule } from './resources/user/user.module.js';
       envFilePath: ['.env.local', '.env', '../../.env'],
     }),
     DatabaseModule,
+    MailModule,
     AuthModule.forRootAsync({
-      imports: [DatabaseModule],
-      inject: [DATABASE, ConfigService],
-      useFactory: (db: Database, config: ConfigService) => ({
+      imports: [DatabaseModule, MailModule],
+      inject: [DATABASE, ConfigService, MailService],
+      useFactory: (db: Database, config: ConfigService, mail: MailService) => ({
         auth: createAuth(db, {
           secret: config.getOrThrow<string>('BETTER_AUTH_SECRET'),
           baseURL: config.getOrThrow<string>('BETTER_AUTH_URL'),
@@ -41,6 +48,15 @@ import { UserModule } from './resources/user/user.module.js';
             .map((origin) => origin.trim())
             .filter(Boolean),
           cookieDomain: config.get<string>('AUTH_COOKIE_DOMAIN'),
+          webAppUrl: config.get<string>('WEB_APP_URL', 'http://localhost:3000'),
+          sendResetPassword: mailConfigured(config)
+            ? ({ email, name, url }) =>
+                mail.sendResetPasswordEmail(email, { name, resetUrl: url })
+            : undefined,
+          sendVerificationEmail: emailVerificationEnabled(config)
+            ? ({ email, name, url }) =>
+                mail.sendVerificationEmail(email, { name, verifyUrl: url })
+            : undefined,
         }),
       }),
     }),
