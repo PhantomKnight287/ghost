@@ -67,29 +67,32 @@ export default async function RepositoryBlobPage({
 
   const { commit, size, encoding, content } = blob.data;
 
-  // a trailing newline ends the last line, it does not start another one
   const text =
-    encoding === "utf-8" && content ? content.replace(/\n$/, "") : null;
+    encoding === "utf-8" && content !== null ? content.replace(/\n$/, "") : null;
 
-  const lines = text
-    ? (
-        await codeToTokens(text, {
-          lang: languageFor(filename),
-          // the pierre themes ship as frozen TextMate objects, which shiki loads and caches by their own `name`; the rest are bundled names. keys line up with the `--shiki-<id>` selectors in globals.css.
-          themes: Object.fromEntries(
-            APP_THEMES.map((t) => [
-              t.id,
-              t.id === "light"
-                ? (pierreLight as ThemeRegistrationRaw)
-                : t.id === "dark"
-                  ? (pierreDark as ThemeRegistrationRaw)
-                  : t.shiki,
-            ]),
-          ),
-          defaultColor: false,
-        })
-      ).tokens
-    : null;
+  // An empty file is text with nothing to highlight; `null` is reserved for what this page cannot render.
+  const lines =
+    text === null
+      ? null
+      : text === ""
+        ? []
+        : (
+            await codeToTokens(text, {
+              lang: languageFor(filename),
+              // the pierre themes ship as frozen TextMate objects, which shiki loads and caches by their own `name`; the rest are bundled names. keys line up with the `--shiki-<id>` selectors in globals.css.
+              themes: Object.fromEntries(
+                APP_THEMES.map((t) => [
+                  t.id,
+                  t.id === "light"
+                    ? (pierreLight as ThemeRegistrationRaw)
+                    : t.id === "dark"
+                      ? (pierreDark as ThemeRegistrationRaw)
+                      : t.shiki,
+                ]),
+              ),
+              defaultColor: false,
+            })
+          ).tokens;
 
   return (
     <div className="overflow-hidden rounded-lg border">

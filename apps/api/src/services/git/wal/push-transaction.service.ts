@@ -19,6 +19,11 @@ import {
   type WalIndex,
 } from '../../../lib/git/wal/wal.types.js';
 import { createUlid } from '../../../lib/git/wal/ulid.js';
+import {
+  pushBytesTotal,
+  pushesTotal,
+  refUpdatesTotal,
+} from '../../../lib/metrics.js';
 
 const MAX_ATTEMPTS = 8;
 const BASE_BACKOFF_MS = 50;
@@ -84,6 +89,9 @@ export class PushTransactionService {
       };
 
       if (await this.store.casIndex(repoId, next, current?.etag ?? null)) {
+        pushesTotal.add(1);
+        pushBytesTotal.add(packSize);
+        refUpdatesTotal.add(transitions.length);
         return { seq: next.seq, ulid };
       }
 

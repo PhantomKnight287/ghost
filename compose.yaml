@@ -77,8 +77,12 @@ services:
         condition: service_completed_successfully
       bucket:
         condition: service_completed_successfully
+      lgtm:
+        condition: service_healthy
     environment:
       PORT: 3001
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      PYROSCOPE_SERVER_ADDRESS: http://lgtm:4040
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/ghost
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-devsecretdevsecretdevsecret00000}
       BETTER_AUTH_URL: http://localhost:3001
@@ -99,9 +103,13 @@ services:
         NEXT_PUBLIC_API_URL: http://localhost:3001
         NEXT_PUBLIC_DOCS_URL: http://localhost:3003
     restart: unless-stopped
+    depends_on:
+      lgtm:
+        condition: service_healthy
 
     environment:
       PORT: 3000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
       # The Next.js server is inside the network, where `localhost` is itself.
       INTERNAL_API_URL: http://api:3001
     ports:
@@ -121,7 +129,27 @@ services:
     ports:
       - "3003:3003"
 
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    restart: unless-stopped
+    ports:
+      - "3100:3000" # Grafana; 3000 is the web app's
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "4040:4040" # Pyroscope
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in .env}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/grafana/conf/provisioning/dashboards/ghost/ghost.json
+    volumes:
+      - lgtm:/data
+      - ./grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/ghost.yaml:ro
+      - ./grafana/ghost.json:/otel-lgtm/grafana/conf/provisioning/dashboards/ghost/ghost.json:ro
+
 volumes:
   postgres:
+  lgtm:
   rustfs:
   rustfs_logs:

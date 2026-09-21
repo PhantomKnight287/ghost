@@ -24,6 +24,7 @@ import { BranchesService } from './services/git/branches/branches.service.js';
 import { RepositoryAccessService } from './services/git/repository-access/repository-access.service.js';
 import { WalService } from './services/git/wal/wal.service.js';
 import { S3Service } from './services/s3/s3.service.js';
+import { AppStatsService } from './services/stats/app-stats.service.js';
 import { UsersService } from './services/users/users.service.js';
 
 @Module({
@@ -80,6 +81,7 @@ import { UsersService } from './services/users/users.service.js';
   controllers: [AppController],
   providers: [
     AppService,
+    AppStatsService,
     UsersService,
     S3Service,
     WalService,

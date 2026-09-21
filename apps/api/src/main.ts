@@ -1,3 +1,6 @@
+// First import: the SDK has to patch http, pg and the rest before Nest pulls them in.
+import './instrumentation.js';
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { SwaggerModule } from '@nestjs/swagger';
