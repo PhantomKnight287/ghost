@@ -45,15 +45,7 @@ export type ActiveSessionProps = {
   activeSession: Session;
 };
 
-/**
- * Render a single active session row with device info and revoke control.
- *
- * Shows the session's browser, OS, and creation time. The current session is marked
- * and navigates to sign-out on click, while other sessions can be revoked individually.
- *
- * @param session - The session object containing id, token, userAgent, ipAddress, and createdAt
- * @returns A JSX element containing the active session row
- */
+/** Render a single active session row with device info and revoke control. */
 export function ActiveSession({ activeSession }: ActiveSessionProps) {
   const { authClient, basePaths, localization, viewPaths, navigate } =
     useAuth();

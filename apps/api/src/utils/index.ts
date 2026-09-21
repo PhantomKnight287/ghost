@@ -1,3 +1,5 @@
+import { sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { customAlphabet } from 'nanoid';
 import slugify from 'slugify';
 
@@ -15,8 +17,7 @@ export function titleToSlug(title: string) {
   };
 }
 
-// Opaque keyset cursor: a (timestamp, id) pair, base64url encoded so callers
-// treat it as a token instead of something they can hand-build.
+// Opaque keyset cursor: a (timestamp, id) pair, base64url encoded so callers treat it as a token instead of something they can hand-build.
 export function encodeCursor({ date, id }: { date: Date; id: string }) {
   return Buffer.from(`${date.toISOString()}|${id}`).toString('base64url');
 }
@@ -29,4 +30,9 @@ export function decodeCursor(cursor: string) {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return null;
   return { date, id };
+}
+
+// Timestamps leave the database already in the shape responses promise, so nothing downstream has to convert them. The format matches `Date.prototype.toISOString` byte for byte.
+export function isoTimestamp(column: AnyPgColumn) {
+  return sql<string>`to_char(${column} at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 }

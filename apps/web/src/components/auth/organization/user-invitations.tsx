@@ -16,10 +16,7 @@ export type UserInvitationsProps = {
   className?: string;
 };
 
-/**
- * Organization invitations for the signed-in user. Always renders the section
- * card; uses `UserInvitationsEmpty` when there are no pending invitations.
- */
+/** Organization invitations for the signed-in user. Always renders the section card; uses `UserInvitationsEmpty` when there are no pending invitations. */
 export function UserInvitations({ className }: UserInvitationsProps) {
   const { authClient } = useAuth<OrganizationAuthClient>();
   const { localization: organizationLocalization } =

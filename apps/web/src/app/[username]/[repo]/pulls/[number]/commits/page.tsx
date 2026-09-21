@@ -27,8 +27,7 @@ export default async function PullRequestCommitsPage({
     throw new Error(`Failed to list commits of pull request #${number}`);
   }
 
-  // These commits are reachable in the head repository, which is a different
-  // repository - and a different object store - whenever the request is a fork.
+  // These commits are reachable in the head repository, which is a different repository - and a different object store - whenever the request is a fork.
   const { head } = pull.data;
 
   return (

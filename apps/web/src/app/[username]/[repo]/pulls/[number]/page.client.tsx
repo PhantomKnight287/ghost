@@ -39,8 +39,7 @@ export function PullRequestNav({
   ];
 
   return (
-    // the tab labels carry counts, so on a phone the row wraps instead of
-    // pushing the whole page sideways
+    // the tab labels carry counts, so on a phone the row wraps instead of pushing the whole page sideways
     <nav className="flex flex-wrap items-center gap-1 border-b">
       {tabs.map((tab) => (
         <Link
@@ -244,11 +243,7 @@ export function CommentBox({
   );
 }
 
-/**
- * Read view until the pencil is clicked, then a single field editing the
- * request's title or description. Both fields are the same PATCH, so both use
- * this; nothing else about a request is editable.
- */
+/** Read view until the pencil is clicked, then a single field editing the request's title or description. Both fields are the same PATCH, so both use this; nothing else about a request is editable. */
 export function EditableField({
   username,
   repo,

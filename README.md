@@ -106,6 +106,10 @@ with `bun run dev` alongside everything else, or on its own:
 bun run --filter @ghost/docs dev
 ```
 
+## Code standards
+
+[`docs/code-standards.md`](docs/code-standards.md) is the contract for contributions: DRY and SOLID, no DTO reshaping helpers, no concatenated strings, comments that explain why and fit on one line, and `services/` holding nothing but services.
+
 ## Design decisions
 
 [`docs/`](docs/README.md) covers why the transport takes streams instead of

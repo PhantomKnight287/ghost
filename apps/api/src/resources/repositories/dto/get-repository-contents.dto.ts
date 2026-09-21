@@ -15,7 +15,7 @@ import { Type } from 'class-transformer';
 import {
   isSafeTreePath,
   MAX_TREE_PATH_LENGTH,
-} from '../../../services/git/tree/tree-path.js';
+} from '../../../lib/git/tree/tree-path.js';
 
 const TREE_ENTRY_TYPES = ['blob', 'tree', 'commit'] as const;
 
@@ -33,9 +33,7 @@ export class SafeTreePathConstraint implements ValidatorConstraintInterface {
 export class GetRepositoryContentsQueryDTO {
   @ApiPropertyOptional({
     description:
-      'Directory to list, relative to the repository root. Omit for the root. ' +
-      'Slashes may be sent percent-encoded (`src%2Fdeep`); they are decoded once, ' +
-      'so an already-decoded `src/deep` works too.',
+      'Directory to list, relative to the repository root. Omit for the root. Slashes may be sent percent-encoded (`src%2Fdeep`); they are decoded once, so an already-decoded `src/deep` works too.',
     example: 'src/services',
     maxLength: MAX_TREE_PATH_LENGTH,
   })
@@ -47,8 +45,7 @@ export class GetRepositoryContentsQueryDTO {
 
   @ApiPropertyOptional({
     description:
-      'Branch or commit sha to list. Accepts `main`, `refs/heads/main` or a ' +
-      'commit sha. Omit for the default branch.',
+      'Branch or commit sha to list. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch.',
     example: 'main',
   })
   @IsString()
@@ -65,7 +62,7 @@ export class CommitSummaryDTO {
     description: 'Commit subject - the first line of the message.',
   })
   @IsString()
-  message: string;
+  subject: string;
 
   @ApiProperty({ description: 'Committer timestamp, ISO 8601.' })
   @IsISO8601()
@@ -113,8 +110,7 @@ export class TreeEntryDTO {
     type: CommitSummaryDTO,
     nullable: true,
     description:
-      'Newest commit touching this entry, or anything beneath it for a tree. ' +
-      '`null` only if the index has not caught up with the ref.',
+      'Newest commit touching this entry, or anything beneath it for a tree. `null` only if the index has not caught up with the ref.',
   })
   @ValidateNested()
   @Type(() => CommitSummaryDTO)
@@ -159,10 +155,7 @@ export class GetRepositoryContentsResponseDTO {
   @ApiProperty({
     type: [TreeEntryDTO],
     description:
-      'One level of the directory: directories first (submodules among them), then files, ' +
-      'each group alphabetical. Case is a minor difference, so `readme.md` and `README.md` sit ' +
-      'together rather than in separate blocks, and embedded numbers order naturally ' +
-      '(`file2` before `file10`). Empty for an unborn ref or a path that is not a directory.',
+      'One level of the directory: directories first (submodules among them), then files, each group alphabetical. Case is a minor difference, so `readme.md` and `README.md` sit together rather than in separate blocks, and embedded numbers order naturally (`file2` before `file10`). Empty for an unborn ref or a path that is not a directory.',
   })
   @ValidateNested({ each: true })
   @Type(() => TreeEntryDTO)

@@ -30,8 +30,7 @@ const diffOptions = {
 } as const;
 
 export function FileDiffs({ patchUrl, files }: LazyFileDiffsProps) {
-  // The page itself is the scroll container, so the virtualizer is built here
-  // rather than with the library's own scroll-box component.
+  // The page itself is the scroll container, so the virtualizer is built here rather than with the library's own scroll-box component.
   const [virtualizer] = useState(() =>
     typeof window === "undefined" ? undefined : new Virtualizer(),
   );
@@ -57,10 +56,7 @@ export function FileDiffs({ patchUrl, files }: LazyFileDiffsProps) {
   );
 }
 
-/**
- * A patch of thousands of files is tens of megabytes, so each file is fetched
- * on its own once it comes near the viewport.
- */
+/** A patch of thousands of files is tens of megabytes, so each file is fetched on its own once it comes near the viewport. */
 function LazyFileDiff({ patchUrl, file }: LazyFileDiffProps) {
   const container = useRef<HTMLDivElement>(null);
   const [patch, setPatch] = useState<string>();

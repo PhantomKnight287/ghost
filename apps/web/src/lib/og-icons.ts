@@ -1,7 +1,4 @@
-/**
- * Lucide icon geometry, lifted from `lucide-react` because satori cannot render
- * the components themselves. Same icon set the UI uses.
- */
+/** Lucide icon geometry, lifted from `lucide-react` because satori cannot render the components themselves. Same icon set the UI uses. */
 export type IconNode = [string, Record<string, string | number>][];
 
 export const icons = {

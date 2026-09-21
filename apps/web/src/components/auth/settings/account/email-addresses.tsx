@@ -45,8 +45,7 @@ const QUERY_KEY = ["emails"];
 /**
  * Manage the addresses an account owns beyond the one it signs in with.
  *
- * Adding one mails it a link; until that link is followed the address counts
- * for nothing, which is why unverified rows say so and offer no actions.
+ * Adding one mails it a link; until that link is followed the address counts for nothing, which is why unverified rows say so and offer no actions.
  */
 export function EmailAddresses({ className }: EmailAddressesProps) {
   const queryClient = useQueryClient();
@@ -236,10 +235,7 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
   );
 }
 
-/**
- * The verification link lands back here with its result in the URL. Report it
- * once, then strip it so a refresh does not repeat the toast.
- */
+/** The verification link lands back here with its result in the URL. Report it once, then strip it so a refresh does not repeat the toast. */
 function useVerificationResult() {
   const router = useRouter();
   const searchParams = useSearchParams();

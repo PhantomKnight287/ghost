@@ -24,17 +24,7 @@ export type ForgotPasswordProps = {
   className?: string;
 };
 
-/**
- * Render a card-based "Forgot Password" form that sends a password-reset email.
- *
- * The form displays an email input, submit button, and a link back to sign-in.
- * After a successful request the submitted email is stored in `sessionStorage`
- * and the user is redirected to the reset-link-sent view, which offers to open
- * their email provider.
- *
- * @param className - Optional additional CSS class names applied to the card
- * @returns The forgot-password form UI as a JSX element
- */
+/** Render a card-based "Forgot Password" form that sends a password-reset email. */
 export function ForgotPassword({ className }: ForgotPasswordProps) {
   const {
     authClient,

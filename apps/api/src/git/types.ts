@@ -3,7 +3,7 @@ import {
   Actor,
   Repository,
 } from '../services/git/repository-access/repository-access.service.js';
-import { GitRequestBody } from '../services/git/protocol/git-request-body.js';
+import { GitRequestBody } from '../lib/git/protocol/git-request-body.js';
 
 export interface GitAuthenticatedBufferedRequest extends Request {
   actor?: Actor;

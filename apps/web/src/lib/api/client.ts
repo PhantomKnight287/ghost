@@ -2,10 +2,7 @@ import createFetchClient from "openapi-fetch";
 import type { paths } from "@/lib/api/v1";
 import { API_URL } from "@/lib/env";
 
-/**
- * Typed API client for client components. Unlike the server one, the browser
- * carries the session cookie itself - it only has to be asked to.
- */
+/** Typed API client for client components. Unlike the server one, the browser carries the session cookie itself - it only has to be asked to. */
 export const apiClient = createFetchClient<paths>({
   baseUrl: API_URL,
   credentials: "include",

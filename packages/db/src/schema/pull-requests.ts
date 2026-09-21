@@ -19,12 +19,9 @@ export const pullRequestState = pgEnum("pull_request_state", [
 ]);
 
 /**
- * Base and head are stored as separate repository ids because they are only the
- * same row for a branch-to-branch request; a fork request spans two write-ahead
- * logs that never learn about each other.
+ * Base and head are stored as separate repository ids because they are only the same row for a branch-to-branch request; a fork request spans two write-ahead logs that never learn about each other.
  *
- * `headSha` is the tip as of the last time the request was refreshed, so the
- * diff a reviewer read stays addressable after the branch moves on.
+ * `headSha` is the tip as of the last time the request was refreshed, so the diff a reviewer read stays addressable after the branch moves on.
  */
 export const pullRequest = pgTable(
   "pull_request",
@@ -69,8 +66,7 @@ export const pullRequest = pgTable(
       t.number,
     ),
 
-    // One open request per branch pair. Closed and merged rows are history, so
-    // the constraint has to be partial or reopening the same branch is blocked.
+    // One open request per branch pair. Closed and merged rows are history, so the constraint has to be partial or reopening the same branch is blocked.
     uniqueIndex("pull_request_open_branch_idx")
       .on(t.baseRepositoryId, t.baseRef, t.headRepositoryId, t.headRef)
       .where(sql`${t.state} = 'open'`),

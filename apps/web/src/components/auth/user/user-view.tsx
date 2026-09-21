@@ -23,15 +23,7 @@ export type UserViewProps = {
   };
 };
 
-/**
- * Render a compact user item with an avatar, a primary label (display username, name, or email), and an optional subtitle (email).
- *
- * @param isPending - If true and no `user` prop is provided, renders a loading skeleton instead of user details
- * @param className - Additional CSS classes applied to the outer container
- * @param hideSubtitle - When true, omits the muted subtitle row under the primary label
- * @param user - Optional user object to display; when omitted the current session user is used
- * @returns A React element showing the user's avatar with their identifying information
- */
+/** Render a compact user item with an avatar, a primary label (display username, name, or email), and an optional subtitle (email). */
 export function UserView({
   className,
   isPending,

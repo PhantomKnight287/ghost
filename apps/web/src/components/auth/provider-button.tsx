@@ -29,12 +29,7 @@ export type ProviderButtonProps = {
   view?: AuthView;
 } & Omit<ComponentProps<typeof Button>, "onClick" | "children" | "disabled">;
 
-/**
- * Social provider sign-in button.
- *
- * @param provider - Provider to sign in with.
- * @param display - `"full"` (e.g. "Continue with Google"), `"name"` (just the provider name), or `"icon"` (icon only).
- */
+/** Social provider sign-in button. */
 export function ProviderButton({
   provider,
   display = "full",

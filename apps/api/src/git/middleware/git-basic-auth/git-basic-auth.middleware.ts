@@ -4,7 +4,7 @@ import type { NextFunction, Request, Response } from 'express';
 
 import type { Auth } from '../../../lib/auth.js';
 import { RepositoryNotFoundError } from '../../../resources/repositories/repositories.errors.js';
-import { AuthenticationRequiredError } from '../../../services/git/repository-access/repository-access.errors.js';
+import { AuthenticationRequiredError } from '../../../lib/git/repository-access/repository-access.errors.js';
 import {
   RepositoryAccessService,
   type Actor,
@@ -27,8 +27,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     const { username, repo } = req.params as Record<string, string>;
     if (!username || !repo) return next(new RepositoryNotFoundError());
 
-    // Git asks for the receive-pack advertisement before it pushes, so a
-    // read-only actor is turned away at `info/refs` rather than a round trip later.
+    // Git asks for the receive-pack advertisement before it pushes, so a read-only actor is turned away at `info/refs` rather than a round trip later.
     const isPush =
       req.path.endsWith('/git-receive-pack') ||
       req.query.service === 'git-receive-pack';

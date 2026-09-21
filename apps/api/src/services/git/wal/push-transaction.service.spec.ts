@@ -3,14 +3,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PushTransactionService } from './push-transaction.service.js';
 import { WalStoreService } from './wal-store.service.js';
-import { NonFastForwardError } from './wal.errors.js';
-import { emptyIndex, type RefTransition, type WalIndex } from './wal.types.js';
+import { NonFastForwardError } from '../../../lib/git/wal/wal.errors.js';
+import {
+  emptyIndex,
+  type RefTransition,
+  type WalIndex,
+} from '../../../lib/git/wal/wal.types.js';
 import { Readable } from 'node:stream';
 
 import {
   bufferBody,
   type GitRequestBody,
-} from '../protocol/git-request-body.js';
+} from '../../../lib/git/protocol/git-request-body.js';
 
 const oid = (byte: number) => Buffer.alloc(20, byte);
 const PACK_OFFSET = 8;

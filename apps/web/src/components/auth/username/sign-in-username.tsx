@@ -54,11 +54,7 @@ function isEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-/**
- * Render the username-based sign-in form. Identical to the built-in `<SignIn>`
- * design but routes non-email inputs through `signInUsername` instead of
- * `signInEmail`.
- */
+/** Render the username-based sign-in form. Identical to the built-in `<SignIn>` design but routes non-email inputs through `signInUsername` instead of `signInEmail`. */
 export function SignInUsername({
   className,
   socialLayout,

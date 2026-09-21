@@ -1,16 +1,11 @@
 /**
- * Moves every write-ahead log from the old `repos/<username>/<slug>` keyspace to
- * `repos/<repositoryId>`, which is what the transport reads since repository ids
- * replaced name pairs.
+ * Moves every write-ahead log from the old `repos/<username>/<slug>` keyspace to `repos/<repositoryId>`, which is what the transport reads since repository ids replaced name pairs.
  *
- * A log left behind is invisible to the API: `readIndex` returns null, the cache
- * replays an empty index, and the repository serves as freshly initialised.
+ * A log left behind is invisible to the API: `readIndex` returns null, the cache replays an empty index, and the repository serves as freshly initialised.
  *
- * Entries are copied before the index that names them, so an interrupted run
- * leaves the new prefix either absent or complete, never pointing at packs that
- * have not landed. Old keys are kept unless `--prune` is passed.
+ * Entries are copied before the index that names them, so an interrupted run leaves the new prefix either absent or complete, never pointing at packs that have not landed. Old keys are kept unless `--prune` is passed.
  *
- *   bun scripts/migrate-wal-keys.ts [--apply] [--prune]
+ * bun scripts/migrate-wal-keys.ts [--apply] [--prune]
  */
 import { S3 } from '@aws-sdk/client-s3';
 import { createDatabase, schema } from '@ghost/db';

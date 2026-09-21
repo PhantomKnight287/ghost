@@ -3,19 +3,22 @@ import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import type { GitRequestBody } from '../protocol/git-request-body.js';
+import type { GitRequestBody } from '../../../lib/git/protocol/git-request-body.js';
 
-import { encodeEntryHeader } from './wal-codec.js';
+import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
 import { WalStoreService } from './wal-store.service.js';
-import { NonFastForwardError, WalContentionError } from './wal.errors.js';
+import {
+  NonFastForwardError,
+  WalContentionError,
+} from '../../../lib/git/wal/wal.errors.js';
 import {
   applyTransitions,
   emptyIndex,
   ZERO_OID,
   type RefTransition,
   type WalIndex,
-} from './wal.types.js';
-import { createUlid } from './ulid.js';
+} from '../../../lib/git/wal/wal.types.js';
+import { createUlid } from '../../../lib/git/wal/ulid.js';
 
 const MAX_ATTEMPTS = 8;
 const BASE_BACKOFF_MS = 50;
@@ -54,8 +57,7 @@ export class PushTransactionService {
     await pipeline(body.open(packOffset), packHash);
     const packSha = packHash.digest();
 
-    // Durable before the loop: expensive, idempotent, and unaffected by ordering.
-    // An entry orphaned by a failed transaction is garbage, never corruption.
+    // Durable before the loop: expensive, idempotent, and unaffected by ordering. An entry orphaned by a failed transaction is garbage, never corruption.
     await this.store.putEntry(
       repoId,
       ulid,

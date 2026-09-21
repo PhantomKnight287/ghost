@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { runGit } from '../exec/run-git.js';
+import { runGit } from '../../../lib/git/exec/run-git.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
-import { emptyIndex, type WalIndex } from '../wal/wal.types.js';
+import { emptyIndex, type WalIndex } from '../../../lib/git/wal/wal.types.js';
 
 const SEQ_MARKER = 'ghost-wal-seq';
 const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
@@ -12,9 +12,7 @@ const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
 /**
  * Brings a cached bare repository up to the state the log describes.
  *
- * The cache is only ever behind the log, never ahead of it, so replay is always
- * forward-only: apply the packfiles of every layer past the cached sequence,
- * then reconcile refs to the index snapshot.
+ * The cache is only ever behind the log, never ahead of it, so replay is always forward-only: apply the packfiles of every layer past the cached sequence, then reconcile refs to the index snapshot.
  */
 @Injectable()
 export class RepositoryMaterializerService {
@@ -49,8 +47,7 @@ export class RepositoryMaterializerService {
       const seq = index.compactedThroughSeq + offset + 1;
       if (seq <= cachedSeq) continue;
 
-      // Packs from receive-pack are thin: deltas may reference objects from
-      // earlier layers, which is why replay must stay in sequence order.
+      // Packs from receive-pack are thin: deltas may reference objects from earlier layers, which is why replay must stay in sequence order.
       if (layer.size > 0) {
         await runGit({
           args: ['index-pack', '--fix-thin', '--stdin'],
@@ -99,10 +96,7 @@ export class RepositoryMaterializerService {
     return output.split('\n').filter(Boolean);
   }
 
-  /**
-   * A bare repository whose HEAD names a missing branch clones as empty, so
-   * point it at a branch that actually exists.
-   */
+  /** A bare repository whose HEAD names a missing branch clones as empty, so point it at a branch that actually exists. */
   private async ensureHead(repoDirectory: string, index: WalIndex) {
     if (index.refs.size === 0) return;
 

@@ -4,10 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { GetRepositoryContentsQueryDTO } from './get-repository-contents.dto.js';
 
-/**
- * Mirrors what the global `ValidationPipe({ transform: true })` does to
- * `req.query`, whose values Express has already percent-decoded once.
- */
+/** Mirrors what the global `ValidationPipe({ transform: true })` does to `req.query`, whose values Express has already percent-decoded once. */
 async function validateQuery(query: Record<string, unknown>) {
   return validate(plainToInstance(GetRepositoryContentsQueryDTO, query));
 }

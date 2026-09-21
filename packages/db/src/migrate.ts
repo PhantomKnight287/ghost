@@ -4,10 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { createDatabase } from "./client.js";
 
-/**
- * Applies the committed SQL migrations. Runs from the built output, so the
- * folder is resolved relative to `dist/`, not the working directory.
- */
+/** Applies the committed SQL migrations. Runs from the built output, so the folder is resolved relative to `dist/`, not the working directory. */
 async function main() {
   const migrationsFolder = path.join(
     path.dirname(fileURLToPath(import.meta.url)),

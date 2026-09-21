@@ -1008,7 +1008,7 @@ export interface components {
             /** @description Full 40-character commit sha. */
             sha: string;
             /** @description Commit subject - the first line of the message. */
-            message: string;
+            subject: string;
             /** @description Committer timestamp, ISO 8601. */
             committedAt: string;
         };

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { runGit } from '../exec/run-git.js';
+import { runGit } from '../../../lib/git/exec/run-git.js';
 
 @Injectable()
 export class BranchesService {

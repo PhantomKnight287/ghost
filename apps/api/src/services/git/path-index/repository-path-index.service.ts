@@ -3,30 +3,36 @@ import { type Database, schema } from '@ghost/db';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { runGit } from '../exec/run-git.js';
-import { walkCommits } from './commit-log.js';
+import { runGit } from '../../../lib/git/exec/run-git.js';
+import { walkCommits } from '../../../lib/git/path-index/commit-log.js';
+import { isoTimestamp } from '../../../utils/index.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
 /** Postgres caps a statement at 65535 bind parameters; this table binds six. */
 const INSERT_CHUNK = 1_000;
 
-export interface PathCommit {
+interface IndexedCommit {
   commitSha: string;
   committedAt: Date;
   subject: string;
 }
 
-interface PendingRow extends PathCommit {
+interface PendingRow extends IndexedCommit {
   path: string;
 }
 
+export interface PathCommit {
+  sha: string;
+  subject: string;
+  /** Committer timestamp, ISO 8601. */
+  committedAt: string;
+}
+
 /**
- * Keeps `repository_path_commit` in step with a ref, so listing a directory
- * never has to walk history per entry.
+ * Keeps `repository_path_commit` in step with a ref, so listing a directory never has to walk history per entry.
  *
- * The index is a cache of git, not a second source of truth: it is rebuilt from
- * the object database whenever the stored position stops making sense.
+ * The index is a cache of git, not a second source of truth: it is rebuilt from the object database whenever the stored position stops making sense.
  */
 @Injectable()
 export class RepositoryPathIndexService {
@@ -35,10 +41,7 @@ export class RepositoryPathIndexService {
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  /**
-   * Brings the index up to the ref's tip, returning that tip (null when the ref
-   * does not exist). Concurrent callers share one walk.
-   */
+  /** Brings the index up to the ref's tip, returning that tip (null when the ref does not exist). Concurrent callers share one walk. */
   async sync({
     repositoryId,
     repoDirectory,
@@ -74,9 +77,9 @@ export class RepositoryPathIndexService {
     const rows = await this.db
       .select({
         path: schema.repositoryPathCommit.path,
-        commitSha: schema.repositoryPathCommit.commitSha,
-        committedAt: schema.repositoryPathCommit.committedAt,
+        sha: schema.repositoryPathCommit.commitSha,
         subject: schema.repositoryPathCommit.subject,
+        committedAt: isoTimestamp(schema.repositoryPathCommit.committedAt),
       })
       .from(schema.repositoryPathCommit)
       .where(
@@ -117,8 +120,7 @@ export class RepositoryPathIndexService {
 
     if (state?.indexedCommitSha === tip) return tip;
 
-    // Only a fast-forward can be topped up. A force push or a pruned object
-    // makes the stored rows unrelated to the ref, so start over.
+    // Only a fast-forward can be topped up. A force push or a pruned object makes the stored rows unrelated to the ref, so start over.
     const incremental =
       state !== undefined &&
       (await this.isAncestor(repoDirectory, state.indexedCommitSha, tip));
@@ -154,11 +156,7 @@ export class RepositoryPathIndexService {
     return tip;
   }
 
-  /**
-   * Walks the range oldest-first, keeping the last commit seen per path. Every
-   * ancestor directory of a changed file is recorded too, so a directory row
-   * carries the newest commit anywhere beneath it.
-   */
+  /** Walks the range oldest-first, keeping the last commit seen per path. Every ancestor directory of a changed file is recorded too, so a directory row carries the newest commit anywhere beneath it. */
   private async walk({
     repositoryId,
     repoDirectory,
@@ -174,7 +172,7 @@ export class RepositoryPathIndexService {
     let written = 0;
 
     for await (const commit of walkCommits({ gitDir: repoDirectory, range })) {
-      const touched: PathCommit = {
+      const touched: IndexedCommit = {
         commitSha: commit.sha,
         committedAt: commit.committedAt,
         subject: commit.subject,
@@ -266,8 +264,7 @@ export class RepositoryPathIndexService {
     ancestor: string,
     descendant: string,
   ) {
-    // Exits non-zero both for "not an ancestor" and for an object that is gone;
-    // either way the stored position is unusable.
+    // Exits non-zero both for "not an ancestor" and for an object that is gone; either way the stored position is unusable.
     return runGit({
       args: ['merge-base', '--is-ancestor', ancestor, descendant],
       gitDir: repoDirectory,

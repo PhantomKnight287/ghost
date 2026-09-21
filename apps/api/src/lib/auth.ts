@@ -16,16 +16,9 @@ export type AuthConfig = {
   secret: string;
   baseURL: string;
   trustedOrigins?: string[];
-  /**
-   * Registrable domain to pin session cookies to, e.g. `.example.com`, when the
-   * web app and the API sit on sibling subdomains. Unset in local development,
-   * where both share `localhost`.
-   */
+  /** Registrable domain to pin session cookies to, e.g. `.example.com`, when the web app and the API sit on sibling subdomains. Unset in local development, where both share `localhost`. */
   cookieDomain?: string;
-  /**
-   * Set only when email verification is enabled (EMAIL_VERIFICATION_ENABLED);
-   * self-hosted instances without mail configured leave it unset.
-   */
+  /** Set only when email verification is enabled (EMAIL_VERIFICATION_ENABLED); self-hosted instances without mail configured leave it unset. */
   sendVerificationEmail?: (data: {
     email: string;
     name?: string;
@@ -37,10 +30,7 @@ export type AuthConfig = {
     name?: string;
     url: string;
   }) => Promise<void>;
-  /**
-   * Set whenever mail is configured. Better Auth sends this to the address
-   * currently on the account, which is what makes a change reversible.
-   */
+  /** Set whenever mail is configured. Better Auth sends this to the address currently on the account, which is what makes a change reversible. */
   sendChangeEmail?: (data: {
     email: string;
     name?: string;
@@ -51,10 +41,7 @@ export type AuthConfig = {
   webAppUrl?: string;
 };
 
-/**
- * better-auth defaults `callbackURL` to `/`, which resolves against the API.
- * Point relative callbacks at the web app instead, where the forms live.
- */
+/** better-auth defaults `callbackURL` to `/`, which resolves against the API. Point relative callbacks at the web app instead, where the forms live. */
 export function withWebCallback(url: string, webAppUrl?: string): string {
   if (!webAppUrl) return url;
   const parsed = new URL(url);
@@ -71,10 +58,7 @@ const EMAIL_LOOKUP_PATHS = ['/sign-in/email', '/request-password-reset'];
 /**
  * Resolves one of an account's extra addresses to the one Better Auth knows.
  *
- * Better Auth keys identity on `user.email` and has no concept of a second
- * address, so the swap happens before its endpoint runs: it still sees a
- * single, familiar address. Only verified rows resolve, otherwise adding an
- * address would be enough to sign in as its owner.
+ * Better Auth knows only `user.email`, so extras are swapped in before its endpoint runs. Only verified rows resolve - otherwise adding an address would be enough to sign in as its owner.
  */
 function resolvePrimaryEmail(db: Database) {
   return createAuthMiddleware(async (ctx) => {
@@ -86,8 +70,7 @@ function resolvePrimaryEmail(db: Database) {
           : null;
       if (!next) return;
 
-      // Checked here as well as in the database hook, so a taken address is
-      // refused before a verification mail goes out.
+      // Checked here as well as in the database hook, so a taken address is refused before a verification mail goes out.
       const session = await getSessionFromCtx(ctx);
       await assertEmailAvailable(db, next, session?.user.id ?? null);
       return;
@@ -120,10 +103,7 @@ function resolvePrimaryEmail(db: Database) {
 /**
  * Claims an address for an account before it is written to `user.email`.
  *
- * Better Auth enforces uniqueness against `user.email` alone, so without this
- * a change-email request could take over an address another account has
- * already verified as an extra. Claiming one of the account's own verified
- * extras is fine: the extra row is dropped so the address is not held twice.
+ * Better Auth checks uniqueness against `user.email` alone, so without this a change-email could take an address another account verified as an extra. Claiming the account's own extra drops that row instead.
  */
 async function assertEmailAvailable(
   db: Database,
@@ -165,10 +145,7 @@ async function assertEmailAvailable(
   return extraOwner.id;
 }
 
-/**
- * Same check, then the write: the account's own extra row is dropped so the
- * address is not held twice once it lands on `user.email`.
- */
+/** Same check, then the write: the account's own extra row is dropped so the address is not held twice once it lands on `user.email`. */
 async function claimEmailForAccount(
   db: Database,
   email: string,
@@ -232,8 +209,7 @@ export function createAuth(db: Database, config: AuthConfig) {
     user: {
       changeEmail: {
         enabled: true,
-        // With no mail configured there is nobody to confirm with, and an
-        // unverified account would be stuck on its first address forever.
+        // With no mail configured there is nobody to confirm with, and an unverified account would be stuck on its first address forever.
         updateEmailWithoutVerification: !config.sendChangeEmail,
         sendChangeEmailConfirmation: config.sendChangeEmail
           ? async ({ user, newEmail, url }) =>

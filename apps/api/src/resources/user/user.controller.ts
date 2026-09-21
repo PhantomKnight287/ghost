@@ -47,8 +47,7 @@ export class UserController {
   @ApiOperation({
     summary: 'Upload the signed-in user’s avatar',
     description:
-      'Takes the raw image bytes. Returns the URL to store on the user; ' +
-      'writing `user.image` stays with Better Auth’s `update-user`.',
+      'Takes the raw image bytes. Returns the URL to store on the user; writing `user.image` stays with Better Auth’s `update-user`.',
   })
   @ApiConsumes('image/png', 'image/jpeg')
   @ApiBody({ schema: { type: 'string', format: 'binary' } })
@@ -115,8 +114,7 @@ export class UserController {
   @ApiOperation({
     summary: "Read a user's contribution calendar",
     description:
-      'Daily commit counts for a calendar year, across the repositories ' +
-      'the requester may see that the user owns. Days are UTC, in order.',
+      'Daily commit counts for a calendar year, across the repositories the requester may see that the user owns. Days are UTC, in order.',
   })
   @ApiOkResponse({ type: GetUserContributionsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })

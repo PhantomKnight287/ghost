@@ -10,10 +10,7 @@ export const AVATAR_CONTENT_TYPES = {
 
 export type AvatarContentType = keyof typeof AVATAR_CONTENT_TYPES;
 
-/**
- * Upload ceiling. The client resizes to a 256px square before sending, so this
- * is generous - it only exists so an unresized original cannot fill the bucket.
- */
+/** Upload ceiling. The client resizes to a 256px square before sending, so this is generous - it only exists so an unresized original cannot fill the bucket. */
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 
 /** Bucket prefix every avatar object lives under. */

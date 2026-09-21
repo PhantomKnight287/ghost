@@ -24,9 +24,7 @@ export const statement = {
 
 export const ac = createAccessControl(statement);
 
-/**
- * Each rung inherits the one below it, the way GitHub's roles do.
- */
+/** Each rung inherits the one below it, the way GitHub's roles do. */
 
 /** Read: clone, open issues and pull requests, comment. */
 const readStatements = {

@@ -3,7 +3,7 @@ import { type Database, schema } from '@ghost/db';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { runGit, runGitStream } from '../exec/run-git.js';
+import { runGit, runGitStream } from '../../../lib/git/exec/run-git.js';
 import { languageForPath } from '@ghost/languages';
 
 const INSERT_CHUNK = 1_000;
@@ -291,9 +291,7 @@ export interface RawChange {
 /**
  * `git diff --raw -r -z` as sides to subtract and add.
  *
- * Each entry is ":<srcmode> <dstmode> <srcoid> <dstoid> <status>" followed by
- * one path, or two for a rename or copy. Symlinks and submodules are dropped
- * per side, so a file becoming a symlink still subtracts its old bytes.
+ * Each entry is ":<srcmode> <dstmode> <srcoid> <dstoid> <status>" followed by one path, or two for a rename or copy. Symlinks and submodules are dropped per side, so a file becoming a symlink still subtracts its old bytes.
  */
 export async function readRawDiff(
   gitDir: string,

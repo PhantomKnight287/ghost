@@ -29,11 +29,7 @@ export function RepositoryReadme({
   const rawHref = (path: string) =>
     `${API_URL}/api/repositories/${owner}/${slug}/raw?ref=${encodeURIComponent(branch)}&path=${encodeURIComponent(path)}`;
 
-  /**
-   * A README writes paths relative to itself, so a link out of it is either a
-   * file in this repository or nothing. Images go to the raw bytes; everything
-   * else goes to the page for that path.
-   */
+  /** A README writes paths relative to itself, so a link out of it is either a file in this repository or nothing. Images go to the raw bytes; everything else goes to the page for that path. */
   const resolveUrl = (url: string, key: string) => {
     const [path, hash] = splitHash(resolve(url, directory));
     if (!path) return `#${hash}`;
@@ -79,9 +75,7 @@ function splitHash(url: string): [string, string] {
 }
 
 /**
- * A repository-relative path, resolved against the directory the README sits
- * in: `./` drops, `../` pops, and a leading `/` is root-relative rather than a
- * host path.
+ * A repository-relative path, resolved against the directory the README sits in: `./` drops, `../` pops, and a leading `/` is root-relative rather than a host path.
  *
  * `..` past the root is dropped rather than escaping the repository.
  */

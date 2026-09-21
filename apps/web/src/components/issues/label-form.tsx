@@ -17,10 +17,7 @@ import { type CreateLabelInput, createLabelSchema } from "./common";
 
 const DEFAULT_COLOR = "d73a4a";
 
-/**
- * Create and edit share every field, so both go through this form. Colors are
- * stored as 6 hex chars; the native picker is the only place `#` appears.
- */
+/** Create and edit share every field, so both go through this form. Colors are stored as 6 hex chars; the native picker is the only place `#` appears. */
 export function LabelForm({
   id,
   label,

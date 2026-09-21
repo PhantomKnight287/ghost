@@ -17,12 +17,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { usernamePlugin } from "@/lib/auth/username-plugin";
 
-/**
- * Renderer for the `username` additional field. Owns availability checking,
- * length limits, and visual indicators. `isInvalid` reflects only browser
- * validation (minLength, required, etc.) - availability feedback is shown
- * via the icon and `aria-label` without affecting the field's invalid state.
- */
+/** Renderer for the `username` additional field. Owns availability checking, length limits, and visual indicators. `isInvalid` reflects only browser validation (minLength, required, etc.) - availability feedback is shown via the icon and `aria-label` without affecting the field's invalid state. */
 export function UsernameField({
   name,
   field,

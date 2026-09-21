@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { AuthenticationRequiredError } from '../../../services/git/repository-access/repository-access.errors.js';
+import { AuthenticationRequiredError } from '../../../lib/git/repository-access/repository-access.errors.js';
 import { GitBasicAuthMiddleware } from './git-basic-auth.middleware.js';
 
 const basic = (username: string, password: string) =>

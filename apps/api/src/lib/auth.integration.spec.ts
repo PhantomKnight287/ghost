@@ -109,8 +109,7 @@ describe.skipIf(!CONNECTION)('createAuth with extra addresses', () => {
       auth.api.changeEmail({ body: { newEmail: OTHER }, headers }),
     ).rejects.toThrow(/already taken/i);
 
-    // And another account's verified extra, which Better Auth alone would
-    // happily hand over.
+    // And another account's verified extra, which Better Auth alone would happily hand over.
     await expect(
       auth.api.changeEmail({ body: { newEmail: OTHER_EXTRA }, headers }),
     ).rejects.toThrow(/already taken/i);

@@ -4,7 +4,7 @@ import { RepositoryNotFoundError } from '../../../resources/repositories/reposit
 import {
   AuthenticationRequiredError,
   RepositoryForbiddenError,
-} from './repository-access.errors.js';
+} from '../../../lib/git/repository-access/repository-access.errors.js';
 import { decideAccess, type Actor } from './repository-access.service.js';
 
 const owner = { userId: 'user_owner' } satisfies Actor;

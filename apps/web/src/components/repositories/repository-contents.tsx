@@ -60,7 +60,7 @@ export function RepositoryContents({
         <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-sm">
           <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0 truncate font-medium">
-            {contents.commit.message}
+            {contents.commit.subject}
           </span>
           <code className="ml-auto shrink-0 text-xs text-muted-foreground">
             {contents.commit.sha.slice(0, 7)}
@@ -102,7 +102,7 @@ export function RepositoryContents({
 
             <div className="flex shrink-0 flex-row items-center gap-3">
               <span className="hidden max-w-xs truncate text-xs text-muted-foreground md:block">
-                {entry.lastCommit?.message}
+                {entry.lastCommit?.subject}
               </span>
 
               <span className="w-28 shrink-0 whitespace-nowrap text-right text-xs text-muted-foreground">

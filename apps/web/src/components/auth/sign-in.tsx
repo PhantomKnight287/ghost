@@ -48,14 +48,7 @@ export type SignInProps = {
   socialPosition?: "top" | "bottom";
 };
 
-/**
- * Render the sign-in form UI with email/password, magic link, and social provider options.
- *
- * @param className - Optional additional container class names
- * @param socialLayout - Layout style for social provider buttons
- * @param socialPosition - Position of social provider buttons; `"top"` or `"bottom"`. Defaults to `"bottom"`.
- * @returns The rendered sign-in UI as a JSX element
- */
+/** Render the sign-in form UI with email/password, magic link, and social provider options. */
 export function SignIn({
   className,
   socialLayout,

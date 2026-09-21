@@ -1,13 +1,9 @@
 /**
  * Static Better Auth instance for the `@better-auth/cli` only.
  *
- * The CLI (`bunx @better-auth/cli generate|migrate`) needs a top-level `auth`
- * export, which is exactly what the Nest DI setup avoids. So this file builds
- * its own short-lived connection; the running app never imports it and instead
- * gets its instance from `AuthModule.forRootAsync` in `src/app.module.ts`.
+ * The Better Auth CLI needs a top-level `auth` export, which Nest DI deliberately avoids. The running app never imports this; it gets its instance from `AuthModule.forRootAsync`.
  *
- * Run it from the repo root so the root `.env` is picked up:
- *   bunx @better-auth/cli generate --config apps/api/auth.ts
+ * Run it from the repo root so the root `.env` is picked up: bunx @better-auth/cli generate --config apps/api/auth.ts
  */
 import { createDatabase } from '@ghost/db';
 

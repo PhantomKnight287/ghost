@@ -137,11 +137,7 @@ export default async function ProfilePage({
   );
 }
 
-/**
- * The repository named after its owner is that person's bio, the way GitHub
- * treats it. There is no separate bio to store: the README of `user/user` is
- * it, and the API already refuses to serve one the viewer may not read.
- */
+/** The repository named after its owner is that person's bio, the way GitHub treats it. There is no separate bio to store: the README of `user/user` is it, and the API already refuses to serve one the viewer may not read. */
 async function ProfileReadme({ username }: { username: string }) {
   const client = await createServerClient();
   const { data } = await client.GET(

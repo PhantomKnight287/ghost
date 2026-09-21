@@ -10,10 +10,7 @@ async function forwardedCookie() {
   return (await headers()).get("cookie") ?? "";
 }
 
-/**
- * Typed API client for server components. `credentials: "include"` is a browser
- * concept, so the incoming request's cookies are forwarded explicitly.
- */
+/** Typed API client for server components. `credentials: "include"` is a browser concept, so the incoming request's cookies are forwarded explicitly. */
 export async function createServerClient() {
   const cookie = await forwardedCookie();
 

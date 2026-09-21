@@ -34,8 +34,7 @@ export default async function NewPullRequestPage({
   const viewerForkSlug = repository.data.viewerForkSlug;
   const viewer = session.user.username;
 
-  // Branches of this repository, and of the viewer's fork when they have one -
-  // a fork's branch is proposed as `owner:branch`, which is what the API resolves.
+  // Branches of this repository, and of the viewer's fork when they have one - a fork's branch is proposed as `owner:branch`, which is what the API resolves.
   const [branches, forkBranches] = await Promise.all([
     client.GET("/api/repositories/{username}/{slug}/branches", {
       params: { path: { username, slug: repo } },

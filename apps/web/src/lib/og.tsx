@@ -278,9 +278,7 @@ export function shortenPath(path: string, max = 72) {
     : `…/${truncate(tail, max - 2)}`;
 }
 
-/**
- * Satori decodes png, jpeg, gif and svg only; a webp data URI (what the auth provider stores) crashes it, so anything else falls back to the icon.
- */
+/** Satori decodes png, jpeg, gif and svg only; a webp data URI (what the auth provider stores) crashes it, so anything else falls back to the icon. */
 function usable(avatar?: string | null): avatar is string {
   if (!avatar) return false;
   return avatar.startsWith("http")

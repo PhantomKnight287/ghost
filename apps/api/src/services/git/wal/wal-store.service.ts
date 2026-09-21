@@ -3,7 +3,10 @@ import { Injectable } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 
 import { S3Service } from '../../s3/s3.service.js';
-import { prefixed, type GitRequestBody } from '../protocol/git-request-body.js';
+import {
+  prefixed,
+  type GitRequestBody,
+} from '../../../lib/git/protocol/git-request-body.js';
 import {
   decodeEntryHeader,
   decodeIndex,
@@ -11,8 +14,11 @@ import {
   ENTRY_CONTENT_TYPE,
   ENTRY_HEADER_PROBE_BYTES,
   INDEX_CONTENT_TYPE,
-} from './wal-codec.js';
-import type { WalEntryHeader, WalIndex } from './wal.types.js';
+} from '../../../lib/git/wal/wal-codec.js';
+import type {
+  WalEntryHeader,
+  WalIndex,
+} from '../../../lib/git/wal/wal.types.js';
 
 export interface StoredIndex {
   index: WalIndex;
@@ -46,11 +52,7 @@ export class WalStoreService {
     }
   }
 
-  /**
-   * Copies a repository's log to a new id: the packs first, then the index that
-   * names them, so a fork is never pointed at objects that have not landed yet.
-   * Layers are immutable once written, so this needs no lock.
-   */
+  /** Copies a repository's log to a new id: the packs first, then the index that names them, so a fork is never pointed at objects that have not landed yet. Layers are immutable once written, so this needs no lock. */
   async copyLog(fromRepoId: string, toRepoId: string) {
     const stored = await this.readIndex(fromRepoId);
     if (!stored) return;
@@ -66,10 +68,7 @@ export class WalStoreService {
     await this.casIndex(toRepoId, stored.index, null);
   }
 
-  /**
-   * The commit point of a push. A null etag means create-if-absent.
-   * Returns false when another writer won the race.
-   */
+  /** The commit point of a push. A null etag means create-if-absent. Returns false when another writer won the race. */
   async casIndex(
     repoId: string,
     next: WalIndex,
@@ -91,11 +90,7 @@ export class WalStoreService {
     }
   }
 
-  /**
-   * ContentLength is mandatory: the body is a stream, so the SDK cannot measure
-   * it, and concatenating header and pack in memory is exactly what a large push
-   * cannot afford.
-   */
+  /** ContentLength is mandatory: the body is a stream, so the SDK cannot measure it, and concatenating header and pack in memory is exactly what a large push cannot afford. */
   async putEntry(
     repoId: string,
     ulid: string,

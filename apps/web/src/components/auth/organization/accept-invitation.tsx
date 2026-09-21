@@ -35,10 +35,7 @@ function isPendingInvitation(invitation: UserInvitation | undefined) {
   return new Date(invitation.expiresAt).getTime() > Date.now();
 }
 
-/**
- * Render the organization invitation addressed by the `invitationId` query
- * parameter and let the signed-in recipient accept or reject it directly.
- */
+/** Render the organization invitation addressed by the `invitationId` query parameter and let the signed-in recipient accept or reject it directly. */
 export function AcceptInvitation({ className }: AcceptInvitationProps) {
   const { authClient, navigate, redirectTo } = useAuth();
   const { localization, roles } = useAuthPlugin(organizationPlugin);

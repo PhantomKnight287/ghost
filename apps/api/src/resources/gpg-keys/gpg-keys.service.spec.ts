@@ -9,7 +9,7 @@ import { DATABASE } from '../../database/database.module.js';
 import {
   SIGNING_KEY_ID,
   SIGNING_PUBLIC_KEY,
-} from '../../services/gpg/__fixtures__/signed-commit.js';
+} from '../../lib/gpg/__fixtures__/signed-commit.js';
 import { UsersService } from '../../services/users/users.service.js';
 import {
   GpgKeyAlreadyExistsError,

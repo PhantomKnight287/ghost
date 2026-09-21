@@ -87,11 +87,7 @@ function formatTime(date: Date) {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
-/**
- * Icon-only copy button used as an `InputGroupAddon`. `getValue` is invoked
- * lazily on click so the button copies the input's *live* value rather than a
- * stale snapshot — important when paired with editable inputs.
- */
+/** Icon-only copy button used as an `InputGroupAddon`. `getValue` is invoked lazily on click so the button copies the input's *live* value rather than a stale snapshot — important when paired with editable inputs. */
 function CopyButton({
   getValue,
   isDisabled,
@@ -509,11 +505,7 @@ function InputField({
   );
 }
 
-/**
- * Slider field. Radix Slider doesn't render the current value, so we render
- * it next to the label and control the state to keep the displayed value in
- * sync. The selected value is submitted via the underlying Radix `name` prop.
- */
+/** Slider field. Radix Slider doesn't render the current value, so we render it next to the label and control the state to keep the displayed value in sync. The selected value is submitted via the underlying Radix `name` prop. */
 function SliderField({
   name,
   field,
@@ -563,11 +555,7 @@ function SliderField({
   );
 }
 
-/**
- * Date / datetime input. Composes `Popover` + `Calendar` for the date and
- * (optionally) `<input type="time">` for the time. Submits the combined ISO
- * value via a hidden `<input>` so it shows up in `FormData`.
- */
+/** Date / datetime input. Composes `Popover` + `Calendar` for the date and (optionally) `<input type="time">` for the time. Submits the combined ISO value via a hidden `<input>` so it shows up in `FormData`. */
 function DateInput({
   name,
   field,
@@ -589,8 +577,7 @@ function DateInput({
   );
   const [open, setOpen] = useState(false);
 
-  // Compose the hidden form value: ISO date for "date", ISO datetime for
-  // "datetime" (date + time).
+  // Compose the hidden form value: ISO date for "date", ISO datetime for "datetime" (date + time).
   return (
     <Field data-invalid={isInvalid}>
       <FieldLabel htmlFor={`${name}-date`}>{field.label}</FieldLabel>

@@ -75,9 +75,7 @@ export default async function RepositoryBlobPage({
     ? (
         await codeToTokens(text, {
           lang: languageFor(filename),
-          // the pierre themes ship as frozen TextMate objects, which shiki
-          // loads and caches by their own `name`; the rest are bundled names.
-          // keys line up with the `--shiki-<id>` selectors in globals.css.
+          // the pierre themes ship as frozen TextMate objects, which shiki loads and caches by their own `name`; the rest are bundled names. keys line up with the `--shiki-<id>` selectors in globals.css.
           themes: Object.fromEntries(
             APP_THEMES.map((t) => [
               t.id,
@@ -99,7 +97,7 @@ export default async function RepositoryBlobPage({
         {commit && (
           <>
             <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate font-medium">{commit.message}</span>
+            <span className="truncate font-medium">{commit.subject}</span>
             <code className="shrink-0 text-xs text-muted-foreground">
               {commit.sha.slice(0, 7)}
             </code>

@@ -19,15 +19,7 @@ export type LinkedAccountsProps = {
   className?: string;
 };
 
-/**
- * Render a card showing linked social accounts and available social providers to link.
- *
- * Linked accounts (excluding the "credential" provider) are shown with an unlink control;
- * available providers are shown with a link control. Button states and labels reflect
- * ongoing link/unlink activity and use localization for provider-specific text.
- *
- * @returns A JSX element containing the linked accounts card
- */
+/** Render a card showing linked social accounts and available social providers to link. */
 export function LinkedAccounts({ className }: LinkedAccountsProps) {
   const {
     authClient,

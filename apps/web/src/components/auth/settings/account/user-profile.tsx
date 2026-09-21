@@ -27,12 +27,7 @@ export type UserProfileProps = {
   className?: string;
 };
 
-/**
- * Render a profile card that lets the authenticated user view and update their display name, username, and avatar.
- *
- * @param className - Optional additional CSS class names applied to the card container
- * @returns A JSX element containing the profile card with avatar upload and editable name/username fields
- */
+/** Render a profile card that lets the authenticated user view and update their display name, username, and avatar. */
 export function UserProfile({ className }: UserProfileProps) {
   const { additionalFields, authClient, localization } =
     useAuth<UsernameAuthClient>();

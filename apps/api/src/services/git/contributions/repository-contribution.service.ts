@@ -13,8 +13,8 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { runGit, runGitStream } from '../exec/run-git.js';
-import { resolveDefaultRef } from '../tree/resolve-ref.js';
+import { runGit, runGitStream } from '../../../lib/git/exec/run-git.js';
+import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -33,14 +33,9 @@ interface PendingDay {
 }
 
 /**
- * Keeps `repository_contribution` in step with a repository's default branch,
- * so the profile contribution graph costs one indexed query instead of
- * materializing and walking every repository the user owns.
+ * Keeps `repository_contribution` in step with a repository's default branch, so the profile contribution graph costs one indexed query instead of materializing and walking every repository the user owns.
  *
- * The index is a cache of git, not a second source of truth: it is rebuilt from
- * the object database whenever the stored position stops making sense. Only
- * the default branch is indexed, which is also what the graph - and the
- * contributors list - render.
+ * A cache of git, rebuilt from the object database whenever the stored position stops making sense. Only the default branch is indexed.
  */
 export interface IndexedContributor {
   authorEmail: string;
@@ -60,10 +55,7 @@ export class RepositoryContributionService {
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  /**
-   * Brings the index up to the default tip, returning that tip (null when
-   * nothing has been pushed yet). Concurrent callers share one walk.
-   */
+  /** Brings the index up to the default tip, returning that tip (null when nothing has been pushed yet). Concurrent callers share one walk. */
   async sync({
     repositoryId,
     repoDirectory,
@@ -81,11 +73,7 @@ export class RepositoryContributionService {
     return run;
   }
 
-  /**
-   * The contributors list, straight from the index: per-author totals with the
-   * linked account resolved over the `author_id` foreign key. No git, no
-   * materialization - callers only need read access to the repository row.
-   */
+  /** The contributors list, straight from the index: per-author totals with the linked account resolved over the `author_id` foreign key. No git, no materialization - callers only need read access to the repository row. */
   async listContributors({
     repositoryId,
     limit = 100,
@@ -99,8 +87,7 @@ export class RepositoryContributionService {
   }> {
     const pageSize = Math.min(Math.max(Math.trunc(limit) || 100, 1), 100);
     const contribution = schema.repositoryContribution;
-    // One person can commit from several addresses, so the grain of the list
-    // is the account where there is one, and the address where there is not.
+    // One person can commit from several addresses, so the grain of the list is the account where there is one, and the address where there is not.
     const identity = sql`coalesce(${contribution.authorId}, ${contribution.authorEmail})`;
 
     const [rows, [totals]] = await Promise.all([
@@ -108,8 +95,7 @@ export class RepositoryContributionService {
         .select({
           // Newest address wins, for an author with no account to name.
           authorEmail: sql<string>`(array_agg(${contribution.authorEmail} ORDER BY ${contribution.day} DESC))[1]`,
-          // Newest name wins: the name on the author's latest indexed day,
-          // preferring the linked account's below.
+          // Newest name wins: the name on the author's latest indexed day, preferring the linked account's below.
           gitName: sql<string>`(array_agg(${contribution.authorName} ORDER BY ${contribution.day} DESC))[1]`,
           username: schema.user.username,
           name: schema.user.name,
@@ -176,16 +162,14 @@ export class RepositoryContributionService {
       .where(eq(schema.repositoryContributionIndex.repositoryId, repositoryId));
 
     if (state?.indexedCommitSha === tip) {
-      // No new commits, but an author may have registered since the last
-      // walk: link rows that are still unattributed.
+      // No new commits, but an author may have registered since the last walk: link rows that are still unattributed.
       if (await this.hasUnlinked(repositoryId)) {
         await this.relink(repositoryId);
       }
       return tip;
     }
 
-    // Only a fast-forward can be topped up. A force push or a pruned object
-    // makes the stored rows unrelated to the ref, so start over.
+    // Only a fast-forward can be topped up. A force push or a pruned object makes the stored rows unrelated to the ref, so start over.
     const incremental =
       state !== undefined &&
       (await this.isAncestor(repoDirectory, state.indexedCommitSha, tip));
@@ -213,10 +197,7 @@ export class RepositoryContributionService {
     return tip;
   }
 
-  /**
-   * Streams the range newest-first, bucketing non-merge commits per author and
-   * UTC day. The first name seen for an email is the newest one, so it wins.
-   */
+  /** Streams the range newest-first, bucketing non-merge commits per author and UTC day. The first name seen for an email is the newest one, so it wins. */
   private async walk({
     repositoryId,
     repoDirectory,
@@ -234,8 +215,7 @@ export class RepositoryContributionService {
         'log',
         FORMAT,
         '--no-merges',
-        // ranges are built from refs, and one starting with "-" would parse as
-        // an option rather than as a revision
+        // ranges are built from refs, and one starting with "-" would parse as an option rather than as a revision
         '--end-of-options',
         range,
       ],
@@ -316,8 +296,7 @@ export class RepositoryContributionService {
           set: {
             commits: sql`${schema.repositoryContribution.commits} + excluded.commits`,
             authorName: sql`excluded."author_name"`,
-            // Never unlink on a top-up: a missing match means "unknown",
-            // not "no longer theirs".
+            // Never unlink on a top-up: a missing match means "unknown", not "no longer theirs".
             authorId: sql`coalesce(excluded."author_id", ${schema.repositoryContribution.authorId})`,
           },
         });
@@ -326,11 +305,7 @@ export class RepositoryContributionService {
     return rows.length;
   }
 
-  /**
-   * Maps lowercased author emails to account ids. An account is reachable
-   * under its primary address and under every verified extra, so a person who
-   * commits from two addresses attributes to one account.
-   */
+  /** Maps lowercased author emails to account ids. An account is reachable under its primary address and under every verified extra, so a person who commits from two addresses attributes to one account. */
   private async resolveAuthorIds(emails: string[]) {
     const distinct = [...new Set(emails)];
     if (distinct.length === 0) return new Map<string, string>();
@@ -370,11 +345,7 @@ export class RepositoryContributionService {
     return row !== undefined;
   }
 
-  /**
-   * Links unattributed rows to accounts that appeared after the commits were
-   * indexed - a registration, or an email added to an account later. The next
-   * sync then finds nothing left to link.
-   */
+  /** Links unattributed rows to accounts that appeared after the commits were indexed - a registration, or an email added to an account later. The next sync then finds nothing left to link. */
   private async relink(repositoryId: string) {
     await this.db.execute(sql`
       UPDATE "repository_contribution" AS c
@@ -423,8 +394,7 @@ export class RepositoryContributionService {
     ancestor: string,
     descendant: string,
   ) {
-    // Exits non-zero both for "not an ancestor" and for an object that is gone;
-    // either way the stored position is unusable.
+    // Exits non-zero both for "not an ancestor" and for an object that is gone; either way the stored position is unusable.
     return runGit({
       args: ['merge-base', '--is-ancestor', ancestor, descendant],
       gitDir: repoDirectory,

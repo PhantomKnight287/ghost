@@ -10,10 +10,7 @@ function addresses(value: unknown): string {
   return '';
 }
 
-/**
- * Nodemailer transport that POSTs the rendered mail to an HTTP relay instead of
- * talking SMTP, for deployments where outbound port 587 is closed.
- */
+/** Nodemailer transport that POSTs the rendered mail to an HTTP relay instead of talking SMTP, for deployments where outbound port 587 is closed. */
 export function proxyTransport(url: string, secret?: string): Transport {
   return {
     name: 'email-proxy',

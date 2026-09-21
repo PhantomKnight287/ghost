@@ -10,16 +10,7 @@ export type AuthRedirectProps = {
   className?: string;
 };
 
-/**
- * Redirects authenticated users to a validated same-origin target.
- *
- * Signed-out users are sent through the sign-in view first. The redirect view
- * is preserved as the post-authentication destination so API callbacks receive
- * a full-page request after the session is established.
- *
- * @param className - Optional additional class names applied to the spinner
- * @returns The centered spinner shown while the session and redirect resolve
- */
+/** Redirects authenticated users to a validated same-origin target. */
 export function AuthRedirect({ className }: AuthRedirectProps) {
   const { authClient, basePaths, viewPaths } = useAuth();
   const { data: session, isPending } = useSession(authClient);

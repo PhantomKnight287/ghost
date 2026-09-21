@@ -241,10 +241,7 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'List repository contents',
     description:
-      'One level of a directory at the requested ref - a branch or a commit sha - ' +
-      'or the default branch ' +
-      'when none is given, with the newest commit ' +
-      'touching each entry. Directories report the newest commit anywhere beneath them.',
+      'One level of a directory at the requested ref - a branch or a commit sha - or the default branch when none is given, with the newest commit touching each entry. Directories report the newest commit anywhere beneath them.',
   })
   @ApiOkResponse({
     type: GetRepositoryContentsResponseDTO,
@@ -280,8 +277,7 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'Read the README',
     description:
-      'The README of a directory - the root of the repository when no `path` is ' +
-      'given - at the requested ref.',
+      'The README of a directory - the root of the repository when no `path` is given - at the requested ref.',
   })
   @ApiOkResponse({
     type: GetRepositoryReadmeResponseDTO,
@@ -312,10 +308,7 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'Read a file',
     description:
-      'Contents of a single file at the requested ref - a branch or a commit sha - ' +
-      'or the default branch ' +
-      'when none is given. Binary files come back base64-encoded, and a file past ' +
-      'the inline size limit comes back without contents.',
+      'Contents of a single file at the requested ref - a branch or a commit sha - or the default branch when none is given. Binary files come back base64-encoded, and a file past the inline size limit comes back without contents.',
   })
   @ApiOkResponse({
     type: GetRepositoryBlobResponseDTO,
@@ -351,8 +344,7 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'Download a file',
     description:
-      'The raw bytes of a file. Images, audio, video and PDFs are served inline ' +
-      'for the browser to render; everything else downloads.',
+      'The raw bytes of a file. Images, audio, video and PDFs are served inline for the browser to render; everything else downloads.',
   })
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @ApiNotFoundResponse({
@@ -393,8 +385,7 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'List commits',
     description:
-      'History of a branch or commit, newest first, optionally narrowed to one path. ' +
-      'Pages are cursor-based: pass a response `nextCursor` back as `cursor`.',
+      'History of a branch or commit, newest first, optionally narrowed to one path. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.',
   })
   @ApiOkResponse({
     type: GetRepositoryCommitsResponseDTO,
@@ -424,8 +415,7 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'Read a commit',
     description:
-      'One commit with the paths it changed, against its first parent. ' +
-      'Accepts a full sha or any unambiguous prefix.',
+      'One commit with the paths it changed, against its first parent. Accepts a full sha or any unambiguous prefix.',
   })
   @ApiOkResponse({
     type: GetRepositoryCommitResponseDTO,
@@ -546,8 +536,7 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'List stargazers',
     description:
-      'Who starred the repository, most recently first. Pages are cursor-based: ' +
-      'pass a response `nextCursor` back as `cursor`.',
+      'Who starred the repository, most recently first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.',
   })
   @ApiOkResponse({
     type: GetRepositoryStargazersResponseDTO,
@@ -577,8 +566,7 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'List forks',
     description:
-      'Forks of the repository, newest push first. A private fork is only listed ' +
-      'to its own owner.',
+      'Forks of the repository, newest push first. A private fork is only listed to its own owner.',
   })
   @ApiOkResponse({
     type: GetRepositoryForksResponseDTO,
@@ -608,9 +596,7 @@ export class RepositoriesController {
   @ApiOperation({
     summary: 'List contributors',
     description:
-      'Authors of the default branch, most commits first, read from the ' +
-      'contribution index with linked Ghost accounts. Never materializes ' +
-      'the repository.',
+      'Authors of the default branch, most commits first, read from the contribution index with linked Ghost accounts. Never materializes the repository.',
   })
   @ApiOkResponse({
     type: GetRepositoryContributorsResponseDTO,

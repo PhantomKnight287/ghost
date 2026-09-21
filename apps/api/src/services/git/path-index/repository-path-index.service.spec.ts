@@ -227,7 +227,7 @@ describe.skipIf(!CONNECTION)('RepositoryPathIndexService', () => {
     });
 
     expect([...found.keys()]).toEqual(['src/y.ts']);
-    expect(found.get('src/y.ts')?.commitSha).toBe(addY);
+    expect(found.get('src/y.ts')?.sha).toBe(addY);
   });
 
   it('keeps a second ref independent', async () => {

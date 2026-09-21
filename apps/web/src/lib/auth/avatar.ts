@@ -5,14 +5,10 @@ import { API_URL } from "@/lib/env";
 /**
  * Avatar storage backed by the API's S3 bucket.
  *
- * Without this, Better Auth UI falls back to a base64 data URL saved straight
- * into `user.image` - which then rides along in every session payload. The
- * upload returns the URL the API serves the object from, and `updateUser`
- * stores that instead.
+ * Better Auth UI otherwise stores a base64 data URL in `user.image`, which then rides along in every session payload.
  */
 export const avatar: Partial<AvatarConfig> = {
-  // PNG, not WebP: avatars are drawn into the OG images, and `next/og` cannot
-  // decode WebP.
+  // PNG, not WebP: avatars are drawn into the OG images, and `next/og` cannot decode WebP.
   extension: "png",
 
   upload: async (file) => {

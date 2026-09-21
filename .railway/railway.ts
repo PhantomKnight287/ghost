@@ -10,13 +10,9 @@ import {
 
 const REPO = "PhantomKnight287/ghost";
 
-// Sessions are cookies on the API's domain, so both services have to sit under
-// one registrable domain. `*.up.railway.app` is a public suffix and cannot hold
-// a shared cookie, which is why these are custom domains. Edit them to yours.
+// Custom domains: `*.up.railway.app` is a public suffix, so it cannot hold the session cookie both services share. Edit them to yours.
 //
-// Railway does not register custom domains from configuration: add both in the
-// dashboard, then `railway config pull`. These constants only build the URLs
-// the two services need to know about each other.
+// Railway does not register custom domains from configuration: add both in the dashboard, then `railway config pull`. These constants only build the URLs the two services need to know about each other.
 const ROOT_DOMAIN = "example.com";
 const WEB_DOMAIN = `ghost.${ROOT_DOMAIN}`;
 const API_DOMAIN = `api.ghost.${ROOT_DOMAIN}`;
@@ -66,8 +62,7 @@ export default defineRailway(() => {
       restartPolicyMaxRetries: 5,
     },
     env: {
-      // Inlined into the browser bundle at build time: the Dockerfile picks it
-      // up through `ARG NEXT_PUBLIC_API_URL`, so a change needs a rebuild.
+      // Inlined into the browser bundle at build time: the Dockerfile picks it up through `ARG NEXT_PUBLIC_API_URL`, so a change needs a rebuild.
       NEXT_PUBLIC_API_URL: API_URL,
     },
   });

@@ -30,8 +30,7 @@ import { UsersService } from './services/users/users.service.js';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      // `.env` interpolates values (e.g. BETTER_AUTH_URL=http://localhost:${API_PORT}),
-      // which dotenv does not expand on its own.
+      // `.env` interpolates values (e.g. BETTER_AUTH_URL=http://localhost:${API_PORT}), which dotenv does not expand on its own.
       expandVariables: true,
       envFilePath: ['.env.local', '.env', '../../.env'],
     }),

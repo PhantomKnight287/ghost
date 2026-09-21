@@ -43,10 +43,7 @@ export function useCustomTheme() {
   return { custom, hydrated };
 }
 
-/**
- * Keeps Tailwind `dark:` utilities working for every dark-kind theme by
- * mirroring the `dark` class, and applies user custom-theme variables.
- */
+/** Keeps Tailwind `dark:` utilities working for every dark-kind theme by mirroring the `dark` class, and applies user custom-theme variables. */
 export function ThemeEffects() {
   const { theme, resolvedTheme } = useTheme();
   const { custom } = useCustomTheme();
@@ -62,8 +59,7 @@ export function ThemeEffects() {
       clearCustomThemeVars();
     }
 
-    // next-themes owns the theme class itself; we only mirror `dark`
-    // so `dark:` variants keep working on dark-kind themes like vesper.
+    // next-themes owns the theme class itself; we only mirror `dark` so `dark:` variants keep working on dark-kind themes like vesper.
     if (active !== "dark" && active !== "light") {
       if (kind === "dark") root.classList.add("dark");
       else root.classList.remove("dark");

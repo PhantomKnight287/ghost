@@ -4,7 +4,8 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { DATABASE } from '../../database/database.module.js';
-import { readPublicKey } from '../../services/gpg/openpgp.js';
+import { isoTimestamp } from '../../utils/index.js';
+import { readPublicKey } from '../../lib/gpg/openpgp.js';
 import { UsersService } from '../../services/users/users.service.js';
 import type { GpgKeyDTO, ListGpgKeysResponseDTO } from './dto/gpg-key.dto.js';
 import {
@@ -15,13 +16,18 @@ import {
 } from './gpg-keys.errors.js';
 
 /**
- * OpenPGP public keys an account uploads so its signed commits read as
- * verified.
+ * OpenPGP public keys an account uploads so its signed commits read as verified.
  *
- * A key is only accepted once one of its user ids is an address the account
- * has already verified: the badge claims the commit's author signed it, and
- * without that check anyone could upload a key naming someone else's address.
+ * A key is only accepted once one of its user ids is an address the account has already verified: the badge claims the commit's author signed it, and without that check anyone could upload a key naming someone else's address.
  */
+const keyColumns = {
+  id: schema.userGpgKey.id,
+  keyId: schema.userGpgKey.keyId,
+  fingerprint: schema.userGpgKey.fingerprint,
+  publicKey: schema.userGpgKey.publicKey,
+  createdAt: isoTimestamp(schema.userGpgKey.createdAt),
+};
+
 @Injectable()
 export class GpgKeysService {
   constructor(
@@ -31,13 +37,18 @@ export class GpgKeysService {
 
   async list(userId: string): Promise<ListGpgKeysResponseDTO> {
     const rows = await this.db
-      .select()
+      .select(keyColumns)
       .from(schema.userGpgKey)
       .where(eq(schema.userGpgKey.userId, userId))
       .orderBy(schema.userGpgKey.createdAt);
 
     return {
-      keys: await Promise.all(rows.map((row) => toDTO(row))),
+      keys: await Promise.all(
+        rows.map(async ({ publicKey, ...key }) => ({
+          ...key,
+          emails: await addressesOn(publicKey),
+        })),
+      ),
     };
   }
 
@@ -65,18 +76,21 @@ export class GpgKeysService {
         publicKey: armoredKey.trim(),
       })
       .onConflictDoNothing()
-      .returning();
+      .returning({
+        id: schema.userGpgKey.id,
+        keyId: schema.userGpgKey.keyId,
+        fingerprint: schema.userGpgKey.fingerprint,
+        createdAt: isoTimestamp(schema.userGpgKey.createdAt),
+      });
 
-    // One key belongs to one account, so a clash is someone else's key - or
-    // this account adding the same one twice.
+    // A key id belongs to one account, so a clash is someone else's key - or this account adding the same one twice.
     if (!row) throw new GpgKeyAlreadyExistsError();
 
-    return toDTO(row);
+    return { ...row, emails: key.emails };
   }
 
   async remove(userId: string, id: string): Promise<void> {
-    // Ownership is part of the match, so another account's key id deletes
-    // nothing rather than deleting theirs.
+    // Ownership is part of the match, so another account's key id deletes nothing rather than deleting theirs.
     const [row] = await this.db
       .delete(schema.userGpgKey)
       .where(
@@ -88,22 +102,9 @@ export class GpgKeysService {
   }
 }
 
-async function toDTO(row: {
-  id: string;
-  keyId: string;
-  fingerprint: string;
-  publicKey: string;
-  createdAt: Date;
-}): Promise<GpgKeyDTO> {
-  return {
-    id: row.id,
-    keyId: row.keyId,
-    fingerprint: row.fingerprint,
-    // Read back from the armor rather than stored twice; a key's user ids are
-    // only ever as current as the armor that was uploaded.
-    emails: await readPublicKey(row.publicKey)
-      .then((key) => key.emails)
-      .catch(() => []),
-    createdAt: row.createdAt.toISOString(),
-  };
+// Read back from the armor rather than stored twice: a key's user ids are only ever as current as the armor that was uploaded.
+async function addressesOn(armoredKey: string): Promise<string[]> {
+  return readPublicKey(armoredKey)
+    .then((key) => key.emails)
+    .catch(() => []);
 }

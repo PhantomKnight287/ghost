@@ -27,12 +27,9 @@ export const issueEventType = pgEnum("issue_event_type", [
 ]);
 
 /**
- * GitHub-style issue. `number` is per repository, 1-based, and what the URL
- * carries — same convention as `pull_request.number`.
+ * GitHub-style issue. `number` is per repository, 1-based, and what the URL carries — same convention as `pull_request.number`.
  *
- * `commentCount` is denormalized so `sort=comments` is one indexed query
- * instead of a join + group-by on every list call. Writers must bump it on
- * comment create/delete.
+ * `commentCount` is denormalized so `sort=comments` is one indexed query instead of a join + group-by on every list call. Writers must bump it on comment create/delete.
  */
 export const issue = pgTable(
   "issue",
@@ -98,10 +95,7 @@ export const issueComment = pgTable(
   (t) => [index("issue_comment_issue_idx").on(t.issueId, t.createdAt)],
 );
 
-/**
- * Repository-scoped labels, exactly like GitHub: a name, an optional
- * description, and a 6-char hex color (stored without `#`).
- */
+/** Repository-scoped labels, exactly like GitHub: a name, an optional description, and a 6-char hex color (stored without `#`). */
 export const label = pgTable(
   "label",
   {
@@ -156,11 +150,7 @@ export const issueAssignee = pgTable(
   (t) => [primaryKey({ columns: [t.issueId, t.userId] })],
 );
 
-/**
- * Audit timeline for an issue — what GitHub renders between comments:
- * opened/closed/reopened/renamed/edited/labeled/unlabeled/assigned/unassigned.
- * Only the columns relevant to `type` are set.
- */
+/** Audit timeline for an issue — what GitHub renders between comments: opened/closed/reopened/renamed/edited/labeled/unlabeled/assigned/unassigned. Only the columns relevant to `type` are set. */
 export const issueEvent = pgTable(
   "issue_event",
   {

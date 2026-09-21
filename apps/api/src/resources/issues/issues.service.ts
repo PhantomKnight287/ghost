@@ -17,10 +17,11 @@ import {
 import { DATABASE } from '../../database/database.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { UserNotFoundError } from '../../services/users/users.errors.js';
-import { decodeCursor, encodeCursor } from '../../utils/index.js';
+import { UserNotFoundError } from '../../lib/users/users.errors.js';
+import { decodeCursor, encodeCursor, isoTimestamp } from '../../utils/index.js';
 import { InvalidCursorError } from '../repositories/repositories.errors.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
+import type { LabelDTO } from './dto/label.dto.js';
 import type { GetIssuesQueryDTO } from './dto/issue.dto.js';
 import {
   IssueCommentNotFoundError,
@@ -29,6 +30,28 @@ import {
   LabelAlreadyExistsError,
   LabelNotFoundError,
 } from './issues.errors.js';
+
+const labelColumns = {
+  id: schema.label.id,
+  name: schema.label.name,
+  description: schema.label.description,
+  color: schema.label.color,
+  createdAt: isoTimestamp(schema.label.createdAt),
+  updatedAt: isoTimestamp(schema.label.updatedAt),
+};
+
+const commentColumns = {
+  id: schema.issueComment.id,
+  body: schema.issueComment.body,
+  createdAt: isoTimestamp(schema.issueComment.createdAt),
+  updatedAt: isoTimestamp(schema.issueComment.updatedAt),
+};
+
+// The author is joined when comments are listed; a write already knows who made it.
+const commentColumnsWithAuthor = {
+  ...commentColumns,
+  authorUsername: sql<string>`coalesce(${schema.user.username}, '')`,
+};
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -71,10 +94,7 @@ export class IssuesService {
       number: sql<number>`(select coalesce(max(${schema.issue.number}), 0) + 1 from ${schema.issue} where ${schema.issue.repositoryId} = ${repository.id})`,
     };
 
-    // Two concurrent opens read the same max; the unique index rejects the
-    // loser, whose retry then reads the winner's number. The whole open
-    // (issue + opened event + labels + assignees) is one transaction so a
-    // mid-way failure never leaves a partial issue behind.
+    // Two concurrent opens read the same max; the unique index rejects the loser, whose retry reads the winner's number.
     let created: Issue | undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -125,7 +145,7 @@ export class IssuesService {
     }
     if (!created) throw new Error('Failed to create issue after retries');
 
-    return this.toDTO(created, requesterId, repository.ownerId);
+    return this.expandIssue(created, requesterId, repository.ownerId);
   }
 
   async getIssues({
@@ -151,9 +171,7 @@ export class IssuesService {
     const direction = query.direction ?? 'desc';
     const orderFn = direction === 'asc' ? asc : desc;
 
-    // `sort=comments` cursors carry a leading count (`count|iso|id`); every
-    // other sort uses the shared keyset cursor (`iso|id`). Decoding with the
-    // wrong one always fails, so pick by sort.
+    // `sort=comments` cursors carry a leading count (`count|iso|id`); every other sort uses the shared keyset cursor (`iso|id`). Decoding with the wrong one always fails, so pick by sort.
     const decoded =
       sort === 'comments'
         ? query.cursor
@@ -212,9 +230,7 @@ export class IssuesService {
       };
     }
 
-    // Label (AND) and assignee filters resolve to id sets first so the main
-    // query stays a single indexed scan plus `inArray`. `const` (not `let`)
-    // so the `baseClause` closure below keeps the narrowed type.
+    // Label (AND) and assignee filters resolve to id sets first so the main query stays a single indexed scan plus `inArray`. `const` (not `let`) so the `baseClause` closure below keeps the narrowed type.
     const labelIssueIds: string[] | undefined =
       labelFilterIds && labelFilterIds.length > 0
         ? await this.issueIdsWithAllLabels(labelFilterIds)
@@ -324,7 +340,7 @@ export class IssuesService {
     ]);
 
     return {
-      issues: await this.toDTOBatch(page, requesterId, repository.ownerId),
+      issues: await this.expandIssues(page, requesterId, repository.ownerId),
       total: totalRow?.total ?? 0,
       openCount: openRow?.total ?? 0,
       closedCount: closedRow?.total ?? 0,
@@ -344,7 +360,7 @@ export class IssuesService {
 
   async getIssue(params: IssueRef) {
     const { issue, base } = await this.load(params);
-    return this.toDTO(issue, params.requesterId, base.ownerId);
+    return this.expandIssue(issue, params.requesterId, base.ownerId);
   }
 
   /** Title and body only — state moves through close/reopen. */
@@ -361,7 +377,7 @@ export class IssuesService {
 
     const { title, body } = params.body;
     if (title === undefined && body === undefined) {
-      return this.toDTO(issue, params.requesterId, base.ownerId);
+      return this.expandIssue(issue, params.requesterId, base.ownerId);
     }
 
     const oldTitle = issue.title;
@@ -385,7 +401,7 @@ export class IssuesService {
       await this.recordEvent(issue.id, params.requesterId, 'edited', {});
     }
 
-    return this.toDTO(updated, params.requesterId, base.ownerId);
+    return this.expandIssue(updated, params.requesterId, base.ownerId);
   }
 
   async closeIssue(params: IssueRef & { requesterId: string }) {
@@ -407,7 +423,7 @@ export class IssuesService {
     if (!closed) throw new IssueNotFoundError();
 
     await this.recordEvent(issue.id, params.requesterId, 'closed', {});
-    return this.toDTO(closed, params.requesterId, base.ownerId);
+    return this.expandIssue(closed, params.requesterId, base.ownerId);
   }
 
   async reopenIssue(params: IssueRef & { requesterId: string }) {
@@ -425,31 +441,22 @@ export class IssuesService {
     if (!reopened) throw new IssueNotFoundError();
 
     await this.recordEvent(issue.id, params.requesterId, 'reopened', {});
-    return this.toDTO(reopened, params.requesterId, base.ownerId);
+    return this.expandIssue(reopened, params.requesterId, base.ownerId);
   }
 
-  /**
-   * Anyone who can read the issue can read its comments, and anyone who can
-   * read it can add one — the same bar GitHub sets for a public repository.
-   */
+  /** Anyone who can read the issue can read its comments, and anyone who can read it can add one — the same bar GitHub sets for a public repository. */
   async getComments(params: IssueRef) {
     const { issue } = await this.load(params);
 
     // ponytail: unpaginated, add a cursor if a thread ever outgrows one page
-    const rows = await this.db
-      .select({
-        id: schema.issueComment.id,
-        body: schema.issueComment.body,
-        authorUsername: schema.user.username,
-        createdAt: schema.issueComment.createdAt,
-        updatedAt: schema.issueComment.updatedAt,
-      })
+    const comments = await this.db
+      .select(commentColumnsWithAuthor)
       .from(schema.issueComment)
       .innerJoin(schema.user, eq(schema.user.id, schema.issueComment.authorId))
       .where(eq(schema.issueComment.issueId, issue.id))
       .orderBy(asc(schema.issueComment.createdAt), asc(schema.issueComment.id));
 
-    return { comments: rows.map((row) => toCommentDTO(row)) };
+    return { comments };
   }
 
   async createComment(
@@ -465,7 +472,7 @@ export class IssuesService {
           authorId: params.requesterId,
           body: params.body,
         })
-        .returning();
+        .returning(commentColumns);
       if (!row) throw new Error('Comment insert returned no rows');
 
       await tx
@@ -480,7 +487,7 @@ export class IssuesService {
     });
 
     const author = await this.users.getUserById(params.requesterId);
-    return toCommentDTO({ ...created, authorUsername: author.username });
+    return { ...created, authorUsername: author.username ?? '' };
   }
 
   async updateComment(
@@ -509,7 +516,7 @@ export class IssuesService {
       .update(schema.issueComment)
       .set({ body: params.body })
       .where(eq(schema.issueComment.id, comment.id))
-      .returning();
+      .returning(commentColumns);
     if (!updated) throw new IssueCommentNotFoundError();
 
     await this.db
@@ -517,8 +524,8 @@ export class IssuesService {
       .set({ updatedAt: new Date() })
       .where(eq(schema.issue.id, issue.id));
 
-    const author = await this.users.getUserById(updated.authorId);
-    return toCommentDTO({ ...updated, authorUsername: author.username });
+    const author = await this.users.getUserById(comment.authorId);
+    return { ...updated, authorUsername: author.username ?? '' };
   }
 
   async deleteComment(
@@ -661,12 +668,12 @@ export class IssuesService {
     requesterId?: string;
   }) {
     const repository = await this.authorize(params);
-    const rows = await this.db
-      .select()
+    const labels = await this.db
+      .select(labelColumns)
       .from(schema.label)
       .where(eq(schema.label.repositoryId, repository.id))
       .orderBy(asc(schema.label.name));
-    return { labels: rows.map(toLabelDTO) };
+    return { labels };
   }
 
   async createLabel(params: {
@@ -696,8 +703,8 @@ export class IssuesService {
         description: params.body.description,
         color: params.body.color.toLowerCase(),
       })
-      .returning();
-    return toLabelDTO(created);
+      .returning(labelColumns);
+    return created;
   }
 
   async updateLabel(params: {
@@ -746,8 +753,8 @@ export class IssuesService {
           : { color: params.body.color.toLowerCase() }),
       })
       .where(eq(schema.label.id, label.id))
-      .returning();
-    return toLabelDTO(updated);
+      .returning(labelColumns);
+    return updated;
   }
 
   async deleteLabel(params: {
@@ -797,7 +804,7 @@ export class IssuesService {
     const removed =
       removedIds.length > 0
         ? await this.db
-            .select()
+            .select({ id: schema.label.id, name: schema.label.name })
             .from(schema.label)
             .where(inArray(schema.label.id, removedIds))
         : [];
@@ -845,7 +852,7 @@ export class IssuesService {
       }
     });
 
-    return { labels: labels.map(toLabelDTO) };
+    return { labels };
   }
 
   /** Full replacement of an issue's assignee set, like GitHub's sidebar. */
@@ -971,18 +978,15 @@ export class IssuesService {
     });
   }
 
-  private async toDTO(issueRow: Issue, requesterId?: string, ownerId?: string) {
+  private async expandIssue(
+    issueRow: Issue,
+    requesterId?: string,
+    ownerId?: string,
+  ) {
     const [author, labels, assignees, closer] = await Promise.all([
       this.users.getUserById(issueRow.authorId),
       this.db
-        .select({
-          id: schema.label.id,
-          name: schema.label.name,
-          description: schema.label.description,
-          color: schema.label.color,
-          createdAt: schema.label.createdAt,
-          updatedAt: schema.label.updatedAt,
-        })
+        .select(labelColumns)
         .from(schema.issueLabel)
         .innerJoin(schema.label, eq(schema.label.id, schema.issueLabel.labelId))
         .where(eq(schema.issueLabel.issueId, issueRow.id)),
@@ -1004,7 +1008,7 @@ export class IssuesService {
       state: issueRow.state,
       authorUsername: author.username ?? '',
       closedByUsername: closer?.username ?? null,
-      labels: labels.map(toLabelDTO),
+      labels,
       assignees: assignees.map((row) => row.username ?? ''),
       commentCount: issueRow.commentCount,
       closedAt: issueRow.closedAt?.toISOString() ?? null,
@@ -1014,7 +1018,7 @@ export class IssuesService {
     };
   }
 
-  private async toDTOBatch(
+  private async expandIssues(
     rows: Issue[],
     requesterId?: string,
     ownerId?: string,
@@ -1040,15 +1044,7 @@ export class IssuesService {
             .where(inArray(schema.user.id, closerIds))
         : Promise.resolve([] as Array<{ id: string; username: string | null }>),
       this.db
-        .select({
-          issueId: schema.issueLabel.issueId,
-          id: schema.label.id,
-          name: schema.label.name,
-          description: schema.label.description,
-          color: schema.label.color,
-          createdAt: schema.label.createdAt,
-          updatedAt: schema.label.updatedAt,
-        })
+        .select({ issueId: schema.issueLabel.issueId, ...labelColumns })
         .from(schema.issueLabel)
         .innerJoin(schema.label, eq(schema.label.id, schema.issueLabel.labelId))
         .where(inArray(schema.issueLabel.issueId, ids)),
@@ -1064,11 +1060,11 @@ export class IssuesService {
 
     const authorById = new Map(authors.map((u) => [u.id, u.username ?? '']));
     const closerById = new Map(closers.map((u) => [u.id, u.username ?? null]));
-    const labelsByIssue = new Map<string, typeof labelRows>();
-    for (const row of labelRows) {
-      const list = labelsByIssue.get(row.issueId) ?? [];
-      list.push(row);
-      labelsByIssue.set(row.issueId, list);
+    const labelsByIssue = new Map<string, LabelDTO[]>();
+    for (const { issueId, ...label } of labelRows) {
+      const list = labelsByIssue.get(issueId) ?? [];
+      list.push(label);
+      labelsByIssue.set(issueId, list);
     }
     const assigneesByIssue = new Map<string, string[]>();
     for (const row of assigneeRows) {
@@ -1087,7 +1083,7 @@ export class IssuesService {
       closedByUsername: issueRow.closedById
         ? (closerById.get(issueRow.closedById) ?? null)
         : null,
-      labels: (labelsByIssue.get(issueRow.id) ?? []).map(toLabelDTO),
+      labels: labelsByIssue.get(issueRow.id) ?? [],
       assignees: assigneesByIssue.get(issueRow.id) ?? [],
       commentCount: issueRow.commentCount,
       closedAt: issueRow.closedAt?.toISOString() ?? null,
@@ -1134,7 +1130,7 @@ export class IssuesService {
   private async resolveLabels(repositoryId: string, names: string[]) {
     if (names.length === 0) return [];
     const rows = await this.db
-      .select()
+      .select(labelColumns)
       .from(schema.label)
       .where(
         and(
@@ -1183,8 +1179,7 @@ export class IssuesService {
     return Promise.all(
       usernames.map((username) =>
         this.users.getUserByUsername(username).catch((error) => {
-          // Preserve first-failure semantics: unknown users surface as
-          // UserNotFoundError, anything else rethrows.
+          // Preserve first-failure semantics: unknown users surface as UserNotFoundError, anything else rethrows.
           throw error;
         }),
       ),
@@ -1232,40 +1227,6 @@ function sortColumn(sort: 'created' | 'updated' | 'comments') {
 
 function sortDateOf(sort: 'created' | 'updated' | 'comments', row: Issue) {
   return sort === 'updated' ? row.updatedAt : row.createdAt;
-}
-
-function toLabelDTO(row: {
-  id: string;
-  name: string;
-  description: string | null;
-  color: string;
-  createdAt: Date;
-  updatedAt: Date;
-}) {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    color: row.color,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
-function toCommentDTO(row: {
-  id: string;
-  body: string;
-  authorUsername: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}) {
-  return {
-    id: row.id,
-    body: row.body,
-    authorUsername: row.authorUsername ?? '',
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
 }
 
 function encodeCommentCursor({

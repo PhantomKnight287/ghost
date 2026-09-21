@@ -6,21 +6,17 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, count, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import { listCommits } from '../../services/git/commits/list-commits.js';
+import { listCommits } from '../../lib/git/commits/list-commits.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import {
   listDiffFiles,
   mergeBase,
   streamDiffPatch,
-} from '../../services/git/diff/diff.js';
-import { runGit } from '../../services/git/exec/run-git.js';
+} from '../../lib/git/diff/diff.js';
+import { runGit } from '../../lib/git/exec/run-git.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
-import {
-  commitTree,
-  mergeTree,
-  packRange,
-} from '../../services/git/merge/merge.js';
-import { fileBody } from '../../services/git/protocol/git-request-body.js';
+import { commitTree, mergeTree, packRange } from '../../lib/git/merge/merge.js';
+import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import {
   type Repository,
   RepositoryAccessService,
@@ -28,7 +24,7 @@ import {
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { decodeCursor, encodeCursor } from '../../utils/index.js';
+import { decodeCursor, encodeCursor, isoTimestamp } from '../../utils/index.js';
 import {
   BranchNotFoundError,
   InvalidCursorError,
@@ -48,6 +44,19 @@ import {
   UnrelatedHistoriesError,
   UnrelatedRepositoriesError,
 } from './pull-requests.errors.js';
+
+const commentColumns = {
+  id: schema.pullRequestComment.id,
+  body: schema.pullRequestComment.body,
+  createdAt: isoTimestamp(schema.pullRequestComment.createdAt),
+  updatedAt: isoTimestamp(schema.pullRequestComment.updatedAt),
+};
+
+// The author is joined when comments are listed; a write already knows who made it.
+const commentColumnsWithAuthor = {
+  ...commentColumns,
+  authorUsername: sql<string>`coalesce(${schema.user.username}, '')`,
+};
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -132,8 +141,7 @@ export class PullRequestsService {
       number: sql<number>`(select coalesce(max(${schema.pullRequest.number}), 0) + 1 from ${schema.pullRequest} where ${schema.pullRequest.baseRepositoryId} = ${base.id})`,
     };
 
-    // Two concurrent opens read the same max; the unique index rejects the
-    // loser, whose retry then reads the winner's number.
+    // Two concurrent opens read the same max; the unique index rejects the loser, whose retry then reads the winner's number.
     const [created] = await this.db
       .insert(schema.pullRequest)
       .values(values)
@@ -143,7 +151,7 @@ export class PullRequestsService {
         return this.db.insert(schema.pullRequest).values(values).returning();
       });
 
-    return this.toDTO(created);
+    return this.expandPullRequest(created);
   }
 
   /** The files a request would carry, before one is opened. */
@@ -252,7 +260,9 @@ export class PullRequestsService {
       );
 
     return {
-      pullRequests: await Promise.all(page.map((row) => this.toDTO(row))),
+      pullRequests: await Promise.all(
+        page.map((row) => this.expandPullRequest(row)),
+      ),
       total: totals?.total ?? 0,
       nextCursor:
         hasMore && last
@@ -274,7 +284,7 @@ export class PullRequestsService {
       : [];
 
     return {
-      ...(await this.toDTO(pullRequest)),
+      ...(await this.expandPullRequest(pullRequest)),
       mergeBase: git.mergeBase,
       commitCount: git.mergeBase
         ? await this.countRange(git, `${git.mergeBase}..${git.headSha}`)
@@ -312,8 +322,7 @@ export class PullRequestsService {
       limit,
     });
 
-    // A fork's commits live in the other repository's objects, which is why
-    // the lending env has to come along for the signatures to be readable.
+    // A fork's commits live in the other repository's objects, which is why the lending env has to come along for the signatures to be readable.
     const verdicts = await this.verification.verifyCommits({
       gitDir: git.baseDirectory,
       env: git.env,
@@ -323,7 +332,6 @@ export class PullRequestsService {
     return {
       commits: commits.map((commit) => ({
         ...commit,
-        committedAt: commit.committedAt.toISOString(),
         verification: verdicts.get(commit.sha) ?? null,
       })),
       total: await this.countRange(git, `${git.mergeBase}..${git.headSha}`),
@@ -360,11 +368,7 @@ export class PullRequestsService {
     });
   }
 
-  /**
-   * The merge commit is built in the base cache and then pushed through
-   * `commitPush`, the same commit point a `git push` uses. Nothing about a
-   * merge is allowed to reach the base repository by another route.
-   */
+  /** The merge commit is built in the base cache and then pushed through `commitPush`, the same commit point a `git push` uses. Nothing about a merge is allowed to reach the base repository by another route. */
   async mergePullRequest(
     params: PullRequestRef & { requesterId: string; title?: string },
   ) {
@@ -387,8 +391,7 @@ export class PullRequestsService {
     if (!tree) throw new PullRequestConflictError();
 
     const author = await this.users.getUserById(params.requesterId);
-    // a fork's branch name is ambiguous on its own, so the merge subject carries
-    // the owner exactly as the request was opened with
+    // a fork's branch name is ambiguous on its own, so the merge subject carries the owner exactly as the request was opened with
     const headOwner = await this.users.getUserById(git.head.ownerId);
     const headLabel =
       git.head.id === base.id
@@ -406,8 +409,7 @@ export class PullRequestsService {
 
     const directory = await mkdtemp(path.join(tmpdir(), 'ghost-merge-'));
     try {
-      // ponytail: excludes only the base tip, so objects on the base repository's
-      // other branches can be packed again. Exclude every base ref if entry size matters.
+      // ponytail: excludes only the base tip, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
       const pack = await packRange({
         gitDir: git.baseDirectory,
         alternates: git.alternates,
@@ -466,7 +468,7 @@ export class PullRequestsService {
 
     const { title, body } = params.body;
     if (title === undefined && body === undefined) {
-      return this.toDTO(pullRequest);
+      return this.expandPullRequest(pullRequest);
     }
 
     const [updated] = await this.db
@@ -478,7 +480,7 @@ export class PullRequestsService {
       .where(eq(schema.pullRequest.id, pullRequest.id))
       .returning();
 
-    return this.toDTO(updated);
+    return this.expandPullRequest(updated);
   }
 
   async closePullRequest(params: PullRequestRef) {
@@ -496,25 +498,16 @@ export class PullRequestsService {
       .where(eq(schema.pullRequest.id, pullRequest.id))
       .returning();
 
-    return this.toDTO(closed);
+    return this.expandPullRequest(closed);
   }
 
-  /**
-   * Anyone who can read the request can read its comments, and anyone who can
-   * read it can add one - the same bar GitHub sets for a public repository.
-   */
+  /** Anyone who can read the request can read its comments, and anyone who can read it can add one - the same bar GitHub sets for a public repository. */
   async getComments(params: PullRequestRef) {
     const { pullRequest } = await this.load(params);
 
     // ponytail: unpaginated, add a cursor if a thread ever outgrows one page
-    const rows = await this.db
-      .select({
-        id: schema.pullRequestComment.id,
-        body: schema.pullRequestComment.body,
-        authorUsername: schema.user.username,
-        createdAt: schema.pullRequestComment.createdAt,
-        updatedAt: schema.pullRequestComment.updatedAt,
-      })
+    const comments = await this.db
+      .select(commentColumnsWithAuthor)
       .from(schema.pullRequestComment)
       .innerJoin(
         schema.user,
@@ -526,7 +519,7 @@ export class PullRequestsService {
         asc(schema.pullRequestComment.id),
       );
 
-    return { comments: rows.map((row) => toCommentDTO(row)) };
+    return { comments };
   }
 
   async createComment(
@@ -541,10 +534,10 @@ export class PullRequestsService {
         authorId: params.requesterId,
         body: params.body,
       })
-      .returning();
+      .returning(commentColumns);
 
     const author = await this.users.getUserById(params.requesterId);
-    return toCommentDTO({ ...created, authorUsername: author.username });
+    return { ...created, authorUsername: author.username ?? '' };
   }
 
   /** Materializes both sides and resolves the range the request covers. */
@@ -677,11 +670,7 @@ export class PullRequestsService {
     return Number(raw.trim()) || 0;
   }
 
-  /**
-   * `owner:branch` names a branch on another repository in the same fork
-   * network - the base itself, a fork of it, or the repository the base was
-   * forked from. Anything else is not a pull request, it is two unrelated repos.
-   */
+  /** `owner:branch` names a branch on another repository in the same fork network - the base itself, a fork of it, or the repository the base was forked from. Anything else is not a pull request, it is two unrelated repos. */
   private async resolveHead(
     base: Repository,
     head: string,
@@ -713,7 +702,7 @@ export class PullRequestsService {
     });
   }
 
-  private async toDTO(pullRequest: PullRequest) {
+  private async expandPullRequest(pullRequest: PullRequest) {
     const sides = await this.db
       .select({
         repositoryId: schema.repository.id,
@@ -775,20 +764,4 @@ function isUniqueViolation(error: unknown) {
     'code' in error &&
     (error as { code?: string }).code === '23505'
   );
-}
-
-function toCommentDTO(row: {
-  id: string;
-  body: string;
-  authorUsername: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}) {
-  return {
-    id: row.id,
-    body: row.body,
-    authorUsername: row.authorUsername ?? '',
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
 }

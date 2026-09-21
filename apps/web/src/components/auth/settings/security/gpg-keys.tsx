@@ -40,8 +40,7 @@ const QUERY_KEY = ["gpg-keys"];
 /**
  * Public keys that make this account's signed commits read as verified.
  *
- * A key is only accepted once it carries an address the account has already
- * verified, so the form points at the email settings when it is refused.
+ * A key is only accepted once it carries an address the account has already verified, so the form points at the email settings when it is refused.
  */
 export function GpgKeys({ className }: GpgKeysProps) {
   const queryClient = useQueryClient();

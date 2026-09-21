@@ -26,9 +26,7 @@ export type UserInvitationRowProps = {
   invitation: Invitation & { organizationName?: string };
 };
 
-/**
- * Single invitation row with accept/reject actions for the current user.
- */
+/** Single invitation row with accept/reject actions for the current user. */
 export function UserInvitationRow({ invitation }: UserInvitationRowProps) {
   const { authClient } = useAuth<OrganizationAuthClient>();
   const { localization: organizationLocalization, roles } =

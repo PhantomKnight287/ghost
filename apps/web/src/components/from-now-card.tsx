@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "./ui/hover-card";
 
 dayjs.extend(relativeTime);
@@ -16,14 +16,12 @@ interface FromNowHoverCardProps {
   className?: string;
 }
 
+const subscribeToNothing = () => () => {};
+const readTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 export function FromNowHoverCard({ date, className }: FromNowHoverCardProps) {
-  // This must be a client component for timezone detection
-  const [tz, setTz] = useState<string>("UTC");
-  useEffect(() => {
-    if (typeof window !== "undefined" && Intl?.DateTimeFormat) {
-      setTz(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    }
-  }, []);
+  // The server has no timezone to render, so it renders UTC and the client swaps in the real one on hydration.
+  const tz = useSyncExternalStore(subscribeToNothing, readTimezone, () => "UTC");
 
   const d = dayjs(date);
   const utcString = d.utc().format("MMM DD, YYYY, HH:mm:ss");

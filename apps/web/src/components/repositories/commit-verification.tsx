@@ -14,10 +14,7 @@ export type CommitVerification = {
   keyId: string;
 };
 
-/**
- * Signature status of one commit. Renders nothing when the commit carries no
- * signature, which is the ordinary case and should not read as a warning.
- */
+/** Signature status of one commit. Renders nothing when the commit carries no signature, which is the ordinary case and should not read as a warning. */
 export function CommitVerificationBadge({
   verification,
 }: {

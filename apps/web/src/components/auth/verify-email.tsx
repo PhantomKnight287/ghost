@@ -19,18 +19,7 @@ export type VerifyEmailProps = {
 /** Seconds the resend button stays disabled to prevent spamming the endpoint. */
 const RESEND_COOLDOWN_SECONDS = 60;
 
-/**
- * Render a card prompting the user to verify their email, with a resend button
- * that is rate-limited by a cooldown timer.
- *
- * The target email is read from `sessionStorage` (set when sign-up or sign-in
- * redirects here); the OpenEmail/Resend controls are only shown when an email
- * is stored. The resend button is disabled while a cooldown is active and shows
- * the remaining seconds.
- *
- * @param className - Additional CSS classes applied to the card
- * @returns The verify-email card React element
- */
+/** Render a card prompting the user to verify their email, with a resend button that is rate-limited by a cooldown timer. */
 export function VerifyEmail({ className }: VerifyEmailProps) {
   const {
     authClient,

@@ -12,7 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-import { MAX_TREE_PATH_LENGTH } from '../../../services/git/tree/tree-path.js';
+import { MAX_TREE_PATH_LENGTH } from '../../../lib/git/tree/tree-path.js';
 import { SafeTreePathConstraint } from './get-repository-contents.dto.js';
 
 export class GetRepositoryCommitsQueryDTO {

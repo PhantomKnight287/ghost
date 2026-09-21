@@ -17,10 +17,7 @@ export class RefAdvertisementService {
     return len + str;
   }
 
-  /**
-   * The `GET /info/refs` body: the service header, a flush packet, then
-   * whatever `--advertise-refs` prints.
-   */
+  /** The `GET /info/refs` body: the service header, a flush packet, then whatever `--advertise-refs` prints. */
   advertise({
     repoDirectory,
     service,

@@ -43,16 +43,7 @@ export type LinkedAccountProps = {
   provider: AuthSocialProvider | string;
 };
 
-/**
- * Render a single linked social account row with provider info and link/unlink control.
- *
- * Fetches additional account information from the provider using the accountInfo API
- * and displays the provider name, account details, and a link/unlink button.
- *
- * @param account - The account object containing id, accountId, and providerId
- * @param provider - The provider id
- * @returns A JSX element containing the linked account row
- */
+/** Render a single linked social account row with provider info and link/unlink control. */
 export function LinkedAccount({
   account,
   canUnlink = true,

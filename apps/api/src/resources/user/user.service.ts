@@ -158,12 +158,7 @@ export class UserService {
     });
   }
 
-  /**
-   * Daily commit counts for the contribution graph, read straight from the
-   * contribution index. This endpoint never touches git: indexing happens when
-   * repositories are pushed or browsed, so rendering a profile cannot
-   * materialize every repository the user owns.
-   */
+  /** Daily commit counts for the contribution graph, read from the index alone: rendering a profile must not materialize every repository. */
   async getContributions(
     username: string,
     query: GetUserContributionsQueryDTO = {},
@@ -180,12 +175,7 @@ export class UserService {
     const to = `${year + 1}-01-01`;
     const counts = new Map<string, number>();
 
-    // A row counts when it is linked to the account, or when its author email
-    // is one of the account's emails (a commit indexed before the author
-    // registered, or before the email was added to the account). Matching on
-    // both means adding an email never needs a reindex.
-    // Private repositories are the owner's business: anyone else only sees
-    // the public ones in the graph.
+    // Match on the account link or on a known author email, so adding an email never needs a reindex. Private repositories count only for their owner.
     const emails = await this.users.listVerifiedEmails(user);
     const rows = await this.db
       .select({

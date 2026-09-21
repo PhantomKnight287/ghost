@@ -29,11 +29,7 @@ export function toGitBinary(service: GitServiceName) {
 
 export const FLUSH_PACKET = '0000';
 
-/**
- * Git's smart-HTTP endpoints. Clients append these paths to the clone URL, so
- * they have to sit at the root rather than behind the `/api` prefix - they are
- * the only routes excluded from it.
- */
+/** Git's smart-HTTP endpoints. Clients append these paths to the clone URL, so they have to sit at the root rather than behind the `/api` prefix - they are the only routes excluded from it. */
 export const GIT_PACK_ROUTES = [
   { path: ':username/:repo/git-upload-pack', method: RequestMethod.POST },
   { path: ':username/:repo/git-receive-pack', method: RequestMethod.POST },

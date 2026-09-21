@@ -7,10 +7,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PushTransactionService } from '../wal/push-transaction.service.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
-import { ZERO_OID, type RefTransition } from '../wal/wal.types.js';
-import { bufferBody } from '../protocol/git-request-body.js';
+import {
+  ZERO_OID,
+  type RefTransition,
+} from '../../../lib/git/wal/wal.types.js';
+import { bufferBody } from '../../../lib/git/protocol/git-request-body.js';
 import { RepositoryMaterializerService } from './repository-materializer.service.js';
-import { InMemoryWalStore } from './wal-store.fake.js';
+import { InMemoryWalStore } from '../../../lib/git/materializer/wal-store.fake.js';
 
 const REPO_ID = 'phantomknight287/ghost';
 

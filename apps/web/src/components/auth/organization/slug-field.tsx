@@ -25,18 +25,12 @@ export type SlugFieldProps = {
   id?: string;
 };
 
-/**
- * Sanitize a slug value so it only contains lowercase alphanumeric characters
- * and dashes. Runs of disallowed characters are collapsed to a single dash, but
- * leading/trailing dashes are preserved while the user is still typing.
- */
+/** Sanitize a slug value so it only contains lowercase alphanumeric characters and dashes. Runs of disallowed characters are collapsed to a single dash, but leading/trailing dashes are preserved while the user is still typing. */
 export function sanitizeSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
-/**
- * Organization slug field with debounced availability checking.
- */
+/** Organization slug field with debounced availability checking. */
 export function SlugField({
   value,
   onChange,
@@ -72,9 +66,7 @@ export function SlugField({
   );
 
   useEffect(() => {
-    // Clear stale validation errors when the controlled value changes
-    // externally (e.g. the parent resets the form), not just via this
-    // input's onChange.
+    // Clear stale validation errors when the controlled value changes externally (e.g. the parent resets the form), not just via this input's onChange.
     setSlugError(undefined);
 
     if (!checkSlugEnabled) return;

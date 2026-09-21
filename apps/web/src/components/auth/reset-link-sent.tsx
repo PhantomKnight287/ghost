@@ -15,17 +15,7 @@ export type ResetLinkSentProps = {
   className?: string;
 };
 
-/**
- * Render a card confirming that a password-reset email was sent, with a
- * button to open the user's email provider.
- *
- * The target email is read from `sessionStorage` (set when the forgot-password
- * form redirects here); the OpenEmail button is only shown when an email is
- * stored and resolves to a known provider.
- *
- * @param className - Additional CSS classes applied to the card
- * @returns The reset-link-sent card React element
- */
+/** Render a card confirming that a password-reset email was sent, with a button to open the user's email provider. */
 export function ResetLinkSent({ className }: ResetLinkSentProps) {
   const { basePaths, localization, redirectTo, viewPaths, Link } = useAuth();
 

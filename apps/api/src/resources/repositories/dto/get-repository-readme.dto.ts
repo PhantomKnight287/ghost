@@ -4,8 +4,7 @@ import { IsInt, IsOptional, IsString } from 'class-validator';
 export class GetRepositoryReadmeQueryDTO {
   @ApiPropertyOptional({
     description:
-      'Branch, tag-free ref or commit sha to read from. Accepts `main`, ' +
-      '`refs/heads/main` or a commit sha. Omit for the default branch.',
+      'Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch.',
     example: 'main',
   })
   @IsString()
@@ -48,8 +47,7 @@ export class GetRepositoryReadmeResponseDTO {
     type: String,
     nullable: true,
     description:
-      'Markdown source. `null` when there is no README, when it is past the ' +
-      'inline size limit, or when it is not valid UTF-8 text.',
+      'Markdown source. `null` when there is no README, when it is past the inline size limit, or when it is not valid UTF-8 text.',
   })
   @IsString()
   @IsOptional()

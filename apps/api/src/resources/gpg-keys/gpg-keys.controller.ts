@@ -45,8 +45,7 @@ export class GpgKeysController {
   @ApiOperation({
     summary: 'Add a public key to the signed-in account',
     description:
-      'Commits signed with it read as verified once the key carries an ' +
-      'address this account has verified.',
+      'Commits signed with it read as verified once the key carries an address this account has verified.',
   })
   @ApiCreatedResponse({ type: GpgKeyDTO })
   @ApiBadRequestResponse({ type: ErrorResponseDTO })
@@ -60,8 +59,7 @@ export class GpgKeysController {
   @ApiOperation({
     summary: 'Remove a key',
     description:
-      'Commits it signed stop reading as verified; nothing about the commits ' +
-      'themselves changes.',
+      'Commits it signed stop reading as verified; nothing about the commits themselves changes.',
   })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ type: ErrorResponseDTO })

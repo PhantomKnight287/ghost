@@ -3,11 +3,7 @@ import { notFound } from "next/navigation";
 import { createServerClient } from "@/lib/api/server";
 import { ogCard, plural, shortenPath } from "@/lib/og";
 
-/**
- * Cards for paths inside a repository. Next.js forbids an `opengraph-image`
- * beside an optional catch-all segment, so the tree and blob pages point their
- * metadata at this one route instead.
- */
+/** Cards for paths inside a repository. Next.js forbids an `opengraph-image` beside an optional catch-all segment, so the tree and blob pages point their metadata at this one route instead. */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ username: string; repo: string }> },
@@ -64,7 +60,7 @@ export async function GET(
     title: path.split("/").at(-1) || repo,
     description: path
       ? shortenPath(path.split("/").slice(0, -1).join("/")) || null
-      : (data.commit?.message ?? null),
+      : (data.commit?.subject ?? null),
     stats: [
       {
         icon: "fileCode",

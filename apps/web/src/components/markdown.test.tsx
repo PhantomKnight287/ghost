@@ -37,10 +37,7 @@ describe("Markdown", () => {
     );
   });
 
-  /**
-   * `align` on a cell becomes `style="text-align:<value>"` downstream of the
-   * sanitizer, so anything but the legal values is a CSS injection.
-   */
+  /** `align` on a cell becomes `style="text-align:<value>"` downstream of the sanitizer, so anything but the legal values is a CSS injection. */
   it("refuses an align value that would smuggle CSS into style", () => {
     expect(
       render(

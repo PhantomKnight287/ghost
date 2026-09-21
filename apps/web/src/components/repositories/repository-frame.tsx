@@ -81,8 +81,7 @@ export function RepositoryFrame({
   ];
   const activeTab =
     view === "pulls" ? "pulls" : view === "issues" ? "issues" : "code";
-  // the root of the repository only: a file or a subdirectory has nothing to
-  // say about the repository as a whole
+  // the root of the repository only: a file or a subdirectory has nothing to say about the repository as a whole
   const showSidebar = activeTab === "code" && view === undefined;
 
   return (

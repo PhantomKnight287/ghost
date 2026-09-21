@@ -38,15 +38,7 @@ export type ChangePasswordProps = {
   className?: string;
 };
 
-/**
- * Render a card form for changing the authenticated user's password.
- *
- * When the user has a credential account, displays fields for current password,
- * new password, and optionally confirm password. When the user only has social
- * accounts, displays a prompt to set a password via the reset flow.
- *
- * @returns A JSX element containing the change-password or set-password card
- */
+/** Render a card form for changing the authenticated user's password. */
 export function ChangePassword({ className }: ChangePasswordProps) {
   const { authClient, emailAndPassword, localization } = useAuth();
   const { data: session } = useSession(authClient);
@@ -174,8 +166,7 @@ function ChangePasswordForm({
     authClient,
     {
       onError: (error) => {
-        // The haveIBeenPwned plugin rejects on the password itself, so it
-        // belongs against the field rather than in a toast.
+        // The haveIBeenPwned plugin rejects on the password itself, so it belongs against the field rather than in a toast.
         setIsCompromised(isPasswordCompromisedError(error));
       },
       onSuccess: () => {

@@ -11,6 +11,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import * as openpgp from 'openpgp';
 
 import { DATABASE } from '../../database/database.module.js';
+import { UsersService } from '../users/users.service.js';
 import { CommitVerificationService } from './commit-verification.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
@@ -22,11 +23,7 @@ const MIGRATIONS = path.resolve(
 const USER_ID = 'user_gpg_spec';
 const SIGNER_EMAIL = 'verify-spec@ghost.local';
 
-/**
- * A commit object signed the way git signs one: the armored signature goes in
- * a `gpgsig` header whose continuation lines each carry a leading space, and
- * everything else is what was signed.
- */
+/** A commit object signed the way git signs one: the armored signature goes in a `gpgsig` header whose continuation lines each carry a leading space, and everything else is what was signed. */
 async function signCommit(
   message: string,
   signingKey: openpgp.PrivateKey,
@@ -77,15 +74,13 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CommitVerificationService,
+        UsersService,
         { provide: DATABASE, useValue: db },
       ],
     }).compile();
     service = module.get(CommitVerificationService);
 
-    // The commit is signed here and written straight into a throwaway
-    // repository, so the suite needs neither gpg nor a key on the machine
-    // running it. That git's own header layout parses is covered by the
-    // fixture in commit-signature.spec.ts.
+    // Signed here so the suite needs no gpg on the machine; git's own header layout is covered by the fixture in commit-signature.spec.ts.
     const key = await openpgp.generateKey({
       userIDs: [{ name: 'Spec', email: SIGNER_EMAIL }],
       format: 'object',

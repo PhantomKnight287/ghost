@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { bufferBody } from '../services/git/protocol/git-request-body.js';
+import { bufferBody } from '../lib/git/protocol/git-request-body.js';
 import { PassThrough } from 'node:stream';
 
 import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';

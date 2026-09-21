@@ -88,22 +88,7 @@ function renderUserLink(
   );
 }
 
-/**
- * Render a user dropdown button that shows user info, settings, theme controls, and authentication actions.
- *
- * Includes user profile, settings link, optional multi-session account switching, theme picker,
- * and sign-in/sign-up/sign-out actions depending on authentication state.
- *
- * @param className - Additional CSS classes applied to the button trigger
- * @param align - Alignment of the dropdown menu relative to the trigger
- * @param side - Preferred side of the trigger on which to show the dropdown menu
- * @param sideOffset - Offset between the trigger and the dropdown menu
- * @param size - "icon" renders only the avatar; "default" renders a full button with label and chevron
- * @param variant - Visual variant of the trigger button
- * @param links - Additional menu entries rendered above the built-in items
- * @param hideSettings - Hide the built-in "Settings" link
- * @returns The dropdown menu component with user actions
- */
+/** Render a user dropdown button that shows user info, settings, theme controls, and authentication actions. */
 export function UserButton({
   className,
   align,
@@ -131,9 +116,7 @@ export function UserButton({
     ];
   });
 
-  // Whether anything renders between the user info label and the
-  // sign-out item, so the leading separator isn't shown with nothing
-  // to separate (see #439).
+  // Whether anything renders between the user info label and the sign-out item, so the leading separator isn't shown with nothing to separate (see #439).
   const hasSessionMenuItems =
     (userLinks?.length ?? 0) > 0 ||
     !hideSettings ||

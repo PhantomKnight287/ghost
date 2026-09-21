@@ -13,10 +13,7 @@ const FORWARDED = [
   "etag",
 ];
 
-/**
- * Same-origin proxy for repository file bytes. A cross-origin `<img>` would not
- * carry the session cookie, so a private repository's files would 404.
- */
+/** Same-origin proxy for repository file bytes. A cross-origin `<img>` would not carry the session cookie, so a private repository's files would 404. */
 export async function GET(
   _request: Request,
   { params }: RouteContext<"/[username]/[repo]/raw/[ref]/[[...path]]">,

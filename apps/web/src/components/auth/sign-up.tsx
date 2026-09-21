@@ -48,29 +48,11 @@ export type SignUpProps = {
   className?: string;
   socialLayout?: SocialLayout;
   socialPosition?: "top" | "bottom";
-  /**
-   * Runs instead of the post-sign-up redirect, but only when the sign-up
-   * created an immediately usable session. Email verification still takes
-   * priority, and social sign-ups are unaffected.
-   */
+  /** Runs instead of the post-sign-up redirect, but only when the sign-up created an immediately usable session. Email verification still takes priority, and social sign-ups are unaffected. */
   onSignUpSuccess?: () => void;
 };
 
-/**
- * Renders a sign-up form with name, email, and password fields, optional social provider buttons, and submission handling.
- *
- * Submits credentials to the configured auth client and handles the response:
- * - If email verification is required, shows a notification and navigates to sign-in
- * - On success, refreshes the session and navigates to the configured redirect path
- * - On failure, displays error toasts
- * - Manages a pending state while the request is in-flight
- *
- * @param className - Additional CSS classes applied to the outer container
- * @param socialLayout - Social layout to apply to the component
- * @param socialPosition - Social position to apply to the component
- * @param onSignUpSuccess - Replaces the post-sign-up redirect when the new account is immediately usable
- * @returns The sign-up form React element.
- */
+/** Renders a sign-up form with name, email, and password fields, optional social provider buttons, and submission handling. */
 export function SignUp({
   className,
   socialLayout,
@@ -95,8 +77,7 @@ export function SignUp({
 
   const { mutateAsync: signUpEmail } = useSignUpEmail(authClient, {
     onError: (error) => {
-      // The haveIBeenPwned plugin rejects on the password itself,
-      // so it belongs against the field rather than in a toast.
+      // The haveIBeenPwned plugin rejects on the password itself, so it belongs against the field rather than in a toast.
       if (isPasswordCompromisedError(error)) {
         setIsCompromised(true);
       }

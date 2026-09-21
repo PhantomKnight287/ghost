@@ -47,8 +47,7 @@ export class EmailsController {
   @ApiOperation({
     summary: 'Add an address to the signed-in account',
     description:
-      'Mails a verification link. The address counts for nothing - sign-in, ' +
-      'commit attribution - until that link is followed.',
+      'Mails a verification link. The address counts for nothing - sign-in, commit attribution - until that link is followed.',
   })
   @ApiCreatedResponse({ type: UserEmailDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
@@ -77,8 +76,7 @@ export class EmailsController {
   @ApiOperation({
     summary: 'Send the verification link again',
     description:
-      'For the mail that never arrived or expired. The previous link stops ' +
-      'working, and a resend is refused for a minute after the last one.',
+      'For the mail that never arrived or expired. The previous link stops working, and a resend is refused for a minute after the last one.',
   })
   @ApiNoContentResponse()
   @ApiConflictResponse({ type: ErrorResponseDTO })
@@ -91,8 +89,7 @@ export class EmailsController {
   @ApiOperation({
     summary: 'Make a verified address the account address',
     description:
-      'Swaps it with the current primary, which stays on the account as an ' +
-      'extra so sign-in with it keeps working.',
+      'Swaps it with the current primary, which stays on the account as an extra so sign-in with it keeps working.',
   })
   @ApiOkResponse({ type: ListEmailsResponseDTO })
   @ApiBadRequestResponse({ type: ErrorResponseDTO })

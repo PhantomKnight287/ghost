@@ -33,13 +33,7 @@ export type ResetPasswordProps = {
   className?: string;
 };
 
-/**
- * Render a password reset form that validates the reset token from the URL, accepts a new password (and optional confirmation), and submits it to the auth client.
- *
- * The component checks for a `token` query parameter on mount and, if missing, shows an error toast and navigates to the sign-in page. It exposes per-field validation messages, toggles for password visibility, and disables inputs while the reset request is pending.
- *
- * @returns The password reset form UI ready to be mounted in the app layout.
- */
+/** Render a password reset form that validates the reset token from the URL, accepts a new password (and optional confirmation), and submits it to the auth client. */
 export function ResetPassword({ className }: ResetPasswordProps) {
   const {
     authClient,
@@ -60,8 +54,7 @@ export function ResetPassword({ className }: ResetPasswordProps) {
     authClient,
     {
       onError: (error) => {
-        // The haveIBeenPwned plugin rejects on the password itself, so it
-        // belongs against the field rather than in a toast.
+        // The haveIBeenPwned plugin rejects on the password itself, so it belongs against the field rather than in a toast.
         if (isPasswordCompromisedError(error)) {
           setIsCompromised(true);
         }

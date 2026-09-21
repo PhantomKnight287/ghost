@@ -7,7 +7,7 @@ import { RepositoryNotFoundError } from '../../../resources/repositories/reposit
 import {
   AuthenticationRequiredError,
   RepositoryForbiddenError,
-} from './repository-access.errors.js';
+} from '../../../lib/git/repository-access/repository-access.errors.js';
 
 export type Repository = typeof schema.repository.$inferSelect;
 

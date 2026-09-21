@@ -57,8 +57,7 @@ export function ErrorToaster() {
       }
       if (getAuthErrorPresentation(mutation.meta) !== "toast") return;
       if (isSessionNotFreshError(error)) return;
-      // Every form that sets a new password renders this one against the
-      // password field, so a toast would just repeat it.
+      // Every form that sets a new password renders this one against the password field, so a toast would just repeat it.
       if (isPasswordCompromisedError(error)) return;
 
       const err = error as BetterFetchError;

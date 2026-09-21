@@ -247,12 +247,9 @@ export const apikey = pgTable(
 );
 
 /**
- * Additional addresses an account owns, so one person can be reached - and
- * recognised as a commit author - under every address they push with.
+ * Additional addresses an account owns, so one person can be reached - and recognised as a commit author - under every address they push with.
  *
- * Better Auth only ever knows `user.email`; these rows are resolved to it
- * before its endpoints run. Only a verified row counts, otherwise adding an
- * address would be enough to claim someone else's commits or sign-in.
+ * Better Auth only ever knows `user.email`; these rows are resolved to it before its endpoints run. Only a verified row counts, otherwise adding an address would be enough to claim someone else's commits or sign-in.
  */
 export const userEmail = pgTable(
   "user_email",
@@ -363,9 +360,7 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
   }),
 }));
 
-/**
- * OpenPGP public keys an account uploads so its signed commits can be shown as verified.
- */
+/** OpenPGP public keys an account uploads so its signed commits can be shown as verified. */
 export const userGpgKey = pgTable(
   "user_gpg_key",
   {

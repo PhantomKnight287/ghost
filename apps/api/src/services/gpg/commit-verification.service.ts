@@ -1,10 +1,11 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import { readSignedCommits } from '../git/commits/commit-signature.js';
-import { signingKeyIds, verifySignature } from './openpgp.js';
+import { readSignedCommits } from '../../lib/git/commits/commit-signature.js';
+import { signingKeyIds, verifySignature } from '../../lib/gpg/openpgp.js';
+import { UsersService } from '../users/users.service.js';
 
 export interface CommitVerification {
   verified: boolean;
@@ -22,15 +23,15 @@ export interface VerifiableCommit {
 
 @Injectable()
 export class CommitVerificationService {
-  constructor(@Inject(DATABASE) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE) private readonly db: Database,
+    private readonly users: UsersService,
+  ) {}
 
   /**
-   * The signature status of each commit that carries one, keyed by sha.
-   * Unsigned commits are absent.
+   * The signature status of each commit that carries one, keyed by sha. Unsigned commits are absent.
    *
-   * Signatures are checked on read rather than stamped at push time: keys are
-   * added and removed after the fact, and the cache a commit is read from is
-   * rebuilt from the log, so a stored verdict would go stale either way.
+   * Signatures are checked on read rather than stamped at push time: keys are added and removed after the fact, and the cache a commit is read from is rebuilt from the log, so a stored verdict would go stale either way.
    */
   async verifyCommits({
     gitDir,
@@ -51,8 +52,7 @@ export class CommitVerificationService {
     });
     if (signed.size === 0) return verdicts;
 
-    // The key id comes from the signature itself, so one lookup covers the
-    // whole page no matter how many people signed it.
+    // The key id comes from the signature itself, so one lookup covers the whole page no matter how many people signed it.
     const claimed = new Map<string, string[]>();
     for (const [sha, { signature }] of signed) {
       claimed.set(sha, await signingKeyIds(signature).catch(() => []));
@@ -105,8 +105,7 @@ export class CommitVerificationService {
       });
       if (!matches) continue;
 
-      // Holding a key proves who signed, never who authored: without this the
-      // badge would vouch for a commit forged under someone else's address.
+      // Holding a key proves who signed, never who authored: without this the badge would vouch for a commit forged under someone else's address.
       if (!key.emails.includes(authorEmail.trim().toLowerCase())) {
         return {
           verified: false,
@@ -140,39 +139,20 @@ export class CommitVerificationService {
         keyId: schema.userGpgKey.keyId,
         publicKey: schema.userGpgKey.publicKey,
         userId: schema.userGpgKey.userId,
-        primaryEmail: schema.user.email,
       })
       .from(schema.userGpgKey)
-      .innerJoin(schema.user, eq(schema.user.id, schema.userGpgKey.userId))
       .where(inArray(schema.userGpgKey.keyId, wanted));
     if (rows.length === 0) return found;
 
-    const extras = await this.db
-      .select({
-        userId: schema.userEmail.userId,
-        email: schema.userEmail.email,
-      })
-      .from(schema.userEmail)
-      .where(
-        and(
-          inArray(
-            schema.userEmail.userId,
-            rows.map((row) => row.userId),
-          ),
-          eq(schema.userEmail.verified, true),
-        ),
-      );
+    const emails = await this.users.verifiedEmailsByUser(
+      rows.map((row) => row.userId),
+    );
 
     for (const row of rows) {
       found.set(row.keyId, {
         keyId: row.keyId,
         publicKey: row.publicKey,
-        emails: [
-          row.primaryEmail.toLowerCase(),
-          ...extras
-            .filter((extra) => extra.userId === row.userId)
-            .map((extra) => extra.email),
-        ],
+        emails: emails.get(row.userId) ?? [],
       });
     }
 

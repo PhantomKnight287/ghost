@@ -1,5 +1,7 @@
 # Design decisions
 
+[Code standards](code-standards.md) are the rules every file follows; this folder is why the system is shaped the way it is.
+
 One file per decision. Each states the decision, the reasoning, the alternatives
 rejected, and the consequences — including the bad ones.
 

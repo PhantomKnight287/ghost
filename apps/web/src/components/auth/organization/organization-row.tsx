@@ -16,9 +16,7 @@ export type OrganizationRowProps = {
   organization: Organization;
 };
 
-/**
- * Single organization row: logo and labels via `OrganizationView`, plus a Manage action.
- */
+/** Single organization row: logo and labels via `OrganizationView`, plus a Manage action. */
 export function OrganizationRow({ organization }: OrganizationRowProps) {
   const { authClient, basePaths, navigate } = useAuth<OrganizationAuthClient>();
   const {

@@ -27,9 +27,7 @@ export type OrganizationViewProps = {
   organization?: Partial<Organization>;
 };
 
-/**
- * Compact organization row: logo, primary name, secondary slug — analogous to `UserView`.
- */
+/** Compact organization row: logo, primary name, secondary slug — analogous to `UserView`. */
 export function OrganizationView({
   className,
   isPending,

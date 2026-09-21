@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-import { MAX_TREE_PATH_LENGTH } from '../../../services/git/tree/tree-path.js';
+import { MAX_TREE_PATH_LENGTH } from '../../../lib/git/tree/tree-path.js';
 import {
   CommitSummaryDTO,
   SafeTreePathConstraint,
@@ -28,8 +28,7 @@ export class GetRepositoryBlobQueryDTO {
 
   @ApiPropertyOptional({
     description:
-      'Branch, tag-free ref or commit sha to read from. Accepts `main`, ' +
-      '`refs/heads/main` or a commit sha. Omit for the default branch.',
+      'Branch, tag-free ref or commit sha to read from. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch.',
     example: 'main',
   })
   @IsString()

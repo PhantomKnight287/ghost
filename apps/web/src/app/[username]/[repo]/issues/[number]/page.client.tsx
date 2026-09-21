@@ -266,11 +266,7 @@ export function CommentItem({
   );
 }
 
-/**
- * Read view until the pencil is clicked, then a single field editing the
- * issue's title or description. Both fields are the same PATCH, so both use
- * this; state moves through close/reopen instead.
- */
+/** Read view until the pencil is clicked, then a single field editing the issue's title or description. Both fields are the same PATCH, so both use this; state moves through close/reopen instead. */
 export function EditableField({
   username,
   repo,

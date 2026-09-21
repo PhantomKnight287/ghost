@@ -27,9 +27,7 @@ const RESEND_INTERVAL_MS = 60 * 1000;
 /**
  * Addresses an account owns beyond the one Better Auth signs it in with.
  *
- * Better Auth keys identity on `user.email` and always will; these rows sit
- * beside it and are resolved to it before its endpoints run. Nothing here
- * touches its internals - the table, the tokens and the mail are ours.
+ * Better Auth keys identity on `user.email` and always will; these rows sit beside it and are resolved to it before its endpoints run. Nothing here touches its internals - the table, the tokens and the mail are ours.
  */
 @Injectable()
 export class EmailsService {
@@ -81,11 +79,7 @@ export class EmailsService {
     return { emails };
   }
 
-  /**
-   * Adds an address and mails it a verification link. The row exists straight
-   * away but counts for nothing until the link is followed, so adding an
-   * address can never claim another person's commits or sign-ins.
-   */
+  /** Adds an address and mails it a verification link. The row exists straight away but counts for nothing until the link is followed, so adding an address can never claim another person's commits or sign-ins. */
   async add(userId: string, input: string): Promise<UserEmailDTO> {
     if (!this.canSendMail) throw new MailNotConfiguredError();
 
@@ -107,18 +101,14 @@ export class EmailsService {
     };
   }
 
-  /**
-   * Sends a fresh link to an address that has not been confirmed yet, for the
-   * mail that never arrived or expired. The previous link stops working.
-   */
+  /** Sends a fresh link to an address that has not been confirmed yet, for the mail that never arrived or expired. The previous link stops working. */
   async resend(userId: string, id: string): Promise<void> {
     if (!this.canSendMail) throw new MailNotConfiguredError();
 
     const row = await this.own(userId, id);
     if (row.verified) throw new EmailAlreadyVerifiedError(row.email);
 
-    // The stored expiry doubles as the "last sent" stamp: a token issued less
-    // than a minute ago still has all but a minute of its life left.
+    // The stored expiry doubles as the "last sent" stamp: a token issued less than a minute ago still has all but a minute of its life left.
     const issuedAt = row.tokenExpiresAt
       ? row.tokenExpiresAt.getTime() - TOKEN_TTL_MS
       : 0;
@@ -144,10 +134,7 @@ export class EmailsService {
     });
   }
 
-  /**
-   * Confirms an address from its link. Single use: the token is cleared, so a
-   * forwarded mail cannot be replayed.
-   */
+  /** Confirms an address from its link. Single use: the token is cleared, so a forwarded mail cannot be replayed. */
   async verify(token: string): Promise<{ email: string }> {
     const [row] = await this.db
       .update(schema.userEmail)
@@ -174,11 +161,7 @@ export class EmailsService {
     return { email: row.email };
   }
 
-  /**
-   * Swaps a verified address with the account one. Better Auth keeps seeing
-   * exactly one address; the old primary stays on the account as an extra, so
-   * sign-in with it keeps working.
-   */
+  /** Swaps a verified address with the account one. Better Auth keeps seeing exactly one address; the old primary stays on the account as an extra, so sign-in with it keeps working. */
   async makePrimary(
     userId: string,
     id: string,

@@ -13,8 +13,7 @@ export type OrganizationsSettingsProps = {
 /**
  * Renders the organizations settings panel.
  *
- * Displays all organizations the user belongs to with an empty state and
- * create button, followed by a card for invitations to the user.
+ * Displays all organizations the user belongs to with an empty state and create button, followed by a card for invitations to the user.
  */
 export function OrganizationsSettings({
   className,

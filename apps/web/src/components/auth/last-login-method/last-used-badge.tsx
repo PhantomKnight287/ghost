@@ -13,10 +13,7 @@ export type LastUsedBadgeProps = {
   floating?: boolean;
 };
 
-/**
- * Displays an indicator when one of the supplied method IDs matches Better
- * Auth's stored last login method.
- */
+/** Displays an indicator when one of the supplied method IDs matches Better Auth's stored last login method. */
 export function LastUsedBadge({
   method,
   compact,

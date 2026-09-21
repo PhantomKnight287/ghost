@@ -7,16 +7,13 @@ import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip, createInflate } from 'node:zlib';
 
-import { fileBody } from '../../services/git/protocol/git-request-body.js';
+import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import { GitAuthenticatedBufferedRequest } from '../types.js';
 
 /**
- * Spools the request to a temp file before guards, pipes or handlers get a
- * chance to await anything.
+ * Spools the request to a temp file before guards, pipes or handlers get a chance to await anything.
  *
- * Two reasons it is here and not in a handler. An unattended request stream
- * loses whatever arrives while the handler is busy, and git writes its command
- * section in its own socket write - so a slow await costs ref updates. And a push can be gigabytes: it must never become a Buffer(learnt it the hard way trying to push Nextjs's and Linux Kernel's repo)
+ * Middleware, not a handler: an unattended stream drops whatever arrives while the handler is busy, and git sends its command section in its own socket write. A push can also be gigabytes, so it is never buffered.
  */
 @Injectable()
 export class GitRawBodyMiddleware implements NestMiddleware {

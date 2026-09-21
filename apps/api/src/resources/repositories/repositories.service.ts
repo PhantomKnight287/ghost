@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { isUtf8 } from 'node:buffer';
 import { type Database, schema } from '@ghost/db';
 import { and, count, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
@@ -22,33 +21,34 @@ import { RepositoryStorageService } from '../../services/git/repository-storage/
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
-import { runGit } from '../../services/git/exec/run-git.js';
+import { runGit } from '../../lib/git/exec/run-git.js';
 import {
   type CommitVerification,
   CommitVerificationService,
 } from '../../services/gpg/commit-verification.service.js';
-import { listTree } from '../../services/git/tree/list-tree.js';
+import { listTree } from '../../lib/git/tree/list-tree.js';
 import {
   isSha,
   listCommits,
   readCommit,
-  type Commit,
-} from '../../services/git/commits/list-commits.js';
+  readCommitSummary,
+} from '../../lib/git/commits/list-commits.js';
 import {
+  isTextBlob,
   readBlob,
   statBlob,
   streamBlob,
-} from '../../services/git/blob/read-blob.js';
-import { findReadmePath } from '../../services/git/blob/find-readme.js';
-import { mediaTypeFor } from '../../services/git/blob/media-type.js';
+} from '../../lib/git/blob/read-blob.js';
+import { findReadmePath } from '../../lib/git/blob/find-readme.js';
+import { mediaTypeFor } from '../../lib/git/blob/media-type.js';
 import {
   normalizeBlobPath,
   normalizeTreePath,
-} from '../../services/git/tree/tree-path.js';
+} from '../../lib/git/tree/tree-path.js';
 import {
   resolveDefaultRef,
   resolveRevision,
-} from '../../services/git/tree/resolve-ref.js';
+} from '../../lib/git/tree/resolve-ref.js';
 import type { PathCommit } from '../../services/git/path-index/repository-path-index.service.js';
 import type {
   CommitSummaryDTO,
@@ -129,27 +129,11 @@ export class RepositoriesService {
     const user = await this.usersService.getUserByUsername(username);
     const includePrivate = user.id === requesterId;
 
-    const requested = Number(query.limit);
-    const pageSize = Number.isFinite(requested)
-      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
-      : DEFAULT_PAGE_SIZE;
-
-    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-    if (query.cursor && !decoded) {
-      throw new InvalidCursorError();
-    }
-
-    // Keyset predicate matching the (lastPushedAt, id) ordering below. `id`
-    // breaks ties so repos sharing a lastPushedAt are never skipped or repeated.
-    const after = decoded
-      ? or(
-          lt(schema.repository.lastPushedAt, decoded.date),
-          and(
-            eq(schema.repository.lastPushedAt, decoded.date),
-            lt(schema.repository.id, decoded.id),
-          ),
-        )
-      : undefined;
+    const { pageSize, after } = this.page(
+      query,
+      schema.repository.lastPushedAt,
+      schema.repository.id,
+    );
 
     const rows = await this.db
       .select()
@@ -165,21 +149,14 @@ export class RepositoriesService {
         ),
       )
       .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      // one extra row tells us whether another page exists
       .limit(pageSize + 1);
 
-    const hasMore = rows.length > pageSize;
-    const repositories = hasMore ? rows.slice(0, pageSize) : rows;
-    const last = repositories.at(-1);
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
+      date: row.lastPushedAt,
+      id: row.id,
+    }));
 
-    return {
-      repositories,
-      nextCursor:
-        hasMore && last
-          ? encodeCursor({ date: last.lastPushedAt, id: last.id })
-          : null,
-      hasMore,
-    };
+    return { repositories: page, nextCursor, hasMore };
   }
 
   async getRepositoryBySlug({
@@ -432,16 +409,15 @@ export class RepositoriesService {
       const [entries, commitCount, commit] = await Promise.all([
         listTree({ gitDir: directory, ref, prefix }),
         this.countCommits({ directory, range: ref }),
-        readCommit({ gitDir: directory, sha: ref }),
+        readCommitSummary({ gitDir: directory, ref }),
       ]);
 
       return {
         ref,
         path: prefix,
         commitCount,
-        commit: commit ? toCommitSummaryOf(commit) : null,
-        // per-entry history would be one walk per path, which only the index
-        // makes cheap; a point-in-time listing does without it
+        commit,
+        // per-entry history would be one walk per path, which only the index makes cheap; a point-in-time listing does without it
         entries: entries.map((entry) => ({ ...entry, lastCommit: null })),
       };
     }
@@ -472,10 +448,10 @@ export class RepositoriesService {
       ref,
       path: prefix,
       commitCount,
-      commit: toCommitSummary(commits.get('')),
+      commit: commits.get('') ?? null,
       entries: entries.map((entry) => ({
         ...entry,
-        lastCommit: toCommitSummary(commits.get(entry.path)),
+        lastCommit: commits.get(entry.path) ?? null,
       })),
     };
   }
@@ -507,14 +483,7 @@ export class RepositoriesService {
 
     // one file is one history walk, cheap enough to skip the index for
     const lastCommit = detached
-      ? (
-          await listCommits({
-            gitDir: directory,
-            ref,
-            path: filePath,
-            limit: 1,
-          })
-        ).commits[0]
+      ? await readCommitSummary({ gitDir: directory, ref, path: filePath })
       : null;
 
     if (!detached) {
@@ -532,11 +501,7 @@ export class RepositoriesService {
           paths: [filePath],
         });
 
-    // git's own heuristic: a NUL anywhere means binary
-    const text =
-      blob.content !== null &&
-      !blob.content.includes(0) &&
-      isUtf8(blob.content);
+    const text = isTextBlob(blob.content);
 
     return {
       ref,
@@ -545,9 +510,7 @@ export class RepositoriesService {
       size: blob.size,
       encoding: text ? 'utf-8' : 'base64',
       content: blob.content?.toString(text ? 'utf8' : 'base64') ?? null,
-      commit: lastCommit
-        ? toCommitSummaryOf(lastCommit)
-        : toCommitSummary(commits.get(filePath)),
+      commit: lastCommit ?? commits.get(filePath) ?? null,
     };
   }
 
@@ -580,16 +543,11 @@ export class RepositoriesService {
     const blob = await readBlob({ gitDir: directory, ref, path });
     if (!blob) return { ref, path: null, size: 0, content: null };
 
-    const text =
-      blob.content !== null &&
-      !blob.content.includes(0) &&
-      isUtf8(blob.content);
-
     return {
       ref,
       path,
       size: blob.size,
-      content: text ? blob.content!.toString('utf8') : null,
+      content: isTextBlob(blob.content) ? blob.content.toString('utf8') : null,
     };
   }
 
@@ -692,9 +650,10 @@ export class RepositoriesService {
       from: commits.length ? before + 1 : 0,
       to: before + commits.length,
       total,
-      commits: commits.map((commit) =>
-        toCommitDTO(commit, verdicts.get(commit.sha)),
-      ),
+      commits: commits.map((commit) => ({
+        ...commit,
+        verification: verdicts.get(commit.sha) ?? null,
+      })),
       nextCursor,
     };
   }
@@ -726,10 +685,7 @@ export class RepositoriesService {
       commits: [commit],
     });
 
-    return {
-      ...toCommitDTO(commit, verdicts.get(commit.sha)),
-      files: commit.files,
-    };
+    return { ...commit, verification: verdicts.get(commit.sha) ?? null };
   }
 
   /** The commit as a patch file, straight from git. */
@@ -1063,12 +1019,7 @@ export class RepositoriesService {
     return Number(count.trim());
   }
 
-  /**
-   * Resolves what the caller asked for to a revision git can be handed. A
-   * branch and a commit sha are the same kind of thing to git, so both live at
-   * the same URL; `detached` says which one came back, because a sha has no
-   * moving tip and so is never worth indexing.
-   */
+  /** Resolves the requested branch or sha to a revision. `detached` marks a sha, which has no moving tip and so is never indexed. */
   private async openRepository({
     username,
     repo,
@@ -1089,9 +1040,7 @@ export class RepositoriesService {
     const directory = await this.storage.getRepoPath(repository.id);
     await this.materializer.materialize(repository.id, directory);
 
-    // Keep the contribution index warm while the objects are hot. The profile
-    // graph reads the index only, so rendering it never materializes anything
-    // itself. A no-op once the default tip is indexed.
+    // Keep the contribution index warm while the objects are hot. The profile graph reads the index only, so rendering it never materializes anything itself. A no-op once the default tip is indexed.
     await this.contributions.sync({
       repositoryId: repository.id,
       repoDirectory: directory,
@@ -1134,33 +1083,5 @@ function paginate<T>(
     page,
     hasMore,
     nextCursor: hasMore && last ? encodeCursor(keyOf(last)) : null,
-  };
-}
-
-function toCommitDTO(
-  commit: Commit,
-  verification?: CommitVerification,
-): CommitDTO {
-  return {
-    ...commit,
-    committedAt: commit.committedAt.toISOString(),
-    verification: verification ?? null,
-  };
-}
-
-function toCommitSummaryOf(commit: Commit): CommitSummaryDTO {
-  return {
-    sha: commit.sha,
-    message: commit.subject,
-    committedAt: commit.committedAt.toISOString(),
-  };
-}
-
-function toCommitSummary(commit?: PathCommit): CommitSummaryDTO | null {
-  if (!commit) return null;
-  return {
-    sha: commit.commitSha,
-    message: commit.subject,
-    committedAt: commit.committedAt.toISOString(),
   };
 }

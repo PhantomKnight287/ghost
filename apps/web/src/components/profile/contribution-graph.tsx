@@ -42,8 +42,7 @@ function formatDay(date: string) {
 export function ContributionGraph({ data }: { data: Contributions }) {
   const max = data.days.reduce((m, d) => Math.max(m, d.count), 0);
 
-  // Monday-first columns like GitHub: pad the first week so Jan 1 lands
-  // on its weekday row (getUTCDay 0=Sunday..6=Saturday).
+  // Monday-first columns like GitHub: pad the first week so Jan 1 lands on its weekday row (getUTCDay 0=Sunday..6=Saturday).
   const first = data.days[0];
   const pad = first
     ? (new Date(`${first.date}T00:00:00Z`).getUTCDay() + 6) % 7

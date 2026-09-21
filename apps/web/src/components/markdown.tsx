@@ -10,18 +10,13 @@ const SCHEMA = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
-    // `target` and `rel` are kept so a README can open a link in a new tab;
-    // the anchor component below is what makes `_blank` safe.
+    // `target` and `rel` are kept so a README can open a link in a new tab; the anchor component below is what makes `_blank` safe.
     a: [
       ...(defaultSchema.attributes?.a ?? []),
       ["target", "_blank", "_self", "_parent", "_top"],
       "rel",
     ],
-    // `align` on a cell is turned into `style="text-align:<value>"` after
-    // sanitizing, so an unconstrained value is a CSS injection: `align="right;
-    // position:fixed;inset:0"` becomes a full-page overlay. Pinning it to the
-    // four legal values closes that, here rather than downstream, because this
-    // is the last place the value is still an attribute.
+    // `align` becomes `style="text-align:<value>"` after sanitizing, so anything but the four legal values is a CSS injection. This is the last point where it is still an attribute.
     "*": [
       ...(defaultSchema.attributes?.["*"] ?? []).filter(
         (attribute) => attribute !== "align" && attribute !== "vAlign",
@@ -104,10 +99,7 @@ export function Markdown({
   );
 }
 
-/**
- * `rel` with `noopener noreferrer` added, keeping whatever the author wrote.
- * A `_blank` link hands the opener to the page it opens without it.
- */
+/** `rel` with `noopener noreferrer` added, keeping whatever the author wrote. A `_blank` link hands the opener to the page it opens without it. */
 function noopener(rel: string | undefined) {
   return [...new Set([...(rel ?? "").split(/\s+/), "noopener", "noreferrer"])]
     .filter(Boolean)

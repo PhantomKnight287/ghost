@@ -64,13 +64,9 @@ export const repository = pgTable(
 );
 
 /**
- * Denormalized "which commit last touched this path" for a single ref, so a
- * directory listing costs one indexed query instead of one `git log` per entry.
+ * Denormalized "which commit last touched this path" for a single ref, so a directory listing costs one indexed query instead of one `git log` per entry.
  *
- * Rows are keyed by path, and every ancestor directory of a changed file gets a
- * row too, so `src` carries the newest commit under `src/`. Paths deleted from
- * the tree keep their row; the read path joins against `ls-tree`, so they are
- * invisible until something prunes them.
+ * Keyed by path, with a row for every ancestor directory, so `src` carries the newest commit under `src/`. Deleted paths keep their row and are hidden by the join against `ls-tree`.
  */
 export const repositoryPathCommit = pgTable(
   "repository_path_commit",
@@ -88,11 +84,7 @@ export const repositoryPathCommit = pgTable(
   (t) => [primaryKey({ columns: [t.repositoryId, t.ref, t.path] })],
 );
 
-/**
- * How far `repository_path_commit` has been walked for a ref. A stored sha that
- * is still an ancestor of the tip means the next walk only has to cover the new
- * commits; anything else (force push, dropped objects) forces a full rebuild.
- */
+/** How far `repository_path_commit` has been walked for a ref. A stored sha still reachable from the tip means the next walk covers only new commits; anything else forces a rebuild. */
 export const repositoryRefIndex = pgTable(
   "repository_ref_index",
   {
@@ -122,11 +114,7 @@ export const repositoryLanguageStat = pgTable(
   (t) => [primaryKey({ columns: [t.repositoryId, t.ref, t.language] })],
 );
 
-/**
- * How far the language stats have been computed for a ref. A stored sha that is
- * still an ancestor of the tip lets the next sync apply only the changed blobs;
- * anything else forces a full `ls-tree` recount.
- */
+/** How far the language stats have been computed for a ref. A stored sha that is still an ancestor of the tip lets the next sync apply only the changed blobs; anything else forces a full `ls-tree` recount. */
 export const repositoryLanguageIndex = pgTable(
   "repository_language_index",
   {
@@ -144,15 +132,9 @@ export const repositoryLanguageIndex = pgTable(
 );
 
 /**
- * Daily commit counts per author on a repository's default branch, so the
- * profile contribution graph costs one indexed query instead of materializing
- * and walking every repository the user owns.
+ * Daily commit counts per author on a repository's default branch, so the profile contribution graph costs one indexed query instead of materializing and walking every repository the user owns.
  *
- * The grain is a git fact: emails are stored lowercased (`Alice@x.com` and
- * `alice@x.com` count as one author). `authorId` links that fact to an
- * account, resolved at sync time and nullable when the author has no account
- * (yet) - accounts and their emails change, history does not. Readers match on
- * both, so adding an email to an account never needs a reindex.
+ * One row per author email, lowercased. `authorId` is resolved at sync time and stays nullable, and readers match on both, so adding an email to an account never needs a reindex.
  */
 export const repositoryContribution = pgTable(
   "repository_contribution",
@@ -165,8 +147,7 @@ export const repositoryContribution = pgTable(
     day: date("day").notNull(),
     // Name from the author's newest indexed commit.
     authorName: text("author_name").notNull(),
-    // Linked account, if the author email matches one. Null for
-    // not-yet-registered authors; backfilled once they register.
+    // Linked account, if the author email matches one. Null for not-yet-registered authors; backfilled once they register.
     authorId: text("author_id").references(() => user.id, {
       onDelete: "set null",
     }),
@@ -175,12 +156,7 @@ export const repositoryContribution = pgTable(
   (t) => [primaryKey({ columns: [t.repositoryId, t.authorEmail, t.day] })],
 );
 
-/**
- * How far `repository_contribution` has been walked. One cursor per repository,
- * since only the default branch is indexed. A stored sha that is still an
- * ancestor of the default tip means the next sync only covers the new commits;
- * anything else (force push, dropped objects) forces a full rebuild.
- */
+/** How far `repository_contribution` has been walked. One cursor per repository, since only the default branch is indexed; an unreachable sha forces a rebuild. */
 export const repositoryContributionIndex = pgTable(
   "repository_contribution_index",
   {
