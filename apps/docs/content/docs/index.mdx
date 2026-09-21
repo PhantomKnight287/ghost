@@ -1,0 +1,38 @@
+---
+title: Ghost docs
+description: Self-hosted git. Push over HTTP, browse the code, open pull requests, review the diff, merge.
+---
+
+Ghost is a self-hosted git hosting platform. Push and pull over HTTP, browse
+trees and blobs, open pull requests across branches and forks, and track work
+in issues.
+
+## Signing your commits
+
+A commit records whoever the `user.email` setting says wrote it. Nothing stops
+anyone from setting that to your address. Signing a commit with a GPG key you
+control is what turns "this commit claims to be from you" into "this commit
+was made by whoever holds your key".
+
+Start here:
+
+<Cards>
+  <Card
+    href="/about-commit-signature-verification"
+    title="About commit signature verification"
+  >
+    What the Verified badge means, and what it does not.
+  </Card>
+  <Card href="/generating-a-gpg-key" title="Generating a GPG key">
+    Install GnuPG and create a key you can sign with.
+  </Card>
+  <Card
+    href="/adding-a-gpg-key-to-your-account"
+    title="Adding a key to your account"
+  >
+    Export the public half and paste it into your settings.
+  </Card>
+  <Card href="/telling-git-about-your-key" title="Telling git about your key">
+    Configure git to sign every commit you make.
+  </Card>
+</Cards>

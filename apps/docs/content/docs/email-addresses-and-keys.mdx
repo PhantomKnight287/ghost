@@ -1,0 +1,63 @@
+---
+title: Email addresses and keys
+description: Why Ghost ties a key to a verified address, and how to keep several addresses working.
+---
+
+Verification in Ghost asks two questions, not one:
+
+1. Does this signature check out against a key uploaded to an account?
+2. Is the commit's **author address** one that the key's owner has **verified**?
+
+Both have to be yes. Without the second, anyone could upload their own key,
+commit as `you@example.com`, and produce a commit that looked verified as you.
+The signature would be perfectly valid — just not evidence of anything about
+you.
+
+## Which addresses count
+
+- The address on your account (**Settings → Account**).
+- Any extra address you added *and confirmed* through its verification link.
+
+An address that has been added but not confirmed counts for nothing at all, by
+design: adding an address is a claim, and following the link in the mail sent to
+it is the proof.
+
+## Making a new address work end to end
+
+1. **Settings → Account → Email addresses**, add the address, follow the link
+   sent to it.
+2. Add the address to your key as a user id, if it is not on the key already:
+
+   ```bash
+   gpg --edit-key 3AA5C34371567BD2
+   gpg> adduid
+   gpg> save
+   ```
+3. Re-export the key and upload it again if the key was already on your
+   account — remove the old entry first, since a key id can only be on one
+   account once:
+
+   ```bash
+   gpg --armor --export 3AA5C34371567BD2
+   ```
+4. Set the address in the repositories that should use it:
+
+   ```bash
+   git config user.email "new@example.com"
+   ```
+
+## Commits you already pushed from that address
+
+Confirming an address also re-attributes past contributions made from it, so
+history you pushed before the address was known starts counting towards your
+profile. Signature badges are computed when the page is rendered, so previously
+unverified commits start reading as verified as soon as the key and the address
+line up — no re-push needed.
+
+## One key, several addresses
+
+A single key carrying several user ids is the simplest setup: one key to back
+up, one key id to remember, and every address you commit from verified against
+it. Separate keys per address work too, and are worth the extra bookkeeping if
+the machines are separate — a laptop that only ever does work commits does not
+need the key your personal commits depend on.

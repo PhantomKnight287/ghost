@@ -12,3 +12,7 @@ export const INTERNAL_API_URL = process.env.INTERNAL_API_URL ?? API_URL;
 /** Public origin of the web app, used to absolutize metadata URLs. */
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+/** Where the user guide is hosted; every "how do I" link points at it. */
+export const DOCS_URL =
+  process.env.NEXT_PUBLIC_DOCS_URL ?? "http://localhost:3003";

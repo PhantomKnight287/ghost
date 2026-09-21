@@ -134,6 +134,13 @@
       "when": 1789891013134,
       "tag": "0018_dry_maximus",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789969974441,
+      "tag": "0019_curly_spiral",
+      "breakpoints": true
     }
   ]
 }

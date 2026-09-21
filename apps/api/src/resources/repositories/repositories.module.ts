@@ -11,6 +11,7 @@ import { S3Service } from '../../services/s3/s3.service.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
+import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 
 @Module({
   controllers: [RepositoriesController],
@@ -26,6 +27,7 @@ import { RepositoryContributionService } from '../../services/git/contributions/
     BranchesService,
     RepositoryAccessService,
     RepositoryContributionService,
+    CommitVerificationService,
   ],
 })
 export class RepositoriesModule {}

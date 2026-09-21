@@ -23,6 +23,10 @@ import { RepositoryMaterializerService } from '../../services/git/materializer/r
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { runGit } from '../../services/git/exec/run-git.js';
+import {
+  type CommitVerification,
+  CommitVerificationService,
+} from '../../services/gpg/commit-verification.service.js';
 import { listTree } from '../../services/git/tree/list-tree.js';
 import {
   isSha,
@@ -94,6 +98,7 @@ export class RepositoriesService {
     private readonly access: RepositoryAccessService,
     private readonly wal: WalStoreService,
     private readonly contributions: RepositoryContributionService,
+    private readonly verification: CommitVerificationService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -677,12 +682,19 @@ export class RepositoriesService {
         : 0,
     ]);
 
+    const verdicts = await this.verification.verifyCommits({
+      gitDir: directory,
+      commits,
+    });
+
     return {
       ref,
       from: commits.length ? before + 1 : 0,
       to: before + commits.length,
       total,
-      commits: commits.map(toCommitDTO),
+      commits: commits.map((commit) =>
+        toCommitDTO(commit, verdicts.get(commit.sha)),
+      ),
       nextCursor,
     };
   }
@@ -709,7 +721,15 @@ export class RepositoriesService {
     const commit = await readCommit({ gitDir: directory, sha });
     if (!commit) throw new CommitNotFoundError(sha);
 
-    return { ...toCommitDTO(commit), files: commit.files };
+    const verdicts = await this.verification.verifyCommits({
+      gitDir: directory,
+      commits: [commit],
+    });
+
+    return {
+      ...toCommitDTO(commit, verdicts.get(commit.sha)),
+      files: commit.files,
+    };
   }
 
   /** The commit as a patch file, straight from git. */
@@ -1117,8 +1137,15 @@ function paginate<T>(
   };
 }
 
-function toCommitDTO(commit: Commit): CommitDTO {
-  return { ...commit, committedAt: commit.committedAt.toISOString() };
+function toCommitDTO(
+  commit: Commit,
+  verification?: CommitVerification,
+): CommitDTO {
+  return {
+    ...commit,
+    committedAt: commit.committedAt.toISOString(),
+    verification: verification ?? null,
+  };
 }
 
 function toCommitSummaryOf(commit: Commit): CommitSummaryDTO {

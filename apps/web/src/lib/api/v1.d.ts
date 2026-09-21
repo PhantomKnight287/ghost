@@ -828,6 +828,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gpg-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the signing keys on the signed-in account */
+        get: operations["GpgKeysController_list"];
+        put?: never;
+        /**
+         * Add a public key to the signed-in account
+         * @description Commits signed with it read as verified once the key carries an address this account has verified.
+         */
+        post: operations["GpgKeysController_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gpg-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a key
+         * @description Commits it signed stop reading as verified; nothing about the commits themselves changes.
+         */
+        delete: operations["GpgKeysController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/avatar": {
         parameters: {
             query?: never;
@@ -1059,6 +1100,14 @@ export interface components {
             /** @description Newest commit touching this file. */
             commit: components["schemas"]["CommitSummaryDTO"] | null;
         };
+        CommitVerificationDTO: {
+            /** @description True only when the signature checks out *and* the signing key belongs to an account that has verified the commit's author address. */
+            verified: boolean;
+            /** @description Why it reads the way it does, for a tooltip. */
+            reason: string;
+            /** @description Long key id the signature names, lowercase hex. */
+            keyId: string;
+        };
         CommitDTO: {
             /** @description Full 40-character commit sha. */
             sha: string;
@@ -1070,6 +1119,8 @@ export interface components {
             authorEmail: string;
             /** @description Committer timestamp, ISO 8601. */
             committedAt: string;
+            /** @description Signature status, or `null` when the commit carries none. */
+            verification: components["schemas"]["CommitVerificationDTO"] | null;
         };
         GetRepositoryCommitsResponseDTO: {
             /**
@@ -1113,6 +1164,8 @@ export interface components {
             authorEmail: string;
             /** @description Committer timestamp, ISO 8601. */
             committedAt: string;
+            /** @description Signature status, or `null` when the commit carries none. */
+            verification: components["schemas"]["CommitVerificationDTO"] | null;
             /** @description Paths this commit changed, against its first parent. */
             files: components["schemas"]["CommitFileDTO"][];
         };
@@ -1533,6 +1586,28 @@ export interface components {
         AddEmailDTO: {
             /** @description Address to add to the signed-in account */
             email: string;
+        };
+        GpgKeyDTO: {
+            id: string;
+            /** @description Long key id, lowercase hex. Signatures name this. */
+            keyId: string;
+            /** @description Full fingerprint, lowercase hex. */
+            fingerprint: string;
+            /** @description Addresses the key's user ids claim. */
+            emails: string[];
+            /** @description When the key was added, ISO 8601. */
+            createdAt: string;
+        };
+        ListGpgKeysResponseDTO: {
+            keys: components["schemas"]["GpgKeyDTO"][];
+        };
+        AddGpgKeyDTO: {
+            /**
+             * @description Armored OpenPGP public key, as `gpg --armor --export` prints it.
+             * @example -----BEGIN PGP PUBLIC KEY BLOCK-----
+             *     ...
+             */
+            publicKey: string;
         };
         UploadAvatarResponseDTO: {
             /**
@@ -3537,6 +3612,91 @@ export interface operations {
         };
     };
     EmailsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    GpgKeysController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListGpgKeysResponseDTO"];
+                };
+            };
+        };
+    };
+    GpgKeysController_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddGpgKeyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GpgKeyDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    GpgKeysController_remove: {
         parameters: {
             query?: never;
             header?: never;

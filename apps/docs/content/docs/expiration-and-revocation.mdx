@@ -1,0 +1,76 @@
+---
+title: Expiration and revocation
+description: Extend a key before it lapses, revoke one you no longer control, and know what happens to old commits.
+---
+
+## Expiry is not a disaster
+
+An expired key stops being usable for *new* signatures. Commits it signed while
+it was valid keep verifying, because verification judges the signature against
+the key as it was when the signature was made.
+
+Check what you have:
+
+```bash
+gpg --list-keys --keyid-format=long
+```
+
+`[expires: 2027-09-21]` on the `pub` line is the date to care about.
+
+## Extending a key
+
+An expiry date is metadata on the key, not a property of the key material, so
+it can be pushed back at any time — including after it has already lapsed:
+
+```bash
+gpg --edit-key 3AA5C34371567BD2
+gpg> expire        # choose a new period for the primary key
+gpg> key 1         # select the first subkey
+gpg> expire        # subkeys expire separately
+gpg> save
+```
+
+Then re-upload the key to Ghost so it holds the new dates: remove the old entry
+under **Settings → Security → GPG keys**, export again with
+`gpg --armor --export`, and add it back.
+
+## Revoking a key
+
+Revoke when the private key is lost, exposed, or on a machine you no longer
+control. Revocation is permanent, and unlike expiry it says "this key was never
+to be trusted from here on", not "this key aged out".
+
+```bash
+gpg --output revoke.asc --gen-revoke 3AA5C34371567BD2
+gpg --import revoke.asc
+```
+
+Publish the revocation wherever the key was published — a keyserver, your
+website, your team's channel. A revocation that nobody imports changes nothing
+for them.
+
+<Callout type="warn">
+Generate the revocation certificate when you generate the key, not when you
+need it. If the private key is already lost, you can no longer make one.
+</Callout>
+
+## What Ghost does with a revoked key
+
+Ghost refuses to accept a revoked or already expired key at upload time. It does
+not re-check the key's status afterwards: a key that is revoked later stays on
+the account until it is removed.
+
+So revoking is not by itself enough here. **Remove the key from your account**
+under **Settings → Security → GPG keys**. That is what makes its commits stop
+reading as verified on this instance — immediately, with no effect on the
+commits themselves.
+
+## If a key was compromised
+
+1. Remove it from your Ghost account, so nothing it signs reads as verified.
+2. Revoke it and publish the revocation, so it stops being trusted elsewhere.
+3. Generate a new key, and add it to your account.
+4. Update `user.signingkey` everywhere it is set — check `~/.gitconfig`, any
+   conditional includes, and CI configuration.
+5. Treat commits signed by the old key after the compromise as unproven, even
+   the ones that still show a badge somewhere.

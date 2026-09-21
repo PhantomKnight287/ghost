@@ -1,0 +1,87 @@
+---
+title: Signing commits and tags
+description: Sign individual commits, rewrite history so it is signed, and check the result.
+---
+
+With `commit.gpgsign true` set, every `git commit` is signed and there is
+nothing else to do. The commands below are for the cases where it is not set,
+or where history needs to be re-signed.
+
+## One commit
+
+```bash
+git commit -S -m "your message"
+```
+
+`--no-gpg-sign` is the inverse, for when signing is on globally and you want
+this one commit unsigned.
+
+## Tags
+
+```bash
+git tag -s v1.0.0 -m "release 1.0.0"
+git tag -v v1.0.0
+```
+
+Ghost does not display a badge for tags, but the signature is stored in the tag
+object and `git tag -v` checks it for anyone who clones.
+
+## Check a signature locally
+
+```bash
+git log --show-signature -1
+git verify-commit HEAD
+git log --pretty="%h %G? %GS %s" -5
+```
+
+`%G?` prints one character per commit: `G` good, `B` bad, `U` good with
+unknown trust, `N` none. That is your own gpg keyring's opinion. Ghost's badge
+is a separate judgement made against the keys uploaded to the instance, so the
+two can differ — most often when the key is in your keyring but not on your
+account.
+
+## Signing commits you already made
+
+Rewriting history changes every sha involved, so the branch has to be
+force-pushed and anyone else working on it has to reset. Do this on your own
+branches, not on shared ones.
+
+The last commit:
+
+```bash
+git commit --amend --no-edit -S
+```
+
+The last ten commits, leaving their messages and authorship alone:
+
+```bash
+git rebase --exec 'git commit --amend --no-edit -S' -i HEAD~10
+```
+
+Everything on the current branch that is not on `main`:
+
+```bash
+git rebase --exec 'git commit --amend --no-edit -S' main
+```
+
+Then:
+
+```bash
+git push --force-with-lease
+```
+
+`--force-with-lease` refuses the push if the remote moved since you last
+fetched, which is the difference between rewriting your own work and throwing
+away someone else's.
+
+## What signing does not cover
+
+- **Merge commits made on the server.** Merging a pull request from the Ghost
+  web UI creates the merge commit on the server, which has no key. It carries
+  no badge. Merging locally and pushing gives you a signed merge commit.
+- **Rebases and cherry-picks done by other tools.** Anything that rewrites a
+  commit invalidates its old signature; the rewriting tool has to sign again,
+  and most do not unless told to.
+- **Authorship.** A signature proves who signed. The `author` field is still
+  whatever it says, which is why Ghost also requires the author address to be
+  one the key's owner verified.

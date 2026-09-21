@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FileDiffs } from "@/components/diffs/file-diffs";
+import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { createServerClient } from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
@@ -28,6 +29,7 @@ export default async function RepositoryCommitPage({
         <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-sm">
           <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" />
           <span className="truncate font-medium">{commit.data.subject}</span>
+          <CommitVerificationBadge verification={commit.data.verification} />
           <Link
             href={`/${username}/${repo}/tree/${commit.data.sha}`}
             className="ml-auto shrink-0 text-xs text-muted-foreground hover:underline"

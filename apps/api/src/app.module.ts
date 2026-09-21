@@ -15,6 +15,7 @@ import {
 } from './mail/mail.module.js';
 import { MailService } from './mail/mail.service.js';
 import { EmailsModule } from './resources/emails/emails.module.js';
+import { GpgKeysModule } from './resources/gpg-keys/gpg-keys.module.js';
 import { IssuesModule } from './resources/issues/issues.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
@@ -73,6 +74,7 @@ import { UsersService } from './services/users/users.service.js';
     PullRequestsModule,
     IssuesModule,
     EmailsModule,
+    GpgKeysModule,
     GitModule,
     UserModule,
   ],

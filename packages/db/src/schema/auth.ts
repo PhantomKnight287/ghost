@@ -284,6 +284,7 @@ export const userEmailRelations = relations(userEmail, ({ one }) => ({
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   emails: many(userEmail),
+  gpgKeys: many(userGpgKey),
   accounts: many(account),
   teamMembers: many(teamMember),
   members: many(member),
@@ -358,6 +359,35 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
   }),
   user: one(user, {
     fields: [invitation.inviterId],
+    references: [user.id],
+  }),
+}));
+
+/**
+ * OpenPGP public keys an account uploads so its signed commits can be shown as verified.
+ */
+export const userGpgKey = pgTable(
+  "user_gpg_key",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // Long key id of the primary key, lowercase hex.
+    keyId: text("key_id").notNull().unique(),
+    fingerprint: text("fingerprint").notNull().unique(),
+    // Armored public key, exactly as it was uploaded.
+    publicKey: text("public_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("user_gpg_key_user_id_idx").on(table.userId)],
+);
+
+export const userGpgKeyRelations = relations(userGpgKey, ({ one }) => ({
+  user: one(user, {
+    fields: [userGpgKey.userId],
     references: [user.id],
   }),
 }));

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
+import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import { createServerClient } from "@/lib/api/server";
 
 export default async function PullRequestCommitsPage({
@@ -55,6 +56,7 @@ export default async function PullRequestCommitsPage({
                   <FromNowHoverCard date={commit.committedAt} />
                 </p>
               </div>
+              <CommitVerificationBadge verification={commit.verification} />
               <Link
                 href={`/${head.username}/${head.slug}/commit/${commit.sha}`}
                 className="shrink-0 font-mono text-xs text-muted-foreground hover:underline"

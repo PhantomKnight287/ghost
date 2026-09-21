@@ -95,8 +95,9 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # Baked into the browser bundle, so it has to be the host's URL.
+        # Baked into the browser bundle, so they have to be the host's URLs.
         NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_DOCS_URL: http://localhost:3003
     restart: unless-stopped
 
     environment:
@@ -105,6 +106,20 @@ services:
       INTERNAL_API_URL: http://api:3001
     ports:
       - "3000:3000"
+
+  docs:
+    build:
+      context: .
+      dockerfile: apps/docs/Dockerfile
+      args:
+        # Both are baked into the bundle, so they have to be the host's URLs.
+        NEXT_PUBLIC_DOCS_URL: http://localhost:3003
+        NEXT_PUBLIC_WEB_APP_URL: http://localhost:3000
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+    ports:
+      - "3003:3003"
 
 volumes:
   postgres:

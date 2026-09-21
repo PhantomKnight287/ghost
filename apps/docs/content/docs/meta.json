@@ -1,0 +1,15 @@
+{
+  "title": "Ghost",
+  "pages": [
+    "index",
+    "---Signing commits---",
+    "about-commit-signature-verification",
+    "generating-a-gpg-key",
+    "adding-a-gpg-key-to-your-account",
+    "telling-git-about-your-key",
+    "signing-commits-and-tags",
+    "email-addresses-and-keys",
+    "expiration-and-revocation",
+    "troubleshooting"
+  ]
+}

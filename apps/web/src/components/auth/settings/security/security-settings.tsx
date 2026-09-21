@@ -4,6 +4,7 @@ import { useAuth } from "@better-auth-ui/react";
 import { cn } from "@/lib/utils";
 import { ActiveSessions } from "./active-sessions";
 import { ChangePassword } from "./change-password";
+import { GpgKeys } from "./gpg-keys";
 import { LinkedAccounts } from "./linked-accounts";
 
 export type SecuritySettingsProps = {
@@ -26,6 +27,7 @@ export function SecuritySettings({ className }: SecuritySettingsProps) {
     <div className={cn("flex w-full flex-col gap-4 md:gap-6", className)}>
       {emailAndPassword?.enabled && <ChangePassword />}
       {!!socialProviders?.length && <LinkedAccounts />}
+      <GpgKeys />
       <ActiveSessions />
       {plugins.flatMap(
         (plugin) =>

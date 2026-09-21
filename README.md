@@ -47,6 +47,7 @@ Split diff, computed from the merge base rather than the branch tips.
 - Pull requests across branches and across forks, with a real merge commit
 - Comments with markdown, editable title and description
 - Issues with comments, timeline events, labels, assignees, search and filters
+- GPG-signed commits shown as verified, against keys an account uploads
 - Accounts, sessions, organizations, API keys (better-auth)
 
 Not built yet: webhooks, CI.
@@ -89,8 +90,20 @@ git push -u origin main
 ```
 apps/api      NestJS API and the git HTTP transport
 apps/web      Next.js frontend
+apps/docs     Fumadocs user guide, e.g. how to sign commits (port 3003)
 packages/db   Drizzle schema and migrations
 docs/         Design decisions, one file each
+```
+
+## User guide
+
+[`apps/docs`](apps/docs) is the guide for people using an instance: what the
+Verified badge on a commit means, how to generate a GPG key, add it to an
+account, configure git to sign, and what each failure message means. Run it
+with `bun run dev` alongside everything else, or on its own:
+
+```bash
+bun run --filter @ghost/docs dev
 ```
 
 ## Design decisions

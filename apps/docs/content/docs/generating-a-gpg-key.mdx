@@ -1,0 +1,131 @@
+---
+title: Generating a GPG key
+description: Install GnuPG and create a key pair you can sign commits with.
+---
+
+You need GnuPG and a key pair. The public half goes to Ghost; the private half
+never leaves your machine.
+
+## Check for an existing key
+
+You may already have one:
+
+```bash
+gpg --list-secret-keys --keyid-format=long
+```
+
+Output looks like this:
+
+```
+sec   ed25519/3AA5C34371567BD2 2026-09-21 [SC]
+      D520C2ADB53D3B9E1FD4253CE78877E564CAAB55
+uid                 [ultimate] Your Name <you@example.com>
+ssb   cv25519/4BB6D45482678BE3 2026-09-21 [E]
+```
+
+`3AA5C34371567BD2` is the **long key id**; the line under `sec` is the
+**fingerprint**. If a key here lists an address you use for commits, skip to
+[Adding a GPG key to your account](/adding-a-gpg-key-to-your-account).
+
+## Install GnuPG
+
+<Tabs items={["macOS", "Debian/Ubuntu", "Fedora", "Arch", "Windows"]}>
+  <Tab value="macOS">
+```bash
+brew install gnupg pinentry-mac
+```
+
+`pinentry-mac` is what prompts you for your passphrase. Point gpg-agent at it:
+
+```bash
+echo "pinentry-program $(brew --prefix)/bin/pinentry-mac" >> ~/.gnupg/gpg-agent.conf
+gpgconf --kill gpg-agent
+```
+  </Tab>
+  <Tab value="Debian/Ubuntu">
+```bash
+sudo apt install gnupg
+```
+  </Tab>
+  <Tab value="Fedora">
+```bash
+sudo dnf install gnupg2
+```
+  </Tab>
+  <Tab value="Arch">
+```bash
+sudo pacman -S gnupg
+```
+  </Tab>
+  <Tab value="Windows">
+Install [Gpg4win](https://gpg4win.org/), or use the GnuPG that ships with Git
+for Windows. In Git Bash, `gpg --version` should print 2.x.
+  </Tab>
+</Tabs>
+
+## Generate the key
+
+```bash
+gpg --full-generate-key
+```
+
+Answer the prompts:
+
+1. **Key type** — pick `(9) ECC (sign and encrypt)` and then `Curve 25519`.
+   Ed25519 keys are small and fast. If you need compatibility with old tooling,
+   pick `(1) RSA and RSA` with a size of `4096` instead.
+2. **Expiry** — `1y` is a good default. An expiring key is not a problem:
+   see [Expiration and revocation](/expiration-and-revocation).
+3. **Real name** — the name you want on your commits.
+4. **Email address** — an address you have verified on your Ghost account.
+   This matters: a key whose user ids do not include one of your verified
+   addresses is refused at upload.
+5. **Passphrase** — use one. The private key on disk is only as good as the
+   passphrase protecting it.
+
+The same thing in one non-interactive command:
+
+```bash
+gpg --batch --quick-generate-key "Your Name <you@example.com>" ed25519 sign 1y
+```
+
+## Note the key id
+
+```bash
+gpg --list-secret-keys --keyid-format=long
+```
+
+Take the id after `ed25519/` (or `rsa4096/`) on the `sec` line. Every later
+step uses it. Store the fingerprint somewhere too — it is what you compare
+against when someone asks you to confirm your key over another channel.
+
+## Add more addresses to one key
+
+One key can carry several addresses, which is the usual answer to "I commit
+from work and from home":
+
+```bash
+gpg --edit-key 3AA5C34371567BD2
+gpg> adduid
+gpg> save
+```
+
+Only addresses you have verified on your Ghost account count for verification.
+
+## Back the key up
+
+Losing the private key means you can no longer sign, and losing the revocation
+certificate means you cannot tell anyone the key is dead. Keep both somewhere
+offline:
+
+```bash
+gpg --export-secret-keys --armor 3AA5C34371567BD2 > private-key.asc
+gpg --output revoke.asc --gen-revoke 3AA5C34371567BD2
+```
+
+<Callout type="warn">
+Both files can be used as you. Treat them like the passphrase itself: offline,
+encrypted, not in a repository.
+</Callout>
+
+Next: [Adding a GPG key to your account](/adding-a-gpg-key-to-your-account).

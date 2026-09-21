@@ -1,0 +1,113 @@
+---
+title: Troubleshooting
+description: The errors gpg, git and Ghost produce when signing is not quite set up, and what each one means.
+---
+
+## `gpg failed to sign the data`
+
+The commit was refused because gpg could not produce a signature. Run gpg on
+its own to see the real error, which git tends to swallow:
+
+```bash
+echo test | gpg --clearsign
+```
+
+### `No secret key`
+
+`user.signingkey` names a key whose private half is not in this keyring — a
+typo, or a key that lives on another machine. Compare against:
+
+```bash
+gpg --list-secret-keys --keyid-format=long
+```
+
+Note `--list-secret-keys`: a key that shows up under `--list-keys` may be a
+public key you imported, which cannot sign.
+
+### `Inappropriate ioctl for device`
+
+gpg wants a passphrase but has no terminal to ask on. Tell it which one to use:
+
+```bash
+export GPG_TTY=$(tty)
+```
+
+Put that line in `~/.zshrc` or `~/.bashrc`. For a headless or scripted context,
+add `pinentry-mode loopback` to `~/.gnupg/gpg.conf`.
+
+### `No pinentry` or no passphrase prompt on macOS
+
+Install and register the graphical prompt:
+
+```bash
+brew install pinentry-mac
+echo "pinentry-program $(brew --prefix)/bin/pinentry-mac" >> ~/.gnupg/gpg-agent.conf
+gpgconf --kill gpg-agent
+```
+
+### `No agent running`
+
+Start it, then retry:
+
+```bash
+gpgconf --launch gpg-agent
+```
+
+If that fails with `File name too long`, `GNUPGHOME` is set to a deeply nested
+path. The agent's socket path has a hard length limit; move `GNUPGHOME`
+somewhere short, or set `%Assuan%` socket redirection in `gpg-agent.conf`.
+
+### `secret key not available` inside an editor or IDE
+
+The editor's environment differs from your shell's — usually a missing
+`GPG_TTY` or a different `PATH` that finds another gpg. Launch the editor from
+the shell where signing works, or set `gpg.program` to an absolute path.
+
+## The commit is signed but Ghost says Unverified
+
+Hover the badge; the reason names the failure.
+
+| Reason | Cause | Fix |
+| --- | --- | --- |
+| Signed with a key no Ghost account has uploaded | The public key is not on any account on this instance | [Add the key](/adding-a-gpg-key-to-your-account) |
+| The signing key is not linked to *address* | The commit's author address is not verified for the key's owner | [Verify the address](/email-addresses-and-keys), then set `user.email` to it |
+| Signature does not match the commit | The commit was rewritten after signing, or the signature is for other content | Re-sign: `git commit --amend --no-edit -S` |
+
+Check which key actually signed, and which address the commit claims:
+
+```bash
+git log --pretty="%h %an <%ae> %GK" -5
+```
+
+`%GK` is the key the signature names. It must be a key on your account, and
+`%ae` must be one of your verified addresses.
+
+## No badge at all on a commit I signed
+
+- **You signed with SSH.** Check `git config gpg.format`. If it says `ssh`,
+  Ghost reads nothing: only OpenPGP signatures are verified. Unset it to go
+  back to gpg:
+
+  ```bash
+  git config --global --unset gpg.format
+  ```
+- **The commit was rewritten after you signed it.** A rebase, squash merge or
+  `--amend` by any tool drops the old signature.
+- **It is a merge commit Ghost made.** Pull requests merged from the web are
+  merged on the server, which has no key.
+
+## Ghost refuses my key
+
+| Message | Cause |
+| --- | --- |
+| That is not a usable public key | The armor is malformed, truncated, or is a private key block |
+| the key is revoked / the key has expired | Extend or replace the key first — see [Expiration and revocation](/expiration-and-revocation) |
+| Verify one of the key's addresses on this account first | None of the key's user ids is a verified address of yours |
+| The key carries no email address | The key has no user id with an address; add one with `gpg --edit-key` then `adduid` |
+| That key is already on an account | The key id is in use — remove it from the account that holds it, or use a different key |
+
+## Everything works locally but not in CI
+
+CI runs as a different user with a different keyring. Either do not sign there,
+or import a key made specifically for CI, keep its passphrase in a secret, and
+use `pinentry-mode loopback`. Never reuse the key from your laptop.

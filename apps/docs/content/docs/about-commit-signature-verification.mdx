@@ -1,0 +1,70 @@
+---
+title: About commit signature verification
+description: What the Verified badge means on a Ghost commit, and what it does not.
+---
+
+Git takes the author of a commit from your local `user.name` and `user.email`
+settings. They are ordinary configuration values, so anyone can write a commit
+that claims to come from your address. A signature is the only thing that ties
+a commit to a key rather than to a claim.
+
+When you sign a commit, git embeds a detached OpenPGP signature in the commit
+object itself. Because the commit's sha covers everything the object holds,
+that signature cannot be moved to a different commit, and the commit cannot be
+edited without breaking it.
+
+## What Ghost shows
+
+Ghost checks signatures when it renders a commit, not when you push. Every
+commit list, commit page and pull request commit list carries one of three
+states:
+
+| Badge | Meaning |
+| --- | --- |
+| **Verified** | The signature is valid, the key that made it has been uploaded to a Ghost account, and the commit's author address is one that account has verified. |
+| **Unverified** | The commit is signed, but something in that chain does not hold. Hover the badge for the reason. |
+| *No badge* | The commit carries no signature at all. This is the ordinary case and is not a warning. |
+
+The tooltip also names the long key id the signature was made with, so you can
+compare it against `gpg --list-keys --keyid-format long`.
+
+## Why a valid signature can still read as unverified
+
+Three separate things have to be true, and the badge tells you which one failed:
+
+- **"Signed with a key no Ghost account has uploaded"** — nobody on this
+  instance has added that public key, so there is nothing to check against.
+  See [Adding a GPG key to your account](/adding-a-gpg-key-to-your-account).
+- **"The signing key is not linked to *address*"** — the signature is good, but
+  the commit's author address is not one the key's owner has verified. Holding
+  a key proves who signed; it never proves who authored. See
+  [Email addresses and keys](/email-addresses-and-keys).
+- **"Signature does not match the commit"** — the commit was altered after it
+  was signed, or the signature belongs to different content.
+
+## Checks that happen when you upload, not when you read
+
+A key is refused at upload time if it is revoked or already expired, and if
+none of its user ids matches an address you have verified.
+
+After that, verification judges the signature against the key as it was when
+the signature was made. A key that expires later does not retroactively
+un-verify the commits it signed while it was valid — which is what you want,
+since the commit really was signed by you at the time.
+
+Removing a key from your account does un-verify its commits immediately. The
+commits themselves are untouched; Ghost simply no longer has a key to check
+them against.
+
+## What Ghost does not do
+
+- **SSH signatures are not verified.** Git can sign with an SSH key
+  (`gpg.format ssh`). Ghost reads OpenPGP signatures only, so an SSH-signed
+  commit shows no badge, exactly like an unsigned one.
+- **Tag signatures are not shown.** Signing tags still works and is still worth
+  doing; Ghost just does not surface a badge for them yet.
+- **Merge commits Ghost creates are unsigned.** When you merge a pull request
+  from the web, the merge commit is made on the server with no key, so it
+  carries no badge.
+- **Nothing is enforced.** Unsigned commits push and merge normally. There is
+  no branch protection rule requiring signatures.

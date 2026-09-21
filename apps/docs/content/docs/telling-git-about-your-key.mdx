@@ -1,0 +1,90 @@
+---
+title: Telling git about your key
+description: Configure git to sign with the right key, for one repository or for everything you do.
+---
+
+Git needs to know three things: which key to sign with, that you want commits
+signed, and where the `gpg` binary lives.
+
+## Set the signing key
+
+```bash
+git config --global user.signingkey 3AA5C34371567BD2
+```
+
+The value can be the long key id or the full fingerprint. The fingerprint is
+unambiguous, so prefer it if you have several keys.
+
+Your commit address has to match the key, so check it while you are here:
+
+```bash
+git config --global user.email "you@example.com"
+git config --global user.name "Your Name"
+```
+
+Use an address you have **verified** on Ghost. A signature made by your key over
+a commit authored from an unrelated address reads as unverified, by design.
+
+## Sign every commit
+
+```bash
+git config --global commit.gpgsign true
+```
+
+Per repository instead of globally — useful when only some remotes care:
+
+```bash
+git config commit.gpgsign true
+```
+
+To sign tags as well:
+
+```bash
+git config --global tag.gpgsign true
+```
+
+## Point git at gpg
+
+Usually unnecessary, but needed when `gpg` is not on the path git sees, or when
+`gpg` is GnuPG 1.x and `gpg2` is what you want:
+
+```bash
+git config --global gpg.program "$(which gpg)"
+```
+
+## Different keys per directory
+
+If work and personal repositories need different identities, use a conditional
+include rather than remembering to override by hand:
+
+```ini title="~/.gitconfig"
+[includeIf "gitdir:~/work/"]
+    path = ~/.gitconfig-work
+```
+
+```ini title="~/.gitconfig-work"
+[user]
+    email = you@work.example
+    signingkey = 1A2B3C4D5E6F7A8B
+[commit]
+    gpgsign = true
+```
+
+## Confirm the configuration
+
+```bash
+git config --get-regexp '^(user|commit|tag|gpg)\.' 
+```
+
+Then make a test commit and read it back:
+
+```bash
+git commit --allow-empty -m "signing test"
+git log --show-signature -1
+```
+
+`Good signature from "Your Name <you@example.com>"` means git and gpg agree.
+Whether *Ghost* agrees additionally depends on the key being on your account
+and the address being verified.
+
+Next: [Signing commits and tags](/signing-commits-and-tags).

@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 # Built from the repository root:
-#   docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=... .
+#   docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=... \
+#     --build-arg NEXT_PUBLIC_DOCS_URL=... .
 
 FROM oven/bun:1.3.14 AS deps
 WORKDIR /app
@@ -28,7 +29,9 @@ COPY --from=shared /app/packages/languages/dist packages/languages/dist
 # NEXT_PUBLIC_* is inlined at build time, so the browser's API origin has to be
 # known here, not at boot.
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_DOCS_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_DOCS_URL=$NEXT_PUBLIC_DOCS_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PATH=/app/node_modules/.bin:/app/apps/web/node_modules/.bin:$PATH
 # `src/lib/api/v1.d.ts` is committed, so the openapi codegen step is skipped.

@@ -51,6 +51,25 @@ export class GetRepositoryCommitsQueryDTO {
   limit?: number;
 }
 
+export class CommitVerificationDTO {
+  @ApiProperty({
+    description:
+      'True only when the signature checks out *and* the signing key belongs ' +
+      "to an account that has verified the commit's author address.",
+  })
+  verified: boolean;
+
+  @ApiProperty({ description: 'Why it reads the way it does, for a tooltip.' })
+  @IsString()
+  reason: string;
+
+  @ApiProperty({
+    description: 'Long key id the signature names, lowercase hex.',
+  })
+  @IsString()
+  keyId: string;
+}
+
 export class CommitDTO {
   @ApiProperty({ description: 'Full 40-character commit sha.' })
   @IsString()
@@ -79,6 +98,16 @@ export class CommitDTO {
   @ApiProperty({ description: 'Committer timestamp, ISO 8601.' })
   @IsISO8601()
   committedAt: string;
+
+  @ApiProperty({
+    type: CommitVerificationDTO,
+    nullable: true,
+    description: 'Signature status, or `null` when the commit carries none.',
+  })
+  @ValidateNested()
+  @Type(() => CommitVerificationDTO)
+  @IsOptional()
+  verification: CommitVerificationDTO | null;
 }
 
 export class GetRepositoryCommitsResponseDTO {

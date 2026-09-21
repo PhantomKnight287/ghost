@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GitCommitHorizontal } from "lucide-react";
 
+import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import { buttonVariants } from "@/components/ui/button";
 import { createServerClient } from "@/lib/api/server";
 import { FromNowHoverCard } from "@/components/from-now-card";
@@ -75,6 +76,7 @@ export default async function RepositoryCommitsPage({
                     <FromNowHoverCard date={commit.committedAt} />
                   </p>
                 </div>
+                <CommitVerificationBadge verification={commit.verification} />
                 <Link
                   className="hover:underline"
                   href={`/${username}/${repo}/commit/${commit.sha}`}

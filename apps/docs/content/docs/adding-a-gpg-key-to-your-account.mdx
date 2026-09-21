@@ -1,0 +1,77 @@
+---
+title: Adding a GPG key to your account
+description: Export the public half of your key and paste it into your Ghost settings.
+---
+
+Ghost only ever sees the **public** half of your key. Exporting it is safe;
+exporting the secret half is not.
+
+## Export the public key
+
+```bash
+gpg --armor --export 3AA5C34371567BD2
+```
+
+That prints a block starting with `-----BEGIN PGP PUBLIC KEY BLOCK-----` and
+ending with `-----END PGP PUBLIC KEY BLOCK-----`. Copy all of it, both marker
+lines included.
+
+Straight to the clipboard:
+
+<Tabs items={["macOS", "Linux", "Windows"]}>
+  <Tab value="macOS">
+```bash
+gpg --armor --export 3AA5C34371567BD2 | pbcopy
+```
+  </Tab>
+  <Tab value="Linux">
+```bash
+gpg --armor --export 3AA5C34371567BD2 | xclip -selection clipboard
+```
+  </Tab>
+  <Tab value="Windows">
+```bash
+gpg --armor --export 3AA5C34371567BD2 | clip
+```
+  </Tab>
+</Tabs>
+
+<Callout type="warn">
+`--export-secret-keys` is a different flag and exports your private key. If the
+block you copied says `PRIVATE KEY BLOCK`, you exported the wrong half. Start
+again, and treat the key you just handled as exposed if it left your machine.
+</Callout>
+
+## Add it in Ghost
+
+1. Go to **Settings → Security**.
+2. Find the **GPG keys** card.
+3. Paste the armored block into the box.
+4. Choose **Add key**.
+
+The key then appears in the list with its long key id and the addresses its
+user ids carry.
+
+## Requirements for a key to be accepted
+
+The upload is refused when:
+
+- The text is not an armored OpenPGP **public** key.
+- The key is **revoked**, or has **already expired**.
+- None of the key's user id addresses is an address you have **verified** on
+  your account. Add and verify the address first under **Settings → Account →
+  Email addresses**, then upload again. See
+  [Email addresses and keys](/email-addresses-and-keys).
+- The key already belongs to an account. A key id identifies one account only,
+  so the same key cannot be shared between two of them.
+
+## Removing a key
+
+Use **Remove** on the key's row. Commits it signed immediately stop reading as
+verified; the commits themselves are not changed in any way. Remove a key when
+it is compromised, when you no longer control it, or when you simply retired
+it — and if it was compromised, also revoke it, which is what tells everyone
+outside this instance. See
+[Expiration and revocation](/expiration-and-revocation).
+
+Next: [Telling git about your key](/telling-git-about-your-key).

@@ -3546,6 +3546,114 @@
         ]
       }
     },
+    "/api/gpg-keys": {
+      "get": {
+        "operationId": "GpgKeysController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListGpgKeysResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the signing keys on the signed-in account",
+        "tags": [
+          "GPG keys"
+        ]
+      },
+      "post": {
+        "description": "Commits signed with it read as verified once the key carries an address this account has verified.",
+        "operationId": "GpgKeysController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGpgKeyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GpgKeyDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Add a public key to the signed-in account",
+        "tags": [
+          "GPG keys"
+        ]
+      }
+    },
+    "/api/gpg-keys/{id}": {
+      "delete": {
+        "description": "Commits it signed stop reading as verified; nothing about the commits themselves changes.",
+        "operationId": "GpgKeysController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove a key",
+        "tags": [
+          "GPG keys"
+        ]
+      }
+    },
     "/api/users/avatar": {
       "put": {
         "description": "Takes the raw image bytes. Returns the URL to store on the user; writing `user.image` stays with Better Auth’s `update-user`.",
@@ -4227,6 +4335,28 @@
           "commit"
         ]
       },
+      "CommitVerificationDTO": {
+        "type": "object",
+        "properties": {
+          "verified": {
+            "type": "boolean",
+            "description": "True only when the signature checks out *and* the signing key belongs to an account that has verified the commit's author address."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it reads the way it does, for a tooltip."
+          },
+          "keyId": {
+            "type": "string",
+            "description": "Long key id the signature names, lowercase hex."
+          }
+        },
+        "required": [
+          "verified",
+          "reason",
+          "keyId"
+        ]
+      },
       "CommitDTO": {
         "type": "object",
         "properties": {
@@ -4251,6 +4381,16 @@
           "committedAt": {
             "type": "string",
             "description": "Committer timestamp, ISO 8601."
+          },
+          "verification": {
+            "nullable": true,
+            "description": "Signature status, or `null` when the commit carries none.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommitVerificationDTO"
+              }
+            ]
           }
         },
         "required": [
@@ -4259,7 +4399,8 @@
           "body",
           "authorName",
           "authorEmail",
-          "committedAt"
+          "committedAt",
+          "verification"
         ]
       },
       "GetRepositoryCommitsResponseDTO": {
@@ -4348,6 +4489,16 @@
             "type": "string",
             "description": "Committer timestamp, ISO 8601."
           },
+          "verification": {
+            "nullable": true,
+            "description": "Signature status, or `null` when the commit carries none.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommitVerificationDTO"
+              }
+            ]
+          },
           "files": {
             "description": "Paths this commit changed, against its first parent.",
             "type": "array",
@@ -4363,6 +4514,7 @@
           "authorName",
           "authorEmail",
           "committedAt",
+          "verification",
           "files"
         ]
       },
@@ -5681,6 +5833,68 @@
         },
         "required": [
           "email"
+        ]
+      },
+      "GpgKeyDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "keyId": {
+            "type": "string",
+            "description": "Long key id, lowercase hex. Signatures name this."
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "Full fingerprint, lowercase hex."
+          },
+          "emails": {
+            "description": "Addresses the key's user ids claim.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the key was added, ISO 8601."
+          }
+        },
+        "required": [
+          "id",
+          "keyId",
+          "fingerprint",
+          "emails",
+          "createdAt"
+        ]
+      },
+      "ListGpgKeysResponseDTO": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GpgKeyDTO"
+            }
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      },
+      "AddGpgKeyDTO": {
+        "type": "object",
+        "properties": {
+          "publicKey": {
+            "type": "string",
+            "description": "Armored OpenPGP public key, as `gpg --armor --export` prints it.",
+            "example": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...",
+            "maxLength": 65536
+          }
+        },
+        "required": [
+          "publicKey"
         ]
       },
       "UploadAvatarResponseDTO": {

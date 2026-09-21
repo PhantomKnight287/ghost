@@ -7,6 +7,7 @@ import { and, asc, count, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { listCommits } from '../../services/git/commits/list-commits.js';
+import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import {
   listDiffFiles,
   mergeBase,
@@ -62,6 +63,7 @@ export class PullRequestsService {
     private readonly storage: RepositoryStorageService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
+    private readonly verification: CommitVerificationService,
   ) {}
 
   async createPullRequest({
@@ -310,10 +312,19 @@ export class PullRequestsService {
       limit,
     });
 
+    // A fork's commits live in the other repository's objects, which is why
+    // the lending env has to come along for the signatures to be readable.
+    const verdicts = await this.verification.verifyCommits({
+      gitDir: git.baseDirectory,
+      env: git.env,
+      commits,
+    });
+
     return {
       commits: commits.map((commit) => ({
         ...commit,
         committedAt: commit.committedAt.toISOString(),
+        verification: verdicts.get(commit.sha) ?? null,
       })),
       total: await this.countRange(git, `${git.mergeBase}..${git.headSha}`),
       nextCursor,
