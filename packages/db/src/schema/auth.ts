@@ -282,6 +282,7 @@ export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   emails: many(userEmail),
   gpgKeys: many(userGpgKey),
+  sshKeys: many(userSshKey),
   accounts: many(account),
   teamMembers: many(teamMember),
   members: many(member),
@@ -383,6 +384,34 @@ export const userGpgKey = pgTable(
 export const userGpgKeyRelations = relations(userGpgKey, ({ one }) => ({
   user: one(user, {
     fields: [userGpgKey.userId],
+    references: [user.id],
+  }),
+}));
+
+/** OpenSSH public keys an account uploads so it can push and fetch over SSH. */
+export const userSshKey = pgTable(
+  "user_ssh_key",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    // SHA256 of the key blob, base64 without padding - what `ssh-keygen -lf` prints after `SHA256:`.
+    fingerprint: text("fingerprint").notNull().unique(),
+    // The key blob, base64, as the second field of an authorized_keys line.
+    publicKey: text("public_key").notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("user_ssh_key_user_id_idx").on(table.userId)],
+);
+
+export const userSshKeyRelations = relations(userSshKey, ({ one }) => ({
+  user: one(user, {
+    fields: [userSshKey.userId],
     references: [user.id],
   }),
 }));

@@ -19,6 +19,7 @@ import { GpgKeysModule } from './resources/gpg-keys/gpg-keys.module.js';
 import { IssuesModule } from './resources/issues/issues.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
+import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
 import { BranchesService } from './services/git/branches/branches.service.js';
 import { RepositoryAccessService } from './services/git/repository-access/repository-access.service.js';
@@ -75,6 +76,7 @@ import { UsersService } from './services/users/users.service.js';
     IssuesModule,
     EmailsModule,
     GpgKeysModule,
+    SshKeysModule,
     GitModule,
     UserModule,
   ],

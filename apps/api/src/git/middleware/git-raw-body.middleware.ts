@@ -1,13 +1,8 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
-import { createWriteStream } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { pipeline } from 'node:stream/promises';
 import { createGunzip, createInflate } from 'node:zlib';
 
-import { fileBody } from '../../lib/git/protocol/git-request-body.js';
+import { spoolToFile } from '../../lib/git/protocol/spool.js';
 import { GitAuthenticatedBufferedRequest } from '../types.js';
 
 /**
@@ -24,33 +19,24 @@ export class GitRawBodyMiddleware implements NestMiddleware {
     res: Response,
     next: NextFunction,
   ) {
-    let directory: string | undefined;
-
     try {
-      directory = await mkdtemp(path.join(tmpdir(), 'ghost-git-'));
-      const file = path.join(directory, 'body');
+      const spooled = await spoolToFile(decode(req));
 
-      const written = createWriteStream(file);
-      await pipeline(decode(req), written);
-
-      req.gitBody = fileBody(file, written.bytesWritten);
+      req.gitBody = spooled.body;
       this.logger.debug(
-        `${req.method} ${req.originalUrl} spooled=${written.bytesWritten}B ` +
-          `content-length=${req.headers['content-length'] ?? '-'} ` +
-          `content-encoding=${req.headers['content-encoding'] ?? '-'} ` +
-          `transfer-encoding=${req.headers['transfer-encoding'] ?? '-'}`,
+        `${req.method} ${req.originalUrl} spooled=${spooled.body.size}B content-length=${req.headers['content-length'] ?? '-'} content-encoding=${req.headers['content-encoding'] ?? '-'} transfer-encoding=${req.headers['transfer-encoding'] ?? '-'}`,
       );
 
       res.on('close', () => {
-        rm(directory!, { recursive: true, force: true }).catch((error) =>
-          this.logger.warn(`Failed to remove ${directory}: ${error}`),
-        );
+        spooled
+          .discard()
+          .catch((error: unknown) =>
+            this.logger.warn(`Failed to remove the spooled body: ${error}`),
+          );
       });
 
       next();
     } catch (error) {
-      if (directory)
-        await rm(directory, { recursive: true, force: true }).catch(() => {});
       next(error);
     }
   }

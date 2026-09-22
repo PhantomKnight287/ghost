@@ -88,6 +88,33 @@ railway config pull
 
 `PORT` is injected by Railway and the server prefers it over `API_PORT`.
 
+### SSH
+
+The git SSH transport is off until `GIT_SSH_HOST_KEY` is set, so a deployment
+without it serves git over HTTP alone and needs nothing else here.
+
+To turn it on:
+
+1. Generate a host key once and keep it. Rotating it makes every client print
+   a changed-host-key warning.
+
+   ```bash
+   ssh-keygen -t ed25519 -N '' -f ghost_host_key
+   base64 -w0 ghost_host_key   # macOS: base64 -i ghost_host_key
+   ```
+
+2. Set `GIT_SSH_HOST_KEY` to that base64 blob on the `api` service, and
+   `GIT_SSH_PORT` to the port it should listen on.
+3. Railway's HTTP proxy cannot carry SSH, so add a **TCP proxy** on the `api`
+   service pointing at `GIT_SSH_PORT`. Railway answers with a host and a public
+   port of its own.
+4. Set `NEXT_PUBLIC_SSH_CLONE_HOST` on the `web` service to that
+   `host:port`, so the repository page offers the SSH clone URL. It is inlined
+   at build time, so set it before building.
+
+Tell people the host key's fingerprint — `ssh-keygen -lf ghost_host_key.pub` —
+so their first connection has something to compare against.
+
 ### `web`
 
 | Variable                | Source                          |

@@ -9,8 +9,8 @@
 > [!Note]
 > This is just an engineering reproduction and should not be trusted with actual data(yet).
 
-Self-hosted git. Push over HTTP, browse the code, open pull requests, review the
-diff, merge. Object storage holds the truth, local disk is a cache.
+Self-hosted git. Push over HTTP or SSH, browse the code, open pull requests,
+review the diff, merge. Object storage holds the truth, local disk is a cache.
 
 ## Screens
 
@@ -42,6 +42,7 @@ Split diff, computed from the merge base rather than the branch tips.
 ## Features
 
 - Push and pull over HTTP, authenticated with a personal access token
+- Push and pull over SSH, authenticated with a key on the account, with no shell behind it
 - Trees, blobs, raw files, branch switching, commit history
 - Forks, stars, public and private repositories
 - Pull requests across branches and across forks, with a real merge commit
@@ -85,6 +86,17 @@ git remote add origin http://localhost:3001/<username>/<repo>.git
 git push -u origin main
 ```
 
+For SSH, give the API a host key and add your public key under
+**Settings → Security**:
+
+```sh
+ssh-keygen -t ed25519 -N '' -f ghost_host_key
+echo "GIT_SSH_HOST_KEY=$(base64 -i ghost_host_key)" >> .env
+git remote set-url origin ssh://git@localhost:2222/<username>/<repo>.git
+```
+
+Without `GIT_SSH_HOST_KEY` the listener never starts and git speaks HTTP only.
+
 ## Layout
 
 ```
@@ -97,9 +109,10 @@ docs/         Design decisions, one file each
 
 ## User guide
 
-[`apps/docs`](apps/docs) is the guide for people using an instance: what the
-Verified badge on a commit means, how to generate a GPG key, add it to an
-account, configure git to sign, and what each failure message means. Run it
+[`apps/docs`](apps/docs) is the guide for people using an instance: how to
+generate an SSH key and connect with it, what the Verified badge on a commit
+means, how to generate a GPG key, add it to an account, configure git to sign,
+and what each failure message means. Run it
 with `bun run dev` alongside everything else, or on its own:
 
 ```bash

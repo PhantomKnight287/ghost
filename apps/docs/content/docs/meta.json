@@ -2,6 +2,13 @@
   "title": "Ghost",
   "pages": [
     "index",
+    "---Connecting over SSH---",
+    "about-ssh",
+    "generating-an-ssh-key",
+    "adding-an-ssh-key-to-your-account",
+    "testing-your-ssh-connection",
+    "using-ssh-with-a-repository",
+    "troubleshooting-ssh",
     "---Signing commits---",
     "about-commit-signature-verification",
     "generating-a-gpg-key",

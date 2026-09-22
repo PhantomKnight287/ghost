@@ -3654,6 +3654,114 @@
         ]
       }
     },
+    "/api/ssh-keys": {
+      "get": {
+        "operationId": "SshKeysController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSshKeysResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the SSH keys on the signed-in account",
+        "tags": [
+          "SSH keys"
+        ]
+      },
+      "post": {
+        "description": "Anyone holding the matching private key can then fetch and push as this account over SSH.",
+        "operationId": "SshKeysController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSshKeyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SshKeyDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Add an SSH key to the signed-in account",
+        "tags": [
+          "SSH keys"
+        ]
+      }
+    },
+    "/api/ssh-keys/{id}": {
+      "delete": {
+        "description": "The next connection holding it is refused.",
+        "operationId": "SshKeysController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove a key",
+        "tags": [
+          "SSH keys"
+        ]
+      }
+    },
     "/api/users/avatar": {
       "put": {
         "description": "Takes the raw image bytes. Returns the URL to store on the user; writing `user.image` stays with Better Auth’s `update-user`.",
@@ -5891,6 +5999,76 @@
             "description": "Armored OpenPGP public key, as `gpg --armor --export` prints it.",
             "example": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...",
             "maxLength": 65536
+          }
+        },
+        "required": [
+          "publicKey"
+        ]
+      },
+      "SshKeyDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "description": "What the key is called on this account."
+          },
+          "type": {
+            "type": "string",
+            "description": "Key algorithm, e.g. `ssh-ed25519`."
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "SHA256 fingerprint, base64, as `ssh-keygen -lf` prints it."
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "description": "When the key last authenticated a git session, ISO 8601.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the key was added, ISO 8601."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "type",
+          "fingerprint",
+          "lastUsedAt",
+          "createdAt"
+        ]
+      },
+      "ListSshKeysResponseDTO": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SshKeyDTO"
+            }
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      },
+      "AddSshKeyDTO": {
+        "type": "object",
+        "properties": {
+          "publicKey": {
+            "type": "string",
+            "description": "One authorized_keys line, as `~/.ssh/id_ed25519.pub` holds it.",
+            "example": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... laptop",
+            "maxLength": 16384
+          },
+          "title": {
+            "type": "string",
+            "description": "What to call the key. Defaults to the key's own comment, then to its type.",
+            "maxLength": 100
           }
         },
         "required": [

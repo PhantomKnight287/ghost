@@ -1,0 +1,57 @@
+---
+title: About SSH access
+description: What the SSH transport is for, how it differs from HTTP, and what Ghost does with a key you upload.
+---
+
+Ghost speaks git over two transports. Both do the same thing; they differ in
+how you prove who you are.
+
+| | HTTP | SSH |
+| --- | --- | --- |
+| Clone URL | `https://<host>/<user>/<repo>.git` | `ssh://git@<host>:2222/<user>/<repo>.git` |
+| Credential | A personal access token, entered as the password | A key pair, with the public half on your account |
+| Public repositories | Anyone can clone, no credential | A key is still required |
+| Best for | Occasional use, CI, anything behind a proxy that only allows HTTP | Day-to-day work, no token to paste |
+
+## What the server does with your key
+
+You upload the **public** half. Ghost stores the key blob and its SHA256
+fingerprint, and nothing else. When you connect, the server looks up the
+fingerprint your client offers, then asks your client to sign a challenge with
+the private half it kept. A key that signs correctly identifies the account it
+sits on.
+
+The private key never leaves your machine, and Ghost never asks for it.
+
+## What you can do over SSH
+
+Clone, fetch and push. That is the entire list.
+
+There is no shell, no file transfer, and no port forwarding. Connecting without
+a git command gets you a short message and a closed connection:
+
+```console
+$ ssh -T -p 2222 git@<host>
+Hi octocat! You have authenticated, but Ghost does not provide shell access.
+```
+
+Anyone with a key on their account is welcome to find out what else the server
+says. It is all text.
+
+## The login name is always `git`
+
+Your account is identified by your key, not by the name in the URL, so every
+Ghost SSH URL uses `git@`. The greeting still knows who you are — it reads the
+account the key belongs to.
+
+<Cards>
+  <Card href="/generating-an-ssh-key" title="Generating an SSH key">
+    Make a key pair, and let the agent remember the passphrase.
+  </Card>
+  <Card
+    href="/adding-an-ssh-key-to-your-account"
+    title="Adding a key to your account"
+  >
+    Copy the public half into your settings.
+  </Card>
+</Cards>

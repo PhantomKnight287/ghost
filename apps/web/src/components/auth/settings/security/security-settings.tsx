@@ -6,6 +6,7 @@ import { ActiveSessions } from "./active-sessions";
 import { ChangePassword } from "./change-password";
 import { GpgKeys } from "./gpg-keys";
 import { LinkedAccounts } from "./linked-accounts";
+import { SshKeys } from "./ssh-keys";
 
 export type SecuritySettingsProps = {
   className?: string;
@@ -19,6 +20,7 @@ export function SecuritySettings({ className }: SecuritySettingsProps) {
     <div className={cn("flex w-full flex-col gap-4 md:gap-6", className)}>
       {emailAndPassword?.enabled && <ChangePassword />}
       {!!socialProviders?.length && <LinkedAccounts />}
+      <SshKeys />
       <GpgKeys />
       <ActiveSessions />
       {plugins.flatMap(

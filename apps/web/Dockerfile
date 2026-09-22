@@ -31,8 +31,10 @@ COPY --from=shared /app/packages/languages/dist packages/languages/dist
 # known here, not at boot.
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_DOCS_URL
+ARG NEXT_PUBLIC_SSH_CLONE_HOST
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_DOCS_URL=$NEXT_PUBLIC_DOCS_URL
+ENV NEXT_PUBLIC_SSH_CLONE_HOST=$NEXT_PUBLIC_SSH_CLONE_HOST
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PATH=/app/node_modules/.bin:/app/apps/web/node_modules/.bin:$PATH
 # `src/lib/api/v1.d.ts` is committed, so the openapi codegen step is skipped.

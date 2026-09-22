@@ -43,7 +43,7 @@ export class GitService {
   }: RepositoryRef & { service: string }): Promise<GitTransportResponse> {
     if (!isGitServiceName(service)) throw new UnsupportedGitServiceError();
 
-    const repoDirectory = await this.openCache(repositoryId);
+    const repoDirectory = await this.openRepository(repositoryId);
 
     return {
       headers: {
@@ -58,7 +58,7 @@ export class GitService {
     repositoryId,
     body,
   }: RepositoryRef & { body: GitRequestBody }): Promise<GitTransportResponse> {
-    const repoDirectory = await this.openCache(repositoryId);
+    const repoDirectory = await this.openRepository(repositoryId);
 
     return {
       headers: resultHeaders('git-upload-pack'),
@@ -90,7 +90,7 @@ export class GitService {
     }
 
     const { transitions, packOffset } = await readReceivePackHeader(body);
-    const repoDirectory = await this.openCache(repositoryId);
+    const repoDirectory = await this.openRepository(repositoryId);
 
     await this.pushTransaction.commitPush({
       repoId: repositoryId,
@@ -122,7 +122,8 @@ export class GitService {
     };
   }
 
-  private async openCache(repositoryId: string) {
+  /** The local cache directory, current with the log. Every transport opens a repository this way before it hands anything to git. */
+  async openRepository(repositoryId: string) {
     const repoDirectory = await this.storage.getRepoPath(repositoryId);
     await this.materializer.materialize(repositoryId, repoDirectory);
     return repoDirectory;

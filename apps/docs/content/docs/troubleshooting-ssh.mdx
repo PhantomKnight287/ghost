@@ -1,0 +1,63 @@
+---
+title: Troubleshooting SSH
+description: What each failure means, and the shortest way out of it.
+---
+
+## Permission denied (publickey)
+
+Your client offered no key Ghost recognises.
+
+```bash
+ssh -vT -p 2222 git@<host>
+```
+
+Read the `Offering public key:` lines. If yours is missing, the agent does not
+have it:
+
+```bash
+ssh-add -l
+ssh-add ~/.ssh/id_ed25519
+```
+
+If it was offered and still refused, the key is not on your account — compare
+`ssh-keygen -lf ~/.ssh/id_ed25519.pub` with the fingerprint in
+**Settings → Security**.
+
+## Connection refused
+
+Nothing is listening. Either the port is wrong — it is `2222` unless the
+instance says otherwise — or the instance runs without SSH, in which case use
+the HTTP clone URL.
+
+## ghost: Repository not found
+
+The repository does not exist, or it is private and not yours. A private
+repository you cannot read is reported as missing on purpose, so this message
+never confirms one exists.
+
+## ghost: I only speak git
+
+You sent something that is not `git-upload-pack` or `git-receive-pack`. Ghost
+runs no other command, so there is nothing to fix beyond the command you typed.
+
+## WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED
+
+The server's host key is not the one your machine recorded. Ask whoever runs
+the instance whether it was rotated. If it was, remove the stale entry:
+
+```bash
+ssh-keygen -R "[<host>]:2222"
+```
+
+If it was not, stop and tell them — that warning is what it is for.
+
+## PTY allocation request failed
+
+Expected. There is no shell to attach a terminal to. Add `-T` and the line goes
+away.
+
+## Pushes work, fetches hang
+
+Almost always a proxy or firewall that permits the handshake but throttles bulk
+transfer. Confirm by cloning over HTTP; if that works, the network is the
+difference, not your key.

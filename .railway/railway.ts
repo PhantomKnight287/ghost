@@ -39,6 +39,7 @@ export default defineRailway(() => {
       NEXT_PUBLIC_API_URL: preserve(),
       NEXT_PUBLIC_DOCS_URL: preserve(),
       NEXT_PUBLIC_SITE_URL: preserve(),
+      NEXT_PUBLIC_SSH_CLONE_HOST: preserve(),
       OTEL_EXPORTER_OTLP_ENDPOINT: preserve(),
     },
   });
@@ -82,6 +83,8 @@ export default defineRailway(() => {
       EMAIL_PROXY_SECRET: preserve(),
       EMAIL_SENDER: preserve(),
       EMAIL_VERIFICATION_ENABLED: preserve(),
+      GIT_SSH_HOST_KEY: preserve(),
+      GIT_SSH_PORT: preserve(),
       S3_ACCESS_KEY_ID: preserve(),
       S3_BUCKET: preserve(),
       S3_ENDPOINT: preserve(),

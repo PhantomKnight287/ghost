@@ -44,5 +44,5 @@ COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/packages/db/dist ./packages/db/dist
 COPY --from=build /app/packages/languages/dist ./packages/languages/dist
 COPY packages/db/drizzle ./packages/db/drizzle
-EXPOSE 3001
+EXPOSE 3001 2222
 CMD ["node", "apps/api/dist/main.js"]

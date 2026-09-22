@@ -1,0 +1,75 @@
+---
+title: Adding an SSH key to your account
+description: Copy the public half of your key pair into your Ghost settings.
+---
+
+Ghost only ever sees the **public** half. The file you want ends in `.pub`.
+
+## Copy the public key
+
+<Tabs items={["macOS", "Linux", "Windows"]}>
+  <Tab value="macOS">
+```bash
+pbcopy < ~/.ssh/id_ed25519.pub
+```
+  </Tab>
+  <Tab value="Linux">
+```bash
+xclip -selection clipboard < ~/.ssh/id_ed25519.pub
+```
+  </Tab>
+  <Tab value="Windows">
+```powershell
+Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | Set-Clipboard
+```
+  </Tab>
+</Tabs>
+
+What you copied is one line, starting with the algorithm and ending with the
+comment you set:
+
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB7... you@example.com
+```
+
+<Callout type="warn">
+The file **without** `.pub` is your private key. It starts with
+`-----BEGIN OPENSSH PRIVATE KEY-----`. Ghost refuses it, but if you pasted it
+anywhere at all, delete the pair and generate a new one.
+</Callout>
+
+## Add it in Ghost
+
+1. Go to **Settings → Security**.
+2. Find the **SSH keys** card.
+3. Give the key a title — the machine it lives on is the useful name.
+4. Paste the line into the box.
+5. Choose **Add key**.
+
+The key appears with its fingerprint, its algorithm, and when it was last used
+for a fetch or a push.
+
+## Requirements for a key to be accepted
+
+The upload is refused when:
+
+- The text is not an OpenSSH public key.
+- It is a **private** key.
+- It is a **certificate** rather than a key.
+- It is an **RSA key below 2048 bits**.
+- The key is **already on an account** — a key identifies exactly one account,
+  including your own.
+
+## Check the fingerprint
+
+Ghost shows the same fingerprint your own machine prints:
+
+```bash
+ssh-keygen -lf ~/.ssh/id_ed25519.pub
+```
+
+```
+256 SHA256:KnelT3VdU/mTOmqQK0TSVRowG8BjC0BgZERGZjT9eZQ you@example.com (ED25519)
+```
+
+Next: [test the connection](/testing-your-ssh-connection).

@@ -3,9 +3,32 @@ title: Ghost docs
 description: Self-hosted git. Push over HTTP, browse the code, open pull requests, review the diff, merge.
 ---
 
-Ghost is a self-hosted git hosting platform. Push and pull over HTTP, browse
-trees and blobs, open pull requests across branches and forks, and track work
-in issues.
+Ghost is a self-hosted git hosting platform. Push and pull over HTTP or SSH,
+browse trees and blobs, open pull requests across branches and forks, and track
+work in issues.
+
+## Connecting over SSH
+
+HTTP asks for a personal access token every time something forgets it. SSH
+asks for a key once, and then stays out of the way.
+
+<Cards>
+  <Card href="/about-ssh" title="About SSH access">
+    What the transport does, and what it refuses to do.
+  </Card>
+  <Card href="/generating-an-ssh-key" title="Generating an SSH key">
+    Make a key pair and load it into the agent.
+  </Card>
+  <Card
+    href="/adding-an-ssh-key-to-your-account"
+    title="Adding a key to your account"
+  >
+    Copy the public half into your settings.
+  </Card>
+  <Card href="/using-ssh-with-a-repository" title="Using SSH with a repository">
+    Clone over SSH, or move an existing remote onto it.
+  </Card>
+</Cards>
 
 ## Signing your commits
 

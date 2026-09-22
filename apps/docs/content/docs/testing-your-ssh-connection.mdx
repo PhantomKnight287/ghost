@@ -1,0 +1,49 @@
+---
+title: Testing your SSH connection
+description: Confirm the key works before pointing a repository at it.
+---
+
+```bash
+ssh -T -p 2222 git@<host>
+```
+
+The first connection asks you to trust the server's host key:
+
+```console
+The authenticity of host '[<host>]:2222' can't be established.
+ED25519 key fingerprint is SHA256:...
+Are you sure you want to continue connecting (yes/no/[fingerprint])?
+```
+
+Compare that fingerprint with the one whoever runs the instance published, then
+answer `yes`. It is recorded in `~/.ssh/known_hosts` and you will not be asked
+again.
+
+A working key gets a greeting:
+
+```console
+Hi octocat! You have authenticated, but Ghost does not provide shell access.
+Use this connection for `git clone`, `git fetch` and `git push` instead.
+```
+
+That message **is** success. There is no shell to land in — the connection
+carries git commands and nothing else.
+
+## Log in as `git`, always
+
+The account comes from your key, so the name in the URL is always `git`. Using
+your own username instead works too, but `git@` is the form to write down.
+
+## If it refuses you
+
+```console
+git@<host>: Permission denied (publickey).
+```
+
+Ask your client which key it actually offered:
+
+```bash
+ssh -vT -p 2222 git@<host>
+```
+
+Then see [troubleshooting SSH](/troubleshooting-ssh).

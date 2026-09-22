@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { spawn } from 'node:child_process';
-import { PassThrough, Readable } from 'node:stream';
+import { spawn, type ChildProcessByStdio } from 'node:child_process';
+import { PassThrough, Readable, type Writable } from 'node:stream';
 import {
   toGitBinary,
   type GitServiceName,
@@ -27,6 +27,19 @@ export class PackProcessService {
 
   streamReceivePack(options: StreamOptions): Readable {
     return this.spawnBinary({ ...options, service: 'git-receive-pack' });
+  }
+
+  /** The SSH form: one process per session, speaking the full protocol in both directions. `--stateless-rpc` answers a single HTTP request and then stops listening, which is the wrong shape for a channel that stays open. */
+  spawnInteractive({
+    repoDirectory,
+    service,
+  }: {
+    repoDirectory: string;
+    service: GitServiceName;
+  }): ChildProcessByStdio<Writable, Readable, Readable> {
+    return spawn('git', [toGitBinary(service), repoDirectory], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
   }
 
   private spawnBinary({

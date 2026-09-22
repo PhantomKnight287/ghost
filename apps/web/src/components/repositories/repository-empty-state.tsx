@@ -1,10 +1,15 @@
-import { CloneUrlField } from "@/components/repositories/clone-popover";
+import {
+  CloneTransports,
+  CloneUrlField,
+} from "@/components/repositories/clone-popover";
 
 export function RepositoryEmptyState({
   cloneUrl,
+  sshCloneUrl,
   defaultBranch,
 }: {
   cloneUrl: string;
+  sshCloneUrl?: string;
   defaultBranch: string;
 }) {
   return (
@@ -14,8 +19,37 @@ export function RepositoryEmptyState({
         <p className="text-sm text-muted-foreground">
           This repository is empty. Push a commit and it shows up here.
         </p>
-        <CloneUrlField cloneUrl={cloneUrl} />
       </div>
+
+      <CloneTransports
+        http={<QuickSetup cloneUrl={cloneUrl} defaultBranch={defaultBranch} />}
+        ssh={
+          sshCloneUrl && (
+            <QuickSetup
+              cloneUrl={sshCloneUrl}
+              defaultBranch={defaultBranch}
+              note="Add an SSH key under Settings → Security first, or these commands will be refused."
+            />
+          )
+        }
+      />
+    </div>
+  );
+}
+
+function QuickSetup({
+  cloneUrl,
+  defaultBranch,
+  note,
+}: {
+  cloneUrl: string;
+  defaultBranch: string;
+  note?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-6">
+      <CloneUrlField cloneUrl={cloneUrl} />
+      {note && <p className="-mt-4 text-xs text-muted-foreground">{note}</p>}
 
       <Setup
         title="Create a new repository on the command line"

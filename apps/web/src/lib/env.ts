@@ -12,3 +12,6 @@ export const SITE_URL =
 /** Where the user guide is hosted; every "how do I" link points at it. */
 export const DOCS_URL =
   process.env.NEXT_PUBLIC_DOCS_URL ?? "http://localhost:3003";
+
+/** `host:port` the SSH transport answers on. Empty when the instance runs without a host key, and the clone panel then offers HTTP alone. */
+export const SSH_CLONE_HOST = process.env.NEXT_PUBLIC_SSH_CLONE_HOST ?? "";

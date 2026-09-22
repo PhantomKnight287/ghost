@@ -1,0 +1,49 @@
+---
+title: Using SSH with a repository
+description: Clone over SSH, or move an existing remote onto it.
+---
+
+## Clone
+
+Take the URL from the **Code** panel on the repository, **SSH** tab:
+
+```bash
+git clone ssh://git@<host>:2222/octocat/hello.git
+```
+
+## Move an existing repository onto SSH
+
+```bash
+git remote -v
+git remote set-url origin ssh://git@<host>:2222/octocat/hello.git
+git remote -v
+```
+
+Nothing else changes: the same commits, the same branches, no re-clone.
+
+## Drop the port from the URL
+
+If typing `:2222` grates, name the host once in `~/.ssh/config`:
+
+```
+Host ghost
+  HostName <host>
+  Port 2222
+  User git
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+Then the remote is short, and `ssh ghost` is enough to test it:
+
+```bash
+git remote set-url origin ghost:octocat/hello.git
+```
+
+## What SSH does and does not change
+
+- **Pushing** is identical. The same checks run, and a push that is refused
+  over HTTP is refused over SSH for the same reason.
+- **Private repositories** you own are readable over SSH; someone else's read
+  as if they do not exist.
+- **Signed commits** are unrelated. Signing uses a GPG key, and the Verified
+  badge does not care which transport carried the commit.

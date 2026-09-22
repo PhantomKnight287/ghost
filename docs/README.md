@@ -8,6 +8,7 @@ rejected, and the consequences — including the bad ones.
 ## Transport
 
 - [0001 — Git lives at the root namespace, REST lives under `/api`](0001-namespace-split.md)
+- [0019 — SSH is a second transport, not a second git](0019-ssh-is-a-second-transport-not-a-second-git.md)
 - [0002 — The transport layer takes streams, not `Request`/`Response`](0002-streams-not-http-objects.md)
 - [0013 — The request body is captured before anything else can await](0013-raw-body-is-captured-first.md)
 - [0014 — A flush-only POST is a probe, not a malformed push](0014-the-pre-push-probe.md)

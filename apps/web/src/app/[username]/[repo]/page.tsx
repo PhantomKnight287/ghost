@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-
+import { sshCloneUrlFor } from "@/components/repositories/clone-popover";
 import { RepositoryContents } from "@/components/repositories/repository-contents";
 import { RepositoryEmptyState } from "@/components/repositories/repository-empty-state";
 import {
@@ -36,6 +36,7 @@ export default async function RepositoryPage({
     return (
       <RepositoryEmptyState
         cloneUrl={`${API_URL}/${username}/${repo}.git`}
+        sshCloneUrl={sshCloneUrlFor(username, repo)}
         defaultBranch={
           contents.data.ref.replace(/^refs\/heads\//, "") || "main"
         }

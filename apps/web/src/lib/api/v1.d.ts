@@ -869,6 +869,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ssh-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the SSH keys on the signed-in account */
+        get: operations["SshKeysController_list"];
+        put?: never;
+        /**
+         * Add an SSH key to the signed-in account
+         * @description Anyone holding the matching private key can then fetch and push as this account over SSH.
+         */
+        post: operations["SshKeysController_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ssh-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a key
+         * @description The next connection holding it is refused.
+         */
+        delete: operations["SshKeysController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/avatar": {
         parameters: {
             query?: never;
@@ -1608,6 +1649,31 @@ export interface components {
              *     ...
              */
             publicKey: string;
+        };
+        SshKeyDTO: {
+            id: string;
+            /** @description What the key is called on this account. */
+            title: string;
+            /** @description Key algorithm, e.g. `ssh-ed25519`. */
+            type: string;
+            /** @description SHA256 fingerprint, base64, as `ssh-keygen -lf` prints it. */
+            fingerprint: string;
+            /** @description When the key last authenticated a git session, ISO 8601. */
+            lastUsedAt: string | null;
+            /** @description When the key was added, ISO 8601. */
+            createdAt: string;
+        };
+        ListSshKeysResponseDTO: {
+            keys: components["schemas"]["SshKeyDTO"][];
+        };
+        AddSshKeyDTO: {
+            /**
+             * @description One authorized_keys line, as `~/.ssh/id_ed25519.pub` holds it.
+             * @example ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... laptop
+             */
+            publicKey: string;
+            /** @description What to call the key. Defaults to the key's own comment, then to its type. */
+            title?: string;
         };
         UploadAvatarResponseDTO: {
             /**
@@ -3697,6 +3763,91 @@ export interface operations {
         };
     };
     GpgKeysController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SshKeysController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSshKeysResponseDTO"];
+                };
+            };
+        };
+    };
+    SshKeysController_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSshKeyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SshKeyDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SshKeysController_remove: {
         parameters: {
             query?: never;
             header?: never;

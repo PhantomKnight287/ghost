@@ -17,8 +17,25 @@ export class RefAdvertisementService {
     return len + str;
   }
 
-  /** The `GET /info/refs` body: the service header, a flush packet, then whatever `--advertise-refs` prints. */
+  /** The `GET /info/refs` body: the service header, a flush packet, then the advertisement. SSH sends the advertisement alone - the header exists so an HTTP client can tell which service answered. */
   advertise({
+    repoDirectory,
+    service,
+  }: {
+    repoDirectory: string;
+    service: GitServiceName;
+  }): Readable {
+    const output = new PassThrough();
+
+    output.write(this.convertToPacketLine(`# service=${service}\n`));
+    output.write(FLUSH_PACKET);
+    this.advertiseRefs({ repoDirectory, service }).pipe(output);
+
+    return output;
+  }
+
+  /** Exactly what `--advertise-refs` prints: the refs, their capabilities, and a flush packet. */
+  advertiseRefs({
     repoDirectory,
     service,
   }: {
@@ -27,9 +44,6 @@ export class RefAdvertisementService {
   }): Readable {
     const binary = toGitBinary(service);
     const output = new PassThrough();
-
-    output.write(this.convertToPacketLine(`# service=${service}\n`));
-    output.write(FLUSH_PACKET);
 
     const child = spawn('git', [
       binary,

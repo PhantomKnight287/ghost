@@ -120,7 +120,6 @@ export default async function ProfilePage({
             initialRepositories={data.repositories}
             initialCursor={data.nextCursor}
             overview={
-              // its own fetch, so the tabs and the repository list paint first
               <>
                 <Suspense fallback={<RepositoryReadmeSkeleton bare />}>
                   <ProfileReadme username={username} />
