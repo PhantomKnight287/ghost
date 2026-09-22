@@ -20,7 +20,14 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@/.source": ["./.source/index.ts"]
+      "@/.source": ["./.source/index.ts"],
+      // Bun installs several identical copies of fumadocs-core (one per peer
+      // set). TypeScript treats each copy's types as distinct, so the source
+      // fumadocs-mdx returns no longer matches the loader's and page data
+      // degrades to the base `PageData`. Pin every fumadocs-core type import
+      // to one copy.
+      "fumadocs-core": ["./node_modules/fumadocs-core/dist/index.d.ts"],
+      "fumadocs-core/*": ["./node_modules/fumadocs-core/dist/*"]
     }
   },
   "include": [
