@@ -104,10 +104,18 @@ To turn it on:
    ```
 
 2. Set `GIT_SSH_HOST_KEY` to that base64 blob on the `api` service, and
-   `GIT_SSH_PORT` to the port it should listen on.
+   `GIT_SSH_PORT` to the port it should listen on. The default is `1031`;
+   **2222 is not available**, Railway uses it for its own container SSH.
 3. Railway's HTTP proxy cannot carry SSH, so add a **TCP proxy** on the `api`
-   service pointing at `GIT_SSH_PORT`. Railway answers with a host and a public
-   port of its own.
+   service pointing at `GIT_SSH_PORT`:
+
+   ```bash
+   bunx railway tcp-proxy create --port 1031 --service api
+   bunx railway tcp-proxy list --service api --json
+   ```
+
+   Railway answers with a host and a public port of its own. That public port
+   is what people put in their clone URL — the container port stays 1031.
 4. Set `NEXT_PUBLIC_SSH_CLONE_HOST` on the `web` service to that
    `host:port`, so the repository page offers the SSH clone URL. It is inlined
    at build time, so set it before building.

@@ -8,7 +8,7 @@ how you prove who you are.
 
 | | HTTP | SSH |
 | --- | --- | --- |
-| Clone URL | `https://<host>/<user>/<repo>.git` | `ssh://git@<host>:2222/<user>/<repo>.git` |
+| Clone URL | `https://<host>/<user>/<repo>.git` | `ssh://git@<host>:1031/<user>/<repo>.git` |
 | Credential | A personal access token, entered as the password | A key pair, with the public half on your account |
 | Public repositories | Anyone can clone, no credential | A key is still required |
 | Best for | Occasional use, CI, anything behind a proxy that only allows HTTP | Day-to-day work, no token to paste |
@@ -31,12 +31,18 @@ There is no shell, no file transfer, and no port forwarding. Connecting without
 a git command gets you a short message and a closed connection:
 
 ```console
-$ ssh -T -p 2222 git@<host>
+$ ssh -T -p 1031 git@<host>
 Hi octocat! You have authenticated, but Ghost does not provide shell access.
 ```
 
 Anyone with a key on their account is welcome to find out what else the server
 says. It is all text.
+
+## Why port 1031
+
+Because the tenth month, thirty-first day, is when ghosts keep office hours.
+Nothing else depends on it: an instance can answer on any port its operator
+picks, and the clone URL on the repository page always shows the real one.
 
 ## The login name is always `git`
 

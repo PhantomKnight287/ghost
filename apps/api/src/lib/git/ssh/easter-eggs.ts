@@ -1,11 +1,11 @@
 /** Ghost answers an SSH session with text and an exit code. Nothing here reaches a shell - these are string lookups, which is the whole point. */
 const GHOST = [
-  '       .-"""-.',
-  '      /  .-.  \\',
-  '      |  | |  |    ghost',
-  "      |  '-'  |    git in, git out",
-  '       \\  ~  /',
-  "        '-.-'",
+  '   .-""""""-.',
+  "  .'        '.",
+  '  |   |  |   |    ghost',
+  '  |          |    git in, git out',
+  '  |          |',
+  '  \\_/\\_/\\_/\\_/',
 ].join('\n');
 
 export function greeting(username: string) {

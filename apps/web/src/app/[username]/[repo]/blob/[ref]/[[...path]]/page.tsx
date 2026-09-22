@@ -68,7 +68,9 @@ export default async function RepositoryBlobPage({
   const { commit, size, encoding, content } = blob.data;
 
   const text =
-    encoding === "utf-8" && content !== null ? content.replace(/\n$/, "") : null;
+    encoding === "utf-8" && content !== null
+      ? content.replace(/\n$/, "")
+      : null;
 
   // An empty file is text with nothing to highlight; `null` is reserved for what this page cannot render.
   const lines =

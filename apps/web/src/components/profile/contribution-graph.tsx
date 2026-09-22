@@ -59,14 +59,10 @@ export function ContributionGraph({ data }: { data: Contributions }) {
     <TooltipProvider>
       <div className="flex flex-col gap-2">
         <div>
-
-        <h2 className="text-sm font-semibold">
-          Contributions
-        </h2>
+          <h2 className="text-sm font-semibold">Contributions</h2>
           <span className="font-normal text-muted-foreground tabular-nums">
             {data.totalContributions} in {data.year}
           </span>
-
         </div>
         <div className="overflow-x-auto rounded-lg border p-3">
           <div className="flex w-max gap-1">

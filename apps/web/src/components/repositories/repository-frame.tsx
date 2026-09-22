@@ -12,7 +12,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
-import { ClonePopover, sshCloneUrlFor } from "@/components/repositories/clone-popover";
+import {
+  ClonePopover,
+  sshCloneUrlFor,
+} from "@/components/repositories/clone-popover";
 import { StarButton } from "@/components/repositories/star-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

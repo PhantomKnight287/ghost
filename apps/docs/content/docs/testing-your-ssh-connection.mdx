@@ -4,13 +4,13 @@ description: Confirm the key works before pointing a repository at it.
 ---
 
 ```bash
-ssh -T -p 2222 git@<host>
+ssh -T -p 1031 git@<host>
 ```
 
 The first connection asks you to trust the server's host key:
 
 ```console
-The authenticity of host '[<host>]:2222' can't be established.
+The authenticity of host '[<host>]:1031' can't be established.
 ED25519 key fingerprint is SHA256:...
 Are you sure you want to continue connecting (yes/no/[fingerprint])?
 ```
@@ -43,7 +43,7 @@ git@<host>: Permission denied (publickey).
 Ask your client which key it actually offered:
 
 ```bash
-ssh -vT -p 2222 git@<host>
+ssh -vT -p 1031 git@<host>
 ```
 
 Then see [troubleshooting SSH](/troubleshooting-ssh).

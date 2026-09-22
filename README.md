@@ -92,7 +92,7 @@ For SSH, give the API a host key and add your public key under
 ```sh
 ssh-keygen -t ed25519 -N '' -f ghost_host_key
 echo "GIT_SSH_HOST_KEY=$(base64 -i ghost_host_key)" >> .env
-git remote set-url origin ssh://git@localhost:2222/<username>/<repo>.git
+git remote set-url origin ssh://git@localhost:1031/<username>/<repo>.git
 ```
 
 Without `GIT_SSH_HOST_KEY` the listener never starts and git speaks HTTP only.

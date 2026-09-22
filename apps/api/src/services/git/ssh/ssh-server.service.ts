@@ -37,7 +37,8 @@ import {
   RepositoryAccessService,
 } from '../repository-access/repository-access.service.js';
 
-const DEFAULT_PORT = 2222;
+/** 10-31. Railway already answers on 2222, and a ghost may as well keep Halloween. */
+const DEFAULT_PORT = 1031;
 const MAX_AUTH_ATTEMPTS = 6;
 const GIT_FATAL_EXIT = 128;
 

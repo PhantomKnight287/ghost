@@ -8,14 +8,14 @@ description: Clone over SSH, or move an existing remote onto it.
 Take the URL from the **Code** panel on the repository, **SSH** tab:
 
 ```bash
-git clone ssh://git@<host>:2222/octocat/hello.git
+git clone ssh://git@<host>:1031/octocat/hello.git
 ```
 
 ## Move an existing repository onto SSH
 
 ```bash
 git remote -v
-git remote set-url origin ssh://git@<host>:2222/octocat/hello.git
+git remote set-url origin ssh://git@<host>:1031/octocat/hello.git
 git remote -v
 ```
 
@@ -23,12 +23,12 @@ Nothing else changes: the same commits, the same branches, no re-clone.
 
 ## Drop the port from the URL
 
-If typing `:2222` grates, name the host once in `~/.ssh/config`:
+If typing `:1031` grates, name the host once in `~/.ssh/config`:
 
 ```
 Host ghost
   HostName <host>
-  Port 2222
+  Port 1031
   User git
   IdentityFile ~/.ssh/id_ed25519
 ```

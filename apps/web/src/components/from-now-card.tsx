@@ -21,7 +21,11 @@ const readTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export function FromNowHoverCard({ date, className }: FromNowHoverCardProps) {
   // The server has no timezone to render, so it renders UTC and the client swaps in the real one on hydration.
-  const tz = useSyncExternalStore(subscribeToNothing, readTimezone, () => "UTC");
+  const tz = useSyncExternalStore(
+    subscribeToNothing,
+    readTimezone,
+    () => "UTC",
+  );
 
   const d = dayjs(date);
   const utcString = d.utc().format("MMM DD, YYYY, HH:mm:ss");

@@ -8,7 +8,7 @@ description: What each failure means, and the shortest way out of it.
 Your client offered no key Ghost recognises.
 
 ```bash
-ssh -vT -p 2222 git@<host>
+ssh -vT -p 1031 git@<host>
 ```
 
 Read the `Offering public key:` lines. If yours is missing, the agent does not
@@ -25,7 +25,7 @@ If it was offered and still refused, the key is not on your account — compare
 
 ## Connection refused
 
-Nothing is listening. Either the port is wrong — it is `2222` unless the
+Nothing is listening. Either the port is wrong — it is `1031` unless the
 instance says otherwise — or the instance runs without SSH, in which case use
 the HTTP clone URL.
 
@@ -46,7 +46,7 @@ The server's host key is not the one your machine recorded. Ask whoever runs
 the instance whether it was rotated. If it was, remove the stale entry:
 
 ```bash
-ssh-keygen -R "[<host>]:2222"
+ssh-keygen -R "[<host>]:1031"
 ```
 
 If it was not, stop and tell them — that warning is what it is for.
