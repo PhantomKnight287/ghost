@@ -41,6 +41,11 @@ import {
 const DEFAULT_PORT = 1031;
 const MAX_AUTH_ATTEMPTS = 6;
 const GIT_FATAL_EXIT = 128;
+/** A restart can race the previous process's socket release. */
+const LISTEN_RETRIES = 10;
+const LISTEN_RETRY_MS = 1_000;
+/** A stuck peer must not hold the process after HTTP has already closed. */
+const CLOSE_TIMEOUT_MS = 5_000;
 
 interface SessionActor {
   actor: Actor;
@@ -57,6 +62,9 @@ interface SessionActor {
 export class SshServerService implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(SshServerService.name);
   private server?: SshServer;
+  /** net.Server.close() leaves open connections alone, so shutdown ends them itself. */
+  private readonly clients = new Set<Connection>();
+  private retryTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly config: ConfigService,
@@ -86,19 +94,41 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
       (client) => this.handle(client),
     );
 
-    this.server.on('error', (error: Error) =>
-      this.logger.error(`SSH server error: ${error.message}`),
-    );
-    this.server.listen(port, '0.0.0.0', () =>
+    this.server.on('listening', () =>
       this.logger.log(`SSH transport listening on ${port}`),
     );
+    let retries = 0;
+    this.server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE' && retries++ < LISTEN_RETRIES) {
+        this.logger.warn(
+          `SSH port ${port} busy, retry ${retries}/${LISTEN_RETRIES}`,
+        );
+        this.retryTimer = setTimeout(
+          () => this.server?.listen(port, '0.0.0.0'),
+          LISTEN_RETRY_MS,
+        );
+        return;
+      }
+      this.logger.error(`SSH server error: ${error.message}`);
+    });
+    this.server.listen(port, '0.0.0.0');
   }
 
-  onApplicationShutdown() {
-    this.server?.close();
+  async onApplicationShutdown() {
+    clearTimeout(this.retryTimer);
+    const server = this.server;
+    this.server = undefined;
+    if (!server?.listening) return;
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, CLOSE_TIMEOUT_MS).unref();
+      server.close(() => resolve());
+      for (const client of this.clients) client.end();
+    });
   }
 
   private handle(client: Connection) {
+    this.clients.add(client);
+    client.on('close', () => this.clients.delete(client));
     const state: SessionActor = { actor: null, username: '' };
     let attempts = 0;
 
