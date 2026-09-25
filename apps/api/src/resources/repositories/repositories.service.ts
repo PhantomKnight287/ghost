@@ -225,7 +225,7 @@ export class RepositoriesService {
     return { repositories: page, nextCursor, hasMore };
   }
 
-  /** Code in public repositories, limited to those someone has opened since code search was switched on. */
+  /** Code in public repositories, limited to those opened or pushed to since code search was switched on. */
   async searchCode({
     query,
     limit = DEFAULT_SEARCH_LIMIT,
@@ -1174,7 +1174,7 @@ export class RepositoriesService {
     const directory = await this.storage.getRepoPath(repository.id);
     await this.materializer.materialize(repository.id, directory);
 
-    // Only repositories someone actually opens get indexed, and this is where the objects are already on disk.
+    // Pushes index too; this catches repositories that predate code search, while the objects are already on disk.
     this.codeSearch.indexInBackground({
       repositoryId: repository.id,
       isPublic: repository.visibility === 'public',

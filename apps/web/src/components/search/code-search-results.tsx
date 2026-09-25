@@ -136,33 +136,44 @@ export async function CodeSearchResults({
   );
 }
 
-/** Syntax tokens with the matched spans marked. A match can start or end mid-token, so tokens are cut at match boundaries and each piece keeps its colour. */
+/** Syntax tokens with the matched spans marked. A match can start or end mid-token, so tokens are cut at match boundaries and each piece keeps its colour; the pieces of one match share a single mark. */
 export function markMatches(tokens: ThemedToken[], ranges: Range[]) {
-  const parts: ReactNode[] = [];
+  const pieces: { node: ReactNode; range?: Range }[] = [];
 
   for (const token of tokens) {
     const end = token.offset + token.content.length;
-    const piece = (from: number, to: number) => (
-      <span key={from} style={token.htmlStyle}>
-        {token.content.slice(from - token.offset, to - token.offset)}
-      </span>
-    );
-
     let at = token.offset;
-    for (const range of ranges) {
-      if (range.end <= at || range.start >= end) continue;
-
-      const from = Math.max(range.start, at);
-      const to = Math.min(range.end, end);
-      if (from > at) parts.push(piece(at, from));
-      parts.push(
-        <mark key={`m${from}`} className="rounded-sm bg-primary/25">
-          {piece(from, to)}
-        </mark>,
-      );
+    while (at < end) {
+      const range = ranges.find((r) => r.start <= at && at < r.end);
+      const to = range
+        ? Math.min(range.end, end)
+        : Math.min(end, ...ranges.map((r) => r.start).filter((s) => s > at));
+      pieces.push({
+        range,
+        node: (
+          <span key={at} style={token.htmlStyle}>
+            {token.content.slice(at - token.offset, to - token.offset)}
+          </span>
+        ),
+      });
       at = to;
     }
-    if (at < end) parts.push(piece(at, end));
+  }
+
+  const parts: ReactNode[] = [];
+  for (let i = 0; i < pieces.length;) {
+    const { range } = pieces[i];
+    if (!range) {
+      parts.push(pieces[i++].node);
+      continue;
+    }
+    const nodes: ReactNode[] = [];
+    while (pieces[i]?.range === range) nodes.push(pieces[i++].node);
+    parts.push(
+      <mark key={`m${range.start}`} className="rounded-xs bg-primary/25">
+        {nodes}
+      </mark>,
+    );
   }
 
   return parts;

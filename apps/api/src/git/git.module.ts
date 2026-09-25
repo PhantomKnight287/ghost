@@ -15,6 +15,7 @@ import { GitController } from './git.controller.js';
 import { GIT_PACK_ROUTES, GIT_TRANSPORT_ROUTES } from './git.constants.js';
 import { GitRawBodyMiddleware } from './middleware/git-raw-body.middleware.js';
 import { GitService } from './git.service.js';
+import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-auth.middleware.js';
 
 @Module({
@@ -27,6 +28,7 @@ import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-au
     RepositoryStorageService,
     RepositoryMaterializerService,
     RepositoryContributionService,
+    CodeSearchService,
     PushTransactionService,
     WalStoreService,
     S3Service,

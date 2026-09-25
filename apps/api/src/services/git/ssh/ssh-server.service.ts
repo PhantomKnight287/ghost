@@ -228,7 +228,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
       const repoDirectory = await this.git.openRepository(repository.id);
 
       if (parsed.service === 'git-receive-pack') {
-        await this.push(channel, repository.id, repoDirectory, actor);
+        await this.push(channel, repository, repoDirectory, actor);
         return;
       }
       await this.fetch(channel, repoDirectory, parsed.service);
@@ -300,7 +300,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
    */
   private async push(
     channel: ServerChannel,
-    repositoryId: string,
+    repository: { id: string; visibility: string },
     repoDirectory: string,
     actor: Actor,
   ) {
@@ -312,7 +312,8 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     const spooled = await spooling;
     try {
       const { body } = await this.git.receivePack({
-        repositoryId,
+        repositoryId: repository.id,
+        isPublic: repository.visibility === 'public',
         body: spooled.body,
         pushedBy: actor?.userId ?? null,
       });

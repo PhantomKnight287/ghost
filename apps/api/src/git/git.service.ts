@@ -12,6 +12,7 @@ import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-a
 import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
+import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { isGitServiceName, type GitServiceName } from './git.constants.js';
 import { UnsupportedGitServiceError } from './git.errors.js';
 
@@ -35,6 +36,7 @@ export class GitService {
     private readonly pushTransaction: PushTransactionService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly contributions: RepositoryContributionService,
+    private readonly codeSearch: CodeSearchService,
   ) {}
 
   async advertiseRefs({
@@ -76,9 +78,11 @@ export class GitService {
    */
   async receivePack({
     repositoryId,
+    isPublic,
     body,
     pushedBy = null,
   }: RepositoryRef & {
+    isPublic: boolean;
     body: GitRequestBody;
     pushedBy?: string | null;
   }): Promise<GitTransportResponse> {
@@ -105,8 +109,13 @@ export class GitService {
       input: body.open(),
     });
 
-    // Fire-and-forget: a push must not wait on a history walk, and an interrupted index leaves a cursor the next sync tops up.
+    // Fire-and-forget: a push must not wait on a history walk or a reindex, and an interrupted index leaves a cursor the next sync tops up.
     result.once('close', () => {
+      this.codeSearch.indexInBackground({
+        repositoryId,
+        isPublic,
+        repoDirectory,
+      });
       this.contributions
         .sync({ repositoryId, repoDirectory })
         .catch((error: unknown) =>

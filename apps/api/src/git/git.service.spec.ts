@@ -9,6 +9,7 @@ import { RepositoryMaterializerService } from '../services/git/materializer/repo
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
+import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { UnsupportedGitServiceError } from './git.errors.js';
 import { GitService } from './git.service.js';
 
@@ -34,6 +35,8 @@ describe('GitService', () => {
     sync: vi.fn().mockResolvedValue('55ff3318cbb1ad74a1e1a1e6f4bd91f4b5a9c0d2'),
   };
 
+  const codeSearch = { indexInBackground: vi.fn() };
+
   beforeEach(async () => {
     vi.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
@@ -45,6 +48,7 @@ describe('GitService', () => {
         { provide: PushTransactionService, useValue: pushTransaction },
         { provide: RepositoryMaterializerService, useValue: materializer },
         { provide: RepositoryContributionService, useValue: contributions },
+        { provide: CodeSearchService, useValue: codeSearch },
       ],
     }).compile();
 
@@ -90,6 +94,7 @@ describe('GitService', () => {
 
     await service.receivePack({
       repositoryId: 'repo_ghost',
+      isPublic: true,
       body: bufferBody(receivePackBody()),
     });
 
@@ -99,6 +104,7 @@ describe('GitService', () => {
   it('answers the pre-push probe without touching the log', async () => {
     const { headers } = await service.receivePack({
       repositoryId: 'repo_ghost',
+      isPublic: true,
       body: bufferBody(Buffer.from('0000')),
     });
 
@@ -112,6 +118,7 @@ describe('GitService', () => {
   it('commits to the log before touching the local repository', async () => {
     const { headers } = await service.receivePack({
       repositoryId: 'repo_ghost',
+      isPublic: true,
       body: bufferBody(receivePackBody()),
     });
 
@@ -137,6 +144,7 @@ describe('GitService', () => {
   it('indexes contributions once the pushed pack finishes streaming', async () => {
     const { body } = await service.receivePack({
       repositoryId: 'repo_ghost',
+      isPublic: true,
       body: bufferBody(receivePackBody()),
     });
 
@@ -147,6 +155,11 @@ describe('GitService', () => {
 
     expect(contributions.sync).toHaveBeenCalledWith({
       repositoryId: 'repo_ghost',
+      repoDirectory: '/repos/ghost.git',
+    });
+    expect(codeSearch.indexInBackground).toHaveBeenCalledWith({
+      repositoryId: 'repo_ghost',
+      isPublic: true,
       repoDirectory: '/repos/ghost.git',
     });
   });

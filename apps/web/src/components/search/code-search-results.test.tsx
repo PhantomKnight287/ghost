@@ -31,13 +31,24 @@ describe("markMatches", () => {
 
   it("cuts a token where a match starts and ends inside it", () => {
     expect(render([{ start: 8, end: 10 }])).toContain(
-      '<span style="--shiki-light:blue">fi</span><mark class="rounded-sm bg-primary/25"><span style="--shiki-light:blue">nd</span></mark><span style="--shiki-light:blue">Me</span>',
+      '<span style="--shiki-light:blue">fi</span><mark class="rounded-xs bg-primary/25"><span style="--shiki-light:blue">nd</span></mark><span style="--shiki-light:blue">Me</span>',
     );
   });
 
-  it("marks a match spanning several tokens piece by piece, each in its own colour", () => {
+  it("marks a match spanning several tokens as one mark, each piece in its own colour", () => {
     expect(render([{ start: 3, end: 9 }])).toBe(
-      '<span style="--shiki-light:red">con</span><mark class="rounded-sm bg-primary/25"><span style="--shiki-light:red">st</span></mark><mark class="rounded-sm bg-primary/25"><span style="--shiki-light:grey"> </span></mark><mark class="rounded-sm bg-primary/25"><span style="--shiki-light:blue">fin</span></mark><span style="--shiki-light:blue">dMe</span><span style="--shiki-light:grey"> = 1;</span>',
+      '<span style="--shiki-light:red">con</span><mark class="rounded-xs bg-primary/25"><span style="--shiki-light:red">st</span><span style="--shiki-light:grey"> </span><span style="--shiki-light:blue">fin</span></mark><span style="--shiki-light:blue">dMe</span><span style="--shiki-light:grey"> = 1;</span>',
+    );
+  });
+
+  it("keeps adjacent matches apart", () => {
+    expect(
+      render([
+        { start: 0, end: 5 },
+        { start: 5, end: 6 },
+      ]),
+    ).toBe(
+      '<mark class="rounded-xs bg-primary/25"><span style="--shiki-light:red">const</span></mark><mark class="rounded-xs bg-primary/25"><span style="--shiki-light:grey"> </span></mark><span style="--shiki-light:blue">findMe</span><span style="--shiki-light:grey"> = 1;</span>',
     );
   });
 });
