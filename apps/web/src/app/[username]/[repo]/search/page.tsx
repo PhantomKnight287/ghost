@@ -18,8 +18,14 @@ export async function generateMetadata({
   searchParams,
 }: PageProps<"/[username]/[repo]/search">): Promise<Metadata> {
   const [{ username, repo }, { q }] = await Promise.all([params, searchParams]);
+  const query = typeof q === "string" ? q.trim() : "";
+  const title = `${query ? `${query} · ` : ""}${username}/${repo}`;
+  const image = `/${username}/${repo}/search/og?${new URLSearchParams({ q: query })}`;
+
   return {
-    title: `${typeof q === "string" ? `${q} · ` : ""}${username}/${repo}`,
+    title,
+    openGraph: { title, images: [image] },
+    twitter: { images: [image] },
   };
 }
 

@@ -16,7 +16,8 @@ sync_shards() {
   rclone --config "" sync "s3:$S3_BUCKET/zoekt" /data/index || echo "shard sync failed, serving what is on disk" >&2
 }
 
-sync_shards
-(while sleep 10; do sync_shards; done) &
+# Syncing in the background keeps a slow or unreachable bucket from holding the webserver, and its healthcheck, hostage; zoekt loads shards as they land.
+(while true; do sync_shards; sleep 10; done) &
 # Platforms such as Railway healthcheck the port they hand out in PORT.
+echo "Running zoekt-webserver on ${PORT:-6070}"
 exec zoekt-webserver -index /data/index -listen ":${PORT:-6070}" -rpc -html=false

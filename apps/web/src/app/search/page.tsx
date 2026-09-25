@@ -23,8 +23,19 @@ type Kind = "repositories" | "code";
 export async function generateMetadata({
   searchParams,
 }: PageProps<"/search">): Promise<Metadata> {
-  const { q } = await searchParams;
-  return { title: typeof q === "string" && q ? `Search · ${q}` : "Search" };
+  const { q, type } = await searchParams;
+  const query = typeof q === "string" ? q.trim() : "";
+  const title = query ? `Search · ${query}` : "Search";
+  const image = `/search/og?${new URLSearchParams({
+    q: query,
+    type: type === "code" ? "code" : "repositories",
+  })}`;
+
+  return {
+    title,
+    openGraph: { title, images: [image] },
+    twitter: { images: [image] },
+  };
 }
 
 export default async function SearchPage({
@@ -52,11 +63,7 @@ export default async function SearchPage({
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader
-        username={viewer}
-        owners={viewer ? [viewer] : []}
-        query={query}
-      />
+      <AppHeader username={viewer} owners={viewer ? [viewer] : []} />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 md:px-6">
         <nav className="flex gap-1 border-b">

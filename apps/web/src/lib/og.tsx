@@ -265,6 +265,36 @@ export function plural(value: number, one: string, many = `${one}s`) {
   return `${value} ${value === 1 ? one : many}`;
 }
 
+/** Files, lines and (for a search across repositories) repositories a code search matched. */
+export function codeSearchStats(
+  files: { lines: unknown[]; repository?: { owner: string; slug: string } }[],
+): OgStat[] {
+  const repositories = new Set(
+    files.flatMap(({ repository }) =>
+      repository ? [`${repository.owner}/${repository.slug}`] : [],
+    ),
+  );
+
+  return [
+    { icon: "fileCode", label: plural(files.length, "file") },
+    {
+      icon: "code",
+      label: plural(
+        files.reduce((sum, file) => sum + file.lines.length, 0),
+        "matching line",
+      ),
+    },
+    ...(repositories.size > 0
+      ? [
+          {
+            icon: "bookMarked" as const,
+            label: plural(repositories.size, "repository", "repositories"),
+          },
+        ]
+      : []),
+  ];
+}
+
 /** Keeps both ends of a path readable when the middle has to go. */
 export function shortenPath(path: string, max = 72) {
   if (path.length <= max) return path;

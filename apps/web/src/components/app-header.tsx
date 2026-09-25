@@ -2,6 +2,8 @@
 
 import Form from "next/form";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { CircleUser, Ghost, Plus, Search } from "lucide-react";
 
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
@@ -18,15 +20,15 @@ export function AppHeader({
   username,
   owners,
   repository,
-  query,
 }: {
   username: string;
   owners: string[];
   /** Set on a repository's pages, where the search bar searches that repository's code. */
   repository?: { owner: string; slug: string };
-  /** The search being shown, so the bar keeps it. */
-  query?: string;
 }) {
+  const action = repository
+    ? `/${repository.owner}/${repository.slug}/search`
+    : "/search";
   const placeholder = repository ? "Search this repository" : "Search Ghost";
 
   return (
@@ -41,29 +43,12 @@ export function AppHeader({
         </Link>
 
         <div className="ml-auto flex items-center gap-2">
-          <Form
-            action={
-              repository
-                ? `/${repository.owner}/${repository.slug}/search`
-                : "/search"
-            }
-            className="hidden sm:block"
+          {/* reading the URL opts a prerendered page out of static rendering up to the nearest boundary, so the bar gets its own */}
+          <Suspense
+            fallback={<SearchForm action={action} placeholder={placeholder} />}
           >
-            <InputGroup className="w-56">
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              <InputGroupInput
-                key={query}
-                type="search"
-                name="q"
-                required
-                defaultValue={query}
-                placeholder={placeholder}
-                aria-label={placeholder}
-              />
-            </InputGroup>
-          </Form>
+            <CurrentSearchForm action={action} placeholder={placeholder} />
+          </Suspense>
 
           <NewRepositoryDialog owners={owners} defaultOwner={username}>
             <Button size="sm">
@@ -89,5 +74,59 @@ export function AppHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+/** On the results page the bar holds the search being shown, and resubmitting keeps the tab. Anywhere else a `q` means something else, like the profile's repository filter. */
+function CurrentSearchForm({
+  action,
+  placeholder,
+}: {
+  action: string;
+  placeholder: string;
+}) {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const onResults = pathname === action;
+
+  return (
+    <SearchForm
+      action={action}
+      placeholder={placeholder}
+      query={onResults ? (params.get("q") ?? "") : ""}
+      type={onResults ? params.get("type") : null}
+    />
+  );
+}
+
+function SearchForm({
+  action,
+  placeholder,
+  query = "",
+  type = null,
+}: {
+  action: string;
+  placeholder: string;
+  query?: string;
+  type?: string | null;
+}) {
+  return (
+    <Form action={action} className="hidden sm:block">
+      {type && <input type="hidden" name="type" value={type} />}
+      <InputGroup className="w-56">
+        <InputGroupAddon>
+          <Search />
+        </InputGroupAddon>
+        <InputGroupInput
+          key={query}
+          type="search"
+          name="q"
+          required
+          defaultValue={query}
+          placeholder={placeholder}
+          aria-label={placeholder}
+        />
+      </InputGroup>
+    </Form>
   );
 }

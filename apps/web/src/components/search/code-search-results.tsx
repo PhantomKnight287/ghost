@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { FileCode2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
+import type { ThemedToken } from "shiki";
 
-import { Badge } from "@/components/ui/badge";
 import {
   Empty,
   EmptyDescription,
@@ -11,6 +11,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { components } from "@/lib/api/v1";
+import { highlightLines } from "@/lib/highlight";
 
 type CodeSearchFile = components["schemas"]["CodeSearchFileDTO"] & {
   repository?: components["schemas"]["SearchCodeRepositoryDTO"];
@@ -18,7 +19,7 @@ type CodeSearchFile = components["schemas"]["CodeSearchFileDTO"] & {
 
 type Range = components["schemas"]["CodeSearchRangeDTO"];
 
-export function CodeSearchResults({
+export async function CodeSearchResults({
   files,
   repository,
   error,
@@ -45,9 +46,22 @@ export function CodeSearchResults({
     );
   }
 
+  // The matches are scattered lines, not a file, so each is highlighted on its own: a grammar state carried across a gap would colour the next line wrongly.
+  const tokens = await Promise.all(
+    files.map((file) =>
+      Promise.all(
+        file.lines.map(
+          async ({ line }) =>
+            (await highlightLines(line, file.path.split("/").pop() ?? ""))[0] ??
+            [],
+        ),
+      ),
+    ),
+  );
+
   return (
     <div className="flex flex-col gap-4">
-      {files.map((file) => {
+      {files.map((file, f) => {
         const { owner, slug } = file.repository ?? repository!;
         // Line numbers refer to the commit the index was built from, so link to that commit rather than a branch that may have moved.
         const blob = `/${owner}/${slug}/blob/${file.commit}/${file.path.split("/").map(encodeURIComponent).join("/")}`;
@@ -75,33 +89,45 @@ export function CodeSearchResults({
               >
                 {file.path}
               </Link>
-              {file.language && (
-                <Badge variant="outline" className="ml-auto">
-                  {file.language}
-                </Badge>
-              )}
             </header>
 
             {file.lines.length > 0 && (
-              <table className="w-full font-mono text-xs">
-                <tbody>
-                  {file.lines.map((line) => (
-                    <tr key={line.lineNumber} className="hover:bg-muted/40">
-                      <td className="w-12 select-none border-r py-0.5 pr-3 text-right align-top text-muted-foreground">
-                        <Link
-                          href={`${blob}#L${line.lineNumber}`}
-                          className="hover:text-foreground"
-                        >
-                          {line.lineNumber}
-                        </Link>
-                      </td>
-                      <td className="py-0.5 pl-4 whitespace-pre-wrap break-all">
-                        {highlight(line.line, line.ranges)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto" data-shiki>
+                <table className="w-full border-collapse font-mono text-xs">
+                  <tbody>
+                    {file.lines.map((line, l) => {
+                      const previous = file.lines[l - 1];
+
+                      return (
+                        <Fragment key={line.lineNumber}>
+                          {previous &&
+                            line.lineNumber > previous.lineNumber + 1 && (
+                              <tr aria-hidden className="bg-muted/40">
+                                <td className="select-none border-y border-r py-0.5 pr-3 text-right text-muted-foreground">
+                                  ⋯
+                                </td>
+                                <td className="border-y" />
+                              </tr>
+                            )}
+                          <tr className="hover:bg-muted/40">
+                            <td className="w-12 select-none border-r py-0.5 pr-3 text-right align-top text-muted-foreground">
+                              <Link
+                                href={`${blob}#L${line.lineNumber}`}
+                                className="hover:text-foreground"
+                              >
+                                {line.lineNumber}
+                              </Link>
+                            </td>
+                            <td className="py-0.5 pl-4 whitespace-pre">
+                              {markMatches(tokens[f][l], line.ranges)}
+                            </td>
+                          </tr>
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </article>
         );
@@ -110,20 +136,34 @@ export function CodeSearchResults({
   );
 }
 
-function highlight(line: string, ranges: Range[]) {
+/** Syntax tokens with the matched spans marked. A match can start or end mid-token, so tokens are cut at match boundaries and each piece keeps its colour. */
+export function markMatches(tokens: ThemedToken[], ranges: Range[]) {
   const parts: ReactNode[] = [];
-  let at = 0;
 
-  for (const { start, end } of ranges) {
-    if (start > at) parts.push(line.slice(at, start));
-    parts.push(
-      <mark key={start} className="rounded-sm bg-primary/20 text-foreground">
-        {line.slice(start, end)}
-      </mark>,
+  for (const token of tokens) {
+    const end = token.offset + token.content.length;
+    const piece = (from: number, to: number) => (
+      <span key={from} style={token.htmlStyle}>
+        {token.content.slice(from - token.offset, to - token.offset)}
+      </span>
     );
-    at = end;
+
+    let at = token.offset;
+    for (const range of ranges) {
+      if (range.end <= at || range.start >= end) continue;
+
+      const from = Math.max(range.start, at);
+      const to = Math.min(range.end, end);
+      if (from > at) parts.push(piece(at, from));
+      parts.push(
+        <mark key={`m${from}`} className="rounded-sm bg-primary/25">
+          {piece(from, to)}
+        </mark>,
+      );
+      at = to;
+    }
+    if (at < end) parts.push(piece(at, end));
   }
-  parts.push(line.slice(at));
 
   return parts;
 }

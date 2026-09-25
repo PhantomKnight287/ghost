@@ -1,19 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import {
-  bundledLanguages,
-  codeToTokens,
-  type BundledLanguage,
-  type ThemeRegistrationRaw,
-} from "shiki";
 import { formatDistanceToNow } from "date-fns";
 import { Download, GitCommitHorizontal } from "lucide-react";
-import pierreDark from "@pierre/theme/pierre-dark";
-import pierreLight from "@pierre/theme/pierre-light";
-
-import { APP_THEMES } from "@/lib/themes";
 
 import { createServerClient } from "@/lib/api/server";
+import { highlightLines } from "@/lib/highlight";
 import { ogUrl } from "@/lib/og-url";
 
 export async function generateMetadata({
@@ -78,23 +69,7 @@ export default async function RepositoryBlobPage({
       ? null
       : text === ""
         ? []
-        : (
-            await codeToTokens(text, {
-              lang: languageFor(filename),
-              // the pierre themes ship as frozen TextMate objects, which shiki loads and caches by their own `name`; the rest are bundled names. keys line up with the `--shiki-<id>` selectors in globals.css.
-              themes: Object.fromEntries(
-                APP_THEMES.map((t) => [
-                  t.id,
-                  t.id === "light"
-                    ? (pierreLight as ThemeRegistrationRaw)
-                    : t.id === "dark"
-                      ? (pierreDark as ThemeRegistrationRaw)
-                      : t.shiki,
-                ]),
-              ),
-              defaultColor: false,
-            })
-          ).tokens;
+        : await highlightLines(text, filename);
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -231,23 +206,6 @@ function Preview({ url, filename }: { url: string; filename: string }) {
       </a>
     </div>
   );
-}
-
-const LANGUAGE_BY_NAME: Record<string, BundledLanguage> = {
-  dockerfile: "docker",
-  makefile: "make",
-  gemfile: "ruby",
-  rakefile: "ruby",
-};
-
-function languageFor(filename: string): BundledLanguage | "text" {
-  const name = filename.toLowerCase();
-  if (name in LANGUAGE_BY_NAME) return LANGUAGE_BY_NAME[name];
-
-  const extension = name.split(".").pop() ?? "";
-  return extension in bundledLanguages
-    ? (extension as BundledLanguage)
-    : "text";
 }
 
 function formatBytes(bytes: number) {
