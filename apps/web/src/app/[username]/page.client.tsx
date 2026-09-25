@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
+import Form from "next/form";
 import { formatDistanceToNow } from "date-fns";
 import { Plus, Search } from "lucide-react";
-import { toast } from "sonner";
 
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
 import { RepositoryCard } from "@/components/repository-card";
@@ -14,47 +14,39 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchClient } from "@/lib/fetch-client";
 
 import type { components } from "@/lib/api/v1";
-import { REPOSITORIES_PAGE_SIZE } from "./constants";
 
 export type RepositoryEntity = components["schemas"]["RepositoryEntity"];
+
+const FILTER_DEBOUNCE_MS = 300;
 
 export function ProfileTabs({
   username,
   isViewer,
   owners,
-  initialRepositories,
-  initialCursor,
+  defaultTab,
+  repositories,
+  query,
+  pagination,
   overview,
 }: {
   username: string;
   isViewer: boolean;
   owners: string[];
-  initialRepositories: RepositoryEntity[];
-  initialCursor: string | null;
+  defaultTab: "overview" | "repositories";
+  repositories: RepositoryEntity[];
+  query: string;
+  /** Rendered on the server from the page's cursor. */
+  pagination: ReactNode;
   /** Rendered on the server: the profile README, or its empty state. */
   overview: ReactNode;
 }) {
-  const [repositories, setRepositories] = useState(initialRepositories);
-  const [cursor, setCursor] = useState(initialCursor);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [filter, setFilter] = useState("");
-
-  const visibleRepositories = useMemo(() => {
-    const needle = filter.trim().toLowerCase();
-    if (!needle) return repositories;
-
-    return repositories.filter(
-      (repository) =>
-        repository.name.toLowerCase().includes(needle) ||
-        repository.description?.toLowerCase().includes(needle),
-    );
-  }, [filter, repositories]);
+  const filter = useRef<HTMLFormElement>(null);
+  const pending = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   return (
-    <Tabs defaultValue="overview">
+    <Tabs defaultValue={defaultTab}>
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="repositories">Repositories</TabsTrigger>
@@ -67,18 +59,35 @@ export function ProfileTabs({
 
       <TabsContent value="repositories" className="flex flex-col gap-4 pt-6">
         <div className="flex flex-wrap items-center gap-2">
-          <InputGroup className="flex-1">
-            <InputGroupAddon>
-              <Search />
-            </InputGroupAddon>
-            <InputGroupInput
-              type="search"
-              placeholder="Find a repository"
-              aria-label="Find a repository"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-            />
-          </InputGroup>
+          {/* Submitting drops the cursor, so a new filter always starts from the first page. */}
+          <Form
+            ref={filter}
+            action={`/${username}`}
+            replace
+            scroll={false}
+            className="flex-1"
+          >
+            <input type="hidden" name="tab" value="repositories" />
+            <InputGroup>
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="search"
+                name="q"
+                placeholder="Find a repository"
+                aria-label="Find a repository"
+                defaultValue={query}
+                onChange={() => {
+                  clearTimeout(pending.current);
+                  pending.current = setTimeout(
+                    () => filter.current?.requestSubmit(),
+                    FILTER_DEBOUNCE_MS,
+                  );
+                }}
+              />
+            </InputGroup>
+          </Form>
 
           {isViewer && (
             <NewRepositoryDialog owners={owners} defaultOwner={username}>
@@ -90,9 +99,9 @@ export function ProfileTabs({
           )}
         </div>
 
-        {visibleRepositories.length > 0 ? (
+        {repositories.length > 0 ? (
           <div className="flex flex-col border-t">
-            {visibleRepositories.map((repository) => (
+            {repositories.map((repository) => (
               <RepositoryCard
                 key={repository.id}
                 repository={{
@@ -112,10 +121,10 @@ export function ProfileTabs({
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
             <p className="text-sm font-medium">
-              {filter ? "No matching repositories" : "No repositories yet"}
+              {query ? "No matching repositories" : "No repositories yet"}
             </p>
             <p className="max-w-xs text-sm text-muted-foreground">
-              {filter
+              {query
                 ? "Try a different search term."
                 : isViewer
                   ? "Create your first repository to start tracking a project."
@@ -124,16 +133,7 @@ export function ProfileTabs({
           </div>
         )}
 
-        {cursor && (
-          <Button
-            variant="outline"
-            className="self-center"
-            onClick={() => {}}
-            disabled={isLoadingMore}
-          >
-            {isLoadingMore ? "Loading..." : "Load more"}
-          </Button>
-        )}
+        {pagination}
       </TabsContent>
 
       <TabsContent value="organizations" className="pt-6">

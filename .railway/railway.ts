@@ -33,7 +33,15 @@ export default defineRailway(() => {
     deploy: { restartPolicyMaxRetries: 5, sleepApplication: true },
     domains: [{ domain: "api.ghost.procrastinator.fyi", port: 2222 }],
     networking: { tcpProxies: { "3110": {} } },
-    env: { AUTH_COOKIE_DOMAIN: preserve(), AUTH_TRUSTED_ORIGINS: preserve(), BETTER_AUTH_SECRET: preserve(), BETTER_AUTH_URL: preserve(), DATABASE_URL: preserve(), EMAIL_PROXY: preserve(), EMAIL_PROXY_SECRET: preserve(), EMAIL_SENDER: preserve(), EMAIL_VERIFICATION_ENABLED: preserve(), GIT_SSH_HOST_KEY: preserve(), GIT_SSH_PORT: preserve(), S3_ACCESS_KEY_ID: preserve(), S3_BUCKET: preserve(), S3_ENDPOINT: preserve(), S3_SECRET_ACCESS_KEY: preserve(), WEB_APP_URL: preserve() },
+    env: { AUTH_COOKIE_DOMAIN: preserve(), AUTH_TRUSTED_ORIGINS: preserve(), BETTER_AUTH_SECRET: preserve(), BETTER_AUTH_URL: preserve(), DATABASE_URL: preserve(), EMAIL_PROXY: preserve(), EMAIL_PROXY_SECRET: preserve(), EMAIL_SENDER: preserve(), EMAIL_VERIFICATION_ENABLED: preserve(), GIT_SSH_HOST_KEY: preserve(), GIT_SSH_PORT: preserve(), S3_ACCESS_KEY_ID: preserve(), S3_BUCKET: preserve(), S3_ENDPOINT: preserve(), S3_SECRET_ACCESS_KEY: preserve(), WEB_APP_URL: preserve(), ZOEKT_URL: preserve() },
+  });
+  // Private network only and never asleep: a cold start re-downloads every shard before it can answer.
+  const zoekt = service("zoekt", {
+    source: ghost,
+    build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "apps/zoekt/Dockerfile", watchPatterns: ["/apps/zoekt/**"] },
+    healthcheck: "/healthz",
+    replicas: { "asia-southeast1-eqsg3a": 1 },
+    env: { S3_ACCESS_KEY_ID: preserve(), S3_BUCKET: preserve(), S3_ENDPOINT: preserve(), S3_SECRET_ACCESS_KEY: preserve() },
   });
   const otelLgtm = service("otel-lgtm", {
     source: image("grafana/otel-lgtm"),
@@ -43,6 +51,6 @@ export default defineRailway(() => {
   });
 
   return project("Ghost", {
-    resources: [web, docs, api, postgresDatabase, otelLgtm, postgresVolumeUO8m, ghostBucket],
+    resources: [web, docs, api, zoekt, postgresDatabase, otelLgtm, postgresVolumeUO8m, ghostBucket],
   });
 });

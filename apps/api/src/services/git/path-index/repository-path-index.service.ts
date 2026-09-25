@@ -4,6 +4,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { runGit } from '../../../lib/git/exec/run-git.js';
+import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { walkCommits } from '../../../lib/git/path-index/commit-log.js';
 import { isoTimestamp } from '../../../utils/index.js';
 
@@ -102,7 +103,7 @@ export class RepositoryPathIndexService {
     repoDirectory: string;
     ref: string;
   }): Promise<string | null> {
-    const tip = await this.resolve(repoDirectory, ref);
+    const tip = await resolveCommit(repoDirectory, ref);
     if (!tip) {
       await this.forget(repositoryId, ref);
       return null;
@@ -243,20 +244,6 @@ export class RepositoryPathIndexService {
           eq(schema.repositoryRefIndex.ref, ref),
         ),
       );
-  }
-
-  private async resolve(repoDirectory: string, ref: string) {
-    const oid = await runGit({
-      args: [
-        'rev-parse',
-        '--verify',
-        '--quiet',
-        '--end-of-options',
-        `${ref}^{commit}`,
-      ],
-      gitDir: repoDirectory,
-    }).catch(() => '');
-    return oid.trim() || null;
   }
 
   private async isAncestor(

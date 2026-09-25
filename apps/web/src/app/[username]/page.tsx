@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { AppHeader } from "@/components/app-header";
+import { CursorPagination } from "@/components/cursor-pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   RepositoryReadme,
@@ -43,8 +44,12 @@ export async function generateMetadata({
 
 export default async function ProfilePage({
   params,
+  searchParams,
 }: PageProps<"/[username]">) {
   const { username } = await params;
+  const { tab, q, cursor } = await searchParams;
+  const query = typeof q === "string" ? q.trim() : "";
+  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
   const [session, client] = await Promise.all([
     getServerSession(),
@@ -58,7 +63,11 @@ export default async function ProfilePage({
     client.GET("/api/repositories/{username}", {
       params: {
         path: { username },
-        query: { limit: REPOSITORIES_PAGE_SIZE },
+        query: {
+          limit: REPOSITORIES_PAGE_SIZE,
+          q: query || undefined,
+          cursor: pageCursor,
+        },
       },
     }),
   ]);
@@ -70,6 +79,13 @@ export default async function ProfilePage({
   if (error || !data) {
     throw new Error(`Failed to load repositories for ${username}`);
   }
+
+  const repositoriesHref = (next?: string) =>
+    `/${username}?${new URLSearchParams({
+      tab: "repositories",
+      ...(query && { q: query }),
+      ...(next && { cursor: next }),
+    })}`;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -117,8 +133,18 @@ export default async function ProfilePage({
             username={username}
             isViewer={isViewer}
             owners={viewer ? [viewer] : []}
-            initialRepositories={data.repositories}
-            initialCursor={data.nextCursor}
+            defaultTab={tab === "repositories" ? "repositories" : "overview"}
+            repositories={data.repositories}
+            query={query}
+            pagination={
+              <CursorPagination
+                firstHref={repositoriesHref()}
+                nextHref={
+                  data.nextCursor ? repositoriesHref(data.nextCursor) : null
+                }
+                isFirstPage={!pageCursor}
+              />
+            }
             overview={
               <>
                 <Suspense fallback={<RepositoryReadmeSkeleton bare />}>

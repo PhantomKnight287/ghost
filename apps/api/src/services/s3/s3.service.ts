@@ -18,4 +18,23 @@ export class S3Service extends S3 {
     });
     this.bucket = configService.getOrThrow('S3_BUCKET');
   }
+
+  /** Only the first 1,000 keys under the prefix are considered, which every caller stays well inside. */
+  async deleteUnder(prefix: string, keep: string[] = []) {
+    const listed = await this.listObjectsV2({
+      Bucket: this.bucket,
+      Prefix: prefix,
+    });
+
+    const stale = (listed.Contents ?? [])
+      .map((object) => object.Key)
+      .filter((key): key is string => key !== undefined && !keep.includes(key));
+
+    if (!stale.length) return;
+
+    await this.deleteObjects({
+      Bucket: this.bucket,
+      Delete: { Objects: stale.map((Key) => ({ Key })) },
+    });
+  }
 }

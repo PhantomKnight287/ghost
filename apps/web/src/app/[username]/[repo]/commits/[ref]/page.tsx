@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { GitCommitHorizontal } from "lucide-react";
 
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
-import { buttonVariants } from "@/components/ui/button";
+import { CursorPagination } from "@/components/cursor-pagination";
 import { createServerClient } from "@/lib/api/server";
 import { FromNowHoverCard } from "@/components/from-now-card";
 
@@ -91,32 +91,11 @@ export default async function RepositoryCommitsPage({
         )}
       </div>
 
-      {(cursor || nextCursor) && (
-        <div className="flex justify-center gap-2">
-          <Link
-            href={base}
-            aria-disabled={!cursor}
-            className={buttonVariants({
-              variant: "outline",
-              size: "sm",
-              className: cursor ? "" : "pointer-events-none opacity-50",
-            })}
-          >
-            Newest
-          </Link>
-          <Link
-            href={nextCursor ? `${base}?cursor=${nextCursor}` : base}
-            aria-disabled={!nextCursor}
-            className={buttonVariants({
-              variant: "outline",
-              size: "sm",
-              className: nextCursor ? "" : "pointer-events-none opacity-50",
-            })}
-          >
-            Older
-          </Link>
-        </div>
-      )}
+      <CursorPagination
+        firstHref={base}
+        nextHref={nextCursor ? `${base}?cursor=${nextCursor}` : null}
+        isFirstPage={!cursor}
+      />
     </>
   );
 }

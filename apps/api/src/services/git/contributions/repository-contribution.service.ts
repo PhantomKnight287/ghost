@@ -14,6 +14,7 @@ import {
 
 import { DATABASE } from '../../../database/database.module.js';
 import { runGit, runGitStream } from '../../../lib/git/exec/run-git.js';
+import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
@@ -150,7 +151,7 @@ export class RepositoryContributionService {
     repoDirectory: string;
   }): Promise<string | null> {
     const ref = await resolveDefaultRef({ gitDir: repoDirectory });
-    const tip = await this.resolve(repoDirectory, ref);
+    const tip = await resolveCommit(repoDirectory, ref);
     if (!tip) {
       await this.forget(repositoryId);
       return null;
@@ -373,20 +374,6 @@ export class RepositoryContributionService {
     await this.db
       .delete(schema.repositoryContributionIndex)
       .where(eq(schema.repositoryContributionIndex.repositoryId, repositoryId));
-  }
-
-  private async resolve(repoDirectory: string, ref: string) {
-    const oid = await runGit({
-      args: [
-        'rev-parse',
-        '--verify',
-        '--quiet',
-        '--end-of-options',
-        `${ref}^{commit}`,
-      ],
-      gitDir: repoDirectory,
-    }).catch(() => '');
-    return oid.trim() || null;
   }
 
   private async isAncestor(

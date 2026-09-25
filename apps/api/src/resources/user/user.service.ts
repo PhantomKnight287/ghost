@@ -140,22 +140,10 @@ export class UserService {
   }
 
   private async deleteAvatarObjects(userId: string, keep?: string) {
-    const listed = await this.s3.listObjectsV2({
-      Bucket: this.s3.bucket,
-      Prefix: `${AVATAR_PREFIX}/${userId}/`,
-    });
-
-    const keepKey = keep && this.avatarKey(userId, keep);
-    const stale = (listed.Contents ?? [])
-      .map((object) => object.Key)
-      .filter((key): key is string => Boolean(key) && key !== keepKey);
-
-    if (!stale.length) return;
-
-    await this.s3.deleteObjects({
-      Bucket: this.s3.bucket,
-      Delete: { Objects: stale.map((Key) => ({ Key })) },
-    });
+    await this.s3.deleteUnder(
+      `${AVATAR_PREFIX}/${userId}/`,
+      keep ? [this.avatarKey(userId, keep)] : [],
+    );
   }
 
   /** Daily commit counts for the contribution graph, read from the index alone: rendering a profile must not materialize every repository. */

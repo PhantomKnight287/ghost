@@ -18,6 +18,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
@@ -68,6 +69,10 @@ import {
   ForkRepositoryRequestDTO,
   ForkRepositoryResponseDTO,
 } from './dto/fork-repository.dto.js';
+import {
+  SearchCodeQueryDTO,
+  SearchRepositoryCodeResponseDTO,
+} from './dto/search-code.dto.js';
 import { RepositoryEntity } from './entities/repository.entity.js';
 import { RepositoriesService } from './repositories.service.js';
 
@@ -531,6 +536,41 @@ export class RepositoriesController {
       requesterId: session?.user?.id,
     });
   }
+
+  @Get(':username/:slug/search')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'Search code',
+    description:
+      'Full-text and regex search over the files on the default branch, powered by zoekt.',
+  })
+  @ApiOkResponse({
+    type: SearchRepositoryCodeResponseDTO,
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiServiceUnavailableResponse({
+    type: ErrorResponseDTO,
+  })
+  searchRepositoryCode(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: SearchCodeQueryDTO,
+  ): Promise<SearchRepositoryCodeResponseDTO> {
+    return this.repositoriesService.searchRepositoryCode({
+      username,
+      repo: slug,
+      requesterId: session?.user?.id,
+      query: query.q,
+      limit: query.limit,
+    });
+  }
+
   @Get(':username/:slug/stargazers')
   @OptionalAuth()
   @ApiOperation({

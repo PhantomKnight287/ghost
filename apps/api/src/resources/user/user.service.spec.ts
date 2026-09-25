@@ -15,16 +15,14 @@ describe('UserService avatars', () => {
   let s3: {
     bucket: string;
     putObject: ReturnType<typeof vi.fn>;
-    listObjectsV2: ReturnType<typeof vi.fn>;
-    deleteObjects: ReturnType<typeof vi.fn>;
+    deleteUnder: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
     s3 = {
       bucket: 'ghost',
       putObject: vi.fn().mockResolvedValue({}),
-      listObjectsV2: vi.fn().mockResolvedValue({ Contents: [] }),
-      deleteObjects: vi.fn().mockResolvedValue({}),
+      deleteUnder: vi.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -64,13 +62,6 @@ describe('UserService avatars', () => {
   });
 
   it('drops the superseded avatars but keeps the one just written', async () => {
-    s3.listObjectsV2.mockResolvedValue({
-      Contents: [
-        { Key: 'avatars/user-1/old.png' },
-        { Key: 'avatars/user-1/new.png' },
-      ],
-    });
-
     await service.uploadAvatar({
       userId: 'user-1',
       contentType: 'image/png',
@@ -78,11 +69,7 @@ describe('UserService avatars', () => {
     });
 
     const written: string = s3.putObject.mock.calls[0]![0].Key;
-    const deleted: Array<{ Key: string }> =
-      s3.deleteObjects.mock.calls[0]![0].Delete.Objects;
-
-    expect(deleted).toContainEqual({ Key: 'avatars/user-1/old.png' });
-    expect(deleted).not.toContainEqual({ Key: written });
+    expect(s3.deleteUnder).toHaveBeenCalledWith('avatars/user-1/', [written]);
   });
 
   it('refuses anything that is not an allowed image, and empty bodies', async () => {
@@ -126,23 +113,8 @@ describe('UserService avatars', () => {
   });
 
   it('deletes every avatar the user has when asked', async () => {
-    s3.listObjectsV2.mockResolvedValue({
-      Contents: [
-        { Key: 'avatars/user-1/a.png' },
-        { Key: 'avatars/user-1/b.jpg' },
-      ],
-    });
-
     await service.deleteAvatar('user-1');
 
-    expect(s3.deleteObjects).toHaveBeenCalledWith({
-      Bucket: 'ghost',
-      Delete: {
-        Objects: [
-          { Key: 'avatars/user-1/a.png' },
-          { Key: 'avatars/user-1/b.jpg' },
-        ],
-      },
-    });
+    expect(s3.deleteUnder).toHaveBeenCalledWith('avatars/user-1/', []);
   });
 });

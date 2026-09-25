@@ -1,6 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
-import { and, count, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  lt,
+  or,
+  sql,
+} from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
@@ -16,7 +27,12 @@ import {
   RepositoryAlreadyForkedError,
   RepositoryNotFoundError,
 } from './repositories.errors.js';
-import { decodeCursor, encodeCursor, titleToSlug } from '../../utils/index.js';
+import {
+  decodeCursor,
+  encodeCursor,
+  escapeLike,
+  titleToSlug,
+} from '../../utils/index.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
@@ -80,10 +96,17 @@ import { BranchesService } from '../../services/git/branches/branches.service.js
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
+import type {
+  SearchCodeResponseDTO,
+  SearchRepositoryCodeResponseDTO,
+} from './dto/search-code.dto.js';
+import type { SearchRepositoriesResponseDTO } from './dto/search-repositories.dto.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const MIN_LANGUAGE_PERCENT = 0.5;
+const DEFAULT_SEARCH_LIMIT = 50;
 
 @Injectable()
 export class RepositoriesService {
@@ -99,6 +122,7 @@ export class RepositoriesService {
     private readonly wal: WalStoreService,
     private readonly contributions: RepositoryContributionService,
     private readonly verification: CommitVerificationService,
+    private readonly codeSearch: CodeSearchService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -145,6 +169,7 @@ export class RepositoriesService {
             schema.repository.visibility,
             includePrivate ? ['private', 'public'] : ['public'],
           ),
+          matching(query.q),
           after,
         ),
       )
@@ -157,6 +182,86 @@ export class RepositoriesService {
     }));
 
     return { repositories: page, nextCursor, hasMore };
+  }
+
+  /** Public repositories across every owner, most recently pushed first. */
+  async searchRepositories(
+    query: GetRepositoriesQueryDTO,
+  ): Promise<SearchRepositoriesResponseDTO> {
+    const { pageSize, after } = this.page(
+      query,
+      schema.repository.lastPushedAt,
+      schema.repository.id,
+    );
+
+    const rows = await this.db
+      .select({
+        id: schema.repository.id,
+        owner: sql<string>`${schema.user.username}`,
+        name: schema.repository.name,
+        slug: schema.repository.slug,
+        description: schema.repository.description,
+        lastPushedAt: schema.repository.lastPushedAt,
+      })
+      .from(schema.repository)
+      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .where(
+        and(
+          eq(schema.repository.visibility, 'public'),
+          // an owner without a username has no page to link the repository under
+          isNotNull(schema.user.username),
+          matching(query.q),
+          after,
+        ),
+      )
+      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
+      .limit(pageSize + 1);
+
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
+      date: row.lastPushedAt,
+      id: row.id,
+    }));
+
+    return { repositories: page, nextCursor, hasMore };
+  }
+
+  /** Code in public repositories, limited to those someone has opened since code search was switched on. */
+  async searchCode({
+    query,
+    limit = DEFAULT_SEARCH_LIMIT,
+  }: {
+    query: string;
+    limit?: number;
+  }): Promise<SearchCodeResponseDTO> {
+    const hits = await this.codeSearch.searchPublic({ query, limit });
+    const ids = [...new Set(hits.map((hit) => hit.repositoryId))];
+    if (ids.length === 0) return { files: [] };
+
+    // The index only narrows to shards flagged public; the database is what decides.
+    const repositories = await this.db
+      .select({
+        id: schema.repository.id,
+        owner: sql<string>`${schema.user.username}`,
+        name: schema.repository.name,
+        slug: schema.repository.slug,
+      })
+      .from(schema.repository)
+      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .where(
+        and(
+          inArray(schema.repository.id, ids),
+          eq(schema.repository.visibility, 'public'),
+          isNotNull(schema.user.username),
+        ),
+      );
+    const byId = new Map(repositories.map((row) => [row.id, row]));
+
+    return {
+      files: hits.flatMap((hit) => {
+        const repository = byId.get(hit.repositoryId);
+        return repository ? [{ ...hit, repository }] : [];
+      }),
+    };
   }
 
   async getRepositoryBySlug({
@@ -797,6 +902,35 @@ export class RepositoriesService {
     };
   }
 
+  /** The index only ever holds HEAD, so this searches the default branch whatever the page is showing. */
+  async searchRepositoryCode({
+    username,
+    repo,
+    requesterId,
+    query,
+    limit = DEFAULT_SEARCH_LIMIT,
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    query: string;
+    limit?: number;
+  }): Promise<SearchRepositoryCodeResponseDTO> {
+    const { repository, directory } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+    });
+
+    return this.codeSearch.searchRepository({
+      repositoryId: repository.id,
+      isPublic: repository.visibility === 'public',
+      repoDirectory: directory,
+      query,
+      limit,
+    });
+  }
+
   /** Who starred the repository, most recent first. */
   async getRepositoryStargazers({
     username,
@@ -1040,6 +1174,13 @@ export class RepositoriesService {
     const directory = await this.storage.getRepoPath(repository.id);
     await this.materializer.materialize(repository.id, directory);
 
+    // Only repositories someone actually opens get indexed, and this is where the objects are already on disk.
+    this.codeSearch.indexInBackground({
+      repositoryId: repository.id,
+      isPublic: repository.visibility === 'public',
+      repoDirectory: directory,
+    });
+
     // Keep the contribution index warm while the objects are hot. The profile graph reads the index only, so rendering it never materializes anything itself. A no-op once the default tip is indexed.
     await this.contributions.sync({
       repositoryId: repository.id,
@@ -1067,6 +1208,18 @@ export class RepositoriesService {
 
     throw new BranchNotFoundError(name);
   }
+}
+
+/** Name or description contains `q`, ignoring case. A blank query filters nothing. */
+function matching(q: string | undefined) {
+  const needle = q?.trim();
+  if (!needle) return undefined;
+
+  const pattern = `%${escapeLike(needle)}%`;
+  return or(
+    ilike(schema.repository.name, pattern),
+    ilike(schema.repository.description, pattern),
+  );
 }
 
 /** One extra row was fetched: it only tells us whether another page exists. */

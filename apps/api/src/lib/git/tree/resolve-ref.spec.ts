@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { resolveRevision } from './resolve-ref.js';
+import { resolveCommit, resolveRevision } from './resolve-ref.js';
 
 describe('resolveRevision', () => {
   let root: string;
@@ -29,6 +29,16 @@ describe('resolveRevision', () => {
   });
 
   afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('resolveCommit names the commit a ref points at', async () => {
+    await expect(resolveCommit(gitDir, 'HEAD')).resolves.toBe(sha);
+  });
+
+  it('resolveCommit returns null for a ref that names nothing', async () => {
+    await expect(
+      resolveCommit(gitDir, 'refs/heads/missing'),
+    ).resolves.toBeNull();
+  });
 
   it('resolves a branch name to its full ref', async () => {
     await expect(

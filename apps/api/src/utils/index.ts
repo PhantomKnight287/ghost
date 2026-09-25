@@ -36,3 +36,8 @@ export function decodeCursor(cursor: string) {
 export function isoTimestamp(column: AnyPgColumn) {
   return sql<string>`to_char(${column} at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 }
+
+// For `ilike`: a search for "50%" or "a_b" matches those characters, not any.
+export function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}

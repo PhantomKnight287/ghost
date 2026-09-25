@@ -12,6 +12,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
+import { TabLink } from "@/components/tab-link";
 import {
   ClonePopover,
   sshCloneUrlFor,
@@ -89,7 +90,11 @@ export function RepositoryFrame({
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader username={viewer} owners={viewer ? [viewer] : []} />
+      <AppHeader
+        username={viewer}
+        owners={viewer ? [viewer] : []}
+        repository={{ owner: username, slug }}
+      />
 
       <div className="border-b bg-muted/30">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-6 md:px-6">
@@ -167,13 +172,7 @@ export function RepositoryFrame({
 
           <nav className="-mb-px flex gap-1 overflow-x-auto">
             {tabs.map(({ value, label, icon: Icon, href, count }) => (
-              <Link
-                key={value}
-                href={href}
-                aria-current={activeTab === value ? "page" : undefined}
-                data-active={activeTab === value || undefined}
-                className="flex items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground data-active:border-foreground data-active:font-medium data-active:text-foreground"
-              >
+              <TabLink key={value} href={href} active={activeTab === value}>
                 <Icon className="size-4" />
                 {label}
                 {count !== null && (
@@ -181,7 +180,7 @@ export function RepositoryFrame({
                     {count}
                   </span>
                 )}
-              </Link>
+              </TabLink>
             ))}
           </nav>
         </div>
@@ -190,7 +189,7 @@ export function RepositoryFrame({
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div className="flex min-w-0 flex-1 flex-col gap-4">
-            {activeTab === "code" && rev && (
+            {activeTab === "code" && view !== "search" && rev && (
               <div className="flex flex-wrap items-center gap-3">
                 <Select
                   value={onBranch ? rev : ""}

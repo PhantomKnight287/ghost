@@ -93,9 +93,30 @@ services:
       S3_BUCKET: ghost
       GIT_SSH_HOST_KEY: ${GIT_SSH_HOST_KEY:-}
       GIT_SSH_PORT: 1031
+      ZOEKT_URL: http://zoekt:6070
     ports:
       - "3001:3001"
       - "1031:1031"
+
+  # No published port: zoekt answers for every repository, private ones included, so only the api, which checks access, may reach it.
+  zoekt:
+    build:
+      context: .
+      dockerfile: apps/zoekt/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      bucket:
+        condition: service_completed_successfully
+    environment:
+      S3_ENDPOINT: http://rustfs:9000
+      S3_ACCESS_KEY_ID: ghost
+      S3_SECRET_ACCESS_KEY: ghostsecret
+      S3_BUCKET: ghost
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:6070/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   web:
     build:

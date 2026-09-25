@@ -6,12 +6,23 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
 import { RepositoryEntity } from '../entities/repository.entity.js';
 
 export class GetRepositoriesQueryDTO {
+  @ApiPropertyOptional({
+    description:
+      'Keep repositories whose name or description contains this text, ignoring case.',
+    example: 'ghost',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  q?: string;
+
   @ApiPropertyOptional({
     description:
       'Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.',

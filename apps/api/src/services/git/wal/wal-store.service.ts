@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 
 import { S3Service } from '../../s3/s3.service.js';
+import { isNotFound, statusOf } from '../../../lib/s3/s3.errors.js';
 import {
   prefixed,
   type GitRequestBody,
@@ -143,15 +144,6 @@ export class WalStoreService {
     });
     return response.Body as Readable;
   }
-}
-
-function statusOf(error: unknown) {
-  return (error as { $metadata?: { httpStatusCode?: number } })?.$metadata
-    ?.httpStatusCode;
-}
-
-function isNotFound(error: unknown) {
-  return statusOf(error) === 404 || (error as Error)?.name === 'NoSuchKey';
 }
 
 /** 412 lost the race outright, 409 collided with a concurrent conditional write. */

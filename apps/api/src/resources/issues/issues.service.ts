@@ -18,7 +18,12 @@ import { DATABASE } from '../../database/database.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
-import { decodeCursor, encodeCursor, isoTimestamp } from '../../utils/index.js';
+import {
+  decodeCursor,
+  encodeCursor,
+  escapeLike,
+  isoTimestamp,
+} from '../../utils/index.js';
 import { InvalidCursorError } from '../repositories/repositories.errors.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
 import type { LabelDTO } from './dto/label.dto.js';
@@ -1215,10 +1220,6 @@ function isUniqueViolation(error: unknown) {
 
 function dedupe(names: string[]) {
   return [...new Set(names)];
-}
-
-function escapeLike(value: string) {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
 function sortColumn(sort: 'created' | 'updated' | 'comments') {

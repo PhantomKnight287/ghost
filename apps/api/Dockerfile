@@ -2,6 +2,9 @@
 # Built from the repository root: the API depends on the @ghost/db workspace.
 #   docker build -f apps/api/Dockerfile .
 
+# Keep in step with apps/zoekt/Dockerfile: the indexer and the webserver share a shard format.
+FROM ghcr.io/sourcegraph/zoekt:0.0.0-20260911061844-153817f643cd AS zoekt
+
 FROM oven/bun:1.3.14 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
@@ -44,5 +47,7 @@ COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/packages/db/dist ./packages/db/dist
 COPY --from=build /app/packages/languages/dist ./packages/languages/dist
 COPY packages/db/drizzle ./packages/db/drizzle
+# Statically linked, so the Alpine build runs on this Debian base.
+COPY --from=zoekt /usr/local/bin/zoekt-git-index /usr/local/bin/zoekt-git-index
 EXPOSE 3001 1031
 CMD ["node", "apps/api/dist/main.js"]

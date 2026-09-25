@@ -61,3 +61,18 @@ export async function resolveRevision({
 
   return sha.trim() ? { ref: sha.trim(), detached: true } : null;
 }
+
+/** The commit a ref points at, or null when it names nothing. */
+export async function resolveCommit(gitDir: string, ref: string) {
+  const oid = await runGit({
+    args: [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      '--end-of-options',
+      `${ref}^{commit}`,
+    ],
+    gitDir,
+  }).catch(() => '');
+  return oid.trim() || null;
+}

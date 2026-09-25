@@ -82,6 +82,16 @@
             }
           },
           {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Keep repositories whose name or description contains this text, ignoring case.",
+            "schema": {
+              "example": "ghost",
+              "type": "string"
+            }
+          },
+          {
             "name": "cursor",
             "required": false,
             "in": "query",
@@ -1077,6 +1087,98 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/search": {
+      "get": {
+        "description": "Full-text and regex search over the files on the default branch, powered by zoekt.",
+        "operationId": "RepositoriesController_searchRepositoryCode",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "description": "A zoekt query: plain text, `/regex/`, `file:` and `lang:` filters, `case:yes`.",
+            "schema": {
+              "example": "readReceivePackHeader lang:typescript",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Most files to return.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchRepositoryCodeResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search code",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
     "/api/repositories/{username}/{slug}/stargazers": {
       "get": {
         "description": "Who starred the repository, most recently first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
@@ -1298,6 +1400,137 @@
         "summary": "List contributors",
         "tags": [
           "Repositories"
+        ]
+      }
+    },
+    "/api/search/repositories": {
+      "get": {
+        "description": "Public repositories whose name or description matches, most recently pushed first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
+        "operationId": "SearchController_searchRepositories",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Keep repositories whose name or description contains this text, ignoring case.",
+            "schema": {
+              "example": "ghost",
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchRepositoriesResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search repositories",
+        "tags": [
+          "Search"
+        ]
+      }
+    },
+    "/api/search/code": {
+      "get": {
+        "description": "Full-text and regex search over the default branch of public repositories, powered by zoekt.",
+        "operationId": "SearchController_searchCode",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "description": "A zoekt query: plain text, `/regex/`, `file:` and `lang:` filters, `case:yes`.",
+            "schema": {
+              "example": "readReceivePackHeader lang:typescript",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Most files to return.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchCodeResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search code",
+        "tags": [
+          "Search"
         ]
       }
     },
@@ -4691,6 +4924,100 @@
           "languages"
         ]
       },
+      "CodeSearchRangeDTO": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "number",
+            "example": 16
+          },
+          "end": {
+            "type": "number",
+            "example": 37
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ]
+      },
+      "CodeSearchLineDTO": {
+        "type": "object",
+        "properties": {
+          "lineNumber": {
+            "type": "number",
+            "example": 42
+          },
+          "line": {
+            "type": "string",
+            "example": "export async function readReceivePackHeader(body) {"
+          },
+          "ranges": {
+            "description": "Matched spans of `line`, as [start, end) offsets that slice a JavaScript string directly.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeSearchRangeDTO"
+            }
+          }
+        },
+        "required": [
+          "lineNumber",
+          "line",
+          "ranges"
+        ]
+      },
+      "CodeSearchFileDTO": {
+        "type": "object",
+        "properties": {
+          "commit": {
+            "type": "string",
+            "description": "The commit the index was built from; line numbers refer to it.",
+            "example": "9311a72c0e7f4b8a1d2e3f4a5b6c7d8e9f0a1b2c"
+          },
+          "path": {
+            "type": "string",
+            "example": "apps/api/src/lib/git/protocol/receive-pack-request.ts"
+          },
+          "language": {
+            "type": "string",
+            "example": "TypeScript"
+          },
+          "lines": {
+            "description": "Matching lines. Empty when only the path matched.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeSearchLineDTO"
+            }
+          }
+        },
+        "required": [
+          "commit",
+          "path",
+          "language",
+          "lines"
+        ]
+      },
+      "SearchRepositoryCodeResponseDTO": {
+        "type": "object",
+        "properties": {
+          "indexing": {
+            "type": "boolean",
+            "description": "The default branch has commits the index does not cover yet. They are being indexed and show up in results within seconds.",
+            "example": false
+          },
+          "files": {
+            "description": "Files on the default branch that match, best first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeSearchFileDTO"
+            }
+          }
+        },
+        "required": [
+          "indexing",
+          "files"
+        ]
+      },
       "StargazerDTO": {
         "type": "object",
         "properties": {
@@ -4852,6 +5179,138 @@
           "contributors",
           "totalCommits",
           "totalContributors"
+        ]
+      },
+      "RepositorySearchResultDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string",
+            "example": "octocat"
+          },
+          "name": {
+            "type": "string",
+            "example": "ghost"
+          },
+          "slug": {
+            "type": "string",
+            "example": "ghost"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastPushedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "owner",
+          "name",
+          "slug",
+          "description",
+          "lastPushedAt"
+        ]
+      },
+      "SearchRepositoriesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositorySearchResultDTO"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass back as `cursor` for the next page. `null` on the last page."
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repositories",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
+      "SearchCodeRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "example": "octocat"
+          },
+          "slug": {
+            "type": "string",
+            "example": "ghost"
+          },
+          "name": {
+            "type": "string",
+            "example": "ghost"
+          }
+        },
+        "required": [
+          "owner",
+          "slug",
+          "name"
+        ]
+      },
+      "SearchCodeFileDTO": {
+        "type": "object",
+        "properties": {
+          "commit": {
+            "type": "string",
+            "description": "The commit the index was built from; line numbers refer to it.",
+            "example": "9311a72c0e7f4b8a1d2e3f4a5b6c7d8e9f0a1b2c"
+          },
+          "path": {
+            "type": "string",
+            "example": "apps/api/src/lib/git/protocol/receive-pack-request.ts"
+          },
+          "language": {
+            "type": "string",
+            "example": "TypeScript"
+          },
+          "lines": {
+            "description": "Matching lines. Empty when only the path matched.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeSearchLineDTO"
+            }
+          },
+          "repository": {
+            "$ref": "#/components/schemas/SearchCodeRepositoryDTO"
+          }
+        },
+        "required": [
+          "commit",
+          "path",
+          "language",
+          "lines",
+          "repository"
+        ]
+      },
+      "SearchCodeResponseDTO": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "description": "Files in public repositories that match, best first. Only repositories opened since code search was switched on are indexed.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchCodeFileDTO"
+            }
+          }
+        },
+        "required": [
+          "files"
         ]
       },
       "CreatePullRequestRequestDTO": {

@@ -304,6 +304,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search code
+         * @description Full-text and regex search over the files on the default branch, powered by zoekt.
+         */
+        get: operations["RepositoriesController_searchRepositoryCode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{slug}/stargazers": {
         parameters: {
             query?: never;
@@ -356,6 +376,46 @@ export interface paths {
          * @description Authors of the default branch, most commits first, read from the contribution index with linked Ghost accounts. Never materializes the repository.
          */
         get: operations["RepositoriesController_getRepositoryContributors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/search/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search repositories
+         * @description Public repositories whose name or description matches, most recently pushed first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.
+         */
+        get: operations["SearchController_searchRepositories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/search/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search code
+         * @description Full-text and regex search over the default branch of public repositories, powered by zoekt.
+         */
+        get: operations["SearchController_searchCode"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1243,6 +1303,42 @@ export interface components {
             /** @description Languages on the default branch, largest first. */
             languages: components["schemas"]["RepositoryLanguageDTO"][];
         };
+        CodeSearchRangeDTO: {
+            /** @example 16 */
+            start: number;
+            /** @example 37 */
+            end: number;
+        };
+        CodeSearchLineDTO: {
+            /** @example 42 */
+            lineNumber: number;
+            /** @example export async function readReceivePackHeader(body) { */
+            line: string;
+            /** @description Matched spans of `line`, as [start, end) offsets that slice a JavaScript string directly. */
+            ranges: components["schemas"]["CodeSearchRangeDTO"][];
+        };
+        CodeSearchFileDTO: {
+            /**
+             * @description The commit the index was built from; line numbers refer to it.
+             * @example 9311a72c0e7f4b8a1d2e3f4a5b6c7d8e9f0a1b2c
+             */
+            commit: string;
+            /** @example apps/api/src/lib/git/protocol/receive-pack-request.ts */
+            path: string;
+            /** @example TypeScript */
+            language: string;
+            /** @description Matching lines. Empty when only the path matched. */
+            lines: components["schemas"]["CodeSearchLineDTO"][];
+        };
+        SearchRepositoryCodeResponseDTO: {
+            /**
+             * @description The default branch has commits the index does not cover yet. They are being indexed and show up in results within seconds.
+             * @example false
+             */
+            indexing: boolean;
+            /** @description Files on the default branch that match, best first. */
+            files: components["schemas"]["CodeSearchFileDTO"][];
+        };
         StargazerDTO: {
             username: string;
             name: string;
@@ -1288,6 +1384,50 @@ export interface components {
             totalCommits: number;
             /** @description Distinct indexed authors in total. */
             totalContributors: number;
+        };
+        RepositorySearchResultDTO: {
+            id: string;
+            /** @example octocat */
+            owner: string;
+            /** @example ghost */
+            name: string;
+            /** @example ghost */
+            slug: string;
+            description: string | null;
+            /** Format: date-time */
+            lastPushedAt: string;
+        };
+        SearchRepositoriesResponseDTO: {
+            repositories: components["schemas"]["RepositorySearchResultDTO"][];
+            /** @description Pass back as `cursor` for the next page. `null` on the last page. */
+            nextCursor: string | null;
+            hasMore: boolean;
+        };
+        SearchCodeRepositoryDTO: {
+            /** @example octocat */
+            owner: string;
+            /** @example ghost */
+            slug: string;
+            /** @example ghost */
+            name: string;
+        };
+        SearchCodeFileDTO: {
+            /**
+             * @description The commit the index was built from; line numbers refer to it.
+             * @example 9311a72c0e7f4b8a1d2e3f4a5b6c7d8e9f0a1b2c
+             */
+            commit: string;
+            /** @example apps/api/src/lib/git/protocol/receive-pack-request.ts */
+            path: string;
+            /** @example TypeScript */
+            language: string;
+            /** @description Matching lines. Empty when only the path matched. */
+            lines: components["schemas"]["CodeSearchLineDTO"][];
+            repository: components["schemas"]["SearchCodeRepositoryDTO"];
+        };
+        SearchCodeResponseDTO: {
+            /** @description Files in public repositories that match, best first. Only repositories opened since code search was switched on are indexed. */
+            files: components["schemas"]["SearchCodeFileDTO"][];
         };
         CreatePullRequestRequestDTO: {
             /** @example Add a rate limiter */
@@ -1779,6 +1919,8 @@ export interface operations {
     RepositoriesController_getRepositories: {
         parameters: {
             query?: {
+                /** @description Keep repositories whose name or description contains this text, ignoring case. */
+                q?: string;
                 /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
                 cursor?: string;
                 /** @description Page size. */
@@ -2352,6 +2494,57 @@ export interface operations {
             };
         };
     };
+    RepositoriesController_searchRepositoryCode: {
+        parameters: {
+            query: {
+                /** @description A zoekt query: plain text, `/regex/`, `file:` and `lang:` filters, `case:yes`. */
+                q: string;
+                /** @description Most files to return. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchRepositoryCodeResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     RepositoriesController_getRepositoryStargazers: {
         parameters: {
             query?: {
@@ -2462,6 +2655,80 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SearchController_searchRepositories: {
+        parameters: {
+            query?: {
+                /** @description Keep repositories whose name or description contains this text, ignoring case. */
+                q?: string;
+                /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
+                cursor?: string;
+                /** @description Page size. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchRepositoriesResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SearchController_searchCode: {
+        parameters: {
+            query: {
+                /** @description A zoekt query: plain text, `/regex/`, `file:` and `lang:` filters, `case:yes`. */
+                q: string;
+                /** @description Most files to return. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchCodeResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

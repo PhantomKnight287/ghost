@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { S3Service } from './s3.service.js';
 
@@ -36,5 +36,36 @@ describe('S3Service', () => {
 
   it('exposes the bucket so callers do not each read config', () => {
     expect(service.bucket).toBe('ghost');
+  });
+
+  describe('deleteUnder', () => {
+    it('deletes everything under the prefix except the kept keys', async () => {
+      vi.spyOn(service, 'listObjectsV2').mockResolvedValue({
+        Contents: [{ Key: 'p/a' }, { Key: 'p/b' }, {}],
+      } as never);
+      const deleteObjects = vi
+        .spyOn(service, 'deleteObjects')
+        .mockResolvedValue({} as never);
+
+      await service.deleteUnder('p/', ['p/b']);
+
+      expect(service.listObjectsV2).toHaveBeenCalledWith({
+        Bucket: 'ghost',
+        Prefix: 'p/',
+      });
+      expect(deleteObjects).toHaveBeenCalledWith({
+        Bucket: 'ghost',
+        Delete: { Objects: [{ Key: 'p/a' }] },
+      });
+    });
+
+    it('sends no delete when nothing is stale', async () => {
+      vi.spyOn(service, 'listObjectsV2').mockResolvedValue({} as never);
+      const deleteObjects = vi.spyOn(service, 'deleteObjects');
+
+      await service.deleteUnder('p/');
+
+      expect(deleteObjects).not.toHaveBeenCalled();
+    });
   });
 });

@@ -132,7 +132,11 @@ export default async function RepositoryBlobPage({
           <table className="w-full border-collapse font-mono text-sm">
             <tbody>
               {lines.map((line, i) => (
-                <tr key={i} className="hover:bg-muted/40">
+                <tr
+                  key={i}
+                  id={`L${i + 1}`}
+                  className="scroll-mt-20 hover:bg-muted/40 target:bg-primary/10"
+                >
                   <td className="w-12 select-none border-r py-0.5 pr-3 text-right align-top text-xs text-muted-foreground">
                     {i + 1}
                   </td>

@@ -4,6 +4,7 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { runGit, runGitStream } from '../../../lib/git/exec/run-git.js';
+import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { languageForPath } from '@ghost/languages';
 
 const INSERT_CHUNK = 1_000;
@@ -52,7 +53,7 @@ export class RepositoryLanguageService {
     repoDirectory: string;
     ref: string;
   }): Promise<LanguageBytes[]> {
-    const tip = await this.resolve(repoDirectory, ref);
+    const tip = await resolveCommit(repoDirectory, ref);
     if (!tip) {
       await this.forget(repositoryId, ref);
       return [];
@@ -247,20 +248,6 @@ export class RepositoryLanguageService {
           eq(schema.repositoryLanguageIndex.ref, ref),
         ),
       );
-  }
-
-  private async resolve(repoDirectory: string, ref: string) {
-    const oid = await runGit({
-      args: [
-        'rev-parse',
-        '--verify',
-        '--quiet',
-        '--end-of-options',
-        `${ref}^{commit}`,
-      ],
-      gitDir: repoDirectory,
-    }).catch(() => '');
-    return oid.trim() || null;
   }
 
   private async isAncestor(
