@@ -28,7 +28,10 @@ const name = (extra: string) => [
 const standalone = negativeLookbehind(charClass(word, anyOf("&/#@.")));
 const end = negativeLookahead(charClass(word, anyOf("#@")));
 
-/** Each entry is one kind of reference. Add one here and `Reference` grows a matching variant. */
+// `issue.number` is a Postgres `integer`; a bigger number cannot name an issue and would fail the lookup.
+const MAX_ISSUE_NUMBER = 2_147_483_647;
+
+/** Each entry is one kind of reference. Add one here and `Reference` grows a matching variant; `read` returning null drops the match. */
 const definitions = {
   issue: {
     pattern: buildRegExp(
@@ -68,12 +71,16 @@ const definitions = {
       ],
       { global: true, ignoreCase: true, hasIndices: true },
     ),
-    read: (groups: Record<string, string | undefined>) => ({
-      owner: groups.owner ?? null,
-      repo: groups.repo ?? null,
-      number: Number(groups.number),
-      closing: groups.keyword !== undefined,
-    }),
+    read: (groups: Record<string, string | undefined>) => {
+      const number = Number(groups.number);
+      if (number < 1 || number > MAX_ISSUE_NUMBER) return null;
+      return {
+        owner: groups.owner ?? null,
+        repo: groups.repo ?? null,
+        number,
+        closing: groups.keyword !== undefined,
+      };
+    },
   },
   mention: {
     pattern: buildRegExp(
@@ -100,7 +107,7 @@ export type Reference = {
     /** Offset of the linkable part (`#1`, not `closes #1`) in the text it was found in. */
     index: number;
     length: number;
-  } & ReturnType<Definitions[Kind]["read"]>;
+  } & NonNullable<ReturnType<Definitions[Kind]["read"]>>;
 }[keyof Definitions];
 
 /** References in plain text, sorted by position. The text must already be free of code; `parseReferences` does that for markdown. */
@@ -112,12 +119,15 @@ export function findReferences(text: string): Reference[] {
         match.index,
         match.index + match[0].length,
       ];
-      found.push({
-        kind,
-        index,
-        length: stop - index,
-        ...read(match.groups ?? {}),
-      } as Reference);
+      const fields = read(match.groups ?? {});
+      if (fields) {
+        found.push({
+          kind,
+          index,
+          length: stop - index,
+          ...fields,
+        } as Reference);
+      }
     }
   }
   return found.sort((a, b) => a.index - b.index);

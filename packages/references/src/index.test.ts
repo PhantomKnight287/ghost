@@ -71,6 +71,14 @@ describe("findReferences", () => {
     );
   });
 
+  test("drops numbers no issue can have", () => {
+    expect(findReferences("`#99999999999`")).toEqual([]);
+    expect(findReferences("#2147483648 #0")).toEqual([]);
+    expect(findReferences("#2147483647")).toMatchObject([
+      { number: 2147483647 },
+    ]);
+  });
+
   test("sorts mixed kinds by position", () => {
     expect(
       findReferences("@a fixes #1").map((reference) => reference.kind),

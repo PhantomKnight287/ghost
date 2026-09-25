@@ -212,26 +212,25 @@ describe('GitService', () => {
       });
       body.emit('close');
       await vi.waitFor(() => expect(contributions.sync).toHaveBeenCalled());
-      await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
     it('hands the commits a default-branch push added to the reference index', async () => {
       await push('refs/heads/main');
 
-      expect(references.closeFromCommits).toHaveBeenCalledWith({
-        repository: { id: 'repo_ghost' },
-        actorId: 'user_pusher',
-        commits: [
-          expect.objectContaining({
-            sha: git('rev-parse', 'HEAD'),
-            body: 'Fixes #1',
-          }),
-        ],
-      });
+      const sha = git('rev-parse', 'HEAD');
+      await vi.waitFor(() =>
+        expect(references.closeFromCommits).toHaveBeenCalledWith({
+          repository: { id: 'repo_ghost' },
+          actorId: 'user_pusher',
+          commits: [expect.objectContaining({ sha, body: 'Fixes #1' })],
+        }),
+      );
     });
 
     it('ignores pushes to other branches', async () => {
       await push('refs/heads/feature');
+      // nothing to wait for when nothing happens, so give the hook time to have run
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(references.closeFromCommits).not.toHaveBeenCalled();
     });
