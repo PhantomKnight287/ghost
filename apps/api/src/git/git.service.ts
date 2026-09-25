@@ -13,6 +13,11 @@ import { RepositoryStorageService } from '../services/git/repository-storage/rep
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
+import { IssueReferencesService } from '../services/issues/issue-references.service.js';
+import { listCommits } from '../lib/git/commits/list-commits.js';
+import { resolveDefaultRef } from '../lib/git/tree/resolve-ref.js';
+import { type RefTransition, ZERO_OID } from '../lib/git/wal/wal.types.js';
+import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
 import { isGitServiceName, type GitServiceName } from './git.constants.js';
 import { UnsupportedGitServiceError } from './git.errors.js';
 
@@ -37,6 +42,7 @@ export class GitService {
     private readonly materializer: RepositoryMaterializerService,
     private readonly contributions: RepositoryContributionService,
     private readonly codeSearch: CodeSearchService,
+    private readonly references: IssueReferencesService,
   ) {}
 
   async advertiseRefs({
@@ -123,12 +129,57 @@ export class GitService {
             `Contribution index update failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
           ),
         );
+      this.closeFromPush({
+        repositoryId,
+        repoDirectory,
+        transitions,
+        pushedBy,
+      }).catch((error: unknown) =>
+        this.logger.warn(
+          `Closing referenced issues failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
     });
 
     return {
       headers: resultHeaders('git-receive-pack'),
       body: result,
     };
+  }
+
+  /** Commits that moved the default branch forward close the issues they name, like GitHub's `Fixes #1`. */
+  private async closeFromPush({
+    repositoryId,
+    repoDirectory,
+    transitions,
+    pushedBy,
+  }: RepositoryRef & {
+    repoDirectory: string;
+    transitions: RefTransition[];
+    pushedBy: string | null;
+  }) {
+    const defaultRef = await resolveDefaultRef({ gitDir: repoDirectory });
+    const pushed = transitions.find(
+      (transition) => transition.ref === defaultRef,
+    );
+    // ponytail: creating or deleting the default branch closes nothing; the first push of a whole history would otherwise close every issue it ever fixed.
+    if (
+      !pushed ||
+      pushed.oldOid.equals(ZERO_OID) ||
+      pushed.newOid.equals(ZERO_OID)
+    )
+      return;
+
+    const { commits } = await listCommits({
+      gitDir: repoDirectory,
+      ref: `${pushed.oldOid.toString('hex')}..${pushed.newOid.toString('hex')}`,
+      limit: MAX_CLOSING_COMMITS,
+    });
+    await this.references.closeFromCommits({
+      repository: { id: repositoryId },
+      actorId: pushedBy,
+      commits,
+    });
   }
 
   /** The local cache directory, current with the log. Every transport opens a repository this way before it hands anything to git. */

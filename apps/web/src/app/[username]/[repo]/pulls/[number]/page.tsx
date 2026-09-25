@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { FromNowHoverCard } from "@/components/from-now-card";
+import { CommentBox } from "@/components/issues/comments";
+import { Timeline } from "@/components/issues/timeline";
 import { Markdown } from "@/components/markdown";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 
-import { CommentBox, EditableField, MergePanel } from "./page.client";
+import { EditableField, MergePanel } from "./page.client";
 
 export default async function PullRequestPage({
   params,
@@ -17,11 +18,11 @@ export default async function PullRequestPage({
   ]);
 
   const path = { username, repo, number: Number(number) };
-  const [pull, comments] = await Promise.all([
+  const [pull, timeline] = await Promise.all([
     client.GET("/api/repositories/{username}/{repo}/pulls/{number}", {
       params: { path },
     }),
-    client.GET("/api/repositories/{username}/{repo}/pulls/{number}/comments", {
+    client.GET("/api/repositories/{username}/{repo}/issues/{number}/timeline", {
       params: { path },
     }),
   ]);
@@ -50,7 +51,9 @@ export default async function PullRequestPage({
             canEdit={canEdit}
           >
             {pull.data.body ? (
-              <Markdown>{pull.data.body}</Markdown>
+              <Markdown repository={{ username, repo }}>
+                {pull.data.body}
+              </Markdown>
             ) : (
               <p className="text-muted-foreground">No description provided.</p>
             )}
@@ -58,19 +61,14 @@ export default async function PullRequestPage({
         </div>
       </div>
 
-      {(comments.data?.comments ?? []).map((comment) => (
-        <div key={comment.id} className="rounded-lg border">
-          <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">
-              {comment.authorUsername}
-            </span>
-            commented <FromNowHoverCard date={comment.createdAt} />
-          </div>
-          <div className="px-4 py-3">
-            <Markdown>{comment.body}</Markdown>
-          </div>
-        </div>
-      ))}
+      <Timeline
+        username={username}
+        repo={repo}
+        number={Number(number)}
+        viewer={viewer}
+        items={timeline.data?.timeline ?? []}
+        noun="pull request"
+      />
 
       <CommentBox
         username={username}

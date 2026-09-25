@@ -1,6 +1,6 @@
 import { CircleCheck, CircleDot } from "lucide-react";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,9 @@ export default async function IssueLayout({
   if (!issue.data) {
     throw new Error(`Failed to load issue #${number}`);
   }
+  // `#N` always links to `/issues/N`, whichever kind N turns out to be.
+  if (issue.data.isPullRequest)
+    redirect(`/${username}/${repo}/pulls/${number}`);
 
   // Server-computed: the author, or whoever can write to the repository.
   const canEdit = issue.data.viewerCanEdit;

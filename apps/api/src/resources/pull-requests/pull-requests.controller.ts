@@ -31,11 +31,6 @@ import {
   UpdatePullRequestRequestDTO,
 } from './dto/create-pull-request.dto.js';
 import {
-  CreatePullRequestCommentRequestDTO,
-  GetPullRequestCommentsResponseDTO,
-  PullRequestCommentDTO,
-} from './dto/pull-request-comment.dto.js';
-import {
   GetPullRequestsQueryDTO,
   GetPullRequestsResponseDTO,
   PullRequestDetailDTO,
@@ -218,45 +213,6 @@ export class PullRequestsController {
       }),
       { type: 'text/plain; charset=utf-8' },
     );
-  }
-
-  @Get(':number/comments')
-  @OptionalAuth()
-  @ApiOperation({ summary: 'Comments on a pull request' })
-  @ApiOkResponse({ type: GetPullRequestCommentsResponseDTO })
-  @ApiNotFoundResponse({ type: ErrorResponseDTO })
-  getComments(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
-    @Param('number', ParseIntPipe) number: number,
-    @Session() session: UserSession,
-  ) {
-    return this.pullRequests.getComments({
-      username,
-      repo,
-      number,
-      requesterId: session?.user?.id,
-    });
-  }
-
-  @Post(':number/comments')
-  @ApiOperation({ summary: 'Comment on a pull request' })
-  @ApiCreatedResponse({ type: PullRequestCommentDTO })
-  @ApiNotFoundResponse({ type: ErrorResponseDTO })
-  createComment(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
-    @Param('number', ParseIntPipe) number: number,
-    @Body() body: CreatePullRequestCommentRequestDTO,
-    @Session() session: UserSession,
-  ) {
-    return this.pullRequests.createComment({
-      username,
-      repo,
-      number,
-      requesterId: session.user.id,
-      body: body.body,
-    });
   }
 
   @Post(':number/merge')

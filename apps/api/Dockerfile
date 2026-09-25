@@ -13,6 +13,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/docs/package.json apps/docs/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/languages/package.json packages/languages/package.json
+COPY packages/references/package.json packages/references/package.json
 RUN bun install --frozen-lockfile
 
 FROM deps AS build
@@ -20,6 +21,7 @@ WORKDIR /app
 COPY . .
 RUN bun run --filter @ghost/db build \
  && bun run --filter @ghost/languages build \
+ && bun run --filter @ghost/references build \
  && bun run --filter @ghost/api build
 
 # A second, clean install: the runtime needs neither the web app's dependencies
@@ -32,8 +34,10 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/docs/package.json apps/docs/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/languages/package.json packages/languages/package.json
+COPY packages/references/package.json packages/references/package.json
 RUN bun install --frozen-lockfile --production \
-      --filter '@ghost/api' --filter '@ghost/db' --filter '@ghost/languages'
+      --filter '@ghost/api' --filter '@ghost/db' --filter '@ghost/languages' \
+      --filter '@ghost/references'
 
 FROM node:22-slim AS runtime
 # Every pack operation shells out to the real git binary.
@@ -46,6 +50,7 @@ COPY --from=prod-deps /app ./
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/packages/db/dist ./packages/db/dist
 COPY --from=build /app/packages/languages/dist ./packages/languages/dist
+COPY --from=build /app/packages/references/dist ./packages/references/dist
 COPY packages/db/drizzle ./packages/db/drizzle
 # Statically linked, so the Alpine build runs on this Debian base.
 COPY --from=zoekt /usr/local/bin/zoekt-git-index /usr/local/bin/zoekt-git-index

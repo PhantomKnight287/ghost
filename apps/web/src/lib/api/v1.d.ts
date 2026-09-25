@@ -545,24 +545,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/repositories/{username}/{repo}/pulls/{number}/comments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Comments on a pull request */
-        get: operations["PullRequestsController_getComments"];
-        put?: never;
-        /** Comment on a pull request */
-        post: operations["PullRequestsController_createComment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/repositories/{username}/{repo}/pulls/{number}/merge": {
         parameters: {
             query?: never;
@@ -1533,20 +1515,6 @@ export interface components {
             to: string;
             files: components["schemas"]["PullRequestFileDTO"][];
         };
-        PullRequestCommentDTO: {
-            id: string;
-            /** @description Markdown, rendered by the client. */
-            body: string;
-            authorUsername: string;
-            createdAt: string;
-            updatedAt: string;
-        };
-        GetPullRequestCommentsResponseDTO: {
-            comments: components["schemas"]["PullRequestCommentDTO"][];
-        };
-        CreatePullRequestCommentRequestDTO: {
-            body: string;
-        };
         MergePullRequestRequestDTO: {
             /** @description Merge commit subject. Defaults to the request title. */
             title?: string;
@@ -1604,6 +1572,8 @@ export interface components {
             title: string;
             body: string | null;
             state: components["schemas"]["IssueState"];
+            /** @description True when this number belongs to a pull request; its page lives under `/pulls`. */
+            isPullRequest: boolean;
             authorUsername: string;
             closedByUsername: string | null;
             labels: components["schemas"]["LabelDTO"][];
@@ -1638,6 +1608,8 @@ export interface components {
             title: string;
             body: string | null;
             state: components["schemas"]["IssueState"];
+            /** @description True when this number belongs to a pull request; its page lives under `/pulls`. */
+            isPullRequest: boolean;
             authorUsername: string;
             closedByUsername: string | null;
             labels: components["schemas"]["LabelDTO"][];
@@ -1690,7 +1662,7 @@ export interface components {
             updatedAt: string;
         };
         /** @enum {string} */
-        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned";
+        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged";
         IssueTimelineEventDTO: {
             id: string;
             type: components["schemas"]["IssueEventType"];
@@ -1699,6 +1671,14 @@ export interface components {
             assigneeUsername: string | null;
             oldTitle: string | null;
             newTitle: string | null;
+            /** @description The commit that closed the issue, or the merge commit of a `merged` event. */
+            commitSha: string | null;
+            /**
+             * @description Repository of the pull request that closed the issue.
+             * @example octocat/ghost
+             */
+            sourceRepository: string | null;
+            sourceNumber: number | null;
             createdAt: string;
         };
         IssueTimelineEventItemDTO: {
@@ -1707,12 +1687,42 @@ export interface components {
              * @enum {string}
              */
             kind: "event";
+            id: string;
             event: components["schemas"]["IssueTimelineEventDTO"];
             createdAt: string;
         };
+        /** @enum {string} */
+        IssueReferenceSourceType: "issue" | "comment" | "commit";
+        IssueReferenceRepositoryDTO: {
+            /** @example octocat */
+            username: string;
+            /** @example ghost */
+            slug: string;
+        };
+        IssueReferenceSourceDTO: {
+            number: number;
+            title: string;
+            state: components["schemas"]["IssueState"];
+            isPullRequest: boolean;
+        };
+        IssueTimelineReferenceDTO: {
+            /**
+             * @example reference
+             * @enum {string}
+             */
+            kind: "reference";
+            id: string;
+            sourceType: components["schemas"]["IssueReferenceSourceType"];
+            actorUsername: string;
+            repository: components["schemas"]["IssueReferenceRepositoryDTO"];
+            /** @description The issue or pull request the mention was written in; null for a commit. */
+            source: components["schemas"]["IssueReferenceSourceDTO"] | null;
+            commitSha: string | null;
+            createdAt: string;
+        };
         GetIssueTimelineResponseDTO: {
-            /** @description Comments and events interleaved oldest-first, exactly as rendered. */
-            timeline: (components["schemas"]["IssueTimelineCommentDTO"] | components["schemas"]["IssueTimelineEventItemDTO"])[];
+            /** @description Comments, events and mentions from elsewhere interleaved oldest-first, exactly as rendered. */
+            timeline: (components["schemas"]["IssueTimelineCommentDTO"] | components["schemas"]["IssueTimelineEventItemDTO"] | components["schemas"]["IssueTimelineReferenceDTO"])[];
         };
         SetIssueLabelsRequestDTO: {
             /**
@@ -3040,72 +3050,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    PullRequestsController_getComments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-                number: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetPullRequestCommentsResponseDTO"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    PullRequestsController_createComment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-                number: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreatePullRequestCommentRequestDTO"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PullRequestCommentDTO"];
                 };
             };
             404: {

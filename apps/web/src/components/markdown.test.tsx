@@ -88,4 +88,20 @@ describe("Markdown", () => {
     );
     expect(render("[x](#anchor)", resolveUrl)).toContain('href="#anchor"');
   });
+
+  it("links references in issue text, but not in code, links or files", () => {
+    const html = renderToStaticMarkup(
+      <Markdown repository={{ username: "me", repo: "app" }}>
+        {"Fixes #1 and them/lib#2, cc @bob. `#3` [#4](https://x.io)"}
+      </Markdown>,
+    );
+
+    expect(html).toContain('href="/me/app/issues/1"');
+    expect(html).toContain('href="/them/lib/issues/2"');
+    expect(html).toContain('href="/bob"');
+    expect(html).toContain("Fixes ");
+    expect(html).toContain("<code>#3</code>");
+    expect(html).not.toContain("issues/4");
+    expect(render("see #1")).not.toContain("href");
+  });
 });

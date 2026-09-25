@@ -75,32 +75,6 @@ export const closePullRequest = actionClient
     revalidatePath(`/${username}/${repo}/pulls/${number}`);
   });
 
-export const commentOnPullRequest = actionClient
-  .inputSchema(
-    target.extend({
-      body: z
-        .string()
-        .trim()
-        .min(1, "Write something first.")
-        .max(20000, "Comments are limited to 20000 characters."),
-    }),
-  )
-  .action(async ({ parsedInput: { username, repo, number, body } }) => {
-    const { data, error } = await fetchClient.POST(
-      "/api/repositories/{username}/{repo}/pulls/{number}/comments",
-      {
-        params: { path: { username, repo, number } },
-        body: { body },
-        headers: { cookie: (await cookies()).toString() },
-      },
-    );
-
-    if (error) throw new Error(error.message);
-
-    revalidatePath(`/${username}/${repo}/pulls/${number}`);
-    return data;
-  });
-
 export const updatePullRequest = actionClient
   .inputSchema(
     target.extend({

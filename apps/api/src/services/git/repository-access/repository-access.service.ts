@@ -47,16 +47,24 @@ export class RepositoryAccessService {
   }
 }
 
+export function canAccess(
+  repository: Pick<Repository, 'ownerId' | 'visibility'> | null,
+  actor: Actor,
+  operation: RepositoryOperation,
+) {
+  const isOwner = actor !== null && repository?.ownerId === actor.userId;
+  const readable = repository?.visibility === 'public' || isOwner;
+  return operation === 'read' ? readable : isOwner;
+}
+
 export function decideAccess(
   repository: Repository | null,
   actor: Actor,
   operation: RepositoryOperation,
 ): Repository {
-  const isOwner = actor !== null && repository?.ownerId === actor.userId;
-  const readable = repository?.visibility === 'public' || isOwner;
-  const allowed = operation === 'read' ? readable : isOwner;
+  const readable = canAccess(repository, actor, 'read');
 
-  if (allowed) return repository as Repository;
+  if (canAccess(repository, actor, operation)) return repository as Repository;
   if (!actor) throw new AuthenticationRequiredError();
   // An unreadable repository must look absent; a readable one is safe to admit to.
   if (readable && operation === 'write') throw new RepositoryForbiddenError();

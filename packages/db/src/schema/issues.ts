@@ -1,5 +1,6 @@
 import { createId } from "@paralleldrive/cuid2";
 import {
+  boolean,
   index,
   integer,
   pgEnum,
@@ -24,10 +25,17 @@ export const issueEventType = pgEnum("issue_event_type", [
   "unlabeled",
   "assigned",
   "unassigned",
+  "merged",
+]);
+
+export const issueReferenceSource = pgEnum("issue_reference_source", [
+  "issue",
+  "comment",
+  "commit",
 ]);
 
 /**
- * GitHub-style issue. `number` is per repository, 1-based, and what the URL carries — same convention as `pull_request.number`.
+ * GitHub-style issue. `number` is per repository, 1-based, and what the URL carries. A pull request is an issue with a `pull_request` row attached, so the two share one number sequence, one comment thread and one timeline.
  *
  * `commentCount` is denormalized so `sort=comments` is one indexed query instead of a join + group-by on every list call. Writers must bump it on comment create/delete.
  */
@@ -47,6 +55,7 @@ export const issue = pgTable(
     title: text().notNull(),
     body: text(),
     state: issueState().notNull().default("open"),
+    isPullRequest: boolean().notNull().default(false),
 
     authorId: text()
       .references(() => user.id, { onDelete: "cascade" })
@@ -64,7 +73,11 @@ export const issue = pgTable(
   },
   (t) => [
     uniqueIndex("issue_repo_number_idx").on(t.repositoryId, t.number),
-    index("issue_repo_state_idx").on(t.repositoryId, t.state),
+    index("issue_repo_kind_state_idx").on(
+      t.repositoryId,
+      t.isPullRequest,
+      t.state,
+    ),
     index("issue_repo_updated_idx").on(t.repositoryId, t.updatedAt),
   ],
 );
@@ -150,7 +163,7 @@ export const issueAssignee = pgTable(
   (t) => [primaryKey({ columns: [t.issueId, t.userId] })],
 );
 
-/** Audit timeline for an issue — what GitHub renders between comments: opened/closed/reopened/renamed/edited/labeled/unlabeled/assigned/unassigned. Only the columns relevant to `type` are set. */
+/** Audit timeline for an issue — what GitHub renders between comments. Only the columns relevant to `type` are set; a `closed` event carries `sourceIssueId` or `commitSha` when a pull request or commit closed it. */
 export const issueEvent = pgTable(
   "issue_event",
   {
@@ -169,8 +182,48 @@ export const issueEvent = pgTable(
     assigneeUsername: text(),
     oldTitle: text(),
     newTitle: text(),
+    sourceIssueId: text().references(() => issue.id, { onDelete: "set null" }),
+    commitSha: text(),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("issue_event_issue_idx").on(t.issueId, t.createdAt)],
+);
+
+/**
+ * One row per `#N` written somewhere, resolved when the text is saved so a timeline read is one indexed lookup on `targetIssueId`.
+ *
+ * `sourceId` is the issue id, comment id or commit sha the text lives in; an edit replaces every row with that `sourceId`. `sourceIssueId` is the issue or pull request the text belongs to, null for a commit.
+ */
+export const issueReference = pgTable(
+  "issue_reference",
+  {
+    id: text()
+      .primaryKey()
+      .unique()
+      .notNull()
+      .$defaultFn(() => `iref_${createId()}`),
+    sourceType: issueReferenceSource().notNull(),
+    sourceId: text().notNull(),
+    sourceRepositoryId: text()
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    sourceIssueId: text().references(() => issue.id, { onDelete: "cascade" }),
+    targetIssueId: text()
+      .references(() => issue.id, { onDelete: "cascade" })
+      .notNull(),
+    closing: boolean().notNull().default(false),
+    actorId: text().references(() => user.id, { onDelete: "set null" }),
+
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("issue_reference_source_target_idx").on(
+      t.sourceType,
+      t.sourceId,
+      t.targetIssueId,
+    ),
+    index("issue_reference_target_idx").on(t.targetIssueId, t.createdAt),
+    index("issue_reference_source_issue_idx").on(t.sourceIssueId),
+  ],
 );

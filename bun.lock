@@ -23,6 +23,7 @@
         "@better-auth/api-key": "^1.7.3",
         "@ghost/db": "workspace:*",
         "@ghost/languages": "workspace:*",
+        "@ghost/references": "workspace:*",
         "@nestjs-modules/mailer": "^2.3.7",
         "@nestjs/common": "^12.0.1",
         "@nestjs/config": "^4.0.2",
@@ -109,6 +110,7 @@
         "@better-auth/api-key": "^1.7.3",
         "@ghost/db": "workspace:*",
         "@ghost/languages": "workspace:*",
+        "@ghost/references": "workspace:*",
         "@hookform/resolvers": "^5.9.1",
         "@opentelemetry/api": "^1.9.1",
         "@pierre/diffs": "^1.4.1",
@@ -166,6 +168,7 @@
       "devDependencies": {
         "@tailwindcss/postcss": "^4",
         "@types/bun": "^1.4.2",
+        "@types/mdast": "^4.0.4",
         "@types/node": "^20",
         "@types/react": "^19",
         "@types/react-dom": "^19",
@@ -196,6 +199,20 @@
       "name": "@ghost/languages",
       "version": "0.0.0",
       "devDependencies": {
+        "typescript": "^5.9.2",
+      },
+    },
+    "packages/references": {
+      "name": "@ghost/references",
+      "version": "0.0.0",
+      "dependencies": {
+        "mdast-util-from-markdown": "^2.0.3",
+        "mdast-util-gfm": "^3.1.0",
+        "micromark-extension-gfm": "^3.0.0",
+        "ts-regex-builder": "^1.8.2",
+      },
+      "devDependencies": {
+        "@types/mdast": "^4.0.4",
         "typescript": "^5.9.2",
       },
     },
@@ -502,6 +519,8 @@
     "@ghost/docs": ["@ghost/docs@workspace:apps/docs"],
 
     "@ghost/languages": ["@ghost/languages@workspace:packages/languages"],
+
+    "@ghost/references": ["@ghost/references@workspace:packages/references"],
 
     "@ghost/web": ["@ghost/web@workspace:apps/web"],
 
@@ -3356,6 +3375,8 @@
     "ts-api-utils": ["ts-api-utils@2.5.0", "", { "peerDependencies": { "typescript": ">=4.8.4" } }, "sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA=="],
 
     "ts-morph": ["ts-morph@26.0.0", "", { "dependencies": { "@ts-morph/common": "~0.27.0", "code-block-writer": "^13.0.3" } }, "sha512-ztMO++owQnz8c/gIENcM9XfCEzgoGphTv+nKpYNM1bgsdOVC/jRZuEBf6N+mLLDNg68Kl+GgUZfOySaRiG1/Ug=="],
+
+    "ts-regex-builder": ["ts-regex-builder@1.8.2", "", {}, "sha512-Y8HovHFheDKm/jgLIWSO8o81xA/I9O5AGc3/vNG1sVSskatOifr3SQzAsatBXGLjL3nYhQif1MpwQRS5GF8ADg=="],
 
     "tsconfck": ["tsconfck@3.1.6", "", { "peerDependencies": { "typescript": "^5.0.0" }, "optionalPeers": ["typescript"], "bin": { "tsconfck": "bin/tsconfck.js" } }, "sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w=="],
 

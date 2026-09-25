@@ -40,3 +40,11 @@ export class LabelAlreadyExistsError extends DomainError {
     super(`A label already exists with the name: ${name}`);
   }
 }
+
+export class PullRequestReopenError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor() {
+    super('A closed pull request cannot be reopened');
+  }
+}
