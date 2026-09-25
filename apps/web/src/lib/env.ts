@@ -15,3 +15,9 @@ export const DOCS_URL =
 
 /** `host:port` the SSH transport answers on. Empty when the instance runs without a host key, and the clone panel then offers HTTP alone. */
 export const SSH_CLONE_HOST = process.env.NEXT_PUBLIC_SSH_CLONE_HOST ?? "";
+
+/** `ssh://git@host:port/owner/repo.git`, or nothing when the instance runs no SSH listener. */
+export function sshCloneUrlFor(username: string, repo: string) {
+  if (!SSH_CLONE_HOST) return undefined;
+  return `ssh://git@${SSH_CLONE_HOST}/${username}/${repo}.git`;
+}

@@ -13,10 +13,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
 import { TabLink } from "@/components/tab-link";
-import {
-  ClonePopover,
-  sshCloneUrlFor,
-} from "@/components/repositories/clone-popover";
+import { ClonePopover } from "@/components/repositories/clone-popover";
 import { StarButton } from "@/components/repositories/star-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { API_URL } from "@/lib/env";
+import { API_URL, sshCloneUrlFor } from "@/lib/env";
 import type { RepositoryFrameProps } from "@/types/repository";
 
 export function RepositoryFrame({

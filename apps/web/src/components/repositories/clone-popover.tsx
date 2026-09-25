@@ -17,7 +17,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SSH_CLONE_HOST } from "@/lib/env";
 
 export function ClonePopover({
   cloneUrl,
@@ -90,12 +89,6 @@ export function CloneTransports({
       </TabsContent>
     </Tabs>
   );
-}
-
-/** `ssh://git@host:port/owner/repo.git`, or nothing when the instance runs no SSH listener. */
-export function sshCloneUrlFor(username: string, repo: string) {
-  if (!SSH_CLONE_HOST) return undefined;
-  return `ssh://git@${SSH_CLONE_HOST}/${username}/${repo}.git`;
 }
 
 export function CloneUrlField({ cloneUrl }: { cloneUrl: string }) {
