@@ -51,25 +51,30 @@ export const updateLabelSchema = createLabelSchema.extend({
 
 export type UpdateLabelInput = z.infer<typeof updateLabelSchema>;
 
-export function eventDescription(event: {
-  type: string;
-  actorUsername: string;
-  labelName: string | null;
-  assigneeUsername: string | null;
-  oldTitle: string | null;
-  newTitle: string | null;
-}): string {
+export function eventDescription(
+  event: {
+    type: string;
+    actorUsername: string;
+    labelName: string | null;
+    assigneeUsername: string | null;
+    oldTitle: string | null;
+    newTitle: string | null;
+  },
+  noun: "issue" | "pull request" = "issue",
+): string {
   const actor = event.actorUsername || "Someone";
 
   switch (event.type) {
     case "opened":
-      return `${actor} opened this issue`;
+      return `${actor} opened this ${noun}`;
     case "closed":
-      return `${actor} closed this issue`;
+      return `${actor} closed this ${noun}`;
     case "reopened":
-      return `${actor} reopened this issue`;
+      return `${actor} reopened this ${noun}`;
+    case "merged":
+      return `${actor} merged this ${noun}`;
     case "renamed":
-      return `${actor} renamed this issue`;
+      return `${actor} renamed this ${noun}`;
     case "edited":
       return `${actor} edited the description`;
     case "labeled":
@@ -81,6 +86,6 @@ export function eventDescription(event: {
     case "unassigned":
       return `${actor} unassigned ${event.assigneeUsername ?? "someone"}`;
     default:
-      return `${actor} updated this issue`;
+      return `${actor} updated this ${noun}`;
   }
 }

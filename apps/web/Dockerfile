@@ -11,14 +11,17 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/docs/package.json apps/docs/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/languages/package.json packages/languages/package.json
+COPY packages/references/package.json packages/references/package.json
 RUN bun install --frozen-lockfile
 
-# @ghost/languages is bundled with `bun build`, which the Node build stage below
-# does not have, so it is built here and carried over.
+# @ghost/languages and @ghost/references are bundled with `bun build`, which the
+# Node build stage below does not have, so they are built here and carried over.
 FROM deps AS shared
 WORKDIR /app
 COPY packages/languages packages/languages
-RUN bun run --filter @ghost/languages build
+COPY packages/references packages/references
+RUN bun run --filter @ghost/languages build \
+ && bun run --filter @ghost/references build
 
 # Bun installs the workspace, but `next build` runs on Node: the Bun runtime
 # segfaults on this build.
@@ -27,6 +30,7 @@ WORKDIR /app
 COPY --from=deps /app ./
 COPY . .
 COPY --from=shared /app/packages/languages/dist packages/languages/dist
+COPY --from=shared /app/packages/references/dist packages/references/dist
 # NEXT_PUBLIC_* is inlined at build time, so the browser's API origin has to be
 # known here, not at boot.
 ARG NEXT_PUBLIC_API_URL

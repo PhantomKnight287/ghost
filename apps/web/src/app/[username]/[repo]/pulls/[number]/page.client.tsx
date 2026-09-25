@@ -8,7 +8,6 @@ import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import {
   closePullRequest,
-  commentOnPullRequest,
   mergePullRequest,
   updatePullRequest,
 } from "@/components/pull-requests/actions";
@@ -171,75 +170,6 @@ export function MergePanel({
         )}
       </div>
     </div>
-  );
-}
-
-export function CommentBox({
-  username,
-  repo,
-  number,
-  signedIn,
-}: {
-  username: string;
-  repo: string;
-  number: number;
-  signedIn: boolean;
-}) {
-  const router = useRouter();
-  const [body, setBody] = useState("");
-
-  const comment = useAction(commentOnPullRequest, {
-    onSuccess: () => {
-      setBody("");
-      router.refresh();
-    },
-    onError: ({ error }) =>
-      toast.error(
-        error.validationErrors?.body?._errors?.[0] ??
-          error.serverError ??
-          "Could not post this comment.",
-      ),
-  });
-
-  if (!signedIn) {
-    return (
-      <p className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
-        <Link href="/auth/sign-in" className="text-primary hover:underline">
-          Sign in
-        </Link>{" "}
-        to comment on this pull request.
-      </p>
-    );
-  }
-
-  return (
-    <form
-      className="flex flex-col gap-2 rounded-lg border px-4 py-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        comment.execute({ username, repo, number, body });
-      }}
-    >
-      <Textarea
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        rows={4}
-        maxLength={20000}
-        placeholder="Leave a comment. Markdown is supported."
-        disabled={comment.isExecuting}
-      />
-
-      <div className="flex justify-end">
-        <Button
-          type="submit"
-          size="sm"
-          disabled={comment.isExecuting || body.trim().length === 0}
-        >
-          {comment.isExecuting && <Spinner />}
-          Comment
-        </Button>
-      </div>
-    </form>
   );
 }
 

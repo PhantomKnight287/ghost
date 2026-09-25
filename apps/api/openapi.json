@@ -2142,128 +2142,6 @@
         ]
       }
     },
-    "/api/repositories/{username}/{repo}/pulls/{number}/comments": {
-      "get": {
-        "operationId": "PullRequestsController_getComments",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetPullRequestCommentsResponseDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Comments on a pull request",
-        "tags": [
-          "Pull requests"
-        ]
-      },
-      "post": {
-        "operationId": "PullRequestsController_createComment",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePullRequestCommentRequestDTO"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PullRequestCommentDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Comment on a pull request",
-        "tags": [
-          "Pull requests"
-        ]
-      }
-    },
     "/api/repositories/{username}/{repo}/pulls/{number}/merge": {
       "post": {
         "operationId": "PullRequestsController_mergePullRequest",
@@ -5662,60 +5540,6 @@
           "files"
         ]
       },
-      "PullRequestCommentDTO": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "body": {
-            "type": "string",
-            "description": "Markdown, rendered by the client."
-          },
-          "authorUsername": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "body",
-          "authorUsername",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "GetPullRequestCommentsResponseDTO": {
-        "type": "object",
-        "properties": {
-          "comments": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PullRequestCommentDTO"
-            }
-          }
-        },
-        "required": [
-          "comments"
-        ]
-      },
-      "CreatePullRequestCommentRequestDTO": {
-        "type": "object",
-        "properties": {
-          "body": {
-            "type": "string",
-            "maxLength": 20000
-          }
-        },
-        "required": [
-          "body"
-        ]
-      },
       "MergePullRequestRequestDTO": {
         "type": "object",
         "properties": {
@@ -5857,6 +5681,10 @@
               }
             ]
           },
+          "isPullRequest": {
+            "type": "boolean",
+            "description": "True when this number belongs to a pull request; its page lives under `/pulls`."
+          },
           "authorUsername": {
             "type": "string"
           },
@@ -5903,6 +5731,7 @@
           "title",
           "body",
           "state",
+          "isPullRequest",
           "authorUsername",
           "closedByUsername",
           "labels",
@@ -5982,6 +5811,10 @@
               }
             ]
           },
+          "isPullRequest": {
+            "type": "boolean",
+            "description": "True when this number belongs to a pull request; its page lives under `/pulls`."
+          },
           "authorUsername": {
             "type": "string"
           },
@@ -6028,6 +5861,7 @@
           "title",
           "body",
           "state",
+          "isPullRequest",
           "authorUsername",
           "closedByUsername",
           "labels",
@@ -6165,7 +5999,8 @@
           "labeled",
           "unlabeled",
           "assigned",
-          "unassigned"
+          "unassigned",
+          "merged"
         ]
       },
       "IssueTimelineEventDTO": {
@@ -6200,6 +6035,21 @@
             "type": "string",
             "nullable": true
           },
+          "commitSha": {
+            "type": "string",
+            "nullable": true,
+            "description": "The commit that closed the issue, or the merge commit of a `merged` event."
+          },
+          "sourceRepository": {
+            "type": "string",
+            "nullable": true,
+            "example": "octocat/ghost",
+            "description": "Repository of the pull request that closed the issue."
+          },
+          "sourceNumber": {
+            "type": "number",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string"
           }
@@ -6212,6 +6062,9 @@
           "assigneeUsername",
           "oldTitle",
           "newTitle",
+          "commitSha",
+          "sourceRepository",
+          "sourceNumber",
           "createdAt"
         ]
       },
@@ -6225,6 +6078,9 @@
             ],
             "example": "event"
           },
+          "id": {
+            "type": "string"
+          },
           "event": {
             "$ref": "#/components/schemas/IssueTimelineEventDTO"
           },
@@ -6234,7 +6090,115 @@
         },
         "required": [
           "kind",
+          "id",
           "event",
+          "createdAt"
+        ]
+      },
+      "IssueReferenceSourceType": {
+        "type": "string",
+        "enum": [
+          "issue",
+          "comment",
+          "commit"
+        ]
+      },
+      "IssueReferenceRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "octocat"
+          },
+          "slug": {
+            "type": "string",
+            "example": "ghost"
+          }
+        },
+        "required": [
+          "username",
+          "slug"
+        ]
+      },
+      "IssueReferenceSourceDTO": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IssueState"
+              }
+            ]
+          },
+          "isPullRequest": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "state",
+          "isPullRequest"
+        ]
+      },
+      "IssueTimelineReferenceDTO": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "reference"
+            ],
+            "example": "reference"
+          },
+          "id": {
+            "type": "string"
+          },
+          "sourceType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IssueReferenceSourceType"
+              }
+            ]
+          },
+          "actorUsername": {
+            "type": "string"
+          },
+          "repository": {
+            "$ref": "#/components/schemas/IssueReferenceRepositoryDTO"
+          },
+          "source": {
+            "nullable": true,
+            "description": "The issue or pull request the mention was written in; null for a commit.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IssueReferenceSourceDTO"
+              }
+            ]
+          },
+          "commitSha": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "sourceType",
+          "actorUsername",
+          "repository",
+          "source",
+          "commitSha",
           "createdAt"
         ]
       },
@@ -6243,7 +6207,7 @@
         "properties": {
           "timeline": {
             "type": "array",
-            "description": "Comments and events interleaved oldest-first, exactly as rendered.",
+            "description": "Comments, events and mentions from elsewhere interleaved oldest-first, exactly as rendered.",
             "items": {
               "oneOf": [
                 {
@@ -6251,6 +6215,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/IssueTimelineEventItemDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/IssueTimelineReferenceDTO"
                 }
               ]
             }

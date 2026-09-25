@@ -3,7 +3,16 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  type GetColumnData,
+  inArray,
+  lt,
+  or,
+} from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { listCommits } from '../../lib/git/commits/list-commits.js';
@@ -16,6 +25,13 @@ import {
 import { runGit } from '../../lib/git/exec/run-git.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { commitTree, mergeTree, packRange } from '../../lib/git/merge/merge.js';
+import { resolveDefaultRef } from '../../lib/git/tree/resolve-ref.js';
+import {
+  closeIssue,
+  MAX_CLOSING_COMMITS,
+} from '../../lib/issues/close-issue.js';
+import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
+import { IssuesService } from '../issues/issues.service.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import {
   type Repository,
@@ -24,7 +40,7 @@ import {
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { decodeCursor, encodeCursor, isoTimestamp } from '../../utils/index.js';
+import { decodeCursor, encodeCursor } from '../../utils/index.js';
 import {
   BranchNotFoundError,
   InvalidCursorError,
@@ -45,23 +61,33 @@ import {
   UnrelatedRepositoriesError,
 } from './pull-requests.errors.js';
 
-const commentColumns = {
-  id: schema.pullRequestComment.id,
-  body: schema.pullRequestComment.body,
-  createdAt: isoTimestamp(schema.pullRequestComment.createdAt),
-  updatedAt: isoTimestamp(schema.pullRequestComment.updatedAt),
-};
-
-// The author is joined when comments are listed; a write already knows who made it.
-const commentColumnsWithAuthor = {
-  ...commentColumns,
-  authorUsername: sql<string>`coalesce(${schema.user.username}, '')`,
+// Number, title, body and author live on the issue a request is attached to.
+const pullRequestColumns = {
+  id: schema.pullRequest.id,
+  issueId: schema.pullRequest.issueId,
+  number: schema.issue.number,
+  title: schema.issue.title,
+  body: schema.issue.body,
+  authorId: schema.issue.authorId,
+  state: schema.pullRequest.state,
+  baseRepositoryId: schema.pullRequest.baseRepositoryId,
+  baseRef: schema.pullRequest.baseRef,
+  headRepositoryId: schema.pullRequest.headRepositoryId,
+  headRef: schema.pullRequest.headRef,
+  headSha: schema.pullRequest.headSha,
+  mergeCommitSha: schema.pullRequest.mergeCommitSha,
+  createdAt: schema.issue.createdAt,
+  updatedAt: schema.issue.updatedAt,
 };
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 
-type PullRequest = typeof schema.pullRequest.$inferSelect;
+type PullRequest = {
+  [Key in keyof typeof pullRequestColumns]: GetColumnData<
+    (typeof pullRequestColumns)[Key]
+  >;
+};
 
 @Injectable()
 export class PullRequestsService {
@@ -73,6 +99,8 @@ export class PullRequestsService {
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
     private readonly verification: CommitVerificationService,
+    private readonly issues: IssuesService,
+    private readonly references: IssueReferencesService,
   ) {}
 
   async createPullRequest({
@@ -116,8 +144,9 @@ export class PullRequestsService {
     }
 
     const [existing] = await this.db
-      .select({ number: schema.pullRequest.number })
+      .select({ number: schema.issue.number })
       .from(schema.pullRequest)
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
       .where(
         and(
           eq(schema.pullRequest.baseRepositoryId, base.id),
@@ -129,29 +158,33 @@ export class PullRequestsService {
       );
     if (existing) throw new PullRequestAlreadyOpenError(existing.number);
 
-    const values = {
-      title: body.title,
-      body: body.body,
-      baseRepositoryId: base.id,
-      baseRef: body.base,
-      headRepositoryId: head.id,
-      headRef,
-      headSha,
-      authorId: requesterId,
-      number: sql<number>`(select coalesce(max(${schema.pullRequest.number}), 0) + 1 from ${schema.pullRequest} where ${schema.pullRequest.baseRepositoryId} = ${base.id})`,
-    };
+    const issue = await this.issues.open(
+      {
+        repository: base,
+        title: body.title,
+        body: body.body ?? null,
+        authorId: requesterId,
+        isPullRequest: true,
+      },
+      async (tx, row) => {
+        await tx.insert(schema.pullRequest).values({
+          issueId: row.id,
+          baseRepositoryId: base.id,
+          baseRef: body.base,
+          headRepositoryId: head.id,
+          headRef,
+          headSha,
+        });
+      },
+    );
 
-    // Two concurrent opens read the same max; the unique index rejects the loser, whose retry then reads the winner's number.
-    const [created] = await this.db
-      .insert(schema.pullRequest)
-      .values(values)
-      .returning()
-      .catch((error) => {
-        if (!isUniqueViolation(error)) throw error;
-        return this.db.insert(schema.pullRequest).values(values).returning();
-      });
-
-    return this.expandPullRequest(created);
+    const { pullRequest } = await this.load({
+      username,
+      repo,
+      number: issue.number,
+      requesterId,
+    });
+    return this.expandPullRequest(pullRequest);
   }
 
   /** The files a request would carry, before one is opened. */
@@ -225,24 +258,25 @@ export class PullRequestsService {
 
     const state = query.state ?? 'open';
     const rows = await this.db
-      .select()
+      .select(pullRequestColumns)
       .from(schema.pullRequest)
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
       .where(
         and(
           eq(schema.pullRequest.baseRepositoryId, base.id),
           state === 'all' ? undefined : eq(schema.pullRequest.state, state),
           decoded
             ? or(
-                lt(schema.pullRequest.createdAt, decoded.date),
+                lt(schema.issue.createdAt, decoded.date),
                 and(
-                  eq(schema.pullRequest.createdAt, decoded.date),
+                  eq(schema.issue.createdAt, decoded.date),
                   lt(schema.pullRequest.id, decoded.id),
                 ),
               )
             : undefined,
         ),
       )
-      .orderBy(desc(schema.pullRequest.createdAt), desc(schema.pullRequest.id))
+      .orderBy(desc(schema.issue.createdAt), desc(schema.pullRequest.id))
       .limit(pageSize + 1);
 
     const hasMore = rows.length > pageSize;
@@ -432,16 +466,54 @@ export class PullRequestsService {
         pushedBy: params.requesterId,
       });
 
-      await this.db
-        .update(schema.pullRequest)
-        .set({
-          state: 'merged',
-          mergeCommitSha,
-          headSha: git.headSha,
-          mergedAt: new Date(),
-          closedAt: new Date(),
-        })
-        .where(eq(schema.pullRequest.id, pullRequest.id));
+      const isDefaultBranch =
+        (await resolveDefaultRef({ gitDir: git.baseDirectory })) ===
+        `refs/heads/${pullRequest.baseRef}`;
+      const { commits } = isDefaultBranch
+        ? await listCommits({
+            gitDir: git.baseDirectory,
+            env: git.env,
+            ref: `${git.baseSha}..${git.headSha}`,
+            limit: MAX_CLOSING_COMMITS,
+          })
+        : { commits: [] };
+
+      await this.db.transaction(async (tx) => {
+        await tx
+          .update(schema.pullRequest)
+          .set({
+            state: 'merged',
+            mergeCommitSha,
+            headSha: git.headSha,
+            mergedAt: new Date(),
+          })
+          .where(eq(schema.pullRequest.id, pullRequest.id));
+        await closeIssue(tx, {
+          issueId: pullRequest.issueId,
+          actorId: params.requesterId,
+          type: 'merged',
+          commitSha: mergeCommitSha,
+        });
+
+        // Only a merge into the default branch closes anything, the same rule GitHub follows.
+        if (!isDefaultBranch) return;
+        await this.references.recordCommits(tx, {
+          repository: base,
+          actorId: params.requesterId,
+          commits,
+        });
+        await this.references.closeReferenced(tx, {
+          sources: [
+            { type: 'issue', id: pullRequest.issueId },
+            ...commits.map((commit) => ({
+              type: 'commit' as const,
+              id: commit.sha,
+            })),
+          ],
+          actorId: params.requesterId,
+          sourceIssueId: pullRequest.issueId,
+        });
+      });
 
       await this.db
         .update(schema.repository)
@@ -461,83 +533,19 @@ export class PullRequestsService {
       body: UpdatePullRequestRequestDTO;
     },
   ) {
-    const { pullRequest } = await this.load(params);
-    if (pullRequest.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
-    }
-
-    const { title, body } = params.body;
-    if (title === undefined && body === undefined) {
-      return this.expandPullRequest(pullRequest);
-    }
-
-    const [updated] = await this.db
-      .update(schema.pullRequest)
-      .set({
-        ...(title === undefined ? {} : { title }),
-        ...(body === undefined ? {} : { body }),
-      })
-      .where(eq(schema.pullRequest.id, pullRequest.id))
-      .returning();
-
-    return this.expandPullRequest(updated);
+    await this.load(params);
+    await this.issues.updateIssue(params);
+    return this.expandPullRequest((await this.load(params)).pullRequest);
   }
 
-  async closePullRequest(params: PullRequestRef) {
+  async closePullRequest(params: PullRequestRef & { requesterId: string }) {
     const { pullRequest } = await this.load(params);
-    if (pullRequest.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
-    }
     if (pullRequest.state !== 'open') {
       throw new PullRequestNotOpenError(pullRequest.state);
     }
 
-    const [closed] = await this.db
-      .update(schema.pullRequest)
-      .set({ state: 'closed', closedAt: new Date() })
-      .where(eq(schema.pullRequest.id, pullRequest.id))
-      .returning();
-
-    return this.expandPullRequest(closed);
-  }
-
-  /** Anyone who can read the request can read its comments, and anyone who can read it can add one - the same bar GitHub sets for a public repository. */
-  async getComments(params: PullRequestRef) {
-    const { pullRequest } = await this.load(params);
-
-    // ponytail: unpaginated, add a cursor if a thread ever outgrows one page
-    const comments = await this.db
-      .select(commentColumnsWithAuthor)
-      .from(schema.pullRequestComment)
-      .innerJoin(
-        schema.user,
-        eq(schema.user.id, schema.pullRequestComment.authorId),
-      )
-      .where(eq(schema.pullRequestComment.pullRequestId, pullRequest.id))
-      .orderBy(
-        asc(schema.pullRequestComment.createdAt),
-        asc(schema.pullRequestComment.id),
-      );
-
-    return { comments };
-  }
-
-  async createComment(
-    params: PullRequestRef & { requesterId: string; body: string },
-  ) {
-    const { pullRequest } = await this.load(params);
-
-    const [created] = await this.db
-      .insert(schema.pullRequestComment)
-      .values({
-        pullRequestId: pullRequest.id,
-        authorId: params.requesterId,
-        body: params.body,
-      })
-      .returning(commentColumns);
-
-    const author = await this.users.getUserById(params.requesterId);
-    return { ...created, authorUsername: author.username ?? '' };
+    await this.issues.closeIssue(params);
+    return this.expandPullRequest((await this.load(params)).pullRequest);
   }
 
   /** Materializes both sides and resolves the range the request covers. */
@@ -602,12 +610,13 @@ export class PullRequestsService {
       operation,
     });
     const [pullRequest] = await this.db
-      .select()
+      .select(pullRequestColumns)
       .from(schema.pullRequest)
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
       .where(
         and(
-          eq(schema.pullRequest.baseRepositoryId, base.id),
-          eq(schema.pullRequest.number, number),
+          eq(schema.issue.repositoryId, base.id),
+          eq(schema.issue.number, number),
         ),
       );
     if (!pullRequest) throw new PullRequestNotFoundError();
@@ -755,13 +764,4 @@ interface PullRequestRef {
   number: number;
   requesterId?: string;
   operation?: 'read' | 'write';
-}
-
-function isUniqueViolation(error: unknown) {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: string }).code === '23505'
-  );
 }

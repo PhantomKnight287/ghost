@@ -46,6 +46,13 @@ export class IssueDTO {
   @IsIn(schema.issueState.enumValues)
   state: (typeof schema.issueState.enumValues)[number];
 
+  @ApiProperty({
+    description:
+      'True when this number belongs to a pull request; its page lives under `/pulls`.',
+  })
+  @IsBoolean()
+  isPullRequest: boolean;
+
   @ApiProperty()
   @IsString()
   authorUsername: string;
@@ -217,6 +224,31 @@ export class IssueTimelineEventDTO {
   @IsOptional()
   newTitle: string | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The commit that closed the issue, or the merge commit of a `merged` event.',
+  })
+  @IsString()
+  @IsOptional()
+  commitSha: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'octocat/ghost',
+    description: 'Repository of the pull request that closed the issue.',
+  })
+  @IsString()
+  @IsOptional()
+  sourceRepository: string | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  @IsInt()
+  @IsOptional()
+  sourceNumber: number | null;
+
   @ApiProperty()
   @IsISO8601()
   createdAt: string;
@@ -253,6 +285,10 @@ export class IssueTimelineEventItemDTO {
   @IsIn(['event'])
   kind: 'event';
 
+  @ApiProperty()
+  @IsString()
+  id: string;
+
   @ApiProperty({ type: IssueTimelineEventDTO })
   @ValidateNested()
   @Type(() => IssueTimelineEventDTO)
@@ -263,18 +299,104 @@ export class IssueTimelineEventItemDTO {
   createdAt: string;
 }
 
-@ApiExtraModels(IssueTimelineCommentDTO, IssueTimelineEventItemDTO)
+export class IssueReferenceRepositoryDTO {
+  @ApiProperty({ example: 'octocat' })
+  @IsString()
+  username: string;
+
+  @ApiProperty({ example: 'ghost' })
+  @IsString()
+  slug: string;
+}
+
+export class IssueReferenceSourceDTO {
+  @ApiProperty()
+  @IsInt()
+  number: number;
+
+  @ApiProperty()
+  @IsString()
+  title: string;
+
+  @ApiProperty({
+    enumName: 'IssueState',
+    enum: schema.issueState.enumValues,
+  })
+  @IsIn(schema.issueState.enumValues)
+  state: (typeof schema.issueState.enumValues)[number];
+
+  @ApiProperty()
+  @IsBoolean()
+  isPullRequest: boolean;
+}
+
+export class IssueTimelineReferenceDTO {
+  @ApiProperty({ enum: ['reference'], example: 'reference' })
+  @IsIn(['reference'])
+  kind: 'reference';
+
+  @ApiProperty()
+  @IsString()
+  id: string;
+
+  @ApiProperty({
+    enumName: 'IssueReferenceSourceType',
+    enum: schema.issueReferenceSource.enumValues,
+  })
+  @IsIn(schema.issueReferenceSource.enumValues)
+  sourceType: (typeof schema.issueReferenceSource.enumValues)[number];
+
+  @ApiProperty()
+  @IsString()
+  actorUsername: string;
+
+  @ApiProperty({ type: IssueReferenceRepositoryDTO })
+  @ValidateNested()
+  @Type(() => IssueReferenceRepositoryDTO)
+  repository: IssueReferenceRepositoryDTO;
+
+  @ApiProperty({
+    type: IssueReferenceSourceDTO,
+    nullable: true,
+    description:
+      'The issue or pull request the mention was written in; null for a commit.',
+  })
+  @ValidateNested()
+  @Type(() => IssueReferenceSourceDTO)
+  @IsOptional()
+  source: IssueReferenceSourceDTO | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  @IsString()
+  @IsOptional()
+  commitSha: string | null;
+
+  @ApiProperty()
+  @IsISO8601()
+  createdAt: string;
+}
+
+@ApiExtraModels(
+  IssueTimelineCommentDTO,
+  IssueTimelineEventItemDTO,
+  IssueTimelineReferenceDTO,
+)
 export class GetIssueTimelineResponseDTO {
   @ApiProperty({
     description:
-      'Comments and events interleaved oldest-first, exactly as rendered.',
+      'Comments, events and mentions from elsewhere interleaved oldest-first, exactly as rendered.',
     type: 'array',
     items: {
       oneOf: [
         { $ref: getSchemaPath(IssueTimelineCommentDTO) },
         { $ref: getSchemaPath(IssueTimelineEventItemDTO) },
+        { $ref: getSchemaPath(IssueTimelineReferenceDTO) },
       ],
     },
   })
-  timeline: Array<IssueTimelineCommentDTO | IssueTimelineEventItemDTO>;
+  timeline: Array<
+    | IssueTimelineCommentDTO
+    | IssueTimelineEventItemDTO
+    | IssueTimelineReferenceDTO
+  >;
 }

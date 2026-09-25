@@ -1,17 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { FromNowHoverCard } from "@/components/from-now-card";
-import { eventDescription } from "@/components/issues/common";
+import { CommentBox } from "@/components/issues/comments";
+import { Timeline } from "@/components/issues/timeline";
 import { Markdown } from "@/components/markdown";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 
-import {
-  AssigneeEditor,
-  CommentBox,
-  CommentItem,
-  EditableField,
-  LabelEditor,
-} from "./page.client";
+import { AssigneeEditor, EditableField, LabelEditor } from "./page.client";
 
 export default async function IssuePage({
   params,
@@ -61,7 +55,9 @@ export default async function IssuePage({
               canEdit={canEdit}
             >
               {issue.data.body ? (
-                <Markdown>{issue.data.body}</Markdown>
+                <Markdown repository={{ username, repo }}>
+                  {issue.data.body}
+                </Markdown>
               ) : (
                 <p className="text-muted-foreground">
                   No description provided.
@@ -71,38 +67,14 @@ export default async function IssuePage({
           </div>
         </div>
 
-        {(timeline.data?.timeline ?? []).map((item) =>
-          item.kind === "comment" ? (
-            <div key={item.id} className="rounded-lg border">
-              <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  {item.authorUsername}
-                </span>
-                commented <FromNowHoverCard date={item.createdAt} />
-              </div>
-              <CommentItem
-                username={username}
-                repo={repo}
-                number={Number(number)}
-                commentId={item.id}
-                authorUsername={item.authorUsername}
-                body={item.body}
-                viewer={viewer}
-                canModerate={viewer === username}
-              >
-                <Markdown>{item.body}</Markdown>
-              </CommentItem>
-            </div>
-          ) : (
-            <p
-              key={item.event.id}
-              className="px-4 text-xs text-muted-foreground"
-            >
-              {eventDescription(item.event)} ·{" "}
-              <FromNowHoverCard date={item.event.createdAt} />
-            </p>
-          ),
-        )}
+        <Timeline
+          username={username}
+          repo={repo}
+          number={Number(number)}
+          viewer={viewer}
+          items={timeline.data?.timeline ?? []}
+          noun="issue"
+        />
 
         <CommentBox
           username={username}

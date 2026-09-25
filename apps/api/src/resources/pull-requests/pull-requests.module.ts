@@ -8,10 +8,12 @@ import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { UsersService } from '../../services/users/users.service.js';
+import { IssuesModule } from '../issues/issues.module.js';
 import { PullRequestsController } from './pull-requests.controller.js';
 import { PullRequestsService } from './pull-requests.service.js';
 
 @Module({
+  imports: [IssuesModule],
   controllers: [PullRequestsController],
   providers: [
     PullRequestsService,

@@ -13,9 +13,15 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
+import {
+  type Repository,
+  RepositoryAccessService,
+} from '../../services/git/repository-access/repository-access.service.js';
+import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import {
@@ -33,6 +39,7 @@ import {
   IssueNotFoundError,
   IssueNotOpenError,
   LabelAlreadyExistsError,
+  PullRequestReopenError,
   LabelNotFoundError,
 } from './issues.errors.js';
 
@@ -58,6 +65,13 @@ const commentColumnsWithAuthor = {
   authorUsername: sql<string>`coalesce(${schema.user.username}, '')`,
 };
 
+const eventSource = alias(schema.issue, 'event_source');
+const eventSourceRepository = alias(
+  schema.repository,
+  'event_source_repository',
+);
+const eventSourceOwner = alias(schema.user, 'event_source_owner');
+
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 
@@ -70,6 +84,7 @@ export class IssuesService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly users: UsersService,
     private readonly access: RepositoryAccessService,
+    private readonly references: IssueReferencesService,
   ) {}
 
   async createIssue({
@@ -91,66 +106,103 @@ export class IssuesService {
     );
     const assignees = await this.resolveUsers(dedupe(body.assignees ?? []));
 
+    const created = await this.open(
+      {
+        repository,
+        title: body.title,
+        body: body.body ?? null,
+        authorId: requesterId,
+        isPullRequest: false,
+      },
+      async (tx, row) => {
+        if (labels.length > 0) {
+          await tx.insert(schema.issueLabel).values(
+            labels.map((label) => ({
+              issueId: row.id,
+              labelId: label.id,
+            })),
+          );
+          for (const label of labels) {
+            await this.recordEventWith(tx, row.id, requesterId, 'labeled', {
+              labelName: label.name,
+            });
+          }
+        }
+
+        if (assignees.length > 0) {
+          await tx.insert(schema.issueAssignee).values(
+            assignees.map((user) => ({
+              issueId: row.id,
+              userId: user.id,
+            })),
+          );
+          for (const user of assignees) {
+            await this.recordEventWith(tx, row.id, requesterId, 'assigned', {
+              assigneeUsername: user.username ?? '',
+            });
+          }
+        }
+      },
+    );
+
+    return this.expandIssue(created, requesterId, repository.ownerId);
+  }
+
+  /** Inserts an issue or pull request with the repository's next number, records its opening and references, then runs `extend` in the same transaction. */
+  async open(
+    {
+      repository,
+      title,
+      body,
+      authorId,
+      isPullRequest,
+    }: {
+      repository: Repository;
+      title: string;
+      body: string | null;
+      authorId: string;
+      isPullRequest: boolean;
+    },
+    extend: (tx: Executor, row: Issue) => Promise<void>,
+  ) {
     const values = {
       repositoryId: repository.id,
-      title: body.title,
-      body: body.body,
-      authorId: requesterId,
+      title,
+      body,
+      authorId,
+      isPullRequest,
       number: sql<number>`(select coalesce(max(${schema.issue.number}), 0) + 1 from ${schema.issue} where ${schema.issue.repositoryId} = ${repository.id})`,
     };
 
     // Two concurrent opens read the same max; the unique index rejects the loser, whose retry reads the winner's number.
-    let created: Issue | undefined;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; ; attempt++) {
       try {
-        created = await this.db.transaction(async (tx) => {
+        return await this.db.transaction(async (tx) => {
           const [row] = await tx
             .insert(schema.issue)
             .values(values)
             .returning();
           if (!row) throw new Error('Issue insert returned no rows');
 
-          // The opening is the first timeline entry; labels and assignees follow.
-          await this.recordEventWith(tx, row.id, requesterId, 'opened', {});
-
-          if (labels.length > 0) {
-            await tx.insert(schema.issueLabel).values(
-              labels.map((label) => ({
-                issueId: row.id,
-                labelId: label.id,
-              })),
-            );
-            for (const label of labels) {
-              await this.recordEventWith(tx, row.id, requesterId, 'labeled', {
-                labelName: label.name,
-              });
-            }
-          }
-
-          if (assignees.length > 0) {
-            await tx.insert(schema.issueAssignee).values(
-              assignees.map((user) => ({
-                issueId: row.id,
-                userId: user.id,
-              })),
-            );
-            for (const user of assignees) {
-              await this.recordEventWith(tx, row.id, requesterId, 'assigned', {
-                assigneeUsername: user.username ?? '',
-              });
-            }
-          }
-
+          await this.recordEventWith(tx, row.id, authorId, 'opened', {});
+          await this.references.record(
+            tx,
+            {
+              type: 'issue',
+              id: row.id,
+              repository,
+              issueId: row.id,
+              actorId: authorId,
+            },
+            body,
+          );
+          await extend(tx, row);
           return row;
         });
-        break;
       } catch (error) {
-        if (!isUniqueViolation(error) || attempt === 2) throw error;
+        if (!isNumberCollision(error) || attempt === 2) throw error;
       }
     }
-    if (!created) throw new Error('Failed to create issue after retries');
-
-    return this.expandIssue(created, requesterId, repository.ownerId);
   }
 
   async getIssues({
@@ -281,6 +333,7 @@ export class IssuesService {
     const baseClause = (forState: 'open' | 'closed' | 'all') =>
       and(
         eq(schema.issue.repositoryId, repository.id),
+        eq(schema.issue.isPullRequest, false),
         forState === 'all' ? undefined : eq(schema.issue.state, forState),
         authorId ? eq(schema.issue.authorId, authorId) : undefined,
         labelIssueIds ? inArray(schema.issue.id, labelIssueIds) : undefined,
@@ -386,25 +439,51 @@ export class IssuesService {
     }
 
     const oldTitle = issue.title;
-    const [updated] = await this.db
-      .update(schema.issue)
-      .set({
-        ...(title === undefined ? {} : { title }),
-        ...(body === undefined ? {} : { body }),
-      })
-      .where(eq(schema.issue.id, issue.id))
-      .returning();
-    if (!updated) throw new IssueNotFoundError();
+    const updated = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(schema.issue)
+        .set({
+          ...(title === undefined ? {} : { title }),
+          ...(body === undefined ? {} : { body }),
+        })
+        .where(eq(schema.issue.id, issue.id))
+        .returning();
+      if (!row) throw new IssueNotFoundError();
 
-    if (title !== undefined && title !== oldTitle) {
-      await this.recordEvent(issue.id, params.requesterId, 'renamed', {
-        oldTitle,
-        newTitle: title,
-      });
-    }
-    if (body !== undefined) {
-      await this.recordEvent(issue.id, params.requesterId, 'edited', {});
-    }
+      if (title !== undefined && title !== oldTitle) {
+        await this.recordEventWith(
+          tx,
+          issue.id,
+          params.requesterId,
+          'renamed',
+          {
+            oldTitle,
+            newTitle: title,
+          },
+        );
+      }
+      if (body !== undefined) {
+        await this.recordEventWith(
+          tx,
+          issue.id,
+          params.requesterId,
+          'edited',
+          {},
+        );
+        await this.references.record(
+          tx,
+          {
+            type: 'issue',
+            id: issue.id,
+            repository: base,
+            issueId: issue.id,
+            actorId: params.requesterId,
+          },
+          body,
+        );
+      }
+      return row;
+    });
 
     return this.expandIssue(updated, params.requesterId, base.ownerId);
   }
@@ -416,18 +495,25 @@ export class IssuesService {
     }
     if (issue.state !== 'open') throw new IssueNotOpenError(issue.state);
 
-    const [closed] = await this.db
-      .update(schema.issue)
-      .set({
-        state: 'closed',
-        closedAt: new Date(),
-        closedById: params.requesterId,
-      })
-      .where(eq(schema.issue.id, issue.id))
-      .returning();
-    if (!closed) throw new IssueNotFoundError();
-
-    await this.recordEvent(issue.id, params.requesterId, 'closed', {});
+    const closed = await this.db.transaction(async (tx) => {
+      const row = await closeIssue(tx, {
+        issueId: issue.id,
+        actorId: params.requesterId,
+      });
+      if (!row) throw new IssueNotOpenError('closed');
+      if (row.isPullRequest) {
+        await tx
+          .update(schema.pullRequest)
+          .set({ state: 'closed' })
+          .where(
+            and(
+              eq(schema.pullRequest.issueId, issue.id),
+              eq(schema.pullRequest.state, 'open'),
+            ),
+          );
+      }
+      return row;
+    });
     return this.expandIssue(closed, params.requesterId, base.ownerId);
   }
 
@@ -437,6 +523,7 @@ export class IssuesService {
       await this.authorize({ ...params, operation: 'write' });
     }
     if (issue.state !== 'closed') throw new IssueNotOpenError(issue.state);
+    if (issue.isPullRequest) throw new PullRequestReopenError();
 
     const [reopened] = await this.db
       .update(schema.issue)
@@ -467,7 +554,7 @@ export class IssuesService {
   async createComment(
     params: IssueRef & { requesterId: string; body: string },
   ) {
-    const { issue } = await this.load(params);
+    const { issue, base } = await this.load(params);
 
     const created = await this.db.transaction(async (tx) => {
       const [row] = await tx
@@ -479,6 +566,18 @@ export class IssuesService {
         })
         .returning(commentColumns);
       if (!row) throw new Error('Comment insert returned no rows');
+
+      await this.references.record(
+        tx,
+        {
+          type: 'comment',
+          id: row.id,
+          repository: base,
+          issueId: issue.id,
+          actorId: params.requesterId,
+        },
+        params.body,
+      );
 
       await tx
         .update(schema.issue)
@@ -502,7 +601,7 @@ export class IssuesService {
       body: string;
     },
   ) {
-    const { issue } = await this.load(params);
+    const { issue, base } = await this.load(params);
     const [comment] = await this.db
       .select()
       .from(schema.issueComment)
@@ -517,17 +616,31 @@ export class IssuesService {
       await this.authorize({ ...params, operation: 'write' });
     }
 
-    const [updated] = await this.db
-      .update(schema.issueComment)
-      .set({ body: params.body })
-      .where(eq(schema.issueComment.id, comment.id))
-      .returning(commentColumns);
-    if (!updated) throw new IssueCommentNotFoundError();
+    const updated = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(schema.issueComment)
+        .set({ body: params.body })
+        .where(eq(schema.issueComment.id, comment.id))
+        .returning(commentColumns);
+      if (!row) throw new IssueCommentNotFoundError();
 
-    await this.db
-      .update(schema.issue)
-      .set({ updatedAt: new Date() })
-      .where(eq(schema.issue.id, issue.id));
+      await this.references.record(
+        tx,
+        {
+          type: 'comment',
+          id: comment.id,
+          repository: base,
+          issueId: issue.id,
+          actorId: comment.authorId,
+        },
+        params.body,
+      );
+      await tx
+        .update(schema.issue)
+        .set({ updatedAt: new Date() })
+        .where(eq(schema.issue.id, issue.id));
+      return row;
+    });
 
     const author = await this.users.getUserById(comment.authorId);
     return { ...updated, authorUsername: author.username ?? '' };
@@ -555,6 +668,7 @@ export class IssuesService {
       await tx
         .delete(schema.issueComment)
         .where(eq(schema.issueComment.id, comment.id));
+      await this.references.forget(tx, 'comment', comment.id);
       await tx
         .update(schema.issue)
         .set({
@@ -570,97 +684,72 @@ export class IssuesService {
   async getTimeline(params: IssueRef) {
     const { issue } = await this.load(params);
 
-    const [comments, events] = await Promise.all([
+    const [comments, events, mentions] = await Promise.all([
       this.db
         .select({
-          id: schema.issueComment.id,
-          body: schema.issueComment.body,
-          authorUsername: schema.user.username,
-          createdAt: schema.issueComment.createdAt,
-          updatedAt: schema.issueComment.updatedAt,
+          kind: sql<'comment'>`'comment'`,
+          ...commentColumnsWithAuthor,
         })
         .from(schema.issueComment)
         .innerJoin(
           schema.user,
           eq(schema.user.id, schema.issueComment.authorId),
         )
-        .where(eq(schema.issueComment.issueId, issue.id))
-        .orderBy(
-          asc(schema.issueComment.createdAt),
-          asc(schema.issueComment.id),
-        ),
+        .where(eq(schema.issueComment.issueId, issue.id)),
       this.db
         .select({
+          kind: sql<'event'>`'event'`,
           id: schema.issueEvent.id,
-          type: schema.issueEvent.type,
-          actorUsername: schema.user.username,
-          labelName: schema.issueEvent.labelName,
-          assigneeUsername: schema.issueEvent.assigneeUsername,
-          oldTitle: schema.issueEvent.oldTitle,
-          newTitle: schema.issueEvent.newTitle,
-          createdAt: schema.issueEvent.createdAt,
+          createdAt: isoTimestamp(schema.issueEvent.createdAt),
+          event: {
+            id: schema.issueEvent.id,
+            type: schema.issueEvent.type,
+            actorUsername: sql<string>`coalesce(${schema.user.username}, '')`,
+            labelName: schema.issueEvent.labelName,
+            assigneeUsername: schema.issueEvent.assigneeUsername,
+            oldTitle: schema.issueEvent.oldTitle,
+            newTitle: schema.issueEvent.newTitle,
+            commitSha: schema.issueEvent.commitSha,
+            // `owner/repo`, so a pull request in another repository that closed this one still links
+            sourceRepository: sql<
+              string | null
+            >`${eventSourceOwner.username} || '/' || ${eventSourceRepository.slug}`,
+            sourceNumber: eventSource.number,
+            createdAt: isoTimestamp(schema.issueEvent.createdAt),
+          },
         })
         .from(schema.issueEvent)
         .leftJoin(schema.user, eq(schema.user.id, schema.issueEvent.actorId))
-        .where(eq(schema.issueEvent.issueId, issue.id))
-        .orderBy(asc(schema.issueEvent.createdAt), asc(schema.issueEvent.id)),
+        .leftJoin(
+          eventSource,
+          eq(eventSource.id, schema.issueEvent.sourceIssueId),
+        )
+        .leftJoin(
+          eventSourceRepository,
+          eq(eventSourceRepository.id, eventSource.repositoryId),
+        )
+        .leftJoin(
+          eventSourceOwner,
+          eq(eventSourceOwner.id, eventSourceRepository.ownerId),
+        )
+        .where(eq(schema.issueEvent.issueId, issue.id)),
+      this.references.mentionsOf(
+        issue.id,
+        params.requesterId ? { userId: params.requesterId } : null,
+      ),
     ]);
 
-    const timeline: Array<
-      | {
-          kind: 'comment';
-          id: string;
-          body: string;
-          authorUsername: string;
-          createdAt: string;
-          updatedAt: string;
-        }
-      | {
-          kind: 'event';
-          event: {
-            id: string;
-            type: IssueEventType;
-            actorUsername: string;
-            labelName: string | null;
-            assigneeUsername: string | null;
-            oldTitle: string | null;
-            newTitle: string | null;
-            createdAt: string;
-          };
-          createdAt: string;
-        }
-    > = [
-      ...comments.map((comment) => ({
-        kind: 'comment' as const,
-        id: comment.id,
-        body: comment.body,
-        authorUsername: comment.authorUsername ?? '',
-        createdAt: comment.createdAt.toISOString(),
-        updatedAt: comment.updatedAt.toISOString(),
+    const timeline = [
+      ...comments,
+      ...events,
+      ...mentions.map((mention) => ({
+        kind: 'reference' as const,
+        ...mention,
       })),
-      ...events.map((event) => ({
-        kind: 'event' as const,
-        event: {
-          id: event.id,
-          type: event.type,
-          actorUsername: event.actorUsername ?? '',
-          labelName: event.labelName,
-          assigneeUsername: event.assigneeUsername,
-          oldTitle: event.oldTitle,
-          newTitle: event.newTitle,
-          createdAt: event.createdAt.toISOString(),
-        },
-        createdAt: event.createdAt.toISOString(),
-      })),
-    ].sort((a, b) => {
-      if (a.createdAt < b.createdAt) return -1;
-      if (a.createdAt > b.createdAt) return 1;
-      const aId = a.kind === 'comment' ? a.id : a.event.id;
-      const bId = b.kind === 'comment' ? b.id : b.event.id;
-      if (aId < bId) return -1;
-      if (aId > bId) return 1;
-      return 0;
-    });
+    ].sort(
+      (a, b) =>
+        a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+    );
 
     return { timeline };
   }
@@ -1011,6 +1100,7 @@ export class IssuesService {
       title: issueRow.title,
       body: issueRow.body,
       state: issueRow.state,
+      isPullRequest: issueRow.isPullRequest,
       authorUsername: author.username ?? '',
       closedByUsername: closer?.username ?? null,
       labels,
@@ -1084,6 +1174,7 @@ export class IssuesService {
       title: issueRow.title,
       body: issueRow.body,
       state: issueRow.state,
+      isPullRequest: issueRow.isPullRequest,
       authorUsername: authorById.get(issueRow.authorId) ?? '',
       closedByUsername: issueRow.closedById
         ? (closerById.get(issueRow.closedById) ?? null)
@@ -1209,13 +1300,12 @@ interface IssueRef {
   operation?: 'read' | 'write';
 }
 
-function isUniqueViolation(error: unknown) {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: string }).code === '23505'
-  );
+// Drizzle wraps the driver error, so the constraint name is on `cause`.
+function isNumberCollision(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  if ((error as { constraint?: string }).constraint === 'issue_repo_number_idx')
+    return true;
+  return isNumberCollision((error as { cause?: unknown }).cause);
 }
 
 function dedupe(names: string[]) {

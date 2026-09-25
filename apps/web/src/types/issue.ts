@@ -5,4 +5,5 @@ export type IssueLabel = components["schemas"]["LabelDTO"];
 export type IssueComment = components["schemas"]["IssueCommentDTO"];
 export type IssueTimelineItem =
   | components["schemas"]["IssueTimelineCommentDTO"]
-  | components["schemas"]["IssueTimelineEventItemDTO"];
+  | components["schemas"]["IssueTimelineEventItemDTO"]
+  | components["schemas"]["IssueTimelineReferenceDTO"];

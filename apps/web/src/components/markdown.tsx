@@ -3,6 +3,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
+import { remarkReferences } from "@/lib/remark-references";
 import { cn } from "@/lib/utils";
 
 // we override some default tagNames to offer some flexibility
@@ -42,10 +43,13 @@ export function Markdown({
   children,
   className,
   resolveUrl,
+  repository,
 }: {
   children: string;
   className?: string;
   resolveUrl?: (url: string, key: string) => string;
+  /** Where issue and pull request text lives; set, `#1`, `owner/repo#1` and `@user` become links. */
+  repository?: { username: string; repo: string };
 }) {
   return (
     <div
@@ -71,7 +75,9 @@ export function Markdown({
       )}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={
+          repository ? [remarkGfm, [remarkReferences, repository]] : [remarkGfm]
+        }
         rehypePlugins={[rehypeRaw, [rehypeSanitize, SCHEMA]]}
         components={{
           a({ node, className, target, rel, ...props }) {

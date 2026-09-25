@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
-import { count, sum } from 'drizzle-orm';
+import { count, eq, sum } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { meter } from '../../lib/metrics.js';
@@ -55,6 +55,7 @@ export class AppStatsService implements OnModuleInit {
           this.db
             .select({ state: schema.issue.state, total: count() })
             .from(schema.issue)
+            .where(eq(schema.issue.isPullRequest, false))
             .groupBy(schema.issue.state),
           this.db
             .select({ state: schema.pullRequest.state, total: count() })
