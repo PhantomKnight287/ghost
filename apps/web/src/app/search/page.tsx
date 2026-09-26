@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { formatDistanceToNow } from "date-fns";
 import { BookMarked, Code2, Search } from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
@@ -118,10 +117,7 @@ async function RepositoryResults({
                 owner: repository.owner,
                 description: repository.description ?? undefined,
                 visibility: "public",
-                updatedAt: formatDistanceToNow(
-                  new Date(repository.lastPushedAt),
-                  { addSuffix: true },
-                ),
+                updatedAt: repository.lastPushedAt,
               }}
             />
           ))}

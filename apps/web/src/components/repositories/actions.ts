@@ -87,7 +87,7 @@ export const updateRepository = actionClient
       throw new Error(error.message);
     }
 
-    redirect(`/${username}/${data.slug}/settings`);
+    return { slug: data.slug };
   });
 
 export const deleteRepository = actionClient

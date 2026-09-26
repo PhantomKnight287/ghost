@@ -20,3 +20,11 @@ export function atLeast(
 ) {
   return role != null && ladder.indexOf(role) >= ladder.indexOf(needed);
 }
+
+export const roleDescriptions: Record<CollaboratorRole, string> = {
+  read: "View and clone, open issues and comment.",
+  triage: "Also close, label and assign issues and pull requests.",
+  write: "Also push, merge, and edit anyone's issues and comments.",
+  maintain: "Also change the name, description and default branch.",
+  admin: "Full access, including visibility, collaborators and deletion.",
+};

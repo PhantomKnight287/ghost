@@ -25,8 +25,10 @@ export const forkRepositorySchema = createRepositorySchema;
 
 export type ForkRepositoryInput = CreateRepositoryInput;
 
+// Each settings card saves its own field, so every field is optional.
 export const updateRepositorySchema = createRepositorySchema
   .omit({ owner: true })
-  .extend({ defaultBranch: z.string().optional() });
+  .extend({ defaultBranch: z.string() })
+  .partial();
 
 export type UpdateRepositoryInput = z.infer<typeof updateRepositorySchema>;

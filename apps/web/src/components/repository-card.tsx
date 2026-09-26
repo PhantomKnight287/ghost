@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { GitFork, Star } from "lucide-react";
 
+import { FromNowHoverCard } from "@/components/from-now-card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -49,22 +50,25 @@ export function RepositoryCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-base font-semibold">
+        <h3 className="min-w-0 text-base break-words">
           <Link
             href={`/${owner}/${slug}`}
             className="text-primary hover:underline"
           >
-            {showOwner ? `${owner}/${name}` : name}
+            {showOwner && <span className="font-normal">{owner}/</span>}
+            <span className="font-semibold">{name}</span>
           </Link>
         </h3>
 
-        <Badge variant="outline" className="rounded-full capitalize">
+        <Badge variant="outline" className="shrink-0 rounded-full capitalize">
           {visibility}
         </Badge>
       </div>
 
       {description && (
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="line-clamp-2 text-sm text-muted-foreground">
+          {description}
+        </p>
       )}
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
@@ -95,7 +99,9 @@ export function RepositoryCard({
           </span>
         )}
 
-        <span>Updated {updatedAt}</span>
+        <span>
+          Updated <FromNowHoverCard date={updatedAt} />
+        </span>
       </div>
     </article>
   );

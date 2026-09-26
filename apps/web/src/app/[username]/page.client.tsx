@@ -2,7 +2,6 @@
 
 import { useRef, type ReactNode } from "react";
 import Form from "next/form";
-import { formatDistanceToNow } from "date-fns";
 import { Plus, Search } from "lucide-react";
 
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
@@ -110,10 +109,7 @@ export function ProfileTabs({
                   owner: username,
                   description: repository.description,
                   visibility: repository.visibility,
-                  updatedAt: formatDistanceToNow(
-                    new Date(repository.lastPushedAt),
-                    { addSuffix: true },
-                  ),
+                  updatedAt: repository.lastPushedAt,
                 }}
               />
             ))}

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { RepositoryCollaborators } from "@/components/repositories/repository-collaborators";
-import { RepositorySettings } from "@/components/repositories/repository-settings";
+import { RepositoryGeneralSettings } from "@/components/repositories/repository-settings";
 import { createServerClient } from "@/lib/api/server";
 import { atLeast } from "@/lib/repository-role";
 
@@ -18,20 +17,12 @@ export default async function RepositorySettingsPage({
       params: { path },
     }),
   ]);
-
-  // The API enforces every change; this keeps everyone else from seeing a form they cannot submit.
-  const role = repository.data?.viewerRole;
-  if (!repository.data || !atLeast(role, "maintain")) notFound();
-  const isAdmin = atLeast(role, "admin");
-
-  const collaborators = isAdmin
-    ? await client.GET("/api/repositories/{username}/{repo}/collaborators", {
-        params: { path: { username, repo } },
-      })
-    : null;
+  if (!repository.data) notFound();
 
   return (
-    <RepositorySettings
+    <RepositoryGeneralSettings
+      // Remount after a save so each card starts from what was stored.
+      key={repository.data.updatedAt}
       username={username}
       slug={repository.data.slug}
       name={repository.data.name}
@@ -39,16 +30,7 @@ export default async function RepositorySettingsPage({
       visibility={repository.data.visibility}
       defaultBranch={branches.data?.defaultBranch ?? null}
       branches={branches.data?.branches ?? []}
-      isAdmin={isAdmin}
-      collaborators={
-        collaborators?.data && (
-          <RepositoryCollaborators
-            username={username}
-            slug={repository.data.slug}
-            collaborators={collaborators.data.collaborators}
-          />
-        )
-      }
+      isAdmin={atLeast(repository.data.viewerRole, "admin")}
     />
   );
 }

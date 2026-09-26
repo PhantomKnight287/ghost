@@ -3,12 +3,20 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { BookMarked, GitBranch, Plus, Search, Users } from "lucide-react";
+import {
+  BookLock,
+  BookMarked,
+  GitBranch,
+  Plus,
+  Search,
+  Users,
+} from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
 import { Invitations } from "@/components/repositories/invitations";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
-import { RepositoryCard, type Repository } from "@/components/repository-card";
+import type { Repository } from "@/components/repository-card";
+import { FromNowHoverCard } from "@/components/from-now-card";
 import { useAuthenticate } from "@/lib/auth/use-authenticate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,15 +86,13 @@ export default function DashboardPage() {
           </InputGroup>
 
           {repositories.length > 0 ? (
-            <div className="flex flex-col">
+            <ul className="-mx-2 flex flex-col">
               {repositories.map((repository) => (
-                <RepositoryCard
-                  key={`${repository.owner}/${repository.name}`}
-                  repository={repository}
-                  showOwner
-                />
+                <li key={`${repository.owner}/${repository.slug}`}>
+                  <RepositoryRow repository={repository} />
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
               {isPending
@@ -172,5 +178,32 @@ function StartCard({
         <p className="text-sm text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
+  );
+}
+
+/** One line per repository: the sidebar is too narrow for a card. */
+function RepositoryRow({ repository }: { repository: Repository }) {
+  const fullName = `${repository.owner}/${repository.name}`;
+  const Icon = repository.visibility === "private" ? BookLock : BookMarked;
+
+  return (
+    <Link
+      href={`/${repository.owner}/${repository.slug}`}
+      title={fullName}
+      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+    >
+      <Icon
+        className="size-4 shrink-0 text-muted-foreground"
+        aria-label={repository.visibility}
+      />
+      <span className="min-w-0 flex-1 truncate">
+        <span className="text-muted-foreground">{repository.owner}/</span>
+        <span className="font-medium">{repository.name}</span>
+      </span>
+      <FromNowHoverCard
+        date={repository.updatedAt}
+        className="shrink-0 text-xs text-muted-foreground"
+      />
+    </Link>
   );
 }
