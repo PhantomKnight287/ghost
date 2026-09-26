@@ -57,6 +57,19 @@ export class CodeSearchService {
     return run;
   }
 
+  /** Waits out an index run in flight first, so it cannot publish shards after they are removed. */
+  async remove(repositoryId: string) {
+    this.dirty.delete(repositoryId);
+    await this.running.get(repositoryId)?.catch(() => undefined);
+    this.published.delete(repositoryId);
+
+    await this.s3.deleteUnder(`${SHARD_PREFIX}${repositoryId}_v`);
+    await this.s3.deleteObject({
+      Bucket: this.s3.bucket,
+      Key: `${MARKER_PREFIX}${repositoryId}`,
+    });
+  }
+
   /** Reads must neither wait on nor fail because of the search index. */
   indexInBackground(target: IndexTarget) {
     this.index(target).catch((error: unknown) =>

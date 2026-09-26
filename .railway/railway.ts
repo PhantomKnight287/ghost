@@ -29,6 +29,7 @@ export default defineRailway(() => {
     healthcheck: "/api",
     healthcheckTimeout: 60,
     preDeploy: "node packages/db/dist/migrate.js",
+    // Keep at 1: deleting a repository purges only the local git cache of the replica that handles the request (docs/0020).
     replicas: { "asia-southeast1-eqsg3a": 1 },
     deploy: { restartPolicyMaxRetries: 5, sleepApplication: true },
     domains: ["api.ghost.procrastinator.fyi"],

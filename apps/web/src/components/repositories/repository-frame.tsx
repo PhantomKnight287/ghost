@@ -7,6 +7,7 @@ import {
   Code2,
   GitFork,
   GitPullRequest,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -79,9 +80,22 @@ export function RepositoryFrame({
       href: `${base}/pulls`,
       count: openPullRequestCount ?? null,
     },
+    ...(viewer === username
+      ? [
+          {
+            value: "settings",
+            label: "Settings",
+            icon: Settings,
+            href: `${base}/settings`,
+            count: null,
+          },
+        ]
+      : []),
   ];
   const activeTab =
-    view === "pulls" ? "pulls" : view === "issues" ? "issues" : "code";
+    view === "pulls" || view === "issues" || view === "settings"
+      ? view
+      : "code";
   // the root of the repository only: a file or a subdirectory has nothing to say about the repository as a whole
   const showSidebar = activeTab === "code" && view === undefined;
 

@@ -19,6 +19,8 @@ export interface WalIndex {
   compactedThroughSeq: number;
   refs: Map<string, Buffer>;
   layers: WalLayer[];
+  /** A tombstone: the repository was deleted, and the index stays behind holding nothing so no push can recreate it. */
+  deleted: boolean;
 }
 
 export interface WalEntryHeader {
@@ -29,7 +31,13 @@ export interface WalEntryHeader {
 }
 
 export function emptyIndex(): WalIndex {
-  return { seq: 0, compactedThroughSeq: 0, refs: new Map(), layers: [] };
+  return {
+    seq: 0,
+    compactedThroughSeq: 0,
+    refs: new Map(),
+    layers: [],
+    deleted: false,
+  };
 }
 
 export function applyTransitions(

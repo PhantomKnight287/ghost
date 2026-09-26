@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import type { PullRequestFilter } from "@/components/pull-requests/common";
-import { pullRequestFilters } from "@/components/pull-requests/common";
+import {
+  branchLabel,
+  pullRequestFilters,
+} from "@/components/pull-requests/common";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
@@ -118,9 +121,7 @@ export default async function PullRequestsPage({
                   </div>
 
                   <code className="hidden shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground sm:block">
-                    {pull.head.username === pull.base.username
-                      ? pull.head.ref
-                      : `${pull.head.username}:${pull.head.ref}`}
+                    {branchLabel(pull.head, pull.base)}
                     {" → "}
                     {pull.base.ref}
                   </code>

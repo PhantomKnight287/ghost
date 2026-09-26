@@ -66,3 +66,14 @@ export class UnrelatedRepositoriesError extends DomainError {
     );
   }
 }
+
+/** A closed request whose head repository was deleted: its commits went with it. */
+export class PullRequestHeadDeletedError extends DomainError {
+  status: number = HttpStatus.GONE;
+
+  constructor() {
+    super(
+      'The repository this pull request came from was deleted, and its changes with it',
+    );
+  }
+}

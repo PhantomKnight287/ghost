@@ -24,3 +24,9 @@ export type CreateRepositoryInput = z.infer<typeof createRepositorySchema>;
 export const forkRepositorySchema = createRepositorySchema;
 
 export type ForkRepositoryInput = CreateRepositoryInput;
+
+export const updateRepositorySchema = createRepositorySchema
+  .omit({ owner: true })
+  .extend({ defaultBranch: z.string().optional() });
+
+export type UpdateRepositoryInput = z.infer<typeof updateRepositorySchema>;

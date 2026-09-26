@@ -25,6 +25,7 @@ rejected, and the consequences — including the bad ones.
 - [0010 — Orphaned entries are garbage, never corruption](0010-orphans-are-garbage.md)
 - [0012 — Materialization is forward-only replay](0012-forward-only-materialization.md)
 - [0015 — Nothing holds a packfile in memory](0015-nothing-holds-a-packfile.md)
+- [0020 — Deleting a repository is a tombstone, then a purge](0020-deletion-is-a-tombstone-then-a-purge.md)
 
 ## Review
 

@@ -22,6 +22,7 @@ export class GitController {
       res,
       await this.gitService.advertiseRefs({
         repositoryId: req.repository.id,
+        defaultBranch: req.repository.defaultBranch,
         service,
       }),
     );
@@ -36,6 +37,7 @@ export class GitController {
       res,
       await this.gitService.uploadPack({
         repositoryId: req.repository.id,
+        defaultBranch: req.repository.defaultBranch,
         body: req.gitBody,
       }),
     );
@@ -50,6 +52,7 @@ export class GitController {
       res,
       await this.gitService.receivePack({
         repositoryId: req.repository.id,
+        defaultBranch: req.repository.defaultBranch,
         isPublic: req.repository.visibility === 'public',
         body: req.gitBody,
         pushedBy: req.actor?.userId ?? null,

@@ -7,7 +7,11 @@ import { z } from "zod";
 
 import { fetchClient } from "@/lib/fetch-client";
 
-import { createRepositorySchema, forkRepositorySchema } from "./common";
+import {
+  createRepositorySchema,
+  forkRepositorySchema,
+  updateRepositorySchema,
+} from "./common";
 
 const actionClient = createSafeActionClient({
   handleServerError: (error) => error.message,
@@ -63,3 +67,42 @@ export const forkRepository = actionClient
       redirect(`/${data.username}/${data.slug}`);
     },
   );
+
+const repositoryPath = z.object({ username: z.string(), slug: z.string() });
+
+export const updateRepository = actionClient
+  .inputSchema(updateRepositorySchema.extend(repositoryPath.shape))
+  .action(async ({ parsedInput: { username, slug, ...changes } }) => {
+    const { data, error } = await fetchClient.PATCH(
+      "/api/repositories/{username}/{slug}",
+      {
+        params: { path: { username, slug } },
+        body: changes,
+        headers: { cookie: (await cookies()).toString() },
+      },
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    redirect(`/${username}/${data.slug}/settings`);
+  });
+
+export const deleteRepository = actionClient
+  .inputSchema(repositoryPath)
+  .action(async ({ parsedInput: { username, slug } }) => {
+    const { error } = await fetchClient.DELETE(
+      "/api/repositories/{username}/{slug}",
+      {
+        params: { path: { username, slug } },
+        headers: { cookie: (await cookies()).toString() },
+      },
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    redirect(`/${username}`);
+  });

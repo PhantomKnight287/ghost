@@ -16,10 +16,18 @@ import {
   ENTRY_HEADER_PROBE_BYTES,
   INDEX_CONTENT_TYPE,
 } from '../../../lib/git/wal/wal-codec.js';
-import type {
-  WalEntryHeader,
-  WalIndex,
+import {
+  emptyIndex,
+  type WalEntryHeader,
+  type WalIndex,
 } from '../../../lib/git/wal/wal.types.js';
+import {
+  RepositoryDeletedError,
+  WalContentionError,
+} from '../../../lib/git/wal/wal.errors.js';
+
+// Each lost CAS is a push that committed in between; only a stream of pushes could outlast this, and the caller retries.
+const MAX_TOMBSTONE_ATTEMPTS = 8;
 
 export interface StoredIndex {
   index: WalIndex;
@@ -40,6 +48,12 @@ export class WalStoreService {
 
   // null when the repository has no index yet.
   async readIndex(repoId: string): Promise<StoredIndex | null> {
+    const stored = await this.readStoredIndex(repoId);
+    if (stored?.index.deleted) throw new RepositoryDeletedError();
+    return stored;
+  }
+
+  private async readStoredIndex(repoId: string): Promise<StoredIndex | null> {
     try {
       const response = await this.s3.getObject({
         Bucket: this.s3.bucket,
@@ -51,6 +65,34 @@ export class WalStoreService {
       if (isNotFound(error)) return null;
       throw error;
     }
+  }
+
+  /** Swaps the index for an empty one flagged deleted, so a push racing the delete loses its CAS and then reads the repository as gone. The tombstone is never removed: a push authorized just before the delete could otherwise recreate the index from nothing. */
+  async tombstone(repoId: string) {
+    for (let attempt = 0; attempt < MAX_TOMBSTONE_ATTEMPTS; attempt++) {
+      const current = await this.readStoredIndex(repoId);
+      if (current?.index.deleted) return;
+
+      const next = {
+        ...emptyIndex(),
+        seq: (current?.index.seq ?? 0) + 1,
+        deleted: true,
+      };
+      if (await this.casIndex(repoId, next, current?.etag ?? null)) return;
+    }
+    throw new WalContentionError(repoId);
+  }
+
+  /** Every entry of the log. Only safe behind a tombstone, which stops new entries from being committed. */
+  async purgeEntries(repoId: string) {
+    await this.s3.deleteUnder(`repos/${repoId}/entries/`);
+  }
+
+  async deleteEntry(repoId: string, ulid: string) {
+    await this.s3.deleteObject({
+      Bucket: this.s3.bucket,
+      Key: this.entryKey(repoId, ulid),
+    });
   }
 
   /** Copies a repository's log to a new id: the packs first, then the index that names them, so a fork is never pointed at objects that have not landed yet. Layers are immutable once written, so this needs no lock. */

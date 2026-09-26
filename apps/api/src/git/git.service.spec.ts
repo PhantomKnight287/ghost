@@ -69,6 +69,7 @@ describe('GitService', () => {
   it('materializes the cache before advertising refs', async () => {
     const { headers } = await service.advertiseRefs({
       repositoryId: 'repo_ghost',
+      defaultBranch: null,
       service: 'git-upload-pack',
     });
 
@@ -78,6 +79,7 @@ describe('GitService', () => {
     expect(materializer.materialize).toHaveBeenCalledWith(
       'repo_ghost',
       '/repos/ghost.git',
+      null,
     );
     expect(refAdvertisement.advertise).toHaveBeenCalledWith({
       repoDirectory: '/repos/ghost.git',
@@ -89,6 +91,7 @@ describe('GitService', () => {
     await expect(
       service.advertiseRefs({
         repositoryId: 'repo_ghost',
+        defaultBranch: null,
         service: '',
       }),
     ).rejects.toBeInstanceOf(UnsupportedGitServiceError);
@@ -101,6 +104,7 @@ describe('GitService', () => {
 
     await service.receivePack({
       repositoryId: 'repo_ghost',
+      defaultBranch: null,
       isPublic: true,
       body: bufferBody(receivePackBody()),
     });
@@ -111,6 +115,7 @@ describe('GitService', () => {
   it('answers the pre-push probe without touching the log', async () => {
     const { headers } = await service.receivePack({
       repositoryId: 'repo_ghost',
+      defaultBranch: null,
       isPublic: true,
       body: bufferBody(Buffer.from('0000')),
     });
@@ -125,6 +130,7 @@ describe('GitService', () => {
   it('commits to the log before touching the local repository', async () => {
     const { headers } = await service.receivePack({
       repositoryId: 'repo_ghost',
+      defaultBranch: null,
       isPublic: true,
       body: bufferBody(receivePackBody()),
     });
@@ -151,6 +157,7 @@ describe('GitService', () => {
   it('indexes contributions once the pushed pack finishes streaming', async () => {
     const { body } = await service.receivePack({
       repositoryId: 'repo_ghost',
+      defaultBranch: null,
       isPublic: true,
       body: bufferBody(receivePackBody()),
     });
@@ -200,6 +207,7 @@ describe('GitService', () => {
     async function push(ref: string) {
       const { body } = await service.receivePack({
         repositoryId: 'repo_ghost',
+        defaultBranch: null,
         isPublic: true,
         body: bufferBody(
           receivePackBody(

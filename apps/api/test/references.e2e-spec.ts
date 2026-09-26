@@ -1,31 +1,15 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
-import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import {
-  BucketAlreadyOwnedByYou,
-  CreateBucketCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
-import { createDatabase } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { AuthService } from '@thallesp/nestjs-better-auth';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { Auth } from '../src/lib/auth.js';
+import { hasBackends, signUp, startApp } from './harness.js';
 
-const DATABASE_URL = process.env.TEST_DATABASE_URL;
-const S3_ENDPOINT = process.env.TEST_S3_ENDPOINT;
 const SOURCE = 'https://github.com/phantomknight287/portfolio';
-const MIGRATIONS = path.resolve(
-  import.meta.dirname,
-  '../../../packages/db/drizzle',
-);
 // Cloned once per machine; the suite only ever reads it.
 const CLONE = path.join(tmpdir(), 'ghost-e2e-portfolio.git');
 
@@ -41,8 +25,8 @@ type TimelineItem = {
   commitSha?: string | null;
 };
 
-// Needs a throwaway Postgres, an S3 endpoint (RustFS from compose.yaml works) and network access to GitHub; skipped without the first two.
-describe.skipIf(!DATABASE_URL || !S3_ENDPOINT)(
+// Also needs network access to GitHub.
+describe.skipIf(!hasBackends)(
   'issue and pull request references against a real repository',
   () => {
     let app: INestApplication;
@@ -96,63 +80,9 @@ describe.skipIf(!DATABASE_URL || !S3_ENDPOINT)(
         .then((response) => response.body.number as number);
 
     beforeAll(async () => {
-      Object.assign(process.env, {
-        DATABASE_URL,
-        S3_ENDPOINT,
-        S3_ACCESS_KEY_ID: process.env.TEST_S3_ACCESS_KEY_ID ?? 'ghost',
-        S3_SECRET_ACCESS_KEY:
-          process.env.TEST_S3_SECRET_ACCESS_KEY ?? 'ghostsecret',
-        S3_BUCKET: process.env.TEST_S3_BUCKET ?? 'ghost-e2e',
-        BETTER_AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret',
-        BETTER_AUTH_URL: 'http://127.0.0.1',
-        EMAIL_VERIFICATION_ENABLED: 'false',
-        ZOEKT_URL: '',
-        GIT_SSH_HOST_KEY: '',
-        OTEL_EXPORTER_OTLP_ENDPOINT: '',
-        PYROSCOPE_SERVER_ADDRESS: '',
-      });
-
-      const { db, pool } = createDatabase({ connectionString: DATABASE_URL });
-      await migrate(db, { migrationsFolder: MIGRATIONS });
-      await pool.end();
-
-      await new S3Client({
-        endpoint: S3_ENDPOINT,
-        region: 'auto',
-        forcePathStyle: true,
-        credentials: {
-          accessKeyId: process.env.S3_ACCESS_KEY_ID ?? '',
-          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
-        },
-      })
-        .send(new CreateBucketCommand({ Bucket: process.env.S3_BUCKET }))
-        .catch((error: unknown) => {
-          if (!(error instanceof BucketAlreadyOwnedByYou)) throw error;
-        });
-
-      // Imported late so the module reads the environment set above.
-      const { AppModule } = await import('../src/app.module.js');
-      const { configureApp } = await import('../src/app.setup.js');
-      const moduleRef = await Test.createTestingModule({
-        imports: [AppModule],
-      }).compile();
-      app = moduleRef.createNestApplication({ bodyParser: false });
-      configureApp(app);
-      await app.listen(0, '127.0.0.1');
-      origin = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
-
-      const auth = app.get<AuthService<Auth>>(AuthService).api;
-      const email = `${username}@example.com`;
-      const password = 'correct horse battery staple';
-      const { user } = await auth.signUpEmail({
-        body: { email, password, name: 'E2E', username },
-      });
-      const { headers } = await auth.signInEmail({
-        body: { email, password },
-        returnHeaders: true,
-      });
-      cookie = headers.get('set-cookie') ?? '';
-      const { key } = await auth.createApiKey({ body: { userId: user.id } });
+      ({ app, origin } = await startApp());
+      const account = await signUp(app, username);
+      cookie = account.cookie;
 
       const created = await api()
         .post('/api/repositories')
@@ -170,7 +100,7 @@ describe.skipIf(!DATABASE_URL || !S3_ENDPOINT)(
         'remote',
         'add',
         'ghost',
-        `${origin.replace('://', `://${username}:${key}@`)}/${username}/${repo}.git`,
+        `${origin.replace('://', `://${username}:${account.key}@`)}/${username}/${repo}.git`,
       );
       await remote('push', '-q', 'ghost', 'HEAD:refs/heads/main');
     }, 180_000);

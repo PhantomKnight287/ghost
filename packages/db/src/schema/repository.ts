@@ -40,6 +40,8 @@ export const repository = pgTable(
       .notNull(),
 
     visibility: repositoryVisiblity().notNull().default("private"),
+    // Branch name without `refs/heads/`. Null lets the materializer pick main, master or the first branch.
+    defaultBranch: text(),
     lastPushedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     // AnyPgColumn breaks the circular inference a self-reference would otherwise cause
     parentRepositoryId: text().references((): AnyPgColumn => repository.id, {

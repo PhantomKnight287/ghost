@@ -281,3 +281,12 @@ rows as history so the same branch can be proposed again.
 - Renaming a user or a repository is now safe. Logs and caches are keyed by row
   id, which is what [0011](0011-deferred.md) asked for and what makes a stored
   cross-repository reference meaningful at rest.
+
+## Addendum: a merged request reads only the base
+
+Once merged, a request's range is frozen as `mergeCommit^1..headSha`, read from
+the base cache alone: the merge pushed every commit it needs into the base
+log. This keeps a merged request's commits and diff after its head branch is
+deleted or its head repository is gone
+([0020](0020-deletion-is-a-tombstone-then-a-purge.md)), and stops the live
+branches, which now contain each other, from reporting an empty diff.

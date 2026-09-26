@@ -26,3 +26,12 @@ export class WalContentionError extends DomainError {
     super(`Too many concurrent pushes to ${repoId}, please retry`);
   }
 }
+
+/** The index is a tombstone. Reads as absent, like a repository that never existed. */
+export class RepositoryDeletedError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('Repository not found');
+  }
+}

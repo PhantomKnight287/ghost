@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
+import { branchLabel } from "@/components/pull-requests/common";
 import { Badge } from "@/components/ui/badge";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
@@ -97,15 +98,11 @@ export default async function PullRequestLayout({
             commit
             {pull.data.commitCount === 1 ? "" : "s"} into{" "}
             <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
-              {base.username === head.username
-                ? base.ref
-                : `${base.username}:${base.ref}`}
+              {branchLabel(base, head)}
             </code>{" "}
             from{" "}
             <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
-              {base.username === head.username
-                ? head.ref
-                : `${head.username}:${head.ref}`}
+              {branchLabel(head, base)}
             </code>
           </span>
 
@@ -114,6 +111,13 @@ export default async function PullRequestLayout({
           </span>
         </div>
       </div>
+
+      {head.username === null && state === "closed" && (
+        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+          The repository this pull request came from was deleted, and its
+          changes with it.
+        </p>
+      )}
 
       <PullRequestNav
         base={`/${username}/${repo}/pulls/${pull.data.number}`}

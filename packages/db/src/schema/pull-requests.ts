@@ -42,9 +42,10 @@ export const pullRequest = pgTable(
       .references(() => repository.id, { onDelete: "cascade" })
       .notNull(),
     baseRef: text().notNull(),
-    headRepositoryId: text()
-      .references(() => repository.id, { onDelete: "cascade" })
-      .notNull(),
+    // Null once the head repository is deleted. It cannot be deleted while it heads an open request, so only closed and merged requests lose it.
+    headRepositoryId: text().references(() => repository.id, {
+      onDelete: "set null",
+    }),
     headRef: text().notNull(),
     headSha: text().notNull(),
 

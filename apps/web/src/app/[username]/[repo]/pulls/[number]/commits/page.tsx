@@ -27,8 +27,11 @@ export default async function PullRequestCommitsPage({
     throw new Error(`Failed to list commits of pull request #${number}`);
   }
 
-  // These commits are reachable in the head repository, which is a different repository - and a different object store - whenever the request is a fork.
+  // These commits are reachable in the head repository, which is a different repository - and a different object store - whenever the request is a fork. A merge copied them into the base, which is all that is left once the head repository is deleted.
   const { head } = pull.data;
+  const commitBase = head.username
+    ? `/${head.username}/${head.slug}`
+    : `/${username}/${repo}`;
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -45,7 +48,7 @@ export default async function PullRequestCommitsPage({
             >
               <div className="min-w-0 flex-1">
                 <Link
-                  href={`/${head.username}/${head.slug}/commit/${commit.sha}`}
+                  href={`${commitBase}/commit/${commit.sha}`}
                   className="truncate font-medium hover:underline"
                 >
                   {commit.subject}
@@ -57,7 +60,7 @@ export default async function PullRequestCommitsPage({
               </div>
               <CommitVerificationBadge verification={commit.verification} />
               <Link
-                href={`/${head.username}/${head.slug}/commit/${commit.sha}`}
+                href={`${commitBase}/commit/${commit.sha}`}
                 className="shrink-0 font-mono text-xs text-muted-foreground hover:underline"
               >
                 {commit.sha.slice(0, 7)}

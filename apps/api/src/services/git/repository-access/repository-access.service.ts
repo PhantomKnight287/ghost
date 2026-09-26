@@ -13,7 +13,8 @@ export type Repository = typeof schema.repository.$inferSelect;
 
 export type Actor = { userId: string } | null;
 
-export type RepositoryOperation = 'read' | 'write';
+// `admin` is settings and deletion. Only the owner holds it until collaborators land, so it resolves like `write` for now.
+export type RepositoryOperation = 'read' | 'write' | 'admin';
 
 @Injectable()
 export class RepositoryAccessService {
@@ -67,6 +68,6 @@ export function decideAccess(
   if (canAccess(repository, actor, operation)) return repository as Repository;
   if (!actor) throw new AuthenticationRequiredError();
   // An unreadable repository must look absent; a readable one is safe to admit to.
-  if (readable && operation === 'write') throw new RepositoryForbiddenError();
+  if (readable) throw new RepositoryForbiddenError();
   throw new RepositoryNotFoundError();
 }

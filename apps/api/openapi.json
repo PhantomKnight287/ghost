@@ -209,6 +209,135 @@
         "tags": [
           "Repositories"
         ]
+      },
+      "patch": {
+        "description": "Rename, describe, change visibility or pick the default branch. Owner only. Omitted fields are left as they are.",
+        "operationId": "RepositoriesController_updateRepository",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRepositoryRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRepositoryResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The repository, or the requested default branch, does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update repository settings",
+        "tags": [
+          "Repositories"
+        ]
+      },
+      "delete": {
+        "description": "Deletes the repository with its issues, pull requests and stars, and everything it stored. Owner only. Forks are kept and detached; closed and merged pull requests this repository opened elsewhere are kept without it.",
+        "operationId": "RepositoriesController_deleteRepository",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The repository heads an open pull request into another repository.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete repository",
+        "tags": [
+          "Repositories"
+        ]
       }
     },
     "/api/repositories/{username}/{slug}/fork": {
@@ -4275,6 +4404,29 @@
           "hasMore"
         ]
       },
+      "UpdateRepositoryRequestDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Renaming also changes the slug, so the old URL stops resolving."
+          },
+          "description": {
+            "type": "string"
+          },
+          "visibility": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryVisibility"
+              }
+            ]
+          },
+          "defaultBranch": {
+            "type": "string",
+            "description": "A branch name without `refs/heads/`. The branch must already exist."
+          }
+        }
+      },
       "ForkRepositoryRequestDTO": {
         "type": "object",
         "properties": {
@@ -5231,11 +5383,14 @@
         "properties": {
           "username": {
             "type": "string",
-            "example": "bob"
+            "example": "bob",
+            "nullable": true,
+            "description": "Null when the repository was deleted."
           },
           "slug": {
             "type": "string",
-            "example": "ghost"
+            "example": "ghost",
+            "nullable": true
           },
           "ref": {
             "type": "string",

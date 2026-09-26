@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BookLock, Globe } from "lucide-react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { Controller, useForm } from "react-hook-form";
@@ -9,16 +8,12 @@ import { Controller, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
   Field,
-  FieldContent,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
   FieldSeparator,
-  FieldTitle,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -31,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { forkRepository } from "./actions";
 import { type ForkRepositoryInput, forkRepositorySchema } from "./common";
+import { VisibilityField } from "./visibility-field";
 
 export function ForkRepositoryForm({
   parentUsername,
@@ -138,36 +134,11 @@ export function ForkRepositoryForm({
           control={control}
           name="visibility"
           render={({ field }) => (
-            <RadioGroup value={field.value} onValueChange={field.onChange}>
-              <FieldLabel htmlFor="fork-visibility-public">
-                <Field orientation="horizontal">
-                  <Globe className="size-5 text-muted-foreground" />
-                  <FieldContent>
-                    <FieldTitle>Public</FieldTitle>
-                    <FieldDescription>
-                      Anyone on the internet can see this repository.
-                    </FieldDescription>
-                  </FieldContent>
-                  <RadioGroupItem value="public" id="fork-visibility-public" />
-                </Field>
-              </FieldLabel>
-
-              <FieldLabel htmlFor="fork-visibility-private">
-                <Field orientation="horizontal">
-                  <BookLock className="size-5 text-muted-foreground" />
-                  <FieldContent>
-                    <FieldTitle>Private</FieldTitle>
-                    <FieldDescription>
-                      You choose who can see and commit to this repository.
-                    </FieldDescription>
-                  </FieldContent>
-                  <RadioGroupItem
-                    value="private"
-                    id="fork-visibility-private"
-                  />
-                </Field>
-              </FieldLabel>
-            </RadioGroup>
+            <VisibilityField
+              id="fork-visibility"
+              value={field.value}
+              onChange={field.onChange}
+            />
           )}
         />
 

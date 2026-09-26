@@ -2,6 +2,8 @@ import { S3 } from '@aws-sdk/client-s3';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { S3DeleteError } from '../../lib/s3/s3.errors.js';
+
 @Injectable()
 export class S3Service extends S3 {
   readonly bucket: string;
@@ -19,22 +21,29 @@ export class S3Service extends S3 {
     this.bucket = configService.getOrThrow('S3_BUCKET');
   }
 
-  /** Only the first 1,000 keys under the prefix are considered, which every caller stays well inside. */
+  /** Throws unless every listed key is gone: DeleteObjects reports per-key failures in its response body instead of failing the request. */
   async deleteUnder(prefix: string, keep: string[] = []) {
-    const listed = await this.listObjectsV2({
-      Bucket: this.bucket,
-      Prefix: prefix,
-    });
+    let ContinuationToken: string | undefined;
+    do {
+      const listed = await this.listObjectsV2({
+        Bucket: this.bucket,
+        Prefix: prefix,
+        ContinuationToken,
+      });
+      ContinuationToken = listed.NextContinuationToken;
 
-    const stale = (listed.Contents ?? [])
-      .map((object) => object.Key)
-      .filter((key): key is string => key !== undefined && !keep.includes(key));
+      const stale = (listed.Contents ?? [])
+        .map((object) => object.Key)
+        .filter(
+          (key): key is string => key !== undefined && !keep.includes(key),
+        );
+      if (!stale.length) continue;
 
-    if (!stale.length) return;
-
-    await this.deleteObjects({
-      Bucket: this.bucket,
-      Delete: { Objects: stale.map((Key) => ({ Key })) },
-    });
+      const { Errors } = await this.deleteObjects({
+        Bucket: this.bucket,
+        Delete: { Objects: stale.map((Key) => ({ Key })) },
+      });
+      if (Errors?.length) throw new S3DeleteError(prefix, Errors);
+    } while (ContinuationToken);
   }
 }

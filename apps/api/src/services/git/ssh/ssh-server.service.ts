@@ -34,6 +34,7 @@ import { PackProcessService } from '../pack-process/pack-process.service.js';
 import { RefAdvertisementService } from '../ref-advertisement/ref-advertisement.service.js';
 import {
   type Actor,
+  type Repository,
   RepositoryAccessService,
 } from '../repository-access/repository-access.service.js';
 
@@ -225,7 +226,10 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
         actor,
         operation: parsed.service === 'git-receive-pack' ? 'write' : 'read',
       });
-      const repoDirectory = await this.git.openRepository(repository.id);
+      const repoDirectory = await this.git.openRepository(
+        repository.id,
+        repository.defaultBranch,
+      );
 
       if (parsed.service === 'git-receive-pack') {
         await this.push(channel, repository, repoDirectory, actor);
@@ -300,7 +304,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
    */
   private async push(
     channel: ServerChannel,
-    repository: { id: string; visibility: string },
+    repository: Pick<Repository, 'id' | 'visibility' | 'defaultBranch'>,
     repoDirectory: string,
     actor: Actor,
   ) {
@@ -313,6 +317,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     try {
       const { body } = await this.git.receivePack({
         repositoryId: repository.id,
+        defaultBranch: repository.defaultBranch,
         isPublic: repository.visibility === 'public',
         body: spooled.body,
         pushedBy: actor?.userId ?? null,

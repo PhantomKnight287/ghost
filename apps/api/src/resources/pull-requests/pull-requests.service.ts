@@ -25,7 +25,10 @@ import {
 import { runGit } from '../../lib/git/exec/run-git.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { commitTree, mergeTree, packRange } from '../../lib/git/merge/merge.js';
-import { resolveDefaultRef } from '../../lib/git/tree/resolve-ref.js';
+import {
+  resolveCommit,
+  resolveDefaultRef,
+} from '../../lib/git/tree/resolve-ref.js';
 import {
   closeIssue,
   MAX_CLOSING_COMMITS,
@@ -43,6 +46,7 @@ import { UsersService } from '../../services/users/users.service.js';
 import { decodeCursor, encodeCursor } from '../../utils/index.js';
 import {
   BranchNotFoundError,
+  CommitNotFoundError,
   InvalidCursorError,
 } from '../repositories/repositories.errors.js';
 import {
@@ -54,6 +58,7 @@ import {
   NothingToMergeError,
   PullRequestAlreadyOpenError,
   PullRequestConflictError,
+  PullRequestHeadDeletedError,
   PullRequestNotFoundError,
   PullRequestNotOpenError,
   SameBranchPullRequestError,
@@ -393,6 +398,7 @@ export class PullRequestsService {
 
   async streamPatch(params: PullRequestRef & { path?: string }) {
     const git = await this.open(params);
+    if (git.headDeleted) throw new PullRequestHeadDeletedError();
     return streamDiffPatch({
       gitDir: git.baseDirectory,
       alternates: git.alternates,
@@ -406,13 +412,19 @@ export class PullRequestsService {
   async mergePullRequest(
     params: PullRequestRef & { requesterId: string; title?: string },
   ) {
-    const { pullRequest, base, ...git } = await this.open({
+    const { pullRequest, base } = await this.load({
       ...params,
       operation: 'write',
     });
     if (pullRequest.state !== 'open') {
       throw new PullRequestNotOpenError(pullRequest.state);
     }
+    // An open request always has its head: a repository heading one cannot be deleted.
+    const git = await this.openLive(
+      pullRequest,
+      base,
+      pullRequest.headRepositoryId!,
+    );
     if (!git.mergeBase) throw new UnrelatedHistoriesError();
     if (git.mergeBase === git.headSha) throw new NothingToMergeError();
 
@@ -548,13 +560,65 @@ export class PullRequestsService {
     return this.expandPullRequest((await this.load(params)).pullRequest);
   }
 
-  /** Materializes both sides and resolves the range the request covers. */
+  /** Resolves the range the request covers. A merged request reads only the base, which has held its commits since the merge, so it outlives its head branch and repository. */
   private async open(params: PullRequestRef) {
     const { pullRequest, base } = await this.load(params);
+    if (pullRequest.mergeCommitSha) {
+      return this.openMerged(pullRequest, base, pullRequest.mergeCommitSha);
+    }
+    if (!pullRequest.headRepositoryId) {
+      return {
+        pullRequest,
+        base,
+        baseDirectory: await this.openCache(base),
+        alternates: [],
+        env: undefined,
+        baseSha: pullRequest.headSha,
+        headSha: pullRequest.headSha,
+        mergeBase: null,
+        headDeleted: true,
+      };
+    }
+    return this.openLive(pullRequest, base, pullRequest.headRepositoryId);
+  }
+
+  private async openMerged(
+    pullRequest: PullRequest,
+    base: Repository,
+    mergeCommitSha: string,
+  ) {
+    const baseDirectory = await this.openCache(base);
+    const baseSha = await resolveCommit(baseDirectory, `${mergeCommitSha}^1`);
+    if (!baseSha) throw new CommitNotFoundError(mergeCommitSha);
+
+    return {
+      pullRequest,
+      base,
+      baseDirectory,
+      alternates: [],
+      env: undefined,
+      baseSha,
+      headSha: pullRequest.headSha,
+      mergeBase: await mergeBase({
+        gitDir: baseDirectory,
+        alternates: [],
+        a: baseSha,
+        b: pullRequest.headSha,
+      }),
+      headDeleted: false,
+    };
+  }
+
+  /** Materializes both sides and resolves the branches as they stand now. */
+  private async openLive(
+    pullRequest: PullRequest,
+    base: Repository,
+    headRepositoryId: string,
+  ) {
     const [head] = await this.db
       .select()
       .from(schema.repository)
-      .where(eq(schema.repository.id, pullRequest.headRepositoryId));
+      .where(eq(schema.repository.id, headRepositoryId));
 
     const [baseDirectory, headDirectory] = await Promise.all([
       this.openCache(base),
@@ -593,6 +657,7 @@ export class PullRequestsService {
         a: baseSha,
         b: headSha,
       }),
+      headDeleted: false,
     };
   }
 
@@ -645,7 +710,11 @@ export class PullRequestsService {
 
   private async openCache(repository: Repository) {
     const directory = await this.storage.getRepoPath(repository.id);
-    await this.materializer.materialize(repository.id, directory);
+    await this.materializer.materialize(
+      repository.id,
+      directory,
+      repository.defaultBranch,
+    );
     return directory;
   }
 
@@ -723,14 +792,15 @@ export class PullRequestsService {
       .where(
         inArray(schema.repository.id, [
           pullRequest.baseRepositoryId,
-          pullRequest.headRepositoryId,
+          pullRequest.headRepositoryId ?? pullRequest.baseRepositoryId,
         ]),
       );
 
     const author = await this.users.getUserById(pullRequest.authorId);
-    const sideOf = (repositoryId: string, ref: string) => {
+    // A deleted head repository has no row, and reads as null rather than as some other repository.
+    const sideOf = (repositoryId: string | null, ref: string) => {
       const row = sides.find((side) => side.repositoryId === repositoryId);
-      return { username: row?.username ?? '', slug: row?.slug ?? '', ref };
+      return { username: row?.username ?? null, slug: row?.slug ?? null, ref };
     };
 
     return {
