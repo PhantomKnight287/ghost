@@ -9,9 +9,11 @@ import type { Commit } from '../../lib/git/commits/list-commits.js';
 import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
 import { isoTimestamp } from '../../utils/index.js';
 import {
+  acceptedCollaboration,
   type Actor,
   canAccess,
   type Repository,
+  roleOf,
 } from '../git/repository-access/repository-access.service.js';
 
 type SourceType = (typeof schema.issueReferenceSource.enumValues)[number];
@@ -146,6 +148,7 @@ export class IssueReferencesService {
           repository: {
             ownerId: sourceRepository.ownerId,
             visibility: sourceRepository.visibility,
+            collaboratorRole: schema.repositoryCollaborator.role,
             username: sql<string>`coalesce(${sourceOwner.username}, '')`,
             slug: sourceRepository.slug,
           },
@@ -164,6 +167,10 @@ export class IssueReferencesService {
       )
       .innerJoin(sourceOwner, eq(sourceOwner.id, sourceRepository.ownerId))
       .leftJoin(
+        schema.repositoryCollaborator,
+        acceptedCollaboration(sourceRepository.id, viewer),
+      )
+      .leftJoin(
         sourceIssue,
         eq(sourceIssue.id, schema.issueReference.sourceIssueId),
       )
@@ -175,7 +182,13 @@ export class IssueReferencesService {
       );
 
     return rows
-      .filter((row) => canAccess(row.repository, viewer, 'read'))
+      .filter(({ repository }) =>
+        canAccess(
+          repository,
+          roleOf(repository, repository.collaboratorRole, viewer),
+          'read',
+        ),
+      )
       .map(({ repository: { username, slug }, source, ...row }) => ({
         ...row,
         repository: { username, slug },
@@ -200,12 +213,14 @@ export class IssueReferencesService {
   ) {
     if (sources.length === 0) return [];
 
+    const writer = actorId ? { userId: actorId } : null;
     const targets = await db
       .select({
         issueId: schema.issue.id,
         repository: {
           ownerId: schema.repository.ownerId,
           visibility: schema.repository.visibility,
+          collaboratorRole: schema.repositoryCollaborator.role,
         },
       })
       .from(schema.issueReference)
@@ -216,6 +231,10 @@ export class IssueReferencesService {
       .innerJoin(
         schema.repository,
         eq(schema.repository.id, schema.issue.repositoryId),
+      )
+      .leftJoin(
+        schema.repositoryCollaborator,
+        acceptedCollaboration(schema.repository.id, writer),
       )
       .where(
         and(
@@ -233,11 +252,16 @@ export class IssueReferencesService {
         ),
       );
 
-    const writer = actorId ? { userId: actorId } : null;
     const closed: string[] = [];
     for (const issueId of new Set(
       targets
-        .filter((target) => canAccess(target.repository, writer, 'write'))
+        .filter(({ repository }) =>
+          canAccess(
+            repository,
+            roleOf(repository, repository.collaboratorRole, writer),
+            'write',
+          ),
+        )
         .map((target) => target.issueId),
     )) {
       if (
@@ -276,16 +300,22 @@ export class IssueReferencesService {
       (entry): entry is { owner: string; repo: string; numbers: Set<number> } =>
         entry.owner !== null && entry.repo !== null,
     );
+    const author = source.actorId ? { userId: source.actorId } : null;
     const repositories = named.length
       ? await db
           .select({
             id: schema.repository.id,
             ownerId: schema.repository.ownerId,
             visibility: schema.repository.visibility,
+            collaboratorRole: schema.repositoryCollaborator.role,
             key: sql<string>`${schema.user.username} || '/' || ${schema.repository.slug}`,
           })
           .from(schema.repository)
           .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+          .leftJoin(
+            schema.repositoryCollaborator,
+            acceptedCollaboration(schema.repository.id, author),
+          )
           .where(
             or(
               ...named.map((entry) =>
@@ -298,10 +328,15 @@ export class IssueReferencesService {
           )
       : [];
 
-    const author = source.actorId ? { userId: source.actorId } : null;
     const repositoryIdOf = new Map(
       repositories
-        .filter((repository) => canAccess(repository, author, 'read'))
+        .filter((repository) =>
+          canAccess(
+            repository,
+            roleOf(repository, repository.collaboratorRole, author),
+            'read',
+          ),
+        )
         .map((repository) => [repository.key, repository.id]),
     );
     repositoryIdOf.set('/', source.repository.id);

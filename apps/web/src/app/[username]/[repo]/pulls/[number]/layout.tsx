@@ -6,7 +6,12 @@ import { notFound } from "next/navigation";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { branchLabel } from "@/components/pull-requests/common";
 import { Badge } from "@/components/ui/badge";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import {
+  createServerClient,
+  getServerSession,
+  getViewerRole,
+} from "@/lib/api/server";
+import { atLeast } from "@/lib/repository-role";
 import { cn } from "@/lib/utils";
 
 import { EditableField, PullRequestNav } from "./page.client";
@@ -34,9 +39,10 @@ export default async function PullRequestLayout({
 }: LayoutProps<"/[username]/[repo]/pulls/[number]">) {
   const { username, repo, number } = await params;
 
-  const [session, client] = await Promise.all([
+  const [session, client, role] = await Promise.all([
     getServerSession(),
     createServerClient(),
+    getViewerRole(username, repo),
   ]);
   const pull = await client.GET(
     "/api/repositories/{username}/{repo}/pulls/{number}",
@@ -53,7 +59,7 @@ export default async function PullRequestLayout({
   // the author, or whoever can write to the base repository
   const canEdit =
     Boolean(viewer) &&
-    (viewer === pull.data.authorUsername || viewer === username);
+    (viewer === pull.data.authorUsername || atLeast(role, "write"));
   const Icon =
     state === "merged"
       ? GitMerge

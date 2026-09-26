@@ -64,6 +64,7 @@ export default async function RepositoryLayout({
   return (
     <RepositoryFrame
       viewer={session?.user.username ?? ""}
+      viewerRole={repository.data.viewerRole}
       username={username}
       slug={repository.data.slug}
       name={repository.data.name}

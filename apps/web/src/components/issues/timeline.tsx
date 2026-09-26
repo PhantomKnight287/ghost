@@ -13,6 +13,7 @@ export function Timeline({
   repo,
   number,
   viewer,
+  canModerate,
   items,
   noun,
 }: {
@@ -20,6 +21,8 @@ export function Timeline({
   repo: string;
   number: number;
   viewer?: string | null;
+  /** May edit and delete anyone's comments. */
+  canModerate: boolean;
   items: IssueTimelineItem[];
   noun: "issue" | "pull request";
 }) {
@@ -41,7 +44,7 @@ export function Timeline({
             authorUsername={item.authorUsername}
             body={item.body}
             viewer={viewer}
-            canModerate={viewer === username}
+            canModerate={canModerate}
           >
             <Markdown repository={{ username, repo }}>{item.body}</Markdown>
           </CommentItem>

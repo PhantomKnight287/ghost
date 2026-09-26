@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import type { ViewerRole } from "@/lib/repository-role";
+
 export type RepositoryParent = {
   username: string;
   slug: string;
@@ -8,6 +10,7 @@ export type RepositoryParent = {
 
 export type RepositoryFrameProps = {
   viewer: string;
+  viewerRole: ViewerRole | null;
   username: string;
   slug: string;
   name: string;

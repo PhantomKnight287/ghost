@@ -226,6 +226,7 @@ export function createAuth(db: Database, config: AuthConfig) {
       ? {
           sendOnSignUp: true,
           autoSignInAfterVerification: true,
+          sendOnSignIn: true,
           sendVerificationEmail: async ({ user, url }) =>
             config.sendVerificationEmail!({
               email: user.email,

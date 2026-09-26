@@ -1,4 +1,5 @@
 import { schema } from '@ghost/db';
+import { type Role, roleHierarchy } from '../../../lib/permissions.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
@@ -79,6 +80,17 @@ export class RepositoryEntity {
   @IsString()
   @IsOptional()
   viewerForkSlug: string | null;
+
+  @ApiProperty({
+    enumName: 'ViewerRole',
+    enum: roleHierarchy,
+    nullable: true,
+    description:
+      "The viewer's role here: `owner`, a collaborator role, or null for anyone else.",
+  })
+  @IsString()
+  @IsOptional()
+  viewerRole: Role | null;
 
   @ApiPropertyOptional({
     type: RepositoryParentEntity,

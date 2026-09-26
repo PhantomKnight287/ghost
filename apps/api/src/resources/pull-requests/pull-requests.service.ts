@@ -39,6 +39,7 @@ import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import {
   type Repository,
   RepositoryAccessService,
+  type RepositoryOperation,
 } from '../../services/git/repository-access/repository-access.service.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
@@ -698,7 +699,7 @@ export class PullRequestsService {
     username: string;
     repo: string;
     requesterId?: string;
-    operation?: 'read' | 'write';
+    operation?: RepositoryOperation;
   }) {
     return this.access.authorize({
       username,
@@ -833,5 +834,5 @@ interface PullRequestRef {
   repo: string;
   number: number;
   requesterId?: string;
-  operation?: 'read' | 'write';
+  operation?: RepositoryOperation;
 }

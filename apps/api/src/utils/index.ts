@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { type SQL, sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { customAlphabet } from 'nanoid';
 import slugify from 'slugify';
@@ -33,7 +33,7 @@ export function decodeCursor(cursor: string) {
 }
 
 // Timestamps leave the database already in the shape responses promise, so nothing downstream has to convert them. The format matches `Date.prototype.toISOString` byte for byte.
-export function isoTimestamp(column: AnyPgColumn) {
+export function isoTimestamp(column: AnyPgColumn | SQL) {
   return sql<string>`to_char(${column} at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 }
 

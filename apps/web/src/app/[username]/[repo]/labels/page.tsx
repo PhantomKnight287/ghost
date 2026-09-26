@@ -1,15 +1,16 @@
 import { notFound } from "next/navigation";
 
 import { LabelManager } from "@/components/issues/label-manager";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import { createServerClient, getViewerRole } from "@/lib/api/server";
+import { atLeast } from "@/lib/repository-role";
 
 export default async function LabelsPage({
   params,
 }: PageProps<"/[username]/[repo]/labels">) {
   const { username, repo } = await params;
 
-  const [session, client] = await Promise.all([
-    getServerSession(),
+  const [role, client] = await Promise.all([
+    getViewerRole(username, repo),
     createServerClient(),
   ]);
 
@@ -28,7 +29,7 @@ export default async function LabelsPage({
       username={username}
       repo={repo}
       labels={labels.data.labels}
-      canEdit={session?.user.username === username}
+      canEdit={atLeast(role, "write")}
     />
   );
 }

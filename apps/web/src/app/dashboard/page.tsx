@@ -1,11 +1,23 @@
 "use client";
 
+import { useDebouncedValue } from "@tanstack/react-pacer";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { BookMarked, GitBranch, Plus, Search, Users } from "lucide-react";
+import { useState } from "react";
+import {
+  BookLock,
+  BookMarked,
+  GitBranch,
+  Plus,
+  Search,
+  Users,
+} from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
+import { Invitations } from "@/components/repositories/invitations";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
-import { RepositoryCard, type Repository } from "@/components/repository-card";
+import type { Repository } from "@/components/repository-card";
+import { FromNowHoverCard } from "@/components/from-now-card";
 import { useAuthenticate } from "@/lib/auth/use-authenticate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,14 +27,37 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
+import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
-
-const repositories: Repository[] = [];
 
 export default function DashboardPage() {
   const { data } = useAuthenticate(authClient);
   const username = data?.user.username ?? "";
   const owners = username ? [username] : [];
+  const [q, setQ] = useState("");
+  // One request once typing pauses, not one per keystroke.
+  const [search] = useDebouncedValue(q.trim(), { wait: 300 });
+
+  // Owned and shared alike, most recently pushed first.
+  const { data: repositories = [], isPending } = useQuery({
+    queryKey: ["viewer-repositories", search],
+    enabled: Boolean(username),
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<Repository[]> => {
+      const { data, error } = await apiClient.GET("/api/repositories", {
+        params: { query: { q: search || undefined, limit: 50 } },
+      });
+      if (error) throw new Error(apiErrorMessage(error));
+      return data.repositories.map((repository) => ({
+        name: repository.name,
+        slug: repository.slug,
+        owner: repository.owner,
+        description: repository.description ?? undefined,
+        visibility: repository.visibility,
+        updatedAt: repository.lastPushedAt,
+      }));
+    },
+  });
 
   return (
     <div className="flex min-h-full flex-col">
@@ -48,22 +83,26 @@ export default function DashboardPage() {
               type="search"
               placeholder="Find a repository"
               aria-label="Find a repository"
+              value={q}
+              onChange={(event) => setQ(event.target.value)}
             />
           </InputGroup>
 
           {repositories.length > 0 ? (
-            <div className="flex flex-col">
+            <ul className="-mx-2 flex flex-col">
               {repositories.map((repository) => (
-                <RepositoryCard
-                  key={`${repository.owner}/${repository.name}`}
-                  repository={repository}
-                  showOwner
-                />
+                <li key={`${repository.owner}/${repository.slug}`}>
+                  <RepositoryRow repository={repository} />
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              You don&apos;t have any repositories yet.
+              {isPending
+                ? "Loading repositories…"
+                : search
+                  ? "No repositories match."
+                  : "You don't have any repositories yet."}
             </p>
           )}
 
@@ -86,6 +125,8 @@ export default function DashboardPage() {
               Push your first commit or start a new project.
             </p>
           </div>
+
+          <Invitations />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <StartCard
@@ -140,5 +181,32 @@ function StartCard({
         <p className="text-sm text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
+  );
+}
+
+/** One line per repository: the sidebar is too narrow for a card. */
+function RepositoryRow({ repository }: { repository: Repository }) {
+  const fullName = `${repository.owner}/${repository.name}`;
+  const Icon = repository.visibility === "private" ? BookLock : BookMarked;
+
+  return (
+    <Link
+      href={`/${repository.owner}/${repository.slug}`}
+      title={fullName}
+      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+    >
+      <Icon
+        className="size-4 shrink-0 text-muted-foreground"
+        aria-label={repository.visibility}
+      />
+      <span className="min-w-0 flex-1 truncate">
+        <span className="text-muted-foreground">{repository.owner}/</span>
+        <span className="font-medium">{repository.name}</span>
+      </span>
+      <FromNowHoverCard
+        date={repository.updatedAt}
+        className="shrink-0 text-xs text-muted-foreground"
+      />
+    </Link>
   );
 }

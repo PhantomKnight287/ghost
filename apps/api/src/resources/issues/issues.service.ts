@@ -17,9 +17,12 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
+import type { Role } from '../../lib/permissions.js';
 import {
+  atLeast,
   type Repository,
   RepositoryAccessService,
+  type RepositoryOperation,
 } from '../../services/git/repository-access/repository-access.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
@@ -145,7 +148,7 @@ export class IssuesService {
       },
     );
 
-    return this.expandIssue(created, requesterId, repository.ownerId);
+    return this.expandIssue(created, requesterId, repository.viewerRole);
   }
 
   /** Inserts an issue or pull request with the repository's next number, records its opening and references, then runs `extend` in the same transaction. */
@@ -398,7 +401,7 @@ export class IssuesService {
     ]);
 
     return {
-      issues: await this.expandIssues(page, requesterId, repository.ownerId),
+      issues: await this.expandIssues(page, requesterId, repository.viewerRole),
       total: totalRow?.total ?? 0,
       openCount: openRow?.total ?? 0,
       closedCount: closedRow?.total ?? 0,
@@ -418,7 +421,7 @@ export class IssuesService {
 
   async getIssue(params: IssueRef) {
     const { issue, base } = await this.load(params);
-    return this.expandIssue(issue, params.requesterId, base.ownerId);
+    return this.expandIssue(issue, params.requesterId, base.viewerRole);
   }
 
   /** Title and body only — state moves through close/reopen. */
@@ -435,7 +438,7 @@ export class IssuesService {
 
     const { title, body } = params.body;
     if (title === undefined && body === undefined) {
-      return this.expandIssue(issue, params.requesterId, base.ownerId);
+      return this.expandIssue(issue, params.requesterId, base.viewerRole);
     }
 
     const oldTitle = issue.title;
@@ -485,13 +488,13 @@ export class IssuesService {
       return row;
     });
 
-    return this.expandIssue(updated, params.requesterId, base.ownerId);
+    return this.expandIssue(updated, params.requesterId, base.viewerRole);
   }
 
   async closeIssue(params: IssueRef & { requesterId: string }) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.authorize({ ...params, operation: 'triage' });
     }
     if (issue.state !== 'open') throw new IssueNotOpenError(issue.state);
 
@@ -514,13 +517,13 @@ export class IssuesService {
       }
       return row;
     });
-    return this.expandIssue(closed, params.requesterId, base.ownerId);
+    return this.expandIssue(closed, params.requesterId, base.viewerRole);
   }
 
   async reopenIssue(params: IssueRef & { requesterId: string }) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.authorize({ ...params, operation: 'triage' });
     }
     if (issue.state !== 'closed') throw new IssueNotOpenError(issue.state);
     if (issue.isPullRequest) throw new PullRequestReopenError();
@@ -533,7 +536,7 @@ export class IssuesService {
     if (!reopened) throw new IssueNotFoundError();
 
     await this.recordEvent(issue.id, params.requesterId, 'reopened', {});
-    return this.expandIssue(reopened, params.requesterId, base.ownerId);
+    return this.expandIssue(reopened, params.requesterId, base.viewerRole);
   }
 
   /** Anyone who can read the issue can read its comments, and anyone who can read it can add one — the same bar GitHub sets for a public repository. */
@@ -878,7 +881,7 @@ export class IssuesService {
   ) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.authorize({ ...params, operation: 'triage' });
     }
 
     const names = dedupe(
@@ -955,7 +958,7 @@ export class IssuesService {
   ) {
     const { issue } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.authorize({ ...params, operation: 'triage' });
     }
 
     const usernames = dedupe(
@@ -1062,7 +1065,7 @@ export class IssuesService {
     username: string;
     repo: string;
     requesterId?: string;
-    operation?: 'read' | 'write';
+    operation?: RepositoryOperation;
   }) {
     return this.access.authorize({
       username,
@@ -1074,8 +1077,8 @@ export class IssuesService {
 
   private async expandIssue(
     issueRow: Issue,
-    requesterId?: string,
-    ownerId?: string,
+    requesterId: string | undefined,
+    viewerRole: Role | null,
   ) {
     const [author, labels, assignees, closer] = await Promise.all([
       this.users.getUserById(issueRow.authorId),
@@ -1109,14 +1112,14 @@ export class IssuesService {
       closedAt: issueRow.closedAt?.toISOString() ?? null,
       createdAt: issueRow.createdAt.toISOString(),
       updatedAt: issueRow.updatedAt.toISOString(),
-      viewerCanEdit: canEditIssue(issueRow, requesterId, ownerId),
+      viewerCanEdit: canEditIssue(issueRow, requesterId, viewerRole),
     };
   }
 
   private async expandIssues(
     rows: Issue[],
-    requesterId?: string,
-    ownerId?: string,
+    requesterId: string | undefined,
+    viewerRole: Role | null,
   ) {
     if (rows.length === 0) return [];
     const ids = rows.map((row) => row.id);
@@ -1185,7 +1188,7 @@ export class IssuesService {
       closedAt: issueRow.closedAt?.toISOString() ?? null,
       createdAt: issueRow.createdAt.toISOString(),
       updatedAt: issueRow.updatedAt.toISOString(),
-      viewerCanEdit: canEditIssue(issueRow, requesterId, ownerId),
+      viewerCanEdit: canEditIssue(issueRow, requesterId, viewerRole),
     }));
   }
 
@@ -1297,7 +1300,7 @@ interface IssueRef {
   repo: string;
   number: number;
   requesterId?: string;
-  operation?: 'read' | 'write';
+  operation?: RepositoryOperation;
 }
 
 // Drizzle wraps the driver error, so the constraint name is on `cause`.
@@ -1392,7 +1395,11 @@ function commentsCursorClause(
   );
 }
 
-function canEditIssue(issueRow: Issue, requesterId?: string, ownerId?: string) {
+function canEditIssue(
+  issueRow: Issue,
+  requesterId: string | undefined,
+  viewerRole: Role | null,
+) {
   if (!requesterId) return false;
-  return requesterId === issueRow.authorId || requesterId === ownerId;
+  return requesterId === issueRow.authorId || atLeast(viewerRole, 'write');
 }

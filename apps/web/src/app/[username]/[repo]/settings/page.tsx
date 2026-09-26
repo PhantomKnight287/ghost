@@ -1,34 +1,28 @@
 import { notFound } from "next/navigation";
 
-import { RepositorySettings } from "@/components/repositories/repository-settings";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import { RepositoryGeneralSettings } from "@/components/repositories/repository-settings";
+import { createServerClient } from "@/lib/api/server";
+import { atLeast } from "@/lib/repository-role";
 
 export default async function RepositorySettingsPage({
   params,
 }: PageProps<"/[username]/[repo]/settings">) {
   const { username, repo } = await params;
-
-  const [session, client] = await Promise.all([
-    getServerSession(),
-    createServerClient(),
-  ]);
-
-  // Only the owner may change settings, and the API enforces it; this keeps everyone else from seeing a form they cannot submit.
-  if (session?.user.username !== username) notFound();
+  const client = await createServerClient();
+  const path = { username, slug: repo };
 
   const [repository, branches] = await Promise.all([
-    client.GET("/api/repositories/{username}/{slug}", {
-      params: { path: { username, slug: repo } },
-    }),
+    client.GET("/api/repositories/{username}/{slug}", { params: { path } }),
     client.GET("/api/repositories/{username}/{slug}/branches", {
-      params: { path: { username, slug: repo } },
+      params: { path },
     }),
   ]);
-
   if (!repository.data) notFound();
 
   return (
-    <RepositorySettings
+    <RepositoryGeneralSettings
+      // Remount after a save so each card starts from what was stored.
+      key={repository.data.updatedAt}
       username={username}
       slug={repository.data.slug}
       name={repository.data.name}
@@ -36,6 +30,7 @@ export default async function RepositorySettingsPage({
       visibility={repository.data.visibility}
       defaultBranch={branches.data?.defaultBranch ?? null}
       branches={branches.data?.branches ?? []}
+      isAdmin={atLeast(repository.data.viewerRole, "admin")}
     />
   );
 }

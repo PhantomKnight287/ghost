@@ -169,6 +169,13 @@
       "when": 1790405599838,
       "tag": "0023_pull_requests_outlive_head",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790407790766,
+      "tag": "0024_repository_collaborators",
+      "breakpoints": true
     }
   ]
 }

@@ -142,6 +142,7 @@ export function LabelEditor({
   attached,
   available,
   canEdit,
+  canManage,
 }: {
   username: string;
   repo: string;
@@ -149,6 +150,8 @@ export function LabelEditor({
   attached: IssueLabel[];
   available: IssueLabel[];
   canEdit: boolean;
+  /** Create and delete the repository's labels, not just apply them. */
+  canManage: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -251,42 +254,48 @@ export function LabelEditor({
                 style={{ backgroundColor: `#${label.color}` }}
               />
               <span className="min-w-0 flex-1 truncate">{label.name}</span>
-              <button
-                type="button"
-                title={`Delete label ${label.name}`}
-                className="invisible text-muted-foreground group-hover:visible hover:text-destructive"
-                onClick={() =>
-                  remove.execute({ username, repo, labelId: label.id })
-                }
-              >
-                <Trash2 className="size-3" />
-              </button>
+              {canManage && (
+                <button
+                  type="button"
+                  title={`Delete label ${label.name}`}
+                  className="invisible text-muted-foreground group-hover:visible hover:text-destructive"
+                  onClick={() =>
+                    remove.execute({ username, repo, labelId: label.id })
+                  }
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              )}
             </label>
           ))}
         </div>
       )}
 
-      <div className="border-t pt-2">
-        {creating ? (
-          <LabelForm
-            id={`issue-${number}-label`}
-            submitText="Create"
-            pending={create.isExecuting}
-            onCancel={() => setCreating(false)}
-            onSubmit={(values) => create.execute({ ...values, username, repo })}
-          />
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() => setCreating(true)}
-          >
-            <Plus data-icon="inline-start" />
-            New label
-          </Button>
-        )}
-      </div>
+      {canManage && (
+        <div className="border-t pt-2">
+          {creating ? (
+            <LabelForm
+              id={`issue-${number}-label`}
+              submitText="Create"
+              pending={create.isExecuting}
+              onCancel={() => setCreating(false)}
+              onSubmit={(values) =>
+                create.execute({ ...values, username, repo })
+              }
+            />
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setCreating(true)}
+            >
+              <Plus data-icon="inline-start" />
+              New label
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-2">
         <Link
