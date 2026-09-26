@@ -113,13 +113,6 @@ export default async function ProfilePage({
     ? (await getAdminOrganizations()).includes(username)
     : viewer === username;
 
-  const repositoriesHref = (next?: string) =>
-    `/${username}?${new URLSearchParams({
-      tab: "repositories",
-      ...(query && { q: query }),
-      ...(next && { cursor: next }),
-    })}`;
-
   return (
     <div className="flex min-h-full flex-col">
       <AppHeader username={viewer} owners={viewer ? [viewer] : []} />
@@ -303,11 +296,10 @@ export default async function ProfilePage({
             query={query}
             pagination={
               <CursorPagination
-                firstHref={repositoriesHref()}
-                nextHref={
-                  data.nextCursor ? repositoriesHref(data.nextCursor) : null
-                }
-                isFirstPage={!pageCursor}
+                pathname={`/${username}`}
+                params={{ tab: "repositories", q: query }}
+                cursor={pageCursor}
+                nextCursor={data.nextCursor}
               />
             }
             overview={

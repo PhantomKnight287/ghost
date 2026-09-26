@@ -48,13 +48,6 @@ export default async function SearchPage({
   const session = await getServerSession();
   const viewer = session?.user.username ?? "";
 
-  const hrefFor = (target: Kind, next?: string) =>
-    `/search?${new URLSearchParams({
-      q: query,
-      type: target,
-      ...(next && { cursor: next }),
-    })}`;
-
   const tabs = [
     { value: "repositories", label: "Repositories", icon: BookMarked },
     { value: "code", label: "Code", icon: Code2 },
@@ -67,7 +60,11 @@ export default async function SearchPage({
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 md:px-6">
         <nav className="flex gap-1 border-b">
           {tabs.map(({ value, label, icon: Icon }) => (
-            <TabLink key={value} href={hrefFor(value)} active={kind === value}>
+            <TabLink
+              key={value}
+              href={`/search?${new URLSearchParams({ q: query, type: value })}`}
+              active={kind === value}
+            >
               <Icon className="size-4" />
               {label}
             </TabLink>
@@ -77,11 +74,7 @@ export default async function SearchPage({
         {kind === "code" ? (
           <CodeResults query={query} />
         ) : (
-          <RepositoryResults
-            query={query}
-            cursor={pageCursor}
-            hrefFor={(next) => hrefFor("repositories", next)}
-          />
+          <RepositoryResults query={query} cursor={pageCursor} />
         )}
       </main>
     </div>
@@ -91,11 +84,9 @@ export default async function SearchPage({
 async function RepositoryResults({
   query,
   cursor,
-  hrefFor,
 }: {
   query: string;
   cursor?: string;
-  hrefFor: (cursor?: string) => string;
 }) {
   const client = await createServerClient();
   const { data } = await client.GET("/api/search/repositories", {
@@ -139,9 +130,10 @@ async function RepositoryResults({
       )}
 
       <CursorPagination
-        firstHref={hrefFor()}
-        nextHref={data.nextCursor ? hrefFor(data.nextCursor) : null}
-        isFirstPage={!cursor}
+        pathname="/search"
+        params={{ q: query, type: "repositories" }}
+        cursor={cursor}
+        nextCursor={data.nextCursor}
       />
     </>
   );
