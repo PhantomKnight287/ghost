@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
 import {
   and,
@@ -98,7 +98,10 @@ import type {
 } from './dto/get-repository-commits.dto.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import {
+  type Repository,
+  RepositoryAccessService,
+} from '../../services/git/repository-access/repository-access.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 import type {
@@ -114,6 +117,8 @@ const DEFAULT_SEARCH_LIMIT = 50;
 
 @Injectable()
 export class RepositoriesService {
+  private readonly logger = new Logger(RepositoriesService.name);
+
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly usersService: UsersService,
@@ -431,9 +436,32 @@ export class RepositoriesService {
             : await this.freeSlug(repository.ownerId, name, repository.id),
       })
       .where(eq(schema.repository.id, repository.id))
-      .returning({ id: schema.repository.id, slug: schema.repository.slug });
+      .returning();
 
-    return updated;
+    // The shards carry the public flag, so public search follows the change now rather than on the next push or page view.
+    if (visibility !== undefined && visibility !== repository.visibility) {
+      this.reindexCodeSearch(updated).catch((error: unknown) =>
+        this.logger.warn(
+          `Reindexing ${updated.id} for visibility failed: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
+    }
+
+    return { id: updated.id, slug: updated.slug };
+  }
+
+  private async reindexCodeSearch(repository: Repository) {
+    const directory = await this.storage.getRepoPath(repository.id);
+    await this.materializer.materialize(
+      repository.id,
+      directory,
+      repository.defaultBranch,
+    );
+    await this.codeSearch.index({
+      repositoryId: repository.id,
+      isPublic: repository.visibility === 'public',
+      repoDirectory: directory,
+    });
   }
 
   /** Nothing of the repository outlives a successful call. A failure leaves it tombstoned, unreadable and still listed, so the owner can retry; see docs/0020. */

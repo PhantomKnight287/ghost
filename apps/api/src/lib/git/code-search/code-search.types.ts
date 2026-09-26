@@ -1,6 +1,6 @@
 export interface IndexTarget {
   repositoryId: string;
-  /** Visibility is fixed at creation, so the flag baked into a shard never goes stale. */
+  /** Baked into the shards, so a change of visibility needs a reindex just as a new HEAD does. */
   isPublic: boolean;
   repoDirectory: string;
 }
