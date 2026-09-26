@@ -1,5 +1,6 @@
 "use client";
 
+import { useDebouncedValue } from "@tanstack/react-pacer";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
@@ -34,15 +35,17 @@ export default function DashboardPage() {
   const username = data?.user.username ?? "";
   const owners = username ? [username] : [];
   const [q, setQ] = useState("");
+  // One request once typing pauses, not one per keystroke.
+  const [search] = useDebouncedValue(q.trim(), { wait: 300 });
 
   // Owned and shared alike, most recently pushed first.
   const { data: repositories = [], isPending } = useQuery({
-    queryKey: ["viewer-repositories", q],
+    queryKey: ["viewer-repositories", search],
     enabled: Boolean(username),
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<Repository[]> => {
       const { data, error } = await apiClient.GET("/api/repositories", {
-        params: { query: { q: q.trim() || undefined, limit: 50 } },
+        params: { query: { q: search || undefined, limit: 50 } },
       });
       if (error) throw new Error(apiErrorMessage(error));
       return data.repositories.map((repository) => ({
@@ -97,7 +100,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground">
               {isPending
                 ? "Loading repositories…"
-                : q.trim()
+                : search
                   ? "No repositories match."
                   : "You don't have any repositories yet."}
             </p>
