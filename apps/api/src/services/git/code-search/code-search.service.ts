@@ -9,6 +9,7 @@ import { CodeSearchUnavailableError } from '../../../lib/git/code-search/code-se
 import type { IndexTarget } from '../../../lib/git/code-search/code-search.types.js';
 import {
   indexRepository,
+  repositoryScope,
   searchIndex,
 } from '../../../lib/git/code-search/zoekt.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
@@ -104,11 +105,19 @@ export class CodeSearchService {
     };
   }
 
-  /** Narrowed to shards flagged public, but a query can OR its way out of that: the caller must still keep only repositories it knows to be public. */
-  async searchPublic({ query, limit }: { query: string; limit: number }) {
+  /** Narrowed to shards flagged public and, given `repositoryIds`, to those repositories; a query can OR its way out of both, so the caller must still keep only repositories it knows to be public and in scope. */
+  async searchPublic({
+    query,
+    limit,
+    repositoryIds,
+  }: {
+    query: string;
+    limit: number;
+    repositoryIds?: string[];
+  }) {
     return searchIndex({
       url: this.requireUrl(),
-      query: `public:yes (${query})`,
+      query: `public:yes${repositoryScope(repositoryIds)} (${query})`,
       limit,
     });
   }

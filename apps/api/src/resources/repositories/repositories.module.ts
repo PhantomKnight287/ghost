@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { RepositoriesService } from './repositories.service.js';
 import { RepositoriesController } from './repositories.controller.js';
 import { SearchController } from './search.controller.js';
+import { TransfersController } from './transfers.controller.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
@@ -16,7 +17,7 @@ import { CommitVerificationService } from '../../services/gpg/commit-verificatio
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 
 @Module({
-  controllers: [RepositoriesController, SearchController],
+  controllers: [RepositoriesController, SearchController, TransfersController],
   providers: [
     RepositoriesService,
     UsersService,

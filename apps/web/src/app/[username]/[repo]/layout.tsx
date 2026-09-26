@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { RepositoryAbout } from "@/components/repositories/repository-about";
@@ -47,6 +47,10 @@ export default async function RepositoryLayout({
   if (repository.response.status === 404) notFound();
   if (repository.error || !repository.data) {
     throw new Error(`Failed to load ${username}/${repo}`);
+  }
+  // ponytail: an old name after a rename or transfer redirects to the repository root, since a layout does not know the rest of the path; a proxy could keep it.
+  if (repository.data.owner !== username || repository.data.slug !== repo) {
+    redirect(`/${repository.data.owner}/${repository.data.slug}`);
   }
 
   const [branches, pulls, issues] = await Promise.all([

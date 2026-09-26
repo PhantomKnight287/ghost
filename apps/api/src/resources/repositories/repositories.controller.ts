@@ -73,6 +73,8 @@ import { StarRepositoryResponseDTO } from './dto/star-repository.dto.js';
 import {
   ForkRepositoryRequestDTO,
   ForkRepositoryResponseDTO,
+  TransferRepositoryRequestDTO,
+  TransferRepositoryResponseDTO,
 } from './dto/fork-repository.dto.js';
 import {
   SearchCodeQueryDTO,
@@ -276,6 +278,41 @@ export class RepositoriesController {
       slug,
       requesterId: session.user.id,
       ...body,
+    });
+  }
+
+  @Post(':username/:slug/transfer')
+  @ApiOperation({
+    summary: 'Transfer repository',
+    description:
+      "Owner only. Moves at once to the requester's own account or an organization they administer; any other recipient accepts first. The old name keeps redirecting.",
+  })
+  @ApiCreatedResponse({
+    type: TransferRepositoryResponseDTO,
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiForbiddenResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiConflictResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  transferRepository(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Body() body: TransferRepositoryRequestDTO,
+    @Session() session: UserSession,
+  ): Promise<TransferRepositoryResponseDTO> {
+    return this.repositoriesService.transferRepository({
+      username,
+      slug,
+      requesterId: session.user.id,
+      owner: body.owner,
     });
   }
 

@@ -11,6 +11,8 @@ import { ThemeEffects } from "@/components/theme-effects";
 import { authClient } from "@/lib/auth-client";
 import { avatar } from "@/lib/auth/avatar";
 import { usernamePlugin } from "@/lib/auth/username-plugin";
+import { organizationPlugin } from "@/lib/auth/organization-plugin";
+import { organizationRoleLabels } from "@/lib/organization-role";
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin";
 
 import { getQueryClient } from "@/lib/query-client";
@@ -34,7 +36,15 @@ export function Providers({ children }: { children: ReactNode }) {
           authClient={authClient}
           avatar={avatar}
           redirectTo="/dashboard"
-          plugins={[usernamePlugin(), apiKeyPlugin()]}
+          plugins={[
+            usernamePlugin(),
+            apiKeyPlugin(),
+            organizationPlugin({
+              creatorRole: "owner",
+              roles: organizationRoleLabels,
+              teams: true,
+            }),
+          ]}
           navigate={({ to, replace }) =>
             replace ? router.replace(to) : router.push(to)
           }

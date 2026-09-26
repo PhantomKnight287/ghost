@@ -140,11 +140,15 @@ describe.skipIf(!hasBackends)('repository settings', () => {
       .expect(({ body }) => expect(body.slug).toBe(twin.slug));
   });
 
-  it('moves the repository to a new slug when renamed', async () => {
+  it('moves the repository to a new slug when renamed, and redirects the old one', async () => {
     const { body } = await update({ name: 'Renamed' }).expect(200);
     expect(body.slug).toBe('renamed');
 
-    await api().get(at()).set('cookie', owner.cookie).expect(404);
+    const followed = await api()
+      .get(at())
+      .set('cookie', owner.cookie)
+      .expect(200);
+    expect(followed.body.slug).toBe('renamed');
     repo = body.slug;
     await api().get(at()).set('cookie', owner.cookie).expect(200);
   });

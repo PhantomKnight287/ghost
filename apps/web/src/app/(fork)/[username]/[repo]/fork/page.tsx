@@ -5,7 +5,11 @@ import { notFound, redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { ForkRepositoryForm } from "@/components/repositories/fork-repository-form";
 import { Button } from "@/components/ui/button";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import {
+  createServerClient,
+  getAdminOrganizations,
+  getServerSession,
+} from "@/lib/api/server";
 
 export default async function ForkRepositoryPage({
   params,
@@ -36,6 +40,14 @@ export default async function ForkRepositoryPage({
   // One fork per owner, so an owner who already has one is offered their fork instead.
   const existingFork = repository.data.viewerForkSlug;
   const ownsParent = viewer === username;
+  // An organization can take its own fork even when the viewer already has one, but never fork itself.
+  const organizations = (await getAdminOrganizations()).filter(
+    (organization) => organization !== username,
+  );
+  const owners = [
+    ...(ownsParent || existingFork ? [] : [viewer]),
+    ...organizations,
+  ];
 
   return (
     <div className="flex min-h-full flex-col">
@@ -61,13 +73,13 @@ export default async function ForkRepositoryPage({
           </p>
         </div>
 
-        {ownsParent ? (
+        {owners.length === 0 && ownsParent ? (
           <Notice
             message="You already own this repository, so there is nothing to fork."
             href={`/${username}/${repo}`}
             action="Back to repository"
           />
-        ) : existingFork ? (
+        ) : owners.length === 0 && existingFork ? (
           <Notice
             message={`You already forked this repository as ${viewer}/${existingFork}.`}
             href={`/${viewer}/${existingFork}`}
@@ -80,8 +92,9 @@ export default async function ForkRepositoryPage({
             name={repository.data.name}
             description={repository.data.description}
             visibility={repository.data.visibility}
-            owners={[viewer]}
-            defaultOwner={viewer}
+            owners={owners}
+            organizations={organizations}
+            defaultOwner={owners[0]}
           />
         )}
       </main>

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { LabelManager } from "@/components/issues/label-manager";
 import { createServerClient, getViewerRole } from "@/lib/api/server";
-import { atLeast } from "@/lib/repository-role";
+import { atLeast } from "@ghost/permissions";
 
 export default async function LabelsPage({
   params,

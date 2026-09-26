@@ -1,7 +1,7 @@
 import { findReferences } from "@ghost/references";
 import type { Nodes, PhrasingContent, Root, Text } from "mdast";
 
-/** Links `#1`, `owner/repo#1` and `@user` in prose. `#1` is resolved against `repository`; code and existing links are left alone. */
+/** Links `#1`, `owner/repo#1`, `@user` and `@org/team` in prose. `#1` is resolved against `repository`; code and existing links are left alone. */
 export function remarkReferences(repository: {
   username: string;
   repo: string;
@@ -17,7 +17,9 @@ export function remarkReferences(repository: {
       const url =
         reference.kind === "issue"
           ? `/${reference.owner ?? repository.username}/${reference.repo ?? repository.repo}/issues/${reference.number}`
-          : `/${reference.username}`;
+          : reference.kind === "team"
+            ? `/${reference.organization}/teams/${reference.team}`
+            : `/${reference.username}`;
       if (reference.index > cursor)
         pieces.push({
           type: "text",

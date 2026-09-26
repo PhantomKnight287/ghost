@@ -1,8 +1,12 @@
 import { notFound } from "next/navigation";
 
 import { RepositoryGeneralSettings } from "@/components/repositories/repository-settings";
-import { createServerClient } from "@/lib/api/server";
-import { atLeast } from "@/lib/repository-role";
+import {
+  createServerClient,
+  getAdminOrganizations,
+  getServerSession,
+} from "@/lib/api/server";
+import { atLeast } from "@ghost/permissions";
 
 export default async function RepositorySettingsPage({
   params,
@@ -31,6 +35,23 @@ export default async function RepositorySettingsPage({
       defaultBranch={branches.data?.defaultBranch ?? null}
       branches={branches.data?.branches ?? []}
       isAdmin={atLeast(repository.data.viewerRole, "admin")}
+      transferTargets={
+        atLeast(repository.data.viewerRole, "owner")
+          ? await transferTargets(username)
+          : []
+      }
+      canTransfer={atLeast(repository.data.viewerRole, "owner")}
     />
+  );
+}
+
+/** The viewer's own account and the organizations they administer, less the current owner. */
+async function transferTargets(currentOwner: string) {
+  const [session, organizations] = await Promise.all([
+    getServerSession(),
+    getAdminOrganizations(),
+  ]);
+  return [session?.user.username, ...organizations].filter(
+    (owner): owner is string => Boolean(owner) && owner !== currentOwner,
   );
 }

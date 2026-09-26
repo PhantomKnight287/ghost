@@ -9,6 +9,7 @@ import {
   desc,
   eq,
   type GetColumnData,
+  getTableColumns,
   inArray,
   lt,
   or,
@@ -36,11 +37,12 @@ import {
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { IssuesService } from '../issues/issues.service.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
+  ownerNameOf,
   type Repository,
-  RepositoryAccessService,
   type RepositoryOperation,
-} from '../../services/git/repository-access/repository-access.service.js';
+} from '../../lib/git/repository-access/repository-access.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { UsersService } from '../../services/users/users.service.js';
@@ -439,11 +441,11 @@ export class PullRequestsService {
 
     const author = await this.users.getUserById(params.requesterId);
     // a fork's branch name is ambiguous on its own, so the merge subject carries the owner exactly as the request was opened with
-    const headOwner = await this.users.getUserById(git.head.ownerId);
+    const { head } = await this.expandPullRequest(pullRequest);
     const headLabel =
       git.head.id === base.id
         ? pullRequest.headRef
-        : `${headOwner.username}:${pullRequest.headRef}`;
+        : `${head.username}:${pullRequest.headRef}`;
 
     const mergeCommitSha = await commitTree({
       gitDir: git.baseDirectory,
@@ -757,13 +759,16 @@ export class PullRequestsService {
   ) {
     if (!head.includes(':')) return base;
 
-    const owner = await this.users.getUserByUsername(
-      head.slice(0, head.indexOf(':')),
-    );
+    const owner = head.slice(0, head.indexOf(':'));
     const candidates = await this.db
-      .select()
+      .select(getTableColumns(schema.repository))
       .from(schema.repository)
-      .where(eq(schema.repository.ownerId, owner.id));
+      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
+      .where(eq(ownerNameOf(schema.user, schema.organization), owner));
 
     const related = candidates.find(
       (candidate) =>
@@ -774,7 +779,7 @@ export class PullRequestsService {
     if (!related) throw new UnrelatedRepositoriesError();
 
     return this.access.authorize({
-      username: owner.username ?? '',
+      username: owner,
       repo: related.slug,
       actor: { userId: requesterId },
       operation: 'read',
@@ -786,10 +791,14 @@ export class PullRequestsService {
       .select({
         repositoryId: schema.repository.id,
         slug: schema.repository.slug,
-        username: schema.user.username,
+        username: ownerNameOf(schema.user, schema.organization),
       })
       .from(schema.repository)
       .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
       .where(
         inArray(schema.repository.id, [
           pullRequest.baseRepositoryId,

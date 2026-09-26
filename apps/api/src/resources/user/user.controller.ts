@@ -28,20 +28,24 @@ import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { AVATAR_NAME_PATTERN } from './avatar.constants.js';
+import { AVATAR_NAME_PATTERN } from '../../lib/avatars/avatar.constants.js';
+import { AvatarNotFoundError } from '../../lib/avatars/avatar.errors.js';
+import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import { UploadAvatarResponseDTO } from './dto/avatar.dto.js';
 import {
   GetUserContributionsQueryDTO,
   GetUserContributionsResponseDTO,
 } from './dto/contributions.dto.js';
 import { UserProfileResponseDTO } from './dto/profile.dto.js';
-import { AvatarNotFoundError } from './user.errors.js';
 import { UserService } from './user.service.js';
 
 @ApiTags('Users')
 @Controller('users')
 export class UserController {
-  constructor(private readonly users: UserService) {}
+  constructor(
+    private readonly users: UserService,
+    private readonly avatars: AvatarStorageService,
+  ) {}
 
   @Put('avatar')
   @ApiOperation({
@@ -59,8 +63,8 @@ export class UserController {
     @Headers('content-type') contentType: string,
     @Session() session: UserSession,
   ) {
-    return this.users.uploadAvatar({
-      userId: session.user.id,
+    return this.avatars.store({
+      ownerId: session.user.id,
       contentType: contentType ?? '',
       body: Buffer.isBuffer(request.body) ? request.body : undefined,
     });
@@ -71,7 +75,7 @@ export class UserController {
   @ApiOperation({ summary: 'Delete the signed-in user’s stored avatar' })
   @ApiNoContentResponse()
   deleteAvatar(@Session() session: UserSession) {
-    return this.users.deleteAvatar(session.user.id);
+    return this.avatars.remove(session.user.id);
   }
 
   @Get('avatars/:userId/:name')
@@ -87,7 +91,7 @@ export class UserController {
     // Only names this service generates; nothing user-authored reaches S3.
     if (!AVATAR_NAME_PATTERN.test(name)) throw new AvatarNotFoundError();
 
-    const avatar = await this.users.getAvatar(userId, name);
+    const avatar = await this.avatars.get(userId, name);
 
     response.set({
       'Content-Type': avatar.contentType,

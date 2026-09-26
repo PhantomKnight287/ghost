@@ -18,6 +18,9 @@ import { CollaboratorsModule } from './resources/collaborators/collaborators.mod
 import { EmailsModule } from './resources/emails/emails.module.js';
 import { GpgKeysModule } from './resources/gpg-keys/gpg-keys.module.js';
 import { IssuesModule } from './resources/issues/issues.module.js';
+import { OrganizationsModule } from './resources/organizations/organizations.module.js';
+import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
+import { AvatarsModule } from './avatars/avatars.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
@@ -40,9 +43,14 @@ import { UsersService } from './services/users/users.service.js';
     DatabaseModule,
     MailModule,
     AuthModule.forRootAsync({
-      imports: [DatabaseModule, MailModule],
-      inject: [DATABASE, ConfigService, MailService],
-      useFactory: (db: Database, config: ConfigService, mail: MailService) => ({
+      imports: [DatabaseModule, MailModule, AvatarsModule],
+      inject: [DATABASE, ConfigService, MailService, AvatarStorageService],
+      useFactory: (
+        db: Database,
+        config: ConfigService,
+        mail: MailService,
+        avatars: AvatarStorageService,
+      ) => ({
         auth: createAuth(db, {
           secret: config.getOrThrow<string>('BETTER_AUTH_SECRET'),
           baseURL: config.getOrThrow<string>('BETTER_AUTH_URL'),
@@ -61,6 +69,15 @@ import { UsersService } from './services/users/users.service.js';
                   approveUrl: url,
                 })
             : undefined,
+          onOrganizationDeleted: (organizationId) =>
+            avatars.remove(organizationId),
+          sendOrganizationInvitation: mailConfigured(config)
+            ? ({ email, url, ...context }) =>
+                mail.sendOrganizationInvitationEmail(email, {
+                  ...context,
+                  acceptUrl: url,
+                })
+            : undefined,
           sendResetPassword: mailConfigured(config)
             ? ({ email, name, url }) =>
                 mail.sendResetPasswordEmail(email, { name, resetUrl: url })
@@ -73,6 +90,7 @@ import { UsersService } from './services/users/users.service.js';
       }),
     }),
     RepositoriesModule,
+    OrganizationsModule,
     PullRequestsModule,
     IssuesModule,
     CollaboratorsModule,

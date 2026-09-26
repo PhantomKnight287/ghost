@@ -2,7 +2,7 @@ import { schema } from '@ghost/db';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn } from 'class-validator';
 
-import type { CollaboratorRole } from '../../../services/git/repository-access/repository-access.service.js';
+import type { CollaboratorRole } from '../../../lib/git/repository-access/repository-access.js';
 
 const roleProperty = {
   enumName: 'RepositoryRole',
@@ -93,4 +93,33 @@ export class InvitationDTO {
 export class ListInvitationsResponseDTO {
   @ApiProperty({ type: [InvitationDTO] })
   invitations: InvitationDTO[];
+}
+
+export class RepositoryTeamDTO {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  memberCount: number;
+
+  @ApiProperty({
+    ...roleProperty,
+    nullable: true,
+    description: 'Null when the team has no access to this repository.',
+  })
+  role: CollaboratorRole | null;
+}
+
+export class ListRepositoryTeamsResponseDTO {
+  @ApiProperty({ type: [RepositoryTeamDTO] })
+  teams: RepositoryTeamDTO[];
+}
+
+export class SetTeamRoleRequestDTO {
+  @ApiProperty(roleProperty)
+  @IsIn(schema.repositoryRole.enumValues)
+  role: CollaboratorRole;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { useAction } from "next-safe-action/hooks";
 import type { ReactNode } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { apiClient, apiErrorMessage } from "@/lib/api/client";
 
 import { createRepository } from "./actions";
 import { createRepositorySchema, type CreateRepositoryInput } from "./common";
@@ -64,6 +66,20 @@ export function NewRepositoryDialog({
 
   const { execute, isExecuting, result } = useAction(createRepository);
 
+  // Organizations whose policy lets the viewer create repositories there, on top of the accounts the caller passed.
+  const { data: organizations = [] } = useQuery({
+    queryKey: ["my-organizations"],
+    enabled: owners.length > 0,
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/organizations");
+      if (error) throw new Error(apiErrorMessage(error));
+      return data.organizations
+        .filter((organization) => organization.canCreateRepositories)
+        .map((organization) => organization.slug);
+    },
+  });
+  const choices = [...new Set([...owners, ...organizations])];
+
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -77,7 +93,17 @@ export function NewRepositoryDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(execute)} className="contents">
+        <form
+          onSubmit={handleSubmit((input) =>
+            execute({
+              ...input,
+              organization: organizations.includes(input.owner)
+                ? input.owner
+                : undefined,
+            }),
+          )}
+          className="contents"
+        >
           <FieldGroup>
             <div className="flex items-start gap-2">
               <Field className="w-40 shrink-0">
@@ -91,7 +117,7 @@ export function NewRepositoryDialog({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {owners.map((owner) => (
+                        {choices.map((owner) => (
                           <SelectItem key={owner} value={owner}>
                             {owner}
                           </SelectItem>

@@ -2,16 +2,17 @@ import { ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DATABASE } from '../../database/database.module.js';
-import { S3Service } from '../../services/s3/s3.service.js';
-import { UsersService } from '../../services/users/users.service.js';
-import { UserService } from './user.service.js';
-import { EmptyAvatarError, UnsupportedAvatarTypeError } from './user.errors.js';
+import {
+  EmptyAvatarError,
+  UnsupportedAvatarTypeError,
+} from '../../lib/avatars/avatar.errors.js';
+import { S3Service } from '../s3/s3.service.js';
+import { AvatarStorageService } from './avatar-storage.service.js';
 
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
-describe('UserService avatars', () => {
-  let service: UserService;
+describe('AvatarStorageService', () => {
+  let service: AvatarStorageService;
   let s3: {
     bucket: string;
     putObject: ReturnType<typeof vi.fn>;
@@ -27,9 +28,7 @@ describe('UserService avatars', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        UserService,
-        { provide: DATABASE, useValue: {} },
-        { provide: UsersService, useValue: {} },
+        AvatarStorageService,
         { provide: S3Service, useValue: s3 },
         {
           provide: ConfigService,
@@ -38,12 +37,12 @@ describe('UserService avatars', () => {
       ],
     }).compile();
 
-    service = module.get(UserService);
+    service = module.get(AvatarStorageService);
   });
 
-  it('stores the bytes under the session user and returns a servable URL', async () => {
-    const { url } = await service.uploadAvatar({
-      userId: 'user-1',
+  it('stores the bytes under the owner and returns a servable URL', async () => {
+    const { url } = await service.store({
+      ownerId: 'user-1',
       contentType: 'image/png',
       body: png,
     });
@@ -62,8 +61,8 @@ describe('UserService avatars', () => {
   });
 
   it('drops the superseded avatars but keeps the one just written', async () => {
-    await service.uploadAvatar({
-      userId: 'user-1',
+    await service.store({
+      ownerId: 'user-1',
       contentType: 'image/png',
       body: png,
     });
@@ -74,16 +73,16 @@ describe('UserService avatars', () => {
 
   it('refuses anything that is not an allowed image, and empty bodies', async () => {
     await expect(
-      service.uploadAvatar({
-        userId: 'user-1',
+      service.store({
+        ownerId: 'user-1',
         contentType: 'text/html',
         body: png,
       }),
     ).rejects.toBeInstanceOf(UnsupportedAvatarTypeError);
 
     await expect(
-      service.uploadAvatar({
-        userId: 'user-1',
+      service.store({
+        ownerId: 'user-1',
         contentType: 'image/png',
         body: Buffer.alloc(0),
       }),
@@ -93,8 +92,8 @@ describe('UserService avatars', () => {
   });
 
   it('accepts a content type that carries parameters', async () => {
-    await service.uploadAvatar({
-      userId: 'user-1',
+    await service.store({
+      ownerId: 'user-1',
       contentType: 'image/jpeg; charset=binary',
       body: png,
     });
@@ -104,16 +103,16 @@ describe('UserService avatars', () => {
 
   it('refuses WebP, which next/og cannot decode', async () => {
     await expect(
-      service.uploadAvatar({
-        userId: 'user-1',
+      service.store({
+        ownerId: 'user-1',
         contentType: 'image/webp',
         body: png,
       }),
     ).rejects.toBeInstanceOf(UnsupportedAvatarTypeError);
   });
 
-  it('deletes every avatar the user has when asked', async () => {
-    await service.deleteAvatar('user-1');
+  it('deletes every avatar the owner has when asked', async () => {
+    await service.remove('user-1');
 
     expect(s3.deleteUnder).toHaveBeenCalledWith('avatars/user-1/', []);
   });

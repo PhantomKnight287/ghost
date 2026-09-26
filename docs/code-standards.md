@@ -30,6 +30,17 @@ const [commit] = await this.db
   .from(schema.commit);
 ```
 
+The same goes for a local builder that assembles a value out of a page's state for another component to consume, such as `repositoriesHref` or `hrefFor` building pagination links. The component that renders the value takes the parts and builds it once, so every page stops writing its own copy.
+
+```tsx
+// No: each page builds its own pagination links.
+const repositoriesHref = (next?: string) => `/${username}?${new URLSearchParams({ tab: "repositories", ...(next && { cursor: next }) })}`;
+<CursorPagination firstHref={repositoriesHref()} nextHref={data.nextCursor ? repositoriesHref(data.nextCursor) : null} isFirstPage={!cursor} />
+
+// Yes: the pagination takes the parts.
+<CursorPagination pathname={`/${username}`} params={{ tab: "repositories" }} cursor={cursor} nextCursor={data.nextCursor} />
+```
+
 Value conversion is not reshaping: parsing a string into a `Date`, turning a service name into a binary name, formatting a colour for an `<input>`. Those stay.
 
 ## 3. Strings are never concatenated for layout

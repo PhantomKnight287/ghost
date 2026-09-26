@@ -75,7 +75,7 @@
             "name": "q",
             "required": false,
             "in": "query",
-            "description": "Keep repositories whose name or description contains this text, ignoring case.",
+            "description": "Keep repositories whose name or description contains this text, ignoring case. `org:<name>` or `user:<name>` keeps one owner's repositories, where the listing spans several owners.",
             "schema": {
               "example": "ghost",
               "type": "string"
@@ -148,7 +148,7 @@
             "name": "q",
             "required": false,
             "in": "query",
-            "description": "Keep repositories whose name or description contains this text, ignoring case.",
+            "description": "Keep repositories whose name or description contains this text, ignoring case. `org:<name>` or `user:<name>` keeps one owner's repositories, where the listing spans several owners.",
             "schema": {
               "example": "ghost",
               "type": "string"
@@ -478,6 +478,96 @@
           }
         },
         "summary": "Fork repository",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/transfer": {
+      "post": {
+        "description": "Owner only. Moves at once to the requester's own account or an organization they administer; any other recipient accepts first. The old name keeps redirecting.",
+        "operationId": "RepositoriesController_transferRepository",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferRepositoryRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferRepositoryResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Transfer repository",
         "tags": [
           "Repositories"
         ]
@@ -1604,7 +1694,7 @@
             "name": "q",
             "required": false,
             "in": "query",
-            "description": "Keep repositories whose name or description contains this text, ignoring case.",
+            "description": "Keep repositories whose name or description contains this text, ignoring case. `org:<name>` or `user:<name>` keeps one owner's repositories, where the listing spans several owners.",
             "schema": {
               "example": "ghost",
               "type": "string"
@@ -1723,6 +1813,1158 @@
         "summary": "Search code",
         "tags": [
           "Search"
+        ]
+      }
+    },
+    "/api/transfers": {
+      "get": {
+        "description": "Repositories offered to the signed-in user or to an organization they administer.",
+        "operationId": "TransfersController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListIncomingTransfersResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List transfers waiting for me",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/transfers/{repositoryId}/accept": {
+      "post": {
+        "operationId": "TransfersController_accept",
+        "parameters": [
+          {
+            "name": "repositoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForkRepositoryResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Accept a transfer",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/transfers/{repositoryId}": {
+      "delete": {
+        "description": "The recipient declines it, or whoever requested it withdraws it.",
+        "operationId": "TransfersController_cancel",
+        "parameters": [
+          {
+            "name": "repositoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Decline or withdraw a transfer",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/organizations": {
+      "get": {
+        "description": "Organizations the signed-in user belongs to, with the user's role in each.",
+        "operationId": "OrganizationsController_listMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMyOrganizationsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List my organizations",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/logo": {
+      "put": {
+        "description": "Takes the raw image bytes, PNG or JPEG, and sets them as the logo. Admins only.",
+        "operationId": "OrganizationsController_setLogo",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "content-type",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAvatarResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload the organization's logo",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "delete": {
+        "operationId": "OrganizationsController_removeLogo",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove the organization's logo. Admins only.",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/settings": {
+      "get": {
+        "operationId": "OrganizationsController_getSettings",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationSettingsDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Organization settings. Admins only.",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "patch": {
+        "description": "Base permission, repository policies and the public profile. Admins only.",
+        "operationId": "OrganizationsController_updateSettings",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationSettingsDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationSettingsDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Change organization settings",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/public-members": {
+      "put": {
+        "description": "Lists the requester among the organization's public members, and the organization on their profile.",
+        "operationId": "OrganizationsController_publicize",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Make my membership public",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "delete": {
+        "operationId": "OrganizationsController_conceal",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Make my membership private",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/pins": {
+      "put": {
+        "description": "Replaces the pinned repositories, up to six, in the order given. Admins only.",
+        "operationId": "OrganizationsController_setPinned",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPinnedRepositoriesDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Pin repositories",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/outside-collaborators": {
+      "get": {
+        "description": "People with access to the organization's repositories who are not members. Admins only.",
+        "operationId": "OrganizationsController_listOutsideCollaborators",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOutsideCollaboratorsResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List outside collaborators",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/outside-collaborators/{username}": {
+      "delete": {
+        "description": "Removes them, and their pending invitations, from every repository of the organization. Admins only.",
+        "operationId": "OrganizationsController_removeOutsideCollaborator",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove an outside collaborator",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/invitations": {
+      "post": {
+        "description": "Creates the same invitation an email invite would, addressed to the user's email without revealing it. Admins only.",
+        "operationId": "OrganizationsController_inviteByUsername",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteByUsernameRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Invite a user by username",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}": {
+      "get": {
+        "description": "Public, except that members and the viewer role are only returned to members.",
+        "operationId": "OrganizationsController_getProfile",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationProfileDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Organization profile",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/users/{username}/organizations": {
+      "get": {
+        "description": "Membership is private: the user sees all of theirs, anyone else only the ones they share.",
+        "operationId": "UserOrganizationsController_listForUser",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOrganizationsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the organizations a user belongs to",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/invitations/organizations": {
+      "get": {
+        "description": "Pending invitations to organizations, addressed to the signed-in account's email. Accept or reject them through Better Auth's organization endpoints.",
+        "operationId": "OrganizationInvitationsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListReceivedOrganizationInvitationsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List my organization invitations",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/teams": {
+      "get": {
+        "description": "Members only.",
+        "operationId": "OrganizationTeamsController_list",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOrganizationTeamsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List teams",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/teams/{team}": {
+      "get": {
+        "description": "Its members, its maintainers and the repositories it reaches. Members only.",
+        "operationId": "OrganizationTeamsController_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationTeamDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a team",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/teams/{team}/members/{username}": {
+      "put": {
+        "description": "Takes a member of the organization. Admins and the team maintainers only.",
+        "operationId": "OrganizationTeamsController_addMember",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Add a member to a team",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "delete": {
+        "description": "Admins and the team maintainers only.",
+        "operationId": "OrganizationTeamsController_removeMember",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove a member from a team",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/teams/{team}/maintainers/{username}": {
+      "put": {
+        "description": "A maintainer manages the team's members. Admins only.",
+        "operationId": "OrganizationTeamsController_appoint",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Make a team member a maintainer",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "delete": {
+        "operationId": "OrganizationTeamsController_dismiss",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Stop a member maintaining a team. Admins only.",
+        "tags": [
+          "Organizations"
         ]
       }
     },
@@ -3928,6 +5170,215 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/teams": {
+      "get": {
+        "description": "Every team in the repository's organization, with its role here or null. Admins only.",
+        "operationId": "TeamsController_list",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRepositoryTeamsResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List teams and their access",
+        "tags": [
+          "Collaborators"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/teams/{teamId}": {
+      "put": {
+        "description": "Every member of the team gets the role on this repository. Admins only.",
+        "operationId": "TeamsController_setRole",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTeamRoleRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Give a team a role",
+        "tags": [
+          "Collaborators"
+        ]
+      },
+      "delete": {
+        "operationId": "TeamsController_remove",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove a team's access. Admins only.",
+        "tags": [
+          "Collaborators"
+        ]
+      }
+    },
     "/api/emails": {
       "get": {
         "operationId": "EmailsController_list",
@@ -4615,6 +6066,10 @@
           "description": {
             "type": "string"
           },
+          "organization": {
+            "type": "string",
+            "description": "Slug of the organization to create the repository in; the requester's own account when omitted. Needs admin in the organization."
+          },
           "visibility": {
             "allOf": [
               {
@@ -4774,6 +6229,10 @@
           "slug": {
             "type": "string"
           },
+          "owner": {
+            "type": "string",
+            "description": "The owner it lives under now; differs from the requested one after a rename or transfer."
+          },
           "visibility": {
             "allOf": [
               {
@@ -4828,6 +6287,7 @@
           "id",
           "name",
           "slug",
+          "owner",
           "visibility",
           "lastPushedAt",
           "createdAt",
@@ -4900,6 +6360,10 @@
                 "$ref": "#/components/schemas/RepositoryVisibility"
               }
             ]
+          },
+          "organization": {
+            "type": "string",
+            "description": "Slug of the organization to fork into; the requester's own account when omitted. Needs admin in the organization."
           }
         },
         "required": [
@@ -4924,6 +6388,42 @@
           "id",
           "slug",
           "username"
+        ]
+      },
+      "TransferRepositoryRequestDTO": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "The new owner: the requester's own username, or the slug of an organization the requester administers."
+          }
+        },
+        "required": [
+          "owner"
+        ]
+      },
+      "TransferRepositoryResponseDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "pending": {
+            "type": "boolean",
+            "description": "True when the recipient has to accept it first; the repository has not moved yet."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "username",
+          "pending"
         ]
       },
       "StarRepositoryResponseDTO": {
@@ -5799,6 +7299,687 @@
         },
         "required": [
           "files"
+        ]
+      },
+      "IncomingTransferRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "slug",
+          "name"
+        ]
+      },
+      "IncomingTransferDTO": {
+        "type": "object",
+        "properties": {
+          "repositoryId": {
+            "type": "string"
+          },
+          "repository": {
+            "$ref": "#/components/schemas/IncomingTransferRepositoryDTO"
+          },
+          "to": {
+            "type": "string",
+            "description": "The account or organization it would move to."
+          },
+          "requestedByUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "repositoryId",
+          "repository",
+          "to",
+          "requestedByUsername",
+          "createdAt"
+        ]
+      },
+      "ListIncomingTransfersResponseDTO": {
+        "type": "object",
+        "properties": {
+          "transfers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncomingTransferDTO"
+            }
+          }
+        },
+        "required": [
+          "transfers"
+        ]
+      },
+      "OrganizationRole": {
+        "type": "string",
+        "enum": [
+          "member",
+          "admin",
+          "owner"
+        ],
+        "description": "Highest built-in role held; null when only custom roles are held."
+      },
+      "MyOrganizationDTO": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "viewerRole": {
+            "nullable": true,
+            "description": "Highest built-in role held; null when only custom roles are held.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrganizationRole"
+              }
+            ]
+          },
+          "canCreateRepositories": {
+            "type": "boolean",
+            "description": "Whether the organization lets the viewer create repositories in it, of at least one visibility."
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "logo",
+          "viewerRole",
+          "canCreateRepositories"
+        ]
+      },
+      "ListMyOrganizationsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "organizations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyOrganizationDTO"
+            }
+          }
+        },
+        "required": [
+          "organizations"
+        ]
+      },
+      "UploadAvatarResponseDTO": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Absolute URL the stored avatar is served from",
+            "example": "http://localhost:3001/api/users/avatars/<userId>/<name>.png"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "RepositoryRole": {
+        "type": "string",
+        "enum": [
+          "read",
+          "triage",
+          "write",
+          "maintain",
+          "admin"
+        ],
+        "description": "Every member's role on every repository; null grants members nothing beyond their teams and collaborations."
+      },
+      "OrganizationSettingsDTO": {
+        "type": "object",
+        "properties": {
+          "basePermission": {
+            "nullable": true,
+            "description": "Every member's role on every repository; null grants members nothing beyond their teams and collaborations.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryRole"
+              }
+            ]
+          },
+          "membersCanCreatePublicRepositories": {
+            "type": "boolean"
+          },
+          "membersCanCreatePrivateRepositories": {
+            "type": "boolean"
+          },
+          "allowPrivateForks": {
+            "type": "boolean",
+            "description": "Whether its private repositories may be forked."
+          },
+          "defaultBranch": {
+            "type": "string",
+            "nullable": true,
+            "description": "Recorded as the default branch of each new repository."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "basePermission",
+          "membersCanCreatePublicRepositories",
+          "membersCanCreatePrivateRepositories",
+          "allowPrivateForks",
+          "defaultBranch",
+          "description",
+          "website",
+          "location",
+          "email"
+        ]
+      },
+      "UpdateOrganizationSettingsDTO": {
+        "type": "object",
+        "properties": {
+          "basePermission": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryRole"
+              }
+            ]
+          },
+          "membersCanCreatePublicRepositories": {
+            "type": "boolean"
+          },
+          "membersCanCreatePrivateRepositories": {
+            "type": "boolean"
+          },
+          "allowPrivateForks": {
+            "type": "boolean"
+          },
+          "defaultBranch": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SetPinnedRepositoriesDTO": {
+        "type": "object",
+        "properties": {
+          "repositories": {
+            "description": "Slugs of the organization's repositories, in display order.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "repositories"
+        ]
+      },
+      "OutsideCollaboratorRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryRole"
+              }
+            ]
+          },
+          "pending": {
+            "type": "boolean",
+            "description": "Invited and not yet accepted."
+          }
+        },
+        "required": [
+          "slug",
+          "role",
+          "pending"
+        ]
+      },
+      "OutsideCollaboratorDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OutsideCollaboratorRepositoryDTO"
+            }
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "image",
+          "repositories"
+        ]
+      },
+      "ListOutsideCollaboratorsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "collaborators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OutsideCollaboratorDTO"
+            }
+          }
+        },
+        "required": [
+          "collaborators"
+        ]
+      },
+      "InviteByUsernameRequestDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrganizationRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "username",
+          "role"
+        ]
+      },
+      "OrganizationMemberDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "public": {
+            "type": "boolean",
+            "description": "Whether the member shows their membership outside the organization."
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "image",
+          "public"
+        ]
+      },
+      "PinnedRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "visibility": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryVisibility"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "visibility"
+        ]
+      },
+      "OrganizationProfileDTO": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "repositoryCount": {
+            "type": "number",
+            "description": "Public repositories only."
+          },
+          "members": {
+            "description": "Every member for a member; only public members for anyone else.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrganizationMemberDTO"
+            }
+          },
+          "pinned": {
+            "description": "In pinned order, limited to repositories the viewer can read.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PinnedRepositoryDTO"
+            }
+          },
+          "viewerRole": {
+            "nullable": true,
+            "description": "The viewer's role in the organization; null for anyone outside it.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrganizationRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "logo",
+          "createdAt",
+          "description",
+          "website",
+          "location",
+          "email",
+          "repositoryCount",
+          "members",
+          "pinned",
+          "viewerRole"
+        ]
+      },
+      "OrganizationSummaryDTO": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "logo"
+        ]
+      },
+      "ListOrganizationsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "organizations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrganizationSummaryDTO"
+            }
+          }
+        },
+        "required": [
+          "organizations"
+        ]
+      },
+      "ReceivedOrganizationInvitationDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationSummaryDTO"
+          },
+          "role": {
+            "type": "string",
+            "nullable": true
+          },
+          "invitedByUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "organization",
+          "role",
+          "invitedByUsername",
+          "expiresAt"
+        ]
+      },
+      "ListReceivedOrganizationInvitationsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "invitations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceivedOrganizationInvitationDTO"
+            }
+          }
+        },
+        "required": [
+          "invitations"
+        ]
+      },
+      "OrganizationTeamSummaryDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "The team in URLs and `@org/team` mentions."
+          },
+          "memberCount": {
+            "type": "number"
+          },
+          "repositoryCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "memberCount",
+          "repositoryCount"
+        ]
+      },
+      "ListOrganizationTeamsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrganizationTeamSummaryDTO"
+            }
+          }
+        },
+        "required": [
+          "teams"
+        ]
+      },
+      "TeamMemberDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "maintainer": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "image",
+          "maintainer"
+        ]
+      },
+      "TeamRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "visibility": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryVisibility"
+              }
+            ]
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "visibility",
+          "role"
+        ]
+      },
+      "OrganizationTeamDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberDTO"
+            }
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamRepositoryDTO"
+            }
+          },
+          "viewerCanManage": {
+            "type": "boolean",
+            "description": "Whether the viewer may change the team's members: an admin or one of its maintainers."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "members",
+          "repositories",
+          "viewerCanManage"
         ]
       },
       "CreatePullRequestRequestDTO": {
@@ -6930,16 +9111,6 @@
           }
         }
       },
-      "RepositoryRole": {
-        "type": "string",
-        "enum": [
-          "read",
-          "triage",
-          "write",
-          "maintain",
-          "admin"
-        ]
-      },
       "CollaboratorStatus": {
         "type": "string",
         "enum": [
@@ -7093,6 +9264,64 @@
         },
         "required": [
           "invitations"
+        ]
+      },
+      "RepositoryTeamDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "memberCount": {
+            "type": "number"
+          },
+          "role": {
+            "nullable": true,
+            "description": "Null when the team has no access to this repository.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "memberCount",
+          "role"
+        ]
+      },
+      "ListRepositoryTeamsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositoryTeamDTO"
+            }
+          }
+        },
+        "required": [
+          "teams"
+        ]
+      },
+      "SetTeamRoleRequestDTO": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "role"
         ]
       },
       "UserEmailDTO": {
@@ -7277,19 +9506,6 @@
         },
         "required": [
           "publicKey"
-        ]
-      },
-      "UploadAvatarResponseDTO": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "description": "Absolute URL the stored avatar is served from",
-            "example": "http://localhost:3001/api/users/avatars/<userId>/<name>.png"
-          }
-        },
-        "required": [
-          "url"
         ]
       },
       "UserProfileResponseDTO": {

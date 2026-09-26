@@ -11,6 +11,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/docs/package.json apps/docs/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/languages/package.json packages/languages/package.json
+COPY packages/permissions/package.json packages/permissions/package.json
 COPY packages/references/package.json packages/references/package.json
 RUN bun install --frozen-lockfile
 
@@ -43,6 +44,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PATH=/app/node_modules/.bin:/app/apps/web/node_modules/.bin:$PATH
 # `src/lib/api/v1.d.ts` is committed, so the openapi codegen step is skipped.
 RUN cd packages/db && tsc -p tsconfig.json
+RUN cd packages/permissions && tsc -p tsconfig.json
 RUN cd apps/web && next build
 
 FROM node:22-slim AS runtime

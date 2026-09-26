@@ -25,6 +25,32 @@ export class CannotForkOwnRepositoryError extends DomainError {
   }
 }
 
+export class TransferTargetError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor() {
+    super(
+      'A repository can move to your own account or to an organization you administer, and not where it already is',
+    );
+  }
+}
+
+export class TransferNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('No pending transfer of this repository to you');
+  }
+}
+
+export class RepositoryNameTakenError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor(owner: string, slug: string) {
+    super(`${owner} already has a repository named ${slug}`);
+  }
+}
+
 export class RepositoryHeadsOpenPullRequestError extends DomainError {
   status: number = HttpStatus.CONFLICT;
 

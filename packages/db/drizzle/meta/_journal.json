@@ -176,6 +176,20 @@
       "when": 1790407790766,
       "tag": "0024_repository_collaborators",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790413213499,
+      "tag": "0025_repository_teams",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790421160534,
+      "tag": "0026_organization_policies",
+      "breakpoints": true
     }
   ]
 }

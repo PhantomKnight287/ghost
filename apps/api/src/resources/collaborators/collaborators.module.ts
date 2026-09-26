@@ -5,9 +5,14 @@ import { UsersService } from '../../services/users/users.service.js';
 import { CollaboratorsController } from './collaborators.controller.js';
 import { CollaboratorsService } from './collaborators.service.js';
 import { InvitationsController } from './invitations.controller.js';
+import { TeamsController } from './teams.controller.js';
 
 @Module({
-  controllers: [CollaboratorsController, InvitationsController],
+  controllers: [
+    CollaboratorsController,
+    InvitationsController,
+    TeamsController,
+  ],
   providers: [CollaboratorsService, RepositoryAccessService, UsersService],
 })
 export class CollaboratorsModule {}

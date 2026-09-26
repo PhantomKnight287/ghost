@@ -3,12 +3,13 @@ import {
   index,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { user } from "./auth.js";
+import { team, user } from "./auth.js";
 import { repository } from "./repository.js";
 
 /** Lowest to highest. The owner is not a role here: ownership lives on `repository.ownerId`. */
@@ -44,5 +45,24 @@ export const repositoryCollaborator = pgTable(
       t.userId,
     ),
     index("repository_collaborator_user_idx").on(t.userId),
+  ],
+);
+
+/** A team's role on one of its organization's repositories. Every member of the team holds it. */
+export const repositoryTeam = pgTable(
+  "repository_team",
+  {
+    repositoryId: text()
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    teamId: text()
+      .references(() => team.id, { onDelete: "cascade" })
+      .notNull(),
+    role: repositoryRole().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.repositoryId, t.teamId] }),
+    index("repository_team_team_idx").on(t.teamId),
   ],
 );

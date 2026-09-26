@@ -92,9 +92,9 @@ export default async function RepositoryCommitsPage({
       </div>
 
       <CursorPagination
-        firstHref={base}
-        nextHref={nextCursor ? `${base}?cursor=${nextCursor}` : null}
-        isFirstPage={!cursor}
+        pathname={base}
+        cursor={typeof cursor === "string" ? cursor : undefined}
+        nextCursor={nextCursor}
       />
     </>
   );
