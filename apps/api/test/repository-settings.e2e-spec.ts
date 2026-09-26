@@ -124,6 +124,20 @@ describe.skipIf(!hasBackends)('repository settings', () => {
     await update({ name: 'settings' })
       .expect(200)
       .expect(({ body }) => expect(body.slug).toBe(repo));
+
+    // A clash on creation gave this one a suffixed slug; saving it unchanged must not hand it another.
+    const { body: twin } = await api()
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'settings' })
+      .expect(201);
+    expect(twin.slug).not.toBe(repo);
+    await api()
+      .patch(at(twin.slug))
+      .set('cookie', owner.cookie)
+      .send({ name: 'settings', description: 'twin' })
+      .expect(200)
+      .expect(({ body }) => expect(body.slug).toBe(twin.slug));
   });
 
   it('moves the repository to a new slug when renamed', async () => {

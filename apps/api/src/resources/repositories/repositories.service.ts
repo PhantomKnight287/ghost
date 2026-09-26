@@ -430,8 +430,9 @@ export class RepositoriesService {
         description,
         visibility,
         defaultBranch,
+        // A form resends the name on every save; recomputing it could hand a suffixed slug a new suffix.
         slug:
-          name === undefined
+          name === undefined || name === repository.name
             ? undefined
             : await this.freeSlug(repository.ownerId, name, repository.id),
       })
