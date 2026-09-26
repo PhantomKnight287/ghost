@@ -5,6 +5,7 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   ilike,
   inArray,
   isNotNull,
@@ -99,9 +100,14 @@ import type {
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
 import {
+  acceptedCollaboration,
+  type Actor,
+  atLeast,
   type Repository,
   RepositoryAccessService,
+  type RepositoryOperation,
 } from '../../services/git/repository-access/repository-access.service.js';
+import { RepositoryForbiddenError } from '../../lib/git/repository-access/repository-access.errors.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 import type {
@@ -109,6 +115,8 @@ import type {
   SearchRepositoryCodeResponseDTO,
 } from './dto/search-code.dto.js';
 import type { SearchRepositoriesResponseDTO } from './dto/search-repositories.dto.js';
+import type { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
+import type { Role } from '../../lib/permissions.js';
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -160,7 +168,6 @@ export class RepositoriesService {
     query: GetRepositoriesQueryDTO = {},
   ) {
     const user = await this.usersService.getUserByUsername(username);
-    const includePrivate = user.id === requesterId;
 
     const { pageSize, after } = this.page(
       query,
@@ -169,15 +176,66 @@ export class RepositoriesService {
     );
 
     const rows = await this.db
-      .select()
+      .select(getTableColumns(schema.repository))
       .from(schema.repository)
+      .leftJoin(
+        schema.repositoryCollaborator,
+        acceptedCollaboration(schema.repository.id, actorOf(requesterId)),
+      )
       .where(
         and(
           eq(schema.repository.ownerId, user.id),
-          inArray(
-            schema.repository.visibility,
-            includePrivate ? ['private', 'public'] : ['public'],
+          readableBy(requesterId),
+          matching(query.q),
+          after,
+        ),
+      )
+      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
+      .limit(pageSize + 1);
+
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
+      date: row.lastPushedAt,
+      id: row.id,
+    }));
+
+    return { repositories: page, nextCursor, hasMore };
+  }
+
+  /** Repositories the requester owns or has accepted an invitation to, most recently pushed first. */
+  async getViewerRepositories(
+    requesterId: string,
+    query: GetRepositoriesQueryDTO,
+  ): Promise<GetViewerRepositoriesResponseDTO> {
+    const { pageSize, after } = this.page(
+      query,
+      schema.repository.lastPushedAt,
+      schema.repository.id,
+    );
+
+    const rows = await this.db
+      .select({
+        id: schema.repository.id,
+        owner: sql<string>`${schema.user.username}`,
+        name: schema.repository.name,
+        slug: schema.repository.slug,
+        description: schema.repository.description,
+        visibility: schema.repository.visibility,
+        lastPushedAt: schema.repository.lastPushedAt,
+        viewerRole: sql<Role>`case when ${schema.repository.ownerId} = ${requesterId} then 'owner' else ${schema.repositoryCollaborator.role}::text end`,
+      })
+      .from(schema.repository)
+      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.repositoryCollaborator,
+        acceptedCollaboration(schema.repository.id, actorOf(requesterId)),
+      )
+      .where(
+        and(
+          or(
+            eq(schema.repository.ownerId, requesterId),
+            isNotNull(schema.repositoryCollaborator.id),
           ),
+          isNotNull(schema.user.username),
           matching(query.q),
           after,
         ),
@@ -411,11 +469,19 @@ export class RepositoriesService {
     requesterId: string;
     changes: UpdateRepositoryRequestDTO;
   }) {
-    const repository = await this.authorizeAdmin({
+    const repository = await this.authorizeAs('maintain', {
       username,
       slug,
       requesterId,
     });
+    // Visibility decides who can see the code at all, which is an admin's call.
+    if (
+      visibility !== undefined &&
+      visibility !== repository.visibility &&
+      !atLeast(repository.viewerRole, 'admin')
+    ) {
+      throw new RepositoryForbiddenError();
+    }
 
     if (defaultBranch !== undefined) {
       const stored = await this.wal.readIndex(repository.id);
@@ -475,7 +541,7 @@ export class RepositoriesService {
     slug: string;
     requesterId: string;
   }) {
-    const repository = await this.authorizeAdmin({
+    const repository = await this.authorizeAs('admin', {
       username,
       slug,
       requesterId,
@@ -611,28 +677,22 @@ export class RepositoriesService {
     slug: string;
     requesterId?: string;
   }) {
-    return this.access.authorize({
-      username,
-      repo: slug,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation: 'read',
-    });
+    return this.authorizeAs('read', { username, slug, requesterId });
   }
 
-  private authorizeAdmin({
-    username,
-    slug,
-    requesterId,
-  }: {
-    username: string;
-    slug: string;
-    requesterId: string;
-  }) {
+  private authorizeAs(
+    operation: RepositoryOperation,
+    {
+      username,
+      slug,
+      requesterId,
+    }: { username: string; slug: string; requesterId?: string },
+  ) {
     return this.access.authorize({
       username,
       repo: slug,
-      actor: { userId: requesterId },
-      operation: 'admin',
+      actor: actorOf(requesterId),
+      operation,
     });
   }
 
@@ -1194,16 +1254,15 @@ export class RepositoriesService {
       })
       .from(schema.repository)
       .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.repositoryCollaborator,
+        acceptedCollaboration(schema.repository.id, actorOf(requesterId)),
+      )
       .where(
         and(
           eq(schema.repository.parentRepositoryId, repository.id),
           // a private fork is the forker's business, not the parent's
-          requesterId
-            ? or(
-                eq(schema.repository.visibility, 'public'),
-                eq(schema.repository.ownerId, requesterId),
-              )
-            : eq(schema.repository.visibility, 'public'),
+          readableBy(requesterId),
           after,
         ),
       )
@@ -1379,6 +1438,19 @@ export class RepositoriesService {
 
     throw new BranchNotFoundError(name);
   }
+}
+
+function actorOf(requesterId: string | undefined): Actor {
+  return requesterId ? { userId: requesterId } : null;
+}
+
+/** Public, or private and the requester's own or shared with them. Needs `repository_collaborator` left-joined by `acceptedCollaboration`. */
+function readableBy(requesterId: string | undefined) {
+  return or(
+    eq(schema.repository.visibility, 'public'),
+    requesterId ? eq(schema.repository.ownerId, requesterId) : undefined,
+    isNotNull(schema.repositoryCollaborator.id),
+  );
 }
 
 /** Name or description contains `q`, ignoring case. A blank query filters nothing. */

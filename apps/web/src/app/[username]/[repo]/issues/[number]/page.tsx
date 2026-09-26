@@ -3,7 +3,12 @@ import { notFound } from "next/navigation";
 import { CommentBox } from "@/components/issues/comments";
 import { Timeline } from "@/components/issues/timeline";
 import { Markdown } from "@/components/markdown";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import {
+  createServerClient,
+  getServerSession,
+  getViewerRole,
+} from "@/lib/api/server";
+import { atLeast } from "@/lib/repository-role";
 
 import { AssigneeEditor, EditableField, LabelEditor } from "./page.client";
 
@@ -12,9 +17,10 @@ export default async function IssuePage({
 }: PageProps<"/[username]/[repo]/issues/[number]">) {
   const { username, repo, number } = await params;
 
-  const [session, client] = await Promise.all([
+  const [session, client, role] = await Promise.all([
     getServerSession(),
     createServerClient(),
+    getViewerRole(username, repo),
   ]);
 
   const path = { username, repo, number: Number(number) };
@@ -37,6 +43,8 @@ export default async function IssuePage({
   const viewer = session?.user.username;
   // Server-computed: the author, or whoever can write to the repository.
   const canEdit = issue.data.viewerCanEdit;
+  // Triage closes, labels and assigns other people's issues without being able to edit them.
+  const canTriage = canEdit || atLeast(role, "triage");
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
@@ -72,6 +80,7 @@ export default async function IssuePage({
           repo={repo}
           number={Number(number)}
           viewer={viewer}
+          canModerate={atLeast(role, "write")}
           items={timeline.data?.timeline ?? []}
           noun="issue"
         />
@@ -82,7 +91,7 @@ export default async function IssuePage({
           number={Number(number)}
           signedIn={Boolean(viewer)}
           state={issue.data.state}
-          canChangeState={canEdit}
+          canChangeState={canTriage}
         />
       </div>
 
@@ -93,14 +102,15 @@ export default async function IssuePage({
           number={Number(number)}
           attached={issue.data.labels}
           available={labels.data?.labels ?? []}
-          canEdit={canEdit}
+          canEdit={canTriage}
+          canManage={atLeast(role, "write")}
         />
         <AssigneeEditor
           username={username}
           repo={repo}
           number={Number(number)}
           assignees={issue.data.assignees}
-          canEdit={canEdit}
+          canEdit={canTriage}
         />
       </aside>
     </div>

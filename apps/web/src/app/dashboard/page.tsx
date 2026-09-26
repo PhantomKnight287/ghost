@@ -1,9 +1,12 @@
 "use client";
 
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useState } from "react";
 import { BookMarked, GitBranch, Plus, Search, Users } from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
+import { Invitations } from "@/components/repositories/invitations";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
 import { RepositoryCard, type Repository } from "@/components/repository-card";
 import { useAuthenticate } from "@/lib/auth/use-authenticate";
@@ -15,14 +18,35 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
+import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
-
-const repositories: Repository[] = [];
 
 export default function DashboardPage() {
   const { data } = useAuthenticate(authClient);
   const username = data?.user.username ?? "";
   const owners = username ? [username] : [];
+  const [q, setQ] = useState("");
+
+  // Owned and shared alike, most recently pushed first.
+  const { data: repositories = [], isPending } = useQuery({
+    queryKey: ["viewer-repositories", q],
+    enabled: Boolean(username),
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<Repository[]> => {
+      const { data, error } = await apiClient.GET("/api/repositories", {
+        params: { query: { q: q.trim() || undefined, limit: 50 } },
+      });
+      if (error) throw new Error(apiErrorMessage(error));
+      return data.repositories.map((repository) => ({
+        name: repository.name,
+        slug: repository.slug,
+        owner: repository.owner,
+        description: repository.description ?? undefined,
+        visibility: repository.visibility,
+        updatedAt: repository.lastPushedAt,
+      }));
+    },
+  });
 
   return (
     <div className="flex min-h-full flex-col">
@@ -48,6 +72,8 @@ export default function DashboardPage() {
               type="search"
               placeholder="Find a repository"
               aria-label="Find a repository"
+              value={q}
+              onChange={(event) => setQ(event.target.value)}
             />
           </InputGroup>
 
@@ -63,7 +89,11 @@ export default function DashboardPage() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              You don&apos;t have any repositories yet.
+              {isPending
+                ? "Loading repositories…"
+                : q.trim()
+                  ? "No repositories match."
+                  : "You don't have any repositories yet."}
             </p>
           )}
 
@@ -86,6 +116,8 @@ export default function DashboardPage() {
               Push your first commit or start a new project.
             </p>
           </div>
+
+          <Invitations />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <StartCard

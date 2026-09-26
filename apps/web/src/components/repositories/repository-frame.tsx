@@ -28,10 +28,12 @@ import {
 } from "@/components/ui/select";
 
 import { API_URL, sshCloneUrlFor } from "@/lib/env";
+import { atLeast } from "@/lib/repository-role";
 import type { RepositoryFrameProps } from "@/types/repository";
 
 export function RepositoryFrame({
   viewer,
+  viewerRole,
   username,
   slug,
   name,
@@ -80,7 +82,7 @@ export function RepositoryFrame({
       href: `${base}/pulls`,
       count: openPullRequestCount ?? null,
     },
-    ...(viewer === username
+    ...(atLeast(viewerRole, "maintain")
       ? [
           {
             value: "settings",

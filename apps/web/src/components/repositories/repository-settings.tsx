@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 import {
@@ -49,6 +49,8 @@ export function RepositorySettings({
   visibility,
   defaultBranch,
   branches,
+  isAdmin,
+  collaborators,
 }: {
   username: string;
   slug: string;
@@ -57,6 +59,9 @@ export function RepositorySettings({
   visibility: "public" | "private";
   defaultBranch: string | null;
   branches: string[];
+  /** Visibility and deletion are an admin's; a maintainer sees the rest. */
+  isAdmin: boolean;
+  collaborators?: ReactNode;
 }) {
   const {
     control,
@@ -144,19 +149,22 @@ export function RepositorySettings({
             </Field>
           )}
 
-          <FieldSeparator />
-
-          <Controller
-            control={control}
-            name="visibility"
-            render={({ field }) => (
-              <VisibilityField
-                id="settings-visibility"
-                value={field.value}
-                onChange={field.onChange}
+          {isAdmin && (
+            <>
+              <FieldSeparator />
+              <Controller
+                control={control}
+                name="visibility"
+                render={({ field }) => (
+                  <VisibilityField
+                    id="settings-visibility"
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
               />
-            )}
-          />
+            </>
+          )}
 
           {result.serverError && <FieldError>{result.serverError}</FieldError>}
         </FieldGroup>
@@ -169,19 +177,25 @@ export function RepositorySettings({
         </div>
       </form>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-destructive">Danger zone</h2>
-        <div className="flex flex-col gap-3 rounded-lg border border-destructive/50 p-4 sm:flex-row sm:items-center">
-          <div className="flex flex-1 flex-col gap-1">
-            <p className="text-sm font-medium">Delete this repository</p>
-            <p className="text-sm text-muted-foreground">
-              Its code, issues, pull requests and stars are gone for good. Forks
-              are kept.
-            </p>
+      {collaborators}
+
+      {isAdmin && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold text-destructive">
+            Danger zone
+          </h2>
+          <div className="flex flex-col gap-3 rounded-lg border border-destructive/50 p-4 sm:flex-row sm:items-center">
+            <div className="flex flex-1 flex-col gap-1">
+              <p className="text-sm font-medium">Delete this repository</p>
+              <p className="text-sm text-muted-foreground">
+                Its code, issues, pull requests and stars are gone for good.
+                Forks are kept.
+              </p>
+            </div>
+            <DeleteRepositoryDialog username={username} slug={slug} />
           </div>
-          <DeleteRepositoryDialog username={username} slug={slug} />
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

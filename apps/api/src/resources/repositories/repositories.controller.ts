@@ -79,6 +79,7 @@ import {
   SearchRepositoryCodeResponseDTO,
 } from './dto/search-code.dto.js';
 import { UpdateRepositoryRequestDTO } from './dto/update-repository.dto.js';
+import { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
 import { RepositoryEntity } from './entities/repository.entity.js';
 import { RepositoriesService } from './repositories.service.js';
 
@@ -106,6 +107,28 @@ export class RepositoriesController {
     @Session() session: UserSession,
   ) {
     return this.repositoriesService.createRepository(body, session.user.id);
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'List my repositories',
+    description:
+      "Repositories the signed-in user owns or collaborates on, most recently pushed first, with the user's role on each. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
+  })
+  @ApiOkResponse({
+    type: GetViewerRepositoriesResponseDTO,
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDTO,
+  })
+  getViewerRepositories(
+    @Session() session: UserSession,
+    @Query() query: GetRepositoriesQueryDTO,
+  ): Promise<GetViewerRepositoriesResponseDTO> {
+    return this.repositoriesService.getViewerRepositories(
+      session.user.id,
+      query,
+    );
   }
 
   @Get(':username')

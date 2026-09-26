@@ -66,6 +66,69 @@
         "tags": [
           "Repositories"
         ]
+      },
+      "get": {
+        "description": "Repositories the signed-in user owns or collaborates on, most recently pushed first, with the user's role on each. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
+        "operationId": "RepositoriesController_getViewerRepositories",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Keep repositories whose name or description contains this text, ignoring case.",
+            "schema": {
+              "example": "ghost",
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetViewerRepositoriesResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List my repositories",
+        "tags": [
+          "Repositories"
+        ]
       }
     },
     "/api/repositories/{username}": {
@@ -3567,6 +3630,304 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/collaborators": {
+      "get": {
+        "description": "Collaborators and pending invitations. Admins only.",
+        "operationId": "CollaboratorsController_list",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListCollaboratorsResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List collaborators",
+        "tags": [
+          "Collaborators"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/collaborators/{collaborator}": {
+      "put": {
+        "description": "Invites the user, who gets access once they accept. For someone already invited or collaborating, changes the role. Admins only.",
+        "operationId": "CollaboratorsController_invite",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collaborator",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteCollaboratorRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollaboratorDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Invite a collaborator or change their role",
+        "tags": [
+          "Collaborators"
+        ]
+      },
+      "delete": {
+        "description": "Removes a collaborator or withdraws an invitation. Admins only, except that collaborators may remove themselves.",
+        "operationId": "CollaboratorsController_remove",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collaborator",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove a collaborator",
+        "tags": [
+          "Collaborators"
+        ]
+      }
+    },
+    "/api/invitations": {
+      "get": {
+        "description": "Repositories the signed-in user has been invited to collaborate on.",
+        "operationId": "InvitationsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListInvitationsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List my pending invitations",
+        "tags": [
+          "Collaborators"
+        ]
+      }
+    },
+    "/api/invitations/{id}/accept": {
+      "post": {
+        "operationId": "InvitationsController_accept",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Accept an invitation",
+        "tags": [
+          "Collaborators"
+        ]
+      }
+    },
+    "/api/invitations/{id}": {
+      "delete": {
+        "operationId": "InvitationsController_decline",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Decline an invitation",
+        "tags": [
+          "Collaborators"
+        ]
+      }
+    },
     "/api/emails": {
       "get": {
         "operationId": "EmailsController_list",
@@ -4292,6 +4653,93 @@
           "message"
         ]
       },
+      "ViewerRole": {
+        "type": "string",
+        "enum": [
+          "read",
+          "triage",
+          "write",
+          "maintain",
+          "admin",
+          "owner"
+        ]
+      },
+      "ViewerRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string",
+            "example": "octocat"
+          },
+          "name": {
+            "type": "string",
+            "example": "ghost"
+          },
+          "slug": {
+            "type": "string",
+            "example": "ghost"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastPushedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "visibility": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryVisibility"
+              }
+            ]
+          },
+          "viewerRole": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ViewerRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "owner",
+          "name",
+          "slug",
+          "description",
+          "lastPushedAt",
+          "visibility",
+          "viewerRole"
+        ]
+      },
+      "GetViewerRepositoriesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewerRepositoryDTO"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass back as `cursor` for the next page. `null` on the last page."
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repositories",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
       "RepositoryParentEntity": {
         "type": "object",
         "properties": {
@@ -4356,6 +4804,15 @@
             "nullable": true,
             "description": "Slug of the viewer's own fork of this repository, if any"
           },
+          "viewerRole": {
+            "nullable": true,
+            "description": "The viewer's role here: `owner`, a collaborator role, or null for anyone else.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ViewerRole"
+              }
+            ]
+          },
           "parent": {
             "nullable": true,
             "description": "The repository this one was forked from",
@@ -4377,7 +4834,8 @@
           "updatedAt",
           "starCount",
           "viewerHasStarred",
-          "forkCount"
+          "forkCount",
+          "viewerRole"
         ]
       },
       "GetRepositoriesResponseDTO": {
@@ -6471,6 +6929,171 @@
             "example": "d73a4a"
           }
         }
+      },
+      "RepositoryRole": {
+        "type": "string",
+        "enum": [
+          "read",
+          "triage",
+          "write",
+          "maintain",
+          "admin"
+        ]
+      },
+      "CollaboratorStatus": {
+        "type": "string",
+        "enum": [
+          "accepted",
+          "pending",
+          "expired"
+        ],
+        "description": "Only `accepted` grants access. An `expired` invitation is sent again by inviting the user again."
+      },
+      "CollaboratorDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryRole"
+              }
+            ]
+          },
+          "status": {
+            "description": "Only `accepted` grants access. An `expired` invitation is sent again by inviting the user again.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CollaboratorStatus"
+              }
+            ]
+          },
+          "invitedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the invitation lapses, or lapsed. Null once accepted."
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "image",
+          "role",
+          "status",
+          "invitedAt",
+          "expiresAt"
+        ]
+      },
+      "ListCollaboratorsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "collaborators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CollaboratorDTO"
+            }
+          }
+        },
+        "required": [
+          "collaborators"
+        ]
+      },
+      "InviteCollaboratorRequestDTO": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "description": "A new invitation is sent with this role; for someone already invited or collaborating, the role is changed in place.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryRole"
+              }
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "InvitationRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "slug",
+          "name"
+        ]
+      },
+      "InvitationDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "repository": {
+            "$ref": "#/components/schemas/InvitationRepositoryDTO"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryRole"
+              }
+            ]
+          },
+          "invitedByUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "invitedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "repository",
+          "role",
+          "invitedByUsername",
+          "invitedAt",
+          "expiresAt"
+        ]
+      },
+      "ListInvitationsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "invitations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvitationDTO"
+            }
+          }
+        },
+        "required": [
+          "invitations"
+        ]
       },
       "UserEmailDTO": {
         "type": "object",

@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import createFetchClient from "openapi-fetch";
 
 import { authClient } from "@/lib/auth-client";
@@ -30,3 +31,12 @@ export async function getServerSession() {
 
   return data;
 }
+
+/** The viewer's role on a repository, fetched once per render however many components ask. */
+export const getViewerRole = cache(async (username: string, slug: string) => {
+  const client = await createServerClient();
+  const { data } = await client.GET("/api/repositories/{username}/{slug}", {
+    params: { path: { username, slug } },
+  });
+  return data?.viewerRole ?? null;
+});

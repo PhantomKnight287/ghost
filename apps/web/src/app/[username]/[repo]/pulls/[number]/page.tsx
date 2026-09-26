@@ -3,7 +3,12 @@ import { notFound } from "next/navigation";
 import { CommentBox } from "@/components/issues/comments";
 import { Timeline } from "@/components/issues/timeline";
 import { Markdown } from "@/components/markdown";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import {
+  createServerClient,
+  getServerSession,
+  getViewerRole,
+} from "@/lib/api/server";
+import { atLeast } from "@/lib/repository-role";
 
 import { EditableField, MergePanel } from "./page.client";
 
@@ -12,9 +17,10 @@ export default async function PullRequestPage({
 }: PageProps<"/[username]/[repo]/pulls/[number]">) {
   const { username, repo, number } = await params;
 
-  const [session, client] = await Promise.all([
+  const [session, client, role] = await Promise.all([
     getServerSession(),
     createServerClient(),
+    getViewerRole(username, repo),
   ]);
 
   const path = { username, repo, number: Number(number) };
@@ -33,7 +39,7 @@ export default async function PullRequestPage({
   const viewer = session?.user.username;
   const canEdit =
     Boolean(viewer) &&
-    (viewer === pull.data.authorUsername || viewer === username);
+    (viewer === pull.data.authorUsername || atLeast(role, "write"));
 
   return (
     <div className="flex flex-col gap-4">
@@ -66,6 +72,7 @@ export default async function PullRequestPage({
         repo={repo}
         number={Number(number)}
         viewer={viewer}
+        canModerate={atLeast(role, "write")}
         items={timeline.data?.timeline ?? []}
         noun="pull request"
       />
@@ -83,8 +90,7 @@ export default async function PullRequestPage({
         number={Number(number)}
         state={pull.data.state}
         mergeable={pull.data.mergeable}
-        // only the base repository's owner can write to it
-        canMerge={Boolean(viewer) && viewer === username}
+        canMerge={atLeast(role, "write")}
         isAuthor={viewer === pull.data.authorUsername}
         mergeCommitSha={pull.data.mergeCommitSha}
       />

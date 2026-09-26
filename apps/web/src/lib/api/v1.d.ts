@@ -27,7 +27,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List my repositories
+         * @description Repositories the signed-in user owns or collaborates on, most recently pushed first, with the user's role on each. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.
+         */
+        get: operations["RepositoriesController_getViewerRepositories"];
         put?: never;
         /**
          * Create Repository
@@ -780,6 +784,104 @@ export interface paths {
         patch: operations["LabelsController_updateLabel"];
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/collaborators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List collaborators
+         * @description Collaborators and pending invitations. Admins only.
+         */
+        get: operations["CollaboratorsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/collaborators/{collaborator}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Invite a collaborator or change their role
+         * @description Invites the user, who gets access once they accept. For someone already invited or collaborating, changes the role. Admins only.
+         */
+        put: operations["CollaboratorsController_invite"];
+        post?: never;
+        /**
+         * Remove a collaborator
+         * @description Removes a collaborator or withdraws an invitation. Admins only, except that collaborators may remove themselves.
+         */
+        delete: operations["CollaboratorsController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my pending invitations
+         * @description Repositories the signed-in user has been invited to collaborate on.
+         */
+        get: operations["InvitationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept an invitation */
+        post: operations["InvitationsController_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Decline an invitation */
+        delete: operations["InvitationsController_decline"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/emails": {
         parameters: {
             query?: never;
@@ -1053,6 +1155,28 @@ export interface components {
         ErrorResponseDTO: {
             message: string;
         };
+        /** @enum {string} */
+        ViewerRole: "read" | "triage" | "write" | "maintain" | "admin" | "owner";
+        ViewerRepositoryDTO: {
+            id: string;
+            /** @example octocat */
+            owner: string;
+            /** @example ghost */
+            name: string;
+            /** @example ghost */
+            slug: string;
+            description: string | null;
+            /** Format: date-time */
+            lastPushedAt: string;
+            visibility: components["schemas"]["RepositoryVisibility"];
+            viewerRole: components["schemas"]["ViewerRole"];
+        };
+        GetViewerRepositoriesResponseDTO: {
+            repositories: components["schemas"]["ViewerRepositoryDTO"][];
+            /** @description Pass back as `cursor` for the next page. `null` on the last page. */
+            nextCursor: string | null;
+            hasMore: boolean;
+        };
         RepositoryParentEntity: {
             username: string;
             slug: string;
@@ -1072,6 +1196,8 @@ export interface components {
             forkCount: number;
             /** @description Slug of the viewer's own fork of this repository, if any */
             viewerForkSlug?: string | null;
+            /** @description The viewer's role here: `owner`, a collaborator role, or null for anyone else. */
+            viewerRole: components["schemas"]["ViewerRole"] | null;
             /** @description The repository this one was forked from */
             parent?: components["schemas"]["RepositoryParentEntity"] | null;
         };
@@ -1781,6 +1907,47 @@ export interface components {
             /** @example d73a4a */
             color?: string;
         };
+        /** @enum {string} */
+        RepositoryRole: "read" | "triage" | "write" | "maintain" | "admin";
+        /**
+         * @description Only `accepted` grants access. An `expired` invitation is sent again by inviting the user again.
+         * @enum {string}
+         */
+        CollaboratorStatus: "accepted" | "pending" | "expired";
+        CollaboratorDTO: {
+            username: string;
+            name: string;
+            image: string | null;
+            role: components["schemas"]["RepositoryRole"];
+            /** @description Only `accepted` grants access. An `expired` invitation is sent again by inviting the user again. */
+            status: components["schemas"]["CollaboratorStatus"];
+            invitedAt: string;
+            /** @description When the invitation lapses, or lapsed. Null once accepted. */
+            expiresAt: string | null;
+        };
+        ListCollaboratorsResponseDTO: {
+            collaborators: components["schemas"]["CollaboratorDTO"][];
+        };
+        InviteCollaboratorRequestDTO: {
+            /** @description A new invitation is sent with this role; for someone already invited or collaborating, the role is changed in place. */
+            role: components["schemas"]["RepositoryRole"];
+        };
+        InvitationRepositoryDTO: {
+            username: string;
+            slug: string;
+            name: string;
+        };
+        InvitationDTO: {
+            id: string;
+            repository: components["schemas"]["InvitationRepositoryDTO"];
+            role: components["schemas"]["RepositoryRole"];
+            invitedByUsername: string | null;
+            invitedAt: string;
+            expiresAt: string;
+        };
+        ListInvitationsResponseDTO: {
+            invitations: components["schemas"]["InvitationDTO"][];
+        };
         UserEmailDTO: {
             /** @description Row id, or `primary` for the account address itself */
             id: string;
@@ -1903,6 +2070,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    RepositoriesController_getViewerRepositories: {
+        parameters: {
+            query?: {
+                /** @description Keep repositories whose name or description contains this text, ignoring case. */
+                q?: string;
+                /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
+                cursor?: string;
+                /** @description Page size. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetViewerRepositoriesResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
             };
         };
     };
@@ -3845,6 +4046,205 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CollaboratorsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListCollaboratorsResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CollaboratorsController_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                collaborator: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteCollaboratorRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaboratorDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CollaboratorsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                collaborator: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    InvitationsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListInvitationsResponseDTO"];
+                };
+            };
+        };
+    };
+    InvitationsController_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    InvitationsController_decline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
