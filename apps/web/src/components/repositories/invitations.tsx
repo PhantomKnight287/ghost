@@ -35,7 +35,12 @@ export function Invitations() {
           });
       if (error) throw new Error(apiErrorMessage(error));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: (_, { accept }) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+        accept &&
+          queryClient.invalidateQueries({ queryKey: ["viewer-repositories"] }),
+      ]),
     onError: (error: Error) => toast.error(error.message),
   });
 
