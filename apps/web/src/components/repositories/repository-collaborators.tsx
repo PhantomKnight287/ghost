@@ -7,6 +7,7 @@ import { Fragment, type ReactNode, useState } from "react";
 import { toast } from "sonner";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
+import { RoleSelect } from "@/components/role-select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,13 +31,6 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { components } from "@/lib/api/v1";
 import {
   type CollaboratorRole,
@@ -111,6 +105,7 @@ export function RepositoryCollaborators({
                   {index > 0 && <ItemSeparator className="my-0!" />}
                   <PersonRow collaborator={collaborator}>
                     <RoleSelect
+                      roles={collaboratorRoles}
                       value={collaborator.role}
                       disabled={busy}
                       onChange={(role) => setRole(collaborator.username, role)}
@@ -211,7 +206,12 @@ function InviteCard({ username, slug }: RepositoryProps) {
         </Field>
         <Field className="sm:w-40">
           <FieldLabel htmlFor="invite-role">Role</FieldLabel>
-          <RoleSelect id="invite-role" value={role} onChange={setRole} />
+          <RoleSelect
+            id="invite-role"
+            roles={collaboratorRoles}
+            value={role}
+            onChange={setRole}
+          />
         </Field>
       </div>
       <FieldDescription className="mt-3">
@@ -270,42 +270,5 @@ function PersonRow({
       </ItemContent>
       <ItemActions>{children}</ItemActions>
     </Item>
-  );
-}
-
-function RoleSelect({
-  id,
-  value,
-  onChange,
-  label,
-  disabled,
-}: {
-  id?: string;
-  value: CollaboratorRole;
-  onChange: (role: CollaboratorRole) => void;
-  label?: string;
-  disabled?: boolean;
-}) {
-  return (
-    <Select
-      value={value}
-      disabled={disabled}
-      onValueChange={(next) => onChange(next as CollaboratorRole)}
-    >
-      <SelectTrigger
-        id={id}
-        aria-label={label}
-        className="w-full capitalize sm:w-32"
-      >
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {collaboratorRoles.map((role) => (
-          <SelectItem key={role} value={role} className="capitalize">
-            {role}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }

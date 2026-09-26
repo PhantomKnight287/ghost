@@ -14,10 +14,33 @@ export default async function Image({
   const { username } = await params;
 
   const client = await createServerClient();
-  const { data } = await client.GET("/api/users/{username}", {
-    params: { path: { username } },
-  });
+  const [{ data }, organization] = await Promise.all([
+    client.GET("/api/users/{username}", { params: { path: { username } } }),
+    client.GET("/api/organizations/{slug}", {
+      params: { path: { slug: username } },
+    }),
+  ]);
 
+  if (organization.data) {
+    const org = organization.data;
+    return ogCard({
+      eyebrow: "Organization",
+      icon: "user",
+      avatar: org.logo,
+      title: org.name,
+      description: `@${org.slug}`,
+      stats: [
+        {
+          icon: "folder",
+          label: plural(org.repositoryCount, "repository", "repositories"),
+        },
+        {
+          icon: "clock",
+          label: `since ${new Date(org.createdAt).getFullYear()}`,
+        },
+      ],
+    });
+  }
   if (!data) notFound();
   return ogCard({
     eyebrow: "User Profile",

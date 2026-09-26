@@ -1,57 +1,35 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { type Database, schema } from '@ghost/db';
-import { and, count, eq, gte, inArray, lt, or, sum } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
-import type { Readable } from 'node:stream';
+import { and, count, eq, gte, inArray, isNull, lt, or, sum } from 'drizzle-orm';
 
-import { DATABASE } from '../../database/database.module.js';
-import { S3Service } from '../../services/s3/s3.service.js';
-import { UsersService } from '../../services/users/users.service.js';
 import {
-  AVATAR_CONTENT_TYPES,
-  AVATAR_PREFIX,
-  type AvatarContentType,
-} from './avatar.constants.js';
-import type { UploadAvatarResponseDTO } from './dto/avatar.dto.js';
+  acceptedCollaboration,
+  organizationMembership,
+  readableBy,
+} from '../../lib/git/repository-access/repository-access.js';
+import { DATABASE } from '../../database/database.module.js';
+import { UsersService } from '../../services/users/users.service.js';
 import type {
   GetUserContributionsQueryDTO,
   GetUserContributionsResponseDTO,
 } from './dto/contributions.dto.js';
 import type { UserProfileResponseDTO } from './dto/profile.dto.js';
-import {
-  AvatarNotFoundError,
-  EmptyAvatarError,
-  UnsupportedAvatarTypeError,
-} from './user.errors.js';
-
-export type AvatarObject = {
-  stream: Readable;
-  contentType: string;
-  size?: number;
-};
 
 @Injectable()
 export class UserService {
-  private readonly publicUrl: string;
-
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly users: UsersService,
-    private readonly s3: S3Service,
-    configService: ConfigService,
-  ) {
-    this.publicUrl = configService
-      .getOrThrow<string>('BETTER_AUTH_URL')
-      .replace(/\/+$/, '');
-  }
+  ) {}
 
   /** The public profile: anything a signed-out visitor may see. */
   async getProfile(username: string): Promise<UserProfileResponseDTO> {
     const user = await this.users.getUserByUsername(username);
 
+    // Repositories the user created in an organization are the organization's.
     const publicRepositories = and(
       eq(schema.repository.ownerId, user.id),
+      isNull(schema.repository.organizationId),
       eq(schema.repository.visibility, 'public'),
     );
 
@@ -80,72 +58,6 @@ export class UserService {
     };
   }
 
-  async uploadAvatar({
-    userId,
-    contentType,
-    body,
-  }: {
-    userId: string;
-    contentType: string;
-    body: Buffer | undefined;
-  }): Promise<UploadAvatarResponseDTO> {
-    const extension =
-      AVATAR_CONTENT_TYPES[
-        contentType.split(';')[0]?.trim() as AvatarContentType
-      ];
-
-    if (!extension) throw new UnsupportedAvatarTypeError(contentType);
-    if (!body?.length) throw new EmptyAvatarError();
-
-    const name = `${nanoid()}.${extension}`;
-
-    await this.s3.putObject({
-      Bucket: this.s3.bucket,
-      Key: this.avatarKey(userId, name),
-      Body: body,
-      ContentType: contentType,
-    });
-
-    await this.deleteAvatarObjects(userId, name);
-
-    return { url: `${this.publicUrl}/api/users/avatars/${userId}/${name}` };
-  }
-
-  async deleteAvatar(userId: string): Promise<void> {
-    await this.deleteAvatarObjects(userId);
-  }
-
-  async getAvatar(userId: string, name: string): Promise<AvatarObject> {
-    try {
-      const object = await this.s3.getObject({
-        Bucket: this.s3.bucket,
-        Key: this.avatarKey(userId, name),
-      });
-
-      if (!object.Body) throw new AvatarNotFoundError();
-
-      return {
-        stream: object.Body as Readable,
-        contentType: object.ContentType ?? 'application/octet-stream',
-        size: object.ContentLength,
-      };
-    } catch (error) {
-      if (error instanceof AvatarNotFoundError) throw error;
-      throw new AvatarNotFoundError();
-    }
-  }
-
-  private avatarKey(userId: string, name: string) {
-    return `${AVATAR_PREFIX}/${userId}/${name}`;
-  }
-
-  private async deleteAvatarObjects(userId: string, keep?: string) {
-    await this.s3.deleteUnder(
-      `${AVATAR_PREFIX}/${userId}/`,
-      keep ? [this.avatarKey(userId, keep)] : [],
-    );
-  }
-
   /** Daily commit counts for the contribution graph, read from the index alone: rendering a profile must not materialize every repository. */
   async getContributions(
     username: string,
@@ -163,8 +75,9 @@ export class UserService {
     const to = `${year + 1}-01-01`;
     const counts = new Map<string, number>();
 
-    // Match on the account link or on a known author email, so adding an email never needs a reindex. Private repositories count only for their owner.
+    // Match on the account link or on a known author email, so adding an email never needs a reindex. Commits count wherever they landed, in any repository the viewer may read.
     const emails = await this.users.listVerifiedEmails(user);
+    const viewer = requesterId ? { userId: requesterId } : null;
     const rows = await this.db
       .select({
         day: schema.repositoryContribution.day,
@@ -175,13 +88,17 @@ export class UserService {
         schema.repository,
         eq(schema.repository.id, schema.repositoryContribution.repositoryId),
       )
+      .leftJoin(
+        schema.repositoryCollaborator,
+        acceptedCollaboration(schema.repository.id, viewer),
+      )
+      .leftJoin(
+        schema.member,
+        organizationMembership(schema.repository.organizationId, viewer),
+      )
       .where(
         and(
-          eq(schema.repository.ownerId, user.id),
-          inArray(
-            schema.repository.visibility,
-            user.id === requesterId ? ['private', 'public'] : ['public'],
-          ),
+          readableBy(viewer),
           or(
             eq(schema.repositoryContribution.authorId, user.id),
             inArray(schema.repositoryContribution.authorEmail, emails),

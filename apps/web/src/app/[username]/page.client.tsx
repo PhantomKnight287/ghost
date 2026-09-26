@@ -29,6 +29,7 @@ export function ProfileTabs({
   query,
   pagination,
   overview,
+  extraTabs = [],
 }: {
   username: string;
   isViewer: boolean;
@@ -40,6 +41,8 @@ export function ProfileTabs({
   pagination: ReactNode;
   /** Rendered on the server: the profile README, or its empty state. */
   overview: ReactNode;
+  /** After Repositories: a user's organizations, or an organization's people and teams. */
+  extraTabs?: { value: string; label: string; content: ReactNode }[];
 }) {
   const filter = useRef<HTMLFormElement>(null);
   const pending = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -49,7 +52,11 @@ export function ProfileTabs({
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="repositories">Repositories</TabsTrigger>
-        <TabsTrigger value="organizations">Organizations</TabsTrigger>
+        {extraTabs.map(({ value, label }) => (
+          <TabsTrigger key={value} value={value}>
+            {label}
+          </TabsTrigger>
+        ))}
       </TabsList>
 
       <TabsContent value="overview" className="flex flex-col gap-6 pt-6">
@@ -132,11 +139,11 @@ export function ProfileTabs({
         {pagination}
       </TabsContent>
 
-      <TabsContent value="organizations" className="pt-6">
-        <p className="text-sm text-muted-foreground">
-          {username} isn&apos;t a member of any organizations.
-        </p>
-      </TabsContent>
+      {extraTabs.map(({ value, content }) => (
+        <TabsContent key={value} value={value} className="pt-6">
+          {content}
+        </TabsContent>
+      ))}
     </Tabs>
   );
 }

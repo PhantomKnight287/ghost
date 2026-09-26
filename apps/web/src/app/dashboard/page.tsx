@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
+import { CreateOrganizationDialog } from "@/components/auth/organization/create-organization-dialog";
 import { Invitations } from "@/components/repositories/invitations";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
 import type { Repository } from "@/components/repository-card";
@@ -26,26 +27,52 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
+
+const ALL = "all";
 
 export default function DashboardPage() {
   const { data } = useAuthenticate(authClient);
   const username = data?.user.username ?? "";
   const owners = username ? [username] : [];
   const [q, setQ] = useState("");
+  const [creatingOrganization, setCreatingOrganization] = useState(false);
   // One request once typing pauses, not one per keystroke.
   const [search] = useDebouncedValue(q.trim(), { wait: 300 });
+  // Whose repositories the sidebar shows: everything, or one account's, the way GitHub's context switcher narrows the dashboard.
+  const [context, setContext] = useState(ALL);
+
+  const { data: organizations = [] } = useQuery({
+    queryKey: ["my-organizations", "all"],
+    enabled: Boolean(username),
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/organizations");
+      if (error) throw new Error(apiErrorMessage(error));
+      return data.organizations;
+    },
+  });
 
   // Owned and shared alike, most recently pushed first.
   const { data: repositories = [], isPending } = useQuery({
-    queryKey: ["viewer-repositories", search],
+    queryKey: ["viewer-repositories", search, context],
     enabled: Boolean(username),
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<Repository[]> => {
+      const scoped = [context === ALL ? "" : `org:${context}`, search]
+        .filter(Boolean)
+        .join(" ");
       const { data, error } = await apiClient.GET("/api/repositories", {
-        params: { query: { q: search || undefined, limit: 50 } },
+        params: { query: { q: scoped || undefined, limit: 50 } },
       });
       if (error) throw new Error(apiErrorMessage(error));
       return data.repositories.map((repository) => ({
@@ -74,6 +101,23 @@ export default function DashboardPage() {
               </Button>
             </NewRepositoryDialog>
           </div>
+
+          {organizations.length > 0 && (
+            <Select value={context} onValueChange={setContext}>
+              <SelectTrigger aria-label="Whose repositories" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All repositories</SelectItem>
+                <SelectItem value={username}>{username}</SelectItem>
+                {organizations.map((organization) => (
+                  <SelectItem key={organization.slug} value={organization.slug}>
+                    {organization.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           <InputGroup>
             <InputGroupAddon>
@@ -129,11 +173,13 @@ export default function DashboardPage() {
           <Invitations />
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <StartCard
-              icon={<BookMarked className="size-5" />}
-              title="Create a repository"
-              description="Host code, track changes, and collaborate."
-            />
+            <NewRepositoryDialog owners={owners} defaultOwner={username}>
+              <StartCard
+                icon={<BookMarked className="size-5" />}
+                title="Create a repository"
+                description="Host code, track changes, and collaborate."
+              />
+            </NewRepositoryDialog>
             <StartCard
               icon={<GitBranch className="size-5" />}
               title="Import a repository"
@@ -143,6 +189,11 @@ export default function DashboardPage() {
               icon={<Users className="size-5" />}
               title="Start an organization"
               description="Share repositories across a team."
+              onClick={() => setCreatingOrganization(true)}
+            />
+            <CreateOrganizationDialog
+              open={creatingOrganization}
+              onOpenChange={setCreatingOrganization}
             />
           </div>
 
@@ -162,17 +213,34 @@ export default function DashboardPage() {
   );
 }
 
+/** Clickable when it opens something: as a dialog trigger, the dialog passes its click handler in through `props`. */
 function StartCard({
   icon,
   title,
   description,
+  ...props
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
-}) {
+} & React.ComponentProps<typeof Card>) {
+  const interactive = Boolean(props.onClick);
   return (
-    <Card className="gap-3">
+    <Card
+      {...props}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (interactive && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          event.currentTarget.click();
+        }
+      }}
+      className={cn(
+        "gap-3",
+        interactive && "cursor-pointer transition-colors hover:bg-muted/50",
+      )}
+    >
       <CardHeader>
         <span className="text-muted-foreground">{icon}</span>
         <CardTitle className="text-sm">{title}</CardTitle>

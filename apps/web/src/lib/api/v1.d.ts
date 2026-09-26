@@ -112,6 +112,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfer repository
+         * @description Owner only. Moves at once to the requester's own account or an organization they administer; any other recipient accepts first. The old name keeps redirecting.
+         */
+        post: operations["RepositoriesController_transferRepository"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{slug}/star": {
         parameters: {
             query?: never;
@@ -431,6 +451,371 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List transfers waiting for me
+         * @description Repositories offered to the signed-in user or to an organization they administer.
+         */
+        get: operations["TransfersController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transfers/{repositoryId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept a transfer */
+        post: operations["TransfersController_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/transfers/{repositoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Decline or withdraw a transfer
+         * @description The recipient declines it, or whoever requested it withdraws it.
+         */
+        delete: operations["TransfersController_cancel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my organizations
+         * @description Organizations the signed-in user belongs to, with the user's role in each.
+         */
+        get: operations["OrganizationsController_listMine"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload the organization's logo
+         * @description Takes the raw image bytes, PNG or JPEG, and sets them as the logo. Admins only.
+         */
+        put: operations["OrganizationsController_setLogo"];
+        post?: never;
+        /** Remove the organization's logo. Admins only. */
+        delete: operations["OrganizationsController_removeLogo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organization settings. Admins only. */
+        get: operations["OrganizationsController_getSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change organization settings
+         * @description Base permission, repository policies and the public profile. Admins only.
+         */
+        patch: operations["OrganizationsController_updateSettings"];
+        trace?: never;
+    };
+    "/api/organizations/{slug}/public-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Make my membership public
+         * @description Lists the requester among the organization's public members, and the organization on their profile.
+         */
+        put: operations["OrganizationsController_publicize"];
+        post?: never;
+        /** Make my membership private */
+        delete: operations["OrganizationsController_conceal"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pin repositories
+         * @description Replaces the pinned repositories, up to six, in the order given. Admins only.
+         */
+        put: operations["OrganizationsController_setPinned"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/outside-collaborators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List outside collaborators
+         * @description People with access to the organization's repositories who are not members. Admins only.
+         */
+        get: operations["OrganizationsController_listOutsideCollaborators"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/outside-collaborators/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an outside collaborator
+         * @description Removes them, and their pending invitations, from every repository of the organization. Admins only.
+         */
+        delete: operations["OrganizationsController_removeOutsideCollaborator"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite a user by username
+         * @description Creates the same invitation an email invite would, addressed to the user's email without revealing it. Admins only.
+         */
+        post: operations["OrganizationsController_inviteByUsername"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Organization profile
+         * @description Public, except that members and the viewer role are only returned to members.
+         */
+        get: operations["OrganizationsController_getProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{username}/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the organizations a user belongs to
+         * @description Membership is private: the user sees all of theirs, anyone else only the ones they share.
+         */
+        get: operations["UserOrganizationsController_listForUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my organization invitations
+         * @description Pending invitations to organizations, addressed to the signed-in account's email. Accept or reject them through Better Auth's organization endpoints.
+         */
+        get: operations["OrganizationInvitationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List teams
+         * @description Members only.
+         */
+        get: operations["OrganizationTeamsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/teams/{team}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a team
+         * @description Its members, its maintainers and the repositories it reaches. Members only.
+         */
+        get: operations["OrganizationTeamsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/teams/{team}/members/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add a member to a team
+         * @description Takes a member of the organization. Admins and the team maintainers only.
+         */
+        put: operations["OrganizationTeamsController_addMember"];
+        post?: never;
+        /**
+         * Remove a member from a team
+         * @description Admins and the team maintainers only.
+         */
+        delete: operations["OrganizationTeamsController_removeMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/teams/{team}/maintainers/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Make a team member a maintainer
+         * @description A maintainer manages the team's members. Admins only.
+         */
+        put: operations["OrganizationTeamsController_appoint"];
+        post?: never;
+        /** Stop a member maintaining a team. Admins only. */
+        delete: operations["OrganizationTeamsController_dismiss"];
         options?: never;
         head?: never;
         patch?: never;
@@ -882,6 +1267,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List teams and their access
+         * @description Every team in the repository's organization, with its role here or null. Admins only.
+         */
+        get: operations["TeamsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/teams/{teamId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a team a role
+         * @description Every member of the team gets the role on this repository. Admins only.
+         */
+        put: operations["TeamsController_setRole"];
+        post?: never;
+        /** Remove a team's access. Admins only. */
+        delete: operations["TeamsController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/emails": {
         parameters: {
             query?: never;
@@ -1146,6 +1572,8 @@ export interface components {
         CreateRepositoryRequestDTO: {
             name: string;
             description?: string;
+            /** @description Slug of the organization to create the repository in; the requester's own account when omitted. Needs admin in the organization. */
+            organization?: string;
             visibility?: components["schemas"]["RepositoryVisibility"];
         };
         CreateRepositoryResponseDTO: {
@@ -1187,6 +1615,8 @@ export interface components {
             name: string;
             description?: string;
             slug: string;
+            /** @description The owner it lives under now; differs from the requested one after a rename or transfer. */
+            owner: string;
             visibility: components["schemas"]["RepositoryVisibility"];
             lastPushedAt: string;
             createdAt: string;
@@ -1219,11 +1649,24 @@ export interface components {
             name: string;
             description?: string;
             visibility: components["schemas"]["RepositoryVisibility"];
+            /** @description Slug of the organization to fork into; the requester's own account when omitted. Needs admin in the organization. */
+            organization?: string;
         };
         ForkRepositoryResponseDTO: {
             id: string;
             slug: string;
             username: string;
+        };
+        TransferRepositoryRequestDTO: {
+            /** @description The new owner: the requester's own username, or the slug of an organization the requester administers. */
+            owner: string;
+        };
+        TransferRepositoryResponseDTO: {
+            id: string;
+            slug: string;
+            username: string;
+            /** @description True when the recipient has to accept it first; the repository has not moved yet. */
+            pending: boolean;
         };
         StarRepositoryResponseDTO: {
             starCount: number;
@@ -1552,6 +1995,180 @@ export interface components {
         SearchCodeResponseDTO: {
             /** @description Files in public repositories that match, best first. Only repositories opened since code search was switched on are indexed. */
             files: components["schemas"]["SearchCodeFileDTO"][];
+        };
+        IncomingTransferRepositoryDTO: {
+            owner: string;
+            slug: string;
+            name: string;
+        };
+        IncomingTransferDTO: {
+            repositoryId: string;
+            repository: components["schemas"]["IncomingTransferRepositoryDTO"];
+            /** @description The account or organization it would move to. */
+            to: string;
+            requestedByUsername: string | null;
+            createdAt: string;
+        };
+        ListIncomingTransfersResponseDTO: {
+            transfers: components["schemas"]["IncomingTransferDTO"][];
+        };
+        /**
+         * @description Highest built-in role held; null when only custom roles are held.
+         * @enum {string}
+         */
+        OrganizationRole: "member" | "admin" | "owner";
+        MyOrganizationDTO: {
+            slug: string;
+            name: string;
+            logo: string | null;
+            /** @description Highest built-in role held; null when only custom roles are held. */
+            viewerRole: components["schemas"]["OrganizationRole"] | null;
+            /** @description Whether the organization lets the viewer create repositories in it, of at least one visibility. */
+            canCreateRepositories: boolean;
+        };
+        ListMyOrganizationsResponseDTO: {
+            organizations: components["schemas"]["MyOrganizationDTO"][];
+        };
+        UploadAvatarResponseDTO: {
+            /**
+             * @description Absolute URL the stored avatar is served from
+             * @example http://localhost:3001/api/users/avatars/<userId>/<name>.png
+             */
+            url: string;
+        };
+        /**
+         * @description Every member's role on every repository; null grants members nothing beyond their teams and collaborations.
+         * @enum {string}
+         */
+        RepositoryRole: "read" | "triage" | "write" | "maintain" | "admin";
+        OrganizationSettingsDTO: {
+            /** @description Every member's role on every repository; null grants members nothing beyond their teams and collaborations. */
+            basePermission: components["schemas"]["RepositoryRole"] | null;
+            membersCanCreatePublicRepositories: boolean;
+            membersCanCreatePrivateRepositories: boolean;
+            /** @description Whether its private repositories may be forked. */
+            allowPrivateForks: boolean;
+            /** @description Recorded as the default branch of each new repository. */
+            defaultBranch: string | null;
+            description: string | null;
+            website: string | null;
+            location: string | null;
+            email: string | null;
+        };
+        UpdateOrganizationSettingsDTO: {
+            basePermission?: components["schemas"]["RepositoryRole"] | null;
+            membersCanCreatePublicRepositories?: boolean;
+            membersCanCreatePrivateRepositories?: boolean;
+            allowPrivateForks?: boolean;
+            defaultBranch?: string | null;
+            description?: string | null;
+            website?: string | null;
+            location?: string | null;
+            email?: string | null;
+        };
+        SetPinnedRepositoriesDTO: {
+            /** @description Slugs of the organization's repositories, in display order. */
+            repositories: string[];
+        };
+        OutsideCollaboratorRepositoryDTO: {
+            slug: string;
+            role: components["schemas"]["RepositoryRole"];
+            /** @description Invited and not yet accepted. */
+            pending: boolean;
+        };
+        OutsideCollaboratorDTO: {
+            username: string;
+            name: string;
+            image: string | null;
+            repositories: components["schemas"]["OutsideCollaboratorRepositoryDTO"][];
+        };
+        ListOutsideCollaboratorsResponseDTO: {
+            collaborators: components["schemas"]["OutsideCollaboratorDTO"][];
+        };
+        InviteByUsernameRequestDTO: {
+            username: string;
+            role: components["schemas"]["OrganizationRole"];
+        };
+        OrganizationMemberDTO: {
+            username: string;
+            name: string;
+            image: string | null;
+            /** @description Whether the member shows their membership outside the organization. */
+            public: boolean;
+        };
+        PinnedRepositoryDTO: {
+            slug: string;
+            name: string;
+            description: string | null;
+            visibility: components["schemas"]["RepositoryVisibility"];
+        };
+        OrganizationProfileDTO: {
+            slug: string;
+            name: string;
+            logo: string | null;
+            createdAt: string;
+            description: string | null;
+            website: string | null;
+            location: string | null;
+            email: string | null;
+            /** @description Public repositories only. */
+            repositoryCount: number;
+            /** @description Every member for a member; only public members for anyone else. */
+            members: components["schemas"]["OrganizationMemberDTO"][];
+            /** @description In pinned order, limited to repositories the viewer can read. */
+            pinned: components["schemas"]["PinnedRepositoryDTO"][];
+            /** @description The viewer's role in the organization; null for anyone outside it. */
+            viewerRole: components["schemas"]["OrganizationRole"] | null;
+        };
+        OrganizationSummaryDTO: {
+            slug: string;
+            name: string;
+            logo: string | null;
+        };
+        ListOrganizationsResponseDTO: {
+            organizations: components["schemas"]["OrganizationSummaryDTO"][];
+        };
+        ReceivedOrganizationInvitationDTO: {
+            id: string;
+            organization: components["schemas"]["OrganizationSummaryDTO"];
+            role: string | null;
+            invitedByUsername: string | null;
+            expiresAt: string;
+        };
+        ListReceivedOrganizationInvitationsResponseDTO: {
+            invitations: components["schemas"]["ReceivedOrganizationInvitationDTO"][];
+        };
+        OrganizationTeamSummaryDTO: {
+            id: string;
+            name: string;
+            /** @description The team in URLs and `@org/team` mentions. */
+            slug: string;
+            memberCount: number;
+            repositoryCount: number;
+        };
+        ListOrganizationTeamsResponseDTO: {
+            teams: components["schemas"]["OrganizationTeamSummaryDTO"][];
+        };
+        TeamMemberDTO: {
+            username: string;
+            name: string;
+            image: string | null;
+            maintainer: boolean;
+        };
+        TeamRepositoryDTO: {
+            slug: string;
+            name: string;
+            visibility: components["schemas"]["RepositoryVisibility"];
+            role: components["schemas"]["RepositoryRole"];
+        };
+        OrganizationTeamDTO: {
+            id: string;
+            name: string;
+            slug: string;
+            members: components["schemas"]["TeamMemberDTO"][];
+            repositories: components["schemas"]["TeamRepositoryDTO"][];
+            /** @description Whether the viewer may change the team's members: an admin or one of its maintainers. */
+            viewerCanManage: boolean;
         };
         CreatePullRequestRequestDTO: {
             /** @example Add a rate limiter */
@@ -1907,8 +2524,6 @@ export interface components {
             /** @example d73a4a */
             color?: string;
         };
-        /** @enum {string} */
-        RepositoryRole: "read" | "triage" | "write" | "maintain" | "admin";
         /**
          * @description Only `accepted` grants access. An `expired` invitation is sent again by inviting the user again.
          * @enum {string}
@@ -1947,6 +2562,19 @@ export interface components {
         };
         ListInvitationsResponseDTO: {
             invitations: components["schemas"]["InvitationDTO"][];
+        };
+        RepositoryTeamDTO: {
+            id: string;
+            name: string;
+            memberCount: number;
+            /** @description Null when the team has no access to this repository. */
+            role: components["schemas"]["RepositoryRole"] | null;
+        };
+        ListRepositoryTeamsResponseDTO: {
+            teams: components["schemas"]["RepositoryTeamDTO"][];
+        };
+        SetTeamRoleRequestDTO: {
+            role: components["schemas"]["RepositoryRole"];
         };
         UserEmailDTO: {
             /** @description Row id, or `primary` for the account address itself */
@@ -2011,13 +2639,6 @@ export interface components {
             /** @description What to call the key. Defaults to the key's own comment, then to its type. */
             title?: string;
         };
-        UploadAvatarResponseDTO: {
-            /**
-             * @description Absolute URL the stored avatar is served from
-             * @example http://localhost:3001/api/users/avatars/<userId>/<name>.png
-             */
-            url: string;
-        };
         UserProfileResponseDTO: {
             username: string;
             name: string;
@@ -2076,7 +2697,7 @@ export interface operations {
     RepositoriesController_getViewerRepositories: {
         parameters: {
             query?: {
-                /** @description Keep repositories whose name or description contains this text, ignoring case. */
+                /** @description Keep repositories whose name or description contains this text, ignoring case. `org:<name>` or `user:<name>` keeps one owner's repositories, where the listing spans several owners. */
                 q?: string;
                 /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
                 cursor?: string;
@@ -2149,7 +2770,7 @@ export interface operations {
     RepositoriesController_getRepositories: {
         parameters: {
             query?: {
-                /** @description Keep repositories whose name or description contains this text, ignoring case. */
+                /** @description Keep repositories whose name or description contains this text, ignoring case. `org:<name>` or `user:<name>` keeps one owner's repositories, where the listing spans several owners. */
                 q?: string;
                 /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
                 cursor?: string;
@@ -2357,6 +2978,64 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_transferRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferRepositoryRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferRepositoryResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2985,7 +3664,7 @@ export interface operations {
     SearchController_searchRepositories: {
         parameters: {
             query?: {
-                /** @description Keep repositories whose name or description contains this text, ignoring case. */
+                /** @description Keep repositories whose name or description contains this text, ignoring case. `org:<name>` or `user:<name>` keeps one owner's repositories, where the listing spans several owners. */
                 q?: string;
                 /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
                 cursor?: string;
@@ -3047,6 +3726,810 @@ export interface operations {
                 };
             };
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    TransfersController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListIncomingTransfersResponseDTO"];
+                };
+            };
+        };
+    };
+    TransfersController_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repositoryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForkRepositoryResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    TransfersController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repositoryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_listMine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMyOrganizationsResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_setLogo: {
+        parameters: {
+            query?: never;
+            header: {
+                "content-type": string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadAvatarResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_removeLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSettingsDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrganizationSettingsDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSettingsDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_publicize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_conceal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_setPinned: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPinnedRepositoriesDTO"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_listOutsideCollaborators: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOutsideCollaboratorsResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_removeOutsideCollaborator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_inviteByUsername: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteByUsernameRequestDTO"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationsController_getProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationProfileDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    UserOrganizationsController_listForUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOrganizationsResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationInvitationsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListReceivedOrganizationInvitationsResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationTeamsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOrganizationTeamsResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationTeamsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationTeamDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationTeamsController_addMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                team: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationTeamsController_removeMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                team: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationTeamsController_appoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                team: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationTeamsController_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                team: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4243,6 +5726,138 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    TeamsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListRepositoryTeamsResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    TeamsController_setRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                teamId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetTeamRoleRequestDTO"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    TeamsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                teamId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
             };
             404: {
                 headers: {

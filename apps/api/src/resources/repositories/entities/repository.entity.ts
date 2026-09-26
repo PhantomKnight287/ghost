@@ -1,5 +1,5 @@
 import { schema } from '@ghost/db';
-import { type Role, roleHierarchy } from '../../../lib/permissions.js';
+import { type Role, roleHierarchy } from '@ghost/permissions';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
@@ -40,6 +40,13 @@ export class RepositoryEntity {
   @ApiProperty()
   @IsString()
   slug: string;
+
+  @ApiProperty({
+    description:
+      'The owner it lives under now; differs from the requested one after a rename or transfer.',
+  })
+  @IsString()
+  owner: string;
 
   @ApiProperty({
     enumName: 'RepositoryVisibility',

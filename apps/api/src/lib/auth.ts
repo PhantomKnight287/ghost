@@ -10,7 +10,7 @@ import {
 import { organization, username } from 'better-auth/plugins';
 import { and, eq, sql } from 'drizzle-orm';
 
-import { ac, roles } from './permissions.js';
+import { ac, roles } from '@ghost/permissions';
 
 export type AuthConfig = {
   secret: string;
@@ -31,6 +31,15 @@ export type AuthConfig = {
     url: string;
   }) => Promise<void>;
   /** Set whenever mail is configured. Better Auth sends this to the address currently on the account, which is what makes a change reversible. */
+  /** After an organization is gone: what it stored outside the database goes too. */
+  onOrganizationDeleted?: (organizationId: string) => Promise<void>;
+  sendOrganizationInvitation?: (data: {
+    email: string;
+    inviter: string;
+    organization: string;
+    role: string;
+    url: string;
+  }) => Promise<void>;
   sendChangeEmail?: (data: {
     email: string;
     name?: string;
@@ -55,13 +64,15 @@ export function withWebCallback(url: string, webAppUrl?: string): string {
 /** Endpoints that take an address in the body and look a user up by it. */
 const EMAIL_LOOKUP_PATHS = ['/sign-in/email', '/request-password-reset'];
 
-/**
- * Resolves one of an account's extra addresses to the one Better Auth knows.
- *
- * Better Auth knows only `user.email`, so extras are swapped in before its endpoint runs. Only verified rows resolve - otherwise adding an address would be enough to sign in as its owner.
- */
-function resolvePrimaryEmail(db: Database) {
+/** Swaps an account's verified extra address for the `user.email` Better Auth knows (unverified ones must not let anyone sign in as the owner), and makes the organization slug check refuse a name a user or a route holds. */
+function beforeAuthHooks(db: Database) {
   return createAuthMiddleware(async (ctx) => {
+    if (ctx.path === '/organization/check-slug') {
+      const body = ctx.body as { slug?: unknown } | undefined;
+      await assertNameFree(db, body?.slug, 'organization');
+      return;
+    }
+
     if (ctx.path === '/change-email') {
       const body = ctx.body as { newEmail?: unknown } | undefined;
       const next =
@@ -145,6 +156,72 @@ async function assertEmailAvailable(
   return extraOwner.id;
 }
 
+/** The web app's own top-level routes: an account under one of these names would have no profile to reach. */
+const RESERVED_NAMES = new Set([
+  'api',
+  'auth',
+  'dashboard',
+  'search',
+  'settings',
+]);
+
+/** Why `name` cannot be taken as a username or an organization slug, or null when it can. `/name/repo` resolves a name to a user or an organization, so the two must never share one. Case is ignored, as both are matched lowercase. */
+async function nameConflict(
+  db: Database,
+  name: string,
+  taking: 'username' | 'organization',
+) {
+  const lowered = name.toLowerCase();
+  if (RESERVED_NAMES.has(lowered)) return 'That name is reserved';
+
+  const [taken] =
+    taking === 'username'
+      ? await db
+          .select({ id: schema.organization.id })
+          .from(schema.organization)
+          .where(eq(sql`lower(${schema.organization.slug})`, lowered))
+      : await db
+          .select({ id: schema.user.id })
+          .from(schema.user)
+          .where(eq(sql`lower(${schema.user.username})`, lowered));
+  if (!taken) return null;
+
+  return taking === 'username'
+    ? 'An organization already uses that name'
+    : 'A user already has that name';
+}
+
+async function assertNameFree(
+  db: Database,
+  name: unknown,
+  taking: 'username' | 'organization',
+) {
+  if (typeof name !== 'string') return;
+  const conflict = await nameConflict(db, name, taking);
+  if (!conflict) return;
+
+  throw APIError.from('UNPROCESSABLE_ENTITY', {
+    message: conflict,
+    code: 'NAME_ALREADY_TAKEN',
+  });
+}
+
+/** Better Auth's username availability check knows only users; an organization's slug or a route name is just as taken. */
+function afterAuthHooks(db: Database) {
+  return createAuthMiddleware(async (ctx) => {
+    if (ctx.path !== '/is-username-available') return;
+
+    const returned = ctx.context.returned as { available?: unknown } | null;
+    const body = ctx.body as { username?: unknown } | undefined;
+    if (returned?.available !== true || typeof body?.username !== 'string') {
+      return;
+    }
+    if (await nameConflict(db, body.username, 'username')) {
+      return ctx.json({ available: false });
+    }
+  });
+}
+
 /** Same check, then the write: the account's own extra row is dropped so the address is not held twice once it lands on `user.email`. */
 async function claimEmailForAccount(
   db: Database,
@@ -173,11 +250,18 @@ export function createAuth(db: Database, config: AuthConfig) {
     database: drizzleAdapter(db, {
       provider: 'pg',
     }),
-    hooks: { before: resolvePrimaryEmail(db) },
+    hooks: { before: beforeAuthHooks(db), after: afterAuthHooks(db) },
     databaseHooks: {
       user: {
+        create: {
+          before: async (data) => {
+            await assertNameFree(db, data.username, 'username');
+          },
+        },
         update: {
           before: async (data, context) => {
+            await assertNameFree(db, data.username, 'username');
+
             const next =
               typeof data.email === 'string'
                 ? data.email.trim().toLowerCase()
@@ -240,7 +324,49 @@ export function createAuth(db: Database, config: AuthConfig) {
         ac,
         roles,
         creatorRole: 'owner',
-        defaultRole: 'read',
+        defaultRole: 'member',
+        sendInvitationEmail: config.sendOrganizationInvitation
+          ? async ({ id, email, role, organization, inviter }) =>
+              config.sendOrganizationInvitation!({
+                email,
+                role,
+                organization: organization.name,
+                inviter: inviter.user.name,
+                url: `${config.webAppUrl ?? ''}/auth/accept-invitation?invitationId=${id}`,
+              })
+          : undefined,
+        organizationHooks: {
+          beforeCreateOrganization: async ({ organization }) => {
+            await assertNameFree(db, organization.slug, 'organization');
+          },
+          beforeUpdateOrganization: async ({ organization }) => {
+            await assertNameFree(db, organization.slug, 'organization');
+          },
+          // Repository rows would cascade away while their stored history stayed behind; deleting a repository is what purges it (docs/0020).
+          beforeDeleteOrganization: async ({ organization }) => {
+            const [repository] = await db
+              .select({ id: schema.repository.id })
+              .from(schema.repository)
+              .where(eq(schema.repository.organizationId, organization.id))
+              .limit(1);
+            if (!repository) return;
+
+            throw APIError.from('CONFLICT', {
+              message:
+                'Delete or transfer the organization’s repositories first',
+              code: 'ORGANIZATION_HAS_REPOSITORIES',
+            });
+          },
+          afterCreateOrganization: async ({ organization }) => {
+            await db
+              .insert(schema.organizationSettings)
+              .values({ organizationId: organization.id })
+              .onConflictDoNothing();
+          },
+          afterDeleteOrganization: async ({ organization }) => {
+            await config.onOrganizationDeleted?.(organization.id);
+          },
+        },
         dynamicAccessControl: {
           enabled: true,
         },

@@ -5,10 +5,8 @@ import type { NextFunction, Request, Response } from 'express';
 import type { Auth } from '../../../lib/auth.js';
 import { RepositoryNotFoundError } from '../../../resources/repositories/repositories.errors.js';
 import { AuthenticationRequiredError } from '../../../lib/git/repository-access/repository-access.errors.js';
-import {
-  RepositoryAccessService,
-  type Actor,
-} from '../../../services/git/repository-access/repository-access.service.js';
+import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
+import { type Actor } from '../../../lib/git/repository-access/repository-access.js';
 import { GitAuthenticatedBufferedRequest } from '../../types.js';
 
 /** Runs before the body is spooled, so a rejected push never reaches disk. */

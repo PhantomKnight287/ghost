@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 
 import { Auth } from "@/components/auth/auth";
 
-const validAuthPaths = new Set(Object.values(viewPaths.auth));
+// The organization plugin adds the page an emailed invitation links to.
+const validAuthPaths = new Set([
+  ...Object.values(viewPaths.auth),
+  "accept-invitation",
+]);
 
 export default async function AuthPage({ params }: PageProps<"/auth/[path]">) {
   const { path } = await params;

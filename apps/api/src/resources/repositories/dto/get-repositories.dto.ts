@@ -15,7 +15,7 @@ import { RepositoryEntity } from '../entities/repository.entity.js';
 export class GetRepositoriesQueryDTO {
   @ApiPropertyOptional({
     description:
-      'Keep repositories whose name or description contains this text, ignoring case.',
+      "Keep repositories whose name or description contains this text, ignoring case. `org:<name>` or `user:<name>` keeps one owner's repositories, where the listing spans several owners.",
     example: 'ghost',
   })
   @IsString()

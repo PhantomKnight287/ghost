@@ -17,13 +17,14 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
-import type { Role } from '../../lib/permissions.js';
+import type { Role } from '@ghost/permissions';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
-  atLeast,
+  ownerNameOf,
   type Repository,
-  RepositoryAccessService,
   type RepositoryOperation,
-} from '../../services/git/repository-access/repository-access.service.js';
+} from '../../lib/git/repository-access/repository-access.js';
+import { atLeast } from '@ghost/permissions';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
@@ -74,6 +75,10 @@ const eventSourceRepository = alias(
   'event_source_repository',
 );
 const eventSourceOwner = alias(schema.user, 'event_source_owner');
+const eventSourceOrganization = alias(
+  schema.organization,
+  'event_source_organization',
+);
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -716,7 +721,7 @@ export class IssuesService {
             // `owner/repo`, so a pull request in another repository that closed this one still links
             sourceRepository: sql<
               string | null
-            >`${eventSourceOwner.username} || '/' || ${eventSourceRepository.slug}`,
+            >`${ownerNameOf(eventSourceOwner, eventSourceOrganization)} || '/' || ${eventSourceRepository.slug}`,
             sourceNumber: eventSource.number,
             createdAt: isoTimestamp(schema.issueEvent.createdAt),
           },
@@ -734,6 +739,10 @@ export class IssuesService {
         .leftJoin(
           eventSourceOwner,
           eq(eventSourceOwner.id, eventSourceRepository.ownerId),
+        )
+        .leftJoin(
+          eventSourceOrganization,
+          eq(eventSourceOrganization.id, eventSourceRepository.organizationId),
         )
         .where(eq(schema.issueEvent.issueId, issue.id)),
       this.references.mentionsOf(

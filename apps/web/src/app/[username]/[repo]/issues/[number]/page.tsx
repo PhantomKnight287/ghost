@@ -8,7 +8,7 @@ import {
   getServerSession,
   getViewerRole,
 } from "@/lib/api/server";
-import { atLeast } from "@/lib/repository-role";
+import { atLeast } from "@ghost/permissions";
 
 import { AssigneeEditor, EditableField, LabelEditor } from "./page.client";
 

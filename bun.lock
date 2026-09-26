@@ -23,6 +23,7 @@
         "@better-auth/api-key": "^1.7.3",
         "@ghost/db": "workspace:*",
         "@ghost/languages": "workspace:*",
+        "@ghost/permissions": "workspace:*",
         "@ghost/references": "workspace:*",
         "@nestjs-modules/mailer": "^2.3.7",
         "@nestjs/common": "^12.0.1",
@@ -110,6 +111,7 @@
         "@better-auth/api-key": "^1.7.3",
         "@ghost/db": "workspace:*",
         "@ghost/languages": "workspace:*",
+        "@ghost/permissions": "workspace:*",
         "@ghost/references": "workspace:*",
         "@hookform/resolvers": "^5.9.1",
         "@opentelemetry/api": "^1.9.1",
@@ -200,6 +202,17 @@
       "version": "0.0.0",
       "devDependencies": {
         "typescript": "^5.9.2",
+      },
+    },
+    "packages/permissions": {
+      "name": "@ghost/permissions",
+      "version": "0.0.0",
+      "devDependencies": {
+        "better-auth": "^1.7.2",
+        "typescript": "^5.9.2",
+      },
+      "peerDependencies": {
+        "better-auth": "^1.7.2",
       },
     },
     "packages/references": {
@@ -519,6 +532,8 @@
     "@ghost/docs": ["@ghost/docs@workspace:apps/docs"],
 
     "@ghost/languages": ["@ghost/languages@workspace:packages/languages"],
+
+    "@ghost/permissions": ["@ghost/permissions@workspace:packages/permissions"],
 
     "@ghost/references": ["@ghost/references@workspace:packages/references"],
 

@@ -131,3 +131,14 @@ export async function searchIndex({
 function charOffset(line: Buffer, byteOffset: number) {
   return line.subarray(0, byteOffset).toString('utf8').length;
 }
+
+/** A zoekt `r:` clause matching exactly these repositories, or nothing to add when unscoped. */
+export function repositoryScope(repositoryIds: string[] | undefined) {
+  return repositoryIds
+    ? ` r:^(${repositoryIds.map(escapeRegExp).join('|')})$`
+    : '';
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}

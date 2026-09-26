@@ -19,7 +19,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Item,
@@ -27,6 +32,7 @@ import {
   ItemContent,
   ItemDescription,
   ItemMedia,
+  ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
 import {
@@ -39,7 +45,11 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 
-import { deleteRepository, updateRepository } from "./actions";
+import {
+  deleteRepository,
+  transferRepository,
+  updateRepository,
+} from "./actions";
 import { type UpdateRepositoryInput, updateRepositorySchema } from "./common";
 import { SettingCard } from "./setting-card";
 
@@ -59,6 +69,8 @@ export function RepositoryGeneralSettings({
   defaultBranch,
   branches,
   isAdmin,
+  transferTargets,
+  canTransfer,
 }: RepositoryProps & {
   name: string;
   description?: string | null;
@@ -67,6 +79,10 @@ export function RepositoryGeneralSettings({
   branches: string[];
   /** Visibility and deletion are an admin's; a maintainer sees the rest. */
   isAdmin: boolean;
+  /** Where the viewer may move the repository at once. */
+  transferTargets: string[];
+  /** Transferring is the owner's alone. */
+  canTransfer: boolean;
 }) {
   return (
     <div className="flex flex-col gap-8">
@@ -91,7 +107,12 @@ export function RepositoryGeneralSettings({
             slug={slug}
             visibility={visibility}
           />
-          <DangerZone username={username} slug={slug} />
+          <DangerZone
+            username={username}
+            slug={slug}
+            transferTargets={transferTargets}
+            canTransfer={canTransfer}
+          />
         </>
       )}
     </div>
@@ -305,13 +326,37 @@ function VisibilitySetting({
   );
 }
 
-function DangerZone(repository: RepositoryProps) {
+function DangerZone({
+  transferTargets,
+  canTransfer,
+  ...repository
+}: RepositoryProps & { transferTargets: string[]; canTransfer: boolean }) {
   return (
     <section>
       <h2 className="mb-3 text-sm font-semibold text-destructive">
         Danger zone
       </h2>
-      <Card className="border-destructive/50 py-0">
+      <Card className="gap-0 border-destructive/50 py-0">
+        {canTransfer && (
+          <>
+            <Item>
+              <ItemContent>
+                <ItemTitle>Transfer ownership</ItemTitle>
+                <ItemDescription>
+                  Move it to your account or an organization you administer. The
+                  URL changes, and git remotes need updating.
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <TransferRepositoryDialog
+                  {...repository}
+                  suggestions={transferTargets}
+                />
+              </ItemActions>
+            </Item>
+            <ItemSeparator className="my-0!" />
+          </>
+        )}
         <Item>
           <ItemContent>
             <ItemTitle>Delete this repository</ItemTitle>
@@ -326,6 +371,99 @@ function DangerZone(repository: RepositoryProps) {
         </Item>
       </Card>
     </section>
+  );
+}
+
+/** `suggestions` are where it moves at once: the viewer's own account and organizations they administer. Any other user or organization can be typed, and accepts it first. */
+function TransferRepositoryDialog({
+  username,
+  slug,
+  suggestions,
+}: RepositoryProps & { suggestions: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [target, setTarget] = useState(suggestions[0] ?? "");
+  const [confirmation, setConfirmation] = useState("");
+  const { execute, isExecuting, result } = useAction(transferRepository, {
+    onSuccess: ({ data }) => {
+      if (!data?.pending) return;
+      toast.success(`Transfer requested; it moves once ${data.owner} accepts`);
+      setOpen(false);
+    },
+  });
+  const fullName = `${username}/${slug}`;
+  const immediate = suggestions.includes(target.trim());
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        setConfirmation("");
+      }}
+    >
+      <AlertDialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          Transfer
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Transfer {fullName}</AlertDialogTitle>
+          <AlertDialogDescription>
+            Its issues, pull requests, stars and collaborators move with it, and
+            the old URL keeps redirecting.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <Field>
+          <FieldLabel htmlFor="transfer-target">New owner</FieldLabel>
+          <Input
+            id="transfer-target"
+            list="transfer-suggestions"
+            autoComplete="off"
+            placeholder="A username or organization"
+            value={target}
+            onChange={(event) => setTarget(event.target.value)}
+          />
+          <datalist id="transfer-suggestions">
+            {suggestions.map((owner) => (
+              <option key={owner} value={owner} />
+            ))}
+          </datalist>
+          <FieldDescription>
+            {immediate
+              ? "It moves right away."
+              : "They have to accept it before it moves."}
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="transfer-confirmation">
+            Type <span className="font-mono">{fullName}</span> to confirm
+          </FieldLabel>
+          <Input
+            id="transfer-confirmation"
+            autoComplete="off"
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+          />
+          {result.serverError && <FieldError>{result.serverError}</FieldError>}
+        </Field>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isExecuting}>Cancel</AlertDialogCancel>
+          <Button
+            type="button"
+            disabled={
+              isExecuting || !target.trim() || confirmation !== fullName
+            }
+            onClick={() => execute({ username, slug, owner: target.trim() })}
+          >
+            {isExecuting && <Spinner />}
+            {immediate ? `Transfer to ${target.trim()}` : "Request transfer"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

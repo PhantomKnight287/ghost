@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 
 import { API_URL, sshCloneUrlFor } from "@/lib/env";
-import { atLeast } from "@/lib/repository-role";
+import { atLeast } from "@ghost/permissions";
 import type { RepositoryFrameProps } from "@/types/repository";
 
 export function RepositoryFrame({

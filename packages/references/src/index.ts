@@ -89,12 +89,35 @@ const definitions = {
         capture(["@", capture(name(".-"), { name: "username" })], {
           name: "target",
         }),
-        end,
+        // `@org/team` is a team, not a mention of `org`.
+        negativeLookahead(charClass(word, anyOf("#@/"))),
       ],
       { global: true, hasIndices: true },
     ),
     read: (groups: Record<string, string | undefined>) => ({
       username: groups.username ?? "",
+    }),
+  },
+  team: {
+    pattern: buildRegExp(
+      [
+        standalone,
+        capture(
+          [
+            "@",
+            capture(name(".-"), { name: "organization" }),
+            "/",
+            capture(name("-"), { name: "team" }),
+          ],
+          { name: "target" },
+        ),
+        end,
+      ],
+      { global: true, hasIndices: true },
+    ),
+    read: (groups: Record<string, string | undefined>) => ({
+      organization: groups.organization ?? "",
+      team: groups.team ?? "",
     }),
   },
 };

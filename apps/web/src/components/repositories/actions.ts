@@ -19,25 +19,32 @@ const actionClient = createSafeActionClient({
 });
 
 export const createRepository = actionClient
-  .inputSchema(createRepositorySchema)
-  .action(async ({ parsedInput: { owner, name, description, visibility } }) => {
-    const { data, error } = await fetchClient.POST("/api/repositories", {
-      body: { name, description, visibility },
-      headers: { cookie: (await cookies()).toString() },
-    });
+  .inputSchema(
+    createRepositorySchema.extend({ organization: z.string().optional() }),
+  )
+  .action(
+    async ({
+      parsedInput: { owner, name, description, visibility, organization },
+    }) => {
+      const { data, error } = await fetchClient.POST("/api/repositories", {
+        body: { name, description, visibility, organization },
+        headers: { cookie: (await cookies()).toString() },
+      });
 
-    if (error) {
-      throw new Error(error.message);
-    }
+      if (error) {
+        throw new Error(error.message);
+      }
 
-    redirect(`/${owner}/${data.slug}`);
-  });
+      redirect(`/${owner}/${data.slug}`);
+    },
+  );
 
 export const forkRepository = actionClient
   .inputSchema(
     forkRepositorySchema.extend({
       parentUsername: z.string(),
       parentSlug: z.string(),
+      organization: z.string().optional(),
     }),
   )
   .action(
@@ -48,6 +55,7 @@ export const forkRepository = actionClient
         name,
         description,
         visibility,
+        organization,
       },
     }) => {
       const { data, error } = await fetchClient.POST(
@@ -56,7 +64,7 @@ export const forkRepository = actionClient
           params: {
             path: { username: parentUsername, slug: parentSlug },
           },
-          body: { name, description, visibility },
+          body: { name, description, visibility, organization },
           headers: { cookie: (await cookies()).toString() },
         },
       );
@@ -144,4 +152,63 @@ export const removeCollaborator = actionClient
     if (error) {
       throw new Error(error.message);
     }
+  });
+
+export const setTeamRole = actionClient
+  .inputSchema(
+    repositoryPath.extend({
+      teamId: z.string(),
+      role: z.enum(collaboratorRoles),
+    }),
+  )
+  .action(async ({ parsedInput: { username, slug, teamId, role } }) => {
+    const { error } = await fetchClient.PUT(
+      "/api/repositories/{username}/{repo}/teams/{teamId}",
+      {
+        params: { path: { username, repo: slug, teamId } },
+        body: { role },
+        headers: { cookie: (await cookies()).toString() },
+      },
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  });
+
+export const removeTeamAccess = actionClient
+  .inputSchema(repositoryPath.extend({ teamId: z.string() }))
+  .action(async ({ parsedInput: { username, slug, teamId } }) => {
+    const { error } = await fetchClient.DELETE(
+      "/api/repositories/{username}/{repo}/teams/{teamId}",
+      {
+        params: { path: { username, repo: slug, teamId } },
+        headers: { cookie: (await cookies()).toString() },
+      },
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  });
+
+export const transferRepository = actionClient
+  .inputSchema(repositoryPath.extend({ owner: z.string() }))
+  .action(async ({ parsedInput: { username, slug, owner } }) => {
+    const { data, error } = await fetchClient.POST(
+      "/api/repositories/{username}/{slug}/transfer",
+      {
+        params: { path: { username, slug } },
+        body: { owner },
+        headers: { cookie: (await cookies()).toString() },
+      },
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // A transfer someone else has to accept leaves the repository where it is.
+    if (data.pending) return { pending: true, owner };
+    redirect(`/${data.username}/${data.slug}/settings`);
   });

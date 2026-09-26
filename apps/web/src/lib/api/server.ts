@@ -3,6 +3,7 @@ import { cache } from "react";
 import createFetchClient from "openapi-fetch";
 
 import { authClient } from "@/lib/auth-client";
+import { administers } from "@ghost/permissions";
 import { INTERNAL_API_URL } from "@/lib/env";
 
 import type { paths } from "@/lib/api/v1";
@@ -39,4 +40,13 @@ export const getViewerRole = cache(async (username: string, slug: string) => {
     params: { path: { username, slug } },
   });
   return data?.viewerRole ?? null;
+});
+
+/** Slugs of the organizations the viewer administers, where they may create, fork and transfer repositories to. */
+export const getAdminOrganizations = cache(async () => {
+  const client = await createServerClient();
+  const { data } = await client.GET("/api/organizations");
+  return (data?.organizations ?? [])
+    .filter((organization) => administers(organization.viewerRole))
+    .map((organization) => organization.slug);
 });

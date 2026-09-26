@@ -32,11 +32,11 @@ import {
 import { SshKeysService } from '../../../resources/ssh-keys/ssh-keys.service.js';
 import { PackProcessService } from '../pack-process/pack-process.service.js';
 import { RefAdvertisementService } from '../ref-advertisement/ref-advertisement.service.js';
+import { RepositoryAccessService } from '../repository-access/repository-access.service.js';
 import {
   type Actor,
   type Repository,
-  RepositoryAccessService,
-} from '../repository-access/repository-access.service.js';
+} from '../../../lib/git/repository-access/repository-access.js';
 
 /** 10-31. Railway already answers on 2222, and a ghost may as well keep Halloween. */
 const DEFAULT_PORT = 1031;

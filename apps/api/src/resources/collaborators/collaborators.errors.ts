@@ -25,3 +25,19 @@ export class InvitationNotFoundError extends DomainError {
     super('Invitation not found');
   }
 }
+
+export class RepositoryNotInOrganizationError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor() {
+    super('Only an organization’s repositories can be shared with teams');
+  }
+}
+
+export class TeamNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('Team not found in this organization');
+  }
+}

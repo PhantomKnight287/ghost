@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -9,12 +10,13 @@ import {
   ilike,
   inArray,
   isNotNull,
+  isNull,
   lt,
   ne,
   or,
   sql,
 } from 'drizzle-orm';
-import type { PgColumn } from 'drizzle-orm/pg-core';
+import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { CreateRepositoryRequestDTO } from './dto/create-repository.dto.js';
@@ -29,13 +31,19 @@ import {
   InvalidCursorError,
   RepositoryAlreadyForkedError,
   RepositoryHeadsOpenPullRequestError,
-  RepositoryNotFoundError,
+  RepositoryNameTakenError,
+  TransferNotFoundError,
+  TransferTargetError,
 } from './repositories.errors.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
+import { ownerQualifier } from '../../lib/search/qualifiers.js';
+import { organizationToCreateIn } from '../../lib/organizations/administered-organization.js';
+import { PrivateForkingDisabledError } from '../../lib/organizations/organization.errors.js';
 import {
   decodeCursor,
   encodeCursor,
   escapeLike,
+  isoTimestamp,
   titleToSlug,
 } from '../../utils/index.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
@@ -99,14 +107,21 @@ import type {
 } from './dto/get-repository-commits.dto.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
   acceptedCollaboration,
   type Actor,
-  atLeast,
+  basePermissionOf,
+  grantedTo,
+  organizationMembership,
+  ownerNameOf,
+  readableBy,
   type Repository,
-  RepositoryAccessService,
   type RepositoryOperation,
-} from '../../services/git/repository-access/repository-access.service.js';
+  roleOf,
+  teamRoleOf,
+} from '../../lib/git/repository-access/repository-access.js';
+import { administers, atLeast, organizationRoleOf } from '@ghost/permissions';
 import { RepositoryForbiddenError } from '../../lib/git/repository-access/repository-access.errors.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
@@ -116,8 +131,9 @@ import type {
 } from './dto/search-code.dto.js';
 import type { SearchRepositoriesResponseDTO } from './dto/search-repositories.dto.js';
 import type { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
-import type { Role } from '../../lib/permissions.js';
 
+// `/owner/settings` and `/org/teams` are pages of the owner's own, so no repository may live there.
+const RESERVED_REPOSITORY_SLUGS = new Set(['settings', 'teams']);
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const MIN_LANGUAGE_PERCENT = 0.5;
@@ -143,16 +159,28 @@ export class RepositoriesService {
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
-    const user = await this.usersService.getUserById(userId);
+    const visibility = body.visibility ?? 'private';
+    const organization = body.organization
+      ? await organizationToCreateIn(
+          this.db,
+          body.organization,
+          userId,
+          visibility,
+        )
+      : null;
+    const namespace: Namespace = organization ?? { userId };
 
     const [newRepo] = await this.db
       .insert(schema.repository)
       .values({
         name: body.name,
-        ownerId: user.id,
-        slug: await this.freeSlug(user.id, body.name),
+        // The creator, even of an organization's repository, which the organization owns.
+        ownerId: userId,
+        organizationId: organizationIdOf(namespace),
+        slug: await this.freeSlug(namespace, body.name),
         description: body.description,
-        visibility: body.visibility,
+        visibility,
+        defaultBranch: organization?.settings?.defaultBranch ?? null,
       })
       .returning();
 
@@ -167,7 +195,7 @@ export class RepositoriesService {
     requesterId?: string,
     query: GetRepositoriesQueryDTO = {},
   ) {
-    const user = await this.usersService.getUserByUsername(username);
+    const namespace = await this.namespaceNamed(username);
 
     const { pageSize, after } = this.page(
       query,
@@ -182,10 +210,17 @@ export class RepositoriesService {
         schema.repositoryCollaborator,
         acceptedCollaboration(schema.repository.id, actorOf(requesterId)),
       )
+      .leftJoin(
+        schema.member,
+        organizationMembership(
+          schema.repository.organizationId,
+          actorOf(requesterId),
+        ),
+      )
       .where(
         and(
-          eq(schema.repository.ownerId, user.id),
-          readableBy(requesterId),
+          inNamespace(namespace),
+          readableBy(actorOf(requesterId)),
           matching(query.q),
           after,
         ),
@@ -201,11 +236,12 @@ export class RepositoriesService {
     return { repositories: page, nextCursor, hasMore };
   }
 
-  /** Repositories the requester owns or has accepted an invitation to, most recently pushed first. */
+  /** Repositories the requester owns, collaborates on, or can reach through an organization, most recently pushed first. */
   async getViewerRepositories(
     requesterId: string,
     query: GetRepositoriesQueryDTO,
   ): Promise<GetViewerRepositoriesResponseDTO> {
+    const search = ownerQualifier(query.q ?? '');
     const { pageSize, after } = this.page(
       query,
       schema.repository.lastPushedAt,
@@ -215,28 +251,44 @@ export class RepositoriesService {
     const rows = await this.db
       .select({
         id: schema.repository.id,
-        owner: sql<string>`${schema.user.username}`,
+        owner: ownerNameOf(schema.user, schema.organization),
         name: schema.repository.name,
         slug: schema.repository.slug,
         description: schema.repository.description,
         visibility: schema.repository.visibility,
         lastPushedAt: schema.repository.lastPushedAt,
-        viewerRole: sql<Role>`case when ${schema.repository.ownerId} = ${requesterId} then 'owner' else ${schema.repositoryCollaborator.role}::text end`,
+        ownerId: schema.repository.ownerId,
+        organizationId: schema.repository.organizationId,
+        collaboratorRole: schema.repositoryCollaborator.role,
+        memberRole: schema.member.role,
+        teamRole: teamRoleOf(schema.repository.id, actorOf(requesterId)),
+        basePermission: basePermissionOf(schema.repository.organizationId),
       })
       .from(schema.repository)
       .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
       .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
+      .leftJoin(
         schema.repositoryCollaborator,
         acceptedCollaboration(schema.repository.id, actorOf(requesterId)),
       )
+      .leftJoin(
+        schema.member,
+        organizationMembership(
+          schema.repository.organizationId,
+          actorOf(requesterId),
+        ),
+      )
       .where(
         and(
-          or(
-            eq(schema.repository.ownerId, requesterId),
-            isNotNull(schema.repositoryCollaborator.id),
-          ),
-          isNotNull(schema.user.username),
-          matching(query.q),
+          grantedTo(actorOf(requesterId)),
+          isNotNull(ownerNameOf(schema.user, schema.organization)),
+          matching(search.rest),
+          search.owner
+            ? eq(ownerNameOf(schema.user, schema.organization), search.owner)
+            : undefined,
           after,
         ),
       )
@@ -248,13 +300,36 @@ export class RepositoriesService {
       id: row.id,
     }));
 
-    return { repositories: page, nextCursor, hasMore };
+    return {
+      repositories: page.map(
+        ({
+          ownerId,
+          organizationId,
+          collaboratorRole,
+          memberRole,
+          teamRole,
+          basePermission,
+          ...row
+        }) => ({
+          ...row,
+          // Every row passed the filter above, so the requester holds some role on it.
+          viewerRole: roleOf(
+            { ownerId, organizationId },
+            { collaboratorRole, memberRole, teamRole, basePermission },
+            actorOf(requesterId),
+          )!,
+        }),
+      ),
+      nextCursor,
+      hasMore,
+    };
   }
 
   /** Public repositories across every owner, most recently pushed first. */
   async searchRepositories(
     query: GetRepositoriesQueryDTO,
   ): Promise<SearchRepositoriesResponseDTO> {
+    const search = ownerQualifier(query.q ?? '');
     const { pageSize, after } = this.page(
       query,
       schema.repository.lastPushedAt,
@@ -264,7 +339,7 @@ export class RepositoriesService {
     const rows = await this.db
       .select({
         id: schema.repository.id,
-        owner: sql<string>`${schema.user.username}`,
+        owner: ownerNameOf(schema.user, schema.organization),
         name: schema.repository.name,
         slug: schema.repository.slug,
         description: schema.repository.description,
@@ -272,12 +347,19 @@ export class RepositoriesService {
       })
       .from(schema.repository)
       .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
       .where(
         and(
           eq(schema.repository.visibility, 'public'),
           // an owner without a username has no page to link the repository under
-          isNotNull(schema.user.username),
-          matching(query.q),
+          isNotNull(ownerNameOf(schema.user, schema.organization)),
+          matching(search.rest),
+          search.owner
+            ? eq(ownerNameOf(schema.user, schema.organization), search.owner)
+            : undefined,
           after,
         ),
       )
@@ -300,7 +382,32 @@ export class RepositoriesService {
     query: string;
     limit?: number;
   }): Promise<SearchCodeResponseDTO> {
-    const hits = await this.codeSearch.searchPublic({ query, limit });
+    const { owner, rest } = ownerQualifier(query);
+    if (!rest) return { files: [] };
+    // `org:` names public repositories to scan; one that owns none matches nothing.
+    const scoped = owner
+      ? await this.db
+          .select({ id: schema.repository.id })
+          .from(schema.repository)
+          .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+          .leftJoin(
+            schema.organization,
+            eq(schema.organization.id, schema.repository.organizationId),
+          )
+          .where(
+            and(
+              eq(ownerNameOf(schema.user, schema.organization), owner),
+              eq(schema.repository.visibility, 'public'),
+            ),
+          )
+      : null;
+    if (scoped?.length === 0) return { files: [] };
+
+    const hits = await this.codeSearch.searchPublic({
+      query: rest,
+      limit,
+      repositoryIds: scoped?.map((row) => row.id),
+    });
     const ids = [...new Set(hits.map((hit) => hit.repositoryId))];
     if (ids.length === 0) return { files: [] };
 
@@ -308,17 +415,21 @@ export class RepositoriesService {
     const repositories = await this.db
       .select({
         id: schema.repository.id,
-        owner: sql<string>`${schema.user.username}`,
+        owner: ownerNameOf(schema.user, schema.organization),
         name: schema.repository.name,
         slug: schema.repository.slug,
       })
       .from(schema.repository)
       .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
       .where(
         and(
           inArray(schema.repository.id, ids),
           eq(schema.repository.visibility, 'public'),
-          isNotNull(schema.user.username),
+          isNotNull(ownerNameOf(schema.user, schema.organization)),
         ),
       );
     const byId = new Map(repositories.map((row) => [row.id, row]));
@@ -329,28 +440,6 @@ export class RepositoriesService {
         return repository ? [{ ...hit, repository }] : [];
       }),
     };
-  }
-
-  async getRepositoryBySlug({
-    ownerId,
-    slug,
-  }: {
-    ownerId: string;
-    slug: string;
-  }) {
-    const [repository] = await this.db
-      .select()
-      .from(schema.repository)
-      .where(
-        and(
-          eq(schema.repository.ownerId, ownerId),
-          eq(schema.repository.slug, slug.toLowerCase()),
-        ),
-      );
-    if (!repository) {
-      throw new RepositoryNotFoundError();
-    }
-    return repository;
   }
 
   async getRepository({
@@ -386,7 +475,7 @@ export class RepositoriesService {
       repository.parentRepositoryId
         ? this.db
             .select({
-              username: schema.user.username,
+              username: ownerNameOf(schema.user, schema.organization),
               slug: schema.repository.slug,
               name: schema.repository.name,
             })
@@ -395,12 +484,18 @@ export class RepositoriesService {
               schema.user,
               eq(schema.user.id, schema.repository.ownerId),
             )
+            .leftJoin(
+              schema.organization,
+              eq(schema.organization.id, schema.repository.organizationId),
+            )
             .where(eq(schema.repository.id, repository.parentRepositoryId))
         : [],
     ]);
 
     return {
       ...repository,
+      // Where it lives now, which differs from the requested name after a rename or transfer.
+      owner: await this.ownerNameOf(repository.id),
       ...stars,
       forkCount: forks[0]?.forkCount ?? 0,
       viewerForkSlug: forks[0]?.viewerForkSlug ?? null,
@@ -417,6 +512,7 @@ export class RepositoriesService {
     name,
     description,
     visibility,
+    organization,
   }: {
     username: string;
     slug: string;
@@ -424,38 +520,343 @@ export class RepositoriesService {
     name: string;
     description?: string;
     visibility: 'public' | 'private';
+    organization?: string;
   }) {
     const parent = await this.authorizeRead({ username, slug, requesterId });
-    if (parent.ownerId === requesterId)
+    if (parent.organizationId && parent.visibility === 'private') {
+      const [policy] = await this.db
+        .select({ allowed: schema.organizationSettings.allowPrivateForks })
+        .from(schema.organizationSettings)
+        .where(
+          eq(schema.organizationSettings.organizationId, parent.organizationId),
+        );
+      if (!policy?.allowed) throw new PrivateForkingDisabledError();
+    }
+    const namespace: Namespace = organization
+      ? await organizationToCreateIn(
+          this.db,
+          organization,
+          requesterId,
+          visibility,
+        )
+      : { userId: requesterId };
+    if (sameNamespace(namespaceOf(parent), namespace))
       throw new CannotForkOwnRepositoryError();
 
+    // One fork per namespace, so a second press sends the forker to the one they have.
     const [existing] = await this.db
       .select({ slug: schema.repository.slug })
       .from(schema.repository)
       .where(
         and(
-          eq(schema.repository.ownerId, requesterId),
+          inNamespace(namespace),
           eq(schema.repository.parentRepositoryId, parent.id),
         ),
       );
     if (existing) throw new RepositoryAlreadyForkedError(existing.slug);
 
-    const owner = await this.usersService.getUserById(requesterId);
     const [fork] = await this.db
       .insert(schema.repository)
       .values({
         name,
         description,
         visibility,
-        slug: await this.freeSlug(requesterId, name),
+        slug: await this.freeSlug(namespace, name),
         ownerId: requesterId,
+        organizationId: organizationIdOf(namespace),
         parentRepositoryId: parent.id,
       })
       .returning();
 
     await this.wal.copyLog(parent.id, fork.id);
 
-    return { id: fork.id, slug: fork.slug, username: owner.username ?? '' };
+    return {
+      id: fork.id,
+      slug: fork.slug,
+      username:
+        organization ??
+        (await this.usersService.getUserById(requesterId)).username ??
+        '',
+    };
+  }
+
+  /** Moves a repository, which only its owner may: the user who owns it, or an owner of its organization. A move to the requester's own account or to an organization they administer happens at once; any other recipient accepts it first. */
+  async transferRepository({
+    username,
+    slug,
+    requesterId,
+    owner,
+  }: {
+    username: string;
+    slug: string;
+    requesterId: string;
+    owner: string;
+  }) {
+    const repository = await this.authorizeAs('admin', {
+      username,
+      slug,
+      requesterId,
+    });
+    if (!atLeast(repository.viewerRole, 'owner')) {
+      throw new RepositoryForbiddenError();
+    }
+
+    const target = await this.namespaceNamed(owner);
+    if (sameNamespace(namespaceOf(repository), target)) {
+      throw new TransferTargetError();
+    }
+    await this.assertSlugFree(target, owner, repository.slug);
+
+    if (await this.holds(target, requesterId)) {
+      await this.move(repository, target);
+      return {
+        id: repository.id,
+        slug: repository.slug,
+        username: owner,
+        pending: false,
+      };
+    }
+
+    await this.db
+      .insert(schema.repositoryTransfer)
+      .values({
+        repositoryId: repository.id,
+        toUserId: 'userId' in target ? target.userId : null,
+        toOrganizationId: organizationIdOf(target),
+        requestedById: requesterId,
+      })
+      .onConflictDoUpdate({
+        target: schema.repositoryTransfer.repositoryId,
+        set: {
+          toUserId: 'userId' in target ? target.userId : null,
+          toOrganizationId: organizationIdOf(target),
+          requestedById: requesterId,
+          createdAt: new Date(),
+        },
+      });
+    return {
+      id: repository.id,
+      slug: repository.slug,
+      username: await this.ownerNameOf(repository.id),
+      pending: true,
+    };
+  }
+
+  /** Transfers waiting for the requester: to their own account, or to an organization they administer. */
+  async listIncomingTransfers(requesterId: string) {
+    const destination = alias(schema.organization, 'destination');
+    const requester = alias(schema.user, 'requester');
+    const recipient = alias(schema.user, 'recipient');
+    const transfers = await this.db
+      .select({
+        repositoryId: schema.repository.id,
+        repository: {
+          owner: ownerNameOf(schema.user, schema.organization),
+          slug: schema.repository.slug,
+          name: schema.repository.name,
+        },
+        to: ownerNameOf(recipient, destination),
+        requestedByUsername: requester.username,
+        createdAt: isoTimestamp(schema.repositoryTransfer.createdAt),
+      })
+      .from(schema.repositoryTransfer)
+      .innerJoin(
+        schema.repository,
+        eq(schema.repository.id, schema.repositoryTransfer.repositoryId),
+      )
+      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
+      .leftJoin(
+        destination,
+        eq(destination.id, schema.repositoryTransfer.toOrganizationId),
+      )
+      .leftJoin(
+        requester,
+        eq(requester.id, schema.repositoryTransfer.requestedById),
+      )
+      .leftJoin(recipient, eq(recipient.id, schema.repositoryTransfer.toUserId))
+      .leftJoin(
+        schema.member,
+        and(
+          eq(
+            schema.member.organizationId,
+            schema.repositoryTransfer.toOrganizationId,
+          ),
+          eq(schema.member.userId, requesterId),
+        ),
+      )
+      .where(
+        or(
+          eq(schema.repositoryTransfer.toUserId, requesterId),
+          inArray(schema.member.role, ['owner', 'admin']),
+        ),
+      )
+      .orderBy(asc(schema.repositoryTransfer.createdAt));
+
+    return { transfers };
+  }
+
+  async acceptTransfer(repositoryId: string, requesterId: string) {
+    const transfer = await this.incomingTransfer(repositoryId, requesterId);
+    const [repository] = await this.db
+      .select()
+      .from(schema.repository)
+      .where(eq(schema.repository.id, repositoryId));
+    const target: Namespace = transfer.toOrganizationId
+      ? { organizationId: transfer.toOrganizationId }
+      : { userId: requesterId };
+    await this.assertSlugFree(
+      target,
+      await this.namespaceName(target),
+      repository.slug,
+    );
+    await this.move(repository, target);
+    return {
+      id: repository.id,
+      slug: repository.slug,
+      username: await this.ownerNameOf(repository.id),
+    };
+  }
+
+  /** The recipient declines, or whoever asked for it withdraws it. */
+  async cancelTransfer(repositoryId: string, requesterId: string) {
+    const [transfer] = await this.db
+      .select()
+      .from(schema.repositoryTransfer)
+      .where(eq(schema.repositoryTransfer.repositoryId, repositoryId));
+    if (!transfer) throw new TransferNotFoundError();
+    if (transfer.requestedById !== requesterId) {
+      await this.incomingTransfer(repositoryId, requesterId);
+    }
+    await this.db
+      .delete(schema.repositoryTransfer)
+      .where(eq(schema.repositoryTransfer.repositoryId, repositoryId));
+  }
+
+  /** A pending transfer addressed to the requester, or to an organization they administer. */
+  private async incomingTransfer(repositoryId: string, requesterId: string) {
+    const [transfer] = await this.db
+      .select()
+      .from(schema.repositoryTransfer)
+      .where(eq(schema.repositoryTransfer.repositoryId, repositoryId));
+    if (!transfer) throw new TransferNotFoundError();
+    const recipient = transfer.toOrganizationId
+      ? await this.holds(
+          { organizationId: transfer.toOrganizationId },
+          requesterId,
+        )
+      : transfer.toUserId === requesterId;
+    if (!recipient) throw new TransferNotFoundError();
+    return transfer;
+  }
+
+  /** Whether the requester may put a repository in `namespace` without anyone else agreeing: it is theirs, or an organization they administer. */
+  private async holds(namespace: Namespace, requesterId: string) {
+    if ('userId' in namespace) return namespace.userId === requesterId;
+    const [membership] = await this.db
+      .select({ role: schema.member.role })
+      .from(schema.member)
+      .where(
+        and(
+          eq(schema.member.organizationId, namespace.organizationId),
+          eq(schema.member.userId, requesterId),
+        ),
+      );
+    return administers(organizationRoleOf(membership?.role));
+  }
+
+  private async assertSlugFree(
+    namespace: Namespace,
+    owner: string,
+    slug: string,
+  ) {
+    const [clash] = await this.db
+      .select({ id: schema.repository.id })
+      .from(schema.repository)
+      .where(and(inNamespace(namespace), eq(schema.repository.slug, slug)));
+    if (clash) throw new RepositoryNameTakenError(owner, slug);
+  }
+
+  /** Puts the repository in `namespace`, leaving a redirect at its old name and settling any pending transfer. */
+  private async move(repository: Repository, namespace: Namespace) {
+    const previous = await this.ownerNameOf(repository.id);
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(schema.repository)
+        .set({
+          ownerId:
+            'userId' in namespace ? namespace.userId : repository.ownerId,
+          organizationId: organizationIdOf(namespace),
+        })
+        .where(eq(schema.repository.id, repository.id));
+      // The new owner holds everything already; a collaborator row would only linger.
+      if ('userId' in namespace) {
+        await tx
+          .delete(schema.repositoryCollaborator)
+          .where(
+            and(
+              eq(schema.repositoryCollaborator.repositoryId, repository.id),
+              eq(schema.repositoryCollaborator.userId, namespace.userId),
+            ),
+          );
+      }
+      await tx
+        .delete(schema.repositoryTransfer)
+        .where(eq(schema.repositoryTransfer.repositoryId, repository.id));
+      await this.leaveRedirect(tx, previous, repository.slug, repository.id);
+    });
+  }
+
+  /** The newest move wins an old name: a redirect left there by another repository is replaced. */
+  private async leaveRedirect(
+    tx: Pick<Database, 'insert' | 'delete'>,
+    ownerName: string,
+    slug: string,
+    repositoryId: string,
+  ) {
+    await tx
+      .delete(schema.repositoryRedirect)
+      .where(
+        and(
+          eq(
+            sql`lower(${schema.repositoryRedirect.ownerName})`,
+            ownerName.toLowerCase(),
+          ),
+          eq(schema.repositoryRedirect.slug, slug),
+        ),
+      );
+    await tx
+      .insert(schema.repositoryRedirect)
+      .values({ ownerName, slug, repositoryId });
+  }
+
+  private async ownerNameOf(repositoryId: string) {
+    const [row] = await this.db
+      .select({ owner: ownerNameOf(schema.user, schema.organization) })
+      .from(schema.repository)
+      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
+      .where(eq(schema.repository.id, repositoryId));
+    return row?.owner ?? '';
+  }
+
+  private async namespaceName(namespace: Namespace) {
+    if ('userId' in namespace) {
+      return (
+        (await this.usersService.getUserById(namespace.userId)).username ?? ''
+      );
+    }
+    const [organization] = await this.db
+      .select({ slug: schema.organization.slug })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, namespace.organizationId));
+    return organization?.slug ?? '';
   }
 
   async updateRepository({
@@ -500,10 +901,18 @@ export class RepositoriesService {
         slug:
           name === undefined || name === repository.name
             ? undefined
-            : await this.freeSlug(repository.ownerId, name, repository.id),
+            : await this.freeSlug(namespaceOf(repository), name, repository.id),
       })
       .where(eq(schema.repository.id, repository.id))
       .returning();
+    if (updated.slug !== repository.slug) {
+      await this.leaveRedirect(
+        this.db,
+        await this.ownerNameOf(repository.id),
+        repository.slug,
+        repository.id,
+      );
+    }
 
     // The shards carry the public flag, so public search follows the change now rather than on the next push or page view.
     if (visibility !== undefined && visibility !== repository.visibility) {
@@ -549,7 +958,7 @@ export class RepositoriesService {
 
     const [heading] = await this.db
       .select({
-        owner: schema.user.username,
+        owner: ownerNameOf(schema.user, schema.organization),
         slug: schema.repository.slug,
         number: schema.issue.number,
       })
@@ -560,6 +969,10 @@ export class RepositoriesService {
         eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
       )
       .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
       .where(this.openRequestsHeadedBy(repository.id))
       .limit(1);
     if (heading) {
@@ -604,17 +1017,28 @@ export class RepositoriesService {
   }
 
   /** `ownId` is the repository being renamed, which may keep its own slug. */
-  private async freeSlug(ownerId: string, name: string, ownId?: string) {
+  private async freeSlug(namespace: Namespace, name: string, ownId?: string) {
     const { slugified, slugifiedWithSuffix } = titleToSlug(name);
-    try {
-      const taken = await this.getRepositoryBySlug({
-        ownerId,
-        slug: slugified,
-      });
-      return taken.id === ownId ? slugified : slugifiedWithSuffix;
-    } catch (_) {
-      return slugified;
-    }
+    if (RESERVED_REPOSITORY_SLUGS.has(slugified)) return slugifiedWithSuffix;
+    const [taken] = await this.db
+      .select({ id: schema.repository.id })
+      .from(schema.repository)
+      .where(
+        and(inNamespace(namespace), eq(schema.repository.slug, slugified)),
+      );
+    return !taken || taken.id === ownId ? slugified : slugifiedWithSuffix;
+  }
+
+  /** The namespace `/name/…` points at. Organization slugs and usernames never collide, so the order only saves a query. */
+  private async namespaceNamed(name: string): Promise<Namespace> {
+    const [organization] = await this.db
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(eq(schema.organization.slug, name));
+    if (organization) return { organizationId: organization.id };
+
+    const user = await this.usersService.getUserByUsername(name);
+    return { userId: user.id };
   }
 
   /** Stars are a toggle, so a repeat press is a no-op rather than an error. */
@@ -1250,19 +1674,30 @@ export class RepositoriesService {
         name: schema.repository.name,
         description: schema.repository.description,
         lastPushedAt: schema.repository.lastPushedAt,
-        username: schema.user.username,
+        username: ownerNameOf(schema.user, schema.organization),
       })
       .from(schema.repository)
       .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
       .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
+      .leftJoin(
         schema.repositoryCollaborator,
         acceptedCollaboration(schema.repository.id, actorOf(requesterId)),
+      )
+      .leftJoin(
+        schema.member,
+        organizationMembership(
+          schema.repository.organizationId,
+          actorOf(requesterId),
+        ),
       )
       .where(
         and(
           eq(schema.repository.parentRepositoryId, repository.id),
           // a private fork is the forker's business, not the parent's
-          readableBy(requesterId),
+          readableBy(actorOf(requesterId)),
           after,
         ),
       )
@@ -1444,13 +1879,34 @@ function actorOf(requesterId: string | undefined): Actor {
   return requesterId ? { userId: requesterId } : null;
 }
 
-/** Public, or private and the requester's own or shared with them. Needs `repository_collaborator` left-joined by `acceptedCollaboration`. */
-function readableBy(requesterId: string | undefined) {
-  return or(
-    eq(schema.repository.visibility, 'public'),
-    requesterId ? eq(schema.repository.ownerId, requesterId) : undefined,
-    isNotNull(schema.repositoryCollaborator.id),
-  );
+/** Where a repository's slug has to be unique: its organization, or its owner's own repositories. */
+type Namespace = { organizationId: string } | { userId: string };
+
+function inNamespace(namespace: Namespace) {
+  return 'organizationId' in namespace
+    ? eq(schema.repository.organizationId, namespace.organizationId)
+    : and(
+        eq(schema.repository.ownerId, namespace.userId),
+        isNull(schema.repository.organizationId),
+      );
+}
+
+function sameNamespace(a: Namespace, b: Namespace) {
+  return 'organizationId' in a
+    ? 'organizationId' in b && a.organizationId === b.organizationId
+    : 'userId' in b && a.userId === b.userId;
+}
+
+function organizationIdOf(namespace: Namespace) {
+  return 'organizationId' in namespace ? namespace.organizationId : null;
+}
+
+function namespaceOf(
+  repository: Pick<Repository, 'ownerId' | 'organizationId'>,
+): Namespace {
+  return repository.organizationId
+    ? { organizationId: repository.organizationId }
+    : { userId: repository.ownerId };
 }
 
 /** Name or description contains `q`, ignoring case. A blank query filters nothing. */

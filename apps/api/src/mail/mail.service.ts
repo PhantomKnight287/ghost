@@ -48,6 +48,23 @@ export class MailService {
     await this.send(to, 'Reset your password', 'reset-password', context);
   }
 
+  async sendOrganizationInvitationEmail(
+    to: string,
+    context: {
+      inviter: string;
+      organization: string;
+      role: string;
+      acceptUrl: string;
+    },
+  ): Promise<void> {
+    await this.send(
+      to,
+      `${context.inviter} invited you to join ${context.organization}`,
+      'organization-invitation',
+      context,
+    );
+  }
+
   async sendRepositoryInvitationEmail(
     to: string,
     context: {

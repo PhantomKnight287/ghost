@@ -31,6 +31,7 @@
     "@better-auth/api-key": "^1.7.3",
     "@ghost/db": "workspace:*",
     "@ghost/languages": "workspace:*",
+    "@ghost/permissions": "workspace:*",
     "@ghost/references": "workspace:*",
     "@nestjs-modules/mailer": "^2.3.7",
     "@nestjs/common": "^12.0.1",

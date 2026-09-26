@@ -35,6 +35,7 @@ export function ForkRepositoryForm({
   description,
   visibility,
   owners,
+  organizations,
   defaultOwner,
 }: {
   parentUsername: string;
@@ -44,6 +45,8 @@ export function ForkRepositoryForm({
   visibility: "public" | "private";
   /** Owners without a fork of this repository yet. Empty means every owner has one. */
   owners: string[];
+  /** Which of `owners` are organizations, forked into by slug. */
+  organizations: string[];
   defaultOwner: string;
 }) {
   const {
@@ -66,7 +69,14 @@ export function ForkRepositoryForm({
   return (
     <form
       onSubmit={handleSubmit((input) =>
-        execute({ ...input, parentUsername, parentSlug }),
+        execute({
+          ...input,
+          parentUsername,
+          parentSlug,
+          organization: organizations.includes(input.owner)
+            ? input.owner
+            : undefined,
+        }),
       )}
       className="contents"
     >

@@ -1,6 +1,5 @@
 import { GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
@@ -11,7 +10,7 @@ import {
   getServerSession,
   getViewerRole,
 } from "@/lib/api/server";
-import { atLeast } from "@/lib/repository-role";
+import { atLeast } from "@ghost/permissions";
 import { cn } from "@/lib/utils";
 
 import { EditableField, PullRequestNav } from "./page.client";

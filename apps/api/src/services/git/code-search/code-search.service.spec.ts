@@ -16,7 +16,10 @@ import {
 import type { S3Service } from '../../s3/s3.service.js';
 import { CodeSearchService } from './code-search.service.js';
 
-vi.mock('../../../lib/git/code-search/zoekt.js', () => ({
+vi.mock('../../../lib/git/code-search/zoekt.js', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('../../../lib/git/code-search/zoekt.js')
+  >()),
   indexRepository: vi.fn(),
   searchIndex: vi.fn(),
 }));

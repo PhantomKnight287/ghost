@@ -13,6 +13,14 @@ export class CreateRepositoryRequestDTO {
   description?: string;
 
   @ApiPropertyOptional({
+    description:
+      "Slug of the organization to create the repository in; the requester's own account when omitted. Needs admin in the organization.",
+  })
+  @IsString()
+  @IsOptional()
+  organization?: string;
+
+  @ApiPropertyOptional({
     enumName: 'RepositoryVisibility',
     enum: schema.repositoryVisiblity.enumValues,
   })

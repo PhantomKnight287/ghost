@@ -62,6 +62,19 @@ describe("findReferences", () => {
     );
   });
 
+  test("finds a team mention without mentioning its organization", () => {
+    expect(findReferences("ping @acme/core-team and @bob")).toEqual([
+      {
+        kind: "team",
+        index: 5,
+        length: 15,
+        organization: "acme",
+        team: "core-team",
+      },
+      { kind: "mention", index: 25, length: 4, username: "bob" },
+    ]);
+  });
+
   test("finds mentions but not email addresses, and drops a trailing dot", () => {
     expect(findReferences("thanks @bob.smith. mail a@b.com @jane-doe")).toEqual(
       [

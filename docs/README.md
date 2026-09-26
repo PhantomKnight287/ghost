@@ -33,6 +33,8 @@ rejected, and the consequences — including the bad ones.
 - [0017 — Issues are rows, not branches](0017-issues-are-rows-not-branches.md)
 - [0018 — Timestamps are `timestamptz`, never bare `timestamp`](0018-timestamps-are-timestamptz.md)
 - [0021 — Repository access is a role ladder, and an invitation grants nothing](0021-access-is-a-role-ladder.md)
+- [0022 — Users and organizations share one namespace](0022-owners-share-one-namespace.md)
+- [0023 — Organization access is a base permission, raised per repository](0023-organization-access-is-a-base-permission.md)
 
 ## Open
 

@@ -12,9 +12,13 @@ import {
   acceptedCollaboration,
   type Actor,
   canAccess,
+  organizationMembership,
+  ownerNameOf,
   type Repository,
+  basePermissionOf,
   roleOf,
-} from '../git/repository-access/repository-access.service.js';
+  teamRoleOf,
+} from '../../lib/git/repository-access/repository-access.js';
 
 type SourceType = (typeof schema.issueReferenceSource.enumValues)[number];
 
@@ -31,6 +35,7 @@ export interface ReferenceSource {
 const sourceIssue = alias(schema.issue, 'source_issue');
 const sourceRepository = alias(schema.repository, 'source_repository');
 const sourceOwner = alias(schema.user, 'source_owner');
+const sourceOrganization = alias(schema.organization, 'source_organization');
 const actor = alias(schema.user, 'actor');
 
 @Injectable()
@@ -147,9 +152,13 @@ export class IssueReferencesService {
           createdAt: isoTimestamp(schema.issueReference.createdAt),
           repository: {
             ownerId: sourceRepository.ownerId,
+            organizationId: sourceRepository.organizationId,
             visibility: sourceRepository.visibility,
             collaboratorRole: schema.repositoryCollaborator.role,
-            username: sql<string>`coalesce(${sourceOwner.username}, '')`,
+            memberRole: schema.member.role,
+            teamRole: teamRoleOf(sourceRepository.id, viewer),
+            basePermission: basePermissionOf(sourceRepository.organizationId),
+            username: sql<string>`coalesce(${ownerNameOf(sourceOwner, sourceOrganization)}, '')`,
             slug: sourceRepository.slug,
           },
           source: {
@@ -167,8 +176,16 @@ export class IssueReferencesService {
       )
       .innerJoin(sourceOwner, eq(sourceOwner.id, sourceRepository.ownerId))
       .leftJoin(
+        sourceOrganization,
+        eq(sourceOrganization.id, sourceRepository.organizationId),
+      )
+      .leftJoin(
         schema.repositoryCollaborator,
         acceptedCollaboration(sourceRepository.id, viewer),
+      )
+      .leftJoin(
+        schema.member,
+        organizationMembership(sourceRepository.organizationId, viewer),
       )
       .leftJoin(
         sourceIssue,
@@ -183,11 +200,7 @@ export class IssueReferencesService {
 
     return rows
       .filter(({ repository }) =>
-        canAccess(
-          repository,
-          roleOf(repository, repository.collaboratorRole, viewer),
-          'read',
-        ),
+        canAccess(repository, roleOf(repository, repository, viewer), 'read'),
       )
       .map(({ repository: { username, slug }, source, ...row }) => ({
         ...row,
@@ -219,8 +232,12 @@ export class IssueReferencesService {
         issueId: schema.issue.id,
         repository: {
           ownerId: schema.repository.ownerId,
+          organizationId: schema.repository.organizationId,
           visibility: schema.repository.visibility,
           collaboratorRole: schema.repositoryCollaborator.role,
+          memberRole: schema.member.role,
+          teamRole: teamRoleOf(schema.repository.id, writer),
+          basePermission: basePermissionOf(schema.repository.organizationId),
         },
       })
       .from(schema.issueReference)
@@ -235,6 +252,10 @@ export class IssueReferencesService {
       .leftJoin(
         schema.repositoryCollaborator,
         acceptedCollaboration(schema.repository.id, writer),
+      )
+      .leftJoin(
+        schema.member,
+        organizationMembership(schema.repository.organizationId, writer),
       )
       .where(
         and(
@@ -258,7 +279,7 @@ export class IssueReferencesService {
         .filter(({ repository }) =>
           canAccess(
             repository,
-            roleOf(repository, repository.collaboratorRole, writer),
+            roleOf(repository, repository, writer),
             'write',
           ),
         )
@@ -306,21 +327,36 @@ export class IssueReferencesService {
           .select({
             id: schema.repository.id,
             ownerId: schema.repository.ownerId,
+            organizationId: schema.repository.organizationId,
             visibility: schema.repository.visibility,
             collaboratorRole: schema.repositoryCollaborator.role,
-            key: sql<string>`${schema.user.username} || '/' || ${schema.repository.slug}`,
+            memberRole: schema.member.role,
+            teamRole: teamRoleOf(schema.repository.id, author),
+            basePermission: basePermissionOf(schema.repository.organizationId),
+            key: sql<string>`${ownerNameOf(schema.user, schema.organization)} || '/' || ${schema.repository.slug}`,
           })
           .from(schema.repository)
           .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
           .leftJoin(
+            schema.organization,
+            eq(schema.organization.id, schema.repository.organizationId),
+          )
+          .leftJoin(
             schema.repositoryCollaborator,
             acceptedCollaboration(schema.repository.id, author),
+          )
+          .leftJoin(
+            schema.member,
+            organizationMembership(schema.repository.organizationId, author),
           )
           .where(
             or(
               ...named.map((entry) =>
                 and(
-                  eq(schema.user.username, entry.owner),
+                  eq(
+                    ownerNameOf(schema.user, schema.organization),
+                    entry.owner,
+                  ),
                   eq(schema.repository.slug, entry.repo),
                 ),
               ),
@@ -331,11 +367,7 @@ export class IssueReferencesService {
     const repositoryIdOf = new Map(
       repositories
         .filter((repository) =>
-          canAccess(
-            repository,
-            roleOf(repository, repository.collaboratorRole, author),
-            'read',
-          ),
+          canAccess(repository, roleOf(repository, repository, author), 'read'),
         )
         .map((repository) => [repository.key, repository.id]),
     );

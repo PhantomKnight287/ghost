@@ -7,10 +7,11 @@ import { alias } from 'drizzle-orm/pg-core';
 import { DATABASE } from '../../database/database.module.js';
 import { mailConfigured } from '../../mail/mail.module.js';
 import { MailService } from '../../mail/mail.service.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
   type CollaboratorRole,
-  RepositoryAccessService,
-} from '../../services/git/repository-access/repository-access.service.js';
+  ownerNameOf,
+} from '../../lib/git/repository-access/repository-access.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { isoTimestamp } from '../../utils/index.js';
 import type { CollaboratorStatus } from './dto/collaborator.dto.js';
@@ -18,6 +19,8 @@ import {
   CannotInviteOwnerError,
   CollaboratorNotFoundError,
   InvitationNotFoundError,
+  RepositoryNotInOrganizationError,
+  TeamNotFoundError,
 } from './collaborators.errors.js';
 
 const owner = alias(schema.user, 'owner');
@@ -59,7 +62,9 @@ export class CollaboratorsService {
   ) {
     const repository = await this.authorizeAdmin(ref);
     const user = await this.users.getUserByUsername(ref.collaborator);
-    if (user.id === repository.ownerId) throw new CannotInviteOwnerError();
+    if (!repository.organizationId && user.id === repository.ownerId) {
+      throw new CannotInviteOwnerError();
+    }
 
     // A lapsed invitation is sent again as if new, restarting its week.
     const [renewed] = await this.db
@@ -122,12 +127,76 @@ export class CollaboratorsService {
       throw new CollaboratorNotFoundError(ref.collaborator);
   }
 
+  /** Every team in the repository's organization, with the role each holds here, if any. */
+  async listTeams(ref: RepositoryRef) {
+    const repository = await this.authorizeTeams(ref);
+    const teams = await this.db
+      .select({
+        id: schema.team.id,
+        name: schema.team.name,
+        memberCount: schema.team.memberCount,
+        role: schema.repositoryTeam.role,
+      })
+      .from(schema.team)
+      .leftJoin(
+        schema.repositoryTeam,
+        and(
+          eq(schema.repositoryTeam.teamId, schema.team.id),
+          eq(schema.repositoryTeam.repositoryId, repository.id),
+        ),
+      )
+      .where(eq(schema.team.organizationId, repository.organizationId))
+      .orderBy(asc(schema.team.name));
+    return { teams };
+  }
+
+  async setTeamRole(
+    ref: RepositoryRef & { teamId: string; role: CollaboratorRole },
+  ) {
+    const repository = await this.authorizeTeams(ref);
+    const [team] = await this.db
+      .select({ id: schema.team.id })
+      .from(schema.team)
+      .where(
+        and(
+          eq(schema.team.id, ref.teamId),
+          eq(schema.team.organizationId, repository.organizationId),
+        ),
+      );
+    if (!team) throw new TeamNotFoundError();
+
+    await this.db
+      .insert(schema.repositoryTeam)
+      .values({ repositoryId: repository.id, teamId: team.id, role: ref.role })
+      .onConflictDoUpdate({
+        target: [
+          schema.repositoryTeam.repositoryId,
+          schema.repositoryTeam.teamId,
+        ],
+        set: { role: ref.role },
+      });
+  }
+
+  async removeTeam(ref: RepositoryRef & { teamId: string }) {
+    const repository = await this.authorizeTeams(ref);
+    const removed = await this.db
+      .delete(schema.repositoryTeam)
+      .where(
+        and(
+          eq(schema.repositoryTeam.repositoryId, repository.id),
+          eq(schema.repositoryTeam.teamId, ref.teamId),
+        ),
+      )
+      .returning({ teamId: schema.repositoryTeam.teamId });
+    if (removed.length === 0) throw new TeamNotFoundError();
+  }
+
   async listInvitations(userId: string) {
     const invitations = await this.db
       .select({
         id: schema.repositoryCollaborator.id,
         repository: {
-          username: sql<string>`coalesce(${owner.username}, '')`,
+          username: sql<string>`coalesce(${ownerNameOf(owner, schema.organization)}, '')`,
           slug: schema.repository.slug,
           name: schema.repository.name,
         },
@@ -142,6 +211,10 @@ export class CollaboratorsService {
         eq(schema.repository.id, schema.repositoryCollaborator.repositoryId),
       )
       .innerJoin(owner, eq(owner.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
       .leftJoin(
         inviter,
         eq(inviter.id, schema.repositoryCollaborator.invitedById),
@@ -213,6 +286,14 @@ export class CollaboratorsService {
       isNull(schema.repositoryCollaborator.acceptedAt),
       sql`${expiresAt} > now()`,
     );
+  }
+
+  private async authorizeTeams(ref: RepositoryRef) {
+    const repository = await this.authorizeAdmin(ref);
+    if (!repository.organizationId) {
+      throw new RepositoryNotInOrganizationError();
+    }
+    return { ...repository, organizationId: repository.organizationId };
   }
 
   private authorizeAdmin({ username, repo, requesterId }: RepositoryRef) {

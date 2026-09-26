@@ -26,6 +26,9 @@ export async function startApp() {
     BETTER_AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret',
     BETTER_AUTH_URL: 'http://127.0.0.1',
     EMAIL_VERIFICATION_ENABLED: 'false',
+    // A local .env may configure real delivery; tests must never send mail.
+    EMAIL_PROXY: '',
+    MAIL_HOST: '',
     ZOEKT_URL: '',
     GIT_SSH_HOST_KEY: '',
     OTEL_EXPORTER_OTLP_ENDPOINT: '',
@@ -62,5 +65,5 @@ export async function signUp(app: INestApplication, username: string) {
   });
   const { key } = await auth.createApiKey({ body: { userId: user.id } });
 
-  return { cookie: headers.get('set-cookie') ?? '', key };
+  return { cookie: headers.get('set-cookie') ?? '', key, userId: user.id };
 }
