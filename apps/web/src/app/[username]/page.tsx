@@ -308,11 +308,11 @@ export default async function ProfilePage({
                   <PinnedRepositories owner={username} pinned={org.pinned} />
                 )}
                 <Suspense fallback={<RepositoryReadmeSkeleton bare />}>
-                  {/* GitHub's places: `user/user` for a person, `.github/profile` for an organization. */}
                   {org ? (
+                    // ORG's readme at .ghost/profile/README.md
                     <ProfileReadme
                       username={username}
-                      slug=".github"
+                      slug=".ghost"
                       path="profile"
                     />
                   ) : (
