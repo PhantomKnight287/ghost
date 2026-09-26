@@ -105,7 +105,7 @@ describe('RepositoryMaterializerService', () => {
   }
 
   it('leaves a cache untouched when the log is empty', async () => {
-    const index = await materializer.materialize(REPO_ID, cache);
+    const index = await materializer.materialize(REPO_ID, cache, null);
 
     expect(index.seq).toBe(0);
     expect(git(cache, 'for-each-ref', '--format=%(refname)')).toBe('');
@@ -114,7 +114,7 @@ describe('RepositoryMaterializerService', () => {
   it('reconstructs a repository from the log alone', async () => {
     const oid = await commitAndLog('README.md', '# ghost\n');
 
-    await materializer.materialize(REPO_ID, cache);
+    await materializer.materialize(REPO_ID, cache, null);
 
     expect(git(cache, 'rev-parse', 'refs/heads/main')).toBe(oid);
     expect(git(cache, 'cat-file', '-p', `${oid}:README.md`)).toBe('# ghost');
@@ -122,7 +122,7 @@ describe('RepositoryMaterializerService', () => {
 
   it('points HEAD at a branch that exists so clones are not empty', async () => {
     await commitAndLog('README.md', '# ghost\n');
-    await materializer.materialize(REPO_ID, cache);
+    await materializer.materialize(REPO_ID, cache, null);
 
     expect(git(cache, 'symbolic-ref', 'HEAD')).toBe('refs/heads/main');
 
@@ -131,12 +131,41 @@ describe('RepositoryMaterializerService', () => {
     expect(git(clone, 'log', '-1', '--format=%s')).toBe('add README.md');
   });
 
+  it('points HEAD at the chosen default branch, even on a current cache', async () => {
+    const oid = await commitAndLog('README.md', '# ghost\n');
+    await pushes.commitPush({
+      repoId: REPO_ID,
+      transitions: [
+        {
+          ref: 'refs/heads/dev',
+          oldOid: ZERO_OID,
+          newOid: Buffer.from(oid, 'hex'),
+        },
+      ],
+      body: bufferBody(packSince(oid)),
+      packOffset: 0,
+    });
+
+    await materializer.materialize(REPO_ID, cache, null);
+    expect(git(cache, 'symbolic-ref', 'HEAD')).toBe('refs/heads/main');
+
+    await materializer.materialize(REPO_ID, cache, 'dev');
+    expect(git(cache, 'symbolic-ref', 'HEAD')).toBe('refs/heads/dev');
+  });
+
+  it('ignores a chosen default branch the log does not carry', async () => {
+    await commitAndLog('README.md', '# ghost\n');
+    await materializer.materialize(REPO_ID, cache, 'gone');
+
+    expect(git(cache, 'symbolic-ref', 'HEAD')).toBe('refs/heads/main');
+  });
+
   it('replays thin packs in sequence order across several pushes', async () => {
     await commitAndLog('a.txt', 'one\n');
     await commitAndLog('b.txt', 'two\n');
     const third = await commitAndLog('c.txt', 'three\n');
 
-    await materializer.materialize(REPO_ID, cache);
+    await materializer.materialize(REPO_ID, cache, null);
 
     expect(git(cache, 'rev-parse', 'refs/heads/main')).toBe(third);
     expect(git(cache, 'rev-list', '--count', 'refs/heads/main')).toBe('3');
@@ -144,10 +173,10 @@ describe('RepositoryMaterializerService', () => {
 
   it('replays only what the cache is missing', async () => {
     await commitAndLog('a.txt', 'one\n');
-    await materializer.materialize(REPO_ID, cache);
+    await materializer.materialize(REPO_ID, cache, null);
 
     const second = await commitAndLog('b.txt', 'two\n');
-    const index = await materializer.materialize(REPO_ID, cache);
+    const index = await materializer.materialize(REPO_ID, cache, null);
 
     expect(index.seq).toBe(2);
     expect(git(cache, 'rev-parse', 'refs/heads/main')).toBe(second);
@@ -155,10 +184,10 @@ describe('RepositoryMaterializerService', () => {
 
   it('is a no-op once the cache has caught up', async () => {
     await commitAndLog('a.txt', 'one\n');
-    await materializer.materialize(REPO_ID, cache);
+    await materializer.materialize(REPO_ID, cache, null);
     const before = git(cache, 'rev-parse', 'refs/heads/main');
 
-    const index = await materializer.materialize(REPO_ID, cache);
+    const index = await materializer.materialize(REPO_ID, cache, null);
 
     expect(index.seq).toBe(1);
     expect(git(cache, 'rev-parse', 'refs/heads/main')).toBe(before);
@@ -166,7 +195,7 @@ describe('RepositoryMaterializerService', () => {
 
   it('deletes a cached ref the log no longer carries', async () => {
     const oid = await commitAndLog('a.txt', 'one\n');
-    await materializer.materialize(REPO_ID, cache);
+    await materializer.materialize(REPO_ID, cache, null);
 
     git(cache, 'update-ref', 'refs/heads/stale', oid);
     await pushes.commitPush({
@@ -182,7 +211,7 @@ describe('RepositoryMaterializerService', () => {
       packOffset: 0,
     });
 
-    await materializer.materialize(REPO_ID, cache);
+    await materializer.materialize(REPO_ID, cache, null);
 
     expect(git(cache, 'for-each-ref', '--format=%(refname)')).toBe(
       'refs/heads/main',
@@ -193,8 +222,8 @@ describe('RepositoryMaterializerService', () => {
     await commitAndLog('a.txt', 'one\n');
 
     const [first, second] = await Promise.all([
-      materializer.materialize(REPO_ID, cache),
-      materializer.materialize(REPO_ID, cache),
+      materializer.materialize(REPO_ID, cache, null),
+      materializer.materialize(REPO_ID, cache, null),
     ]);
 
     expect(first).toBe(second);

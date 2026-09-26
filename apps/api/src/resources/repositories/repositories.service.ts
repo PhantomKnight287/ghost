@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
 import {
   and,
@@ -9,6 +9,7 @@ import {
   inArray,
   isNotNull,
   lt,
+  ne,
   or,
   sql,
 } from 'drizzle-orm';
@@ -17,6 +18,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core';
 import { DATABASE } from '../../database/database.module.js';
 import { CreateRepositoryRequestDTO } from './dto/create-repository.dto.js';
 import { GetRepositoriesQueryDTO } from './dto/get-repositories.dto.js';
+import { UpdateRepositoryRequestDTO } from './dto/update-repository.dto.js';
 import { UsersService } from '../../services/users/users.service.js';
 import {
   BlobNotFoundError,
@@ -25,8 +27,10 @@ import {
   CommitNotFoundError,
   InvalidCursorError,
   RepositoryAlreadyForkedError,
+  RepositoryHeadsOpenPullRequestError,
   RepositoryNotFoundError,
 } from './repositories.errors.js';
+import { closeIssue } from '../../lib/issues/close-issue.js';
 import {
   decodeCursor,
   encodeCursor,
@@ -94,7 +98,10 @@ import type {
 } from './dto/get-repository-commits.dto.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import {
+  type Repository,
+  RepositoryAccessService,
+} from '../../services/git/repository-access/repository-access.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 import type {
@@ -110,6 +117,8 @@ const DEFAULT_SEARCH_LIMIT = 50;
 
 @Injectable()
 export class RepositoriesService {
+  private readonly logger = new Logger(RepositoriesService.name);
+
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly usersService: UsersService,
@@ -391,11 +400,152 @@ export class RepositoriesService {
     return { id: fork.id, slug: fork.slug, username: owner.username ?? '' };
   }
 
-  private async freeSlug(ownerId: string, name: string) {
+  async updateRepository({
+    username,
+    slug,
+    requesterId,
+    changes: { name, description, visibility, defaultBranch },
+  }: {
+    username: string;
+    slug: string;
+    requesterId: string;
+    changes: UpdateRepositoryRequestDTO;
+  }) {
+    const repository = await this.authorizeAdmin({
+      username,
+      slug,
+      requesterId,
+    });
+
+    if (defaultBranch !== undefined) {
+      const stored = await this.wal.readIndex(repository.id);
+      if (!stored?.index.refs.has(`refs/heads/${defaultBranch}`))
+        throw new BranchNotFoundError(defaultBranch);
+    }
+
+    const [updated] = await this.db
+      .update(schema.repository)
+      .set({
+        name,
+        description,
+        visibility,
+        defaultBranch,
+        // A form resends the name on every save; recomputing it could hand a suffixed slug a new suffix.
+        slug:
+          name === undefined || name === repository.name
+            ? undefined
+            : await this.freeSlug(repository.ownerId, name, repository.id),
+      })
+      .where(eq(schema.repository.id, repository.id))
+      .returning();
+
+    // The shards carry the public flag, so public search follows the change now rather than on the next push or page view.
+    if (visibility !== undefined && visibility !== repository.visibility) {
+      this.reindexCodeSearch(updated).catch((error: unknown) =>
+        this.logger.warn(
+          `Reindexing ${updated.id} for visibility failed: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
+    }
+
+    return { id: updated.id, slug: updated.slug };
+  }
+
+  private async reindexCodeSearch(repository: Repository) {
+    const directory = await this.storage.getRepoPath(repository.id);
+    await this.materializer.materialize(
+      repository.id,
+      directory,
+      repository.defaultBranch,
+    );
+    await this.codeSearch.index({
+      repositoryId: repository.id,
+      isPublic: repository.visibility === 'public',
+      repoDirectory: directory,
+    });
+  }
+
+  /** Nothing of the repository outlives a successful call. A failure leaves it tombstoned, unreadable and still listed, so the owner can retry; see docs/0020. */
+  async deleteRepository({
+    username,
+    slug,
+    requesterId,
+  }: {
+    username: string;
+    slug: string;
+    requesterId: string;
+  }) {
+    const repository = await this.authorizeAdmin({
+      username,
+      slug,
+      requesterId,
+    });
+
+    const [heading] = await this.db
+      .select({
+        owner: schema.user.username,
+        slug: schema.repository.slug,
+        number: schema.issue.number,
+      })
+      .from(schema.pullRequest)
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
+      .innerJoin(
+        schema.repository,
+        eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
+      )
+      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .where(this.openRequestsHeadedBy(repository.id))
+      .limit(1);
+    if (heading) {
+      throw new RepositoryHeadsOpenPullRequestError(
+        `${heading.owner}/${heading.slug}#${heading.number}`,
+      );
+    }
+
+    await this.wal.tombstone(repository.id);
+    await Promise.all([
+      this.wal.purgeEntries(repository.id),
+      this.materializer
+        .settle(repository.id)
+        .then(() => this.storage.remove(repository.id)),
+      this.codeSearch.remove(repository.id),
+    ]);
+
+    await this.db.transaction(async (tx) => {
+      // A request opened between the check above and the tombstone. Closing it keeps every open request's head repository alive.
+      const stragglers = await tx
+        .update(schema.pullRequest)
+        .set({ state: 'closed' })
+        .where(this.openRequestsHeadedBy(repository.id))
+        .returning({ issueId: schema.pullRequest.issueId });
+      for (const { issueId } of stragglers) {
+        await closeIssue(tx, { issueId, actorId: requesterId });
+      }
+
+      await tx
+        .delete(schema.repository)
+        .where(eq(schema.repository.id, repository.id));
+    });
+  }
+
+  /** Open requests into other repositories. Requests into this one go with it. */
+  private openRequestsHeadedBy(repositoryId: string) {
+    return and(
+      eq(schema.pullRequest.headRepositoryId, repositoryId),
+      ne(schema.pullRequest.baseRepositoryId, repositoryId),
+      eq(schema.pullRequest.state, 'open'),
+    );
+  }
+
+  /** `ownId` is the repository being renamed, which may keep its own slug. */
+  private async freeSlug(ownerId: string, name: string, ownId?: string) {
     const { slugified, slugifiedWithSuffix } = titleToSlug(name);
     try {
-      await this.getRepositoryBySlug({ ownerId, slug: slugified });
-      return slugifiedWithSuffix;
+      const taken = await this.getRepositoryBySlug({
+        ownerId,
+        slug: slugified,
+      });
+      return taken.id === ownId ? slugified : slugifiedWithSuffix;
     } catch (_) {
       return slugified;
     }
@@ -466,6 +616,23 @@ export class RepositoriesService {
       repo: slug,
       actor: requesterId ? { userId: requesterId } : null,
       operation: 'read',
+    });
+  }
+
+  private authorizeAdmin({
+    username,
+    slug,
+    requesterId,
+  }: {
+    username: string;
+    slug: string;
+    requesterId: string;
+  }) {
+    return this.access.authorize({
+      username,
+      repo: slug,
+      actor: { userId: requesterId },
+      operation: 'admin',
     });
   }
 
@@ -1172,7 +1339,11 @@ export class RepositoriesService {
     });
 
     const directory = await this.storage.getRepoPath(repository.id);
-    await this.materializer.materialize(repository.id, directory);
+    await this.materializer.materialize(
+      repository.id,
+      directory,
+      repository.defaultBranch,
+    );
 
     // Pushes index too; this catches repositories that predate code search, while the objects are already on disk.
     this.codeSearch.indexInBackground({

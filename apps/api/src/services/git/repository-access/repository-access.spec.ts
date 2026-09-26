@@ -37,6 +37,17 @@ describe('decideAccess', () => {
     }
   });
 
+  it('lets only the owner administer, whatever the visibility', () => {
+    for (const visibility of ['public', 'private'] as const) {
+      expect(decideAccess(repo(visibility), owner, 'admin')).toBeTruthy();
+      expect(() => decideAccess(repo(visibility), stranger, 'admin')).toThrow(
+        visibility === 'public'
+          ? RepositoryForbiddenError
+          : RepositoryNotFoundError,
+      );
+    }
+  });
+
   it('challenges an anonymous actor instead of revealing anything', () => {
     for (const [repository, operation] of [
       [repo('private'), 'read'],

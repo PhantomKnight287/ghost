@@ -3,7 +3,10 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -14,7 +17,9 @@ import {
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -73,6 +78,7 @@ import {
   SearchCodeQueryDTO,
   SearchRepositoryCodeResponseDTO,
 } from './dto/search-code.dto.js';
+import { UpdateRepositoryRequestDTO } from './dto/update-repository.dto.js';
 import { RepositoryEntity } from './entities/repository.entity.js';
 import { RepositoriesService } from './repositories.service.js';
 
@@ -153,6 +159,68 @@ export class RepositoriesController {
       username,
       slug,
       requesterId: session?.user?.id,
+    });
+  }
+
+  @Patch(':username/:slug')
+  @ApiOperation({
+    summary: 'Update repository settings',
+    description:
+      'Rename, describe, change visibility or pick the default branch. Owner only. Omitted fields are left as they are.',
+  })
+  @ApiOkResponse({
+    type: CreateRepositoryResponseDTO,
+  })
+  @ApiForbiddenResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    description:
+      'The repository, or the requested default branch, does not exist.',
+    type: ErrorResponseDTO,
+  })
+  updateRepository(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Body() body: UpdateRepositoryRequestDTO,
+    @Session() session: UserSession,
+  ): Promise<CreateRepositoryResponseDTO> {
+    return this.repositoriesService.updateRepository({
+      username,
+      slug,
+      requesterId: session.user.id,
+      changes: body,
+    });
+  }
+
+  @Delete(':username/:slug')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete repository',
+    description:
+      'Deletes the repository with its issues, pull requests and stars, and everything it stored. Owner only. Forks are kept and detached; closed and merged pull requests this repository opened elsewhere are kept without it.',
+  })
+  @ApiNoContentResponse()
+  @ApiConflictResponse({
+    description:
+      'The repository heads an open pull request into another repository.',
+    type: ErrorResponseDTO,
+  })
+  @ApiForbiddenResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  deleteRepository(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession,
+  ): Promise<void> {
+    return this.repositoriesService.deleteRepository({
+      username,
+      slug,
+      requesterId: session.user.id,
     });
   }
 

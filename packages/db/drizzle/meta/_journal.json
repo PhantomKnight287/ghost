@@ -155,6 +155,20 @@
       "when": 1790339961621,
       "tag": "0021_pull_requests_are_issues",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790404140800,
+      "tag": "0022_repository_default_branch",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790405599838,
+      "tag": "0023_pull_requests_outlive_head",
+      "breakpoints": true
     }
   ]
 }

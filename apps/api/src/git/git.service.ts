@@ -28,6 +28,7 @@ export interface GitTransportResponse {
 
 interface RepositoryRef {
   repositoryId: string;
+  defaultBranch: string | null;
 }
 
 @Injectable()
@@ -47,11 +48,15 @@ export class GitService {
 
   async advertiseRefs({
     repositoryId,
+    defaultBranch,
     service,
   }: RepositoryRef & { service: string }): Promise<GitTransportResponse> {
     if (!isGitServiceName(service)) throw new UnsupportedGitServiceError();
 
-    const repoDirectory = await this.openRepository(repositoryId);
+    const repoDirectory = await this.openRepository(
+      repositoryId,
+      defaultBranch,
+    );
 
     return {
       headers: {
@@ -64,9 +69,13 @@ export class GitService {
 
   async uploadPack({
     repositoryId,
+    defaultBranch,
     body,
   }: RepositoryRef & { body: GitRequestBody }): Promise<GitTransportResponse> {
-    const repoDirectory = await this.openRepository(repositoryId);
+    const repoDirectory = await this.openRepository(
+      repositoryId,
+      defaultBranch,
+    );
 
     return {
       headers: resultHeaders('git-upload-pack'),
@@ -84,6 +93,7 @@ export class GitService {
    */
   async receivePack({
     repositoryId,
+    defaultBranch,
     isPublic,
     body,
     pushedBy = null,
@@ -100,7 +110,10 @@ export class GitService {
     }
 
     const { transitions, packOffset } = await readReceivePackHeader(body);
-    const repoDirectory = await this.openRepository(repositoryId);
+    const repoDirectory = await this.openRepository(
+      repositoryId,
+      defaultBranch,
+    );
 
     await this.pushTransaction.commitPush({
       repoId: repositoryId,
@@ -153,7 +166,7 @@ export class GitService {
     repoDirectory,
     transitions,
     pushedBy,
-  }: RepositoryRef & {
+  }: Pick<RepositoryRef, 'repositoryId'> & {
     repoDirectory: string;
     transitions: RefTransition[];
     pushedBy: string | null;
@@ -183,9 +196,13 @@ export class GitService {
   }
 
   /** The local cache directory, current with the log. Every transport opens a repository this way before it hands anything to git. */
-  async openRepository(repositoryId: string) {
+  async openRepository(repositoryId: string, defaultBranch: string | null) {
     const repoDirectory = await this.storage.getRepoPath(repositoryId);
-    await this.materializer.materialize(repositoryId, repoDirectory);
+    await this.materializer.materialize(
+      repositoryId,
+      repoDirectory,
+      defaultBranch,
+    );
     return repoDirectory;
   }
 }

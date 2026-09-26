@@ -8,7 +8,7 @@ import {
 } from './wal-codec.js';
 import { createUlid } from './ulid.js';
 import { WalCorruptError } from './wal.errors.js';
-import type { WalIndex } from './wal.types.js';
+import { emptyIndex, type WalIndex } from './wal.types.js';
 
 const oid = (byte: number) => Buffer.alloc(20, byte);
 const packSha = (byte: number) => Buffer.alloc(32, byte);
@@ -24,6 +24,7 @@ describe('wal-codec', () => {
         ['refs/tags/v1.0.0', oid(0xcd)],
       ]),
       layers: [{ ulid, packSha: packSha(0x11), size: 4096 }],
+      deleted: false,
     };
 
     const decoded = decodeIndex(encodeIndex(index));
@@ -32,6 +33,16 @@ describe('wal-codec', () => {
     expect(decoded.compactedThroughSeq).toBe(7);
     expect(decoded.refs.get('refs/heads/main')).toEqual(oid(0xab));
     expect(decoded.layers).toEqual(index.layers);
+    expect(decoded.deleted).toBe(false);
+  });
+
+  it('round-trips a tombstone', () => {
+    const decoded = decodeIndex(
+      encodeIndex({ ...emptyIndex(), seq: 3, deleted: true }),
+    );
+
+    expect(decoded.deleted).toBe(true);
+    expect(decoded.seq).toBe(3);
   });
 
   it('round-trips an empty index', () => {
@@ -41,6 +52,7 @@ describe('wal-codec', () => {
         compactedThroughSeq: 0,
         refs: new Map(),
         layers: [],
+        deleted: false,
       }),
     );
 
@@ -79,6 +91,7 @@ describe('wal-codec', () => {
       compactedThroughSeq: 0,
       refs: new Map([['refs/heads/main', oid(0xab)]]),
       layers: [],
+      deleted: false,
     });
 
     expect(encoded.includes(Buffer.from('abab', 'utf8'))).toBe(false);

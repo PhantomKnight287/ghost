@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PushTransactionService } from './push-transaction.service.js';
 import { WalStoreService } from './wal-store.service.js';
-import { NonFastForwardError } from '../../../lib/git/wal/wal.errors.js';
+import {
+  NonFastForwardError,
+  RepositoryDeletedError,
+} from '../../../lib/git/wal/wal.errors.js';
 import {
   emptyIndex,
   type RefTransition,
@@ -32,6 +35,7 @@ describe('PushTransactionService', () => {
     putEntry: vi.fn().mockResolvedValue(undefined),
     readIndex: vi.fn(),
     casIndex: vi.fn(),
+    deleteEntry: vi.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -134,6 +138,42 @@ describe('PushTransactionService', () => {
       }),
     ).rejects.toBeInstanceOf(NonFastForwardError);
     expect(store.casIndex).not.toHaveBeenCalled();
+    expect(store.deleteEntry).toHaveBeenCalledWith(
+      'phantomknight287/ghost',
+      store.putEntry.mock.calls[0][1],
+    );
+  });
+
+  it('removes its entry when the repository is deleted under it', async () => {
+    store.readIndex.mockRejectedValue(new RepositoryDeletedError());
+
+    await expect(
+      service.commitPush({
+        repoId: 'phantomknight287/ghost',
+        transitions: [transition(0, 0xaa)],
+        body,
+        packOffset: PACK_OFFSET,
+      }),
+    ).rejects.toBeInstanceOf(RepositoryDeletedError);
+    expect(store.deleteEntry).toHaveBeenCalledWith(
+      'phantomknight287/ghost',
+      store.putEntry.mock.calls[0][1],
+    );
+  });
+
+  it('keeps its entry when the CAS fails without a verdict', async () => {
+    store.readIndex.mockResolvedValue(null);
+    store.casIndex.mockRejectedValue(new Error('socket hang up'));
+
+    await expect(
+      service.commitPush({
+        repoId: 'phantomknight287/ghost',
+        transitions: [transition(0, 0xaa)],
+        body,
+        packOffset: PACK_OFFSET,
+      }),
+    ).rejects.toThrow('socket hang up');
+    expect(store.deleteEntry).not.toHaveBeenCalled();
   });
 
   it('treats an already-recorded entry as committed', async () => {

@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { S3DeleteError } from '../../lib/s3/s3.errors.js';
 import { S3Service } from './s3.service.js';
 
 const config = {
@@ -57,6 +58,38 @@ describe('S3Service', () => {
         Bucket: 'ghost',
         Delete: { Objects: [{ Key: 'p/a' }] },
       });
+    });
+
+    it('follows the listing past its first page', async () => {
+      vi.spyOn(service, 'listObjectsV2')
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'p/a' }],
+          NextContinuationToken: 'next',
+        } as never)
+        .mockResolvedValueOnce({ Contents: [{ Key: 'p/b' }] } as never);
+      const deleteObjects = vi
+        .spyOn(service, 'deleteObjects')
+        .mockResolvedValue({} as never);
+
+      await service.deleteUnder('p/');
+
+      expect(service.listObjectsV2).toHaveBeenLastCalledWith({
+        Bucket: 'ghost',
+        Prefix: 'p/',
+        ContinuationToken: 'next',
+      });
+      expect(deleteObjects).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws when any object survives the delete', async () => {
+      vi.spyOn(service, 'listObjectsV2').mockResolvedValue({
+        Contents: [{ Key: 'p/a' }],
+      } as never);
+      vi.spyOn(service, 'deleteObjects').mockResolvedValue({
+        Errors: [{ Key: 'p/a', Code: 'AccessDenied' }],
+      } as never);
+
+      await expect(service.deleteUnder('p/')).rejects.toThrow(S3DeleteError);
     });
 
     it('sends no delete when nothing is stale', async () => {

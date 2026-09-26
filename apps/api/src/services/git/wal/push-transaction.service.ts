@@ -9,6 +9,7 @@ import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
 import { WalStoreService } from './wal-store.service.js';
 import {
   NonFastForwardError,
+  RepositoryDeletedError,
   WalContentionError,
 } from '../../../lib/git/wal/wal.errors.js';
 import {
@@ -62,7 +63,7 @@ export class PushTransactionService {
     await pipeline(body.open(packOffset), packHash);
     const packSha = packHash.digest();
 
-    // Durable before the loop: expensive, idempotent, and unaffected by ordering. An entry orphaned by a failed transaction is garbage, never corruption.
+    // Durable before the loop: expensive, idempotent, and unaffected by ordering. A rejected push removes it again; one orphaned by a crash is garbage, never corruption.
     await this.store.putEntry(
       repoId,
       ulid,
@@ -71,6 +72,39 @@ export class PushTransactionService {
       packOffset,
     );
 
+    try {
+      return await this.commitIndex({
+        repoId,
+        transitions,
+        ulid,
+        packSha,
+        packSize,
+      });
+    } catch (error) {
+      // Only a verdict that the entry was not committed: a failed CAS request may still have landed, and deleting its entry would corrupt the log.
+      if (
+        error instanceof NonFastForwardError ||
+        error instanceof WalContentionError ||
+        error instanceof RepositoryDeletedError
+      )
+        await this.store.deleteEntry(repoId, ulid);
+      throw error;
+    }
+  }
+
+  private async commitIndex({
+    repoId,
+    transitions,
+    ulid,
+    packSha,
+    packSize,
+  }: {
+    repoId: string;
+    transitions: RefTransition[];
+    ulid: string;
+    packSha: Buffer;
+    packSize: number;
+  }): Promise<CommitPushResult> {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const current = await this.store.readIndex(repoId);
       const index = current?.index ?? emptyIndex();
@@ -86,6 +120,7 @@ export class PushTransactionService {
         compactedThroughSeq: index.compactedThroughSeq,
         refs: applyTransitions(index.refs, transitions),
         layers: [...index.layers, { ulid, packSha, size: packSize }],
+        deleted: false,
       };
 
       if (await this.store.casIndex(repoId, next, current?.etag ?? null)) {

@@ -57,6 +57,19 @@ export class CodeSearchService {
     return run;
   }
 
+  /** Waits out an index run in flight first, so it cannot publish shards after they are removed. */
+  async remove(repositoryId: string) {
+    this.dirty.delete(repositoryId);
+    await this.running.get(repositoryId)?.catch(() => undefined);
+    this.published.delete(repositoryId);
+
+    await this.s3.deleteUnder(`${SHARD_PREFIX}${repositoryId}_v`);
+    await this.s3.deleteObject({
+      Bucket: this.s3.bucket,
+      Key: `${MARKER_PREFIX}${repositoryId}`,
+    });
+  }
+
   /** Reads must neither wait on nor fail because of the search index. */
   indexInBackground(target: IndexTarget) {
     this.index(target).catch((error: unknown) =>
@@ -75,7 +88,7 @@ export class CodeSearchService {
 
     const indexing =
       this.running.has(target.repositoryId) ||
-      (await this.unindexedHead(target)) !== null;
+      (await this.unpublishedStamp(target)) !== null;
     if (indexing) this.indexInBackground(target);
 
     const hits = await searchIndex({
@@ -106,8 +119,8 @@ export class CodeSearchService {
   }
 
   private async publish(target: IndexTarget) {
-    const head = await this.unindexedHead(target);
-    if (!head) return;
+    const stamp = await this.unpublishedStamp(target);
+    if (!stamp) return;
 
     const indexDir = await mkdtemp(path.join(tmpdir(), 'ghost-zoekt-'));
     try {
@@ -136,35 +149,41 @@ export class CodeSearchService {
       await this.s3.putObject({
         Bucket: this.s3.bucket,
         Key: `${MARKER_PREFIX}${target.repositoryId}`,
-        Body: head,
+        Body: stamp,
       });
     } finally {
       await rm(indexDir, { recursive: true, force: true });
     }
 
-    this.published.set(target.repositoryId, head);
+    this.published.set(target.repositoryId, stamp);
     this.logger.log(
-      `Published code search shards for ${target.repositoryId} at ${head}`,
+      `Published code search shards for ${target.repositoryId} at ${stamp}`,
     );
   }
 
-  /** HEAD when the published shards are missing or older, else null. An empty repository has nothing to index. */
-  private async unindexedHead({ repositoryId, repoDirectory }: IndexTarget) {
+  /** HEAD and visibility, as `<sha> public|private`, when the published shards are missing or describe something else; null when they are current. An empty repository has nothing to index. */
+  private async unpublishedStamp({
+    repositoryId,
+    repoDirectory,
+    isPublic,
+  }: IndexTarget) {
     const head = await resolveCommit(repoDirectory, 'HEAD');
-    if (!head || this.published.get(repositoryId) === head) return null;
+    if (!head) return null;
+    const stamp = `${head} ${isPublic ? 'public' : 'private'}`;
+    if (this.published.get(repositoryId) === stamp) return null;
 
     try {
       const marker = await this.s3.getObject({
         Bucket: this.s3.bucket,
         Key: `${MARKER_PREFIX}${repositoryId}`,
       });
-      if ((await marker.Body!.transformToString()) !== head) return head;
+      if ((await marker.Body!.transformToString()) !== stamp) return stamp;
     } catch (error) {
-      if (isNotFound(error)) return head;
+      if (isNotFound(error)) return stamp;
       throw error;
     }
 
-    this.published.set(repositoryId, head);
+    this.published.set(repositoryId, stamp);
     return null;
   }
 }

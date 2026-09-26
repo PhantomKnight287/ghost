@@ -25,6 +25,16 @@ export class CannotForkOwnRepositoryError extends DomainError {
   }
 }
 
+export class RepositoryHeadsOpenPullRequestError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor(pullRequest: string) {
+    super(
+      `This repository has open pull requests into other repositories. Merge or close them first, starting with ${pullRequest}`,
+    );
+  }
+}
+
 export class InvalidCursorError extends DomainError {
   status: number = HttpStatus.BAD_REQUEST;
 

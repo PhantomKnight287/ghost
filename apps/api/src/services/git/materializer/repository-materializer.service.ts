@@ -21,27 +21,41 @@ export class RepositoryMaterializerService {
 
   constructor(private readonly store: WalStoreService) {}
 
-  async materialize(repoId: string, repoDirectory: string): Promise<WalIndex> {
+  async materialize(
+    repoId: string,
+    repoDirectory: string,
+    defaultBranch: string | null,
+  ): Promise<WalIndex> {
     const pending = this.inFlight.get(repoId);
     if (pending) return pending;
 
-    const run = this.replay(repoId, repoDirectory).finally(() =>
+    const run = this.replay(repoId, repoDirectory, defaultBranch).finally(() =>
       this.inFlight.delete(repoId),
     );
     this.inFlight.set(repoId, run);
     return run;
   }
 
+  /** Resolves once a replay in flight has finished, whatever its outcome, so its writes cannot land after the cache is removed. */
+  async settle(repoId: string) {
+    await this.inFlight.get(repoId)?.catch(() => undefined);
+  }
+
   private async replay(
     repoId: string,
     repoDirectory: string,
+    defaultBranch: string | null,
   ): Promise<WalIndex> {
     const stored = await this.store.readIndex(repoId);
     if (!stored) return emptyIndex();
 
     const { index } = stored;
     const cachedSeq = await this.readCachedSeq(repoDirectory);
-    if (cachedSeq >= index.seq) return index;
+    // The default branch changes without a push, so HEAD is checked even when the cache is current.
+    if (cachedSeq >= index.seq) {
+      await this.ensureHead(repoDirectory, index, defaultBranch);
+      return index;
+    }
 
     for (const [offset, layer] of index.layers.entries()) {
       const seq = index.compactedThroughSeq + offset + 1;
@@ -58,6 +72,7 @@ export class RepositoryMaterializerService {
     }
 
     await this.reconcileRefs(repoDirectory, index);
+    await this.ensureHead(repoDirectory, index, defaultBranch);
     await this.writeCachedSeq(repoDirectory, index.seq);
     this.logger.log(
       `Materialized ${repoId} from seq ${cachedSeq} to ${index.seq}`,
@@ -84,8 +99,6 @@ export class RepositoryMaterializerService {
         input: Buffer.from(commands.join('\n') + '\n', 'utf8'),
       });
     }
-
-    await this.ensureHead(repoDirectory, index);
   }
 
   private async listRefs(repoDirectory: string) {
@@ -96,8 +109,12 @@ export class RepositoryMaterializerService {
     return output.split('\n').filter(Boolean);
   }
 
-  /** A bare repository whose HEAD names a missing branch clones as empty, so point it at a branch that actually exists. */
-  private async ensureHead(repoDirectory: string, index: WalIndex) {
+  /** HEAD follows the chosen default branch while it exists. Otherwise a HEAD naming a missing branch clones as empty, so it is pointed at a branch that actually exists. */
+  private async ensureHead(
+    repoDirectory: string,
+    index: WalIndex,
+    defaultBranch: string | null,
+  ) {
     if (index.refs.size === 0) return;
 
     const current = (
@@ -106,15 +123,13 @@ export class RepositoryMaterializerService {
         gitDir: repoDirectory,
       }).catch(() => '')
     ).trim();
-    if (current && index.refs.has(current)) return;
 
-    const branches = [...index.refs.keys()].filter((ref) =>
-      ref.startsWith('refs/heads/'),
-    );
+    const chosen = defaultBranch && `refs/heads/${defaultBranch}`;
     const target =
-      DEFAULT_BRANCH_PREFERENCE.find((ref) => index.refs.has(ref)) ??
-      branches[0];
-    if (!target) return;
+      [chosen, current, ...DEFAULT_BRANCH_PREFERENCE].find(
+        (ref) => ref && index.refs.has(ref),
+      ) ?? [...index.refs.keys()].find((ref) => ref.startsWith('refs/heads/'));
+    if (!target || target === current) return;
 
     await runGit({
       args: ['symbolic-ref', 'HEAD', target],

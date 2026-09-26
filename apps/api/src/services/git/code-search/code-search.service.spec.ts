@@ -23,6 +23,7 @@ vi.mock('../../../lib/git/code-search/zoekt.js', () => ({
 
 const URL = 'http://zoekt:6070';
 const MARKER = 'zoekt-state/repo_a';
+const stamp = (head: string, visibility = 'public') => `${head} ${visibility}`;
 
 function fakeS3() {
   const objects = new Map<string, string>();
@@ -144,16 +145,28 @@ describe('CodeSearchService', () => {
       ]);
       expect(Object.fromEntries(s3.objects)).toEqual({
         'zoekt/repo_a_v16.00000.zoekt': 'shard',
-        [MARKER]: head,
+        [MARKER]: stamp(head, 'private'),
       });
     });
 
     it('skips a HEAD that is already published', async () => {
-      s3.objects.set(MARKER, commit('one'));
+      s3.objects.set(MARKER, stamp(commit('one')));
 
       await service().index(target());
 
       expect(indexRepository).not.toHaveBeenCalled();
+    });
+
+    it('republishes when only the visibility changed', async () => {
+      const head = commit('one');
+      s3.objects.set(MARKER, stamp(head, 'private'));
+
+      await service().index(target());
+
+      expect(indexRepository).toHaveBeenCalledWith(
+        expect.objectContaining({ isPublic: true }),
+      );
+      expect(s3.objects.get(MARKER)).toBe(stamp(head));
     });
 
     it('remembers a published HEAD instead of asking S3 again', async () => {
@@ -168,7 +181,7 @@ describe('CodeSearchService', () => {
     });
 
     it('remembers a HEAD S3 confirmed as published', async () => {
-      s3.objects.set(MARKER, commit('one'));
+      s3.objects.set(MARKER, stamp(commit('one')));
       const search = service();
 
       await search.index(target());
@@ -194,7 +207,7 @@ describe('CodeSearchService', () => {
       await search.index(target());
 
       expect(indexRepository).toHaveBeenCalledTimes(2);
-      expect(s3.objects.get(MARKER)).toBe(second);
+      expect(s3.objects.get(MARKER)).toBe(stamp(second));
     });
 
     it('fails when the marker cannot be read', async () => {
@@ -246,7 +259,7 @@ describe('CodeSearchService', () => {
       const { indexing } = await search(service());
 
       expect(indexing).toBe(true);
-      await vi.waitFor(() => expect(s3.objects.get(MARKER)).toBe(head));
+      await vi.waitFor(() => expect(s3.objects.get(MARKER)).toBe(stamp(head)));
     });
 
     it('reports indexing while a run is in flight', async () => {
@@ -267,7 +280,7 @@ describe('CodeSearchService', () => {
     });
 
     it('does not index a HEAD that is already published', async () => {
-      s3.objects.set(MARKER, commit('one'));
+      s3.objects.set(MARKER, stamp(commit('one')));
 
       const { indexing } = await search(service());
 
@@ -281,7 +294,7 @@ describe('CodeSearchService', () => {
     });
 
     it('drops hits from other repositories', async () => {
-      s3.objects.set(MARKER, commit('one'));
+      s3.objects.set(MARKER, stamp(commit('one')));
       vi.mocked(searchIndex).mockResolvedValue([hit('repo_a'), hit('repo_b')]);
 
       const { files } = await search(service(), 'x) or (r:repo_b');

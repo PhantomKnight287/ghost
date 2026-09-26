@@ -74,10 +74,18 @@ export interface paths {
         get: operations["RepositoriesController_getRepository"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete repository
+         * @description Deletes the repository with its issues, pull requests and stars, and everything it stored. Owner only. Forks are kept and detached; closed and merged pull requests this repository opened elsewhere are kept without it.
+         */
+        delete: operations["RepositoriesController_deleteRepository"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update repository settings
+         * @description Rename, describe, change visibility or pick the default branch. Owner only. Omitted fields are left as they are.
+         */
+        patch: operations["RepositoriesController_updateRepository"];
         trace?: never;
     };
     "/api/repositories/{username}/{slug}/fork": {
@@ -1073,6 +1081,14 @@ export interface components {
             nextCursor: string | null;
             hasMore: boolean;
         };
+        UpdateRepositoryRequestDTO: {
+            /** @description Renaming also changes the slug, so the old URL stops resolving. */
+            name?: string;
+            description?: string;
+            visibility?: components["schemas"]["RepositoryVisibility"];
+            /** @description A branch name without `refs/heads/`. The branch must already exist. */
+            defaultBranch?: string;
+        };
         ForkRepositoryRequestDTO: {
             name: string;
             description?: string;
@@ -1429,10 +1445,13 @@ export interface components {
         /** @enum {string} */
         PullRequestState: "open" | "closed" | "merged";
         PullRequestSideDTO: {
-            /** @example bob */
-            username: string;
+            /**
+             * @description Null when the repository was deleted.
+             * @example bob
+             */
+            username: string | null;
             /** @example ghost */
-            slug: string;
+            slug: string | null;
             /** @example main */
             ref: string;
         };
@@ -1999,6 +2018,94 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_deleteRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The repository heads an open pull request into another repository. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_updateRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRepositoryRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateRepositoryResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The repository, or the requested default branch, does not exist. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

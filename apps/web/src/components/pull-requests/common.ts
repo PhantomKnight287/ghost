@@ -3,6 +3,16 @@ import { z } from "zod";
 export const pullRequestStates = ["open", "closed", "merged"] as const;
 export const pullRequestFilters = [...pullRequestStates, "all"] as const;
 
+type PullRequestSide = { username: string | null; ref: string };
+
+/** `owner:branch` when the side lives in another repository than `other`. A deleted repository has no owner left to name. */
+export function branchLabel(side: PullRequestSide, other: PullRequestSide) {
+  if (side.username === null) return `deleted repository:${side.ref}`;
+  return side.username === other.username
+    ? side.ref
+    : `${side.username}:${side.ref}`;
+}
+
 export type PullRequestState = (typeof pullRequestStates)[number];
 export type PullRequestFilter = (typeof pullRequestFilters)[number];
 

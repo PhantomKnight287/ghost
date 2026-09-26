@@ -15,6 +15,7 @@ const INDEX_MAGIC = 0x4757414c;
 const ENTRY_MAGIC = 0x47454e54;
 const FORMAT_VERSION = 1;
 const ULID_BYTES = 16;
+const FLAG_DELETED = 0b1;
 
 export const INDEX_CONTENT_TYPE = 'application/vnd.ghost.wal-index';
 export const ENTRY_CONTENT_TYPE = 'application/vnd.ghost.wal-entry';
@@ -32,7 +33,7 @@ export function encodeIndex(index: WalIndex): Buffer {
   const cursor = new Cursor(Buffer.allocUnsafe(size));
   cursor.u32(INDEX_MAGIC);
   cursor.u8(FORMAT_VERSION);
-  cursor.u8(0);
+  cursor.u8(index.deleted ? FLAG_DELETED : 0);
   cursor.u64(index.seq);
   cursor.u64(index.compactedThroughSeq);
 
@@ -61,7 +62,7 @@ export function decodeIndex(buffer: Buffer): WalIndex {
   if (version !== FORMAT_VERSION) {
     throw new WalCorruptError(`unsupported index version ${version}`);
   }
-  reader.u8();
+  const flags = reader.u8();
 
   const seq = reader.u64();
   const compactedThroughSeq = reader.u64();
@@ -80,7 +81,13 @@ export function decodeIndex(buffer: Buffer): WalIndex {
     });
   }
 
-  return { seq, compactedThroughSeq, refs, layers };
+  return {
+    seq,
+    compactedThroughSeq,
+    refs,
+    layers,
+    deleted: (flags & FLAG_DELETED) !== 0,
+  };
 }
 
 export function encodeEntryHeader(header: WalEntryHeader): Buffer {

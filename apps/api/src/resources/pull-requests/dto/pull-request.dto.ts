@@ -12,13 +12,20 @@ import {
 } from 'class-validator';
 
 export class PullRequestSideDTO {
-  @ApiProperty({ example: 'bob' })
+  @ApiProperty({
+    example: 'bob',
+    type: String,
+    nullable: true,
+    description: 'Null when the repository was deleted.',
+  })
   @IsString()
-  username: string;
+  @IsOptional()
+  username: string | null;
 
-  @ApiProperty({ example: 'ghost' })
+  @ApiProperty({ example: 'ghost', type: String, nullable: true })
   @IsString()
-  slug: string;
+  @IsOptional()
+  slug: string | null;
 
   @ApiProperty({ example: 'main' })
   @IsString()
