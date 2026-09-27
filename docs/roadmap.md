@@ -57,9 +57,13 @@ API routes, DB schema, web pages and auth plugins.
    read/triage/write/maintain/admin ([0021](0021-access-is-a-role-ladder.md)).
    Invitations lapse after 7 days; the dashboard lists owned and shared
    repositories.
-4. [ ] **Tags and releases.** No tag UI/API, no release notes or assets.
-5. [ ] **Branch management.** No create/delete branch from the UI, no branch
-   protection.
+4. [x] **Tags and releases.** Tag list, browsing code at a tag, releases
+   with Markdown notes, drafts and prereleases, a computed latest release in
+   the sidebar; creating a release creates its tag
+   ([0024](0024-tags-live-in-git-releases-in-rows.md)). Follow-up: release
+   assets, deleting tags from the UI, source archives (#18).
+5. [ ] **Branch management.** No create/delete branch from the UI. Branch
+   protection is deferred (see below).
 6. [ ] **Pull request reviews.** No approve/request-changes, no inline line
    comments, no drafts.
 7. [ ] **Merge strategies.** Only merge commit. No squash or rebase, no
@@ -91,6 +95,10 @@ API routes, DB schema, web pages and auth plugins.
 - [ ] **Organization webhooks and secrets**, with webhooks (#9) and CI (#10).
 - [ ] **Security policy:** required two-factor for members (needs #11), SSO /
       SAML, verified domains.
+
+### Branches, later
+- [ ] **Branch protection.** Deferred from #5: required reviews (needs #6),
+      required status checks (needs #10), no force push, no deletion.
 
 ### Tier 3: nice to have
 14. [ ] Milestones, issue templates, reactions, lock conversation

@@ -42,6 +42,10 @@ import {
   GetRepositoryBlobResponseDTO,
 } from './dto/get-repository-blob.dto.js';
 import { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
+import {
+  GetRepositoryTagsQueryDTO,
+  GetRepositoryTagsResponseDTO,
+} from './dto/get-repository-tags.dto.js';
 import { GetRepositoryLanguagesResponseDTO } from './dto/get-repository-languages.dto.js';
 import {
   GetRepositoryForksQueryDTO,
@@ -635,6 +639,36 @@ export class RepositoriesController {
       username,
       repo: slug,
       requesterId: session?.user?.id,
+    });
+  }
+
+  @Get(':username/:slug/tags')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'List repository tags',
+    description:
+      'Every tag, newest first, with the commit each one points at. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.',
+  })
+  @ApiOkResponse({
+    type: GetRepositoryTagsResponseDTO,
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryTags(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryTagsQueryDTO,
+  ): Promise<GetRepositoryTagsResponseDTO> {
+    return this.repositoriesService.getRepositoryTags({
+      username,
+      repo: slug,
+      requesterId: session?.user?.id,
+      query,
     });
   }
 

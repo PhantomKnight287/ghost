@@ -112,3 +112,53 @@ The same applies elsewhere: a folder is named for what it holds, and a file that
 Every branch is reachable and reached in tests, or the branch does not exist. Errors carry a cause the caller can act on. Nothing is left `any`. Nothing ships commented out. Trust boundaries validate, and the check lives where the boundary is, not at each call site.
 
 No speculative abstraction: an interface with one implementation, a factory for one product, or a configuration value that never varies is deleted on sight.
+
+## 8. One file holds one component family
+
+A `.tsx` file exports components that belong together, or a single component. `components/ui/avatar.tsx` holds `Avatar`, `AvatarImage`, `AvatarFallback` and the rest of the avatar family: none of them means anything without the others, so they share a file.
+
+A page is not a family. `ProfileReadme`, `PeopleList`, `PinnedRepositories` and `OrganizationTeamList` in `app/[username]/page.tsx` are unrelated to each other and to the page, so each moves to its own file.
+
+Where the file goes depends on who uses it:
+
+- Used by one route only: next to it, in the same folder as the `page.tsx` that renders it.
+- Used by more than one route: under `components/`, in the folder named for its domain.
+
+```tsx
+// No: app/[username]/page.tsx
+export default async function ProfilePage() { ... }
+function PeopleList() { ... }
+function PinnedRepositories() { ... }
+
+// Yes: only this route renders them.
+// app/[username]/page.tsx
+// app/[username]/people-list.tsx
+// app/[username]/pinned-repositories.tsx
+
+// Yes: rendered by more than one route.
+// components/auth/user/user-avatar.tsx
+```
+
+## 9. Look before you write a component
+
+Before adding a component, search `components/` and the route folders for one that already does the job. If it exists, use it; if it almost fits, extend it with a prop rather than writing a sibling that differs by one class name.
+
+Two components that render the same list of avatars and links are a violation of rule 1, however far apart they live.
+
+## 10. Every suspended boundary has a loading state
+
+Anything that waits for data shows a skeleton while it waits. A route segment that fetches gets a `loading.tsx`. An async server component rendered inside a page gets a `<Suspense>` with a skeleton fallback, and the skeleton lives in the same file as the component it stands in for, the way `RepositoryReadme` and `RepositoryReadmeSkeleton` do.
+
+`<Suspense fallback={null}>` is not a loading state: the layout jumps when the content arrives. The skeleton takes the shape and size of what it replaces.
+
+```tsx
+// No.
+<Suspense fallback={null}>
+  <OrganizationTeamList slug={username} />
+</Suspense>
+
+// Yes.
+<Suspense fallback={<OrganizationTeamListSkeleton />}>
+  <OrganizationTeamList slug={username} />
+</Suspense>
+```

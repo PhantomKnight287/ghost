@@ -56,6 +56,7 @@ import {
   CommitVerificationService,
 } from '../../services/gpg/commit-verification.service.js';
 import { listTree } from '../../lib/git/tree/list-tree.js';
+import { listTags } from '../../lib/git/tags/list-tags.js';
 import {
   isSha,
   listCommits,
@@ -84,6 +85,10 @@ import type {
   GetRepositoryContentsResponseDTO,
 } from './dto/get-repository-contents.dto.js';
 import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
+import type {
+  GetRepositoryTagsQueryDTO,
+  GetRepositoryTagsResponseDTO,
+} from './dto/get-repository-tags.dto.js';
 import type { GetRepositoryLanguagesResponseDTO } from './dto/get-repository-languages.dto.js';
 import type {
   GetRepositoryForksQueryDTO,
@@ -1507,6 +1512,40 @@ export class RepositoriesService {
     };
   }
 
+  /** Pages over the tag list in memory: `for-each-ref` has no offset, and listing every ref is cheap next to anything that reads objects. */
+  async getRepositoryTags({
+    username,
+    repo,
+    requesterId,
+    query,
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    query: GetRepositoryTagsQueryDTO;
+  }): Promise<GetRepositoryTagsResponseDTO> {
+    const { directory } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+    });
+
+    const tags = await listTags(directory);
+    const start = query.cursor
+      ? tags.findIndex((tag) => tag.name === query.cursor) + 1
+      : 0;
+    if (start === 0 && query.cursor) throw new InvalidCursorError();
+
+    const limit = query.limit ?? DEFAULT_PAGE_SIZE;
+    const page = tags.slice(start, start + limit);
+    const hasMore = start + limit < tags.length;
+
+    return {
+      tags: page,
+      nextCursor: hasMore ? (page.at(-1)?.name ?? null) : null,
+    };
+  }
+
   async getRepositoryLanguages({
     username,
     repo,
@@ -1814,7 +1853,7 @@ export class RepositoriesService {
     return Number(count.trim());
   }
 
-  /** Resolves the requested branch or sha to a revision. `detached` marks a sha, which has no moving tip and so is never indexed. */
+  /** Resolves the requested branch, tag or sha to a revision. `detached` marks a tag or sha, which has no moving tip and so is never indexed. */
   private async openRepository({
     username,
     repo,
@@ -1864,9 +1903,14 @@ export class RepositoriesService {
       };
     }
 
+    const [branches, tags] = await Promise.all([
+      this.branches.getGitBranches(directory),
+      listTags(directory),
+    ]);
     const resolved = await resolveRevision({
       gitDir: directory,
-      branches: await this.branches.getGitBranches(directory),
+      branches,
+      tags,
       requested: name,
     });
     if (resolved) return { repository, directory, ...resolved };

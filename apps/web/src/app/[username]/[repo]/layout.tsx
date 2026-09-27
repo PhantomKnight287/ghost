@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import {
+  LatestRelease,
+  LatestReleaseSkeleton,
+} from "@/components/releases/latest-release";
 import { RepositoryAbout } from "@/components/repositories/repository-about";
 import { RepositoryFrame } from "@/components/repositories/repository-frame";
 import {
@@ -91,6 +95,10 @@ export default async function RepositoryLayout({
             starCount={repository.data.starCount}
             forkCount={repository.data.forkCount}
           />
+
+          <Suspense fallback={<LatestReleaseSkeleton />}>
+            <LatestRelease username={username} repo={repository.data.slug} />
+          </Suspense>
 
           {/* its own fetch: a first-ever language count of a big repository
               must not hold up the file listing */}

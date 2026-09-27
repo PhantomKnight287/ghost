@@ -42,7 +42,12 @@ describe('resolveRevision', () => {
 
   it('resolves a branch name to its full ref', async () => {
     await expect(
-      resolveRevision({ gitDir, branches: ['main'], requested: 'main' }),
+      resolveRevision({
+        gitDir,
+        branches: ['main'],
+        tags: [],
+        requested: 'main',
+      }),
     ).resolves.toEqual({ ref: 'refs/heads/main', detached: false });
   });
 
@@ -51,6 +56,7 @@ describe('resolveRevision', () => {
       resolveRevision({
         gitDir,
         branches: ['main'],
+        tags: [],
         requested: 'refs/heads/main',
       }),
     ).resolves.toEqual({ ref: 'refs/heads/main', detached: false });
@@ -58,22 +64,40 @@ describe('resolveRevision', () => {
 
   it('resolves a commit sha, and an abbreviated one, as detached', async () => {
     await expect(
-      resolveRevision({ gitDir, branches: ['main'], requested: sha }),
+      resolveRevision({ gitDir, branches: ['main'], tags: [], requested: sha }),
     ).resolves.toEqual({ ref: sha, detached: true });
 
     await expect(
       resolveRevision({
         gitDir,
         branches: ['main'],
+        tags: [],
         requested: sha.slice(0, 8),
       }),
     ).resolves.toEqual({ ref: sha, detached: true });
   });
 
+  it('resolves a tag to the commit it names, and a branch of the same name wins', async () => {
+    const tags = [{ name: 'v1', sha }];
+
+    await expect(
+      resolveRevision({ gitDir, branches: ['main'], tags, requested: 'v1' }),
+    ).resolves.toEqual({ ref: sha, detached: true });
+
+    await expect(
+      resolveRevision({
+        gitDir,
+        branches: ['v1'],
+        tags,
+        requested: 'v1',
+      }),
+    ).resolves.toEqual({ ref: 'refs/heads/v1', detached: false });
+  });
+
   it('returns null for an unknown branch, an unknown sha and a flag', async () => {
     for (const requested of ['nope', 'a'.repeat(40), '--all']) {
       await expect(
-        resolveRevision({ gitDir, branches: ['main'], requested }),
+        resolveRevision({ gitDir, branches: ['main'], tags: [], requested }),
       ).resolves.toBeNull();
     }
   });

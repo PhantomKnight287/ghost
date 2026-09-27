@@ -26,17 +26,19 @@ export async function resolveDefaultRef({
 }
 
 /**
- * What the caller asked to look at, resolved to something git accepts as a revision. A branch name wins over a sha, since a branch could in principle be named like one; `detached` marks a commit, which has no moving tip.
+ * What the caller asked to look at, resolved to something git accepts as a revision. A branch wins over a tag and a tag over a sha, since either could in principle be named like the next; `detached` marks a commit, which has no moving tip.
  *
  * Returns null when the revision names nothing in the repository.
  */
 export async function resolveRevision({
   gitDir,
   branches,
+  tags,
   requested,
 }: {
   gitDir: string;
   branches: string[];
+  tags: { name: string; sha: string }[];
   requested: string;
 }): Promise<{ ref: string; detached: boolean } | null> {
   // re-prefixed rather than trusted, so a name can never reach git as a flag or another ref namespace
@@ -44,6 +46,10 @@ export async function resolveRevision({
   if (branches.includes(name)) {
     return { ref: `refs/heads/${name}`, detached: false };
   }
+
+  // a tag never moves, so it reads as the commit it names
+  const tag = tags.find((candidate) => candidate.name === requested);
+  if (tag) return { ref: tag.sha, detached: true };
 
   // a sha, full or abbreviated, resolved to the commit it names
   if (!/^[0-9a-f]{4,40}$/.test(name)) return null;

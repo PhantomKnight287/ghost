@@ -22,6 +22,7 @@ import { OrganizationsModule } from './resources/organizations/organizations.mod
 import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
 import { AvatarsModule } from './avatars/avatars.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
+import { ReleasesModule } from './resources/releases/releases.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
@@ -93,6 +94,7 @@ import { UsersService } from './services/users/users.service.js';
     OrganizationsModule,
     PullRequestsModule,
     IssuesModule,
+    ReleasesModule,
     CollaboratorsModule,
     EmailsModule,
     GpgKeysModule,

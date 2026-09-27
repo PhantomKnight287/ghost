@@ -31,6 +31,9 @@ import { API_URL, sshCloneUrlFor } from "@/lib/env";
 import { atLeast } from "@ghost/permissions";
 import type { RepositoryFrameProps } from "@/types/repository";
 
+// pages under the code tab that are not a view of the tree, and so have no branch to pick
+const OWN_HEADER_VIEWS = new Set(["search", "releases", "tags"]);
+
 export function RepositoryFrame({
   viewer,
   viewerRole,
@@ -202,7 +205,7 @@ export function RepositoryFrame({
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div className="flex min-w-0 flex-1 flex-col gap-4">
-            {activeTab === "code" && view !== "search" && rev && (
+            {activeTab === "code" && !OWN_HEADER_VIEWS.has(view) && rev && (
               <div className="flex flex-wrap items-center gap-3">
                 <Select
                   value={onBranch ? rev : ""}
@@ -213,7 +216,12 @@ export function RepositoryFrame({
                   <SelectTrigger className="w-[180px]">
                     <SelectValue
                       placeholder={
-                        !onBranch ? rev.slice(0, 7) : "Select a branch"
+                        // a sha is shortened; a tag reads in full
+                        onBranch
+                          ? "Select a branch"
+                          : /^[0-9a-f]{40}$/.test(rev)
+                            ? rev.slice(0, 7)
+                            : rev
                       }
                     />
                   </SelectTrigger>

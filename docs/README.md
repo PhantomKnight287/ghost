@@ -35,6 +35,7 @@ rejected, and the consequences — including the bad ones.
 - [0021 — Repository access is a role ladder, and an invitation grants nothing](0021-access-is-a-role-ladder.md)
 - [0022 — Users and organizations share one namespace](0022-owners-share-one-namespace.md)
 - [0023 — Organization access is a base permission, raised per repository](0023-organization-access-is-a-base-permission.md)
+- [0024 — Tags live in git, releases live in rows](0024-tags-live-in-git-releases-in-rows.md)
 
 ## Open
 
