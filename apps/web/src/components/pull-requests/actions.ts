@@ -333,7 +333,7 @@ export const updatePullRequest = actionClient
     }),
   )
   .action(async ({ parsedInput: { username, repo, number, title, body } }) => {
-    const { data, error } = await fetchClient.PATCH(
+    const { error } = await fetchClient.PATCH(
       "/api/repositories/{username}/{repo}/pulls/{number}",
       {
         params: { path: { username, repo, number } },
@@ -345,5 +345,4 @@ export const updatePullRequest = actionClient
     if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}/pulls/${number}`);
-    return data;
   });

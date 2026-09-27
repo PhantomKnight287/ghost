@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { UserLink } from "@/components/users/user-link";
 import { DiffsProvider } from "@/components/diffs/diffs-provider";
 import { CommentBox } from "@/components/issues/comments";
+import { EditableField } from "@/components/issues/editable-field";
 import { Timeline } from "@/components/issues/timeline";
 import { Markdown } from "@/components/markdown";
 import {
@@ -12,7 +13,7 @@ import {
 } from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 
-import { EditableField, MergePanel } from "./page.client";
+import { MergePanel } from "./page.client";
 
 export default async function PullRequestPage({
   params,
@@ -45,34 +46,31 @@ export default async function PullRequestPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg border">
-        <div className="flex items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
-          <UserLink
-            username={pull.data.authorUsername}
-            image={pull.data.authorImage}
-            avatar="sm"
-          />
-          commented
-        </div>
-        <div className="px-4 py-3 text-sm">
-          <EditableField
-            username={username}
-            repo={repo}
-            number={Number(number)}
-            field="body"
-            value={pull.data.body ?? ""}
-            canEdit={canEdit}
-          >
-            {pull.data.body ? (
-              <Markdown repository={{ username, repo }}>
-                {pull.data.body}
-              </Markdown>
-            ) : (
-              <p className="text-muted-foreground">No description provided.</p>
-            )}
-          </EditableField>
-        </div>
-      </div>
+      <EditableField
+        username={username}
+        repo={repo}
+        number={Number(number)}
+        noun="pull request"
+        field="body"
+        value={pull.data.body ?? ""}
+        canEdit={canEdit}
+        header={
+          <>
+            <UserLink
+              username={pull.data.authorUsername}
+              image={pull.data.authorImage}
+              avatar="sm"
+            />
+            commented
+          </>
+        }
+      >
+        {pull.data.body ? (
+          <Markdown repository={{ username, repo }}>{pull.data.body}</Markdown>
+        ) : (
+          <p className="text-muted-foreground">No description provided.</p>
+        )}
+      </EditableField>
 
       <DiffsProvider>
         <Timeline

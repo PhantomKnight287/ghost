@@ -1,20 +1,13 @@
 "use client";
 
-import { CircleCheck, CircleX, GitMerge, Pencil } from "lucide-react";
+import { CircleCheck, CircleX, GitMerge } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
-import {
-  closePullRequest,
-  setDraft,
-  updatePullRequest,
-} from "@/components/pull-requests/actions";
+import { closePullRequest, setDraft } from "@/components/pull-requests/actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import { UserLink } from "@/components/users/user-link";
 import { cn } from "@/lib/utils";
 import { MergeButton } from "./merge-button";
@@ -258,117 +251,5 @@ export function MergePanel({
         )}
       </div>
     </div>
-  );
-}
-
-/** Read view until the pencil is clicked, then a single field editing the request's title or description. Both fields are the same PATCH, so both use this; nothing else about a request is editable. */
-export function EditableField({
-  username,
-  repo,
-  number,
-  field,
-  value,
-  canEdit,
-  children,
-}: {
-  username: string;
-  repo: string;
-  number: number;
-  field: "title" | "body";
-  value: string;
-  canEdit: boolean;
-  children: ReactNode;
-}) {
-  const router = useRouter();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  const update = useAction(updatePullRequest, {
-    onSuccess: () => {
-      setEditing(false);
-      router.refresh();
-    },
-    onError: ({ error }) =>
-      toast.error(
-        error.validationErrors?.[field]?._errors?.[0] ??
-          error.serverError ??
-          "Could not save this change.",
-      ),
-  });
-
-  if (!canEdit) return children;
-
-  if (!editing) {
-    return (
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">{children}</div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="shrink-0"
-          onClick={() => {
-            setDraft(value);
-            setEditing(true);
-          }}
-        >
-          <Pencil data-icon="inline-start" />
-          Edit
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <form
-      className="flex flex-col gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        update.execute(
-          field === "title"
-            ? { username, repo, number, title: draft }
-            : { username, repo, number, body: draft.trim() ? draft : null },
-        );
-      }}
-    >
-      {field === "title" ? (
-        <Input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          maxLength={200}
-          autoFocus
-          disabled={update.isExecuting}
-        />
-      ) : (
-        <Textarea
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          rows={6}
-          maxLength={20000}
-          placeholder="Describe this pull request. Markdown is supported."
-          autoFocus
-          disabled={update.isExecuting}
-        />
-      )}
-
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={update.isExecuting}
-          onClick={() => setEditing(false)}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          size="sm"
-          disabled={update.isExecuting || (field === "title" && !draft.trim())}
-        >
-          {update.isExecuting && <Spinner />}
-          Save
-        </Button>
-      </div>
-    </form>
   );
 }

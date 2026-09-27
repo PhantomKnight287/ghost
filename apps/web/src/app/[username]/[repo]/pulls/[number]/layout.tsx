@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
+import { EditableField } from "@/components/issues/editable-field";
 import { branchLabel } from "@/components/pull-requests/common";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,7 +15,7 @@ import {
 import { atLeast } from "@ghost/permissions";
 import { cn } from "@/lib/utils";
 
-import { EditableField, PullRequestNav } from "./page.client";
+import { PullRequestNav } from "./page.client";
 
 export async function generateMetadata({
   params,
@@ -74,6 +75,7 @@ export default async function PullRequestLayout({
           username={username}
           repo={repo}
           number={pull.data.number}
+          noun="pull request"
           field="title"
           value={pull.data.title}
           canEdit={canEdit}
