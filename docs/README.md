@@ -36,6 +36,7 @@ rejected, and the consequences — including the bad ones.
 - [0022 — Users and organizations share one namespace](0022-owners-share-one-namespace.md)
 - [0023 — Organization access is a base permission, raised per repository](0023-organization-access-is-a-base-permission.md)
 - [0024 — Tags live in git, releases live in rows](0024-tags-live-in-git-releases-in-rows.md)
+- [0025 — Stored files are billed to the owning account, and the quota is configuration](0025-storage-is-billed-to-the-owning-account.md)
 
 ## Open
 

@@ -7,12 +7,59 @@ import {
   IsOptional,
   IsString,
   Max,
+  Matches,
   MaxLength,
   Min,
   MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+
+export class ReleaseAssetDTO {
+  @ApiProperty()
+  @IsString()
+  id: string;
+
+  @ApiProperty({ example: 'ghost-linux-x64.tar.gz' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ example: 'application/gzip' })
+  @IsString()
+  contentType: string;
+
+  @ApiProperty({ description: 'Bytes.' })
+  @IsInt()
+  size: number;
+
+  @ApiProperty()
+  @IsInt()
+  downloadCount: number;
+
+  @ApiProperty()
+  @IsISO8601()
+  createdAt: string;
+}
+
+export class UploadReleaseAssetQueryDTO {
+  @ApiProperty({
+    description: 'File name the asset is saved and downloaded under.',
+    example: 'ghost-linux-x64.tar.gz',
+  })
+  @IsString()
+  @MaxLength(255)
+  name: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Media type the file is served with. The request body itself is always `application/octet-stream`.',
+    example: 'application/gzip',
+  })
+  @IsString()
+  @IsOptional()
+  @Matches(/^[\w.+-]+\/[\w.+-]+$/)
+  type?: string;
+}
 
 export class ReleaseDTO {
   @ApiProperty()
@@ -75,6 +122,11 @@ export class ReleaseDTO {
   @IsString()
   @IsOptional()
   commitSha: string | null;
+
+  @ApiProperty({ type: [ReleaseAssetDTO], description: 'By name.' })
+  @ValidateNested({ each: true })
+  @Type(() => ReleaseAssetDTO)
+  assets: ReleaseAssetDTO[];
 
   @ApiProperty({ type: String, nullable: true })
   @IsISO8601()

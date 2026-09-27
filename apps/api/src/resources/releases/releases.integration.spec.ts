@@ -15,7 +15,16 @@ import {
   it,
 } from 'vitest';
 
+import { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
+import { ConfigService } from '@nestjs/config';
 import { InMemoryWalStore } from '../../lib/git/materializer/wal-store.fake.js';
+import { InMemoryS3 } from '../../lib/s3/s3.fake.js';
+import { StorageQuotaExceededError } from '../../lib/storage/storage.errors.js';
+import type { S3Service } from '../../services/s3/s3.service.js';
+import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
+import { StorageService } from '../storage/storage.service.js';
+import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
@@ -27,7 +36,14 @@ import { UsersService } from '../../services/users/users.service.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { InvalidCursorError } from '../repositories/repositories.errors.js';
+import { ReleaseAssetsService } from './release-assets.service.js';
 import {
+  ContentLengthRequiredError,
+  InvalidAssetNameError,
+  ReleaseAssetExistsError,
+  ReleaseAssetNotFoundError,
+  ReleaseAssetTooLargeError,
+  UploadNotOctetStreamError,
   InvalidTagNameError,
   ReleaseAlreadyExistsError,
   ReleaseNotFoundError,
@@ -58,6 +74,9 @@ describe.skipIf(!CONNECTION)('releases', () => {
   let source: string;
   let cache: string;
   let releases: ReleasesService;
+  let assets: ReleaseAssetsService;
+  let s3: InMemoryS3;
+  let quota: StorageQuotaService;
   let pushes: PushTransactionService;
   let repository: typeof schema.repository.$inferSelect;
   let first: string;
@@ -66,6 +85,35 @@ describe.skipIf(!CONNECTION)('releases', () => {
   const owner = { username: 'release-owner', repo: 'app', requesterId: OWNER };
   const reader = { ...owner, requesterId: READER };
   const anonymous = { username: 'release-owner', repo: 'app' };
+
+  /** Rebuilds the quota and asset services as an instance configured with `env` would have them. */
+  function limits(env: Record<string, string>) {
+    quota = new StorageQuotaService(db, new ConfigService(env));
+    assets = new ReleaseAssetsService(
+      db,
+      new RepositoryAccessService(db),
+      s3 as unknown as S3Service,
+      quota,
+    );
+  }
+
+  function upload(
+    releaseId: string,
+    name: string,
+    bytes: Buffer,
+    as: { requesterId: string } = owner,
+  ) {
+    return assets.upload({
+      ...owner,
+      ...as,
+      releaseId,
+      name,
+      type: 'application/zip',
+      bodyType: 'application/octet-stream',
+      contentLength: String(bytes.length),
+      body: Readable.from([bytes]),
+    });
+  }
 
   /** Commits in the source repository and pushes the commit through the log. */
   async function commitAndLog(message: string, before: string) {
@@ -110,6 +158,8 @@ describe.skipIf(!CONNECTION)('releases', () => {
 
     const store = new InMemoryWalStore() as unknown as WalStoreService;
     pushes = new PushTransactionService(store);
+    s3 = new InMemoryS3();
+    limits({});
     releases = new ReleasesService(
       db,
       new RepositoryAccessService(db),
@@ -118,6 +168,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
       new BranchesService(),
       pushes,
       new UsersService(db),
+      assets,
     );
 
     await db
@@ -356,5 +407,224 @@ describe.skipIf(!CONNECTION)('releases', () => {
     await expect(
       releases.updateRelease({ ...owner, id: 'release_missing', body: {} }),
     ).rejects.toBeInstanceOf(ReleaseNotFoundError);
+  });
+
+  describe('assets', () => {
+    let release: Awaited<ReturnType<ReleasesService['createRelease']>>;
+    const zip = Buffer.from('PK\u0003\u0004 not really a zip');
+
+    beforeEach(async () => {
+      release = await releases.createRelease({
+        ...owner,
+        body: { tagName: 'v1' },
+      });
+    });
+
+    it('stores, lists, serves and counts an asset, then deletes it', async () => {
+      const asset = await upload(release.id, ' app.zip ', zip);
+      expect(asset).toMatchObject({
+        name: 'app.zip',
+        contentType: 'application/zip',
+        size: zip.length,
+        downloadCount: 0,
+      });
+
+      await expect(
+        releases.getReleaseByTag({ ...anonymous, tagName: 'v1' }),
+      ).resolves.toMatchObject({ assets: [{ id: asset.id, name: 'app.zip' }] });
+
+      const download = await assets.download({
+        ...anonymous,
+        tagName: 'v1',
+        name: 'app.zip',
+      });
+      await expect(buffer(download.stream)).resolves.toEqual(zip);
+      await expect(
+        releases.getReleaseByTag({ ...anonymous, tagName: 'v1' }),
+      ).resolves.toMatchObject({ assets: [{ downloadCount: 1 }] });
+
+      await assets.delete({ ...owner, assetId: asset.id });
+      expect(s3.objects.size).toBe(0);
+      await expect(
+        assets.download({ ...anonymous, tagName: 'v1', name: 'app.zip' }),
+      ).rejects.toBeInstanceOf(ReleaseAssetNotFoundError);
+      await expect(
+        assets.delete({ ...owner, assetId: asset.id }),
+      ).rejects.toBeInstanceOf(ReleaseAssetNotFoundError);
+    });
+
+    it('refuses a path for a name, a missing length, an oversized file, a duplicate and a reader', async () => {
+      await expect(
+        upload(release.id, '../app.zip', zip),
+      ).rejects.toBeInstanceOf(InvalidAssetNameError);
+      await expect(
+        assets.upload({
+          ...owner,
+          releaseId: release.id,
+          name: 'app.zip',
+          type: undefined,
+          bodyType: 'application/octet-stream',
+          contentLength: undefined,
+          body: Readable.from([zip]),
+        }),
+      ).rejects.toBeInstanceOf(ContentLengthRequiredError);
+
+      // a JSON or form body has already been parsed away by the time it could be streamed
+      for (const bodyType of ['application/json', undefined]) {
+        await expect(
+          assets.upload({
+            ...owner,
+            releaseId: release.id,
+            name: 'app.zip',
+            type: 'application/json',
+            bodyType,
+            contentLength: String(zip.length),
+            body: Readable.from([zip]),
+          }),
+        ).rejects.toBeInstanceOf(UploadNotOctetStreamError);
+      }
+
+      limits({ RELEASE_ASSET_MAX_BYTES: '8' });
+      await expect(upload(release.id, 'app.zip', zip)).rejects.toBeInstanceOf(
+        ReleaseAssetTooLargeError,
+      );
+
+      limits({});
+      await upload(release.id, 'app.zip', zip);
+      await expect(upload(release.id, 'app.zip', zip)).rejects.toBeInstanceOf(
+        ReleaseAssetExistsError,
+      );
+      await expect(
+        upload(release.id, 'other.zip', zip, { requesterId: READER }),
+      ).rejects.toThrow();
+      await expect(
+        upload('release_missing', 'other.zip', zip),
+      ).rejects.toBeInstanceOf(ReleaseNotFoundError);
+    });
+
+    it('drops the reservation when the upload fails, so the name and the space are free again', async () => {
+      s3.failNextPut = true;
+      await expect(upload(release.id, 'app.zip', zip)).rejects.toThrow(
+        'connection reset',
+      );
+      await expect(quota.usageOf({ userId: OWNER })).resolves.toBe(0);
+      await expect(upload(release.id, 'app.zip', zip)).resolves.toMatchObject({
+        name: 'app.zip',
+      });
+    });
+
+    it('holds an account to its quota, counting live reservations but not lapsed ones', async () => {
+      limits({ STORAGE_QUOTA_BYTES: String(zip.length * 2) });
+      await upload(release.id, 'a.zip', zip);
+
+      // an upload in flight elsewhere holds its space
+      const [inFlight] = await db
+        .insert(schema.releaseAsset)
+        .values({
+          releaseId: release.id,
+          repositoryId: repository.id,
+          name: 'b.zip',
+          contentType: 'application/zip',
+          size: zip.length,
+        })
+        .returning();
+      await expect(upload(release.id, 'c.zip', zip)).rejects.toBeInstanceOf(
+        StorageQuotaExceededError,
+      );
+
+      // one that died a day ago does not, and no longer holds its name either
+      await db
+        .update(schema.releaseAsset)
+        .set({ createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) })
+        .where(inArray(schema.releaseAsset.id, [inFlight.id]));
+      await expect(upload(release.id, 'b.zip', zip)).resolves.toMatchObject({
+        name: 'b.zip',
+      });
+      await expect(quota.usageOf({ userId: OWNER })).resolves.toBe(
+        zip.length * 2,
+      );
+    });
+
+    it('lets concurrent uploads fill the quota exactly, never past it', async () => {
+      limits({ STORAGE_QUOTA_BYTES: String(zip.length * 2) });
+      const results = await Promise.allSettled(
+        ['a', 'b', 'c', 'd'].map((name) =>
+          upload(release.id, `${name}.zip`, zip),
+        ),
+      );
+      expect(
+        results.filter((result) => result.status === 'fulfilled'),
+      ).toHaveLength(2);
+    });
+
+    it('bills an organization repository to the organization, not its owner', async () => {
+      limits({ STORAGE_QUOTA_BYTES: String(zip.length) });
+      await upload(release.id, 'a.zip', zip);
+
+      await db.insert(schema.organization).values({
+        id: 'org_release',
+        name: 'Release Org',
+        slug: 'release-org',
+        createdAt: new Date(),
+      });
+      try {
+        await db.insert(schema.member).values({
+          id: 'member_release',
+          organizationId: 'org_release',
+          userId: OWNER,
+          role: 'owner',
+          createdAt: new Date(),
+        });
+        await db
+          .update(schema.repository)
+          .set({ organizationId: 'org_release' })
+          .where(inArray(schema.repository.id, [repository.id]));
+
+        await expect(quota.usageOf({ userId: OWNER })).resolves.toBe(0);
+        await expect(
+          quota.usageOf({ organizationId: 'org_release' }),
+        ).resolves.toBe(zip.length);
+      } finally {
+        await db
+          .delete(schema.organization)
+          .where(inArray(schema.organization.id, ['org_release']));
+      }
+    });
+
+    it('hides a draft release asset from readers', async () => {
+      const draft = await releases.createRelease({
+        ...owner,
+        body: { tagName: 'v2', isDraft: true },
+      });
+      await upload(draft.id, 'app.zip', zip);
+
+      await expect(
+        assets.download({ ...reader, tagName: 'v2', name: 'app.zip' }),
+      ).rejects.toBeInstanceOf(ReleaseAssetNotFoundError);
+      await expect(
+        assets.download({ ...owner, tagName: 'v2', name: 'app.zip' }),
+      ).resolves.toMatchObject({ name: 'app.zip' });
+    });
+
+    it('removes stored files with their release', async () => {
+      await upload(release.id, 'app.zip', zip);
+      await releases.deleteRelease({ ...owner, id: release.id });
+      expect(s3.objects.size).toBe(0);
+    });
+
+    it('reports usage to the account itself and its organization members only', async () => {
+      limits({ STORAGE_QUOTA_BYTES: '1gb' });
+      await upload(release.id, 'app.zip', zip);
+      const storage = new StorageService(db, quota);
+
+      await expect(storage.usage('release-owner', OWNER)).resolves.toEqual({
+        usedBytes: zip.length,
+        quotaBytes: 1024 ** 3,
+        maxAssetBytes: 2 * 1024 ** 3,
+      });
+      await expect(
+        storage.usage('release-owner', READER),
+      ).rejects.toBeInstanceOf(UserNotFoundError);
+    });
   });
 });

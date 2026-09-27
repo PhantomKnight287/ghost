@@ -20,12 +20,15 @@ export default async function NewReleasePage({
     );
   }
 
-  const [repository, branches] = await Promise.all([
+  const [repository, branches, storage] = await Promise.all([
     client.GET("/api/repositories/{username}/{slug}", {
       params: { path: { username, slug: repo } },
     }),
     client.GET("/api/repositories/{username}/{slug}/branches", {
       params: { path: { username, slug: repo } },
+    }),
+    client.GET("/api/storage/{owner}", {
+      params: { path: { owner: username } },
     }),
   ]);
 
@@ -47,6 +50,7 @@ export default async function NewReleasePage({
         repo={repo}
         branches={branches.data?.branches ?? []}
         defaultBranch={branches.data?.defaultBranch ?? null}
+        storage={storage.data ?? null}
       />
     </div>
   );

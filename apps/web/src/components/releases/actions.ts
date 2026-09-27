@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { fetchClient } from "@/lib/fetch-client";
 
-import { releasePath, releaseSchema } from "./common";
+import { releaseSchema } from "./common";
 
 const actionClient = createSafeActionClient({
   handleServerError: (error) => error.message,
@@ -33,7 +33,8 @@ export const createRelease = actionClient
     if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}`, "layout");
-    redirect(releasePath(username, repo, data.tagName));
+    // the form still has assets to upload, and navigates itself once they are in
+    return { id: data.id, tagName: data.tagName };
   });
 
 export const updateRelease = actionClient
@@ -57,7 +58,7 @@ export const updateRelease = actionClient
     if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}`, "layout");
-    redirect(releasePath(username, repo, data.tagName));
+    return { id: data.id, tagName: data.tagName };
   });
 
 export const deleteRelease = actionClient
@@ -75,4 +76,20 @@ export const deleteRelease = actionClient
 
     revalidatePath(`/${username}/${repo}`, "layout");
     redirect(`/${username}/${repo}/releases`);
+  });
+
+export const deleteReleaseAsset = actionClient
+  .inputSchema(repository.extend({ assetId: z.string() }))
+  .action(async ({ parsedInput: { username, repo, assetId } }) => {
+    const { error } = await fetchClient.DELETE(
+      "/api/repositories/{username}/{repo}/releases/assets/{assetId}",
+      {
+        params: { path: { username, repo, assetId } },
+        headers: { cookie: (await cookies()).toString() },
+      },
+    );
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath(`/${username}/${repo}`, "layout");
   });

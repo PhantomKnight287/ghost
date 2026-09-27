@@ -4,7 +4,17 @@ import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, lt, or, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  lt,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { packRange } from '../../lib/git/merge/merge.js';
@@ -37,6 +47,10 @@ import type {
   UpdateReleaseRequestDTO,
 } from './dto/release.dto.js';
 import {
+  ReleaseAssetsService,
+  releaseAssetColumns,
+} from './release-assets.service.js';
+import {
   InvalidTagNameError,
   ReleaseAlreadyExistsError,
   ReleaseNotFoundError,
@@ -62,6 +76,7 @@ export class ReleasesService {
     private readonly branches: BranchesService,
     private readonly pushTransaction: PushTransactionService,
     private readonly users: UsersService,
+    private readonly assets: ReleaseAssetsService,
   ) {}
 
   async listReleases({
@@ -93,7 +108,7 @@ export class ReleasesService {
     const last = page.at(-1);
 
     return {
-      releases: await this.withCommits(repository, page),
+      releases: await this.expand(repository, page),
       nextCursor:
         rows.length > pageSize && last
           ? encodeCursor({ date: new Date(last.createdAt), id: last.id })
@@ -216,18 +231,24 @@ export class ReleasesService {
     return this.readOne(repository, eq(schema.release.id, updated.id));
   }
 
-  /** The tag stays: deleting a release only deletes its notes. */
+  /** The tag stays: deleting a release deletes its notes and its assets. */
   async deleteRelease({
     id,
     ...target
   }: RepositoryRef & { id: string; requesterId: string }) {
     const repository = await this.authorize(target, 'write');
 
-    const [deleted] = await this.db
+    const [release] = await this.db
+      .select({ id: schema.release.id })
+      .from(schema.release)
+      .where(this.ownRelease(repository, id));
+    if (!release) throw new ReleaseNotFoundError();
+
+    // storage first: the rows go with the release, and an object nothing points at could never be found again
+    await this.assets.removeAll(repository, release.id);
+    await this.db
       .delete(schema.release)
-      .where(this.ownRelease(repository, id))
-      .returning({ id: schema.release.id });
-    if (!deleted) throw new ReleaseNotFoundError();
+      .where(eq(schema.release.id, release.id));
   }
 
   /** An annotated tag, as `git tag -a` makes, so the tag carries its own date and author rather than borrowing its commit's. Its one object is packed and pushed through `commitPush`. */
@@ -318,7 +339,7 @@ export class ReleasesService {
     const [row] = await this.select(repository, where).limit(1);
     if (!row) throw new ReleaseNotFoundError();
 
-    const [release] = await this.withCommits(repository, [row]);
+    const [release] = await this.expand(repository, [row]);
     return release;
   }
 
@@ -352,21 +373,41 @@ export class ReleasesService {
       .orderBy(desc(schema.release.createdAt), desc(schema.release.id));
   }
 
-  /** Commits come from git, not the row: a tag can be moved or deleted by a push at any time. */
-  private async withCommits<T extends { tagName: string }>(
+  /** Commits come from git, not the row: a tag can be moved or deleted by a push at any time. Assets still uploading are left out. */
+  private async expand<T extends { id: string; tagName: string }>(
     repository: AuthorizedRepository,
     releases: T[],
   ) {
     if (releases.length === 0) return [];
 
-    const tags = await listTags(await this.openCache(repository));
+    const [tags, assets] = await Promise.all([
+      this.openCache(repository).then(listTags),
+      this.db
+        .select({
+          releaseId: schema.releaseAsset.releaseId,
+          ...releaseAssetColumns,
+        })
+        .from(schema.releaseAsset)
+        .where(
+          and(
+            inArray(
+              schema.releaseAsset.releaseId,
+              releases.map((release) => release.id),
+            ),
+            eq(schema.releaseAsset.state, 'uploaded'),
+          ),
+        )
+        .orderBy(asc(schema.releaseAsset.name)),
+    ]);
     const shas = new Map(tags.map((tag) => [tag.name, tag.sha]));
-
     const viewerCanEdit = atLeast(repository.viewerRole, 'write');
 
     return releases.map((release) => ({
       ...release,
       commitSha: shas.get(release.tagName) ?? null,
+      assets: assets
+        .filter((asset) => asset.releaseId === release.id)
+        .map(({ releaseId: _, ...asset }) => asset),
       viewerCanEdit,
     }));
   }

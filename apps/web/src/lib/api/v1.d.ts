@@ -1277,6 +1277,86 @@ export interface paths {
         patch: operations["ReleasesController_updateRelease"];
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/releases/{id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a release asset
+         * @description Needs write access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`; the file's own type goes in `type`. The file counts against the storage quota of the repository's owner, when the instance sets one.
+         */
+        post: operations["ReleaseAssetsController_uploadReleaseAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/releases/tags/{tag}/assets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a release asset
+         * @description Always served as an attachment. A tag or name containing `/` is sent percent-encoded.
+         */
+        get: operations["ReleaseAssetsController_downloadReleaseAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/releases/assets/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a release asset
+         * @description Needs write access.
+         */
+        delete: operations["ReleaseAssetsController_deleteReleaseAsset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/storage/{owner}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Storage usage of an account
+         * @description Bytes the signed-in user's own account, or an organization they belong to, keeps in release assets, against this instance's quota.
+         */
+        get: operations["StorageController_getStorageUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/collaborators": {
         parameters: {
             query?: never;
@@ -2650,6 +2730,17 @@ export interface components {
             /** @example d73a4a */
             color?: string;
         };
+        ReleaseAssetDTO: {
+            id: string;
+            /** @example ghost-linux-x64.tar.gz */
+            name: string;
+            /** @example application/gzip */
+            contentType: string;
+            /** @description Bytes. */
+            size: number;
+            downloadCount: number;
+            createdAt: string;
+        };
         ReleaseDTO: {
             id: string;
             /**
@@ -2670,6 +2761,8 @@ export interface components {
             authorUsername: string | null;
             /** @description The commit the tag points at. `null` when the tag has since been deleted. */
             commitSha: string | null;
+            /** @description By name. */
+            assets: components["schemas"]["ReleaseAssetDTO"][];
             publishedAt: string | null;
             createdAt: string;
             updatedAt: string;
@@ -2709,6 +2802,14 @@ export interface components {
             /** @description Publishing a draft stamps `publishedAt` the first time. */
             isDraft?: boolean;
             isPrerelease?: boolean;
+        };
+        StorageUsageDTO: {
+            /** @description Bytes stored, including uploads in progress. */
+            usedBytes: number;
+            /** @description `null` when this instance sets no quota. */
+            quotaBytes: number | null;
+            /** @description Largest single release asset. */
+            maxAssetBytes: number;
         };
         /**
          * @description Only `accepted` grants access. An `expired` invitation is sent again by inviting the user again.
@@ -6000,6 +6101,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleaseAssetsController_uploadReleaseAsset: {
+        parameters: {
+            query: {
+                /** @description File name the asset is saved and downloaded under. */
+                name: string;
+                /** @description Media type the file is served with. The request body itself is always `application/octet-stream`. */
+                type?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseAssetDTO"];
+                };
+            };
+            /** @description The file name is not a plain file name. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The release already has an asset with this name. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The file is over the per-file limit, or would take the owner over their storage quota. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The body was not sent as `application/octet-stream`. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleaseAssetsController_downloadReleaseAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                tag: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleaseAssetsController_deleteReleaseAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    StorageController_getStorageUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUsageDTO"];
                 };
             };
             404: {
