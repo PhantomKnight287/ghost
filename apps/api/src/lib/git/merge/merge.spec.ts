@@ -79,7 +79,7 @@ describe('merging across two repositories', () => {
       base: baseSha,
       head: headSha,
     });
-    expect(tree.conflicts).toEqual([]);
+    expect(tree).toMatchObject({ clean: true, conflicts: [] });
 
     const mergeCommitSha = await commitTree({
       gitDir: baseDir,
@@ -139,6 +139,6 @@ describe('merging across two repositories', () => {
         base: git(work, 'rev-parse', 'HEAD'),
         head: git(fork, 'rev-parse', 'HEAD'),
       }),
-    ).toMatchObject({ conflicts: ['clash.txt'] });
+    ).toMatchObject({ clean: false, conflicts: ['clash.txt'] });
   });
 });

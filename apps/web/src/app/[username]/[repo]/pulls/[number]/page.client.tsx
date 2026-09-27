@@ -191,11 +191,9 @@ export function MergePanel({
       <p className="text-sm">
         {draft
           ? "This pull request is still a draft and cannot be merged."
-          : conflicts.length > 0
-            ? "This branch has conflicts that must be resolved locally:"
-            : mergeable
-              ? "This branch has no conflicts with the base branch."
-              : "The base branch already has every commit from this branch."}
+          : mergeable
+            ? "This branch has no conflicts with the base branch."
+            : "This branch has conflicts that must be resolved locally."}
       </p>
 
       {conflicts.length > 0 && (

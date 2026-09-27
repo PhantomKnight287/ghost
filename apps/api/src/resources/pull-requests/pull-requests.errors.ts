@@ -46,7 +46,9 @@ export class PullRequestConflictError extends DomainError {
 
   constructor(readonly paths: string[]) {
     super(
-      `This pull request has conflicts in ${paths.join(', ')} that must be resolved locally`,
+      paths.length > 0
+        ? `This pull request has conflicts in ${paths.join(', ')} that must be resolved locally`
+        : 'This pull request has conflicts that must be resolved locally',
     );
   }
 }

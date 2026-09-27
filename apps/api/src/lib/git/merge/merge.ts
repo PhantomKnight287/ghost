@@ -18,7 +18,7 @@ export async function mergeTree({
 }: MergeContext & {
   base: string;
   head: string;
-}): Promise<{ tree: string; conflicts: string[] }> {
+}): Promise<{ tree: string; clean: boolean; conflicts: string[] }> {
   const args = [
     'merge-tree',
     '--write-tree',
@@ -29,9 +29,12 @@ export async function mergeTree({
     head,
   ];
   try {
-    return parseMergeTree(
-      await runGit({ args, gitDir, env: alternatesEnv(alternates) }),
-    );
+    return {
+      ...parseMergeTree(
+        await runGit({ args, gitDir, env: alternatesEnv(alternates) }),
+      ),
+      clean: true,
+    };
   } catch (error) {
     // A conflict and an unreadable commit both exit 1. Only the conflict keeps stderr empty, writing its tree and the conflicted paths to stdout, so a fork whose objects were never lent must not read as "merges cleanly".
     if (
@@ -39,7 +42,8 @@ export async function mergeTree({
       error.exitCode === 1 &&
       error.stderr === ''
     ) {
-      return parseMergeTree(error.stdout);
+      // The exit status decides cleanliness; the path list only names what it can.
+      return { ...parseMergeTree(error.stdout), clean: false };
     }
     throw error;
   }

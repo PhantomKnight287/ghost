@@ -354,8 +354,7 @@ export class PullRequestsService {
       changedFiles: files.length,
       additions: files.reduce((total, file) => total + file.additions, 0),
       deletions: files.reduce((total, file) => total + file.deletions, 0),
-      mergeable:
-        !pullRequest.draft && merge !== null && merge.conflicts.length === 0,
+      mergeable: !pullRequest.draft && merge !== null && merge.clean,
       conflicts: merge?.conflicts ?? [],
       reviewers: await this.reviewers(pullRequest.id),
     };
@@ -486,13 +485,13 @@ export class PullRequestsService {
     if (!git.mergeBase) throw new UnrelatedHistoriesError();
     if (git.mergeBase === git.headSha) throw new NothingToMergeError();
 
-    const { tree, conflicts } = await mergeTree({
+    const { tree, clean, conflicts } = await mergeTree({
       gitDir: git.baseDirectory,
       alternates: git.alternates,
       base: git.baseSha,
       head: git.headSha,
     });
-    if (conflicts.length > 0) throw new PullRequestConflictError(conflicts);
+    if (!clean) throw new PullRequestConflictError(conflicts);
 
     const author = await this.users.getUserById(params.requesterId);
     // a fork's branch name is ambiguous on its own, so the merge subject carries the owner exactly as the request was opened with
