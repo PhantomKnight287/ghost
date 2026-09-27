@@ -2,8 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,24 +29,34 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import type { Release } from "@/types/release";
+import type { Release, StorageUsage } from "@/types/release";
 
 import { createRelease, updateRelease } from "./actions";
-import { type ReleaseInput, releasePath, releaseSchema } from "./common";
+import {
+  assetProblem,
+  type ReleaseInput,
+  releasePath,
+  releaseSchema,
+} from "./common";
+import { ReleaseAssetPicker } from "./release-asset-picker";
+import { uploadReleaseAsset } from "./upload-asset";
 
-/** Creates a release, or edits `release` when given. The tag of an existing release is fixed. */
+/** Creates a release, or edits `release` when given. The tag of an existing release is fixed. Picked files upload once the release is saved. */
 export function ReleaseForm({
   username,
   repo,
   branches,
   defaultBranch,
   release,
+  storage,
 }: {
   username: string;
   repo: string;
   branches: string[];
   defaultBranch: string | null;
   release?: Release;
+  /** Null when the viewer may not see the owner's usage, such as a collaborator outside the organization. */
+  storage: StorageUsage | null;
 }) {
   const {
     register,
@@ -61,16 +74,23 @@ export function ReleaseForm({
     },
   });
 
+  const router = useRouter();
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState<string | null>(null);
   const create = useAction(createRelease);
   const update = useAction(updateRelease);
-  const isExecuting = create.isExecuting || update.isExecuting;
+  const isExecuting =
+    create.isExecuting || update.isExecuting || uploading !== null;
   const serverError =
     create.result.serverError ?? update.result.serverError ?? null;
+  const problem = assetProblem(files, release?.assets ?? [], storage);
 
   const submit = (isDraft: boolean) =>
-    handleSubmit((input) =>
-      release
-        ? update.execute({
+    handleSubmit(async (input) => {
+      if (problem) return;
+
+      const saved = release
+        ? await update.executeAsync({
             username,
             repo,
             id: release.id,
@@ -79,8 +99,34 @@ export function ReleaseForm({
             isPrerelease: input.isPrerelease,
             isDraft,
           })
-        : create.execute({ username, repo, ...input, isDraft }),
-    );
+        : await create.executeAsync({ username, repo, ...input, isDraft });
+      if (!saved?.data) return;
+
+      // ponytail: one file at a time with no progress bar; XHR upload events would give one if large files feel stuck
+      for (const file of files) {
+        setUploading(file.name);
+        try {
+          await uploadReleaseAsset({
+            username,
+            repo,
+            releaseId: saved.data.id,
+            file,
+          });
+          // by identity: two picked files can share a name
+          setFiles((current) => current.filter((picked) => picked !== file));
+        } catch (error) {
+          setUploading(null);
+          // the release is saved, so what is left to fix lives on its edit page; the files that did not make it stay picked for a retry there
+          toast.error((error as Error).message);
+          router.push(releasePath(username, repo, saved.data.tagName, "edit"));
+          router.refresh();
+          return;
+        }
+      }
+
+      router.push(releasePath(username, repo, saved.data.tagName));
+      router.refresh();
+    });
 
   return (
     <form onSubmit={submit(false)} className="contents">
@@ -157,6 +203,20 @@ export function ReleaseForm({
           <FieldError errors={[errors.body]} />
         </Field>
 
+        <Field>
+          <FieldLabel>Assets</FieldLabel>
+          <ReleaseAssetPicker
+            username={username}
+            repo={repo}
+            existing={release?.assets ?? []}
+            files={files}
+            onFilesChange={setFiles}
+            storage={storage}
+            problem={problem}
+            disabled={isExecuting}
+          />
+        </Field>
+
         <Controller
           control={control}
           name="isPrerelease"
@@ -201,7 +261,11 @@ export function ReleaseForm({
         )}
         <Button type="submit" disabled={isExecuting}>
           {isExecuting && <Spinner />}
-          {release && !release.isDraft ? "Update release" : "Publish release"}
+          {uploading
+            ? `Uploading ${uploading}…`
+            : release && !release.isDraft
+              ? "Update release"
+              : "Publish release"}
         </Button>
       </div>
     </form>

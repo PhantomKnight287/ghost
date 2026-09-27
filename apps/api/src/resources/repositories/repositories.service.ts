@@ -130,6 +130,8 @@ import { administers, atLeast, organizationRoleOf } from '@ghost/permissions';
 import { RepositoryForbiddenError } from '../../lib/git/repository-access/repository-access.errors.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
+import { S3Service } from '../../services/s3/s3.service.js';
+import { releaseAssetKey } from '../../lib/releases/release-assets.js';
 import type {
   SearchCodeResponseDTO,
   SearchRepositoryCodeResponseDTO,
@@ -161,6 +163,7 @@ export class RepositoriesService {
     private readonly contributions: RepositoryContributionService,
     private readonly verification: CommitVerificationService,
     private readonly codeSearch: CodeSearchService,
+    private readonly s3: S3Service,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -993,6 +996,7 @@ export class RepositoriesService {
         .settle(repository.id)
         .then(() => this.storage.remove(repository.id)),
       this.codeSearch.remove(repository.id),
+      this.s3.deleteUnder(releaseAssetKey(repository.id)),
     ]);
 
     await this.db.transaction(async (tx) => {

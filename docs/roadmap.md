@@ -60,8 +60,11 @@ API routes, DB schema, web pages and auth plugins.
 4. [x] **Tags and releases.** Tag list, browsing code at a tag, releases
    with Markdown notes, drafts and prereleases, a computed latest release in
    the sidebar; creating a release creates its tag
-   ([0024](0024-tags-live-in-git-releases-in-rows.md)). Follow-up: release
-   assets, deleting tags from the UI, source archives (#18).
+   ([0024](0024-tags-live-in-git-releases-in-rows.md)). Release assets with a
+   per-account storage quota, off unless configured
+   ([0025](0025-storage-is-billed-to-the-owning-account.md)). Follow-up:
+   deleting tags from the UI, source archives (#18), per-account quota
+   overrides, upload progress.
 5. [ ] **Branch management.** No create/delete branch from the UI. Branch
    protection is deferred (see below).
 6. [ ] **Pull request reviews.** No approve/request-changes, no inline line

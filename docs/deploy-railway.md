@@ -123,6 +123,22 @@ To turn it on:
 Tell people the host key's fingerprint — `ssh-keygen -lf ghost_host_key.pub` —
 so their first connection has something to compare against.
 
+### Storage limits
+
+Release assets are stored in the same bucket, under `release-assets/`. Two
+variables on the `api` service bound them; sizes are bytes or binary units
+(`1073741824`, `1gb`, `500mb`):
+
+| Variable                  | Effect                                                              |
+| ------------------------- | ------------------------------------------------------------------- |
+| `STORAGE_QUOTA_BYTES`     | Most each account may store: a user, or an organization for its repositories. Empty (the default) means unlimited. |
+| `RELEASE_ASSET_MAX_BYTES` | Largest single asset. `2gb` unless set, and never above `5gb`.       |
+
+A value the server cannot read stops it at boot rather than silently lifting
+the limit. Lowering the quota deletes nothing: an account over it can still
+read and delete its files, and cannot upload until it is back under. See
+[0025](0025-storage-is-billed-to-the-owning-account.md).
+
 ### `web`
 
 | Variable                | Source                          |

@@ -8,14 +8,18 @@ import { PushTransactionService } from '../../services/git/wal/push-transaction.
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { UsersService } from '../../services/users/users.service.js';
+import { StorageModule } from '../storage/storage.module.js';
+import { ReleaseAssetsController } from './release-assets.controller.js';
+import { ReleaseAssetsService } from './release-assets.service.js';
 import { ReleasesController } from './releases.controller.js';
 import { ReleasesService } from './releases.service.js';
 
 @Module({
-  imports: [MaterializerModule],
-  controllers: [ReleasesController],
+  imports: [MaterializerModule, StorageModule],
+  controllers: [ReleasesController, ReleaseAssetsController],
   providers: [
     ReleasesService,
+    ReleaseAssetsService,
     RepositoryAccessService,
     RepositoryStorageService,
     BranchesService,

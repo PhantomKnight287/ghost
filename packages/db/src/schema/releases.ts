@@ -1,7 +1,10 @@
 import { createId } from "@paralleldrive/cuid2";
 import {
+  bigint,
   boolean,
   index,
+  integer,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -39,5 +42,39 @@ export const release = pgTable(
   (t) => [
     uniqueIndex("release_repository_tag_idx").on(t.repositoryId, t.tagName),
     index("release_repository_created_idx").on(t.repositoryId, t.createdAt),
+  ],
+);
+
+/** `uploading` rows are reservations: they count against the owner's quota while the bytes stream to object storage, so two concurrent uploads cannot both squeeze under it. */
+export const releaseAssetState = pgEnum("release_asset_state", [
+  "uploading",
+  "uploaded",
+]);
+
+/** A file attached to a release. The bytes live in object storage under `release-assets/<repositoryId>/<id>`. */
+export const releaseAsset = pgTable(
+  "release_asset",
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => `asset_${createId()}`),
+    releaseId: text()
+      .references(() => release.id, { onDelete: "cascade" })
+      .notNull(),
+    // Denormalized from the release, so an account's usage is one join to `repository` and the object key survives the release row.
+    repositoryId: text()
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    name: text().notNull(),
+    contentType: text().notNull(),
+    size: bigint({ mode: "number" }).notNull(),
+    state: releaseAssetState().notNull().default("uploading"),
+    downloadCount: integer().notNull().default(0),
+    uploaderId: text().references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("release_asset_release_name_idx").on(t.releaseId, t.name),
+    index("release_asset_repository_idx").on(t.repositoryId),
   ],
 );

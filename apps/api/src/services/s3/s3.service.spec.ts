@@ -1,5 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { S3DeleteError } from '../../lib/s3/s3.errors.js';
@@ -99,6 +101,60 @@ describe('S3Service', () => {
       await service.deleteUnder('p/');
 
       expect(deleteObjects).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('putStream', () => {
+    /** Behaves like the SDK: reads the body to its end, and settles only then or when aborted. */
+    function sdkLikePut() {
+      const signals: AbortSignal[] = [];
+      vi.spyOn(service, 'putObject').mockImplementation(((
+        input: { Body: Readable },
+        options: { abortSignal: AbortSignal },
+      ) => {
+        signals.push(options.abortSignal);
+        return new Promise((resolve, reject) => {
+          options.abortSignal.addEventListener('abort', () =>
+            reject(new Error('Request aborted')),
+          );
+          buffer(input.Body).then(resolve, () => undefined);
+        });
+      }) as never);
+      return signals;
+    }
+
+    it('stores a body that arrives whole', async () => {
+      sdkLikePut();
+      await expect(
+        service.putStream({
+          Key: 'k',
+          Body: Readable.from([Buffer.from('hello')]),
+          ContentLength: 5,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("aborts the upload and throws the source's error when the source dies midway, leaving nothing unhandled", async () => {
+      const signals = sdkLikePut();
+      const unhandled = vi.fn();
+      process.on('unhandledRejection', unhandled);
+
+      const source = new Readable({ read() {} });
+      source.push(Buffer.from('partial'));
+      const upload = service.putStream({
+        Key: 'k',
+        Body: source,
+        ContentLength: 100,
+      });
+      source.destroy(
+        Object.assign(new Error('aborted'), { code: 'ECONNRESET' }),
+      );
+
+      await expect(upload).rejects.toThrow('aborted');
+      expect(signals[0]?.aborted).toBe(true);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      process.off('unhandledRejection', unhandled);
+      expect(unhandled).not.toHaveBeenCalled();
     });
   });
 });

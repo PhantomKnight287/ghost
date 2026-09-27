@@ -6,6 +6,7 @@ import { Download, GitCommitHorizontal } from "lucide-react";
 import { createServerClient } from "@/lib/api/server";
 import { highlightLines } from "@/lib/highlight";
 import { ogUrl } from "@/lib/og-url";
+import { formatBytes } from "@/lib/utils";
 
 export async function generateMetadata({
   params,
@@ -206,10 +207,4 @@ function Preview({ url, filename }: { url: string; filename: string }) {
       </a>
     </div>
   );
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }

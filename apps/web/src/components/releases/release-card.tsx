@@ -1,4 +1,10 @@
-import { GitCommitHorizontal, Pencil, Tag } from "lucide-react";
+import {
+  Download,
+  GitCommitHorizontal,
+  Package,
+  Pencil,
+  Tag,
+} from "lucide-react";
 import Link from "next/link";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
@@ -6,6 +12,7 @@ import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatBytes } from "@/lib/utils";
 import type { Release } from "@/types/release";
 
 import { releasePath } from "./common";
@@ -88,6 +95,44 @@ export function ReleaseCard({
         <Markdown repository={{ username, repo }}>{release.body}</Markdown>
       ) : (
         <p className="text-sm text-muted-foreground">No release notes.</p>
+      )}
+
+      {release.assets.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            Assets
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+              {release.assets.length}
+            </span>
+          </h3>
+          <ul className="divide-y rounded-lg border">
+            {release.assets.map((asset) => (
+              <li
+                key={asset.id}
+                className="flex items-center gap-3 px-3 py-2 text-sm"
+              >
+                <Package className="size-4 shrink-0 text-muted-foreground" />
+                <a
+                  href={`${releasePath(username, repo, release.tagName, "download")}/${encodeURIComponent(asset.name)}`}
+                  download
+                  className="min-w-0 flex-1 truncate font-medium text-primary hover:underline"
+                >
+                  {asset.name}
+                </a>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {formatBytes(asset.size)}
+                </span>
+                <span
+                  className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground tabular-nums sm:flex"
+                  title="Downloads"
+                >
+                  <Download className="size-3.5" />
+                  {asset.downloadCount}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </article>
   );
