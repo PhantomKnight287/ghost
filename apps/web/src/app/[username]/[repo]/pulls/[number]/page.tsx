@@ -104,6 +104,7 @@ export default async function PullRequestPage({
         canMerge={atLeast(role, "write")}
         isAuthor={viewer === pull.data.authorUsername}
         mergeCommitSha={pull.data.mergeCommitSha}
+        squash={pull.data.squash}
         draft={pull.data.draft}
         reviewers={pull.data.reviewers}
       />

@@ -94,11 +94,12 @@ describe.skipIf(!hasBackends)('squash and rebase merges', () => {
     git('commit', '-q', '-m', 'first');
     branch('squashed', { 'a.txt': 'a\n', 'b.txt': 'b\n' });
     branch('rebased', { 'c.txt': 'c\n', 'd.txt': 'd\n' });
+    branch('edited', { 'e.txt': 'e\n' });
     branch('clashing', { 'shared.txt': 'from the branch\n' });
     git('checkout', '-q', 'main');
     writeFileSync(path.join(work, 'shared.txt'), 'from main\n');
     git('commit', '-q', '-am', 'main moves on');
-    await remote('push', 'main', 'squashed', 'rebased', 'clashing');
+    await remote('push', 'main', 'squashed', 'edited', 'rebased', 'clashing');
   }, 120_000);
 
   afterAll(async () => {
@@ -138,6 +139,36 @@ describe.skipIf(!hasBackends)('squash and rebase merges', () => {
     expect(files.body.files.map((file: { path: string }) => file.path)).toEqual(
       ['a.txt', 'b.txt'],
     );
+  });
+
+  it('offers the squash message it would use, and commits the one the merger wrote instead', async () => {
+    const number = await open('edited');
+    const { body: pull } = await api()
+      .get(pulls(`/${number}`))
+      .expect(200);
+    expect(pull.squash).toEqual({
+      title: `Land edited (#${number})`,
+      message: '* edit e.txt\n\ncloses nothing in e.txt',
+    });
+
+    await api()
+      .post(pulls(`/${number}/merge`))
+      .set('cookie', owner.cookie)
+      .send({ method: 'squash', title: '' })
+      .expect(400);
+    await api()
+      .post(pulls(`/${number}/merge`))
+      .set('cookie', owner.cookie)
+      .send({ method: 'squash', title: 'Rewritten', message: '' })
+      .expect(201);
+    expect(git('log', '-1', '--format=%B', await mainTip())).toBe('Rewritten');
+    expect(
+      (
+        await api()
+          .get(pulls(`/${number}`))
+          .expect(200)
+      ).body.squash,
+    ).toBeNull();
   });
 
   it('rebases each commit onto the base, keeping its author', async () => {

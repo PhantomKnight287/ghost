@@ -75,7 +75,8 @@ API routes, DB schema, web pages and auth plugins.
    ([0026](0026-a-review-is-pinned-to-the-head-it-read.md)). Follow-up:
    applying several suggestions in one commit.
 6. [x] **Merge strategies.** Merge commit, squash and rebase, picked beside
-   the merge button; conflicting paths listed on the request
+   the merge button, with the squash message editable before it lands;
+   conflicting paths listed on the request
    ([0027](0027-squash-and-rebase-carry-the-head-along.md)).
 7. [ ] **Branch management.** No create/delete branch from the UI. Branch
    protection is deferred (see below).

@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
@@ -104,9 +105,19 @@ export class MergePullRequestRequestDTO {
       'Subject of the merge or squash commit. A rebase keeps every commit message and ignores it.',
   })
   @IsString()
+  @IsNotEmpty()
   @IsOptional()
   @MaxLength(200)
   title?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Body of the squash commit. Defaults to the head's commit messages; an empty string leaves the body out. Ignored by the other methods.",
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(65536)
+  message?: string;
 
   @ApiPropertyOptional({
     enumName: 'MergeMethod',

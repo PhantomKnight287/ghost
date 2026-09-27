@@ -2623,6 +2623,12 @@ export interface components {
             to: string;
             files: components["schemas"]["PullRequestFileDTO"][];
         };
+        SquashMessageDTO: {
+            /** @example Add a feature (#12) */
+            title: string;
+            /** @description The head's commit messages, oldest first. */
+            message: string;
+        };
         ReviewerDTO: {
             username: string;
             /** @description Avatar URL. */
@@ -2663,6 +2669,8 @@ export interface components {
             mergeable: boolean;
             /** @description Paths that conflict when the head is merged into the base, right now. Empty when it merges cleanly. */
             conflicts: string[];
+            /** @description What a squash merge commits unless the merger rewrites it. Null when there is nothing to merge. */
+            squash: components["schemas"]["SquashMessageDTO"] | null;
             reviewers: components["schemas"]["ReviewerDTO"][];
         };
         GetPullRequestCommitsResponseDTO: {
@@ -2686,6 +2694,8 @@ export interface components {
         MergePullRequestRequestDTO: {
             /** @description Subject of the merge or squash commit. A rebase keeps every commit message and ignores it. */
             title?: string;
+            /** @description Body of the squash commit. Defaults to the head's commit messages; an empty string leaves the body out. Ignored by the other methods. */
+            message?: string;
             /**
              * @description `merge` adds a merge commit, `squash` lands the whole request as one commit, `rebase` replays each of its commits onto the base.
              * @default merge

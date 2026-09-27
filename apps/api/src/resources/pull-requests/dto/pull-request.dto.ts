@@ -105,6 +105,16 @@ export class PullRequestDTO {
   updatedAt: string;
 }
 
+export class SquashMessageDTO {
+  @ApiProperty({ example: 'Add a feature (#12)' })
+  @IsString()
+  title: string;
+
+  @ApiProperty({ description: "The head's commit messages, oldest first." })
+  @IsString()
+  message: string;
+}
+
 export class PullRequestDetailDTO extends PullRequestDTO {
   @ApiProperty({
     type: String,
@@ -146,6 +156,17 @@ export class PullRequestDetailDTO extends PullRequestDTO {
   })
   @IsString({ each: true })
   conflicts: string[];
+
+  @ApiProperty({
+    type: SquashMessageDTO,
+    nullable: true,
+    description:
+      'What a squash merge commits unless the merger rewrites it. Null when there is nothing to merge.',
+  })
+  @ValidateNested()
+  @Type(() => SquashMessageDTO)
+  @IsOptional()
+  squash: SquashMessageDTO | null;
 
   @ApiProperty({ type: [ReviewerDTO] })
   @ValidateNested({ each: true })

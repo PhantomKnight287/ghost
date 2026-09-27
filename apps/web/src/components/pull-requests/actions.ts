@@ -51,16 +51,19 @@ export const mergePullRequest = actionClient
   .inputSchema(
     target.extend({
       title: z.string().optional(),
+      message: z.string().optional(),
       method: z.enum(mergeMethods),
     }),
   )
   .action(
-    async ({ parsedInput: { username, repo, number, title, method } }) => {
+    async ({
+      parsedInput: { username, repo, number, title, message, method },
+    }) => {
       const { data, error } = await fetchClient.POST(
         "/api/repositories/{username}/{repo}/pulls/{number}/merge",
         {
           params: { path: { username, repo, number } },
-          body: { title, method },
+          body: { title, message, method },
           headers: { cookie: (await cookies()).toString() },
         },
       );

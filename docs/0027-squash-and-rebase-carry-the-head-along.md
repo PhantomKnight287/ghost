@@ -7,7 +7,7 @@
 `POST /pulls/:number/merge` takes `method`: `merge` (the default), `squash` or `rebase`. All three build their result in the base cache and land it through `commitPush`, exactly as [0016](0016-a-pull-request-spans-two-logs.md) describes for the merge commit.
 
 - **merge** is unchanged: `merge-tree`, then a commit with the base tip and the head tip as parents.
-- **squash** uses the same `merge-tree` result, committed with the base tip as its only parent. The subject is `<title> (#<number>)`, the body lists the head's commit messages, the author is the request's author and the committer is whoever pressed the button.
+- **squash** uses the same `merge-tree` result, committed with the base tip as its only parent. The subject defaults to `<title> (#<number>)` and the body to the head's commit messages; the request's detail carries both as `squash`, and the merger may rewrite either before merging. The author is the request's author and the committer is whoever pressed the button.
 - **rebase** replays every non-merge commit in `mergeBase..head` onto the base tip, one `merge-tree --merge-base=<commit>^` per commit. Each copy keeps its author, author date and message; the committer is whoever pressed the button. Merge commits are dropped, the way `git rebase` linearizes a branch.
 
 The pack for every method includes the head tip as well as the new base tip, excluding only the base tip.

@@ -9951,6 +9951,23 @@
           "files"
         ]
       },
+      "SquashMessageDTO": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Add a feature (#12)"
+          },
+          "message": {
+            "type": "string",
+            "description": "The head's commit messages, oldest first."
+          }
+        },
+        "required": [
+          "title",
+          "message"
+        ]
+      },
       "ReviewerDTO": {
         "type": "object",
         "properties": {
@@ -10062,6 +10079,16 @@
               "type": "string"
             }
           },
+          "squash": {
+            "nullable": true,
+            "description": "What a squash merge commits unless the merger rewrites it. Null when there is nothing to merge.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SquashMessageDTO"
+              }
+            ]
+          },
           "reviewers": {
             "type": "array",
             "items": {
@@ -10091,6 +10118,7 @@
           "deletions",
           "mergeable",
           "conflicts",
+          "squash",
           "reviewers"
         ]
       },
@@ -10157,6 +10185,10 @@
           "title": {
             "type": "string",
             "description": "Subject of the merge or squash commit. A rebase keeps every commit message and ignores it."
+          },
+          "message": {
+            "type": "string",
+            "description": "Body of the squash commit. Defaults to the head's commit messages; an empty string leaves the body out. Ignored by the other methods."
           },
           "method": {
             "default": "merge",

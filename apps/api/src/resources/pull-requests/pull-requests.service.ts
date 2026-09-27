@@ -364,6 +364,7 @@ export class PullRequestsService {
       deletions: files.reduce((total, file) => total + file.deletions, 0),
       mergeable: !pullRequest.draft && merge !== null && merge.clean,
       conflicts: merge?.conflicts ?? [],
+      squash: merge ? await this.squashMessage({ ...git, pullRequest }) : null,
       reviewers: await this.reviewers(pullRequest.id),
     };
   }
@@ -478,6 +479,7 @@ export class PullRequestsService {
     params: PullRequestRef & {
       requesterId: string;
       title?: string;
+      message?: string;
       method?: MergeMethod;
     },
   ) {
@@ -506,6 +508,7 @@ export class PullRequestsService {
         : await this.commitMerge(git, {
             squash: method === 'squash',
             title: params.title,
+            message: params.message,
             committer,
           });
     // A rebase drops merge commits, so a head made only of them replays to nothing.
@@ -619,10 +622,12 @@ export class PullRequestsService {
     {
       squash,
       title,
+      message,
       committer,
     }: {
       squash: boolean;
       title?: string;
+      message?: string;
       committer: { name: string; email: string };
     },
   ) {
@@ -637,25 +642,14 @@ export class PullRequestsService {
     const { pullRequest } = git;
     if (squash) {
       const author = await this.users.getUserById(pullRequest.authorId);
-      const { commits } = await listCommits({
-        gitDir: git.baseDirectory,
-        env: git.env,
-        ref: `${git.mergeBase}..${git.headSha}`,
-        limit: MAX_SQUASH_MESSAGES,
-      });
-      const body = commits
-        .reverse()
-        .map(
-          (commit) =>
-            `* ${[commit.subject, commit.body].filter(Boolean).join('\n\n')}`,
-        )
-        .join('\n\n');
+      const fallback = await this.squashMessage(git);
+      const body = (message ?? fallback.message).trim();
       return commitTree({
         gitDir: git.baseDirectory,
         alternates: git.alternates,
         tree,
         parents: [git.baseSha],
-        message: `${title ?? `${pullRequest.title} (#${pullRequest.number})`}\n\n${body}\n`,
+        message: `${title ?? fallback.title}\n${body && `\n${body}\n`}`,
         author: { name: author.name, email: author.email },
         committer,
       });
@@ -675,6 +669,38 @@ export class PullRequestsService {
       message: `${title ?? `Merge pull request #${pullRequest.number} from ${headLabel}`}\n`,
       author: committer,
     });
+  }
+
+  /** What a squash commit says unless the merger rewrites it: the request title, then the head's commit messages oldest first. */
+  private async squashMessage({
+    pullRequest,
+    baseDirectory,
+    env,
+    mergeBase,
+    headSha,
+  }: {
+    pullRequest: PullRequest;
+    baseDirectory: string;
+    env?: Record<string, string>;
+    mergeBase: string | null;
+    headSha: string;
+  }) {
+    const { commits } = await listCommits({
+      gitDir: baseDirectory,
+      env,
+      ref: `${mergeBase}..${headSha}`,
+      limit: MAX_SQUASH_MESSAGES,
+    });
+    return {
+      title: `${pullRequest.title} (#${pullRequest.number})`,
+      message: commits
+        .reverse()
+        .map(
+          (commit) =>
+            `* ${[commit.subject, commit.body].filter(Boolean).join('\n\n')}`,
+        )
+        .join('\n\n'),
+    };
   }
 
   private async rebase(
