@@ -26,6 +26,8 @@ export const issueEventType = pgEnum("issue_event_type", [
   "assigned",
   "unassigned",
   "merged",
+  "ready_for_review",
+  "converted_to_draft",
 ]);
 
 export const issueReferenceSource = pgEnum("issue_reference_source", [

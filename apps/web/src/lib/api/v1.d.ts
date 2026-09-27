@@ -996,6 +996,178 @@ export interface paths {
         patch: operations["PullRequestsController_closePullRequest"];
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/pulls/{number}/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a draft pull request ready for review */
+        post: operations["PullRequestsController_markReadyForReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn a pull request back into a draft */
+        post: operations["PullRequestsController_convertToDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Comment on, approve or request changes to a pull request */
+        post: operations["ReviewsController_submitReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your pending review */
+        get: operations["ReviewsController_getPendingReview"];
+        put?: never;
+        post?: never;
+        /** Discard your pending review and its comments */
+        delete: operations["ReviewsController_discardPendingReview"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews/pending/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a line comment to your pending review */
+        post: operations["ReviewsController_addPendingComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews/{reviewId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a review's summary */
+        patch: operations["ReviewsController_updateReview"];
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews/{reviewId}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss an approval or a request for changes */
+        post: operations["ReviewsController_dismissReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reply to a line comment */
+        post: operations["ReviewsController_replyToComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a line comment and its replies, or one reply */
+        delete: operations["ReviewsController_deleteComment"];
+        options?: never;
+        head?: never;
+        /** Edit a line comment or reply */
+        patch: operations["ReviewsController_updateComment"];
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit a comment's suggested change to the head branch */
+        post: operations["ReviewsController_applySuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/issues": {
         parameters: {
             query?: never;
@@ -2390,6 +2562,8 @@ export interface components {
              * @example alice:feature
              */
             head: string;
+            /** @default false */
+            draft: boolean;
         };
         /** @enum {string} */
         PullRequestState: "open" | "closed" | "merged";
@@ -2411,12 +2585,16 @@ export interface components {
             title: string;
             body: string | null;
             state: components["schemas"]["PullRequestState"];
+            /** @description A draft cannot be merged until it is marked ready for review. */
+            draft: boolean;
             base: components["schemas"]["PullRequestSideDTO"];
             head: components["schemas"]["PullRequestSideDTO"];
             /** @description Head tip as of the last read. */
             headSha: string;
             mergeCommitSha: string | null;
             authorUsername: string;
+            /** @description Avatar URL. */
+            authorImage: string | null;
             createdAt: string;
             updatedAt: string;
         };
@@ -2445,6 +2623,16 @@ export interface components {
             to: string;
             files: components["schemas"]["PullRequestFileDTO"][];
         };
+        ReviewerDTO: {
+            username: string;
+            /** @description Avatar URL. */
+            image: string | null;
+            /**
+             * @description The reviewer's latest verdict, unless it was dismissed. Comment-only reviews do not change it.
+             * @enum {string}
+             */
+            state: "approved" | "changes_requested";
+        };
         PullRequestDetailDTO: {
             id: string;
             /** @description Per base repository, and what the URL carries. */
@@ -2452,12 +2640,16 @@ export interface components {
             title: string;
             body: string | null;
             state: components["schemas"]["PullRequestState"];
+            /** @description A draft cannot be merged until it is marked ready for review. */
+            draft: boolean;
             base: components["schemas"]["PullRequestSideDTO"];
             head: components["schemas"]["PullRequestSideDTO"];
             /** @description Head tip as of the last read. */
             headSha: string;
             mergeCommitSha: string | null;
             authorUsername: string;
+            /** @description Avatar URL. */
+            authorImage: string | null;
             createdAt: string;
             updatedAt: string;
             /** @description Commit the two branches diverged from. */
@@ -2469,6 +2661,9 @@ export interface components {
             deletions: number;
             /** @description Whether the merge is conflict-free right now. Never cached. */
             mergeable: boolean;
+            /** @description Paths that conflict when the head is merged into the base, right now. Empty when it merges cleanly. */
+            conflicts: string[];
+            reviewers: components["schemas"]["ReviewerDTO"][];
         };
         GetPullRequestCommitsResponseDTO: {
             /** @description Newest first. */
@@ -2497,6 +2692,106 @@ export interface components {
             title?: string;
             /** @description Markdown. `null` clears the description. */
             body?: string | null;
+        };
+        /**
+         * @description Submits your pending review, if you have one, together with any comments given here.
+         * @enum {string}
+         */
+        PullRequestReviewState: "commented" | "approved" | "changes_requested";
+        /**
+         * @description `deletions` is the base side of the diff, `additions` the head side.
+         * @enum {string}
+         */
+        DiffSide: "deletions" | "additions";
+        ReviewCommentRequestDTO: {
+            /** @example src/index.ts */
+            path: string;
+            /** @description `deletions` is the base side of the diff, `additions` the head side. */
+            side: components["schemas"]["DiffSide"];
+            /** @description Line number on that side of the diff; the last line of a range. */
+            line: number;
+            /** @description Side of the first line of a range. Defaults to `side`. */
+            startSide?: components["schemas"]["DiffSide"];
+            /** @description First line of a range, for a comment on several lines. */
+            startLine?: number;
+            body: string;
+        };
+        CreateReviewRequestDTO: {
+            /** @description Submits your pending review, if you have one, together with any comments given here. */
+            state: components["schemas"]["PullRequestReviewState"];
+            body?: string;
+            comments?: components["schemas"]["ReviewCommentRequestDTO"][];
+        };
+        ReviewReplyDTO: {
+            id: string;
+            body: string;
+            authorUsername: string;
+            /** @description Avatar URL. */
+            authorImage: string | null;
+            createdAt: string;
+            updatedAt: string;
+        };
+        ReviewThreadDTO: {
+            id: string;
+            body: string;
+            authorUsername: string;
+            /** @description Avatar URL. */
+            authorImage: string | null;
+            createdAt: string;
+            updatedAt: string;
+            path: string;
+            side: components["schemas"]["DiffSide"];
+            line: number;
+            startSide: components["schemas"]["DiffSide"] | null;
+            /** @description First line of a range; null for a single line. */
+            startLine: number | null;
+            /** @description Head commit the comment was made on. Once the head moves on, the comment is outdated. */
+            commitSha: string;
+            /** @description The rows of the diff the comment points at, as a hunk with its own `@@` header, kept as they were when it was written. */
+            diffHunk: string | null;
+            replies: components["schemas"]["ReviewReplyDTO"][];
+        };
+        PullRequestReviewDTO: {
+            /**
+             * @example review
+             * @enum {string}
+             */
+            kind: "review";
+            id: string;
+            /** @description Null while the review is pending. */
+            state: components["schemas"]["PullRequestReviewState"] | null;
+            body: string | null;
+            authorUsername: string;
+            /** @description Avatar URL. */
+            authorImage: string | null;
+            /** @description Head commit when the review was submitted, or started if it is pending. */
+            commitSha: string;
+            /** @description Null once that account is deleted, even though the review stays dismissed. */
+            dismissedByUsername: string | null;
+            /** @description Set once the review is dismissed; a dismissed verdict no longer counts. */
+            dismissalMessage: string | null;
+            comments: components["schemas"]["ReviewThreadDTO"][];
+            /** @description When the review was submitted, or started if it is pending. */
+            createdAt: string;
+        };
+        GetPendingReviewResponseDTO: {
+            /** @description Your unsubmitted review, visible to nobody else. */
+            review: components["schemas"]["PullRequestReviewDTO"] | null;
+        };
+        UpdateReviewRequestDTO: {
+            /** @description `null` clears the summary. */
+            body: string | null;
+        };
+        DismissReviewRequestDTO: {
+            /** @example Addressed in the latest push */
+            message: string;
+        };
+        ReviewCommentBodyDTO: {
+            body: string;
+        };
+        ApplySuggestionResponseDTO: {
+            /** @description The commit pushed to the head branch. */
+            commitSha: string;
         };
         CreateIssueRequestDTO: {
             /** @example Login fails with 500 on Safari */
@@ -2626,15 +2921,19 @@ export interface components {
             id: string;
             body: string;
             authorUsername: string;
+            /** @description Avatar URL. */
+            authorImage: string | null;
             createdAt: string;
             updatedAt: string;
         };
         /** @enum {string} */
-        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged";
+        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft";
         IssueTimelineEventDTO: {
             id: string;
             type: components["schemas"]["IssueEventType"];
             actorUsername: string;
+            /** @description Avatar URL. */
+            actorImage: string | null;
             labelName: string | null;
             assigneeUsername: string | null;
             oldTitle: string | null;
@@ -2690,7 +2989,7 @@ export interface components {
         };
         GetIssueTimelineResponseDTO: {
             /** @description Comments, events and mentions from elsewhere interleaved oldest-first, exactly as rendered. */
-            timeline: (components["schemas"]["IssueTimelineCommentDTO"] | components["schemas"]["IssueTimelineEventItemDTO"] | components["schemas"]["IssueTimelineReferenceDTO"])[];
+            timeline: (components["schemas"]["IssueTimelineCommentDTO"] | components["schemas"]["IssueTimelineEventItemDTO"] | components["schemas"]["IssueTimelineReferenceDTO"] | components["schemas"]["PullRequestReviewDTO"])[];
         };
         SetIssueLabelsRequestDTO: {
             /**
@@ -5245,6 +5544,488 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PullRequestDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_markReadyForReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_convertToDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_submitReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReviewRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestReviewDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_getPendingReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetPendingReviewResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_discardPendingReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_addPendingComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCommentRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetPendingReviewResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_updateReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                reviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateReviewRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestReviewDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_dismissReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                reviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissReviewRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestReviewDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_replyToComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCommentBodyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewReplyDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_deleteComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_updateComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCommentBodyDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewReplyDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_applySuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplySuggestionResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
             404: {

@@ -2,12 +2,14 @@ import { GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import type { PullRequestFilter } from "@/components/pull-requests/common";
 import {
   branchLabel,
   pullRequestFilters,
 } from "@/components/pull-requests/common";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
@@ -113,10 +115,18 @@ export default async function PullRequestsPage({
                     >
                       {pull.title}
                     </Link>
+                    {pull.draft && pull.state === "open" && (
+                      <Badge variant="outline" className="ml-2 rounded-full">
+                        Draft
+                      </Badge>
+                    )}
                     <p className="truncate text-xs text-muted-foreground">
                       #{pull.number} opened{" "}
                       <FromNowHoverCard date={pull.createdAt} /> by{" "}
-                      {pull.authorUsername}
+                      <UserLink
+                        username={pull.authorUsername}
+                        className="font-normal text-muted-foreground"
+                      />
                     </p>
                   </div>
 

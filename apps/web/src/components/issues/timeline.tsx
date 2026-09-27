@@ -5,6 +5,8 @@ import { FromNowHoverCard } from "@/components/from-now-card";
 import { CommentItem } from "@/components/issues/comments";
 import { eventDescription } from "@/components/issues/common";
 import { Markdown } from "@/components/markdown";
+import { UserLink } from "@/components/users/user-link";
+import { ReviewItem } from "@/components/pull-requests/review";
 import type { IssueTimelineItem } from "@/types/issue";
 
 /** Comments, events and mentions from elsewhere, as one thread. Issues and pull requests share it because a pull request is an issue. */
@@ -16,6 +18,7 @@ export function Timeline({
   canModerate,
   items,
   noun,
+  headSha,
 }: {
   username: string;
   repo: string;
@@ -25,15 +28,34 @@ export function Timeline({
   canModerate: boolean;
   items: IssueTimelineItem[];
   noun: "issue" | "pull request";
+  /** The request's current head, which line comments on another commit are outdated against. */
+  headSha?: string;
 }) {
   return items.map((item) => {
+    if (item.kind === "review") {
+      return (
+        <ReviewItem
+          key={item.id}
+          username={username}
+          repo={repo}
+          number={number}
+          viewer={viewer}
+          canModerate={canModerate}
+          review={item}
+          headSha={headSha ?? item.commitSha}
+        />
+      );
+    }
+
     if (item.kind === "comment") {
       return (
         <div key={item.id} className="rounded-lg border">
           <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">
-              {item.authorUsername}
-            </span>
+            <UserLink
+              username={item.authorUsername}
+              image={item.authorImage}
+              avatar="sm"
+            />
             commented <FromNowHoverCard date={item.createdAt} />
           </div>
           <CommentItem
@@ -56,6 +78,12 @@ export function Timeline({
       const { event } = item;
       return (
         <p key={item.id} className="px-4 text-xs text-muted-foreground">
+          <UserLink
+            username={event.actorUsername}
+            image={event.actorImage}
+            avatar="xs"
+            className="align-middle"
+          />{" "}
           {eventDescription(event, noun)}
           {event.sourceRepository && event.sourceNumber !== null && (
             <>
@@ -99,7 +127,7 @@ export function Timeline({
         ) : (
           <GitCommitHorizontal className="size-3.5" />
         )}
-        {item.actorUsername || "Someone"} mentioned this in
+        <UserLink username={item.actorUsername} /> mentioned this in
         {item.source ? (
           <Link
             href={`${base}/${item.source.isPullRequest ? "pulls" : "issues"}/${item.source.number}`}

@@ -2,6 +2,7 @@ import { CircleCheck, CircleDot } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
+import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { Badge } from "@/components/ui/badge";
 import { createServerClient } from "@/lib/api/server";
@@ -82,7 +83,7 @@ export default async function IssueLayout({
           </Badge>
 
           <span>
-            {issue.data.authorUsername} opened this issue{" "}
+            <UserLink username={issue.data.authorUsername} /> opened this issue{" "}
             <FromNowHoverCard date={issue.data.createdAt} />
           </span>
 

@@ -79,12 +79,12 @@ describe('merging across two repositories', () => {
       base: baseSha,
       head: headSha,
     });
-    expect(tree).not.toBeNull();
+    expect(tree).toMatchObject({ clean: true, conflicts: [] });
 
     const mergeCommitSha = await commitTree({
       gitDir: baseDir,
       alternates,
-      tree: tree!,
+      tree: tree.tree,
       parents: [baseSha, headSha],
       message: 'Merge pull request #1\n',
       author: { name: 'Test', email: 'test@example.com' },
@@ -118,7 +118,7 @@ describe('merging across two repositories', () => {
     ).not.toMatch(/missing/);
   });
 
-  it('returns null instead of throwing when the merge conflicts', async () => {
+  it('names the conflicted paths instead of throwing when the merge conflicts', async () => {
     const fork = path.join(root, 'fork');
     const work = path.join(root, 'work');
 
@@ -139,6 +139,6 @@ describe('merging across two repositories', () => {
         base: git(work, 'rev-parse', 'HEAD'),
         head: git(fork, 'rev-parse', 'HEAD'),
       }),
-    ).toBeNull();
+    ).toMatchObject({ clean: false, conflicts: ['clash.txt'] });
   });
 });

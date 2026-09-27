@@ -11,6 +11,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+import { ReviewerDTO } from './pull-request-review.dto.js';
+
 export class PullRequestSideDTO {
   @ApiProperty({
     example: 'bob',
@@ -59,6 +61,13 @@ export class PullRequestDTO {
   @IsIn(schema.pullRequestState.enumValues)
   state: (typeof schema.pullRequestState.enumValues)[number];
 
+  @ApiProperty({
+    description:
+      'A draft cannot be merged until it is marked ready for review.',
+  })
+  @IsBoolean()
+  draft: boolean;
+
   @ApiProperty({ type: PullRequestSideDTO })
   @ValidateNested()
   @Type(() => PullRequestSideDTO)
@@ -81,6 +90,11 @@ export class PullRequestDTO {
   @ApiProperty()
   @IsString()
   authorUsername: string;
+
+  @ApiProperty({ type: String, nullable: true, description: 'Avatar URL.' })
+  @IsString()
+  @IsOptional()
+  authorImage: string | null;
 
   @ApiProperty()
   @IsISO8601()
@@ -124,6 +138,19 @@ export class PullRequestDetailDTO extends PullRequestDTO {
   })
   @IsBoolean()
   mergeable: boolean;
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Paths that conflict when the head is merged into the base, right now. Empty when it merges cleanly.',
+  })
+  @IsString({ each: true })
+  conflicts: string[];
+
+  @ApiProperty({ type: [ReviewerDTO] })
+  @ValidateNested({ each: true })
+  @Type(() => ReviewerDTO)
+  reviewers: ReviewerDTO[];
 }
 
 export class GetPullRequestsQueryDTO {

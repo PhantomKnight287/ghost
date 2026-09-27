@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 
+import { UserLink } from "@/components/users/user-link";
+import { DiffsProvider } from "@/components/diffs/diffs-provider";
 import { CommentBox } from "@/components/issues/comments";
 import { Timeline } from "@/components/issues/timeline";
 import { Markdown } from "@/components/markdown";
@@ -44,8 +46,13 @@ export default async function PullRequestPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-lg border">
-        <div className="border-b bg-muted/40 px-4 py-2.5 text-sm font-medium">
-          {pull.data.authorUsername}
+        <div className="flex items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
+          <UserLink
+            username={pull.data.authorUsername}
+            image={pull.data.authorImage}
+            avatar="sm"
+          />
+          commented
         </div>
         <div className="px-4 py-3 text-sm">
           <EditableField
@@ -67,15 +74,18 @@ export default async function PullRequestPage({
         </div>
       </div>
 
-      <Timeline
-        username={username}
-        repo={repo}
-        number={Number(number)}
-        viewer={viewer}
-        canModerate={atLeast(role, "write")}
-        items={timeline.data?.timeline ?? []}
-        noun="pull request"
-      />
+      <DiffsProvider>
+        <Timeline
+          username={username}
+          repo={repo}
+          number={Number(number)}
+          viewer={viewer}
+          canModerate={atLeast(role, "write")}
+          items={timeline.data?.timeline ?? []}
+          noun="pull request"
+          headSha={pull.data.headSha}
+        />
+      </DiffsProvider>
 
       <CommentBox
         username={username}
@@ -90,9 +100,12 @@ export default async function PullRequestPage({
         number={Number(number)}
         state={pull.data.state}
         mergeable={pull.data.mergeable}
+        conflicts={pull.data.conflicts}
         canMerge={atLeast(role, "write")}
         isAuthor={viewer === pull.data.authorUsername}
         mergeCommitSha={pull.data.mergeCommitSha}
+        draft={pull.data.draft}
+        reviewers={pull.data.reviewers}
       />
     </div>
   );

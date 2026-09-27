@@ -1,8 +1,17 @@
 import type { components } from "@/lib/api/v1";
+import type { LazyFileDiffsProps } from "@/types/diffs";
 
 export type PullRequestFile = components["schemas"]["PullRequestFileDTO"];
+export type PullRequestReview = components["schemas"]["PullRequestReviewDTO"];
+export type ReviewThread = components["schemas"]["ReviewThreadDTO"];
+export type RepositoryBlob =
+  components["schemas"]["GetRepositoryBlobResponseDTO"];
+export type ReviewComment = components["schemas"]["ReviewCommentRequestDTO"];
 
-export type DiffViewProps = {
+export type DiffViewProps = Pick<
+  LazyFileDiffsProps,
+  "annotations" | "onLineComment"
+> & {
   from: string;
   to: string;
   files: PullRequestFile[];

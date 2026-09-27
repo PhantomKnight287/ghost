@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { UserLink } from "@/components/users/user-link";
 import { CommentBox } from "@/components/issues/comments";
 import { Timeline } from "@/components/issues/timeline";
 import { Markdown } from "@/components/markdown";
@@ -50,8 +51,8 @@ export default async function IssuePage({
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="flex min-w-0 flex-col gap-4">
         <div className="rounded-lg border">
-          <div className="border-b bg-muted/40 px-4 py-2.5 text-sm font-medium">
-            {issue.data.authorUsername}
+          <div className="border-b bg-muted/40 px-4 py-2.5 text-sm">
+            <UserLink username={issue.data.authorUsername} />
           </div>
           <div className="px-4 py-3 text-sm">
             <EditableField

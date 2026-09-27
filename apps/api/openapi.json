@@ -3801,6 +3801,894 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/pulls/{number}/ready": {
+      "post": {
+        "operationId": "PullRequestsController_markReadyForReview",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Mark a draft pull request ready for review",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/draft": {
+      "post": {
+        "operationId": "PullRequestsController_convertToDraft",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Turn a pull request back into a draft",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews": {
+      "post": {
+        "operationId": "ReviewsController_submitReview",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestReviewDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Comment on, approve or request changes to a pull request",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews/pending": {
+      "get": {
+        "operationId": "ReviewsController_getPendingReview",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPendingReviewResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Your pending review",
+        "tags": [
+          "Pull request reviews"
+        ]
+      },
+      "delete": {
+        "operationId": "ReviewsController_discardPendingReview",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Discard your pending review and its comments",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews/pending/comments": {
+      "post": {
+        "operationId": "ReviewsController_addPendingComment",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCommentRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPendingReviewResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Add a line comment to your pending review",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews/{reviewId}": {
+      "patch": {
+        "operationId": "ReviewsController_updateReview",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "reviewId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReviewRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestReviewDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Edit a review's summary",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/reviews/{reviewId}/dismiss": {
+      "post": {
+        "operationId": "ReviewsController_dismissReview",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "reviewId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DismissReviewRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestReviewDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Dismiss an approval or a request for changes",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/replies": {
+      "post": {
+        "operationId": "ReviewsController_replyToComment",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCommentBodyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewReplyDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reply to a line comment",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}": {
+      "patch": {
+        "operationId": "ReviewsController_updateComment",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCommentBodyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewReplyDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Edit a line comment or reply",
+        "tags": [
+          "Pull request reviews"
+        ]
+      },
+      "delete": {
+        "operationId": "ReviewsController_deleteComment",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a line comment and its replies, or one reply",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/apply": {
+      "post": {
+        "operationId": "ReviewsController_applySuggestion",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplySuggestionResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Commit a comment's suggested change to the head branch",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/issues": {
       "post": {
         "operationId": "IssuesController_createIssue",
@@ -8854,6 +9742,10 @@
             "type": "string",
             "description": "Branch to merge from. `owner:branch` for a fork, or a bare branch name for this repository.",
             "example": "alice:feature"
+          },
+          "draft": {
+            "type": "boolean",
+            "default": false
           }
         },
         "required": [
@@ -8919,6 +9811,10 @@
               }
             ]
           },
+          "draft": {
+            "type": "boolean",
+            "description": "A draft cannot be merged until it is marked ready for review."
+          },
           "base": {
             "$ref": "#/components/schemas/PullRequestSideDTO"
           },
@@ -8936,6 +9832,11 @@
           "authorUsername": {
             "type": "string"
           },
+          "authorImage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          },
           "createdAt": {
             "type": "string"
           },
@@ -8949,11 +9850,13 @@
           "title",
           "body",
           "state",
+          "draft",
           "base",
           "head",
           "headSha",
           "mergeCommitSha",
           "authorUsername",
+          "authorImage",
           "createdAt",
           "updatedAt"
         ]
@@ -9048,6 +9951,32 @@
           "files"
         ]
       },
+      "ReviewerDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "changes_requested"
+            ],
+            "description": "The reviewer's latest verdict, unless it was dismissed. Comment-only reviews do not change it."
+          }
+        },
+        "required": [
+          "username",
+          "image",
+          "state"
+        ]
+      },
       "PullRequestDetailDTO": {
         "type": "object",
         "properties": {
@@ -9072,6 +10001,10 @@
               }
             ]
           },
+          "draft": {
+            "type": "boolean",
+            "description": "A draft cannot be merged until it is marked ready for review."
+          },
           "base": {
             "$ref": "#/components/schemas/PullRequestSideDTO"
           },
@@ -9088,6 +10021,11 @@
           },
           "authorUsername": {
             "type": "string"
+          },
+          "authorImage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
           },
           "createdAt": {
             "type": "string"
@@ -9116,6 +10054,19 @@
           "mergeable": {
             "type": "boolean",
             "description": "Whether the merge is conflict-free right now. Never cached."
+          },
+          "conflicts": {
+            "description": "Paths that conflict when the head is merged into the base, right now. Empty when it merges cleanly.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reviewers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewerDTO"
+            }
           }
         },
         "required": [
@@ -9124,11 +10075,13 @@
           "title",
           "body",
           "state",
+          "draft",
           "base",
           "head",
           "headSha",
           "mergeCommitSha",
           "authorUsername",
+          "authorImage",
           "createdAt",
           "updatedAt",
           "mergeBase",
@@ -9136,7 +10089,9 @@
           "changedFiles",
           "additions",
           "deletions",
-          "mergeable"
+          "mergeable",
+          "conflicts",
+          "reviewers"
         ]
       },
       "GetPullRequestCommitsResponseDTO": {
@@ -9225,6 +10180,344 @@
             "description": "Markdown. `null` clears the description."
           }
         }
+      },
+      "PullRequestReviewState": {
+        "type": "string",
+        "enum": [
+          "commented",
+          "approved",
+          "changes_requested"
+        ],
+        "description": "Submits your pending review, if you have one, together with any comments given here."
+      },
+      "DiffSide": {
+        "type": "string",
+        "enum": [
+          "deletions",
+          "additions"
+        ],
+        "description": "`deletions` is the base side of the diff, `additions` the head side."
+      },
+      "ReviewCommentRequestDTO": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "src/index.ts"
+          },
+          "side": {
+            "description": "`deletions` is the base side of the diff, `additions` the head side.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiffSide"
+              }
+            ]
+          },
+          "line": {
+            "type": "number",
+            "description": "Line number on that side of the diff; the last line of a range."
+          },
+          "startSide": {
+            "description": "Side of the first line of a range. Defaults to `side`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiffSide"
+              }
+            ]
+          },
+          "startLine": {
+            "type": "number",
+            "description": "First line of a range, for a comment on several lines."
+          },
+          "body": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "side",
+          "line",
+          "body"
+        ]
+      },
+      "CreateReviewRequestDTO": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "description": "Submits your pending review, if you have one, together with any comments given here.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PullRequestReviewState"
+              }
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewCommentRequestDTO"
+            }
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "ReviewReplyDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "authorUsername": {
+            "type": "string"
+          },
+          "authorImage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body",
+          "authorUsername",
+          "authorImage",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ReviewThreadDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "authorUsername": {
+            "type": "string"
+          },
+          "authorImage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "side": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiffSide"
+              }
+            ]
+          },
+          "line": {
+            "type": "number"
+          },
+          "startSide": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiffSide"
+              }
+            ]
+          },
+          "startLine": {
+            "type": "number",
+            "nullable": true,
+            "description": "First line of a range; null for a single line."
+          },
+          "commitSha": {
+            "type": "string",
+            "description": "Head commit the comment was made on. Once the head moves on, the comment is outdated."
+          },
+          "diffHunk": {
+            "type": "string",
+            "nullable": true,
+            "description": "The rows of the diff the comment points at, as a hunk with its own `@@` header, kept as they were when it was written."
+          },
+          "replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewReplyDTO"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "body",
+          "authorUsername",
+          "authorImage",
+          "createdAt",
+          "updatedAt",
+          "path",
+          "side",
+          "line",
+          "startSide",
+          "startLine",
+          "commitSha",
+          "diffHunk",
+          "replies"
+        ]
+      },
+      "PullRequestReviewDTO": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "review"
+            ],
+            "example": "review"
+          },
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "nullable": true,
+            "description": "Null while the review is pending.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PullRequestReviewState"
+              }
+            ]
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "authorUsername": {
+            "type": "string"
+          },
+          "authorImage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          },
+          "commitSha": {
+            "type": "string",
+            "description": "Head commit when the review was submitted, or started if it is pending."
+          },
+          "dismissedByUsername": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null once that account is deleted, even though the review stays dismissed."
+          },
+          "dismissalMessage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Set once the review is dismissed; a dismissed verdict no longer counts."
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewThreadDTO"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the review was submitted, or started if it is pending."
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "state",
+          "body",
+          "authorUsername",
+          "authorImage",
+          "commitSha",
+          "dismissedByUsername",
+          "dismissalMessage",
+          "comments",
+          "createdAt"
+        ]
+      },
+      "GetPendingReviewResponseDTO": {
+        "type": "object",
+        "properties": {
+          "review": {
+            "nullable": true,
+            "description": "Your unsubmitted review, visible to nobody else.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PullRequestReviewDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "review"
+        ]
+      },
+      "UpdateReviewRequestDTO": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "description": "`null` clears the summary."
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "DismissReviewRequestDTO": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Addressed in the latest push"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "ReviewCommentBodyDTO": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "ApplySuggestionResponseDTO": {
+        "type": "object",
+        "properties": {
+          "commitSha": {
+            "type": "string",
+            "description": "The commit pushed to the head branch."
+          }
+        },
+        "required": [
+          "commitSha"
+        ]
       },
       "CreateIssueRequestDTO": {
         "type": "object",
@@ -9619,6 +10912,11 @@
           "authorUsername": {
             "type": "string"
           },
+          "authorImage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          },
           "createdAt": {
             "type": "string"
           },
@@ -9631,6 +10929,7 @@
           "id",
           "body",
           "authorUsername",
+          "authorImage",
           "createdAt",
           "updatedAt"
         ]
@@ -9647,7 +10946,9 @@
           "unlabeled",
           "assigned",
           "unassigned",
-          "merged"
+          "merged",
+          "ready_for_review",
+          "converted_to_draft"
         ]
       },
       "IssueTimelineEventDTO": {
@@ -9665,6 +10966,11 @@
           },
           "actorUsername": {
             "type": "string"
+          },
+          "actorImage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
           },
           "labelName": {
             "type": "string",
@@ -9705,6 +11011,7 @@
           "id",
           "type",
           "actorUsername",
+          "actorImage",
           "labelName",
           "assigneeUsername",
           "oldTitle",
@@ -9865,6 +11172,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/IssueTimelineReferenceDTO"
+                },
+                {
+                  "$ref": "#/components/schemas/PullRequestReviewDTO"
                 }
               ]
             }

@@ -2,7 +2,14 @@ import { FileDiffs } from "@/components/diffs/file-diffs";
 
 import type { DiffViewProps } from "@/types/pull-request";
 
-export function DiffView({ from, to, files, patchUrl }: DiffViewProps) {
+export function DiffView({
+  from,
+  to,
+  files,
+  patchUrl,
+  annotations,
+  onLineComment,
+}: DiffViewProps) {
   const additions = files.reduce((total, file) => total + file.additions, 0);
   const deletions = files.reduce((total, file) => total + file.deletions, 0);
 
@@ -26,7 +33,12 @@ export function DiffView({ from, to, files, patchUrl }: DiffViewProps) {
           This branch changes nothing against the base.
         </p>
       ) : (
-        <FileDiffs patchUrl={patchUrl} files={files} />
+        <FileDiffs
+          patchUrl={patchUrl}
+          files={files}
+          annotations={annotations}
+          onLineComment={onLineComment}
+        />
       )}
     </div>
   );

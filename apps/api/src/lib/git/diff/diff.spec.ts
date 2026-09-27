@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { listDiffFiles, mergeBase } from './diff.js';
+import { fileHunks, listDiffFiles, mergeBase, parseHunks } from './diff.js';
 
 describe('listDiffFiles', () => {
   let root: string;
@@ -86,5 +86,32 @@ describe('listDiffFiles', () => {
 
     expect(await mergeBase({ gitDir, a: to, b: orphan })).toBeNull();
     expect(await mergeBase({ gitDir, a: from, b: to })).toBe(from);
+  });
+
+  it('reads a file’s hunks with both line numbers on every line', async () => {
+    const [hunk] = await fileHunks({ gitDir, from, to, path: 'keep.txt' });
+    expect(hunk).toEqual({
+      deletions: [1, 2],
+      additions: [1, 3],
+      lines: [
+        { kind: ' ', old: 1, new: 1, text: 'one' },
+        { kind: ' ', old: 2, new: 2, text: 'two' },
+        { kind: '+', old: 3, new: 3, text: 'three' },
+      ],
+    });
+    expect(await fileHunks({ gitDir, from, to, path: 'logo.bin' })).toEqual([]);
+  });
+});
+
+describe('parseHunks', () => {
+  it('counts a removed line that reads like a file header as part of the hunk', () => {
+    const [hunk] = parseHunks(
+      '--- a/x\n+++ b/x\n@@ -1,2 +1 @@\n--- not a header\n keep\n\\ No newline at end of file\n',
+    );
+    expect(hunk.lines).toEqual([
+      { kind: '-', old: 1, new: 1, text: '-- not a header' },
+      { kind: ' ', old: 2, new: 1, text: 'keep' },
+    ]);
+    expect(hunk.additions).toEqual([1, 1]);
   });
 });

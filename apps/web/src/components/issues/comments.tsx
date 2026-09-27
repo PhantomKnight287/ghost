@@ -14,6 +14,11 @@ import {
   reopenIssue,
   updateIssueComment,
 } from "@/components/issues/actions";
+import {
+  deleteReviewComment,
+  updateReviewComment,
+  updateReviewSummary,
+} from "@/components/pull-requests/actions";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -135,7 +140,18 @@ export function CommentBox({
   );
 }
 
+// A review's summary can be edited but not deleted: the review stays, with or without one.
+const commentActions = {
+  issue: { update: updateIssueComment, remove: deleteIssueComment },
+  "review-comment": {
+    update: updateReviewComment,
+    remove: deleteReviewComment,
+  },
+  review: { update: updateReviewSummary, remove: null },
+};
+
 export function CommentItem({
+  kind = "issue",
   username,
   repo,
   number,
@@ -146,6 +162,7 @@ export function CommentItem({
   canModerate,
   children,
 }: {
+  kind?: keyof typeof commentActions;
   username: string;
   repo: string;
   number: number;
@@ -162,7 +179,8 @@ export function CommentItem({
 
   const canEdit = viewer === authorUsername || canModerate;
 
-  const update = useAction(updateIssueComment, {
+  const actions = commentActions[kind];
+  const update = useAction(actions.update, {
     onSuccess: () => {
       setEditing(false);
       router.refresh();
@@ -171,7 +189,7 @@ export function CommentItem({
       toast.error(error.serverError ?? "Could not save this comment."),
   });
 
-  const remove = useAction(deleteIssueComment, {
+  const remove = useAction(actions.remove ?? deleteIssueComment, {
     onSuccess: () => router.refresh(),
     onError: ({ error }) =>
       toast.error(error.serverError ?? "Could not delete this comment."),
@@ -214,7 +232,10 @@ export function CommentItem({
             <Button
               type="submit"
               size="sm"
-              disabled={update.isExecuting || !draft.trim()}
+              // Clearing a review's summary is allowed; a comment cannot be emptied.
+              disabled={
+                update.isExecuting || (kind !== "review" && !draft.trim())
+              }
             >
               {update.isExecuting && <Spinner />}
               Save
@@ -237,17 +258,19 @@ export function CommentItem({
                 <Pencil data-icon="inline-start" />
                 Edit
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={remove.isExecuting}
-                onClick={() =>
-                  remove.execute({ username, repo, number, commentId })
-                }
-              >
-                <Trash2 data-icon="inline-start" />
-                Delete
-              </Button>
+              {actions.remove && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={remove.isExecuting}
+                  onClick={() =>
+                    remove.execute({ username, repo, number, commentId })
+                  }
+                >
+                  <Trash2 data-icon="inline-start" />
+                  Delete
+                </Button>
+              )}
             </div>
           )}
         </>

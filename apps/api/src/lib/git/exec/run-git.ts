@@ -42,6 +42,7 @@ export async function runGitBuffer({
           args[0],
           code,
           Buffer.concat(stderr).toString('utf8').trim(),
+          Buffer.concat(stdout).toString('utf8'),
         ),
       );
     });

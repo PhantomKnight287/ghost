@@ -8,6 +8,8 @@ export class GitCommandFailedError extends DomainError {
     readonly command: string,
     readonly exitCode: number | null,
     readonly stderr: string,
+    // Some commands report a failure on stdout, such as `merge-tree` listing the conflicted paths.
+    readonly stdout = '',
   ) {
     super(`git ${command} exited with ${exitCode}: ${stderr}`);
   }

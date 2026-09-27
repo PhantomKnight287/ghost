@@ -6,4 +6,5 @@ export type IssueComment = components["schemas"]["IssueCommentDTO"];
 export type IssueTimelineItem =
   | components["schemas"]["IssueTimelineCommentDTO"]
   | components["schemas"]["IssueTimelineEventItemDTO"]
-  | components["schemas"]["IssueTimelineReferenceDTO"];
+  | components["schemas"]["IssueTimelineReferenceDTO"]
+  | components["schemas"]["PullRequestReviewDTO"];

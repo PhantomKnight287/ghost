@@ -3,33 +3,27 @@
 import { Virtualizer } from "@pierre/diffs";
 import {
   PatchDiff,
+  type SelectedLineRange,
   VirtualizerContext,
-  WorkerPoolContextProvider,
 } from "@pierre/diffs/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { DiffsProvider } from "@/components/diffs/diffs-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import type { LazyFileDiffProps, LazyFileDiffsProps } from "@/types/diffs";
-
-const poolOptions = {
-  poolSize: 4,
-  workerFactory: () =>
-    new Worker(new URL("@pierre/diffs/worker/worker.js", import.meta.url), {
-      type: "module",
-    }),
-};
-
-const highlighterOptions = {
-  theme: { light: "pierre-light", dark: "pierre-dark" },
-} as const;
 
 const diffOptions = {
   theme: { light: "pierre-light", dark: "pierre-dark" },
   diffStyle: "split",
 } as const;
 
-export function FileDiffs({ patchUrl, files }: LazyFileDiffsProps) {
+export function FileDiffs({
+  patchUrl,
+  files,
+  annotations,
+  onLineComment,
+}: LazyFileDiffsProps) {
   // The page itself is the scroll container, so the virtualizer is built here rather than with the library's own scroll-box component.
   const [virtualizer] = useState(() =>
     typeof window === "undefined" ? undefined : new Virtualizer(),
@@ -41,26 +35,46 @@ export function FileDiffs({ patchUrl, files }: LazyFileDiffsProps) {
   }, [virtualizer]);
 
   return (
-    <WorkerPoolContextProvider
-      poolOptions={poolOptions}
-      highlighterOptions={highlighterOptions}
-    >
+    <DiffsProvider>
       <VirtualizerContext.Provider value={virtualizer}>
         <div className="flex flex-col gap-4">
           {files.map((file) => (
-            <LazyFileDiff key={file.path} patchUrl={patchUrl} file={file} />
+            <LazyFileDiff
+              key={file.path}
+              patchUrl={patchUrl}
+              file={file}
+              annotations={annotations?.[file.path]}
+              onLineComment={onLineComment}
+            />
           ))}
         </div>
       </VirtualizerContext.Provider>
-    </WorkerPoolContextProvider>
+    </DiffsProvider>
   );
 }
 
 /** A patch of thousands of files is tens of megabytes, so each file is fetched on its own once it comes near the viewport. */
-function LazyFileDiff({ patchUrl, file }: LazyFileDiffProps) {
+function LazyFileDiff({
+  patchUrl,
+  file,
+  annotations,
+  onLineComment,
+}: LazyFileDiffProps) {
   const container = useRef<HTMLDivElement>(null);
   const [patch, setPatch] = useState<string>();
   const [failed, setFailed] = useState(false);
+  const options = useMemo(
+    () =>
+      onLineComment
+        ? {
+            ...diffOptions,
+            enableGutterUtility: true,
+            onGutterUtilityClick: (range: SelectedLineRange) =>
+              onLineComment(file.path, range),
+          }
+        : diffOptions,
+    [onLineComment, file.path],
+  );
 
   useEffect(() => {
     const node = container.current;
@@ -98,7 +112,12 @@ function LazyFileDiff({ patchUrl, file }: LazyFileDiffProps) {
   return (
     <div ref={container}>
       {patch ? (
-        <PatchDiff patch={patch} options={diffOptions} />
+        <PatchDiff
+          patch={patch}
+          options={options}
+          lineAnnotations={annotations}
+          renderAnnotation={(annotation) => annotation.metadata}
+        />
       ) : (
         <div className="flex flex-col gap-2 rounded-lg border p-4">
           <span className="font-mono text-xs text-muted-foreground">
