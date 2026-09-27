@@ -44,8 +44,10 @@ export class PullRequestNotOpenError extends DomainError {
 export class PullRequestConflictError extends DomainError {
   status: number = HttpStatus.CONFLICT;
 
-  constructor() {
-    super('This pull request has conflicts that must be resolved locally');
+  constructor(readonly paths: string[]) {
+    super(
+      `This pull request has conflicts in ${paths.join(', ')} that must be resolved locally`,
+    );
   }
 }
 

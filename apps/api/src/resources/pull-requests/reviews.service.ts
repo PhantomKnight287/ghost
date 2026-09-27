@@ -563,19 +563,16 @@ export class ReviewsService {
       }
       const hunks = byPath.get(comment.path) ?? [];
       const startSide = comment.startSide ?? comment.side;
-      for (const [side, line] of [
-        [comment.side, comment.line],
-        [startSide, comment.startLine ?? comment.line],
-      ] as const) {
-        const shown = hunks.some(
-          (hunk) => line >= hunk[side][0] && line <= hunk[side][1],
-        );
-        if (!shown) throw new ReviewLineNotInDiffError(comment.path, line);
+      const startLine = comment.startLine ?? comment.line;
+      const covers = (hunk: Hunk, side: typeof startSide, line: number) =>
+        line >= hunk[side][0] && line <= hunk[side][1];
+      const hunk = hunks.find((h) => covers(h, comment.side, comment.line));
+      if (!hunk) throw new ReviewLineNotInDiffError(comment.path, comment.line);
+      // A range stays inside one hunk: one spanning two would cover, and a suggestion would replace, lines the diff never showed.
+      if (!covers(hunk, startSide, startLine)) {
+        throw new ReviewLineNotInDiffError(comment.path, startLine);
       }
-      if (
-        startSide === comment.side &&
-        (comment.startLine ?? 0) > comment.line
-      ) {
+      if (startSide === comment.side && startLine > comment.line) {
         throw new InvalidLineRangeError();
       }
       located.push({ ...comment, diffHunk: diffHunkFor(hunks, comment) });

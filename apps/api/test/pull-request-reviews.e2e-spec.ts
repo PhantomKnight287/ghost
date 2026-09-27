@@ -30,17 +30,18 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
       { cwd: work, encoding: 'utf8' },
     ).trim();
   // The server runs in this process, so anything that talks to it must not block the event loop.
-  const push = (...refs: string[]) =>
+  const remote = (verb: 'push' | 'fetch', ...refs: string[]) =>
     promisify(execFile)(
       'git',
       [
-        'push',
+        verb,
         '-q',
         `${origin.replace('://', `://${owner}:${author.key}@`)}/${owner}/${repo}.git`,
         ...refs,
       ],
       { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
     );
+  const push = (...refs: string[]) => remote('push', ...refs);
   const review = (cookie: string, body: object) =>
     api().post(pull('/reviews')).set('cookie', cookie).send(body);
 
@@ -64,10 +65,17 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
     work = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-review-'));
     git('init', '-q', '-b', 'main');
     writeFileSync(path.join(work, 'a.txt'), 'one\n');
+    // Twenty lines changed at both ends diff as two hunks.
+    const lines = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`);
+    writeFileSync(path.join(work, 'b.txt'), `${lines.join('\n')}\n`);
     git('add', '.');
     git('commit', '-q', '-m', 'first');
     git('checkout', '-q', '-b', 'feature');
     writeFileSync(path.join(work, 'a.txt'), 'one\ntwo\n');
+    writeFileSync(
+      path.join(work, 'b.txt'),
+      `${['first', ...lines.slice(1, -1), 'last'].join('\n')}\n`,
+    );
     git('commit', '-q', '-am', 'second');
     await push('main', 'feature');
 
@@ -91,6 +99,7 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
       .send({})
       .expect(409);
     expect(merge.body.message).toContain('draft');
+    expect((await api().get(pull()).expect(200)).body.mergeable).toBe(false);
 
     await api().post(pull('/ready')).set('cookie', reviewer.cookie).expect(403);
     const ready = await api()
@@ -310,7 +319,8 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
       state: 'approved',
     }).expect(201);
     expect((await api().get(pull()).expect(200)).body.reviewers).toEqual([
-      { username: other, state: 'approved' },
+      // signUp gives no avatar
+      { username: other, image: null, state: 'approved' },
     ]);
 
     await api()
@@ -453,6 +463,22 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
       .expect(409);
   });
 
+  it('keeps a range inside one hunk, so it never covers lines the diff hides', async () => {
+    const { body } = await review(bystander.cookie, {
+      state: 'commented',
+      comments: [
+        {
+          path: 'b.txt',
+          side: 'additions',
+          startLine: 1,
+          line: 20,
+          body: 'All of it',
+        },
+      ],
+    }).expect(400);
+    expect(body.message).toContain('b.txt:1');
+  });
+
   it('closes reviews once the request is merged', async () => {
     await api()
       .post(pull('/merge'))
@@ -460,5 +486,33 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
       .send({})
       .expect(201);
     await review(reviewer.cookie, { state: 'approved' }).expect(409);
+  });
+
+  it('names the files a conflicting request clashes on, and refuses to merge it', async () => {
+    await remote('fetch', 'main');
+    git('checkout', '-q', '-B', 'main', 'FETCH_HEAD');
+    git('checkout', '-q', '-b', 'clash');
+    writeFileSync(path.join(work, 'a.txt'), 'uno\n');
+    git('commit', '-q', '-am', 'clash side');
+    git('checkout', '-q', 'main');
+    writeFileSync(path.join(work, 'a.txt'), 'ONE\n');
+    git('commit', '-q', '-am', 'main side');
+    await push('main', 'clash');
+
+    const { body: opened } = await api()
+      .post(`/api/repositories/${owner}/${repo}/pulls`)
+      .set('cookie', author.cookie)
+      .send({ title: 'Clash', base: 'main', head: 'clash' })
+      .expect(201);
+    const at = `/api/repositories/${owner}/${repo}/pulls/${opened.number}`;
+
+    const { body } = await api().get(at).expect(200);
+    expect(body).toMatchObject({ mergeable: false, conflicts: ['a.txt'] });
+    const merge = await api()
+      .post(`${at}/merge`)
+      .set('cookie', author.cookie)
+      .send({})
+      .expect(409);
+    expect(merge.body.message).toContain('a.txt');
   });
 });

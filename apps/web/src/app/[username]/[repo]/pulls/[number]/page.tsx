@@ -100,6 +100,7 @@ export default async function PullRequestPage({
         number={Number(number)}
         state={pull.data.state}
         mergeable={pull.data.mergeable}
+        conflicts={pull.data.conflicts}
         canMerge={atLeast(role, "write")}
         isAuthor={viewer === pull.data.authorUsername}
         mergeCommitSha={pull.data.mergeCommitSha}

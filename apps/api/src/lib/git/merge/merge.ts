@@ -9,20 +9,29 @@ export interface MergeContext {
   alternates?: string[];
 }
 
-/** Merges two commits into a tree without a worktree or an index, so a bare cache can answer "does this conflict" and build the result from one call. Returns null when the merge conflicts. */
+/** Merges two commits into a tree without a worktree or an index, so a bare cache can answer "does this conflict, and where" and build the result from one call. The tree of a conflicted merge holds conflict markers and must not be committed. */
 export async function mergeTree({
   gitDir,
   alternates,
   base,
   head,
-}: MergeContext & { base: string; head: string }): Promise<string | null> {
+}: MergeContext & {
+  base: string;
+  head: string;
+}): Promise<{ tree: string; conflicts: string[] }> {
+  const args = [
+    'merge-tree',
+    '--write-tree',
+    '--name-only',
+    '-z',
+    '--end-of-options',
+    base,
+    head,
+  ];
   try {
-    const raw = await runGit({
-      args: ['merge-tree', '--write-tree', '--end-of-options', base, head],
-      gitDir,
-      env: alternatesEnv(alternates),
-    });
-    return raw.split('\n')[0].trim() || null;
+    return parseMergeTree(
+      await runGit({ args, gitDir, env: alternatesEnv(alternates) }),
+    );
   } catch (error) {
     // A conflict and an unreadable commit both exit 1. Only the conflict keeps stderr empty, writing its tree and the conflicted paths to stdout, so a fork whose objects were never lent must not read as "merges cleanly".
     if (
@@ -30,10 +39,17 @@ export async function mergeTree({
       error.exitCode === 1 &&
       error.stderr === ''
     ) {
-      return null;
+      return parseMergeTree(error.stdout);
     }
     throw error;
   }
+}
+
+/** `-z` output: the tree, then one conflicted path per entry, then an empty entry before the messages. */
+function parseMergeTree(raw: string) {
+  const [tree, ...rest] = raw.split('\0');
+  const end = rest.indexOf('');
+  return { tree, conflicts: end === -1 ? [] : rest.slice(0, end) };
 }
 
 export async function commitTree({

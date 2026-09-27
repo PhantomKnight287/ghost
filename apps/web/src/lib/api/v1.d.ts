@@ -2661,6 +2661,8 @@ export interface components {
             deletions: number;
             /** @description Whether the merge is conflict-free right now. Never cached. */
             mergeable: boolean;
+            /** @description Paths that conflict when the head is merged into the base, right now. Empty when it merges cleanly. */
+            conflicts: string[];
             reviewers: components["schemas"]["ReviewerDTO"][];
         };
         GetPullRequestCommitsResponseDTO: {

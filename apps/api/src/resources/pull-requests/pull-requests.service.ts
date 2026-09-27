@@ -13,6 +13,7 @@ import {
   inArray,
   isNull,
   lt,
+  ne,
   or,
   sql,
 } from 'drizzle-orm';
@@ -330,6 +331,18 @@ export class PullRequestsService {
         })
       : [];
 
+    const merge =
+      pullRequest.state === 'open' &&
+      git.mergeBase !== null &&
+      git.mergeBase !== git.headSha
+        ? await mergeTree({
+            gitDir: git.baseDirectory,
+            alternates: git.alternates,
+            base: git.baseSha,
+            head: git.headSha,
+          })
+        : null;
+
     return {
       ...(await this.expandPullRequest(pullRequest)),
       // The stored head is only refreshed on merge; an open request's diff, and whether a line comment is outdated, go by the branch as it stands.
@@ -342,15 +355,8 @@ export class PullRequestsService {
       additions: files.reduce((total, file) => total + file.additions, 0),
       deletions: files.reduce((total, file) => total + file.deletions, 0),
       mergeable:
-        pullRequest.state === 'open' &&
-        git.mergeBase !== null &&
-        git.mergeBase !== git.headSha &&
-        (await mergeTree({
-          gitDir: git.baseDirectory,
-          alternates: git.alternates,
-          base: git.baseSha,
-          head: git.headSha,
-        })) !== null,
+        !pullRequest.draft && merge !== null && merge.conflicts.length === 0,
+      conflicts: merge?.conflicts ?? [],
       reviewers: await this.reviewers(pullRequest.id),
     };
   }
@@ -471,7 +477,6 @@ export class PullRequestsService {
     if (pullRequest.state !== 'open') {
       throw new PullRequestNotOpenError(pullRequest.state);
     }
-    if (pullRequest.draft) throw new PullRequestDraftError();
     // An open request always has its head: a repository heading one cannot be deleted.
     const git = await this.openLive(
       pullRequest,
@@ -481,13 +486,13 @@ export class PullRequestsService {
     if (!git.mergeBase) throw new UnrelatedHistoriesError();
     if (git.mergeBase === git.headSha) throw new NothingToMergeError();
 
-    const tree = await mergeTree({
+    const { tree, conflicts } = await mergeTree({
       gitDir: git.baseDirectory,
       alternates: git.alternates,
       base: git.baseSha,
       head: git.headSha,
     });
-    if (!tree) throw new PullRequestConflictError();
+    if (conflicts.length > 0) throw new PullRequestConflictError(conflicts);
 
     const author = await this.users.getUserById(params.requesterId);
     // a fork's branch name is ambiguous on its own, so the merge subject carries the owner exactly as the request was opened with
@@ -508,42 +513,56 @@ export class PullRequestsService {
 
     const directory = await mkdtemp(path.join(tmpdir(), 'ghost-merge-'));
     try {
-      // ponytail: excludes only the base tip, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
-      const pack = await packRange({
-        gitDir: git.baseDirectory,
-        alternates: git.alternates,
-        include: mergeCommitSha,
-        exclude: [git.baseSha],
-        prefix: path.join(directory, 'merge'),
-      });
-
-      const { seq } = await this.pushTransaction.commitPush({
-        repoId: base.id,
-        transitions: [
-          {
-            ref: `refs/heads/${pullRequest.baseRef}`,
-            oldOid: Buffer.from(git.baseSha, 'hex'),
-            newOid: Buffer.from(mergeCommitSha, 'hex'),
-          },
-        ],
-        body: fileBody(pack.path, pack.size),
-        packOffset: 0,
-        pushedBy: params.requesterId,
-      });
-
-      const isDefaultBranch =
-        (await resolveDefaultRef({ gitDir: git.baseDirectory })) ===
-        `refs/heads/${pullRequest.baseRef}`;
-      const { commits } = isDefaultBranch
-        ? await listCommits({
-            gitDir: git.baseDirectory,
-            env: git.env,
-            ref: `${git.baseSha}..${git.headSha}`,
-            limit: MAX_CLOSING_COMMITS,
+      // The row stays locked until the merge is recorded, so the request cannot be closed or turned into a draft between this check and the push.
+      const seq = await this.db.transaction(async (tx) => {
+        const [locked] = await tx
+          .select({
+            state: schema.pullRequest.state,
+            draft: schema.pullRequest.draft,
           })
-        : { commits: [] };
+          .from(schema.pullRequest)
+          .where(eq(schema.pullRequest.id, pullRequest.id))
+          .for('update');
+        if (locked.draft) throw new PullRequestDraftError();
+        if (locked.state !== 'open') {
+          throw new PullRequestNotOpenError(locked.state);
+        }
 
-      await this.db.transaction(async (tx) => {
+        // ponytail: excludes only the base tip, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
+        const pack = await packRange({
+          gitDir: git.baseDirectory,
+          alternates: git.alternates,
+          include: mergeCommitSha,
+          exclude: [git.baseSha],
+          prefix: path.join(directory, 'merge'),
+        });
+
+        const { seq } = await this.pushTransaction.commitPush({
+          repoId: base.id,
+          transitions: [
+            {
+              ref: `refs/heads/${pullRequest.baseRef}`,
+              oldOid: Buffer.from(git.baseSha, 'hex'),
+              newOid: Buffer.from(mergeCommitSha, 'hex'),
+            },
+          ],
+          body: fileBody(pack.path, pack.size),
+          packOffset: 0,
+          pushedBy: params.requesterId,
+        });
+
+        const isDefaultBranch =
+          (await resolveDefaultRef({ gitDir: git.baseDirectory })) ===
+          `refs/heads/${pullRequest.baseRef}`;
+        const { commits } = isDefaultBranch
+          ? await listCommits({
+              gitDir: git.baseDirectory,
+              env: git.env,
+              ref: `${git.baseSha}..${git.headSha}`,
+              limit: MAX_CLOSING_COMMITS,
+            })
+          : { commits: [] };
+
         await tx
           .update(schema.pullRequest)
           .set({
@@ -561,7 +580,7 @@ export class PullRequestsService {
         });
 
         // Only a merge into the default branch closes anything, the same rule GitHub follows.
-        if (!isDefaultBranch) return;
+        if (!isDefaultBranch) return seq;
         await this.references.recordCommits(tx, {
           repository: base,
           actorId: params.requesterId,
@@ -578,6 +597,7 @@ export class PullRequestsService {
           actorId: params.requesterId,
           sourceIssueId: pullRequest.issueId,
         });
+        return seq;
       });
 
       await this.db
@@ -625,19 +645,26 @@ export class PullRequestsService {
       throw new PullRequestNotOpenError(pullRequest.state);
     }
 
-    if (pullRequest.draft !== params.draft) {
-      await this.db.transaction(async (tx) => {
-        await tx
-          .update(schema.pullRequest)
-          .set({ draft: params.draft })
-          .where(eq(schema.pullRequest.id, pullRequest.id));
-        await tx.insert(schema.issueEvent).values({
-          issueId: pullRequest.issueId,
-          actorId: params.requesterId,
-          type: params.draft ? 'converted_to_draft' : 'ready_for_review',
-        });
+    // Conditional, so two identical requests record one event and a request merged in the meantime is left alone.
+    await this.db.transaction(async (tx) => {
+      const changed = await tx
+        .update(schema.pullRequest)
+        .set({ draft: params.draft })
+        .where(
+          and(
+            eq(schema.pullRequest.id, pullRequest.id),
+            eq(schema.pullRequest.state, 'open'),
+            ne(schema.pullRequest.draft, params.draft),
+          ),
+        )
+        .returning({ id: schema.pullRequest.id });
+      if (changed.length === 0) return;
+      await tx.insert(schema.issueEvent).values({
+        issueId: pullRequest.issueId,
+        actorId: params.requesterId,
+        type: params.draft ? 'converted_to_draft' : 'ready_for_review',
       });
-    }
+    });
     return this.expandPullRequest((await this.load(params)).pullRequest);
   }
 

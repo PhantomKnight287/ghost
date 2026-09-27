@@ -1,6 +1,6 @@
 /** The replacement text of the first ```suggestion block in a comment, or null when it has none. An empty block suggests deleting the lines. */
 export function extractSuggestion(body: string): string | null {
-  const match = /^```suggestion[ \t]*\r?\n([\s\S]*?)^```[ \t]*$/m.exec(body);
+  const match = /^```suggestion[ \t]*\r?\n([\s\S]*?)^```[ \t]*\r?$/m.exec(body);
   if (!match) return null;
   return match[1].replace(/\r?\n$/, '');
 }

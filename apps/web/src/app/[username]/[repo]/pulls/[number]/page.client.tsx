@@ -75,6 +75,7 @@ export function MergePanel({
   number,
   state,
   mergeable,
+  conflicts,
   canMerge,
   isAuthor,
   mergeCommitSha,
@@ -86,6 +87,8 @@ export function MergePanel({
   number: number;
   state: string;
   mergeable: boolean;
+  /** Paths that conflict with the base right now. */
+  conflicts: string[];
   canMerge: boolean;
   isAuthor: boolean;
   mergeCommitSha: string | null;
@@ -188,10 +191,22 @@ export function MergePanel({
       <p className="text-sm">
         {draft
           ? "This pull request is still a draft and cannot be merged."
-          : mergeable
-            ? "This branch has no conflicts with the base branch."
-            : "This branch has conflicts that must be resolved locally."}
+          : conflicts.length > 0
+            ? "This branch has conflicts that must be resolved locally:"
+            : mergeable
+              ? "This branch has no conflicts with the base branch."
+              : "The base branch already has every commit from this branch."}
       </p>
+
+      {conflicts.length > 0 && (
+        <ul className="flex flex-col gap-1 rounded-md border bg-muted/40 px-3 py-2 font-mono text-xs">
+          {conflicts.map((path) => (
+            <li key={path} className="truncate">
+              {path}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {draft && (canMerge || isAuthor) && (

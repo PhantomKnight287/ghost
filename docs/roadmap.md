@@ -107,7 +107,7 @@ API routes, DB schema, web pages and auth plugins.
       SAML, verified domains.
 
 ### Branches, later
-- [ ] **Branch protection.** Deferred from #5: required reviews (needs #6),
+- [ ] **Branch protection.** Deferred from #7: required reviews (needs #5),
       required status checks (needs #10), no force push, no deletion.
 
 ### Tier 3: nice to have

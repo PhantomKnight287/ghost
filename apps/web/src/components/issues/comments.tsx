@@ -232,7 +232,10 @@ export function CommentItem({
             <Button
               type="submit"
               size="sm"
-              disabled={update.isExecuting || !draft.trim()}
+              // Clearing a review's summary is allowed; a comment cannot be emptied.
+              disabled={
+                update.isExecuting || (kind !== "review" && !draft.trim())
+              }
             >
               {update.isExecuting && <Spinner />}
               Save

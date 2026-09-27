@@ -139,6 +139,14 @@ export class PullRequestDetailDTO extends PullRequestDTO {
   @IsBoolean()
   mergeable: boolean;
 
+  @ApiProperty({
+    type: [String],
+    description:
+      'Paths that conflict when the head is merged into the base, right now. Empty when it merges cleanly.',
+  })
+  @IsString({ each: true })
+  conflicts: string[];
+
   @ApiProperty({ type: [ReviewerDTO] })
   @ValidateNested({ each: true })
   @Type(() => ReviewerDTO)

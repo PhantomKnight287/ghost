@@ -10,6 +10,7 @@ describe('extractSuggestion', () => {
       ),
     ).toBe('const a = 1;\nconst b = 2;');
     expect(extractSuggestion('```suggestion\r\nx\r\n```')).toBe('x');
+    expect(extractSuggestion('```suggestion\r\nx\r\n```\r\nthanks')).toBe('x');
   });
 
   it('reads an empty block as a deletion, and no block as no suggestion', () => {
