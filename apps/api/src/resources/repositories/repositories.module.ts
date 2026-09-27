@@ -5,7 +5,7 @@ import { SearchController } from './search.controller.js';
 import { TransfersController } from './transfers.controller.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
-import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
+import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
@@ -17,12 +17,12 @@ import { CommitVerificationService } from '../../services/gpg/commit-verificatio
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 
 @Module({
+  imports: [MaterializerModule],
   controllers: [RepositoriesController, SearchController, TransfersController],
   providers: [
     RepositoriesService,
     UsersService,
     RepositoryStorageService,
-    RepositoryMaterializerService,
     CodeSearchService,
     RepositoryPathIndexService,
     RepositoryLanguageService,

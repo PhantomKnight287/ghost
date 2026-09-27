@@ -1,6 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 
-import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
+import { MaterializerModule } from '../materializer/materializer.module.js';
 import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
 import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
@@ -20,14 +20,13 @@ import { CodeSearchService } from '../services/git/code-search/code-search.servi
 import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-auth.middleware.js';
 
 @Module({
-  imports: [SshKeysModule, IssuesModule],
+  imports: [MaterializerModule, SshKeysModule, IssuesModule],
   controllers: [GitController],
   providers: [
     GitService,
     PackProcessService,
     RefAdvertisementService,
     RepositoryStorageService,
-    RepositoryMaterializerService,
     RepositoryContributionService,
     CodeSearchService,
     PushTransactionService,

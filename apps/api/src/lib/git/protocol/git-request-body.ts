@@ -10,7 +10,9 @@ export interface GitRequestBody {
 export function bufferBody(buffer: Buffer): GitRequestBody {
   return {
     size: buffer.length,
-    open: (start = 0) => Readable.from(buffer.subarray(start)),
+    // an empty body must emit no chunk at all: S3's checksumming stream rejects a zero-length chunk with BadDigest
+    open: (start = 0) =>
+      Readable.from(start < buffer.length ? [buffer.subarray(start)] : []),
   };
 }
 
