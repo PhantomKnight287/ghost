@@ -512,7 +512,16 @@ export class PullRequestsService {
 
     const directory = await mkdtemp(path.join(tmpdir(), 'ghost-merge-'));
     try {
-      // The row stays locked until the merge is recorded, so the request cannot be closed or turned into a draft between this check and the push.
+      // ponytail: excludes only the base tip, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
+      const pack = await packRange({
+        gitDir: git.baseDirectory,
+        alternates: git.alternates,
+        include: mergeCommitSha,
+        exclude: [git.baseSha],
+        prefix: path.join(directory, 'merge'),
+      });
+
+      // The row stays locked until the merge is recorded, so the request cannot be closed or turned into a draft between this check and the push. Nothing that can fail after the push belongs in here: a rollback would leave the branch merged and the request open.
       const seq = await this.db.transaction(async (tx) => {
         const [locked] = await tx
           .select({
@@ -527,15 +536,6 @@ export class PullRequestsService {
           throw new PullRequestNotOpenError(locked.state);
         }
 
-        // ponytail: excludes only the base tip, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
-        const pack = await packRange({
-          gitDir: git.baseDirectory,
-          alternates: git.alternates,
-          include: mergeCommitSha,
-          exclude: [git.baseSha],
-          prefix: path.join(directory, 'merge'),
-        });
-
         const { seq } = await this.pushTransaction.commitPush({
           repoId: base.id,
           transitions: [
@@ -549,18 +549,6 @@ export class PullRequestsService {
           packOffset: 0,
           pushedBy: params.requesterId,
         });
-
-        const isDefaultBranch =
-          (await resolveDefaultRef({ gitDir: git.baseDirectory })) ===
-          `refs/heads/${pullRequest.baseRef}`;
-        const { commits } = isDefaultBranch
-          ? await listCommits({
-              gitDir: git.baseDirectory,
-              env: git.env,
-              ref: `${git.baseSha}..${git.headSha}`,
-              limit: MAX_CLOSING_COMMITS,
-            })
-          : { commits: [] };
 
         await tx
           .update(schema.pullRequest)
@@ -577,27 +565,39 @@ export class PullRequestsService {
           type: 'merged',
           commitSha: mergeCommitSha,
         });
-
-        // Only a merge into the default branch closes anything, the same rule GitHub follows.
-        if (!isDefaultBranch) return seq;
-        await this.references.recordCommits(tx, {
-          repository: base,
-          actorId: params.requesterId,
-          commits,
-        });
-        await this.references.closeReferenced(tx, {
-          sources: [
-            { type: 'issue', id: pullRequest.issueId },
-            ...commits.map((commit) => ({
-              type: 'commit' as const,
-              id: commit.sha,
-            })),
-          ],
-          actorId: params.requesterId,
-          sourceIssueId: pullRequest.issueId,
-        });
         return seq;
       });
+
+      // Only a merge into the default branch closes anything, the same rule GitHub follows.
+      const isDefaultBranch =
+        (await resolveDefaultRef({ gitDir: git.baseDirectory })) ===
+        `refs/heads/${pullRequest.baseRef}`;
+      if (isDefaultBranch) {
+        const { commits } = await listCommits({
+          gitDir: git.baseDirectory,
+          env: git.env,
+          ref: `${git.baseSha}..${git.headSha}`,
+          limit: MAX_CLOSING_COMMITS,
+        });
+        await this.db.transaction(async (tx) => {
+          await this.references.recordCommits(tx, {
+            repository: base,
+            actorId: params.requesterId,
+            commits,
+          });
+          await this.references.closeReferenced(tx, {
+            sources: [
+              { type: 'issue', id: pullRequest.issueId },
+              ...commits.map((commit) => ({
+                type: 'commit' as const,
+                id: commit.sha,
+              })),
+            ],
+            actorId: params.requesterId,
+            sourceIssueId: pullRequest.issueId,
+          });
+        });
+      }
 
       await this.db
         .update(schema.repository)
