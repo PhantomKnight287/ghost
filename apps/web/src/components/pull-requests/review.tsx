@@ -90,31 +90,29 @@ export function ReviewItem({
           )}
 
           {review.body && (
-            <div className="rounded-lg border">
-              <div className="flex items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
-                <UserLink
-                  username={review.authorUsername}
-                  image={review.authorImage}
-                  avatar="sm"
-                />
-                left a review
-              </div>
-              <CommentItem
-                kind="review"
-                username={username}
-                repo={repo}
-                number={number}
-                commentId={review.id}
-                authorUsername={review.authorUsername}
-                body={review.body ?? ""}
-                viewer={viewer}
-                canModerate={canModerate}
-              >
-                <Markdown repository={{ username, repo }}>
-                  {review.body}
-                </Markdown>
-              </CommentItem>
-            </div>
+            <CommentItem
+              kind="review"
+              username={username}
+              repo={repo}
+              number={number}
+              commentId={review.id}
+              authorUsername={review.authorUsername}
+              body={review.body ?? ""}
+              viewer={viewer}
+              canModerate={canModerate}
+              header={
+                <>
+                  <UserLink
+                    username={review.authorUsername}
+                    image={review.authorImage}
+                    avatar="sm"
+                  />
+                  left a review
+                </>
+              }
+            >
+              <Markdown repository={{ username, repo }}>{review.body}</Markdown>
+            </CommentItem>
           )}
 
           {review.comments.map((thread) => (
@@ -162,21 +160,23 @@ export function ReviewThread({
     <div className="bg-background font-sans">
       {[thread, ...thread.replies].map((comment) => (
         <div key={comment.id} className="border-b last:border-b-0">
-          <p className="flex items-center gap-2 px-4 pt-3 text-xs text-muted-foreground">
-            <UserLink
-              username={comment.authorUsername}
-              image={comment.authorImage}
-              avatar="sm"
-            />
-            <FromNowHoverCard date={comment.createdAt} />
-            {pending && <Badge variant="outline">Pending</Badge>}
-          </p>
           <CommentItem
             kind="review-comment"
             {...viewing}
             commentId={comment.id}
             authorUsername={comment.authorUsername}
             body={comment.body}
+            header={
+              <>
+                <UserLink
+                  username={comment.authorUsername}
+                  image={comment.authorImage}
+                  avatar="sm"
+                />
+                <FromNowHoverCard date={comment.createdAt} />
+                {pending && <Badge variant="outline">Pending</Badge>}
+              </>
+            }
           >
             <Markdown repository={{ username, repo }}>{comment.body}</Markdown>
           </CommentItem>

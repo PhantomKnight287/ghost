@@ -49,28 +49,29 @@ export function Timeline({
 
     if (item.kind === "comment") {
       return (
-        <div key={item.id} className="rounded-lg border">
-          <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
-            <UserLink
-              username={item.authorUsername}
-              image={item.authorImage}
-              avatar="sm"
-            />
-            commented <FromNowHoverCard date={item.createdAt} />
-          </div>
-          <CommentItem
-            username={username}
-            repo={repo}
-            number={number}
-            commentId={item.id}
-            authorUsername={item.authorUsername}
-            body={item.body}
-            viewer={viewer}
-            canModerate={canModerate}
-          >
-            <Markdown repository={{ username, repo }}>{item.body}</Markdown>
-          </CommentItem>
-        </div>
+        <CommentItem
+          key={item.id}
+          username={username}
+          repo={repo}
+          number={number}
+          commentId={item.id}
+          authorUsername={item.authorUsername}
+          body={item.body}
+          viewer={viewer}
+          canModerate={canModerate}
+          header={
+            <>
+              <UserLink
+                username={item.authorUsername}
+                image={item.authorImage}
+                avatar="sm"
+              />
+              commented <FromNowHoverCard date={item.createdAt} />
+            </>
+          }
+        >
+          <Markdown repository={{ username, repo }}>{item.body}</Markdown>
+        </CommentItem>
       );
     }
 

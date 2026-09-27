@@ -150,6 +150,7 @@ const commentActions = {
   review: { update: updateReviewSummary, remove: null },
 };
 
+/** A comment with its header; Edit and Delete sit at the header's right. Line comments sit in a thread, so their header is a plain row rather than a card's top bar. */
 export function CommentItem({
   kind = "issue",
   username,
@@ -160,6 +161,7 @@ export function CommentItem({
   body,
   viewer,
   canModerate,
+  header,
   children,
 }: {
   kind?: keyof typeof commentActions;
@@ -171,6 +173,7 @@ export function CommentItem({
   body: string;
   viewer?: string | null;
   canModerate: boolean;
+  header: ReactNode;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -195,86 +198,107 @@ export function CommentItem({
       toast.error(error.serverError ?? "Could not delete this comment."),
   });
 
-  return (
-    <div className="px-4 py-3">
-      {editing ? (
-        <form
-          className="flex flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            update.execute({
-              username,
-              repo,
-              number,
-              commentId,
-              body: draft,
-            });
-          }}
-        >
-          <Textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            rows={4}
-            maxLength={20000}
-            autoFocus
-            disabled={update.isExecuting}
-          />
-          <div className="flex justify-end gap-2">
+  const inThread = kind === "review-comment";
+  const content = (
+    <>
+      <div
+        className={
+          inThread
+            ? "flex min-h-7 flex-wrap items-center gap-2 px-4 pt-3 text-xs text-muted-foreground"
+            : "flex min-h-11 flex-wrap items-center gap-1.5 border-b bg-muted/40 px-4 py-1.5 text-sm text-muted-foreground"
+        }
+      >
+        {header}
+        {canEdit && !editing && (
+          <div className="ml-auto flex gap-1">
             <Button
-              type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              disabled={update.isExecuting}
-              onClick={() => setEditing(false)}
+              onClick={() => {
+                setDraft(body);
+                setEditing(true);
+              }}
             >
-              Cancel
+              <Pencil data-icon="inline-start" />
+              Edit
             </Button>
-            <Button
-              type="submit"
-              size="sm"
-              // Clearing a review's summary is allowed; a comment cannot be emptied.
-              disabled={
-                update.isExecuting || (kind !== "review" && !draft.trim())
-              }
-            >
-              {update.isExecuting && <Spinner />}
-              Save
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <>
-          <div className="text-sm">{children}</div>
-          {canEdit && (
-            <div className="mt-2 flex gap-1">
+            {actions.remove && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setDraft(body);
-                  setEditing(true);
-                }}
+                disabled={remove.isExecuting}
+                onClick={() =>
+                  remove.execute({ username, repo, number, commentId })
+                }
               >
-                <Pencil data-icon="inline-start" />
-                Edit
-              </Button>
-              {actions.remove && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={remove.isExecuting}
-                  onClick={() =>
-                    remove.execute({ username, repo, number, commentId })
-                  }
-                >
+                {remove.isExecuting ? (
+                  <Spinner />
+                ) : (
                   <Trash2 data-icon="inline-start" />
-                  Delete
-                </Button>
-              )}
+                )}
+                Delete
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 py-3">
+        {editing ? (
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              update.execute({
+                username,
+                repo,
+                number,
+                commentId,
+                body: draft,
+              });
+            }}
+          >
+            <Textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              rows={4}
+              maxLength={20000}
+              autoFocus
+              disabled={update.isExecuting}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={update.isExecuting}
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                // Clearing a review's summary is allowed; a comment cannot be emptied.
+                disabled={
+                  update.isExecuting || (kind !== "review" && !draft.trim())
+                }
+              >
+                {update.isExecuting && <Spinner />}
+                Save
+              </Button>
             </div>
-          )}
-        </>
-      )}
-    </div>
+          </form>
+        ) : (
+          <div className="text-sm">{children}</div>
+        )}
+      </div>
+    </>
+  );
+
+  return inThread ? (
+    content
+  ) : (
+    <div className="rounded-lg border">{content}</div>
   );
 }
