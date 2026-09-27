@@ -49,7 +49,7 @@ type Viewing = {
   repo: string;
   number: number;
   viewer?: string | null;
-  /** May edit and delete anyone's comments and dismiss reviews. */
+  /** May delete anyone's comments and dismiss reviews; editing stays with each comment's author. */
   canModerate: boolean;
 };
 

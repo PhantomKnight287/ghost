@@ -251,24 +251,32 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
       .set('cookie', bystander.cookie)
       .send({ body: 'x' })
       .expect(403);
-    const edited = await api()
+    // A writer may delete someone else's comment, but only its author may edit it.
+    await api()
       .patch(pull(`/comments/${thread.id}`))
       .set('cookie', author.cookie)
       .send({ body: 'Edited by a writer' })
+      .expect(403);
+    const edited = await api()
+      .patch(pull(`/comments/${thread.id}`))
+      .set('cookie', reviewer.cookie)
+      .send({ body: 'Edited by its author' })
       .expect(200);
     expect(edited.body).toMatchObject({
-      body: 'Edited by a writer',
+      body: 'Edited by its author',
       authorUsername: other,
     });
 
     const reviewId = body.timeline.find(
       (item: { kind: string }) => item.kind === 'review',
     ).id;
-    await api()
-      .patch(pull(`/reviews/${reviewId}`))
-      .set('cookie', bystander.cookie)
-      .send({ body: 'x' })
-      .expect(403);
+    for (const cookie of [bystander.cookie, author.cookie]) {
+      await api()
+        .patch(pull(`/reviews/${reviewId}`))
+        .set('cookie', cookie)
+        .send({ body: 'x' })
+        .expect(403);
+    }
     await api()
       .patch(pull(`/reviews/${reviewId}`))
       .set('cookie', reviewer.cookie)
@@ -292,6 +300,23 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
       .expect(403);
     await api()
       .delete(pull(`/comments/${first.body.id}`))
+      .set('cookie', author.cookie)
+      .expect(200);
+
+    const issueComment = (id = '') =>
+      `/api/repositories/${owner}/${repo}/issues/1/comments${id && `/${id}`}`;
+    const posted = await api()
+      .post(issueComment())
+      .set('cookie', bystander.cookie)
+      .send({ body: 'From the sidelines' })
+      .expect(201);
+    await api()
+      .patch(issueComment(posted.body.id))
+      .set('cookie', author.cookie)
+      .send({ body: 'Rewritten by the owner' })
+      .expect(403);
+    await api()
+      .delete(issueComment(posted.body.id))
       .set('cookie', author.cookie)
       .expect(200);
   });

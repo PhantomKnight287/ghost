@@ -42,6 +42,7 @@ import type { LabelDTO } from './dto/label.dto.js';
 import type { GetIssuesQueryDTO } from './dto/issue.dto.js';
 import {
   IssueCommentNotFoundError,
+  NotCommentAuthorError,
   IssueNotFoundError,
   IssueNotOpenError,
   LabelAlreadyExistsError,
@@ -622,8 +623,9 @@ export class IssuesService {
         ),
       );
     if (!comment) throw new IssueCommentNotFoundError();
+    // Writers may delete someone else's comment, but never put words in their mouth.
     if (comment.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      throw new NotCommentAuthorError();
     }
 
     const updated = await this.db.transaction(async (tx) => {

@@ -180,7 +180,9 @@ export function CommentItem({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
 
-  const canEdit = viewer === authorUsername || canModerate;
+  // Only the author edits a comment; a moderator may only take it down.
+  const canEdit = viewer === authorUsername;
+  const canDelete = canEdit || canModerate;
 
   const actions = commentActions[kind];
   const update = useAction(actions.update, {
@@ -209,20 +211,22 @@ export function CommentItem({
         }
       >
         {header}
-        {canEdit && !editing && (
+        {(canEdit || (canDelete && actions.remove)) && !editing && (
           <div className="ml-auto flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setDraft(body);
-                setEditing(true);
-              }}
-            >
-              <Pencil data-icon="inline-start" />
-              Edit
-            </Button>
-            {actions.remove && (
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setDraft(body);
+                  setEditing(true);
+                }}
+              >
+                <Pencil data-icon="inline-start" />
+                Edit
+              </Button>
+            )}
+            {canDelete && actions.remove && (
               <Button
                 variant="ghost"
                 size="sm"

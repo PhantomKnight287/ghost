@@ -25,6 +25,14 @@ export class IssueCommentNotFoundError extends DomainError {
   }
 }
 
+export class NotCommentAuthorError extends DomainError {
+  status: number = HttpStatus.FORBIDDEN;
+
+  constructor() {
+    super('Only its author can edit a comment');
+  }
+}
+
 export class LabelNotFoundError extends DomainError {
   status: number = HttpStatus.NOT_FOUND;
 
