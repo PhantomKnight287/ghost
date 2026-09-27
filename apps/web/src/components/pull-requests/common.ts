@@ -13,6 +13,9 @@ export function branchLabel(side: PullRequestSide, other: PullRequestSide) {
     : `${side.username}:${side.ref}`;
 }
 
+export const mergeMethods = ["merge", "squash", "rebase"] as const;
+export type MergeMethod = (typeof mergeMethods)[number];
+
 export type PullRequestState = (typeof pullRequestStates)[number];
 export type PullRequestFilter = (typeof pullRequestFilters)[number];
 

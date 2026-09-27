@@ -8,10 +8,15 @@ import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import {
   closePullRequest,
-  setDraft,
   mergePullRequest,
+  setDraft,
   updatePullRequest,
 } from "@/components/pull-requests/actions";
+import {
+  type MergeMethod,
+  mergeMethods,
+} from "@/components/pull-requests/common";
+import { RoleSelect } from "@/components/role-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -69,6 +74,17 @@ export function PullRequestNav({
   );
 }
 
+const mergeMethodLabels = {
+  merge: "Merge",
+  squash: "Squash",
+  rebase: "Rebase",
+} satisfies Record<MergeMethod, string>;
+const mergeButtonLabels = {
+  merge: "Merge pull request",
+  squash: "Squash and merge",
+  rebase: "Rebase and merge",
+} satisfies Record<MergeMethod, string>;
+
 export function MergePanel({
   username,
   repo,
@@ -100,6 +116,7 @@ export function MergePanel({
   }[];
 }) {
   const router = useRouter();
+  const [method, setMethod] = useState<MergeMethod>("merge");
 
   const merge = useAction(mergePullRequest, {
     onSuccess: () => {
@@ -141,7 +158,7 @@ export function MergePanel({
         </p>
         {mergeCommitSha && (
           <p className="mt-1 text-xs text-muted-foreground">
-            Merge commit{" "}
+            Merged as{" "}
             <Link
               href={`/${username}/${repo}/commit/${mergeCommitSha}`}
               className="font-mono hover:underline"
@@ -221,15 +238,25 @@ export function MergePanel({
         )}
 
         {canMerge && (
-          <Button
-            size="sm"
-            disabled={draft || !mergeable || merge.isExecuting}
-            onClick={() => merge.execute({ username, repo, number })}
-          >
-            {merge.isExecuting && <Spinner />}
-            <GitMerge data-icon="inline-start" />
-            Merge pull request
-          </Button>
+          <>
+            <Button
+              size="sm"
+              disabled={draft || !mergeable || merge.isExecuting}
+              onClick={() => merge.execute({ username, repo, number, method })}
+            >
+              {merge.isExecuting && <Spinner />}
+              <GitMerge data-icon="inline-start" />
+              {mergeButtonLabels[method]}
+            </Button>
+            <RoleSelect
+              roles={mergeMethods}
+              labels={mergeMethodLabels}
+              value={method}
+              onChange={setMethod}
+              label="Merge method"
+              disabled={merge.isExecuting}
+            />
+          </>
         )}
 
         {(canMerge || isAuthor) && (

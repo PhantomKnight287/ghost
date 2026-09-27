@@ -233,6 +233,7 @@ export class PullRequestsController {
       number,
       requesterId: session.user.id,
       title: body.title,
+      method: body.method,
     });
   }
 

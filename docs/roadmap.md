@@ -25,7 +25,7 @@ API routes, DB schema, web pages and auth plugins.
 
 ### Pull requests
 - [x] Compare branches, create, view commits/files/patch
-- [x] Merge (merge commit only)
+- [x] Merge: merge commit, squash, rebase
 - [x] Closing issues from pull requests
 
 ### Users and accounts
@@ -74,8 +74,9 @@ API routes, DB schema, web pages and auth plugins.
    suggested changes applied as a commit to the head branch
    ([0026](0026-a-review-is-pinned-to-the-head-it-read.md)). Follow-up:
    applying several suggestions in one commit.
-6. [ ] **Merge strategies.** Only merge commit. No squash or rebase, no
-   conflict detection UI.
+6. [x] **Merge strategies.** Merge commit, squash and rebase, picked beside
+   the merge button; conflicting paths listed on the request
+   ([0027](0027-squash-and-rebase-carry-the-head-along.md)).
 7. [ ] **Branch management.** No create/delete branch from the UI. Branch
    protection is deferred (see below).
 8. [ ] **Notifications.** No inbox, no email on mention/assign/review, no

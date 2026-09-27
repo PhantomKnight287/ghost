@@ -2678,11 +2678,22 @@ export interface components {
             to: string;
             files: components["schemas"]["PullRequestFileDTO"][];
         };
+        /**
+         * @description `merge` adds a merge commit, `squash` lands the whole request as one commit, `rebase` replays each of its commits onto the base.
+         * @enum {string}
+         */
+        MergeMethod: "merge" | "squash" | "rebase";
         MergePullRequestRequestDTO: {
-            /** @description Merge commit subject. Defaults to the request title. */
+            /** @description Subject of the merge or squash commit. A rebase keeps every commit message and ignores it. */
             title?: string;
+            /**
+             * @description `merge` adds a merge commit, `squash` lands the whole request as one commit, `rebase` replays each of its commits onto the base.
+             * @default merge
+             */
+            method: components["schemas"]["MergeMethod"];
         };
         MergePullRequestResponseDTO: {
+            /** @description The new base tip: the merge commit, the squashed commit, or the last rebased one. */
             mergeCommitSha: string;
             /** @description Sequence the merge landed at in the base log. */
             seq: number;

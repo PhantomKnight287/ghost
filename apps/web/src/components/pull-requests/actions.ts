@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { fetchClient } from "@/lib/fetch-client";
 
-import { createPullRequestSchema } from "./common";
+import { createPullRequestSchema, mergeMethods } from "./common";
 
 const actionClient = createSafeActionClient({
   handleServerError: (error) => error.message,
@@ -48,22 +48,29 @@ export const createPullRequest = actionClient
   );
 
 export const mergePullRequest = actionClient
-  .inputSchema(target.extend({ title: z.string().optional() }))
-  .action(async ({ parsedInput: { username, repo, number, title } }) => {
-    const { data, error } = await fetchClient.POST(
-      "/api/repositories/{username}/{repo}/pulls/{number}/merge",
-      {
-        params: { path: { username, repo, number } },
-        body: { title },
-        headers: { cookie: (await cookies()).toString() },
-      },
-    );
+  .inputSchema(
+    target.extend({
+      title: z.string().optional(),
+      method: z.enum(mergeMethods),
+    }),
+  )
+  .action(
+    async ({ parsedInput: { username, repo, number, title, method } }) => {
+      const { data, error } = await fetchClient.POST(
+        "/api/repositories/{username}/{repo}/pulls/{number}/merge",
+        {
+          params: { path: { username, repo, number } },
+          body: { title, method },
+          headers: { cookie: (await cookies()).toString() },
+        },
+      );
 
-    if (error) throw new Error(error.message);
+      if (error) throw new Error(error.message);
 
-    revalidatePath(`/${username}/${repo}/pulls/${number}`);
-    return data;
-  });
+      revalidatePath(`/${username}/${repo}/pulls/${number}`);
+      return data;
+    },
+  );
 
 export const closePullRequest = actionClient
   .inputSchema(target)

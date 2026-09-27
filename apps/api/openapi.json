@@ -10142,12 +10142,30 @@
           "files"
         ]
       },
+      "MergeMethod": {
+        "type": "string",
+        "enum": [
+          "merge",
+          "squash",
+          "rebase"
+        ],
+        "description": "`merge` adds a merge commit, `squash` lands the whole request as one commit, `rebase` replays each of its commits onto the base."
+      },
       "MergePullRequestRequestDTO": {
         "type": "object",
         "properties": {
           "title": {
             "type": "string",
-            "description": "Merge commit subject. Defaults to the request title."
+            "description": "Subject of the merge or squash commit. A rebase keeps every commit message and ignores it."
+          },
+          "method": {
+            "default": "merge",
+            "description": "`merge` adds a merge commit, `squash` lands the whole request as one commit, `rebase` replays each of its commits onto the base.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MergeMethod"
+              }
+            ]
           }
         }
       },
@@ -10155,7 +10173,8 @@
         "type": "object",
         "properties": {
           "mergeCommitSha": {
-            "type": "string"
+            "type": "string",
+            "description": "The new base tip: the merge commit, the squashed commit, or the last rebased one."
           },
           "seq": {
             "type": "number",

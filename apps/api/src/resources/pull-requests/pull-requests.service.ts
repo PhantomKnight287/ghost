@@ -28,7 +28,12 @@ import {
 } from '../../lib/git/diff/diff.js';
 import { runGit } from '../../lib/git/exec/run-git.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
-import { commitTree, mergeTree, packRange } from '../../lib/git/merge/merge.js';
+import {
+  commitTree,
+  mergeTree,
+  packRange,
+  rebaseCommits,
+} from '../../lib/git/merge/merge.js';
 import {
   resolveCommit,
   resolveDefaultRef,
@@ -60,6 +65,7 @@ import {
   UpdatePullRequestRequestDTO,
 } from './dto/create-pull-request.dto.js';
 import { GetPullRequestsQueryDTO } from './dto/pull-request.dto.js';
+import type { MergeMethod } from './dto/pull-request-changes.dto.js';
 import {
   NothingToMergeError,
   PullRequestAlreadyOpenError,
@@ -94,6 +100,8 @@ const pullRequestColumns = {
 };
 
 const DEFAULT_PAGE_SIZE = 20;
+// ponytail: a squash message lists at most this many of the head's commits; older ones are left out of the body, not the tree.
+const MAX_SQUASH_MESSAGES = 250;
 const MAX_PAGE_SIZE = 100;
 
 type PullRequest = {
@@ -465,9 +473,13 @@ export class PullRequestsService {
     });
   }
 
-  /** The merge commit is built in the base cache and then pushed through `commitPush`, the same commit point a `git push` uses. Nothing about a merge is allowed to reach the base repository by another route. */
+  /** The result is built in the base cache and then pushed through `commitPush`, the same commit point a `git push` uses. Nothing about a merge is allowed to reach the base repository by another route. */
   async mergePullRequest(
-    params: PullRequestRef & { requesterId: string; title?: string },
+    params: PullRequestRef & {
+      requesterId: string;
+      title?: string;
+      method?: MergeMethod;
+    },
   ) {
     const { pullRequest, base } = await this.load({
       ...params,
@@ -485,30 +497,19 @@ export class PullRequestsService {
     if (!git.mergeBase) throw new UnrelatedHistoriesError();
     if (git.mergeBase === git.headSha) throw new NothingToMergeError();
 
-    const { tree, clean, conflicts } = await mergeTree({
-      gitDir: git.baseDirectory,
-      alternates: git.alternates,
-      base: git.baseSha,
-      head: git.headSha,
-    });
-    if (!clean) throw new PullRequestConflictError(conflicts);
-
-    const author = await this.users.getUserById(params.requesterId);
-    // a fork's branch name is ambiguous on its own, so the merge subject carries the owner exactly as the request was opened with
-    const { head } = await this.expandPullRequest(pullRequest);
-    const headLabel =
-      git.head.id === base.id
-        ? pullRequest.headRef
-        : `${head.username}:${pullRequest.headRef}`;
-
-    const mergeCommitSha = await commitTree({
-      gitDir: git.baseDirectory,
-      alternates: git.alternates,
-      tree,
-      parents: [git.baseSha, git.headSha],
-      message: `${params.title ?? `Merge pull request #${pullRequest.number} from ${headLabel}`}\n`,
-      author: { name: author.name, email: author.email },
-    });
+    const method = params.method ?? 'merge';
+    const merger = await this.users.getUserById(params.requesterId);
+    const committer = { name: merger.name, email: merger.email };
+    const mergeCommitSha =
+      method === 'rebase'
+        ? await this.rebase(git, committer)
+        : await this.commitMerge(git, {
+            squash: method === 'squash',
+            title: params.title,
+            committer,
+          });
+    // A rebase drops merge commits, so a head made only of them replays to nothing.
+    if (mergeCommitSha === git.baseSha) throw new NothingToMergeError();
 
     const directory = await mkdtemp(path.join(tmpdir(), 'ghost-merge-'));
     try {
@@ -516,7 +517,8 @@ export class PullRequestsService {
       const pack = await packRange({
         gitDir: git.baseDirectory,
         alternates: git.alternates,
-        include: mergeCommitSha,
+        // The head rides along even when a squash or rebase leaves it unreachable: a merged request reads its commits and diff from the base alone.
+        include: [mergeCommitSha, git.headSha],
         exclude: [git.baseSha],
         prefix: path.join(directory, 'merge'),
       });
@@ -576,7 +578,8 @@ export class PullRequestsService {
         const { commits } = await listCommits({
           gitDir: git.baseDirectory,
           env: git.env,
-          ref: `${git.baseSha}..${git.headSha}`,
+          // What landed on the base: the head's own commits, or their squashed or rebased copies.
+          ref: `${git.baseSha}..${method === 'merge' ? git.headSha : mergeCommitSha}`,
           limit: MAX_CLOSING_COMMITS,
         });
         await this.db.transaction(async (tx) => {
@@ -608,6 +611,86 @@ export class PullRequestsService {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  }
+
+  /** A merge commit on top of the base tip, or with `squash` the same tree as a single-parent commit credited to the request's author. */
+  private async commitMerge(
+    git: LiveComparison,
+    {
+      squash,
+      title,
+      committer,
+    }: {
+      squash: boolean;
+      title?: string;
+      committer: { name: string; email: string };
+    },
+  ) {
+    const { tree, clean, conflicts } = await mergeTree({
+      gitDir: git.baseDirectory,
+      alternates: git.alternates,
+      base: git.baseSha,
+      head: git.headSha,
+    });
+    if (!clean) throw new PullRequestConflictError(conflicts);
+
+    const { pullRequest } = git;
+    if (squash) {
+      const author = await this.users.getUserById(pullRequest.authorId);
+      const { commits } = await listCommits({
+        gitDir: git.baseDirectory,
+        env: git.env,
+        ref: `${git.mergeBase}..${git.headSha}`,
+        limit: MAX_SQUASH_MESSAGES,
+      });
+      const body = commits
+        .reverse()
+        .map(
+          (commit) =>
+            `* ${[commit.subject, commit.body].filter(Boolean).join('\n\n')}`,
+        )
+        .join('\n\n');
+      return commitTree({
+        gitDir: git.baseDirectory,
+        alternates: git.alternates,
+        tree,
+        parents: [git.baseSha],
+        message: `${title ?? `${pullRequest.title} (#${pullRequest.number})`}\n\n${body}\n`,
+        author: { name: author.name, email: author.email },
+        committer,
+      });
+    }
+
+    // a fork's branch name is ambiguous on its own, so the merge subject carries the owner exactly as the request was opened with
+    const { head } = await this.expandPullRequest(pullRequest);
+    const headLabel =
+      git.head.id === git.base.id
+        ? pullRequest.headRef
+        : `${head.username}:${pullRequest.headRef}`;
+    return commitTree({
+      gitDir: git.baseDirectory,
+      alternates: git.alternates,
+      tree,
+      parents: [git.baseSha, git.headSha],
+      message: `${title ?? `Merge pull request #${pullRequest.number} from ${headLabel}`}\n`,
+      author: committer,
+    });
+  }
+
+  private async rebase(
+    git: LiveComparison,
+    committer: { name: string; email: string },
+  ) {
+    const rebased = await rebaseCommits({
+      gitDir: git.baseDirectory,
+      alternates: git.alternates,
+      onto: git.baseSha,
+      from: git.mergeBase!,
+      to: git.headSha,
+      committer,
+    });
+    if (!rebased.clean) throw new PullRequestConflictError(rebased.conflicts);
+    return rebased.tip;
   }
 
   /** Title and description only - the branches a request spans never move. */
@@ -936,6 +1019,8 @@ export class PullRequestsService {
     };
   }
 }
+
+type LiveComparison = Awaited<ReturnType<PullRequestsService['openLive']>>;
 
 interface CompareParams {
   username: string;

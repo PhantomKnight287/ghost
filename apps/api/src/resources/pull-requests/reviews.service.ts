@@ -508,7 +508,7 @@ export class ReviewsService {
     try {
       const pack = await packRange({
         gitDir: git.headDirectory,
-        include: commitSha,
+        include: [commitSha],
         exclude: [git.headSha],
         prefix: path.join(directory, 'suggestion'),
       });
