@@ -17,6 +17,7 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { PullRequestReviewDTO } from '../../pull-requests/dto/pull-request-review.dto.js';
 import { LabelDTO } from './label.dto.js';
 
 export class IssueDTO {
@@ -204,6 +205,11 @@ export class IssueTimelineEventDTO {
   @IsString()
   actorUsername: string;
 
+  @ApiProperty({ type: String, nullable: true, description: 'Avatar URL.' })
+  @IsString()
+  @IsOptional()
+  actorImage: string | null;
+
   @ApiProperty({ type: String, nullable: true })
   @IsString()
   @IsOptional()
@@ -270,6 +276,11 @@ export class IssueTimelineCommentDTO {
   @ApiProperty()
   @IsString()
   authorUsername: string;
+
+  @ApiProperty({ type: String, nullable: true, description: 'Avatar URL.' })
+  @IsString()
+  @IsOptional()
+  authorImage: string | null;
 
   @ApiProperty()
   @IsISO8601()
@@ -380,6 +391,7 @@ export class IssueTimelineReferenceDTO {
   IssueTimelineCommentDTO,
   IssueTimelineEventItemDTO,
   IssueTimelineReferenceDTO,
+  PullRequestReviewDTO,
 )
 export class GetIssueTimelineResponseDTO {
   @ApiProperty({
@@ -391,6 +403,7 @@ export class GetIssueTimelineResponseDTO {
         { $ref: getSchemaPath(IssueTimelineCommentDTO) },
         { $ref: getSchemaPath(IssueTimelineEventItemDTO) },
         { $ref: getSchemaPath(IssueTimelineReferenceDTO) },
+        { $ref: getSchemaPath(PullRequestReviewDTO) },
       ],
     },
   })
@@ -398,5 +411,6 @@ export class GetIssueTimelineResponseDTO {
     | IssueTimelineCommentDTO
     | IssueTimelineEventItemDTO
     | IssueTimelineReferenceDTO
+    | PullRequestReviewDTO
   >;
 }

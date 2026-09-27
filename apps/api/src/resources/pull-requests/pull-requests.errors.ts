@@ -77,3 +77,97 @@ export class PullRequestHeadDeletedError extends DomainError {
     );
   }
 }
+
+export class PullRequestDraftError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor() {
+    super(
+      'This pull request is a draft; mark it ready for review before merging',
+    );
+  }
+}
+
+export class OwnPullRequestReviewError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor() {
+    super('You cannot approve or request changes on your own pull request');
+  }
+}
+
+export class EmptyReviewError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor() {
+    super('A comment review needs a body or at least one line comment');
+  }
+}
+
+export class ReviewLineNotInDiffError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor(path: string, line: number) {
+    super(`${path}:${line} is not part of this pull request's diff`);
+  }
+}
+
+export class InvalidLineRangeError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor() {
+    super('A comment on several lines must start before it ends');
+  }
+}
+
+export class SuggestionOutdatedError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor() {
+    super(
+      'The branch has moved on since this suggestion was made, so it no longer applies',
+    );
+  }
+}
+
+export class SuggestionNotApplicableError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor(reason: string) {
+    super(reason);
+  }
+}
+
+export class ReviewNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('Review not found');
+  }
+}
+
+export class ReviewCommentNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('Review comment not found');
+  }
+}
+
+export class ReviewNotDismissableError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor() {
+    super(
+      'Only an approval or a request for changes that still counts can be dismissed',
+    );
+  }
+}
+
+export class PendingReviewReplyError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor() {
+    super('Submit your review before replying to its comments');
+  }
+}

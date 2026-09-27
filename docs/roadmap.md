@@ -65,12 +65,19 @@ API routes, DB schema, web pages and auth plugins.
    ([0025](0025-storage-is-billed-to-the-owning-account.md)). Follow-up:
    deleting tags from the UI, source archives (#18), per-account quota
    overrides, upload progress.
-5. [ ] **Branch management.** No create/delete branch from the UI. Branch
-   protection is deferred (see below).
-6. [ ] **Pull request reviews.** No approve/request-changes, no inline line
-   comments, no drafts.
-7. [ ] **Merge strategies.** Only merge commit. No squash or rebase, no
+5. [x] **Pull request reviews.** Comment, approve and request changes; line
+   comments batched in a pending review or posted singly, checked against the
+   diff's hunks; threaded replies; editing and deleting comments and summaries;
+   dismissing a verdict; `#123` references from reviews; each reviewer's
+   standing verdict beside the merge button; draft pull requests that cannot
+   merge until marked ready, and back again; comments on a range of lines;
+   suggested changes applied as a commit to the head branch
+   ([0026](0026-a-review-is-pinned-to-the-head-it-read.md)). Follow-up:
+   applying several suggestions in one commit.
+6. [ ] **Merge strategies.** Only merge commit. No squash or rebase, no
    conflict detection UI.
+7. [ ] **Branch management.** No create/delete branch from the UI. Branch
+   protection is deferred (see below).
 8. [ ] **Notifications.** No inbox, no email on mention/assign/review, no
    watch/subscribe.
 

@@ -11,8 +11,10 @@ import {
   type GetColumnData,
   getTableColumns,
   inArray,
+  isNull,
   lt,
   or,
+  sql,
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
@@ -61,6 +63,7 @@ import {
   NothingToMergeError,
   PullRequestAlreadyOpenError,
   PullRequestConflictError,
+  PullRequestDraftError,
   PullRequestHeadDeletedError,
   PullRequestNotFoundError,
   PullRequestNotOpenError,
@@ -78,6 +81,7 @@ const pullRequestColumns = {
   body: schema.issue.body,
   authorId: schema.issue.authorId,
   state: schema.pullRequest.state,
+  draft: schema.pullRequest.draft,
   baseRepositoryId: schema.pullRequest.baseRepositoryId,
   baseRef: schema.pullRequest.baseRef,
   headRepositoryId: schema.pullRequest.headRepositoryId,
@@ -182,6 +186,7 @@ export class PullRequestsService {
           headRepositoryId: head.id,
           headRef,
           headSha,
+          draft: body.draft ?? false,
         });
       },
     );
@@ -327,6 +332,8 @@ export class PullRequestsService {
 
     return {
       ...(await this.expandPullRequest(pullRequest)),
+      // The stored head is only refreshed on merge; an open request's diff, and whether a line comment is outdated, go by the branch as it stands.
+      headSha: git.headSha,
       mergeBase: git.mergeBase,
       commitCount: git.mergeBase
         ? await this.countRange(git, `${git.mergeBase}..${git.headSha}`)
@@ -344,7 +351,49 @@ export class PullRequestsService {
           base: git.baseSha,
           head: git.headSha,
         })) !== null,
+      reviewers: await this.reviewers(pullRequest.id),
     };
+  }
+
+  /** Each reviewer's latest verdict. A dismissed one leaves that reviewer with none, rather than falling back to an older verdict. */
+  private reviewers(pullRequestId: string) {
+    const latest = this.db
+      .selectDistinctOn([schema.pullRequestReview.authorId], {
+        username: sql<string>`coalesce(${schema.user.username}, '')`.as(
+          'username',
+        ),
+        image: schema.user.image,
+        state: schema.pullRequestReview.state,
+        dismissalMessage: schema.pullRequestReview.dismissalMessage,
+      })
+      .from(schema.pullRequestReview)
+      .innerJoin(
+        schema.user,
+        eq(schema.user.id, schema.pullRequestReview.authorId),
+      )
+      .where(
+        and(
+          eq(schema.pullRequestReview.pullRequestId, pullRequestId),
+          inArray(schema.pullRequestReview.state, [
+            'approved',
+            'changes_requested',
+          ]),
+        ),
+      )
+      .orderBy(
+        schema.pullRequestReview.authorId,
+        desc(schema.pullRequestReview.createdAt),
+      )
+      .as('latest');
+
+    return this.db
+      .select({
+        username: latest.username,
+        image: latest.image,
+        state: latest.state,
+      })
+      .from(latest)
+      .where(isNull(latest.dismissalMessage));
   }
 
   async getCommits(
@@ -422,6 +471,7 @@ export class PullRequestsService {
     if (pullRequest.state !== 'open') {
       throw new PullRequestNotOpenError(pullRequest.state);
     }
+    if (pullRequest.draft) throw new PullRequestDraftError();
     // An open request always has its head: a repository heading one cannot be deleted.
     const git = await this.openLive(
       pullRequest,
@@ -563,8 +613,36 @@ export class PullRequestsService {
     return this.expandPullRequest((await this.load(params)).pullRequest);
   }
 
+  /** Marks a request ready for review, or turns it back into a draft. Asking for the state it is already in records nothing. */
+  async setDraft(
+    params: PullRequestRef & { requesterId: string; draft: boolean },
+  ) {
+    const { pullRequest } = await this.load(params);
+    if (pullRequest.authorId !== params.requesterId) {
+      await this.authorize({ ...params, operation: 'write' });
+    }
+    if (pullRequest.state !== 'open') {
+      throw new PullRequestNotOpenError(pullRequest.state);
+    }
+
+    if (pullRequest.draft !== params.draft) {
+      await this.db.transaction(async (tx) => {
+        await tx
+          .update(schema.pullRequest)
+          .set({ draft: params.draft })
+          .where(eq(schema.pullRequest.id, pullRequest.id));
+        await tx.insert(schema.issueEvent).values({
+          issueId: pullRequest.issueId,
+          actorId: params.requesterId,
+          type: params.draft ? 'converted_to_draft' : 'ready_for_review',
+        });
+      });
+    }
+    return this.expandPullRequest((await this.load(params)).pullRequest);
+  }
+
   /** Resolves the range the request covers. A merged request reads only the base, which has held its commits since the merge, so it outlives its head branch and repository. */
-  private async open(params: PullRequestRef) {
+  async open(params: PullRequestRef) {
     const { pullRequest, base } = await this.load(params);
     if (pullRequest.mergeCommitSha) {
       return this.openMerged(pullRequest, base, pullRequest.mergeCommitSha);
@@ -613,7 +691,7 @@ export class PullRequestsService {
   }
 
   /** Materializes both sides and resolves the branches as they stand now. */
-  private async openLive(
+  async openLive(
     pullRequest: PullRequest,
     base: Repository,
     headRepositoryId: string,
@@ -643,6 +721,7 @@ export class PullRequestsService {
       base,
       head,
       baseDirectory,
+      headDirectory,
       alternates,
       env: alternates.length
         ? {
@@ -664,7 +743,7 @@ export class PullRequestsService {
     };
   }
 
-  private async load({
+  async load({
     username,
     repo,
     number,
@@ -819,11 +898,13 @@ export class PullRequestsService {
       title: pullRequest.title,
       body: pullRequest.body,
       state: pullRequest.state,
+      draft: pullRequest.draft,
       base: sideOf(pullRequest.baseRepositoryId, pullRequest.baseRef),
       head: sideOf(pullRequest.headRepositoryId, pullRequest.headRef),
       headSha: pullRequest.headSha,
       mergeCommitSha: pullRequest.mergeCommitSha,
       authorUsername: author.username ?? '',
+      authorImage: author.image ?? null,
       createdAt: pullRequest.createdAt.toISOString(),
       updatedAt: pullRequest.updatedAt.toISOString(),
     };
@@ -838,7 +919,7 @@ interface CompareParams {
   head: string;
 }
 
-interface PullRequestRef {
+export interface PullRequestRef {
   username: string;
   repo: string;
   number: number;

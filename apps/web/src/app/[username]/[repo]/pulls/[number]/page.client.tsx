@@ -1,6 +1,6 @@
 "use client";
 
-import { GitMerge, Pencil } from "lucide-react";
+import { CircleCheck, CircleX, GitMerge, Pencil } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -8,6 +8,7 @@ import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import {
   closePullRequest,
+  setDraft,
   mergePullRequest,
   updatePullRequest,
 } from "@/components/pull-requests/actions";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { UserLink } from "@/components/users/user-link";
 import { cn } from "@/lib/utils";
 
 export function PullRequestNav({
@@ -76,6 +78,8 @@ export function MergePanel({
   canMerge,
   isAuthor,
   mergeCommitSha,
+  draft,
+  reviewers,
 }: {
   username: string;
   repo: string;
@@ -85,6 +89,12 @@ export function MergePanel({
   canMerge: boolean;
   isAuthor: boolean;
   mergeCommitSha: string | null;
+  draft: boolean;
+  reviewers: {
+    username: string;
+    image: string | null;
+    state: "approved" | "changes_requested";
+  }[];
 }) {
   const router = useRouter();
 
@@ -95,6 +105,19 @@ export function MergePanel({
     },
     onError: ({ error }) =>
       toast.error(error.serverError ?? "Could not merge this pull request."),
+  });
+
+  const draftToggle = useAction(setDraft, {
+    onSuccess: ({ input }) => {
+      toast.success(
+        input.draft
+          ? "Pull request converted to a draft."
+          : "Pull request marked ready for review.",
+      );
+      router.refresh();
+    },
+    onError: ({ error }) =>
+      toast.error(error.serverError ?? "Could not change this pull request."),
   });
 
   const close = useAction(closePullRequest, {
@@ -138,17 +161,56 @@ export function MergePanel({
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border px-4 py-3">
+      {reviewers.length > 0 && (
+        <ul className="flex flex-col gap-1 text-sm">
+          {reviewers.map((reviewer) => (
+            <li key={reviewer.username} className="flex items-center gap-2">
+              {reviewer.state === "approved" ? (
+                <CircleCheck className="size-4 text-emerald-500" />
+              ) : (
+                <CircleX className="size-4 text-red-500" />
+              )}
+              <UserLink
+                username={reviewer.username}
+                image={reviewer.image}
+                avatar="sm"
+              />
+              <span className="text-muted-foreground">
+                {reviewer.state === "approved"
+                  ? "approved"
+                  : "requested changes"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <p className="text-sm">
-        {mergeable
-          ? "This branch has no conflicts with the base branch."
-          : "This branch has conflicts that must be resolved locally."}
+        {draft
+          ? "This pull request is still a draft and cannot be merged."
+          : mergeable
+            ? "This branch has no conflicts with the base branch."
+            : "This branch has conflicts that must be resolved locally."}
       </p>
 
       <div className="flex flex-wrap gap-2">
+        {draft && (canMerge || isAuthor) && (
+          <Button
+            size="sm"
+            disabled={draftToggle.isExecuting}
+            onClick={() =>
+              draftToggle.execute({ username, repo, number, draft: false })
+            }
+          >
+            {draftToggle.isExecuting && <Spinner />}
+            Ready for review
+          </Button>
+        )}
+
         {canMerge && (
           <Button
             size="sm"
-            disabled={!mergeable || merge.isExecuting}
+            disabled={draft || !mergeable || merge.isExecuting}
             onClick={() => merge.execute({ username, repo, number })}
           >
             {merge.isExecuting && <Spinner />}
@@ -166,6 +228,20 @@ export function MergePanel({
           >
             {close.isExecuting && <Spinner />}
             Close pull request
+          </Button>
+        )}
+
+        {!draft && (canMerge || isAuthor) && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={draftToggle.isExecuting}
+            onClick={() =>
+              draftToggle.execute({ username, repo, number, draft: true })
+            }
+          >
+            {draftToggle.isExecuting && <Spinner />}
+            Convert to draft
           </Button>
         )}
       </div>

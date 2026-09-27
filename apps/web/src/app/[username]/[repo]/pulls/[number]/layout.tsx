@@ -2,6 +2,7 @@ import { GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { branchLabel } from "@/components/pull-requests/common";
 import { Badge } from "@/components/ui/badge";
@@ -97,10 +98,20 @@ export default async function PullRequestLayout({
             <Icon className="size-3.5" />
             {state}
           </Badge>
+          {pull.data.draft && state === "open" && (
+            <Badge variant="outline" className="rounded-full">
+              Draft
+            </Badge>
+          )}
 
           <span>
-            {pull.data.authorUsername} wants to merge {pull.data.commitCount}{" "}
-            commit
+            <UserLink
+              username={pull.data.authorUsername}
+              image={pull.data.authorImage}
+              avatar="xs"
+              className="align-middle"
+            />{" "}
+            wants to merge {pull.data.commitCount} commit
             {pull.data.commitCount === 1 ? "" : "s"} into{" "}
             <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
               {branchLabel(base, head)}

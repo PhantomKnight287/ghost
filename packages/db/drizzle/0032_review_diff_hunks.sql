@@ -1,0 +1,1 @@
+ALTER TABLE "pull_request_review_comment" ADD COLUMN "diffHunk" text;

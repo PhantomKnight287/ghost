@@ -119,3 +119,77 @@ export function streamDiffPatch({
     env: alternatesEnv(alternates),
   });
 }
+
+export interface DiffLine {
+  kind: ' ' | '+' | '-';
+  /** Line number on the base side; for an added line, the base line it comes before. */
+  old: number;
+  /** Line number on the head side; for a deleted line, the head line it comes before. */
+  new: number;
+  text: string;
+}
+
+export interface Hunk {
+  /** First and last line each side shows, context included. */
+  deletions: [number, number];
+  additions: [number, number];
+  lines: DiffLine[];
+}
+
+/** One file's diff as hunks of numbered lines. Empty for a binary file or a path the diff does not touch. */
+export async function fileHunks({
+  gitDir,
+  alternates,
+  from,
+  to,
+  path: only,
+}: DiffRange & { path: string }): Promise<Hunk[]> {
+  const patch = await runGit({
+    args: [
+      'diff',
+      '--no-renames',
+      '--end-of-options',
+      from,
+      to,
+      '--',
+      `:(literal)${only}`,
+    ],
+    gitDir,
+    env: alternatesEnv(alternates),
+  });
+  return parseHunks(patch);
+}
+
+/** Hunk bodies are read by their header's counts rather than by prefix, since a removed line reading `-- x` looks like a file header. */
+export function parseHunks(patch: string): Hunk[] {
+  const hunks: Hunk[] = [];
+  const rows = patch.split('\n');
+  for (let index = 0; index < rows.length; index++) {
+    const header = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(
+      rows[index],
+    );
+    if (!header) continue;
+
+    let [old, remainingOld, next, remainingNew] = [
+      Number(header[1]),
+      Number(header[2] ?? 1),
+      Number(header[3]),
+      Number(header[4] ?? 1),
+    ];
+    const hunk: Hunk = {
+      deletions: [old, old + remainingOld - 1],
+      additions: [next, next + remainingNew - 1],
+      lines: [],
+    };
+    while ((remainingOld > 0 || remainingNew > 0) && index + 1 < rows.length) {
+      const row = rows[++index];
+      const kind = row[0];
+      if (kind !== ' ' && kind !== '+' && kind !== '-') continue;
+      hunk.lines.push({ kind, old, new: next, text: row.slice(1) });
+      if (kind !== '+') [old, remainingOld] = [old + 1, remainingOld - 1];
+      if (kind !== '-') [next, remainingNew] = [next + 1, remainingNew - 1];
+    }
+    hunks.push(hunk);
+  }
+  return hunks;
+}

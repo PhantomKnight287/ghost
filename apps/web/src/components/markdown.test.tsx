@@ -15,6 +15,12 @@ function render(
 }
 
 describe("Markdown", () => {
+  it("turns GitHub emoji shortcodes into emoji, outside code", () => {
+    expect(render("Ship it :ship: :+1:")).toBe("<p>Ship it 🚢 👍</p>");
+    expect(render("`:ship:`")).toBe("<p><code>:ship:</code></p>");
+    expect(render(":not-an-emoji:")).toBe("<p>:not-an-emoji:</p>");
+  });
+
   it("keeps the HTML READMEs are actually written with", () => {
     expect(render('<h1 align="center">Ghost</h1>')).toBe(
       '<h1 align="center">Ghost</h1>',

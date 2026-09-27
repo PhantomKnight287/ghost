@@ -168,6 +168,16 @@ export function CreatePullRequestForm({
           <Link href={`/${username}/${repo}/pulls`}>Cancel</Link>
         </Button>
         <Button
+          type="button"
+          variant="outline"
+          disabled={isExecuting || heads.length === 0 || !head}
+          onClick={handleSubmit((input) =>
+            execute({ ...input, username, repo, draft: true }),
+          )}
+        >
+          Create draft
+        </Button>
+        <Button
           type="submit"
           disabled={isExecuting || heads.length === 0 || !head}
         >

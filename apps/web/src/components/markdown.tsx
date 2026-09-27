@@ -1,6 +1,7 @@
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import remarkGemoji from "remark-gemoji";
 import remarkGfm from "remark-gfm";
 
 import { remarkReferences } from "@/lib/remark-references";
@@ -76,7 +77,9 @@ export function Markdown({
     >
       <ReactMarkdown
         remarkPlugins={
-          repository ? [remarkGfm, [remarkReferences, repository]] : [remarkGfm]
+          repository
+            ? [remarkGfm, remarkGemoji, [remarkReferences, repository]]
+            : [remarkGfm, remarkGemoji]
         }
         rehypePlugins={[rehypeRaw, [rehypeSanitize, SCHEMA]]}
         components={{

@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import type { IssueFilter, IssueSort } from "@/components/issues/common";
 import { issueFilters, issueSorts } from "@/components/issues/common";
@@ -268,7 +269,10 @@ export default async function IssuesPage({
                   <p className="truncate text-xs text-muted-foreground">
                     #{issue.number} opened{" "}
                     <FromNowHoverCard date={issue.createdAt} /> by{" "}
-                    {issue.authorUsername}
+                    <UserLink
+                      username={issue.authorUsername}
+                      className="font-normal text-muted-foreground"
+                    />
                     {issue.assignees.length > 0 &&
                       ` · assigned to ${issue.assignees.join(", ")}`}
                   </p>

@@ -9,6 +9,7 @@ import {
   gt,
   ilike,
   inArray,
+  isNotNull,
   lt,
   or,
   sql,
@@ -17,6 +18,7 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
+import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
@@ -692,11 +694,12 @@ export class IssuesService {
   async getTimeline(params: IssueRef) {
     const { issue } = await this.load(params);
 
-    const [comments, events, mentions] = await Promise.all([
+    const [comments, events, reviews, mentions] = await Promise.all([
       this.db
         .select({
           kind: sql<'comment'>`'comment'`,
           ...commentColumnsWithAuthor,
+          authorImage: schema.user.image,
         })
         .from(schema.issueComment)
         .innerJoin(
@@ -713,6 +716,7 @@ export class IssuesService {
             id: schema.issueEvent.id,
             type: schema.issueEvent.type,
             actorUsername: sql<string>`coalesce(${schema.user.username}, '')`,
+            actorImage: schema.user.image,
             labelName: schema.issueEvent.labelName,
             assigneeUsername: schema.issueEvent.assigneeUsername,
             oldTitle: schema.issueEvent.oldTitle,
@@ -745,6 +749,13 @@ export class IssuesService {
           eq(eventSourceOrganization.id, eventSourceRepository.organizationId),
         )
         .where(eq(schema.issueEvent.issueId, issue.id)),
+      selectReviews(
+        this.db,
+        and(
+          eq(schema.pullRequest.issueId, issue.id),
+          isNotNull(schema.pullRequestReview.submittedAt),
+        ),
+      ),
       this.references.mentionsOf(
         issue.id,
         params.requesterId ? { userId: params.requesterId } : null,
@@ -754,6 +765,7 @@ export class IssuesService {
     const timeline = [
       ...comments,
       ...events,
+      ...reviews,
       ...mentions.map((mention) => ({
         kind: 'reference' as const,
         ...mention,

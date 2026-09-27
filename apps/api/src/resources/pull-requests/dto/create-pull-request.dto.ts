@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsOptional,
   IsString,
   Matches,
@@ -39,6 +40,11 @@ export class CreatePullRequestRequestDTO {
   @IsString()
   @Matches(/^[^\s~^:?*[\\]+(:[^\s~^:?*[\\]+)?$/)
   head: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsBoolean()
+  @IsOptional()
+  draft?: boolean;
 }
 
 export class UpdatePullRequestRequestDTO {

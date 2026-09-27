@@ -51,10 +51,10 @@ export const updateLabelSchema = createLabelSchema.extend({
 
 export type UpdateLabelInput = z.infer<typeof updateLabelSchema>;
 
+/** What happened, without who did it: the timeline links the actor in front of it. */
 export function eventDescription(
   event: {
     type: string;
-    actorUsername: string;
     labelName: string | null;
     assigneeUsername: string | null;
     oldTitle: string | null;
@@ -62,30 +62,32 @@ export function eventDescription(
   },
   noun: "issue" | "pull request" = "issue",
 ): string {
-  const actor = event.actorUsername || "Someone";
-
   switch (event.type) {
     case "opened":
-      return `${actor} opened this ${noun}`;
+      return `opened this ${noun}`;
     case "closed":
-      return `${actor} closed this ${noun}`;
+      return `closed this ${noun}`;
     case "reopened":
-      return `${actor} reopened this ${noun}`;
+      return `reopened this ${noun}`;
     case "merged":
-      return `${actor} merged this ${noun}`;
+      return `merged this ${noun}`;
+    case "ready_for_review":
+      return `marked this ${noun} as ready for review`;
+    case "converted_to_draft":
+      return `marked this ${noun} as a draft`;
     case "renamed":
-      return `${actor} renamed this ${noun}`;
+      return `renamed this ${noun}`;
     case "edited":
-      return `${actor} edited the description`;
+      return `edited the description`;
     case "labeled":
-      return `${actor} added the “${event.labelName ?? "unknown"}” label`;
+      return `added the “${event.labelName ?? "unknown"}” label`;
     case "unlabeled":
-      return `${actor} removed the “${event.labelName ?? "unknown"}” label`;
+      return `removed the “${event.labelName ?? "unknown"}” label`;
     case "assigned":
-      return `${actor} assigned ${event.assigneeUsername ?? "someone"}`;
+      return `assigned ${event.assigneeUsername ?? "someone"}`;
     case "unassigned":
-      return `${actor} unassigned ${event.assigneeUsername ?? "someone"}`;
+      return `unassigned ${event.assigneeUsername ?? "someone"}`;
     default:
-      return `${actor} updated this ${noun}`;
+      return `updated this ${noun}`;
   }
 }

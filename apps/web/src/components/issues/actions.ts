@@ -158,7 +158,7 @@ export const updateIssueComment = actionClient
   )
   .action(
     async ({ parsedInput: { username, repo, number, commentId, body } }) => {
-      const { data, error } = await fetchClient.PATCH(
+      const { error } = await fetchClient.PATCH(
         "/api/repositories/{username}/{repo}/issues/{number}/comments/{commentId}",
         {
           params: { path: { username, repo, number, commentId } },
@@ -170,7 +170,6 @@ export const updateIssueComment = actionClient
       if (error) throw new Error(error.message);
 
       revalidatePath(issuePath(username, repo, number));
-      return data;
     },
   );
 

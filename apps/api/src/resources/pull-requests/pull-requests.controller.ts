@@ -274,4 +274,44 @@ export class PullRequestsController {
       requesterId: session.user.id,
     });
   }
+
+  @Post(':number/ready')
+  @ApiOperation({ summary: 'Mark a draft pull request ready for review' })
+  @ApiOkResponse({ type: PullRequestDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiConflictResponse({ type: ErrorResponseDTO })
+  markReadyForReview(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Session() session: UserSession,
+  ) {
+    return this.pullRequests.setDraft({
+      username,
+      repo,
+      number,
+      requesterId: session.user.id,
+      draft: false,
+    });
+  }
+
+  @Post(':number/draft')
+  @ApiOperation({ summary: 'Turn a pull request back into a draft' })
+  @ApiOkResponse({ type: PullRequestDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiConflictResponse({ type: ErrorResponseDTO })
+  convertToDraft(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Session() session: UserSession,
+  ) {
+    return this.pullRequests.setDraft({
+      username,
+      repo,
+      number,
+      requesterId: session.user.id,
+      draft: true,
+    });
+  }
 }
