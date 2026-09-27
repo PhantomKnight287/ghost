@@ -14,11 +14,15 @@ const FIELDS = [
   '%(objecttype)',
   '%(objectname)',
   '%(*objectname)',
+  '%(*objecttype)',
   '%(contents:subject)',
   '%(creatordate:iso-strict)',
 ];
 
-/** Every tag, newest first. An annotated tag is dated by its tagger, a lightweight one by its commit. */
+// Stands in for a tag object written without a tagger, which leaves git no date to report.
+const UNDATED = new Date(0).toISOString();
+
+/** Every tag that resolves to a commit, newest first. An annotated tag is dated by its tagger, a lightweight one by its commit. Tags of trees or blobs are left out: nothing here can browse them. A tag of a tag counts when git peels it through to a commit. */
 export async function listTags(gitDir: string): Promise<Tag[]> {
   const raw = await runGit({
     args: [
@@ -33,14 +37,18 @@ export async function listTags(gitDir: string): Promise<Tag[]> {
   return raw
     .split('\n')
     .filter(Boolean)
-    .map((line) => {
-      const [name, type, oid, peeled, subject, createdAt] = line.split('\0');
+    .flatMap((line) => {
+      const [name, type, oid, peeled, peeledType, subject, createdAt] =
+        line.split('\0');
       const annotated = type === 'tag';
+      if ((annotated ? peeledType : type) !== 'commit') return [];
+
+      const date = new Date(createdAt);
       return {
         name,
         sha: annotated ? peeled : oid,
         message: annotated ? subject : null,
-        createdAt: new Date(createdAt).toISOString(),
+        createdAt: Number.isNaN(date.getTime()) ? UNDATED : date.toISOString(),
       };
     });
 }

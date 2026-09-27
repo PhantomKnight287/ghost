@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
+import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
@@ -13,14 +13,13 @@ import { PullRequestsController } from './pull-requests.controller.js';
 import { PullRequestsService } from './pull-requests.service.js';
 
 @Module({
-  imports: [IssuesModule],
+  imports: [MaterializerModule, IssuesModule],
   controllers: [PullRequestsController],
   providers: [
     PullRequestsService,
     UsersService,
     RepositoryAccessService,
     RepositoryStorageService,
-    RepositoryMaterializerService,
     PushTransactionService,
     WalStoreService,
     S3Service,

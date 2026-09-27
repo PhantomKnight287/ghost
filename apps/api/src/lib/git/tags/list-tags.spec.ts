@@ -75,6 +75,49 @@ describe('listTags', () => {
       },
     ]);
   });
+  it('leaves out tags of trees and blobs, and peels a tag of a tag to its commit', async () => {
+    const sha = commit('first', '2026-01-01T00:00:00Z');
+    git('tag', 'v1.0');
+    git('tag', 'on-tree', 'HEAD^{tree}');
+    git('tag', 'on-blob', 'HEAD:README.md');
+    git('tag', '-a', 'inner', 'v1.0', '-m', 'inner');
+    git('tag', '-a', 'nested', 'inner', '-m', 'outer');
+
+    const tags = await listTags(gitDir);
+    expect(
+      tags
+        .map(({ name, sha }) => [name, sha])
+        .sort(([a], [b]) => a.localeCompare(b)),
+    ).toEqual([
+      ['inner', sha],
+      ['nested', sha],
+      ['v1.0', sha],
+    ]);
+  });
+
+  it('dates a tag written without a tagger at the epoch instead of failing', async () => {
+    const sha = commit('first', '2026-01-01T00:00:00Z');
+    const oid = execFileSync(
+      'git',
+      ['hash-object', '-t', 'tag', '-w', '--stdin', '--literally'],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, GIT_DIR: gitDir },
+        input: `object ${sha}\ntype commit\ntag old\n\nNo tagger\n`,
+      },
+    ).trim();
+    git('update-ref', 'refs/tags/old', oid);
+
+    await expect(listTags(gitDir)).resolves.toEqual([
+      {
+        name: 'old',
+        sha,
+        message: 'No tagger',
+        createdAt: '1970-01-01T00:00:00.000Z',
+      },
+    ]);
+  });
 });
 
 describe('isValidTagName', () => {

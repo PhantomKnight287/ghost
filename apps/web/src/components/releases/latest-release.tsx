@@ -17,10 +17,16 @@ export async function LatestRelease({
   repo: string;
 }) {
   const client = await createServerClient();
-  const { data } = await client.GET(
+  const { data, response } = await client.GET(
     "/api/repositories/{username}/{repo}/releases/latest",
     { params: { path: { username, repo } } },
   );
+  // a 404 is "nothing published yet"; anything else without data is a failure, not an empty state
+  if (!data && response.status !== 404) {
+    throw new Error(
+      `Failed to load the latest release of ${username}/${repo} (${response.status})`,
+    );
+  }
   const base = `/${username}/${repo}`;
 
   return (
