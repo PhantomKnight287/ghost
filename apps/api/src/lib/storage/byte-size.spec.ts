@@ -17,7 +17,14 @@ describe('parseByteSize', () => {
   });
 
   it('throws on anything else, naming the setting', () => {
-    for (const value of ['-1', '1 gigabyte', 'lots', '1e9']) {
+    for (const value of [
+      '-1',
+      '1 gigabyte',
+      'lots',
+      '1e9',
+      `${'9'.repeat(400)}tb`,
+      '9007199254740993',
+    ]) {
       expect(() => parseByteSize(value, 'STORAGE_QUOTA_BYTES')).toThrow(
         /STORAGE_QUOTA_BYTES/,
       );

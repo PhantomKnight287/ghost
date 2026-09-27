@@ -14,7 +14,12 @@ export function parseByteSize(value: string | undefined, name: string) {
   const match = /^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb|tb)?$/.exec(text);
   if (!match) throw new Error(`${name} is not a byte size: ${value}`);
 
-  return Math.floor(Number(match[1]) * UNITS[match[2] ?? 'b']);
+  const bytes = Math.floor(Number(match[1]) * UNITS[match[2] ?? 'b']);
+  // enough digits overflow to Infinity, or past where a count of bytes is exact
+  if (!Number.isSafeInteger(bytes)) {
+    throw new Error(`${name} is not a byte size: ${value}`);
+  }
+  return bytes;
 }
 
 /** `1073741824` → `"1 GB"`, for error messages a person reads. */

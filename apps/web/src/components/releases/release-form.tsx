@@ -112,9 +112,11 @@ export function ReleaseForm({
             releaseId: saved.data.id,
             file,
           });
+          // by identity: two picked files can share a name
+          setFiles((current) => current.filter((picked) => picked !== file));
         } catch (error) {
           setUploading(null);
-          // the release is saved, so what is left to fix lives on its edit page
+          // the release is saved, so what is left to fix lives on its edit page; the files that did not make it stay picked for a retry there
           toast.error((error as Error).message);
           router.push(releasePath(username, repo, saved.data.tagName, "edit"));
           router.refresh();
