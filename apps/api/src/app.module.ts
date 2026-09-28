@@ -24,6 +24,7 @@ import { AvatarsModule } from './avatars/avatars.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { ReleasesModule } from './resources/releases/releases.module.js';
 import { BranchesModule } from './resources/branches/branches.module.js';
+import { NotificationsModule } from './resources/notifications/notifications.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
@@ -97,6 +98,7 @@ import { UsersService } from './services/users/users.service.js';
     IssuesModule,
     ReleasesModule,
     BranchesModule,
+    NotificationsModule,
     CollaboratorsModule,
     EmailsModule,
     GpgKeysModule,

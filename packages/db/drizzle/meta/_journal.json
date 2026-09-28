@@ -232,6 +232,20 @@
       "when": 1790502618672,
       "tag": "0032_review_diff_hunks",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790583204352,
+      "tag": "0033_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790583411592,
+      "tag": "0034_snake_case_columns",
+      "breakpoints": true
     }
   ]
 }

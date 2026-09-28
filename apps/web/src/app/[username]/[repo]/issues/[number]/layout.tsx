@@ -1,11 +1,16 @@
 import { CircleCheck, CircleDot } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { EditableField } from "@/components/issues/editable-field";
 import { Badge } from "@/components/ui/badge";
+import {
+  ThreadSubscription,
+  ThreadSubscriptionSkeleton,
+} from "@/components/notifications/thread-subscription";
 import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +100,16 @@ export default async function IssueLayout({
               )}
             </span>
           )}
+
+          <div className="ml-auto">
+            <Suspense fallback={<ThreadSubscriptionSkeleton />}>
+              <ThreadSubscription
+                username={username}
+                repo={repo}
+                number={Number(number)}
+              />
+            </Suspense>
+          </div>
         </div>
       </div>
 

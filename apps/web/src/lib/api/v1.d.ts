@@ -1569,6 +1569,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List notifications
+         * @description The signed-in user's inbox, one entry per thread, most recently active first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.
+         */
+        get: operations["NotificationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Count unread notifications */
+        get: operations["NotificationsController_unreadCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark every notification as read */
+        post: operations["NotificationsController_markAllRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark a notification as read or unread */
+        patch: operations["NotificationsController_update"];
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read how the viewer watches a repository */
+        get: operations["SubscriptionsController_getWatch"];
+        /** Watch, stop watching or ignore a repository */
+        put: operations["SubscriptionsController_setWatch"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/issues/{number}/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read whether the viewer is subscribed to an issue or pull request */
+        get: operations["SubscriptionsController_getSubscription"];
+        /**
+         * Subscribe to or unsubscribe from an issue or pull request
+         * @description Unsubscribing outlasts the automatic subscription that commenting adds. Mentions and assignments still notify.
+         */
+        put: operations["SubscriptionsController_setSubscription"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/collaborators": {
         parameters: {
             query?: never;
@@ -3188,6 +3298,60 @@ export interface components {
             name: string;
             /** @description The commit the branch points at. */
             sha: string;
+        };
+        NotificationRepositoryDTO: {
+            /** @example alice */
+            owner: string;
+            /** @example ghost */
+            slug: string;
+        };
+        NotificationThreadDTO: {
+            number: number;
+            title: string;
+            isPullRequest: boolean;
+            /** @enum {string} */
+            state: "open" | "closed" | "merged";
+        };
+        NotificationDTO: {
+            id: string;
+            /**
+             * @description Why the viewer is notified, the most specific that applies.
+             * @enum {string}
+             */
+            reason: "assigned" | "mentioned" | "team_mentioned" | "author" | "subscribed" | "watching";
+            /**
+             * @description The latest event on the thread.
+             * @example issue.commented
+             */
+            eventType: string;
+            /** @description Who caused the latest event. */
+            actorUsername: string | null;
+            unread: boolean;
+            updatedAt: string;
+            repository: components["schemas"]["NotificationRepositoryDTO"];
+            thread: components["schemas"]["NotificationThreadDTO"];
+        };
+        GetNotificationsResponseDTO: {
+            /** @description Most recently active first. */
+            notifications: components["schemas"]["NotificationDTO"][];
+            nextCursor: string | null;
+        };
+        UnreadCountResponseDTO: {
+            count: number;
+        };
+        UpdateNotificationRequestDTO: {
+            unread: boolean;
+        };
+        RepositoryWatchDTO: {
+            /**
+             * @description `participating` notifies about threads the viewer takes part in, `all` about every thread, `ignore` about nothing, mentions included.
+             * @enum {string}
+             */
+            level: "participating" | "all" | "ignore";
+        };
+        IssueSubscriptionDTO: {
+            /** @description Whether activity on the thread notifies the viewer. */
+            subscribed: boolean;
         };
         /**
          * @description Only `accepted` grants access. An `expired` invitation is sent again by inviting the user again.
@@ -7253,6 +7417,269 @@ export interface operations {
             };
             /** @description The branch is the default branch, or an open pull request compares it. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    NotificationsController_list: {
+        parameters: {
+            query?: {
+                /** @description Only unread notifications. */
+                unread?: boolean;
+                /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
+                cursor?: string;
+                /** @description Page size. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetNotificationsResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    NotificationsController_unreadCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCountResponseDTO"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    NotificationsController_markAllRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    NotificationsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNotificationRequestDTO"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SubscriptionsController_getWatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryWatchDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SubscriptionsController_setWatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepositoryWatchDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryWatchDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SubscriptionsController_getSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueSubscriptionDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SubscriptionsController_setSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueSubscriptionDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueSubscriptionDTO"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

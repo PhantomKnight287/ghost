@@ -16,6 +16,7 @@ import { DATABASE } from '../../../database/database.module.js';
 import { runGit, runGitStream } from '../../../lib/git/exec/run-git.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
+import { excluded } from '../../../utils/index.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -295,10 +296,10 @@ export class RepositoryContributionService {
             schema.repositoryContribution.day,
           ],
           set: {
-            commits: sql`${schema.repositoryContribution.commits} + excluded.commits`,
-            authorName: sql`excluded."author_name"`,
+            commits: sql`${schema.repositoryContribution.commits} + ${excluded(schema.repositoryContribution.commits)}`,
+            authorName: excluded(schema.repositoryContribution.authorName),
             // Never unlink on a top-up: a missing match means "unknown", not "no longer theirs".
-            authorId: sql`coalesce(excluded."author_id", ${schema.repositoryContribution.authorId})`,
+            authorId: sql`coalesce(${excluded(schema.repositoryContribution.authorId)}, ${schema.repositoryContribution.authorId})`,
           },
         });
     }

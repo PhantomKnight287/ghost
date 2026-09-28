@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { runGit } from '../../../lib/git/exec/run-git.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { walkCommits } from '../../../lib/git/path-index/commit-log.js';
-import { isoTimestamp } from '../../../utils/index.js';
+import { isoTimestamp, excluded } from '../../../utils/index.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -217,9 +217,9 @@ export class RepositoryPathIndexService {
             schema.repositoryPathCommit.path,
           ],
           set: {
-            commitSha: sql`excluded."commitSha"`,
-            committedAt: sql`excluded."committedAt"`,
-            subject: sql`excluded."subject"`,
+            commitSha: excluded(schema.repositoryPathCommit.commitSha),
+            committedAt: excluded(schema.repositoryPathCommit.committedAt),
+            subject: excluded(schema.repositoryPathCommit.subject),
           },
         });
     }

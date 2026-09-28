@@ -8,6 +8,7 @@ import { and, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module.js';
 import { isTextBlob, readBlob } from '../../lib/git/blob/read-blob.js';
 import { fileHunks, type Hunk } from '../../lib/git/diff/diff.js';
+import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import { replaceFile } from '../../lib/git/tree/replace-file.js';
@@ -163,6 +164,12 @@ export class ReviewsService {
         );
       }
 
+      await publishEvent(tx, {
+        type: 'pull_request.reviewed',
+        repositoryId: base.id,
+        actorId: params.requesterId,
+        payload: { issueId: pullRequest.issueId, reviewId: review.id },
+      });
       await touch(tx, pullRequest.issueId);
       return review.id;
     });
@@ -314,6 +321,12 @@ export class ReviewsService {
         })
         .returning(replyColumns);
       if (!row) throw new Error('Reply insert returned no rows');
+      await publishEvent(tx, {
+        type: 'pull_request.review_commented',
+        repositoryId: loaded.base.id,
+        actorId: params.requesterId,
+        payload: { issueId: loaded.pullRequest.issueId, commentId: row.id },
+      });
 
       await this.references.record(
         tx,

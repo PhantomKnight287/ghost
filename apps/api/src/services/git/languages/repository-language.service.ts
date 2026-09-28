@@ -1,11 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { runGit, runGitStream } from '../../../lib/git/exec/run-git.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { languageForPath } from '@ghost/languages';
+import { excluded } from '../../../utils/index.js';
 
 const INSERT_CHUNK = 1_000;
 
@@ -215,7 +216,7 @@ export class RepositoryLanguageService {
             schema.repositoryLanguageStat.ref,
             schema.repositoryLanguageStat.language,
           ],
-          set: { bytes: sql`excluded."bytes"` },
+          set: { bytes: excluded(schema.repositoryLanguageStat.bytes) },
         });
     }
 

@@ -57,7 +57,7 @@ export default async function RepositoryLayout({
     redirect(`/${repository.data.owner}/${repository.data.slug}`);
   }
 
-  const [branches, pulls, issues] = await Promise.all([
+  const [branches, pulls, issues, watch] = await Promise.all([
     client.GET("/api/repositories/{username}/{slug}/branches", {
       params: { path: { username, slug: repo } },
     }),
@@ -67,6 +67,11 @@ export default async function RepositoryLayout({
     client.GET("/api/repositories/{username}/{repo}/issues", {
       params: { path: { username, repo }, query: { state: "open", limit: 1 } },
     }),
+    session
+      ? client.GET("/api/repositories/{username}/{repo}/subscription", {
+          params: { path: { username, repo } },
+        })
+      : null,
   ]);
 
   return (
@@ -82,6 +87,7 @@ export default async function RepositoryLayout({
       branches={branches.data?.branches}
       starCount={repository.data.starCount}
       viewerHasStarred={repository.data.viewerHasStarred}
+      watchLevel={watch?.data?.level ?? null}
       forkCount={repository.data.forkCount}
       openPullRequestCount={pulls.data?.total}
       openIssueCount={issues.data?.openCount}

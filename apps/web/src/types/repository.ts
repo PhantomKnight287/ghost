@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import type { WatchLevel } from "@/components/notifications/common";
 import type { ViewerRole } from "@/lib/repository-role";
 
 export type RepositoryParent = {
@@ -20,6 +21,8 @@ export type RepositoryFrameProps = {
   branches?: string[];
   starCount: number;
   viewerHasStarred: boolean;
+  /** How the viewer watches the repository; null for a signed-out visitor. */
+  watchLevel: WatchLevel | null;
   forkCount: number;
   /** Open requests only, shown on the Pull requests tab. */
   openPullRequestCount?: number;

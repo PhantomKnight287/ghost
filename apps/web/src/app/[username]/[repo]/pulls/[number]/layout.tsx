@@ -1,11 +1,16 @@
 import { GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { EditableField } from "@/components/issues/editable-field";
 import { branchLabel } from "@/components/pull-requests/common";
+import {
+  ThreadSubscription,
+  ThreadSubscriptionSkeleton,
+} from "@/components/notifications/thread-subscription";
 import { Badge } from "@/components/ui/badge";
 import {
   createServerClient,
@@ -127,6 +132,16 @@ export default async function PullRequestLayout({
           <span>
             · opened <FromNowHoverCard date={pull.data.createdAt} />
           </span>
+
+          <div className="ml-auto">
+            <Suspense fallback={<ThreadSubscriptionSkeleton />}>
+              <ThreadSubscription
+                username={username}
+                repo={repo}
+                number={Number(number)}
+              />
+            </Suspense>
+          </div>
         </div>
       </div>
 

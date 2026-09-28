@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { CircleUser, Ghost, Plus, Search } from "lucide-react";
 
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
 import { ThemePicker } from "@/components/theme-picker";
 import { UserButton } from "@/components/auth/user/user-button";
@@ -56,6 +57,8 @@ export function AppHeader({
               New
             </Button>
           </NewRepositoryDialog>
+
+          {username && <NotificationBell />}
 
           <ThemePicker />
 

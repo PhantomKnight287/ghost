@@ -1,6 +1,8 @@
 import { type Database, schema } from '@ghost/db';
 import { and, eq } from 'drizzle-orm';
 
+import { publishEvent } from '../events/events.js';
+
 // Commits a push or merge scans for closing keywords. A longer range closes only through the newest ones.
 export const MAX_CLOSING_COMMITS = 250;
 
@@ -39,6 +41,12 @@ export async function closeIssue(
     type,
     sourceIssueId,
     commitSha,
+  });
+  await publishEvent(db, {
+    type: type === 'merged' ? 'pull_request.merged' : 'issue.closed',
+    repositoryId: closed.repositoryId,
+    actorId,
+    payload: { issueId },
   });
   return closed;
 }
