@@ -40,6 +40,8 @@ rejected, and the consequences — including the bad ones.
 - [0026 — A review is pinned to the head it read, and threads hang off its line comments](0026-a-review-is-pinned-to-the-head-it-read.md)
 - [0027 — Squash and rebase carry the head along](0027-squash-and-rebase-carry-the-head-along.md)
 - [0028 — Branch writes from the API are ref-only pushes](0028-branch-writes-are-ref-only-pushes.md)
+- [0029 — Repository events go through an outbox, and notifications are its first consumer](0029-events-go-through-an-outbox.md)
+- [0030 — Columns are snake_case in the database, camelCase in the schema](0030-columns-are-snake-case.md)
 
 ## Open
 

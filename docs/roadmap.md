@@ -83,12 +83,18 @@ API routes, DB schema, web pages and auth plugins.
    one an open pull request uses
    ([0028](0028-branch-writes-are-ref-only-pushes.md)). Branch protection is
    deferred (see below).
-8. [ ] **Notifications.** No inbox, no email on mention/assign/review, no
-   watch/subscribe.
+8. [x] **Notifications.** An inbox with unread counts in the header; email
+   on mentions, team mentions, assignment, comments, reviews and state
+   changes; subscribing to threads and watching or ignoring repositories.
+   Events go through an outbox that webhooks will consume too
+   ([0029](0029-events-go-through-an-outbox.md)). Follow-up: mentions added
+   by an edit, per-user email preferences.
 
 ### Tier 2: platform
 9. [ ] **Webhooks.** Push/PR/issue events, HMAC signing, delivery log,
-   redelivery. Already advertised on the landing page.
+   redelivery. Already advertised on the landing page. Consume the outbox
+   ([0029](0029-events-go-through-an-outbox.md)); push events are not
+   published yet.
 10. [ ] **CI / Actions.** Runner, job logs, commit status checks. Start with a
     commit status API (`POST /statuses/:sha`) so external CI can report; a
     runner is a much larger project.

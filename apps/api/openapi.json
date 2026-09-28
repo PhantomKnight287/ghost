@@ -6725,6 +6725,421 @@
         ]
       }
     },
+    "/api/notifications": {
+      "get": {
+        "description": "The signed-in user's inbox, one entry per thread, most recently active first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
+        "operationId": "NotificationsController_list",
+        "parameters": [
+          {
+            "name": "unread",
+            "required": false,
+            "in": "query",
+            "description": "Only unread notifications.",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetNotificationsResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List notifications",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/unread-count": {
+      "get": {
+        "operationId": "NotificationsController_unreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCountResponseDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Count unread notifications",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/read": {
+      "post": {
+        "operationId": "NotificationsController_markAllRead",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Mark every notification as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/notifications/{id}": {
+      "patch": {
+        "operationId": "NotificationsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNotificationRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Mark a notification as read or unread",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/subscription": {
+      "get": {
+        "operationId": "SubscriptionsController_getWatch",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryWatchDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read how the viewer watches a repository",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "put": {
+        "operationId": "SubscriptionsController_setWatch",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositoryWatchDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryWatchDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Watch, stop watching or ignore a repository",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/issues/{number}/subscription": {
+      "get": {
+        "operationId": "SubscriptionsController_getSubscription",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueSubscriptionDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read whether the viewer is subscribed to an issue or pull request",
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "put": {
+        "description": "Unsubscribing outlasts the automatic subscription that commenting adds. Mentions and assignments still notify.",
+        "operationId": "SubscriptionsController_setSubscription",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueSubscriptionDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueSubscriptionDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Subscribe to or unsubscribe from an issue or pull request",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/collaborators": {
       "get": {
         "description": "Collaborators and pending invitations. Admins only.",
@@ -11733,6 +12148,174 @@
         "required": [
           "name",
           "sha"
+        ]
+      },
+      "NotificationRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "example": "alice"
+          },
+          "slug": {
+            "type": "string",
+            "example": "ghost"
+          }
+        },
+        "required": [
+          "owner",
+          "slug"
+        ]
+      },
+      "NotificationThreadDTO": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "isPullRequest": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "merged"
+            ]
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "isPullRequest",
+          "state"
+        ]
+      },
+      "NotificationDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "assigned",
+              "mentioned",
+              "team_mentioned",
+              "author",
+              "subscribed",
+              "watching"
+            ],
+            "description": "Why the viewer is notified, the most specific that applies."
+          },
+          "eventType": {
+            "type": "string",
+            "description": "The latest event on the thread.",
+            "example": "issue.commented"
+          },
+          "actorUsername": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who caused the latest event."
+          },
+          "unread": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "repository": {
+            "$ref": "#/components/schemas/NotificationRepositoryDTO"
+          },
+          "thread": {
+            "$ref": "#/components/schemas/NotificationThreadDTO"
+          }
+        },
+        "required": [
+          "id",
+          "reason",
+          "eventType",
+          "actorUsername",
+          "unread",
+          "updatedAt",
+          "repository",
+          "thread"
+        ]
+      },
+      "GetNotificationsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "notifications": {
+            "description": "Most recently active first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationDTO"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "notifications",
+          "nextCursor"
+        ]
+      },
+      "UnreadCountResponseDTO": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "count"
+        ]
+      },
+      "UpdateNotificationRequestDTO": {
+        "type": "object",
+        "properties": {
+          "unread": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "unread"
+        ]
+      },
+      "RepositoryWatchDTO": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "participating",
+              "all",
+              "ignore"
+            ],
+            "description": "`participating` notifies about threads the viewer takes part in, `all` about every thread, `ignore` about nothing, mentions included."
+          }
+        },
+        "required": [
+          "level"
+        ]
+      },
+      "IssueSubscriptionDTO": {
+        "type": "object",
+        "properties": {
+          "subscribed": {
+            "type": "boolean",
+            "description": "Whether activity on the thread notifies the viewer."
+          }
+        },
+        "required": [
+          "subscribed"
         ]
       },
       "CollaboratorStatus": {

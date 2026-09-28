@@ -2,6 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
 
+export type ThreadTemplate =
+  | 'thread-opened'
+  | 'thread-comment'
+  | 'thread-review'
+  | 'thread-assigned'
+  | 'thread-state';
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -82,17 +89,39 @@ export class MailService {
     );
   }
 
+  /** Every email about one issue or pull request names the same thread in `References`, so mail clients file them as one conversation. */
+  async sendThreadEmail(
+    to: string,
+    {
+      template,
+      threadId,
+      subject,
+      context,
+    }: {
+      template: ThreadTemplate;
+      threadId: string;
+      subject: string;
+      context: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    await this.send(to, subject, template, context, {
+      references: `<${threadId}@${new URL(this.appUrl).hostname}>`,
+    });
+  }
+
   private async send(
     to: string,
     subject: string,
     template: string,
     context: Record<string, unknown>,
+    options: { references?: string } = {},
   ): Promise<void> {
     await this.mailer.sendMail({
       to,
       subject,
       template,
       context: { ...context, appUrl: this.appUrl },
+      ...options,
     });
     this.logger.log(`Sent "${template}" to ${to}`);
   }

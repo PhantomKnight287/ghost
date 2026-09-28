@@ -17,6 +17,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
+import { publishEvent } from '../../lib/events/events.js';
 import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
@@ -134,7 +135,7 @@ export class IssuesService {
             })),
           );
           for (const label of labels) {
-            await this.recordEventWith(tx, row.id, requesterId, 'labeled', {
+            await this.recordEvent(tx, row.id, requesterId, 'labeled', {
               labelName: label.name,
             });
           }
@@ -148,7 +149,7 @@ export class IssuesService {
             })),
           );
           for (const user of assignees) {
-            await this.recordEventWith(tx, row.id, requesterId, 'assigned', {
+            await this.recordEvent(tx, row.id, requesterId, 'assigned', {
               assigneeUsername: user.username ?? '',
             });
           }
@@ -195,7 +196,13 @@ export class IssuesService {
             .returning();
           if (!row) throw new Error('Issue insert returned no rows');
 
-          await this.recordEventWith(tx, row.id, authorId, 'opened', {});
+          await this.recordEvent(tx, row.id, authorId, 'opened', {});
+          await publishEvent(tx, {
+            type: 'issue.opened',
+            repositoryId: repository.id,
+            actorId: authorId,
+            payload: { issueId: row.id },
+          });
           await this.references.record(
             tx,
             {
@@ -462,25 +469,13 @@ export class IssuesService {
       if (!row) throw new IssueNotFoundError();
 
       if (title !== undefined && title !== oldTitle) {
-        await this.recordEventWith(
-          tx,
-          issue.id,
-          params.requesterId,
-          'renamed',
-          {
-            oldTitle,
-            newTitle: title,
-          },
-        );
+        await this.recordEvent(tx, issue.id, params.requesterId, 'renamed', {
+          oldTitle,
+          newTitle: title,
+        });
       }
       if (body !== undefined) {
-        await this.recordEventWith(
-          tx,
-          issue.id,
-          params.requesterId,
-          'edited',
-          {},
-        );
+        await this.recordEvent(tx, issue.id, params.requesterId, 'edited', {});
         await this.references.record(
           tx,
           {
@@ -536,14 +531,23 @@ export class IssuesService {
     if (issue.state !== 'closed') throw new IssueNotOpenError(issue.state);
     if (issue.isPullRequest) throw new PullRequestReopenError();
 
-    const [reopened] = await this.db
-      .update(schema.issue)
-      .set({ state: 'open', closedAt: null, closedById: null })
-      .where(eq(schema.issue.id, issue.id))
-      .returning();
-    if (!reopened) throw new IssueNotFoundError();
+    const reopened = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(schema.issue)
+        .set({ state: 'open', closedAt: null, closedById: null })
+        .where(eq(schema.issue.id, issue.id))
+        .returning();
+      if (!row) throw new IssueNotFoundError();
 
-    await this.recordEvent(issue.id, params.requesterId, 'reopened', {});
+      await this.recordEvent(tx, issue.id, params.requesterId, 'reopened', {});
+      await publishEvent(tx, {
+        type: 'issue.reopened',
+        repositoryId: base.id,
+        actorId: params.requesterId,
+        payload: { issueId: issue.id },
+      });
+      return row;
+    });
     return this.expandIssue(reopened, params.requesterId, base.viewerRole);
   }
 
@@ -577,6 +581,12 @@ export class IssuesService {
         })
         .returning(commentColumns);
       if (!row) throw new Error('Comment insert returned no rows');
+      await publishEvent(tx, {
+        type: 'issue.commented',
+        repositoryId: base.id,
+        actorId: params.requesterId,
+        payload: { issueId: issue.id, commentId: row.id },
+      });
 
       await this.references.record(
         tx,
@@ -942,26 +952,14 @@ export class IssuesService {
       }
 
       for (const label of removed) {
-        await this.recordEventWith(
-          tx,
-          issue.id,
-          params.requesterId,
-          'unlabeled',
-          {
-            labelName: label.name,
-          },
-        );
+        await this.recordEvent(tx, issue.id, params.requesterId, 'unlabeled', {
+          labelName: label.name,
+        });
       }
       for (const label of added) {
-        await this.recordEventWith(
-          tx,
-          issue.id,
-          params.requesterId,
-          'labeled',
-          {
-            labelName: label.name,
-          },
-        );
+        await this.recordEvent(tx, issue.id, params.requesterId, 'labeled', {
+          labelName: label.name,
+        });
       }
 
       if (added.length > 0 || removed.length > 0) {
@@ -1019,26 +1017,20 @@ export class IssuesService {
       }
 
       for (const user of removed) {
-        await this.recordEventWith(
-          tx,
-          issue.id,
-          params.requesterId,
-          'unassigned',
-          {
-            assigneeUsername: user.username ?? '',
-          },
-        );
+        await this.recordEvent(tx, issue.id, params.requesterId, 'unassigned', {
+          assigneeUsername: user.username ?? '',
+        });
       }
       for (const user of added) {
-        await this.recordEventWith(
-          tx,
-          issue.id,
-          params.requesterId,
-          'assigned',
-          {
-            assigneeUsername: user.username ?? '',
-          },
-        );
+        await this.recordEvent(tx, issue.id, params.requesterId, 'assigned', {
+          assigneeUsername: user.username ?? '',
+        });
+        await publishEvent(tx, {
+          type: 'issue.assigned',
+          repositoryId: issue.repositoryId,
+          actorId: params.requesterId,
+          payload: { issueId: issue.id, assigneeId: user.id },
+        });
       }
 
       if (added.length > 0 || removed.length > 0) {
@@ -1052,13 +1044,7 @@ export class IssuesService {
     return { assignees: users.map((user) => user.username ?? '') };
   }
 
-  private async load({
-    username,
-    repo,
-    number,
-    requesterId,
-    operation,
-  }: IssueRef) {
+  async load({ username, repo, number, requesterId, operation }: IssueRef) {
     const base = await this.authorize({
       username,
       repo,
@@ -1216,21 +1202,7 @@ export class IssuesService {
   }
 
   private async recordEvent(
-    issueId: string,
-    actorId: string,
-    type: IssueEventType,
-    extra: {
-      labelName?: string;
-      assigneeUsername?: string;
-      oldTitle?: string;
-      newTitle?: string;
-    },
-  ) {
-    await this.recordEventWith(this.db, issueId, actorId, type, extra);
-  }
-
-  private async recordEventWith(
-    db: Pick<Database, 'insert'>,
+    db: Executor,
     issueId: string,
     actorId: string,
     type: IssueEventType,
@@ -1299,12 +1271,7 @@ export class IssuesService {
   private async resolveUsers(usernames: string[]) {
     if (usernames.length === 0) return [];
     return Promise.all(
-      usernames.map((username) =>
-        this.users.getUserByUsername(username).catch((error) => {
-          // Preserve first-failure semantics: unknown users surface as UserNotFoundError, anything else rethrows.
-          throw error;
-        }),
-      ),
+      usernames.map((username) => this.users.getUserByUsername(username)),
     );
   }
 

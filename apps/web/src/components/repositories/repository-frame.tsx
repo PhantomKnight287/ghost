@@ -14,6 +14,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
+import { WatchButton } from "@/components/notifications/watch-button";
 import { TabLink } from "@/components/tab-link";
 import { ClonePopover } from "@/components/repositories/clone-popover";
 import { StarButton } from "@/components/repositories/star-button";
@@ -47,6 +48,7 @@ export function RepositoryFrame({
   branches,
   starCount,
   viewerHasStarred,
+  watchLevel,
   forkCount,
   openPullRequestCount,
   openIssueCount,
@@ -168,6 +170,13 @@ export function RepositoryFrame({
             </div>
 
             <div className="flex shrink-0 gap-2 sm:ml-auto">
+              {watchLevel && (
+                <WatchButton
+                  username={username}
+                  repo={slug}
+                  level={watchLevel}
+                />
+              )}
               <StarButton
                 username={username}
                 slug={slug}

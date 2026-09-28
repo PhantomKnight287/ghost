@@ -7,7 +7,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { DATABASE } from '../../database/database.module.js';
 import type { Commit } from '../../lib/git/commits/list-commits.js';
 import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp, excluded } from '../../utils/index.js';
 import {
   acceptedCollaboration,
   type Actor,
@@ -79,7 +79,7 @@ export class IssueReferencesService {
           schema.issueReference.sourceId,
           schema.issueReference.targetIssueId,
         ],
-        set: { closing: sql`excluded."closing"` },
+        set: { closing: excluded(schema.issueReference.closing) },
       });
   }
 

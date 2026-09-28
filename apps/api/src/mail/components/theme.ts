@@ -8,6 +8,9 @@ export const brand = {
   background: '#fefdff',
   card: '#ffffff',
   secondary: '#f3f0fb',
+  success: '#1a7f37',
+  danger: '#cf222e',
+  attention: '#bc4c00',
 } as const;
 
 export const sans =

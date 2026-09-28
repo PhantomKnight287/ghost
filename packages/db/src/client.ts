@@ -15,7 +15,7 @@ export function createDatabase(
   }
 
   const pool = new Pool({ ...config, connectionString });
-  const db = drizzle(pool, { schema });
+  const db = drizzle(pool, { schema, casing: "snake_case" });
 
   return { db, pool };
 }

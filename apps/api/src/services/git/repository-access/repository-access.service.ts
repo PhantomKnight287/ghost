@@ -8,6 +8,7 @@ import {
   type Actor,
   type AuthorizedRepository,
   basePermissionOf,
+  canAccess,
   decideAccess,
   organizationMembership,
   ownerNameOf,
@@ -77,6 +78,19 @@ export class RepositoryAccessService {
       eq(schema.repository.id, repositoryId),
     );
     return this.decide(row, actor, operation);
+  }
+
+  /** Whether `userId` may read the repository, for deciding who hears about it rather than for answering their request. */
+  async canRead(repositoryId: string, userId: string) {
+    const actor = { userId };
+    const [row] = await this.lookup(
+      actor,
+      eq(schema.repository.id, repositoryId),
+    );
+    return (
+      row !== undefined &&
+      canAccess(row.repository, roleOf(row.repository, row, actor), 'read')
+    );
   }
 
   private lookup(actor: Actor, where: SQL | undefined) {
