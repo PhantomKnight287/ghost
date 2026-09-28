@@ -63,7 +63,7 @@ export function CreateBranchDialog({
   const { execute, isExecuting, result } = useAction(createBranch, {
     onSuccess: () => {
       setOpen(false);
-      reset();
+      reset({ name: "", from: defaultBranch });
     },
   });
 
