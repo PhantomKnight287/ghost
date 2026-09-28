@@ -32,3 +32,10 @@ export const updateRepositorySchema = createRepositorySchema
   .partial();
 
 export type UpdateRepositoryInput = z.infer<typeof updateRepositorySchema>;
+
+export const createBranchSchema = z.object({
+  name: z.string().trim().min(1, "Enter a branch name."),
+  from: z.string(),
+});
+
+export type CreateBranchInput = z.infer<typeof createBranchSchema>;

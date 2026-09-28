@@ -39,6 +39,7 @@ rejected, and the consequences — including the bad ones.
 - [0025 — Stored files are billed to the owning account, and the quota is configuration](0025-storage-is-billed-to-the-owning-account.md)
 - [0026 — A review is pinned to the head it read, and threads hang off its line comments](0026-a-review-is-pinned-to-the-head-it-read.md)
 - [0027 — Squash and rebase carry the head along](0027-squash-and-rebase-carry-the-head-along.md)
+- [0028 — Branch writes from the API are ref-only pushes](0028-branch-writes-are-ref-only-pushes.md)
 
 ## Open
 

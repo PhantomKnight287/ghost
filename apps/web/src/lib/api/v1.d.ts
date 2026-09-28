@@ -1529,6 +1529,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a branch
+         * @description Needs write access. The branch starts at `from`, or at the default branch.
+         */
+        post: operations["BranchesController_createBranch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/branches/{branch}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a branch
+         * @description Needs write access. A branch containing `/` is sent percent-encoded.
+         */
+        delete: operations["BranchesController_deleteBranch"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/collaborators": {
         parameters: {
             query?: never;
@@ -3130,6 +3170,24 @@ export interface components {
             quotaBytes: number | null;
             /** @description Largest single release asset. */
             maxAssetBytes: number;
+        };
+        CreateBranchRequestDTO: {
+            /**
+             * @description Name of the new branch, without the `refs/heads/` prefix.
+             * @example feat/branches
+             */
+            name: string;
+            /**
+             * @description Branch, tag or commit sha the new branch starts at. Defaults to the default branch.
+             * @example main
+             */
+            from?: string;
+        };
+        BranchDTO: {
+            /** @example feat/branches */
+            name: string;
+            /** @description The commit the branch points at. */
+            sha: string;
         };
         /**
          * @description Only `accepted` grants access. An `expired` invitation is sent again by inviting the user again.
@@ -7088,6 +7146,113 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    BranchesController_createBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBranchRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchDTO"];
+                };
+            };
+            /** @description The branch name is not one git accepts. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The repository, or the revision to branch from, does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description A branch with that name already exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    BranchesController_deleteBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                branch: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The branch is the default branch, or an open pull request compares it. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTagObject } from './create-tag.js';
-import { isValidTagName, listTags } from './list-tags.js';
+import { listTags } from './list-tags.js';
 
 describe('listTags', () => {
   let root: string;
@@ -117,29 +117,6 @@ describe('listTags', () => {
         createdAt: '1970-01-01T00:00:00.000Z',
       },
     ]);
-  });
-});
-
-describe('isValidTagName', () => {
-  it('accepts names git accepts, including a slash', async () => {
-    for (const name of ['v1.0.0', 'release/2026-09']) {
-      await expect(isValidTagName(name)).resolves.toBe(true);
-    }
-  });
-
-  it('refuses flags, revision syntax and empty names', async () => {
-    for (const name of [
-      '',
-      '-all',
-      '--delete',
-      'v1..2',
-      'v1^{tree}',
-      'a b',
-      'v1.lock',
-      'x~1',
-    ]) {
-      await expect(isValidTagName(name)).resolves.toBe(false);
-    }
   });
 });
 

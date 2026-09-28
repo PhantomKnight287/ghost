@@ -24,12 +24,9 @@ import type {
   RepositoryOperation,
 } from '../../lib/git/repository-access/repository-access.js';
 import { createTagObject } from '../../lib/git/tags/create-tag.js';
-import { isValidTagName, listTags } from '../../lib/git/tags/list-tags.js';
-import {
-  resolveCommit,
-  resolveDefaultRef,
-  resolveRevision,
-} from '../../lib/git/tree/resolve-ref.js';
+import { isValidRefName } from '../../lib/git/refs/is-valid-ref-name.js';
+import { listTags } from '../../lib/git/tags/list-tags.js';
+import { resolveTargetCommit } from '../../lib/git/tree/resolve-ref.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
@@ -141,7 +138,7 @@ export class ReleasesService {
     body: CreateReleaseRequestDTO;
   }): Promise<ReleaseDTO> {
     const repository = await this.authorize(target, 'write');
-    if (!(await isValidTagName(body.tagName))) {
+    if (!(await isValidRefName('tags', body.tagName))) {
       throw new InvalidTagNameError(body.tagName);
     }
 
@@ -316,22 +313,15 @@ export class ReleasesService {
     requested: string | undefined,
   ) {
     const name = requested?.trim();
-    const ref = name
-      ? (
-          await resolveRevision({
-            gitDir: directory,
-            branches: await this.branches.getGitBranches(directory),
-            tags,
-            requested: name,
-          })
-        )?.ref
-      : await resolveDefaultRef({
-          gitDir: directory,
-          defaultBranch: repository.defaultBranch,
-        });
-
-    const sha = ref && (await resolveCommit(directory, ref));
-    if (!sha) throw new TagTargetNotFoundError(name ?? ref ?? '');
+    const sha = await resolveTargetCommit({
+      gitDir: directory,
+      defaultBranch: repository.defaultBranch,
+      branches: await this.branches.getGitBranches(directory),
+      tags,
+      requested: name,
+    });
+    if (!sha)
+      throw new TagTargetNotFoundError(name ?? repository.defaultBranch ?? '');
     return sha;
   }
 

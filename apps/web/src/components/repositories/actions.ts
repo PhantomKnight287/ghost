@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSafeActionClient } from "next-safe-action";
@@ -9,6 +10,7 @@ import { fetchClient } from "@/lib/fetch-client";
 import { collaboratorRoles } from "@/lib/repository-role";
 
 import {
+  createBranchSchema,
   createRepositorySchema,
   forkRepositorySchema,
   updateRepositorySchema,
@@ -211,4 +213,41 @@ export const transferRepository = actionClient
     // A transfer someone else has to accept leaves the repository where it is.
     if (data.pending) return { pending: true, owner };
     redirect(`/${data.username}/${data.slug}/settings`);
+  });
+
+export const createBranch = actionClient
+  .inputSchema(createBranchSchema.extend(repositoryPath.shape))
+  .action(async ({ parsedInput: { username, slug, name, from } }) => {
+    const { error } = await fetchClient.POST(
+      "/api/repositories/{username}/{repo}/branches",
+      {
+        params: { path: { username, repo: slug } },
+        body: { name, from: from || undefined },
+        headers: { cookie: (await cookies()).toString() },
+      },
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/${username}/${slug}`, "layout");
+  });
+
+export const deleteBranch = actionClient
+  .inputSchema(repositoryPath.extend({ branch: z.string() }))
+  .action(async ({ parsedInput: { username, slug, branch } }) => {
+    const { error } = await fetchClient.DELETE(
+      "/api/repositories/{username}/{repo}/branches/{branch}",
+      {
+        params: { path: { username, repo: slug, branch } },
+        headers: { cookie: (await cookies()).toString() },
+      },
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath(`/${username}/${slug}`, "layout");
   });
