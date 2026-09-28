@@ -15,15 +15,19 @@ export async function mergeTree({
   alternates,
   base,
   head,
+  mergeBase,
 }: MergeContext & {
   base: string;
   head: string;
+  /** Overrides the computed merge base, which turns the merge into a cherry-pick of `head` when given its parent. */
+  mergeBase?: string;
 }): Promise<{ tree: string; clean: boolean; conflicts: string[] }> {
   const args = [
     'merge-tree',
     '--write-tree',
     '--name-only',
     '-z',
+    ...(mergeBase ? [`--merge-base=${mergeBase}`] : []),
     '--end-of-options',
     base,
     head,
@@ -63,11 +67,14 @@ export async function commitTree({
   parents,
   message,
   author,
+  committer = author,
 }: MergeContext & {
   tree: string;
   parents: string[];
   message: string;
-  author: { name: string; email: string };
+  /** `date` is git's raw `<seconds> <offset>`, kept when a commit is replayed; without it git stamps the current time. */
+  author: { name: string; email: string; date?: string };
+  committer?: { name: string; email: string };
 }): Promise<string> {
   const raw = await runGit({
     args: [
@@ -83,12 +90,77 @@ export async function commitTree({
       // a bare cache has no configured identity, and git refuses to guess one
       GIT_AUTHOR_NAME: author.name,
       GIT_AUTHOR_EMAIL: author.email,
-      GIT_COMMITTER_NAME: author.name,
-      GIT_COMMITTER_EMAIL: author.email,
+      ...(author.date && { GIT_AUTHOR_DATE: author.date }),
+      GIT_COMMITTER_NAME: committer.name,
+      GIT_COMMITTER_EMAIL: committer.email,
     },
   });
 
   return raw.trim();
+}
+
+/**
+ * Replays every non-merge commit in `from..to` onto `onto`, oldest first, keeping each one's author and message; merge commits are dropped, the way `git rebase` linearizes a branch.
+ *
+ * Stops at the first commit that conflicts and names its paths. Nothing is written but objects, so a conflict leaves no trace a caller has to undo.
+ */
+export async function rebaseCommits({
+  gitDir,
+  alternates,
+  onto,
+  from,
+  to,
+  committer,
+}: MergeContext & {
+  onto: string;
+  from: string;
+  to: string;
+  committer: { name: string; email: string };
+}): Promise<
+  { clean: true; tip: string } | { clean: false; conflicts: string[] }
+> {
+  const raw = await runGit({
+    args: [
+      'log',
+      '--reverse',
+      '--no-merges',
+      '-z',
+      '--date=raw',
+      '--format=%H%x00%an%x00%ae%x00%ad%x00%B',
+      '--end-of-options',
+      to,
+      `^${from}`,
+      `^${onto}`,
+    ],
+    gitDir,
+    env: alternatesEnv(alternates),
+  });
+
+  // -z ends each record with a NUL too, so every commit is exactly five fields.
+  const fields = raw.split('\0');
+  let tip = onto;
+  for (let i = 0; i + 5 <= fields.length; i += 5) {
+    const [sha, name, email, date, message] = fields.slice(i, i + 5);
+    const merged = await mergeTree({
+      gitDir,
+      alternates,
+      base: tip,
+      head: sha,
+      mergeBase: `${sha}^`,
+    });
+    if (!merged.clean) return { clean: false, conflicts: merged.conflicts };
+
+    tip = await commitTree({
+      gitDir,
+      alternates,
+      tree: merged.tree,
+      parents: [tip],
+      message,
+      author: { name, email, date },
+      committer,
+    });
+  }
+  return { clean: true, tip };
 }
 
 /**
@@ -103,7 +175,7 @@ export async function packRange({
   exclude,
   prefix,
 }: MergeContext & {
-  include: string;
+  include: string[];
   exclude: string[];
   prefix: string;
 }): Promise<{ path: string; size: number }> {
@@ -112,7 +184,7 @@ export async function packRange({
     gitDir,
     env: alternatesEnv(alternates),
     input: Buffer.from(
-      [include, ...exclude.map((sha) => `^${sha}`)].join('\n') + '\n',
+      [...include, ...exclude.map((sha) => `^${sha}`)].join('\n') + '\n',
       'utf8',
     ),
   });

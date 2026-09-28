@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { commitTree, mergeTree, packRange } from './merge.js';
+import { commitTree, mergeTree, packRange, rebaseCommits } from './merge.js';
 
 const identity = {
   GIT_AUTHOR_NAME: 'Test',
@@ -93,7 +93,7 @@ describe('merging across two repositories', () => {
     const pack = await packRange({
       gitDir: baseDir,
       alternates,
-      include: mergeCommitSha,
+      include: [mergeCommitSha],
       exclude: [baseSha],
       prefix: path.join(root, 'entry'),
     });
@@ -140,5 +140,93 @@ describe('merging across two repositories', () => {
         head: git(fork, 'rev-parse', 'HEAD'),
       }),
     ).toMatchObject({ clean: false, conflicts: ['clash.txt'] });
+  });
+
+  it('replays the head onto the base, keeping authors and dropping merge commits', async () => {
+    const fork = path.join(root, 'fork');
+    const work = path.join(root, 'work');
+    writeFileSync(path.join(fork, 'second.txt'), 'second\n');
+    git(fork, 'add', '-A');
+    git(
+      fork,
+      'commit',
+      '-m',
+      'second commit',
+      '-m',
+      'with a body',
+      '--author',
+      'Alice <alice@example.com>',
+    );
+    git(fork, 'fetch', '-q', work, 'main');
+    git(fork, 'merge', '-q', '--no-edit', 'FETCH_HEAD');
+    git(fork, 'push', '-q', headDir, 'feature');
+    const head = git(fork, 'rev-parse', 'HEAD');
+
+    const rebased = await rebaseCommits({
+      gitDir: baseDir,
+      alternates: [headDir],
+      onto: baseSha,
+      from: git(fork, 'merge-base', 'HEAD', 'FETCH_HEAD'),
+      to: head,
+      committer: { name: 'Merger', email: 'merger@example.com' },
+    });
+    if (!rebased.clean) throw new Error('expected a clean rebase');
+
+    const log = (format: string) =>
+      git(baseDir, 'log', `--format=${format}`, `${baseSha}..${rebased.tip}`);
+    expect(
+      log('%P')
+        .split('\n')
+        .map((parents) => parents.split(' ').length),
+    ).toEqual([1, 1]);
+    expect(log('%an <%ae>|%cn')).toBe(
+      'Alice <alice@example.com>|Merger\nTest <test@example.com>|Merger',
+    );
+    expect(git(baseDir, 'log', '-1', '--format=%B', rebased.tip)).toBe(
+      'second commit\n\nwith a body',
+    );
+    expect(log('%ad').split('\n')[0]).toBe(
+      git(fork, 'log', '-1', '--format=%ad', 'HEAD^'),
+    );
+    // merge-tree skips writing a tree the lent store already holds, so reading it back needs the same loan
+    const tree = execFileSync('git', ['ls-tree', '--name-only', rebased.tip], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GIT_DIR: baseDir,
+        GIT_ALTERNATE_OBJECT_DIRECTORIES: path.join(headDir, 'objects'),
+      },
+    });
+    expect(tree.trim().split('\n')).toEqual([
+      'feature.txt',
+      'second.txt',
+      'shared.txt',
+      'upstream.txt',
+    ]);
+  });
+
+  it('names the conflicted paths of the first commit that cannot be replayed', async () => {
+    const fork = path.join(root, 'fork');
+    const work = path.join(root, 'work');
+    writeFileSync(path.join(fork, 'clash.txt'), 'fork side\n');
+    git(fork, 'add', '-A');
+    git(fork, 'commit', '-m', 'fork edits');
+    git(fork, 'push', '-q', headDir, 'feature');
+
+    writeFileSync(path.join(work, 'clash.txt'), 'base side\n');
+    git(work, 'add', '-A');
+    git(work, 'commit', '-m', 'base edits');
+    git(work, 'push', '-q', baseDir, 'main');
+
+    expect(
+      await rebaseCommits({
+        gitDir: baseDir,
+        alternates: [headDir],
+        onto: git(work, 'rev-parse', 'HEAD'),
+        from: git(work, 'rev-parse', 'HEAD~2'),
+        to: git(fork, 'rev-parse', 'HEAD'),
+        committer: { name: 'Merger', email: 'merger@example.com' },
+      }),
+    ).toEqual({ clean: false, conflicts: ['clash.txt'] });
   });
 });

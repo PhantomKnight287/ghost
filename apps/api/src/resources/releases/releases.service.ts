@@ -280,7 +280,7 @@ export class ReleasesService {
     try {
       const pack = await packRange({
         gitDir: directory,
-        include: oid,
+        include: [oid],
         exclude: [sha],
         prefix: path.join(scratch, 'tag'),
       });

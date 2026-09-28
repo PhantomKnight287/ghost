@@ -70,7 +70,7 @@ export const updateIssue = actionClient
     }),
   )
   .action(async ({ parsedInput: { username, repo, number, title, body } }) => {
-    const { data, error } = await fetchClient.PATCH(
+    const { error } = await fetchClient.PATCH(
       "/api/repositories/{username}/{repo}/issues/{number}",
       {
         params: { path: { username, repo, number } },
@@ -82,7 +82,6 @@ export const updateIssue = actionClient
     if (error) throw new Error(error.message);
 
     revalidatePath(issuePath(username, repo, number));
-    return data;
   });
 
 export const closeIssue = actionClient

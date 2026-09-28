@@ -4,11 +4,10 @@ import { notFound, redirect } from "next/navigation";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
+import { EditableField } from "@/components/issues/editable-field";
 import { Badge } from "@/components/ui/badge";
 import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
-
-import { EditableField } from "./page.client";
 
 export async function generateMetadata({
   params,
@@ -58,6 +57,7 @@ export default async function IssueLayout({
           username={username}
           repo={repo}
           number={issue.data.number}
+          noun="issue"
           field="title"
           value={issue.data.title}
           canEdit={canEdit}

@@ -2,7 +2,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
@@ -94,18 +96,46 @@ export class GetPullRequestPatchQueryDTO {
   path?: string;
 }
 
+export const MERGE_METHODS = ['merge', 'squash', 'rebase'] as const;
+export type MergeMethod = (typeof MERGE_METHODS)[number];
+
 export class MergePullRequestRequestDTO {
   @ApiPropertyOptional({
-    description: 'Merge commit subject. Defaults to the request title.',
+    description:
+      'Subject of the merge or squash commit. A rebase keeps every commit message and ignores it.',
   })
   @IsString()
+  @IsNotEmpty()
   @IsOptional()
   @MaxLength(200)
   title?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Body of the squash commit. Defaults to the head's commit messages; an empty string leaves the body out. Ignored by the other methods.",
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(65536)
+  message?: string;
+
+  @ApiPropertyOptional({
+    enumName: 'MergeMethod',
+    enum: MERGE_METHODS,
+    default: 'merge',
+    description:
+      '`merge` adds a merge commit, `squash` lands the whole request as one commit, `rebase` replays each of its commits onto the base.',
+  })
+  @IsIn(MERGE_METHODS)
+  @IsOptional()
+  method?: MergeMethod;
 }
 
 export class MergePullRequestResponseDTO {
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'The new base tip: the merge commit, the squashed commit, or the last rebased one.',
+  })
   @IsString()
   mergeCommitSha: string;
 

@@ -40,6 +40,7 @@ import {
   SuggestionNotApplicableError,
   SuggestionOutdatedError,
 } from './pull-requests.errors.js';
+import { NotCommentAuthorError } from '../issues/issues.errors.js';
 import {
   type PullRequestRef,
   PullRequestsService,
@@ -233,7 +234,7 @@ export class ReviewsService {
     const loaded = await this.pullRequests.load(params);
     const review = await this.submittedReview(loaded, params.reviewId);
     if (review.authorId !== params.requesterId) {
-      await this.authorizeWrite(params);
+      throw new NotCommentAuthorError();
     }
 
     const body = params.body?.trim() || null;
@@ -353,7 +354,7 @@ export class ReviewsService {
     const loaded = await this.pullRequests.load(params);
     const comment = await this.visibleComment(loaded, params);
     if (comment.authorId !== params.requesterId) {
-      await this.authorizeWrite(params);
+      throw new NotCommentAuthorError();
     }
 
     const updated = await this.db.transaction(async (tx) => {
@@ -508,7 +509,7 @@ export class ReviewsService {
     try {
       const pack = await packRange({
         gitDir: git.headDirectory,
-        include: commitSha,
+        include: [commitSha],
         exclude: [git.headSha],
         prefix: path.join(directory, 'suggestion'),
       });

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { UserLink } from "@/components/users/user-link";
 import { CommentBox } from "@/components/issues/comments";
+import { EditableField } from "@/components/issues/editable-field";
 import { Timeline } from "@/components/issues/timeline";
 import { Markdown } from "@/components/markdown";
 import {
@@ -11,7 +12,7 @@ import {
 } from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 
-import { AssigneeEditor, EditableField, LabelEditor } from "./page.client";
+import { AssigneeEditor, LabelEditor } from "./page.client";
 
 export default async function IssuePage({
   params,
@@ -50,31 +51,24 @@ export default async function IssuePage({
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="flex min-w-0 flex-col gap-4">
-        <div className="rounded-lg border">
-          <div className="border-b bg-muted/40 px-4 py-2.5 text-sm">
-            <UserLink username={issue.data.authorUsername} />
-          </div>
-          <div className="px-4 py-3 text-sm">
-            <EditableField
-              username={username}
-              repo={repo}
-              number={Number(number)}
-              field="body"
-              value={issue.data.body ?? ""}
-              canEdit={canEdit}
-            >
-              {issue.data.body ? (
-                <Markdown repository={{ username, repo }}>
-                  {issue.data.body}
-                </Markdown>
-              ) : (
-                <p className="text-muted-foreground">
-                  No description provided.
-                </p>
-              )}
-            </EditableField>
-          </div>
-        </div>
+        <EditableField
+          username={username}
+          repo={repo}
+          number={Number(number)}
+          noun="issue"
+          field="body"
+          value={issue.data.body ?? ""}
+          canEdit={canEdit}
+          header={<UserLink username={issue.data.authorUsername} />}
+        >
+          {issue.data.body ? (
+            <Markdown repository={{ username, repo }}>
+              {issue.data.body}
+            </Markdown>
+          ) : (
+            <p className="text-muted-foreground">No description provided.</p>
+          )}
+        </EditableField>
 
         <Timeline
           username={username}

@@ -14,7 +14,7 @@ Every comment must sit inside a hunk of the diff as it stands, on the side it na
 
 A reviewer's standing verdict is their latest approval or request for changes. Anyone with `write` can dismiss it with a message, after which that reviewer has no standing verdict; an older one does not come back. Verdicts do not gate merging: that is branch protection's job.
 
-Authors edit and delete their own comments and summaries; `write` can edit and delete anyone's. Deleting a thread's first comment deletes its replies, and a comment-only review with nothing left to say goes with it.
+Only its author edits a comment or summary, so nobody's words are changed under their name; authors and `write` delete comments. Deleting a thread's first comment deletes its replies, and a comment-only review with nothing left to say goes with it.
 
 `#123` in a summary, line comment or reply is recorded like a comment's, keyed by the review or comment id. A pending comment's mentions are recorded when it is submitted.
 
