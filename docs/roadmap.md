@@ -94,7 +94,8 @@ API routes, DB schema, web pages and auth plugins.
 9. [ ] **Webhooks.** Push/PR/issue events, HMAC signing, delivery log,
    redelivery. Already advertised on the landing page. Consume the outbox
    ([0029](0029-events-go-through-an-outbox.md)); push events are not
-   published yet.
+   published yet. Sent by `apps/delivery`
+   ([0031](0031-outbound-delivery-is-its-own-service.md)).
 10. [ ] **CI / Actions.** Runner, job logs, commit status checks. Start with a
     commit status API (`POST /statuses/:sha`) so external CI can report; a
     runner is a much larger project.
