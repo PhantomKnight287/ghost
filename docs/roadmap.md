@@ -78,8 +78,11 @@ API routes, DB schema, web pages and auth plugins.
    the merge button, with the squash message editable before it lands;
    conflicting paths listed on the request
    ([0027](0027-squash-and-rebase-carry-the-head-along.md)).
-7. [ ] **Branch management.** No create/delete branch from the UI. Branch
-   protection is deferred (see below).
+7. [x] **Branch management.** A branches page listing every branch, with
+   creating a branch from any other and deleting any but the default one or
+   one an open pull request uses
+   ([0028](0028-branch-writes-are-ref-only-pushes.md)). Branch protection is
+   deferred (see below).
 8. [ ] **Notifications.** No inbox, no email on mention/assign/review, no
    watch/subscribe.
 

@@ -52,15 +52,3 @@ export async function listTags(gitDir: string): Promise<Tag[]> {
       };
     });
 }
-
-/** Whether git accepts `name` as a tag. Leading dashes are refused too, so a name can never reach git as a flag. */
-export async function isValidTagName(name: string) {
-  if (name.startsWith('-')) return false;
-  return runGit({
-    args: ['check-ref-format', `refs/tags/${name}`],
-    gitDir: '.',
-  }).then(
-    () => true,
-    () => false,
-  );
-}

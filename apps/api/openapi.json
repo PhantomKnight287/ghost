@@ -6564,6 +6564,167 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/branches": {
+      "post": {
+        "description": "Needs write access. The branch starts at `from`, or at the default branch.",
+        "operationId": "BranchesController_createBranch",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBranchRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BranchDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The branch name is not one git accepts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The repository, or the revision to branch from, does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A branch with that name already exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a branch",
+        "tags": [
+          "Branches"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/branches/{branch}": {
+      "delete": {
+        "description": "Needs write access. A branch containing `/` is sent percent-encoded.",
+        "operationId": "BranchesController_deleteBranch",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "branch",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The branch is the default branch, or an open pull request compares it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a branch",
+        "tags": [
+          "Branches"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/collaborators": {
       "get": {
         "description": "Collaborators and pending invitations. Admins only.",
@@ -11537,6 +11698,41 @@
           "usedBytes",
           "quotaBytes",
           "maxAssetBytes"
+        ]
+      },
+      "CreateBranchRequestDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the new branch, without the `refs/heads/` prefix.",
+            "example": "feat/branches"
+          },
+          "from": {
+            "type": "string",
+            "description": "Branch, tag or commit sha the new branch starts at. Defaults to the default branch.",
+            "example": "main"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "BranchDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "feat/branches"
+          },
+          "sha": {
+            "type": "string",
+            "description": "The commit the branch points at."
+          }
+        },
+        "required": [
+          "name",
+          "sha"
         ]
       },
       "CollaboratorStatus": {

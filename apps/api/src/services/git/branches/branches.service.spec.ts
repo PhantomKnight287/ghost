@@ -73,4 +73,12 @@ describe('BranchesService', () => {
 
     expect(await service.getGitBranches(gitDir)).toEqual(['main']);
   });
+
+  it('names a branch in full when a tag shares its name', async () => {
+    commit('first');
+    git('branch', 'v1');
+    git('tag', 'v1');
+
+    expect(await service.getGitBranches(gitDir)).toEqual(['main', 'v1']);
+  });
 });

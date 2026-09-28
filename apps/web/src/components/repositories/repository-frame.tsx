@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleDot,
   Code2,
+  GitBranch,
   GitFork,
   GitPullRequest,
   Settings,
@@ -32,7 +33,7 @@ import { atLeast } from "@ghost/permissions";
 import type { RepositoryFrameProps } from "@/types/repository";
 
 // pages under the code tab that are not a view of the tree, and so have no branch to pick
-const OWN_HEADER_VIEWS = new Set(["search", "releases", "tags"]);
+const OWN_HEADER_VIEWS = new Set(["search", "releases", "tags", "branches"]);
 
 export function RepositoryFrame({
   viewer,
@@ -235,6 +236,16 @@ export function RepositoryFrame({
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+                <Link
+                  href={`${base}/branches`}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  <GitBranch className="size-4" />
+                  <span className="font-medium tabular-nums">
+                    {branches?.length ?? 0}
+                  </span>
+                  {branches?.length === 1 ? "branch" : "branches"}
+                </Link>
                 <div className="ml-auto flex items-center gap-2">
                   <ClonePopover
                     cloneUrl={`${API_URL}/${username}/${slug}.git`}

@@ -82,3 +82,23 @@ export async function resolveCommit(gitDir: string, ref: string) {
   }).catch(() => '');
   return oid.trim() || null;
 }
+
+/** The commit `requested` names, as `resolveRevision` reads it, or the default branch's tip when nothing is requested. Null when it names nothing. */
+export async function resolveTargetCommit({
+  gitDir,
+  defaultBranch,
+  branches,
+  tags,
+  requested,
+}: {
+  gitDir: string;
+  defaultBranch: string | null;
+  branches: string[];
+  tags: { name: string; sha: string }[];
+  requested: string | undefined;
+}) {
+  const ref = requested
+    ? (await resolveRevision({ gitDir, branches, tags, requested }))?.ref
+    : await resolveDefaultRef({ gitDir, defaultBranch });
+  return ref ? resolveCommit(gitDir, ref) : null;
+}
