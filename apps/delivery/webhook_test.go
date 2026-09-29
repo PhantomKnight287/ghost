@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,7 +78,7 @@ func TestSignedHeaders(t *testing.T) {
 	if h["X-Ghost-Timestamp"] != "1700000000" || h["X-Ghost-Delivery"] != "job-1" || h["X-Ghost-Event"] != "issue.opened" {
 		t.Errorf("headers = %v", h)
 	}
-	// What a receiver computes: HMAC over "<timestamp>.<raw body>".
+	// what a receiver computes
 	if want := "sha256=" + hmacHex(secret, []byte("1700000000."+string(body))); h["X-Ghost-Signature-256"] != want {
 		t.Errorf("X-Ghost-Signature-256 = %s, want %s", h["X-Ghost-Signature-256"], want)
 	}
@@ -93,9 +94,22 @@ func TestOpenSecret(t *testing.T) {
 	if err != nil || string(got) != "whsec_abc" {
 		t.Fatalf("openSecret = %q, %v", got, err)
 	}
-	other := make([]byte, 32)
-	if _, err := openSecret(other, sealSecret(t, key, "whsec_abc")); err == nil {
-		t.Error("opened a secret with the wrong key")
+	tests := []struct {
+		name   string
+		key    []byte
+		sealed string
+	}{
+		{"wrong key", make([]byte, 32), sealSecret(t, key, "whsec_abc")},
+		{"no key", nil, sealSecret(t, key, "whsec_abc")},
+		{"key of the wrong size", make([]byte, 7), sealSecret(t, key, "whsec_abc")},
+		{"unknown format", key, "whsec_abc"},
+		{"not base64", key, "v1:%%%"},
+		{"shorter than a nonce", key, "v1:" + base64.StdEncoding.EncodeToString([]byte("short"))},
+	}
+	for _, tt := range tests {
+		if _, err := openSecret(tt.key, tt.sealed); err == nil {
+			t.Errorf("%s: opened the secret", tt.name)
+		}
 	}
 }
 
@@ -110,6 +124,7 @@ func TestParseRetryAfter(t *testing.T) {
 		{"Tue, 29 Sep 2026 12:05:00 GMT", 5 * time.Minute, true},
 		{"", 0, false},
 		{"soon", 0, false},
+		{"Tue, 29 Sep 2026 11:00:00 GMT", 0, true}, // already past: retry now
 	}
 	for _, tt := range tests {
 		got, ok := parseRetryAfter(tt.v, now)
@@ -119,7 +134,7 @@ func TestParseRetryAfter(t *testing.T) {
 	}
 }
 
-// sealSecret encrypts like the API does: "v1:" + base64(nonce || AES-256-GCM ciphertext).
+// sealSecret encrypts the way the API does.
 func sealSecret(t *testing.T, key []byte, secret string) string {
 	t.Helper()
 	block, err := aes.NewCipher(key)
@@ -135,8 +150,7 @@ func sealSecret(t *testing.T, key []byte, secret string) string {
 	return "v1:" + base64.StdEncoding.EncodeToString(gcm.Seal(nonce, nonce, []byte(secret), nil))
 }
 
-// webhookFixture inserts an organization, an endpoint pointing at url and one
-// webhook job. Deleting the organization cascades to all three.
+// Deleting the organization cascades to the endpoint and its job.
 func webhookFixture(t *testing.T, db *pgxpool.Pool, url string) (webhookSender, Job, []byte) {
 	t.Helper()
 	key := make([]byte, 32)
@@ -253,6 +267,12 @@ func TestWebhookResponseClassification(t *testing.T) {
 				t.Errorf("err = %v, want retryAfterError of 2m", err)
 			}
 		}},
+		{"429 without Retry-After backs off as usual", 429, nil, func(t *testing.T, err error, active bool) {
+			var r retryAfterError
+			if err == nil || errors.As(err, &r) {
+				t.Errorf("err = %v, want a plain retryable error", err)
+			}
+		}},
 		{"redirect is not followed", 302, map[string]string{"Location": "http://169.254.169.254/"}, func(t *testing.T, err error, active bool) {
 			if err == nil || err.Error() != "endpoint responded 302" {
 				t.Errorf("err = %v, want endpoint responded 302", err)
@@ -300,8 +320,7 @@ func TestWebhookSendDropsJobForDisabledEndpoint(t *testing.T) {
 	}
 }
 
-// Sealed by sealWebhookSecret in apps/api/src/lib/webhooks/webhooks.ts with a
-// key of 32 bytes of 7. If this breaks, the API and delivery disagree on the format.
+// Sealed by sealWebhookSecret in apps/api/src/lib/webhooks/webhooks.ts with 32 bytes of 7 as the key; if this breaks, the API and delivery disagree on the format.
 func TestOpenSecretSealedByTheAPI(t *testing.T) {
 	key := bytes.Repeat([]byte{7}, 32)
 	got, err := openSecret(key, "v1:imP+jJazaD8GgSnv6BdCuGKPLoZM2DO5Psxx9jR7ursCPfH6JAzhj4jGDlPn0w==")
@@ -346,5 +365,51 @@ func TestWebhookSendWaitsWhenItsHostIsBusy(t *testing.T) {
 	}
 	if len(hits) > 0 {
 		t.Error("sent while the host was at its limit")
+	}
+}
+
+func TestWebhookSendRefusesJobsItCannotSend(t *testing.T) {
+	db := testDB(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer srv.Close()
+	s, j, _ := webhookFixture(t, db, srv.URL)
+
+	noEndpoint := j
+	noEndpoint.EndpointID = nil
+	badPayload := j
+	badPayload.Payload = json.RawMessage(`[]`)
+	deleted := j
+	deleted.EndpointID = ptr("whk_does_not_exist")
+
+	for name, job := range map[string]Job{"no endpoint": noEndpoint, "bad payload": badPayload, "deleted endpoint": deleted} {
+		var p permanentError
+		if err := s.send(t.Context(), job); !errors.As(err, &p) {
+			t.Errorf("%s: err = %v, want permanentError", name, err)
+		}
+	}
+
+	noKey := s
+	noKey.key = nil
+	if err := noKey.send(t.Context(), j); err == nil || !strings.Contains(err.Error(), "WEBHOOK_SECRET_KEY") {
+		t.Errorf("without a key: err = %v", err)
+	}
+}
+
+func TestWebhookSendRecordsAnAttemptWithNoResponse(t *testing.T) {
+	db := testDB(t)
+	s, j, _ := webhookFixture(t, db, "http://127.0.0.1:1")
+
+	if err := s.send(t.Context(), j); err == nil {
+		t.Fatal("sent to a closed port")
+	}
+	var (
+		status *int
+		msg    string
+	)
+	if err := db.QueryRow(t.Context(), `SELECT status_code, error FROM delivery_attempt WHERE job_id = $1`, j.ID).Scan(&status, &msg); err != nil {
+		t.Fatal(err)
+	}
+	if status != nil || msg == "" {
+		t.Errorf("attempt = %v %q, want no status and the error", status, msg)
 	}
 }

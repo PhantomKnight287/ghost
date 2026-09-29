@@ -16,14 +16,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// webhookPayload is what the API puts in delivery_job.payload for kind 'webhook'.
-// Body is the JSON the receiver gets, frozen at fan-out so a retry sends the same bytes.
+// webhookPayload is what the API puts in delivery_job.payload. Body is frozen at fan-out so a retry sends the same bytes.
 type webhookPayload struct {
 	Event string `json:"event"`
 	Body  string `json:"body"`
@@ -105,7 +105,6 @@ func (w webhookSender) send(ctx context.Context, j Job) error {
 	return w.classify(ctx, *j.EndpointID, res)
 }
 
-// classify turns a response into the job's next step.
 func (w webhookSender) classify(ctx context.Context, endpointID string, res *http.Response) error {
 	switch code := res.StatusCode; {
 	case code >= 200 && code <= 299:
@@ -131,8 +130,7 @@ func (w webhookSender) classify(ctx context.Context, endpointID string, res *htt
 	}
 }
 
-// recordAttempt writes one delivery_attempt row. A failure to write it is logged, not fatal:
-// the job's own result matters more than its log line.
+// A failure to write the attempt is logged, not returned: the job's own result matters more than its log line.
 func (w webhookSender) recordAttempt(ctx context.Context, jobID string, started time.Time, headers http.Header, status *int, body *string, sendErr error) {
 	flat := make(map[string]string, len(headers))
 	for k := range headers {
@@ -151,8 +149,7 @@ func (w webhookSender) recordAttempt(ctx context.Context, jobID string, started 
 	}
 }
 
-// signedHeaders signs "<timestamp>.<body>" so a receiver can reject replays older
-// than a few minutes. X-Hub-Signature-256 signs the body alone, for GitHub-style receivers.
+// The timestamp is signed with the body so a receiver can reject replays; X-Hub-Signature-256 signs the body alone for GitHub-style receivers.
 func signedHeaders(secret []byte, deliveryID, event string, body []byte, now time.Time) map[string]string {
 	ts := strconv.FormatInt(now.Unix(), 10)
 	return map[string]string{
@@ -174,8 +171,7 @@ func hmacHex(secret []byte, parts ...[]byte) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-// openSecret decrypts webhook_endpoint.secret, stored as
-// "v1:" + base64(12-byte nonce || AES-256-GCM ciphertext and tag).
+// openSecret reads the format sealWebhookSecret in apps/api writes: "v1:" + base64(12-byte nonce || AES-256-GCM ciphertext || tag).
 func openSecret(key []byte, sealed string) ([]byte, error) {
 	if len(key) == 0 {
 		return nil, errors.New("WEBHOOK_SECRET_KEY is not set")
@@ -207,7 +203,6 @@ func openSecret(key []byte, sealed string) ([]byte, error) {
 	return plain, nil
 }
 
-// parseRetryAfter reads Retry-After as seconds or an HTTP date.
 func parseRetryAfter(v string, now time.Time) (time.Duration, bool) {
 	if v == "" {
 		return 0, false
@@ -222,3 +217,39 @@ func parseRetryAfter(v string, now time.Time) (time.Duration, bool) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// hostLimiter caps sends in flight per host, so one slow receiver cannot hold every worker. A nil limiter allows everything.
+// ponytail: per process, so with several delivery instances the real cap is instances x max; move it to Postgres if that matters.
+type hostLimiter struct {
+	mu    sync.Mutex
+	max   int
+	inUse map[string]int
+}
+
+func newHostLimiter(max int) *hostLimiter {
+	return &hostLimiter{max: max, inUse: map[string]int{}}
+}
+
+func (h *hostLimiter) acquire(host string) bool {
+	if h == nil {
+		return true
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.inUse[host] >= h.max {
+		return false
+	}
+	h.inUse[host]++
+	return true
+}
+
+func (h *hostLimiter) release(host string) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.inUse[host]--; h.inUse[host] <= 0 {
+		delete(h.inUse, host)
+	}
+}

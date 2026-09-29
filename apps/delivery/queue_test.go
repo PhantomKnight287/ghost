@@ -35,13 +35,10 @@ func TestBackoff(t *testing.T) {
 	}
 }
 
-// Tests only touch rows whose idempotency_key starts with this prefix,
-// so they are safe to run against a shared dev database.
+// Tests only touch rows whose idempotency_key starts with this prefix, so they are safe on a shared dev database.
 const testKeyPrefix = "test:"
 
-// testDB connects to TEST_DATABASE_URL, or skips the test when it is unset.
-// It refuses to run if the queue holds real pending jobs, because claim
-// would lease them. Cleanup deletes only the rows the test inserted.
+// testDB refuses to run while the queue holds real pending jobs, because claim would lease them.
 func testDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")
@@ -76,7 +73,6 @@ func testDB(t *testing.T) *pgxpool.Pool {
 	return db
 }
 
-// insertJobs adds n pending email jobs and returns their ids.
 func insertJobs(t *testing.T, db *pgxpool.Pool, n int) map[string]bool {
 	t.Helper()
 	ids := make(map[string]bool, n)
@@ -149,7 +145,6 @@ func TestClaimReclaimsAfterLeaseExpires(t *testing.T) {
 		t.Fatalf("first claim got %d jobs, want 1", len(first))
 	}
 
-	// Lease is held: nobody else may take it.
 	again, err := claim(t.Context(), db, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -158,7 +153,7 @@ func TestClaimReclaimsAfterLeaseExpires(t *testing.T) {
 		t.Fatalf("claimed %d jobs while lease was held, want 0", len(again))
 	}
 
-	// Simulate the worker dying: expire the lease instead of sleeping 60s.
+	// the worker died: expire the lease instead of sleeping 60s
 	_, err = db.Exec(t.Context(),
 		`UPDATE delivery_job SET locked_until = now() - interval '1 second' WHERE id = $1`, first[0].ID)
 	if err != nil {
@@ -285,8 +280,7 @@ func TestListenWakesOnNotify(t *testing.T) {
 	waitWake("NOTIFY delivery")
 }
 
-// startRun runs the worker loop in the background and returns a stop
-// function that cancels it and waits for it to drain.
+// The returned stop cancels run and waits for it to drain.
 func startRun(t *testing.T, db *pgxpool.Pool, workers int, send sendFunc) (stop func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
@@ -411,4 +405,81 @@ func TestPruneDeletesOnlyOldFinishedJobs(t *testing.T) {
 			t.Errorf("job %s exists = %v, want %v", id, got, want)
 		}
 	}
+}
+
+func TestRunRoutesSendOutcomes(t *testing.T) {
+	db := testDB(t)
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus string
+		wantDelay  time.Duration
+	}{
+		{"permanent failure gives up at once", permanentError{errors.New("gone")}, "dead", 0},
+		{"Retry-After sets the next try", retryAfterError{errors.New("slow down"), 30 * time.Minute}, "pending", 30 * time.Minute},
+		{"Retry-After is capped", retryAfterError{errors.New("slow down"), 48 * time.Hour}, "pending", backOffCap},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ids := insertJobs(t, db, 1)
+			done := make(chan struct{})
+			stop := startRun(t, db, 1, func(context.Context, Job) error {
+				defer close(done)
+				return tt.err
+			})
+			<-done
+			stop()
+
+			for id := range ids {
+				var (
+					status string
+					delay  time.Duration
+				)
+				err := db.QueryRow(t.Context(), `SELECT status, next_attempt_at - now() FROM delivery_job WHERE id = $1`, id).Scan(&status, &delay)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if status != tt.wantStatus {
+					t.Errorf("status = %s, want %s", status, tt.wantStatus)
+				}
+				if tt.wantDelay > 0 && (delay < tt.wantDelay-time.Minute || delay > tt.wantDelay) {
+					t.Errorf("next try in %v, want about %v", delay, tt.wantDelay)
+				}
+			}
+		})
+	}
+}
+
+func TestQueueCallsReturnDatabaseErrors(t *testing.T) {
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	closed, err := pgxpool.New(t.Context(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closed.Close()
+	j := Job{ID: "00000000-0000-0000-0000-000000000000", ClaimToken: "00000000-0000-0000-0000-000000000000"}
+
+	if _, err := claim(t.Context(), closed, 1); err == nil {
+		t.Error("claim on a closed pool succeeded")
+	}
+	if err := complete(t.Context(), closed, j); err == nil || errors.Is(err, errLeaseLost) {
+		t.Errorf("complete = %v, want the database error", err)
+	}
+	if err := fail(t.Context(), closed, j, errors.New("x"), time.Second); err == nil || errors.Is(err, errLeaseLost) {
+		t.Errorf("fail = %v, want the database error", err)
+	}
+	if err := giveUp(t.Context(), closed, j, errors.New("x")); err == nil || errors.Is(err, errLeaseLost) {
+		t.Errorf("giveUp = %v, want the database error", err)
+	}
+	if _, err := prune(t.Context(), closed); err == nil {
+		t.Error("prune on a closed pool succeeded")
+	}
+
+	// a canceled pruneEvery returns after its first pass instead of waiting for the tick
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	pruneEvery(ctx, closed, time.Hour)
 }

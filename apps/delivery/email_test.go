@@ -49,3 +49,25 @@ func TestRelaySenderFailsOnErrorStatus(t *testing.T) {
 		t.Errorf("err = %v, want it to name the 502 and the relay's message", err)
 	}
 }
+
+func TestRelaySenderRefusesWithoutAUsableJob(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		payload string
+		want    string
+	}{
+		{"no relay configured", "", `{}`, "EMAIL_PROXY is not set"},
+		{"payload is not an email", "http://relay.invalid", `[]`, "decode email payload"},
+		{"relay unreachable", "http://127.0.0.1:1", `{}`, "connect"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := relaySender{url: tt.url, client: &http.Client{}}
+			err := s.send(t.Context(), Job{Payload: json.RawMessage(tt.payload)})
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("err = %v, want it to mention %q", err, tt.want)
+			}
+		})
+	}
+}

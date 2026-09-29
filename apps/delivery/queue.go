@@ -92,7 +92,6 @@ UPDATE delivery_job
 SET status = 'dead', last_error = $3, locked_until = now(), updated_at = now()
 WHERE id = $1 AND claim_token = $2`
 
-// giveUp marks a job dead at once, for failures a retry cannot fix.
 func giveUp(ctx context.Context, db *pgxpool.Pool, j Job, sendErr error) error {
 	tag, err := db.Exec(ctx, giveUpSQL, j.ID, j.ClaimToken, sendErr.Error())
 	if err != nil {
@@ -127,7 +126,6 @@ func listen(ctx context.Context, db *pgxpool.Pool, wake chan<- struct{}) {
 	}
 }
 
-// listenOnce holds one connection and returns when it breaks.
 func listenOnce(ctx context.Context, db *pgxpool.Pool, wake chan<- struct{}) error {
 	conn, err := db.Acquire(ctx)
 	if err != nil {
@@ -162,8 +160,7 @@ const (
 	sendTimeout  = 10 * time.Second // must stay well under the 60s lease
 )
 
-// run keeps up to workers sends in flight until ctx is canceled, then waits
-// for the in-flight sends to finish and record their result.
+// run keeps up to workers sends in flight until ctx is canceled, then waits for those in flight to finish and record their result.
 func run(ctx context.Context, db *pgxpool.Pool, workers int, wake <-chan struct{}, send sendFunc) {
 	sem := make(chan struct{}, workers) // one slot per send in flight
 	freed := make(chan struct{}, 1)     // a slot opened up
@@ -177,7 +174,6 @@ func run(ctx context.Context, db *pgxpool.Pool, workers int, wake <-chan struct{
 	defer tick.Stop()
 
 	for {
-		// Claim until the queue is empty or every slot is busy.
 		for ctx.Err() == nil {
 			free := cap(sem) - len(sem)
 			if free == 0 {
@@ -213,7 +209,6 @@ func run(ctx context.Context, db *pgxpool.Pool, workers int, wake <-chan struct{
 	}
 }
 
-// process sends one job and records the result.
 func process(ctx context.Context, db *pgxpool.Pool, j Job, send sendFunc) {
 	sendCtx, cancel := context.WithTimeout(ctx, sendTimeout)
 	err := send(sendCtx, j)
@@ -258,8 +253,7 @@ type execer interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
-// prune deletes finished jobs older than the retention, and their attempts with
-// them, in batches so no single statement holds locks for long.
+// Batched so no single statement holds locks for long. Attempts go with their job.
 func prune(ctx context.Context, db execer) (int64, error) {
 	var total int64
 	for {
@@ -274,7 +268,6 @@ func prune(ctx context.Context, db execer) (int64, error) {
 	}
 }
 
-// pruneEvery runs prune until ctx is canceled.
 func pruneEvery(ctx context.Context, db *pgxpool.Pool, interval time.Duration) {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()

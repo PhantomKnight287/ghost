@@ -17,9 +17,7 @@ type emailPayload struct {
 	Text    string `json:"text"`
 }
 
-// relaySender POSTs email jobs to the HTTP relay, the same request
-// apps/api/src/mail/proxy.transport.ts makes. The relay URL is operator
-// config, not user input, so it skips the SSRF guard.
+// relaySender makes the request apps/api/src/mail/proxy.transport.ts makes. The relay URL is operator config, not user input, so it skips the SSRF guard.
 type relaySender struct {
 	url, secret, from string
 	client            *http.Client
