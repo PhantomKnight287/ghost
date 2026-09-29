@@ -6,6 +6,7 @@ import { CursorPagination } from "@/components/cursor-pagination";
 import { RepositoryCard } from "@/components/repository-card";
 import { TabLink } from "@/components/tab-link";
 import { CodeSearchResults } from "@/components/search/code-search-results";
+import { SearchForm } from "@/components/search/search-form";
 import {
   Empty,
   EmptyDescription,
@@ -58,6 +59,14 @@ export default async function SearchPage({
       <AppHeader username={viewer} owners={viewer ? [viewer] : []} />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 md:px-6">
+        <SearchForm
+          action="/search"
+          placeholder="Search Ghost"
+          query={query}
+          type={kind}
+          autoFocus={!query}
+        />
+
         <nav className="flex gap-1 border-b">
           {tabs.map(({ value, label, icon: Icon }) => (
             <TabLink
@@ -149,7 +158,8 @@ async function CodeResults({ query }: { query: string }) {
           </EmptyMedia>
           <EmptyTitle>Search code</EmptyTitle>
           <EmptyDescription>
-            Type in the search bar to search the code of public repositories.
+            Type in the search bar above to search the code of public
+            repositories.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

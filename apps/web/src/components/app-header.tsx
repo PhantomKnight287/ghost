@@ -1,21 +1,18 @@
 "use client";
 
-import Form from "next/form";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { CircleUser, Ghost, Plus, Search } from "lucide-react";
 
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
-import { ThemePicker } from "@/components/theme-picker";
+import { SearchForm } from "@/components/search/search-form";
+import { CustomThemeDialog, ThemeSubmenu } from "@/components/theme-picker";
 import { UserButton } from "@/components/auth/user/user-button";
 import { Button } from "@/components/ui/button";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group";
+
+const HEADER_SEARCH_CLASS = "hidden w-56 sm:block";
 
 export function AppHeader({
   username,
@@ -31,6 +28,7 @@ export function AppHeader({
     ? `/${repository.owner}/${repository.slug}/search`
     : "/search";
   const placeholder = repository ? "Search this repository" : "Search Ghost";
+  const [customThemeOpen, setCustomThemeOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
@@ -46,21 +44,37 @@ export function AppHeader({
         <div className="ml-auto flex items-center gap-2">
           {/* reading the URL opts a prerendered page out of static rendering up to the nearest boundary, so the bar gets its own */}
           <Suspense
-            fallback={<SearchForm action={action} placeholder={placeholder} />}
+            fallback={
+              <SearchForm
+                action={action}
+                placeholder={placeholder}
+                className={HEADER_SEARCH_CLASS}
+              />
+            }
           >
             <CurrentSearchForm action={action} placeholder={placeholder} />
           </Suspense>
 
+          {/* no room for the bar on a phone: the icon opens the search page, which has its own */}
+          <Button asChild variant="ghost" size="icon" className="sm:hidden">
+            <Link href={action} aria-label={placeholder}>
+              <Search />
+            </Link>
+          </Button>
+
           <NewRepositoryDialog owners={owners} defaultOwner={username}>
-            <Button size="sm">
+            {/* square on a phone, where the label is hidden and the Button's inline-start padding (which outranks a plain override) would push the icon off centre */}
+            <Button
+              size="sm"
+              aria-label="New repository"
+              className="max-sm:w-7 max-sm:px-0!"
+            >
               <Plus data-icon="inline-start" />
-              New
+              <span className="hidden sm:inline">New</span>
             </Button>
           </NewRepositoryDialog>
 
           {username && <NotificationBell />}
-
-          <ThemePicker />
 
           <UserButton
             size="icon"
@@ -72,10 +86,19 @@ export function AppHeader({
                 icon: <CircleUser />,
                 visibility: "authenticated",
               },
+              <ThemeSubmenu
+                key="theme"
+                onCustomize={() => setCustomThemeOpen(true)}
+              />,
             ]}
           />
         </div>
       </div>
+
+      <CustomThemeDialog
+        open={customThemeOpen}
+        onOpenChange={setCustomThemeOpen}
+      />
     </header>
   );
 }
@@ -98,38 +121,7 @@ function CurrentSearchForm({
       placeholder={placeholder}
       query={onResults ? (params.get("q") ?? "") : ""}
       type={onResults ? params.get("type") : null}
+      className={HEADER_SEARCH_CLASS}
     />
-  );
-}
-
-function SearchForm({
-  action,
-  placeholder,
-  query = "",
-  type = null,
-}: {
-  action: string;
-  placeholder: string;
-  query?: string;
-  type?: string | null;
-}) {
-  return (
-    <Form action={action} className="hidden sm:block">
-      {type && <input type="hidden" name="type" value={type} />}
-      <InputGroup className="w-56">
-        <InputGroupAddon>
-          <Search />
-        </InputGroupAddon>
-        <InputGroupInput
-          key={query}
-          type="search"
-          name="q"
-          required
-          defaultValue={query}
-          placeholder={placeholder}
-          aria-label={placeholder}
-        />
-      </InputGroup>
-    </Form>
   );
 }

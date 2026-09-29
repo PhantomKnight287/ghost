@@ -69,7 +69,8 @@ export function Markdown({
         "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
         "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
         "[&_hr]:my-4 [&_hr]:border-t",
-        "[&_img]:max-w-full [&_img]:rounded",
+        // inline, as on GitHub: a row of badges in one paragraph sits side by side instead of stacking
+        "[&_img]:inline [&_img]:max-w-full [&_img]:rounded [&_a:has(>img)]:align-middle",
         "[&_table]:my-2 [&_table]:block [&_table]:overflow-x-auto [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1",
         "[&_li:has(input)]:list-none [&_li_input]:mr-1.5 [&_ul:has(input)]:pl-1",
         className,

@@ -126,7 +126,8 @@ export function RepositoryFrame({
                 <BookMarked className="size-4.5 text-muted-foreground" />
               </div>
 
-              <div className="flex min-w-0 flex-col gap-1">
+              {/* at least as tall as the icon and centred on it, so the name alone, or the name with its fork line, lines up with it */}
+              <div className="flex min-h-9 min-w-0 flex-col justify-center gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="flex min-w-0 flex-wrap items-center gap-1.5 text-lg leading-none">
                     <Link
@@ -216,14 +217,15 @@ export function RepositoryFrame({
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div className="flex min-w-0 flex-1 flex-col gap-4">
             {activeTab === "code" && !OWN_HEADER_VIEWS.has(view) && rev && (
-              <div className="flex flex-wrap items-center gap-3">
+              // one row on a phone too: the select gives way first, and the count drops its word
+              <div className="flex items-center gap-3">
                 <Select
                   value={onBranch ? rev : ""}
                   onValueChange={(branch) =>
                     router.push(`${base}/tree/${encodeURIComponent(branch)}`)
                   }
                 >
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[180px] min-w-0 shrink">
                     <SelectValue
                       placeholder={
                         // a sha is shortened; a tag reads in full
@@ -247,13 +249,15 @@ export function RepositoryFrame({
                 </Select>
                 <Link
                   href={`${base}/branches`}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
+                  className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
                 >
                   <GitBranch className="size-4" />
                   <span className="font-medium tabular-nums">
                     {branches?.length ?? 0}
                   </span>
-                  {branches?.length === 1 ? "branch" : "branches"}
+                  <span className="max-sm:sr-only">
+                    {branches?.length === 1 ? "branch" : "branches"}
+                  </span>
                 </Link>
                 <div className="ml-auto flex items-center gap-2">
                   <ClonePopover

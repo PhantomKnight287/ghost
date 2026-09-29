@@ -19,6 +19,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -63,13 +66,11 @@ export function ThemePicker({
 }: {
   align?: "start" | "end" | "center";
 }) {
-  const { theme, setTheme } = useTheme();
   const mounted = useMounted();
+  const { theme } = useTheme();
   const [customOpen, setCustomOpen] = useState(false);
-  const { custom } = useCustomTheme();
 
-  const active = mounted ? (theme ?? "system") : "system";
-  const activeDef = APP_THEMES.find((t) => t.id === active);
+  const activeDef = APP_THEMES.find((t) => t.id === theme);
 
   return (
     <>
@@ -88,47 +89,71 @@ export function ThemePicker({
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align} className="w-64">
           <DropdownMenuLabel>Theme</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => setTheme("system")}>
-            <Monitor className="text-muted-foreground" />
-            <span className="flex-1">System</span>
-            {active === "system" && <Check className="ml-auto" />}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {APP_THEMES.map((t) => (
-            <DropdownMenuItem
-              key={t.id}
-              onClick={() => setTheme(t.id)}
-              className={cn(t.id === "custom" && "mt-0")}
-            >
-              <Swatch
-                colors={
-                  t.id === "custom" && mounted
-                    ? [custom.background, custom.foreground, custom.primary]
-                    : t.swatches
-                }
-              />
-              <span className="flex-1">
-                {t.name}
-                <span className="block text-xs text-muted-foreground">
-                  {t.id === "custom" ? "Your colors" : t.blurb}
-                </span>
-              </span>
-              {active === t.id && <Check className="ml-auto shrink-0" />}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              setCustomOpen(true);
-            }}
-          >
-            <Palette className="text-muted-foreground" />
-            <span className="flex-1">Customize custom theme…</span>
-          </DropdownMenuItem>
+          <ThemeMenuItems onCustomize={() => setCustomOpen(true)} />
         </DropdownMenuContent>
       </DropdownMenu>
       <CustomThemeDialog open={customOpen} onOpenChange={setCustomOpen} />
+    </>
+  );
+}
+
+/** The theme choices as a submenu of another menu. The custom theme dialog is the caller's to render, since this unmounts when the menu closes. */
+export function ThemeSubmenu({ onCustomize }: { onCustomize: () => void }) {
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <Palette className="text-muted-foreground" />
+        Theme
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-64 max-w-(--radix-dropdown-menu-content-available-width)">
+        <ThemeMenuItems onCustomize={onCustomize} />
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
+function ThemeMenuItems({ onCustomize }: { onCustomize: () => void }) {
+  const { theme, setTheme } = useTheme();
+  const mounted = useMounted();
+  const { custom } = useCustomTheme();
+
+  const active = mounted ? (theme ?? "system") : "system";
+
+  return (
+    <>
+      <DropdownMenuItem onClick={() => setTheme("system")}>
+        <Monitor className="text-muted-foreground" />
+        <span className="flex-1">System</span>
+        {active === "system" && <Check className="ml-auto" />}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      {APP_THEMES.map((t) => (
+        <DropdownMenuItem
+          key={t.id}
+          onClick={() => setTheme(t.id)}
+          className={cn(t.id === "custom" && "mt-0")}
+        >
+          <Swatch
+            colors={
+              t.id === "custom" && mounted
+                ? [custom.background, custom.foreground, custom.primary]
+                : t.swatches
+            }
+          />
+          <span className="flex-1">
+            {t.name}
+            <span className="block text-xs text-muted-foreground">
+              {t.id === "custom" ? "Your colors" : t.blurb}
+            </span>
+          </span>
+          {active === t.id && <Check className="ml-auto shrink-0" />}
+        </DropdownMenuItem>
+      ))}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onSelect={onCustomize}>
+        <Palette className="text-muted-foreground" />
+        <span className="flex-1">Customize custom theme…</span>
+      </DropdownMenuItem>
     </>
   );
 }
@@ -140,7 +165,7 @@ const COLOR_FIELDS = [
   { key: "accent", label: "Accent" },
 ] as const;
 
-function CustomThemeDialog({
+export function CustomThemeDialog({
   open,
   onOpenChange,
 }: {

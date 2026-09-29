@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { LoaderCircle, Search } from "lucide-react";
 
 import { CodeSearchResults } from "@/components/search/code-search-results";
+import { SearchForm } from "@/components/search/search-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Empty,
@@ -36,19 +37,32 @@ export default async function RepositorySearchPage({
   const [{ username, repo }, { q }] = await Promise.all([params, searchParams]);
   const query = typeof q === "string" ? q.trim() : "";
 
+  const searchForm = (
+    <SearchForm
+      action={`/${username}/${repo}/search`}
+      placeholder="Search this repository"
+      query={query}
+      autoFocus={!query}
+    />
+  );
+
   if (!query) {
     return (
-      <Empty className="border border-dashed">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Search />
-          </EmptyMedia>
-          <EmptyTitle>Search this repository</EmptyTitle>
-          <EmptyDescription>
-            Type in the search bar to search the code on the default branch.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <div className="flex flex-col gap-4">
+        {searchForm}
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Search />
+            </EmptyMedia>
+            <EmptyTitle>Search this repository</EmptyTitle>
+            <EmptyDescription>
+              Type in the search bar above to search the code on the default
+              branch.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
     );
   }
 
@@ -60,7 +74,8 @@ export default async function RepositorySearchPage({
   if (response.status === 404) notFound();
 
   return (
-    <>
+    <div className="flex flex-col gap-4">
+      {searchForm}
       {data?.indexing && (
         <Alert>
           <LoaderCircle className="animate-spin" />
@@ -75,6 +90,6 @@ export default async function RepositorySearchPage({
         repository={{ owner: username, slug: repo }}
         error={error?.message}
       />
-    </>
+    </div>
   );
 }
