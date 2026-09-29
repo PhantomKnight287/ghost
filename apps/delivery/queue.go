@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
+	"math/rand/v2"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -136,6 +139,83 @@ func notify(wake chan<- struct{}) {
 	}
 }
 
-func run(ctx context.Context, db *pgxpool.Pool, workers int, send sendFunc) {
-	panic("todo")
+const (
+	pollInterval = 5 * time.Second
+	sendTimeout  = 10 * time.Second // must stay well under the 60s lease
+)
+
+// run keeps up to workers sends in flight until ctx is canceled, then waits
+// for the in-flight sends to finish and record their result.
+func run(ctx context.Context, db *pgxpool.Pool, workers int, wake <-chan struct{}, send sendFunc) {
+	sem := make(chan struct{}, workers) // one slot per send in flight
+	freed := make(chan struct{}, 1)     // a slot opened up
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	// SIGTERM stops claiming, but a send already started must finish and be recorded.
+	jobCtx := context.WithoutCancel(ctx)
+
+	tick := time.NewTicker(pollInterval)
+	defer tick.Stop()
+
+	for {
+		// Claim until the queue is empty or every slot is busy.
+		for ctx.Err() == nil {
+			free := cap(sem) - len(sem)
+			if free == 0 {
+				break
+			}
+			jobs, err := claim(ctx, db, free)
+			if err != nil {
+				log.Printf("claim: %v", err)
+				break
+			}
+			for _, j := range jobs {
+				sem <- struct{}{}
+				wg.Go(func() {
+					defer func() {
+						<-sem
+						notify(freed)
+					}()
+					process(jobCtx, db, j, send)
+				})
+			}
+			if len(jobs) < free {
+				break
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-wake:
+		case <-freed:
+		case <-tick.C:
+		}
+	}
+}
+
+// process sends one job and records the result.
+func process(ctx context.Context, db *pgxpool.Pool, j Job, send sendFunc) {
+	sendCtx, cancel := context.WithTimeout(ctx, sendTimeout)
+	err := send(sendCtx, j)
+	cancel()
+
+	if err == nil {
+		err = complete(ctx, db, j)
+	} else {
+		// attempts was already incremented by claim, so the first retry uses attempt 0.
+		err = fail(ctx, db, j, err, backoff(j.Attempts-1, rand.Int64N))
+	}
+	if errors.Is(err, errLeaseLost) {
+		log.Printf("job %s: lease lost, another worker owns it now", j.ID)
+	} else if err != nil {
+		log.Printf("job %s: record result: %v", j.ID, err)
+	}
+}
+
+// logSend is the phase 3 fake sender: it only logs.
+func logSend(ctx context.Context, j Job) error {
+	log.Printf("send %s job %s", j.Kind, j.ID)
+	return nil
 }

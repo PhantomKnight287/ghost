@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -24,6 +25,14 @@ func main() {
 
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL is not set")
+	}
+	workers := 32
+	if v := os.Getenv("WORKERS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			log.Fatalf("WORKERS must be a positive integer, got %q", v)
+		}
+		workers = n
 	}
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -51,7 +60,9 @@ func main() {
 	}()
 	log.Printf("listening on :%s", port)
 
-	<-ctx.Done()
+	wake := make(chan struct{}, 1)
+	go listen(ctx, pool, wake)
+	run(ctx, pool, workers, wake, logSend) // returns after SIGTERM once in-flight sends drain
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

@@ -284,3 +284,88 @@ func TestListenWakesOnNotify(t *testing.T) {
 	}
 	waitWake("NOTIFY delivery")
 }
+
+// startRun runs the worker loop in the background and returns a stop
+// function that cancels it and waits for it to drain.
+func startRun(t *testing.T, db *pgxpool.Pool, workers int, send sendFunc) (stop func()) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		run(ctx, db, workers, nil, send) // nil wake: never fires, freed and the first claim drive it
+		close(done)
+	}()
+	return func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(15 * time.Second):
+			t.Fatal("run did not return after cancel")
+		}
+	}
+}
+
+func TestRunDeliversEveryJob(t *testing.T) {
+	db := testDB(t)
+	inserted := insertJobs(t, db, 20)
+
+	var (
+		mu   sync.Mutex
+		sent = map[string]int{}
+		all  = make(chan struct{})
+	)
+	send := func(ctx context.Context, j Job) error {
+		time.Sleep(10 * time.Millisecond)
+		mu.Lock()
+		defer mu.Unlock()
+		sent[j.ID]++
+		if len(sent) == len(inserted) {
+			close(all)
+		}
+		return nil
+	}
+
+	stop := startRun(t, db, 4, send) // 4 workers, 20 jobs: slots must be reused
+	select {
+	case <-all:
+	case <-time.After(5 * time.Second):
+		t.Fatal("not every job was sent within 5s")
+	}
+	stop()
+
+	for id := range inserted {
+		if sent[id] != 1 {
+			t.Errorf("job %s sent %d times, want 1", id, sent[id])
+		}
+		if got := jobStatus(t, db, id); got != "succeeded" {
+			t.Errorf("job %s status = %s, want succeeded", id, got)
+		}
+	}
+}
+
+func TestRunDrainsInFlightSendOnShutdown(t *testing.T) {
+	db := testDB(t)
+	inserted := insertJobs(t, db, 1)
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	send := func(ctx context.Context, j Job) error {
+		close(started)
+		<-release
+		return ctx.Err() // non-nil would mean shutdown aborted the send
+	}
+
+	stop := startRun(t, db, 1, send)
+	<-started
+	go func() {
+		time.Sleep(100 * time.Millisecond) // shutdown begins while the send is in flight
+		close(release)
+	}()
+	stop()
+
+	for id := range inserted {
+		if got := jobStatus(t, db, id); got != "succeeded" {
+			t.Errorf("status = %s, want succeeded: in-flight send was not drained", got)
+		}
+	}
+}
