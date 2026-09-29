@@ -263,3 +263,24 @@ func jobStatus(t *testing.T, db *pgxpool.Pool, id string) string {
 	}
 	return s
 }
+
+func TestListenWakesOnNotify(t *testing.T) {
+	db := testDB(t)
+	wake := make(chan struct{}, 1)
+	go listen(t.Context(), db, wake)
+
+	waitWake := func(what string) {
+		t.Helper()
+		select {
+		case <-wake:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("no wake-up for %s within 2s", what)
+		}
+	}
+
+	waitWake("initial LISTEN") // proves LISTEN is registered before we NOTIFY
+	if _, err := db.Exec(t.Context(), "NOTIFY delivery"); err != nil {
+		t.Fatal(err)
+	}
+	waitWake("NOTIFY delivery")
+}

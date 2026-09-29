@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -89,8 +90,50 @@ func backoff(attempt int, randN func(int64) int64) time.Duration {
 	return time.Duration(n)
 }
 
+// listen signals wake on every NOTIFY delivery until ctx is canceled, reconnecting when the connection drops. Polling in run covers any gap.
 func listen(ctx context.Context, db *pgxpool.Pool, wake chan<- struct{}) {
-	panic("todo")
+	for {
+		err := listenOnce(ctx, db, wake)
+		if ctx.Err() != nil {
+			return
+		}
+		log.Printf("listen: %v, reconnecting", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// listenOnce holds one connection and returns when it breaks.
+func listenOnce(ctx context.Context, db *pgxpool.Pool, wake chan<- struct{}) error {
+	conn, err := db.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, "LISTEN delivery"); err != nil {
+		return err
+	}
+	// Jobs inserted while we were disconnected got no NOTIFY.
+	notify(wake)
+
+	for {
+		if _, err := conn.Conn().WaitForNotification(ctx); err != nil {
+			return err
+		}
+		notify(wake)
+	}
+}
+
+// notify sends on wake without blocking; a pending signal already covers this one.
+func notify(wake chan<- struct{}) {
+	select {
+	case wake <- struct{}{}:
+	default:
+	}
 }
 
 func run(ctx context.Context, db *pgxpool.Pool, workers int, send sendFunc) {
