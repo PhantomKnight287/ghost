@@ -86,6 +86,23 @@ func fail(ctx context.Context, db *pgxpool.Pool, j Job, sendErr error, delay tim
 	return nil
 }
 
+const giveUpSQL = `
+UPDATE delivery_job
+SET status = 'dead', last_error = $3, locked_until = now(), updated_at = now()
+WHERE id = $1 AND claim_token = $2`
+
+// giveUp marks a job dead at once, for failures a retry cannot fix.
+func giveUp(ctx context.Context, db *pgxpool.Pool, j Job, sendErr error) error {
+	tag, err := db.Exec(ctx, giveUpSQL, j.ID, j.ClaimToken, sendErr.Error())
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errLeaseLost
+	}
+	return nil
+}
+
 func backoff(attempt int, randN func(int64) int64) time.Duration {
 	attempt = min(attempt, 20)
 	d := min(backOffCap, backOffBase<<attempt)
@@ -201,9 +218,18 @@ func process(ctx context.Context, db *pgxpool.Pool, j Job, send sendFunc) {
 	err := send(sendCtx, j)
 	cancel()
 
-	if err == nil {
+	var (
+		permanent  permanentError
+		retryAfter retryAfterError
+	)
+	switch {
+	case err == nil:
 		err = complete(ctx, db, j)
-	} else {
+	case errors.As(err, &permanent):
+		err = giveUp(ctx, db, j, err)
+	case errors.As(err, &retryAfter):
+		err = fail(ctx, db, j, err, min(retryAfter.after, backOffCap))
+	default:
 		// attempts was already incremented by claim, so the first retry uses attempt 0.
 		err = fail(ctx, db, j, err, backoff(j.Attempts-1, rand.Int64N))
 	}

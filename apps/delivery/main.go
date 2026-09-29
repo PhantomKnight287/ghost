@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -73,10 +74,26 @@ func main() {
 	if email.url == "" {
 		log.Printf("EMAIL_PROXY is not set: email jobs will fail and retry until it is")
 	}
+	var key []byte
+	if v := os.Getenv("WEBHOOK_SECRET_KEY"); v != "" {
+		key, err = base64.StdEncoding.DecodeString(v)
+		if err != nil || len(key) != 32 {
+			log.Fatal("WEBHOOK_SECRET_KEY must be 32 bytes, base64-encoded")
+		}
+	} else {
+		log.Printf("WEBHOOK_SECRET_KEY is not set: webhook jobs will fail and retry until it is")
+	}
+	webhook := webhookSender{
+		db:     pool,
+		client: newWebhookClient(os.Getenv("WEBHOOK_ALLOW_PRIVATE_NETWORKS") == "true"),
+		key:    key,
+	}
 	send := func(ctx context.Context, j Job) error {
 		switch j.Kind {
 		case "email":
 			return email.send(ctx, j)
+		case "webhook":
+			return webhook.send(ctx, j)
 		}
 		return fmt.Errorf("no sender for job kind %q", j.Kind)
 	}
