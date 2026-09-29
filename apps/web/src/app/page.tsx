@@ -1,65 +1,44 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Split Studio · theme: app tokens (globals.css, theme-picker aware)
- * enrichment: none (proof panels drawn from the app's own UI) · nav: N5 floating pill · footer: Ft5 statement
- * pre-emit critique: P5 H4 E4 S5 R5 V4
- */
+import { ArrowRight, Check, Ghost } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { BadgeCheck, Ghost, GitMerge, Lock, Search } from "lucide-react";
 
 import { ThemePicker } from "@/components/theme-picker";
 import { Button } from "@/components/ui/button";
 
 import { getServerSession } from "@/lib/api/server";
-import { API_URL, DOCS_URL } from "@/lib/env";
+import { DOCS_URL } from "@/lib/env";
 
-const REMOTE = `${API_URL}/you/billing.git`;
-
-/** Every section sits on this grid, so each right-hand column starts on the same line. */
-const COLUMNS =
-  "grid items-start gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16";
-
-const ALSO = [
-  "Issues with labels and assignees",
-  "Link issues and PRs with #123",
-  "Tags and releases",
-  "Forks and stars",
-  "READMEs in every folder",
-  "Highlighting for 300+ languages",
-  "Language breakdown per repository",
-  "Contribution graph on profiles",
-  "Notifications for your threads",
-  "Access tokens for scripts and CI",
-  "SSH and GPG keys per account",
-  "Light, dark and custom themes",
+const FEATURES = [
+  {
+    title: "Your history survives a bad day.",
+    body: "Every push is backed up the moment it lands. If a server goes down, your code doesn’t go with it.",
+  },
+  {
+    title: "Stop asking where that code lives.",
+    body: "Search every repository you can read at once. New code shows up as soon as it’s pushed.",
+  },
+  {
+    title: "Give access without giving away the keys.",
+    body: "Organizations and teams, with the right access for each person. A contractor sees one repository. Everyone else sees nothing.",
+  },
+  {
+    title: "Know which commits are really yours.",
+    body: "Sign commits with your GPG key and Ghost marks them Verified, where everyone can see it.",
+  },
 ];
 
-const FAQ = [
-  {
-    question: "Will my team need to learn anything?",
-    answer:
-      "No. It is plain git over HTTP or SSH, and pull requests, reviews and issues work the way they do everywhere else. Change the remote and keep working.",
-  },
-  {
-    question: "What if the server dies?",
-    answer:
-      "Start another one. Every push is saved to your storage bucket first, so nothing lives only on the disk you lost.",
-  },
-  {
-    question: "Who can see our code?",
-    answer:
-      "Only the people you let in. Private repositories are invisible to everyone else, in the browser and over git alike.",
-  },
-  {
-    question: "What does it take to run?",
-    answer:
-      "The Ghost API and web app, a PostgreSQL database and any S3-compatible bucket. The docs walk through the setup.",
-  },
-  {
-    question: "Anything missing?",
-    answer:
-      "Git LFS is not supported yet, and webhooks are being built now. Files over a megabyte still download in full; they just skip the browser preview.",
-  },
+const ALSO = [
+  "Issues, labels and assignees",
+  "#123 cross references",
+  "Merge, squash or rebase",
+  "Tags and releases",
+  "Forks and stars",
+  "Highlighting for 300+ languages",
+  "Language breakdown",
+  "Contribution graph",
+  "Notifications",
 ];
 
 export default async function LandingPage() {
@@ -70,463 +49,388 @@ export default async function LandingPage() {
     <div className="flex min-h-full flex-col overflow-x-clip">
       <nav
         aria-label="Primary"
-        className="fixed top-3 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-full border bg-background/80 py-1 pr-1 pl-4 shadow-[0_8px_24px_-12px_oklch(0_0_0/0.25)] backdrop-blur"
+        className="mx-auto flex w-full max-w-7xl items-center gap-1 px-5 py-4 md:px-10 md:py-6"
       >
-        <span className="mr-2 flex items-center gap-2 font-semibold tracking-tight">
-          <Ghost className="size-4 text-primary" />
+        <span className="mr-auto flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+          <Ghost className="size-5" />
           Ghost
         </span>
         <Button
           asChild
           variant="ghost"
           size="sm"
-          className="hidden rounded-full sm:inline-flex"
+          className="hidden rounded-full text-muted-foreground md:inline-flex"
         >
           <a href={DOCS_URL}>Docs</a>
+        </Button>
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="hidden rounded-full text-muted-foreground md:inline-flex"
+        >
+          <a href={DOCS_URL}>Self-host</a>
         </Button>
         <ThemePicker />
         <Button
           asChild
           variant="ghost"
           size="sm"
-          className="hidden rounded-full sm:inline-flex"
+          className="hidden rounded-full md:inline-flex"
         >
           <Link href="/auth/sign-in">Sign in</Link>
         </Button>
-        <Button asChild size="sm" className="rounded-full">
+        <Button
+          asChild
+          size="sm"
+          className="rounded-full bg-foreground text-background hover:bg-foreground/90"
+        >
           <Link href="/auth/sign-up">Create account</Link>
         </Button>
       </nav>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-24 px-4 pt-32 pb-24 md:px-8 md:pt-44">
-        <section className="flex flex-col gap-12">
-          <h1 className="max-w-4xl text-5xl font-semibold tracking-[-0.04em] text-balance [overflow-wrap:anywhere] sm:text-6xl lg:text-7xl">
-            Stop renting a home for your code.
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 md:px-10">
+        <section className="flex flex-col gap-6 pt-12 md:gap-10 md:pt-24">
+          <p className="flex items-center gap-2.5 font-mono text-[11px] tracking-[0.06em] text-primary uppercase md:text-[13px] md:tracking-[0.08em]">
+            <span aria-hidden className="size-2 rounded-full bg-primary" />
+            Git hosting · Pull requests · Code review
+          </p>
+          <h1 className="max-w-[11ch] text-[46px] leading-none font-semibold tracking-[-0.05em] text-balance md:max-w-5xl md:text-8xl md:leading-[0.96]">
+            Keep shipping when GitHub is down.
           </h1>
-          <div className={COLUMNS}>
-            <div className="flex min-w-0 flex-col gap-8">
-              <p className="max-w-md text-lg text-pretty text-muted-foreground">
-                Ghost does what your team uses GitHub for every day: pull
-                requests, reviews, issues and code search, on a server you run.
-                The price, the rules and who reads your code stay your call.
+          <div className="flex flex-col gap-7 md:flex-row md:items-end md:justify-between">
+            <p className="max-w-lg text-[17px] leading-relaxed text-pretty text-muted-foreground md:text-xl">
+              Pull requests, reviews, issues and search on a host that
+              isn&rsquo;t having an outage today. Use ours, or run it yourself.
+            </p>
+            <div className="flex flex-col gap-2.5 sm:flex-row">
+              <Button
+                asChild
+                size="lg"
+                className="h-13 rounded-full px-6 text-base"
+              >
+                <Link href="/auth/sign-up">
+                  Create an account
+                  <ArrowRight />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-13 rounded-full px-6 text-base"
+              >
+                <a href={DOCS_URL}>Self-host it</a>
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-24 hidden overflow-hidden rounded-[28px] bg-accent px-16 pt-16 md:block">
+          <Image
+            src="/landing/pull-request.png"
+            alt="A pull request in Ghost showing a split diff of a workflow file"
+            width={2296}
+            height={1640}
+            priority
+            className="rounded-t-xl border border-b-0 shadow-[0_30px_60px_-30px_oklch(0_0_0/0.25)]"
+          />
+        </section>
+
+        <section className="flex flex-col gap-9 pt-24 md:flex-row md:justify-between md:gap-16 md:pt-40">
+          <div className="flex flex-col gap-4 md:max-w-sm md:gap-5">
+            <h2 className="text-4xl font-semibold tracking-[-0.04em] text-balance md:text-[52px] md:leading-[1.04]">
+              Everything you use daily. Minus the outages.
+            </h2>
+            <p className="leading-relaxed text-pretty text-muted-foreground md:text-[17px]">
+              Same git, same pull requests, same reviews. Change the remote and
+              keep working.
+            </p>
+          </div>
+          <ol className="flex flex-col md:w-[720px] md:shrink-0">
+            {FEATURES.map(({ title, body }, index) => (
+              <li
+                key={title}
+                className="flex border-b py-6 first:pt-1 md:py-8 md:first:pt-2.5"
+              >
+                <span className="w-10 shrink-0 font-mono text-[13px] leading-[25px] text-muted-foreground md:w-18 md:text-sm md:leading-7">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <div className="flex min-w-0 flex-col gap-2">
+                  <h3 className="text-xl leading-[25px] font-semibold tracking-[-0.02em] md:text-2xl md:leading-7">
+                    {title}
+                  </h3>
+                  <p className="text-[15px] leading-[23px] text-pretty text-muted-foreground md:text-base md:leading-[25px]">
+                    {body}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="hidden gap-6 pt-30 md:flex">
+          <ScreenCard
+            src="/landing/commits.png"
+            alt="Commit history with Verified and Unverified signature badges"
+            anchor="right"
+            title="Verified, or not"
+            body="See at a glance which commits are really signed."
+          />
+          <ScreenCard
+            src="/landing/repository.png"
+            alt="A repository page listing folders with their latest commits"
+            anchor="left"
+            title="Browse any branch"
+            body="Files, latest changes, releases and languages in one view."
+          />
+        </section>
+
+        <section className="-mx-2 pt-24 md:mx-0 md:pt-40">
+          <div className="relative flex flex-col gap-8 overflow-hidden rounded-3xl bg-foreground px-5 pt-10 pb-5 text-background md:gap-14 md:rounded-[28px] md:p-20">
+            <div
+              aria-hidden
+              className="absolute -top-44 -right-44 size-[420px] rounded-full bg-[radial-gradient(circle,color-mix(in_oklch,var(--primary)_35%,transparent)_0%,transparent_65%)] md:-top-56 md:-right-40 md:size-[720px]"
+            />
+            <div className="relative flex flex-col gap-4 px-2 md:px-0 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
+              <div className="flex flex-col gap-4 md:shrink-0">
+                <p className="font-mono text-[13px] tracking-[0.08em] text-background/60 uppercase">
+                  Two ways to run it
+                </p>
+                <h2 className="text-[40px] leading-[1.05] font-semibold tracking-[-0.045em] md:text-[56px] md:leading-none xl:text-[64px]">
+                  Hosted by us. Or by you.
+                </h2>
+              </div>
+              <p className="leading-relaxed text-background/70 md:max-w-md md:text-lg lg:max-w-xs">
+                Same Ghost either way. Start on ours today, move to your own
+                server whenever you like.
               </p>
-              <div className="flex flex-wrap gap-3">
-                <Button asChild size="lg" className="h-11 rounded-full px-5">
-                  <Link href="/auth/sign-up">Create an account</Link>
+            </div>
+            <div className="relative flex flex-col gap-3 md:flex-row md:gap-5">
+              <Plan
+                label="Ghost Cloud"
+                tag="Recommended"
+                title="We run it."
+                body="Sign up, add a remote, push. Nothing to install."
+                points={[
+                  "Ready in about a minute",
+                  "Updates handled for you",
+                  "Invite your team on day one",
+                ]}
+                featured
+              >
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-12 rounded-full bg-background px-5 text-base text-foreground hover:bg-background/90"
+                >
+                  <Link href="/auth/sign-up">
+                    Create an account
+                    <ArrowRight />
+                  </Link>
                 </Button>
+              </Plan>
+              <Plan
+                label="Self-hosted"
+                tag="Your server"
+                title="You run it."
+                body="The same app on hardware you control."
+                points={[
+                  "Your network, your rules",
+                  "Every feature Cloud has",
+                  "Move either way with a git push",
+                ]}
+              >
                 <Button
                   asChild
                   size="lg"
                   variant="outline"
-                  className="h-11 rounded-full px-5"
+                  className="h-12 rounded-full border-background/20 bg-transparent px-5 text-base text-background hover:bg-background/10 hover:text-background"
                 >
-                  <Link href="/auth/sign-in">Sign in</Link>
+                  <a href={DOCS_URL}>Read the self-hosting guide</a>
                 </Button>
-              </div>
+              </Plan>
             </div>
-
-            <Panel>
-              <PanelHead>Moving a repository over</PanelHead>
-              {/* wraps instead of scrolling: the remote URL is as long as the instance's hostname */}
-              <pre className="p-4 font-mono text-[13px] leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
-                <code>
-                  <Prompt />
-                  git remote add ghost {REMOTE}
-                  {"\n"}
-                  <Prompt />
-                  git push ghost --all
-                  {"\n"}
-                  <span className="text-muted-foreground">
-                    {" * [new branch] main -> main\n"}
-                    {" * [new branch] release -> release"}
-                  </span>
-                </code>
-              </pre>
-            </Panel>
           </div>
         </section>
 
-        <Split
-          title="Your team won&rsquo;t have to relearn a thing."
-          body="Open a pull request, review the diff line by line, squash and merge. It is the workflow everyone already knows, so switching takes an afternoon, not a quarter."
-          facts={[
-            "Stock git over HTTP or SSH",
-            "Merge, squash or rebase",
-            "Issues, labels, releases and forks",
-          ]}
-        >
-          <ReviewProof />
-        </Split>
-
-        <Split
-          title="A dead server costs you an hour, not your history."
-          body="Every push is saved to your own storage bucket before Ghost says it is done. If the machine dies, start a new one and every commit and branch comes back with it."
-          facts={[
-            "Any S3-compatible storage",
-            "Nothing lives only on the disk",
-            "Switch machines with a restart",
-          ]}
-        >
-          <DurabilityProof />
-        </Split>
-
-        <Split
-          title="Stop asking where that code lives."
-          body="Search every repository you can read at once. New code is searchable the moment it is pushed, so the answer is never buried in a chat thread."
-          facts={[
-            "Across every repository, or just one",
-            "Updated on every push",
-            "Private code stays out of other people’s results",
-          ]}
-        >
-          <SearchProof />
-        </Split>
-
-        <Split
-          title="Give access without giving away the keys."
-          body="Group people into organizations and teams, then give each exactly the access they need. A contractor sees one repository. Everyone outside sees nothing."
-          facts={[
-            "Read, triage, write, maintain or admin",
-            "Outside collaborators, per repository",
-            "Invitations expire after 7 days",
-          ]}
-        >
-          <RolesProof />
-        </Split>
-
-        <Split
-          title="Know which commits are really yours."
-          body="Sign commits with your GPG key and Ghost marks them Verified. A signature from a key that isn’t on your account shows as Unverified, where everyone can see it."
-          facts={[
-            "Checked against keys you uploaded",
-            "Remove a key and its commits stop verifying",
-            "Push with SSH keys, no passwords",
-          ]}
-        >
-          <SignatureProof />
-        </Split>
-
-        <section className={`${COLUMNS} border-t pt-10`}>
-          <SectionTitle>Plus the things you reach for daily.</SectionTitle>
-          {/* -mt-3 cancels the first row's padding so its text lines up with the heading */}
-          <ul className="-mt-3 grid gap-x-8 sm:grid-cols-2">
+        <section className="flex flex-col gap-5 pt-24 md:gap-8 md:pt-40">
+          <h2 className="text-[26px] leading-tight font-semibold tracking-[-0.03em] md:text-[32px]">
+            Plus the things you reach for daily.
+          </h2>
+          <ul className="flex max-w-5xl flex-wrap gap-2 md:gap-2.5">
             {ALSO.map((item) => (
               <li
                 key={item}
-                className="border-b py-3 text-sm text-pretty text-muted-foreground"
+                className="rounded-full border px-3.5 py-2 text-sm md:px-4.5 md:py-2.5 md:text-base"
               >
                 {item}
               </li>
             ))}
+            <li className="rounded-full bg-accent px-3.5 py-2 text-sm text-accent-foreground md:px-4.5 md:py-2.5 md:text-base">
+              Light, dark and custom themes
+            </li>
           </ul>
         </section>
 
-        <section className={`${COLUMNS} border-t pt-10`}>
-          <SectionTitle>Before you switch.</SectionTitle>
-          <dl className="flex flex-col">
-            {FAQ.map(({ question, answer }) => (
-              <div
-                key={question}
-                className="flex flex-col gap-2 border-b py-5 first:pt-0 last:border-0 last:pb-0"
-              >
-                <dt className="font-medium">{question}</dt>
-                <dd className="max-w-xl text-sm text-pretty text-muted-foreground">
-                  {answer}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      </main>
-
-      <footer className="mx-auto flex w-full max-w-6xl flex-col px-4 md:px-8">
-        <section className="flex flex-col items-start gap-8 border-t pt-16 pb-24 md:pt-24 md:pb-32">
-          <p className="max-w-[16ch] text-5xl font-semibold tracking-[-0.04em] text-balance [overflow-wrap:anywhere] md:text-7xl">
-            Move one repository this afternoon.
+        <section className="relative flex flex-col items-start gap-7 pt-30 pb-24 md:gap-9 md:pt-50 md:pb-40">
+          <Ghost
+            aria-hidden
+            strokeWidth={1.25}
+            className="absolute top-36 right-0 hidden size-90 rotate-8 fill-primary/10 text-primary lg:block"
+          />
+          <p className="max-w-[18ch] text-[40px] leading-[1.05] font-semibold tracking-[-0.05em] text-balance md:max-w-[14ch] md:text-[88px] md:leading-[0.98]">
+            Change the remote. Keep the workflow.
           </p>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild size="lg" className="h-11 rounded-full px-5">
-              <Link href="/auth/sign-up">Create an account</Link>
+          <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3.5">
+            <Button
+              asChild
+              size="lg"
+              className="h-13 rounded-full px-6 text-base"
+            >
+              <Link href="/auth/sign-up">
+                Create an account
+                <ArrowRight />
+              </Link>
             </Button>
             <Button
               asChild
               size="lg"
-              variant="outline"
-              className="h-11 rounded-full px-5"
+              variant="link"
+              className="h-13 px-1 text-base text-foreground sm:px-5"
             >
-              <a href={DOCS_URL}>Read the docs</a>
+              <a href={DOCS_URL}>Read the self-hosting guide</a>
             </Button>
           </div>
         </section>
-        <div className="flex items-center gap-2 border-t py-6 text-sm text-muted-foreground">
-          <Ghost className="size-4" />
-          Ghost
-          <span className="ml-auto">Git hosting you own</span>
+      </main>
+
+      <footer className="border-t">
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-start gap-4 px-5 pt-7 pb-10 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between md:px-10 md:pt-8">
+          <span className="flex items-center gap-2">
+            <Ghost className="size-4 text-foreground" />
+            <span className="font-semibold text-foreground">Ghost</span>
+            <span>— git hosting for teams that ship</span>
+          </span>
+          <div className="flex gap-5 md:gap-7">
+            <a href={DOCS_URL} className="hover:text-foreground">
+              Docs
+            </a>
+            <a href={DOCS_URL} className="hover:text-foreground">
+              Self-hosting
+            </a>
+          </div>
         </div>
       </footer>
     </div>
   );
 }
 
-function Prompt() {
-  return <span className="text-muted-foreground select-none">$ </span>;
-}
-
-function SectionTitle({ children }: { children: ReactNode }) {
-  return (
-    <h2 className="text-3xl font-semibold tracking-[-0.03em] text-balance [overflow-wrap:anywhere] md:text-4xl">
-      {children}
-    </h2>
-  );
-}
-
-function Split({
+function ScreenCard({
+  src,
+  alt,
+  anchor,
   title,
   body,
-  facts,
-  children,
 }: {
+  src: string;
+  alt: string;
+  /** Which edge of the screenshot stays in view; the other edge bleeds off the card. */
+  anchor: "left" | "right";
   title: string;
   body: string;
-  facts: string[];
-  children: ReactNode;
 }) {
   return (
-    <section className={`${COLUMNS} border-t pt-10`}>
-      <div className="flex min-w-0 flex-col gap-5">
-        <SectionTitle>{title}</SectionTitle>
-        <p className="max-w-md text-pretty text-muted-foreground">{body}</p>
-        <ul className="flex flex-col gap-1.5 text-sm text-muted-foreground">
-          {facts.map((fact) => (
-            <li key={fact} className="flex items-baseline gap-2.5">
-              <span
-                aria-hidden
-                className="size-1 shrink-0 translate-y-[-0.2em] rounded-full bg-primary"
-              />
-              {fact}
-            </li>
-          ))}
-        </ul>
+    <figure className="group flex min-w-0 flex-1 flex-col gap-4.5">
+      <div className="relative h-[420px] overflow-hidden rounded-2xl border bg-accent">
+        <Image
+          src={src}
+          alt={alt}
+          width={2296}
+          height={1640}
+          sizes="800px"
+          className={`absolute top-10 w-[800px] max-w-none border shadow-[0_20px_40px_-20px_oklch(0_0_0/0.28)] transition-transform duration-200 ease-out group-hover:-translate-y-2 ${
+            anchor === "right"
+              ? "right-10 rounded-tr-xl border-l-0"
+              : "left-10 rounded-tl-xl border-r-0"
+          }`}
+        />
       </div>
-      <div className="min-w-0">{children}</div>
-    </section>
+      <figcaption className="flex flex-col gap-1">
+        <span className="text-lg font-semibold">{title}</span>
+        <span className="text-[15px] text-muted-foreground">{body}</span>
+      </figcaption>
+    </figure>
   );
 }
 
-function Panel({
+function Plan({
+  label,
+  tag,
+  title,
+  body,
+  points,
+  featured = false,
   children,
-  className = "",
 }: {
+  label: string;
+  tag: string;
+  title: string;
+  body: string;
+  points: string[];
+  featured?: boolean;
   children: ReactNode;
-  className?: string;
 }) {
   return (
     <div
-      className={`min-w-0 overflow-hidden rounded-xl border bg-card text-sm ${className}`}
+      className={`relative flex min-w-0 flex-1 flex-col gap-7 overflow-hidden rounded-[22px] px-6 py-7 md:gap-10 md:p-10 ${
+        featured
+          ? "bg-primary text-primary-foreground"
+          : "border border-background/15 bg-background/5"
+      }`}
     >
-      {children}
-    </div>
-  );
-}
-
-function PanelHead({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex h-11 items-center gap-2 border-b px-4 text-xs text-muted-foreground">
-      {children}
-    </div>
-  );
-}
-
-function DurabilityProof() {
-  const layers = [
-    { label: "git push", note: "you push as usual" },
-    { label: "your bucket", note: "saved here first, kept for good" },
-    { label: "server disk", note: "a copy Ghost can rebuild" },
-  ];
-  return (
-    <Panel>
-      <PanelHead>Where every push goes</PanelHead>
-      <ol className="divide-y">
-        {layers.map(({ label, note }, index) => (
-          <li
-            key={label}
-            className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3.5 ${
-              index === 1 ? "bg-primary/5" : ""
-            }`}
-          >
-            <span className="w-5 font-mono text-xs text-muted-foreground">
-              {index + 1}
-            </span>
-            <span className="font-mono font-medium">{label}</span>
-            <span className="basis-full pl-9 text-xs text-muted-foreground sm:ml-auto sm:basis-auto sm:pl-0">
-              {note}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </Panel>
-  );
-}
-
-function ReviewProof() {
-  const lines = [
-    { kind: " ", text: "function total(items) {" },
-    { kind: "-", text: "  return sum(items);" },
-    { kind: "+", text: "  return round(sum(items), 2);" },
-    { kind: " ", text: "}" },
-  ];
-  return (
-    <Panel>
-      <PanelHead>
-        <span className="truncate font-medium text-foreground">
-          Round invoice totals once
+      {featured && (
+        <Ghost
+          aria-hidden
+          strokeWidth={0.5}
+          className="absolute -right-8 -bottom-10 hidden size-60 -rotate-10 fill-primary-foreground/10 text-primary-foreground/20 md:block"
+        />
+      )}
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className={`font-mono text-xs tracking-[0.08em] uppercase ${featured ? "opacity-85" : "text-background/60"}`}
+        >
+          {label}
         </span>
-        #14
-      </PanelHead>
-      <pre className="py-2 font-mono text-xs leading-6">
-        {lines.map(({ kind, text }, index) => (
-          <div
-            key={index}
-            className={`truncate px-4 ${
-              kind === "+"
-                ? "bg-primary/10"
-                : kind === "-"
-                  ? "bg-destructive/10 text-destructive"
-                  : ""
-            }`}
-          >
-            <span
-              aria-hidden
-              className="mr-3 text-muted-foreground select-none"
-            >
-              {kind}
-            </span>
-            {text}
-          </div>
-        ))}
-      </pre>
-      <div className="flex h-12 items-center gap-3 border-t px-4">
-        <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
-          <BadgeCheck className="size-3.5 shrink-0 text-primary" />
-          Approved
-          <span className="hidden sm:inline">
-            at <code className="font-mono">a3f19c2</code>
-          </span>
-        </span>
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-          <GitMerge className="size-3.5" />
-          Squash and merge
+        <span
+          className={`rounded-full px-3 py-1 text-[13px] font-medium ${
+            featured
+              ? "bg-primary-foreground text-primary"
+              : "border border-background/20 text-background/70"
+          }`}
+        >
+          {tag}
         </span>
       </div>
-    </Panel>
-  );
-}
-
-function SearchProof() {
-  const hits = [
-    {
-      path: "billing/src/cart.ts",
-      line: 42,
-      before: "return cart.",
-      after: "(code);",
-    },
-    {
-      path: "checkout/src/pay.ts",
-      line: 18,
-      before: "await ",
-      after: "(order);",
-    },
-  ];
-  return (
-    <Panel>
-      <PanelHead>
-        <Search className="size-3.5" />
-        <span className="font-mono">
-          org:you <span className="text-foreground">discount</span>
-        </span>
-      </PanelHead>
-      <ul className="divide-y">
-        {hits.map(({ path, line, before, after }) => (
-          <li key={path} className="flex min-w-0 flex-col gap-1.5 px-4 py-3">
-            <span className="truncate text-xs font-medium">{path}</span>
-            <code className="truncate font-mono text-xs text-muted-foreground">
-              <span className="mr-3 select-none">{line}</span>
-              {before}
-              <mark className="rounded-sm bg-primary/20 px-0.5 text-foreground">
-                discount
-              </mark>
-              {after}
-            </code>
-          </li>
-        ))}
-      </ul>
-    </Panel>
-  );
-}
-
-function RolesProof() {
-  const roles = ["read", "triage", "write", "maintain", "admin"];
-  return (
-    <Panel>
-      <PanelHead>
-        <Lock className="size-3.5" />
-        you/billing is private
-      </PanelHead>
-      <ol className="flex items-end gap-1 px-3 pt-5 sm:gap-1.5 sm:px-4 pb-4">
-        {roles.map((role, index) => (
-          <li
-            key={role}
-            className="flex min-w-0 flex-1 flex-col items-center gap-2"
-          >
-            <span
+      <div className="flex flex-col gap-2.5">
+        <h3 className="text-[32px] leading-[1.05] font-semibold tracking-[-0.035em] md:text-[40px]">
+          {title}
+        </h3>
+        <p className="leading-relaxed opacity-80 md:text-[17px]">{body}</p>
+      </div>
+      <ul className="flex flex-col gap-3.5">
+        {points.map((point) => (
+          <li key={point} className="flex items-center gap-3">
+            <Check
               aria-hidden
-              className={`w-full rounded-md ${index === 2 ? "bg-primary" : "bg-muted"}`}
-              style={{ height: `${1.25 + index}rem` }}
+              strokeWidth={2.4}
+              className={`size-4.5 shrink-0 ${featured ? "" : "text-background/60"}`}
             />
-            <span
-              className={`max-w-full truncate font-mono text-[10px] sm:text-[11px] ${index === 2 ? "text-foreground" : "text-muted-foreground"}`}
-            >
-              {role}
-            </span>
-          </li>
-        ))}
-      </ol>
-      <p className="border-t px-4 py-3 text-xs text-pretty text-muted-foreground">
-        <span className="font-medium text-foreground">platform-team</span> can
-        push and merge. Everyone outside the team gets a 404.
-      </p>
-    </Panel>
-  );
-}
-
-function SignatureProof() {
-  const commits = [
-    { message: "Fix the invoice rounding", sha: "e41b0d7", verified: true },
-    { message: "Add the export button", sha: "a3f19c2", verified: true },
-    { message: "Update deploy credentials", sha: "9c02f51", verified: false },
-  ];
-  return (
-    <Panel>
-      <PanelHead>Commits on main</PanelHead>
-      <ul className="divide-y">
-        {commits.map(({ message, sha, verified }) => (
-          <li key={sha} className="flex h-12 items-center gap-3 px-4">
-            <span className="min-w-0 flex-1 truncate">{message}</span>
-            <span
-              className={`w-18 shrink-0 rounded-full border py-0.5 text-center text-[11px] ${
-                verified
-                  ? "border-primary/40 font-medium text-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {verified ? "Verified" : "Unverified"}
-            </span>
-            <code className="hidden font-mono text-xs text-muted-foreground sm:block">
-              {sha}
-            </code>
+            {point}
           </li>
         ))}
       </ul>
-    </Panel>
+      <div className="relative">{children}</div>
+    </div>
   );
 }
