@@ -17,7 +17,7 @@ export const APP_THEMES: AppTheme[] = [
     name: "Light",
     kind: "light",
     blurb: "Default light",
-    swatches: ["#fafafa", "#1c1917", "#7c3aed"],
+    swatches: ["#fcfcfd", "#1d1b22", "#7456c9"],
     shiki: "pierre-light",
   },
   {
@@ -25,7 +25,7 @@ export const APP_THEMES: AppTheme[] = [
     name: "Dark",
     kind: "dark",
     blurb: "Default dark",
-    swatches: ["#14101f", "#f5f3ff", "#a78bfa"],
+    swatches: ["#0f0e11", "#f3f2f5", "#c4b3f2"],
     shiki: "pierre-dark",
   },
   {

@@ -6,9 +6,6 @@
 
 ![Ghost](screenshots/homepage.png)
 
-> [!Note]
-> This is just an engineering reproduction and should not be trusted with actual data(yet).
-
 Self-hosted git. Push over HTTP or SSH, browse the code, open pull requests,
 review the diff, merge. Object storage holds the truth, local disk is a cache.
 
@@ -41,17 +38,19 @@ Split diff, computed from the merge base rather than the branch tips.
 
 ## Features
 
-- Push and pull over HTTP, authenticated with a personal access token
-- Push and pull over SSH, authenticated with a key on the account, with no shell behind it
-- Trees, blobs, raw files, branch switching, commit history
-- Forks, stars, public and private repositories
-- Pull requests across branches and across forks, with a real merge commit
-- Comments with markdown, editable title and description
-- Issues with comments, timeline events, labels, assignees, search and filters
-- GPG-signed commits shown as verified, against keys an account uploads
-- Accounts, sessions, organizations, API keys (better-auth)
+- Push and pull over HTTP with a personal access token, or over SSH with a key on the account
+- Every push saved to an S3-compatible bucket first; the local disk is a cache that can be rebuilt
+- Trees, blobs, raw files, READMEs, branch switching, commit history, language breakdown
+- Code search across every repository you can read, indexed on push (Zoekt)
+- Pull requests across branches and forks: split diff from the merge base, reviews pinned to the head they read, merge commit, squash or rebase
+- Issues with comments, labels, assignees, timeline events, `#123` cross references, search and filters
+- Tags and releases, forks, stars, contributors
+- Organizations, teams and outside collaborators, with read, triage, write, maintain and admin roles
+- GPG-signed commits shown as verified against keys an account uploads
+- Accounts, sessions, multiple emails, API keys, notifications, contribution graph
+- Themes, including a custom one, and a docs site
 
-Not built yet: webhooks, CI.
+Not built yet: webhooks (in progress), Git LFS, CI.
 
 ## Stack
 
@@ -61,6 +60,7 @@ Not built yet: webhooks, CI.
 | API      | NestJS 12, OpenAPI client generated for the web       |
 | Database | Postgres, Drizzle                                     |
 | Storage  | S3-compatible bucket (RustFS locally)                 |
+| Search   | Zoekt                                                 |
 | Runtime  | Bun, Turborepo workspace                              |
 
 ## Running it

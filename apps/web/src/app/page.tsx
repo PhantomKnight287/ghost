@@ -1,210 +1,64 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Split Studio · theme: app tokens (globals.css, theme-picker aware)
+ * enrichment: none (proof panels drawn from the app's own UI) · nav: N5 floating pill · footer: Ft5 statement
+ * pre-emit critique: P5 H4 E4 S5 R5 V4
+ */
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  ChartPie,
-  Code2,
-  FileCode2,
-  File,
-  Folder,
-  Ghost,
-  GitBranch,
-  GitCommitHorizontal,
-  GitFork,
-  GitPullRequest,
-  History,
-  KeyRound,
-  Lock,
-  MessageSquare,
-  Package,
-  Star,
-  Terminal,
-  Webhook,
-} from "lucide-react";
+import type { ReactNode } from "react";
+import { BadgeCheck, Ghost, GitMerge, Lock, Search } from "lucide-react";
 
 import { ThemePicker } from "@/components/theme-picker";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { languageColor } from "@ghost/languages";
 
 import { getServerSession } from "@/lib/api/server";
-import { API_URL } from "@/lib/env";
+import { API_URL, DOCS_URL } from "@/lib/env";
 
-const FEATURES = [
-  {
-    icon: Terminal,
-    title: "Push and pull over HTTP",
-    description:
-      "A real git remote. Clone, fetch and push with the git you already have - no client, no daemon, no extra port.",
-  },
-  {
-    icon: GitPullRequest,
-    title: "Pull requests, reviewed and merged",
-    description:
-      "Compare two branches, read the diff file by file, talk it through in the thread, and merge server-side when it is ready.",
-  },
-  {
-    icon: MessageSquare,
-    title: "Issues with labels and assignees",
-    description:
-      "Threads on a repository, filtered by state, label, author or assignee, with a timeline that records every close, reopen and label change.",
-  },
-  {
-    icon: FileCode2,
-    title: "Read your code in the browser",
-    description:
-      "Syntax highlighting for 300+ languages, READMEs rendered in every directory, images and PDFs in place, raw downloads for the rest.",
-  },
-  {
-    icon: History,
-    title: "Commit context on every row",
-    description:
-      "Directory listings show the newest commit touching each entry, indexed up front instead of walked per request.",
-  },
-  {
-    icon: ChartPie,
-    title: "Language breakdown",
-    description:
-      "Bytes per language, counted from the tree rather than by reading files, so it stays fast on a repository with years of history.",
-  },
-  {
-    icon: GitFork,
-    title: "Forks and stars",
-    description:
-      "Fork any repository you can read, star the ones worth coming back to, and see who else did from the repository page.",
-  },
-  {
-    icon: Lock,
-    title: "Private by choice",
-    description:
-      "Public repositories are readable by anyone; private ones stay invisible to everyone but you, over HTTP and the web alike.",
-  },
-  {
-    icon: Ghost,
-    title: "Durable by design",
-    description:
-      "Every push is appended to a write-ahead log in object storage. Local disk is only a cache, so a repository can be rebuilt wherever it is next needed.",
-  },
-];
+const REMOTE = `${API_URL}/you/billing.git`;
 
-const PREVIEW_ENTRIES = [
-  {
-    type: "tree",
-    name: "apps",
-    message: "split the api and the web app",
-    age: "2 hours ago",
-  },
-  {
-    type: "tree",
-    name: "packages",
-    message: "share the database schema",
-    age: "2 days ago",
-  },
-  {
-    type: "blob",
-    name: "README.md",
-    message: "explain what this is",
-    age: "5 days ago",
-  },
-  {
-    type: "blob",
-    name: "package.json",
-    message: "bump the workspace",
-    age: "last week",
-  },
-];
+/** Every section sits on this grid, so each right-hand column starts on the same line. */
+const COLUMNS =
+  "grid items-start gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16";
 
-const PREVIEW_LANGUAGES = [
-  { language: "TypeScript", percent: 71.2 },
-  { language: "Rust", percent: 18.4 },
-  { language: "CSS", percent: 6.9 },
-  { language: "Shell", percent: 3.5 },
+const ALSO = [
+  "Issues with labels and assignees",
+  "Link issues and PRs with #123",
+  "Tags and releases",
+  "Forks and stars",
+  "READMEs in every folder",
+  "Highlighting for 300+ languages",
+  "Language breakdown per repository",
+  "Contribution graph on profiles",
+  "Notifications for your threads",
+  "Access tokens for scripts and CI",
+  "SSH and GPG keys per account",
+  "Light, dark and custom themes",
 ];
 
 const FAQ = [
   {
-    question: "Does it work with the git I already have?",
+    question: "Will my team need to learn anything?",
     answer:
-      "Yes. A Ghost repository is a plain HTTP remote, so clone, fetch, pull and push all work with stock git. There is nothing to install and no plugin to add.",
+      "No. It is plain git over HTTP or SSH, and pull requests, reviews and issues work the way they do everywhere else. Change the remote and keep working.",
   },
   {
-    question: "Can repositories be private?",
+    question: "What if the server dies?",
     answer:
-      "Every repository is public or private, and a private one is invisible to everyone but its owner - over HTTP and in the browser alike. Visibility is checked on the way in, not hidden in the interface.",
+      "Start another one. Every push is saved to your storage bucket first, so nothing lives only on the disk you lost.",
   },
   {
-    question: "How do accounts work?",
+    question: "Who can see our code?",
     answer:
-      "Sign up with an email address and a password, pick a username, and your repositories live under it. That username is the first part of every clone URL.",
-  },
-  {
-    question: "What happens with large files?",
-    answer:
-      "Files past a megabyte are not rendered in the browser, but they download in full at their original size. Git LFS is not supported yet.",
-  },
-  {
-    question: "Is it ready for a team?",
-    answer:
-      "Issues and pull requests are both here: open a request from a branch, read the diff, review it in the thread and merge it from the page. What is still missing for a team is SSH access and webhooks.",
-  },
-  {
-    question: "Can I fork someone else's repository?",
-    answer:
-      "Any repository you can read, yes. The fork keeps its own history from the moment you make it, and the original keeps a link back from its page.",
+      "Only the people you let in. Private repositories are invisible to everyone else, in the browser and over git alike.",
   },
   {
     question: "What does it take to run?",
     answer:
-      "An API process, a web app, a PostgreSQL database and an S3-compatible bucket. The bucket holds the write-ahead log that every repository is replayed from; the git directories on disk are a cache you can throw away.",
-  },
-];
-
-const STEPS = [
-  {
-    title: "Create a repository",
-    description:
-      "Name it. Public or private. It exists as a bare repository the moment you press create.",
+      "The Ghost API and web app, a PostgreSQL database and any S3-compatible bucket. The docs walk through the setup.",
   },
   {
-    title: "Add it as a remote",
-    description:
-      "The repository page hands you the clone URL, ready to paste into the project you already have.",
-  },
-  {
-    title: "Push",
-    description:
-      "Your files, branches and history show up in the browser as soon as the push lands.",
-  },
-];
-
-const STACK = [
-  "Next.js",
-  "NestJS",
-  "PostgreSQL",
-  "Drizzle",
-  "S3-compatible storage",
-];
-
-const ROADMAP = [
-  {
-    icon: KeyRound,
-    title: "SSH access",
-    description:
-      "git over SSH with your own keys, served by a dedicated process rather than bolted onto the API.",
-    status: "Next",
-  },
-  {
-    icon: Webhook,
-    title: "Webhooks",
-    description:
-      "Push events posted to a URL you own - the hook every CI runner is waiting for.",
-    status: "Planned",
-  },
-  {
-    icon: Package,
-    title: "Large files",
-    description:
-      "Git LFS, so a repository that carries binaries is as ordinary as one that does not.",
-    status: "Planned",
+    question: "Anything missing?",
+    answer:
+      "Git LFS is not supported yet, and webhooks are being built now. Files over a megabyte still download in full; they just skip the browser preview.",
   },
 ];
 
@@ -213,312 +67,466 @@ export default async function LandingPage() {
   if (session) redirect("/dashboard");
 
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4 md:px-6">
-          <span className="flex items-center gap-2 font-semibold tracking-tight">
-            <Ghost className="size-5 text-primary" />
-            Ghost
-          </span>
+    <div className="flex min-h-full flex-col overflow-x-clip">
+      <nav
+        aria-label="Primary"
+        className="fixed top-3 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-full border bg-background/80 py-1 pr-1 pl-4 shadow-[0_8px_24px_-12px_oklch(0_0_0/0.25)] backdrop-blur"
+      >
+        <span className="mr-2 flex items-center gap-2 font-semibold tracking-tight">
+          <Ghost className="size-4 text-primary" />
+          Ghost
+        </span>
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="hidden rounded-full sm:inline-flex"
+        >
+          <a href={DOCS_URL}>Docs</a>
+        </Button>
+        <ThemePicker />
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="hidden rounded-full sm:inline-flex"
+        >
+          <Link href="/auth/sign-in">Sign in</Link>
+        </Button>
+        <Button asChild size="sm" className="rounded-full">
+          <Link href="/auth/sign-up">Create account</Link>
+        </Button>
+      </nav>
 
-          <div className="ml-auto flex items-center gap-2">
-            <ThemePicker />
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/auth/sign-in">Sign in</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href="/auth/sign-up">Get started</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-24 px-4 py-20 md:px-6">
-        <section className="flex flex-col items-center gap-6 text-center">
-          <Badge variant="outline" className="rounded-full">
-            Self-hosted git, without the weight
-          </Badge>
-
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance md:text-6xl">
-            Your repositories, on your own machine
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-24 px-4 pt-32 pb-24 md:px-8 md:pt-44">
+        <section className="flex flex-col gap-12">
+          <h1 className="max-w-4xl text-5xl font-semibold tracking-[-0.04em] text-balance [overflow-wrap:anywhere] sm:text-6xl lg:text-7xl">
+            Stop renting a home for your code.
           </h1>
-
-          <p className="max-w-xl text-lg text-pretty text-muted-foreground">
-            Ghost is a git host you can run yourself. Push over HTTP, read your
-            code, open issues, review pull requests - and nothing you did not
-            ask for.
-          </p>
-
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button asChild size="lg">
-              <Link href="/auth/sign-up">Create an account</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/auth/sign-in">Sign in</Link>
-            </Button>
-          </div>
-
-          <div className="mt-8 w-full max-w-2xl overflow-hidden rounded-lg border bg-card text-left shadow-sm">
-            <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
-              <span className="size-2.5 rounded-full bg-destructive/60" />
-              <span className="size-2.5 rounded-full bg-muted-foreground/40" />
-              <span className="size-2.5 rounded-full bg-primary/60" />
-              <span className="ml-2 text-xs text-muted-foreground">
-                push an existing repository
-              </span>
-            </div>
-
-            <pre className="overflow-x-auto p-4 font-mono text-sm leading-relaxed">
-              <code>
-                <span className="text-muted-foreground">$ </span>
-                git remote add origin {API_URL}/you/project.git{"\n"}
-                <span className="text-muted-foreground">$ </span>
-                git push -u origin main
-              </code>
-            </pre>
-          </div>
-        </section>
-
-        <section className="flex flex-col gap-8">
-          <div className="flex flex-col gap-3 text-center">
-            <h2 className="text-3xl font-semibold tracking-tight text-balance">
-              A repository, the way you expect to read one
-            </h2>
-            <p className="mx-auto max-w-lg text-pretty text-muted-foreground">
-              Directories first, the latest commit against every row, and the
-              languages, stars and forks of the repository beside it.
-            </p>
-          </div>
-
-          {/* the repository page in miniature, down to the sidebar it now has */}
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-            <div className="flex min-w-0 flex-1 flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs">
-                  <GitBranch className="size-3.5 text-muted-foreground" />
-                  main
-                </span>
-                <span className="ml-auto flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground">
-                  <Code2 className="size-3.5" />
-                  Code
-                </span>
-              </div>
-
-              <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
-                <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-sm">
-                  <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate font-medium">
-                    serve raw file contents
-                  </span>
-                  <code className="ml-auto shrink-0 text-xs text-muted-foreground">
-                    a3f19c2
-                  </code>
-                </div>
-
-                <ul className="divide-y">
-                  {PREVIEW_ENTRIES.map((entry) => (
-                    <li
-                      key={entry.name}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm"
-                    >
-                      {entry.type === "tree" ? (
-                        <Folder className="size-4 shrink-0 fill-muted text-primary" />
-                      ) : (
-                        <File className="size-4 shrink-0 fill-muted text-muted-foreground" />
-                      )}
-                      <span className="truncate">{entry.name}</span>
-                      <span className="ml-auto hidden truncate text-xs text-muted-foreground md:block">
-                        {entry.message}
-                      </span>
-                      <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
-                        {entry.age}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* plain, like the real sidebar: a second card here would read as a
-                panel bolted onto the listing */}
-            <aside className="flex w-full flex-col gap-5 lg:w-60 lg:shrink-0 lg:pt-11">
-              <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold">About</h3>
-                <p className="text-sm text-muted-foreground">
-                  The project you pushed five minutes ago.
-                </p>
-                <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-2">
-                    <Star className="size-4" />
-                    <span className="font-medium text-foreground">128</span>
-                    stars
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <GitFork className="size-4" />
-                    <span className="font-medium text-foreground">9</span>
-                    forks
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold">Languages</h3>
-                <div className="flex h-2 overflow-hidden rounded-full bg-muted">
-                  {PREVIEW_LANGUAGES.map(({ language, percent }) => (
-                    <span
-                      key={language}
-                      style={{
-                        width: `${percent}%`,
-                        backgroundColor: languageColor(language),
-                      }}
-                    />
-                  ))}
-                </div>
-                <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  {PREVIEW_LANGUAGES.map(({ language, percent }) => (
-                    <li key={language} className="flex items-center gap-1.5">
-                      <span
-                        aria-hidden
-                        className="size-2 rounded-full"
-                        style={{ backgroundColor: languageColor(language) }}
-                      />
-                      <span className="font-medium text-foreground">
-                        {language}
-                      </span>
-                      {percent.toFixed(1)}%
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </aside>
-          </div>
-        </section>
-
-        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map(({ icon: Icon, title, description }) => (
-            <div
-              key={title}
-              className="flex flex-col gap-3 rounded-lg border bg-card p-6"
-            >
-              <Icon className="size-5 text-primary" />
-              <h2 className="font-semibold">{title}</h2>
-              <p className="text-sm text-pretty text-muted-foreground">
-                {description}
+          <div className={COLUMNS}>
+            <div className="flex min-w-0 flex-col gap-8">
+              <p className="max-w-md text-lg text-pretty text-muted-foreground">
+                Ghost does what your team uses GitHub for every day: pull
+                requests, reviews, issues and code search, on a server you run.
+                The price, the rules and who reads your code stay your call.
               </p>
+              <div className="flex flex-wrap gap-3">
+                <Button asChild size="lg" className="h-11 rounded-full px-5">
+                  <Link href="/auth/sign-up">Create an account</Link>
+                </Button>
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="h-11 rounded-full px-5"
+                >
+                  <Link href="/auth/sign-in">Sign in</Link>
+                </Button>
+              </div>
             </div>
-          ))}
-        </section>
 
-        <section className="flex flex-col gap-10">
-          <div className="flex flex-col gap-3 text-center">
-            <h2 className="text-3xl font-semibold tracking-tight text-balance">
-              Three commands from empty to hosted
-            </h2>
-            <p className="mx-auto max-w-md text-pretty text-muted-foreground">
-              No setup wizard, no config file, no CI to configure before the
-              first push works.
-            </p>
-          </div>
-
-          <ol className="grid gap-6 md:grid-cols-3">
-            {STEPS.map(({ title, description }, index) => (
-              <li key={title} className="flex flex-col gap-3">
-                <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-medium text-primary">
-                  {index + 1}
-                </span>
-                <h3 className="font-semibold">{title}</h3>
-                <p className="text-sm text-pretty text-muted-foreground">
-                  {description}
-                </p>
-              </li>
-            ))}
-          </ol>
-
-          <div className="flex flex-wrap items-center justify-center gap-2 border-t pt-8">
-            <span className="text-sm text-muted-foreground">Running on</span>
-            {STACK.map((item) => (
-              <Badge key={item} variant="secondary" className="rounded-full">
-                {item}
-              </Badge>
-            ))}
+            <Panel>
+              <PanelHead>Moving a repository over</PanelHead>
+              {/* wraps instead of scrolling: the remote URL is as long as the instance's hostname */}
+              <pre className="p-4 font-mono text-[13px] leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
+                <code>
+                  <Prompt />
+                  git remote add ghost {REMOTE}
+                  {"\n"}
+                  <Prompt />
+                  git push ghost --all
+                  {"\n"}
+                  <span className="text-muted-foreground">
+                    {" * [new branch] main -> main\n"}
+                    {" * [new branch] release -> release"}
+                  </span>
+                </code>
+              </pre>
+            </Panel>
           </div>
         </section>
 
-        <section className="flex flex-col gap-10">
-          <div className="flex flex-col gap-3 text-center">
-            <h2 className="text-3xl font-semibold tracking-tight text-balance">
-              What comes next
-            </h2>
-            <p className="mx-auto max-w-lg text-pretty text-muted-foreground">
-              Issues, pull requests, forks and stars are done. These are not,
-              and they are being built in roughly this order.
-            </p>
-          </div>
+        <Split
+          title="Your team won&rsquo;t have to relearn a thing."
+          body="Open a pull request, review the diff line by line, squash and merge. It is the workflow everyone already knows, so switching takes an afternoon, not a quarter."
+          facts={[
+            "Stock git over HTTP or SSH",
+            "Merge, squash or rebase",
+            "Issues, labels, releases and forks",
+          ]}
+        >
+          <ReviewProof />
+        </Split>
 
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {ROADMAP.map(({ icon: Icon, title, description, status }) => (
+        <Split
+          title="A dead server costs you an hour, not your history."
+          body="Every push is saved to your own storage bucket before Ghost says it is done. If the machine dies, start a new one and every commit and branch comes back with it."
+          facts={[
+            "Any S3-compatible storage",
+            "Nothing lives only on the disk",
+            "Switch machines with a restart",
+          ]}
+        >
+          <DurabilityProof />
+        </Split>
+
+        <Split
+          title="Stop asking where that code lives."
+          body="Search every repository you can read at once. New code is searchable the moment it is pushed, so the answer is never buried in a chat thread."
+          facts={[
+            "Across every repository, or just one",
+            "Updated on every push",
+            "Private code stays out of other people’s results",
+          ]}
+        >
+          <SearchProof />
+        </Split>
+
+        <Split
+          title="Give access without giving away the keys."
+          body="Group people into organizations and teams, then give each exactly the access they need. A contractor sees one repository. Everyone outside sees nothing."
+          facts={[
+            "Read, triage, write, maintain or admin",
+            "Outside collaborators, per repository",
+            "Invitations expire after 7 days",
+          ]}
+        >
+          <RolesProof />
+        </Split>
+
+        <Split
+          title="Know which commits are really yours."
+          body="Sign commits with your GPG key and Ghost marks them Verified. A signature from a key that isn’t on your account shows as Unverified, where everyone can see it."
+          facts={[
+            "Checked against keys you uploaded",
+            "Remove a key and its commits stop verifying",
+            "Push with SSH keys, no passwords",
+          ]}
+        >
+          <SignatureProof />
+        </Split>
+
+        <section className={`${COLUMNS} border-t pt-10`}>
+          <SectionTitle>Plus the things you reach for daily.</SectionTitle>
+          {/* -mt-3 cancels the first row's padding so its text lines up with the heading */}
+          <ul className="-mt-3 grid gap-x-8 sm:grid-cols-2">
+            {ALSO.map((item) => (
               <li
-                key={title}
-                className="flex gap-4 rounded-lg border border-dashed p-6"
+                key={item}
+                className="border-b py-3 text-sm text-pretty text-muted-foreground"
               >
-                <Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold">{title}</h3>
-                    <Badge
-                      variant={status === "Next" ? "default" : "outline"}
-                      className="rounded-full text-xs"
-                    >
-                      {status}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-pretty text-muted-foreground">
-                    {description}
-                  </p>
-                </div>
+                {item}
               </li>
             ))}
           </ul>
         </section>
 
-        <section className="flex flex-col gap-10">
-          <h2 className="text-center text-3xl font-semibold tracking-tight text-balance">
-            Questions worth asking first
-          </h2>
-
-          <div className="grid gap-8 md:grid-cols-2">
+        <section className={`${COLUMNS} border-t pt-10`}>
+          <SectionTitle>Before you switch.</SectionTitle>
+          <dl className="flex flex-col">
             {FAQ.map(({ question, answer }) => (
-              <div key={question} className="flex flex-col gap-2">
-                <h3 className="font-semibold">{question}</h3>
-                <p className="text-sm text-pretty text-muted-foreground">
+              <div
+                key={question}
+                className="flex flex-col gap-2 border-b py-5 first:pt-0 last:border-0 last:pb-0"
+              >
+                <dt className="font-medium">{question}</dt>
+                <dd className="max-w-xl text-sm text-pretty text-muted-foreground">
                   {answer}
-                </p>
+                </dd>
               </div>
             ))}
-          </div>
-        </section>
-
-        <section className="flex flex-col items-center gap-6 rounded-lg border border-dashed px-6 py-16 text-center">
-          <h2 className="max-w-xl text-3xl font-semibold tracking-tight text-balance">
-            Start with one repository
-          </h2>
-          <p className="max-w-md text-pretty text-muted-foreground">
-            Create an account, add a remote, push. Everything else can wait
-            until you need it.
-          </p>
-          <Button asChild size="lg">
-            <Link href="/auth/sign-up">Get started</Link>
-          </Button>
+          </dl>
         </section>
       </main>
 
-      <footer className="border-t">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-6 text-sm text-muted-foreground md:px-6">
+      <footer className="mx-auto flex w-full max-w-6xl flex-col px-4 md:px-8">
+        <section className="flex flex-col items-start gap-8 border-t pt-16 pb-24 md:pt-24 md:pb-32">
+          <p className="max-w-[16ch] text-5xl font-semibold tracking-[-0.04em] text-balance [overflow-wrap:anywhere] md:text-7xl">
+            Move one repository this afternoon.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild size="lg" className="h-11 rounded-full px-5">
+              <Link href="/auth/sign-up">Create an account</Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="h-11 rounded-full px-5"
+            >
+              <a href={DOCS_URL}>Read the docs</a>
+            </Button>
+          </div>
+        </section>
+        <div className="flex items-center gap-2 border-t py-6 text-sm text-muted-foreground">
           <Ghost className="size-4" />
           Ghost
-          <span className="ml-auto">Self-hosted git</span>
+          <span className="ml-auto">Git hosting you own</span>
         </div>
       </footer>
     </div>
+  );
+}
+
+function Prompt() {
+  return <span className="text-muted-foreground select-none">$ </span>;
+}
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <h2 className="text-3xl font-semibold tracking-[-0.03em] text-balance [overflow-wrap:anywhere] md:text-4xl">
+      {children}
+    </h2>
+  );
+}
+
+function Split({
+  title,
+  body,
+  facts,
+  children,
+}: {
+  title: string;
+  body: string;
+  facts: string[];
+  children: ReactNode;
+}) {
+  return (
+    <section className={`${COLUMNS} border-t pt-10`}>
+      <div className="flex min-w-0 flex-col gap-5">
+        <SectionTitle>{title}</SectionTitle>
+        <p className="max-w-md text-pretty text-muted-foreground">{body}</p>
+        <ul className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+          {facts.map((fact) => (
+            <li key={fact} className="flex items-baseline gap-2.5">
+              <span
+                aria-hidden
+                className="size-1 shrink-0 translate-y-[-0.2em] rounded-full bg-primary"
+              />
+              {fact}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="min-w-0">{children}</div>
+    </section>
+  );
+}
+
+function Panel({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`min-w-0 overflow-hidden rounded-xl border bg-card text-sm ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function PanelHead({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-11 items-center gap-2 border-b px-4 text-xs text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
+function DurabilityProof() {
+  const layers = [
+    { label: "git push", note: "you push as usual" },
+    { label: "your bucket", note: "saved here first, kept for good" },
+    { label: "server disk", note: "a copy Ghost can rebuild" },
+  ];
+  return (
+    <Panel>
+      <PanelHead>Where every push goes</PanelHead>
+      <ol className="divide-y">
+        {layers.map(({ label, note }, index) => (
+          <li
+            key={label}
+            className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3.5 ${
+              index === 1 ? "bg-primary/5" : ""
+            }`}
+          >
+            <span className="w-5 font-mono text-xs text-muted-foreground">
+              {index + 1}
+            </span>
+            <span className="font-mono font-medium">{label}</span>
+            <span className="basis-full pl-9 text-xs text-muted-foreground sm:ml-auto sm:basis-auto sm:pl-0">
+              {note}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </Panel>
+  );
+}
+
+function ReviewProof() {
+  const lines = [
+    { kind: " ", text: "function total(items) {" },
+    { kind: "-", text: "  return sum(items);" },
+    { kind: "+", text: "  return round(sum(items), 2);" },
+    { kind: " ", text: "}" },
+  ];
+  return (
+    <Panel>
+      <PanelHead>
+        <span className="truncate font-medium text-foreground">
+          Round invoice totals once
+        </span>
+        #14
+      </PanelHead>
+      <pre className="py-2 font-mono text-xs leading-6">
+        {lines.map(({ kind, text }, index) => (
+          <div
+            key={index}
+            className={`truncate px-4 ${
+              kind === "+"
+                ? "bg-primary/10"
+                : kind === "-"
+                  ? "bg-destructive/10 text-destructive"
+                  : ""
+            }`}
+          >
+            <span
+              aria-hidden
+              className="mr-3 text-muted-foreground select-none"
+            >
+              {kind}
+            </span>
+            {text}
+          </div>
+        ))}
+      </pre>
+      <div className="flex h-12 items-center gap-3 border-t px-4">
+        <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+          <BadgeCheck className="size-3.5 shrink-0 text-primary" />
+          Approved
+          <span className="hidden sm:inline">
+            at <code className="font-mono">a3f19c2</code>
+          </span>
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
+          <GitMerge className="size-3.5" />
+          Squash and merge
+        </span>
+      </div>
+    </Panel>
+  );
+}
+
+function SearchProof() {
+  const hits = [
+    {
+      path: "billing/src/cart.ts",
+      line: 42,
+      before: "return cart.",
+      after: "(code);",
+    },
+    {
+      path: "checkout/src/pay.ts",
+      line: 18,
+      before: "await ",
+      after: "(order);",
+    },
+  ];
+  return (
+    <Panel>
+      <PanelHead>
+        <Search className="size-3.5" />
+        <span className="font-mono">
+          org:you <span className="text-foreground">discount</span>
+        </span>
+      </PanelHead>
+      <ul className="divide-y">
+        {hits.map(({ path, line, before, after }) => (
+          <li key={path} className="flex min-w-0 flex-col gap-1.5 px-4 py-3">
+            <span className="truncate text-xs font-medium">{path}</span>
+            <code className="truncate font-mono text-xs text-muted-foreground">
+              <span className="mr-3 select-none">{line}</span>
+              {before}
+              <mark className="rounded-sm bg-primary/20 px-0.5 text-foreground">
+                discount
+              </mark>
+              {after}
+            </code>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+function RolesProof() {
+  const roles = ["read", "triage", "write", "maintain", "admin"];
+  return (
+    <Panel>
+      <PanelHead>
+        <Lock className="size-3.5" />
+        you/billing is private
+      </PanelHead>
+      <ol className="flex items-end gap-1 px-3 pt-5 sm:gap-1.5 sm:px-4 pb-4">
+        {roles.map((role, index) => (
+          <li
+            key={role}
+            className="flex min-w-0 flex-1 flex-col items-center gap-2"
+          >
+            <span
+              aria-hidden
+              className={`w-full rounded-md ${index === 2 ? "bg-primary" : "bg-muted"}`}
+              style={{ height: `${1.25 + index}rem` }}
+            />
+            <span
+              className={`max-w-full truncate font-mono text-[10px] sm:text-[11px] ${index === 2 ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              {role}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="border-t px-4 py-3 text-xs text-pretty text-muted-foreground">
+        <span className="font-medium text-foreground">platform-team</span> can
+        push and merge. Everyone outside the team gets a 404.
+      </p>
+    </Panel>
+  );
+}
+
+function SignatureProof() {
+  const commits = [
+    { message: "Fix the invoice rounding", sha: "e41b0d7", verified: true },
+    { message: "Add the export button", sha: "a3f19c2", verified: true },
+    { message: "Update deploy credentials", sha: "9c02f51", verified: false },
+  ];
+  return (
+    <Panel>
+      <PanelHead>Commits on main</PanelHead>
+      <ul className="divide-y">
+        {commits.map(({ message, sha, verified }) => (
+          <li key={sha} className="flex h-12 items-center gap-3 px-4">
+            <span className="min-w-0 flex-1 truncate">{message}</span>
+            <span
+              className={`w-18 shrink-0 rounded-full border py-0.5 text-center text-[11px] ${
+                verified
+                  ? "border-primary/40 font-medium text-primary"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {verified ? "Verified" : "Unverified"}
+            </span>
+            <code className="hidden font-mono text-xs text-muted-foreground sm:block">
+              {sha}
+            </code>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   );
 }
