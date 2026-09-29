@@ -80,6 +80,10 @@
         "vitest": "^4.1.2",
       },
     },
+    "apps/delivery": {
+      "name": "@ghost/delivery",
+      "version": "0.0.1",
+    },
     "apps/docs": {
       "name": "@ghost/docs",
       "version": "0.1.0",
@@ -530,6 +534,8 @@
     "@ghost/api": ["@ghost/api@workspace:apps/api"],
 
     "@ghost/db": ["@ghost/db@workspace:packages/db"],
+
+    "@ghost/delivery": ["@ghost/delivery@workspace:apps/delivery"],
 
     "@ghost/docs": ["@ghost/docs@workspace:apps/docs"],
 

@@ -1,0 +1,12 @@
+{
+  "name": "@ghost/delivery",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "go build -o dist/delivery .",
+    "dev": "go run .",
+    "test": "go test ./...",
+    "lint": "go vet ./...",
+    "format": "gofmt -w ."
+  }
+}
