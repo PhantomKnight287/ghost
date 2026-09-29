@@ -9,16 +9,18 @@ import {
 
 interface WebhookDisabledProps {
   name?: string;
-  repository: string;
+  owner: string;
   url: string;
+  reason: string;
   settingsUrl: string;
   appUrl: string;
 }
 
 export default function WebhookDisabled({
   name = 'there',
-  repository = 'alice/ghost',
+  owner = 'alice/ghost',
   url = 'https://example.com/webhook',
+  reason = 'Every delivery failed for three days.',
   settingsUrl = 'http://localhost:3000/alice/ghost/settings/webhooks/whk_1',
   appUrl = 'http://localhost:3000',
 }: WebhookDisabledProps) {
@@ -26,13 +28,12 @@ export default function WebhookDisabled({
     <EmailLayout
       appUrl={appUrl}
       heading="A webhook was turned off"
-      preview={`Deliveries to ${url} kept failing, so Ghost stopped sending them`}
+      preview={`Ghost stopped sending deliveries to ${url}`}
     >
       <Text style={text.paragraph}>
-        Hi <span style={text.strong}>{name}</span>, every delivery from{' '}
-        <span style={text.strong}>{repository}</span> to{' '}
-        <span style={text.strong}>{url}</span> failed for three days, so Ghost
-        turned the webhook off.
+        Hi <span style={text.strong}>{name}</span>, Ghost turned off the webhook
+        on <span style={text.strong}>{owner}</span> that sends to{' '}
+        <span style={text.strong}>{url}</span>. {reason}
       </Text>
       <ActionButton href={settingsUrl}>Review the webhook</ActionButton>
       <LinkFallback href={settingsUrl} />

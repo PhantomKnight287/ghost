@@ -258,8 +258,9 @@ describe('GitService', () => {
             commits: [
               expect.objectContaining({
                 sha: after,
-                message: 'second\n\nFixes #1',
-                author: { name: 'a', email: 'a@example.com' },
+                subject: 'second',
+                body: 'Fixes #1',
+                authorName: 'a',
               }),
             ],
           },

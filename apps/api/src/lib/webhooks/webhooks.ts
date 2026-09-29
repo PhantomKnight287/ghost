@@ -24,10 +24,7 @@ export function newWebhookSecret() {
   return `whsec_${randomBytes(24).toString('base64url')}`;
 }
 
-/**
- * Encrypts a signing secret for `webhook_endpoint.secret`. apps/delivery decrypts it to sign each request, so it is encrypted, not hashed.
- * Format: `v1:` + base64(12-byte nonce || AES-256-GCM ciphertext || 16-byte tag), which is what Go's `gcm.Open` reads.
- */
+/** Encrypted, not hashed: apps/delivery needs the secret to sign. The format, `v1:` + base64(nonce || ciphertext || tag), is what Go's `gcm.Open` reads. */
 export function sealWebhookSecret(key: Buffer, secret: string) {
   const nonce = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, nonce);
@@ -104,3 +101,8 @@ export async function webhookUrlProblem(
   }
   return null;
 }
+
+/** Whose webhooks these are, once the requester was checked as its admin. `name` is how URLs spell it: `owner/repo` or the organization's slug. */
+export type WebhookOwner =
+  | { repositoryId: string; name: string }
+  | { organizationId: string; name: string };

@@ -2,19 +2,22 @@ import { randomUUID } from 'node:crypto';
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
 import {
   newWebhookSecret,
   sealWebhookSecret,
   type WebhookEvent,
+  type WebhookOwner,
   webhookSecretKey,
   webhookUrlProblem,
 } from '../../lib/webhooks/webhooks.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
 import { isoTimestamp } from '../../utils/index.js';
+import type { DeliveryAttemptDTO } from './dto/webhook.dto.js';
 import {
   DeliveryNotFoundError,
   InvalidWebhookUrlError,
@@ -24,22 +27,17 @@ import {
 
 const DELIVERY_LOG_LENGTH = 50;
 
-interface RepositoryRef {
-  username: string;
-  repo: string;
-  requesterId: string;
-}
-
 const webhookColumns = {
   id: schema.webhookEndpoint.id,
   url: schema.webhookEndpoint.url,
-  events: schema.webhookEndpoint.events,
+  // only this service writes it, from the validated list
+  events: sql<WebhookEvent[]>`${schema.webhookEndpoint.events}`,
   active: schema.webhookEndpoint.active,
   disabledReason: schema.webhookEndpoint.disabledReason,
   createdAt: isoTimestamp(schema.webhookEndpoint.createdAt),
 };
 
-/** A repository's webhook endpoints and their delivery log. Admins only. */
+/** Webhook endpoints of a repository or an organization, and their delivery log. Admins only. */
 @Injectable()
 export class WebhooksService {
   private readonly key: Buffer | undefined;
@@ -56,182 +54,170 @@ export class WebhooksService {
       config.get<string>('WEBHOOK_ALLOW_PRIVATE_NETWORKS') === 'true';
   }
 
-  async list(ref: RepositoryRef) {
-    const repository = await this.authorizeAdmin(ref);
+  async ofRepository({
+    username,
+    repo,
+    requesterId,
+  }: {
+    username: string;
+    repo: string;
+    requesterId: string;
+  }): Promise<WebhookOwner> {
+    const repository = await this.access.authorize({
+      username,
+      repo,
+      actor: { userId: requesterId },
+      operation: 'admin',
+    });
+    return { repositoryId: repository.id, name: `${username}/${repo}` };
+  }
+
+  async ofOrganization({
+    slug,
+    requesterId,
+  }: {
+    slug: string;
+    requesterId: string;
+  }): Promise<WebhookOwner> {
+    const { organizationId } = await administeredOrganization(
+      this.db,
+      slug,
+      requesterId,
+    );
+    return { organizationId, name: slug };
+  }
+
+  async list(owner: WebhookOwner) {
     const webhooks = await this.db
       .select(webhookColumns)
       .from(schema.webhookEndpoint)
-      .where(eq(schema.webhookEndpoint.repositoryId, repository.id))
+      .where(ownedBy(owner))
       .orderBy(schema.webhookEndpoint.createdAt);
-    return { webhooks: webhooks.map(typed) };
+    return { webhooks };
   }
 
-  /** Creates the endpoint, sends it a `ping`, and returns its secret, the only time anyone sees it. */
-  async create(ref: RepositoryRef & { url: string; events: WebhookEvent[] }) {
-    const repository = await this.authorizeAdmin(ref);
+  /** Sends the new endpoint a `ping`. The response is the only time anyone sees its secret. */
+  async create(
+    owner: WebhookOwner,
+    { url, events }: { url: string; events: WebhookEvent[] },
+  ) {
     if (!this.key) throw new WebhooksNotConfiguredError();
-    await this.checkUrl(ref.url);
+    await this.checkUrl(url);
 
     const secret = newWebhookSecret();
     const [webhook] = await this.db
       .insert(schema.webhookEndpoint)
       .values({
-        repositoryId: repository.id,
-        url: ref.url,
+        repositoryId: 'repositoryId' in owner ? owner.repositoryId : null,
+        organizationId: 'organizationId' in owner ? owner.organizationId : null,
+        url,
         secret: sealWebhookSecret(this.key, secret),
-        events: [...new Set(ref.events)],
+        events: [...new Set(events)],
       })
       .returning(webhookColumns);
-    await this.fanout.ping({
-      ...webhook,
-      repository: `${ref.username}/${ref.repo}`,
-    });
-    return { ...typed(webhook), secret };
+    await this.fanout.ping(webhook, owner);
+    return { ...webhook, secret };
   }
 
   async update(
-    ref: RepositoryRef & {
-      webhookId: string;
-      url?: string;
-      events?: WebhookEvent[];
-      active?: boolean;
-    },
+    owner: WebhookOwner,
+    webhookId: string,
+    changes: { url?: string; events?: WebhookEvent[]; active?: boolean },
   ) {
-    const repository = await this.authorizeAdmin(ref);
-    await this.find(repository.id, ref.webhookId);
-    if (ref.url !== undefined) await this.checkUrl(ref.url);
+    await this.find(owner, webhookId);
+    if (changes.url !== undefined) await this.checkUrl(changes.url);
 
     const [webhook] = await this.db
       .update(schema.webhookEndpoint)
       .set({
-        url: ref.url,
-        events: ref.events && [...new Set(ref.events)],
-        active: ref.active,
+        url: changes.url,
+        events: changes.events && [...new Set(changes.events)],
+        active: changes.active,
         // turning it back on is the owner saying the problem is fixed
-        ...(ref.active === true && { disabledReason: null }),
+        ...(changes.active === true && {
+          disabledReason: null,
+          disabledNotifiedAt: null,
+        }),
       })
-      .where(eq(schema.webhookEndpoint.id, ref.webhookId))
+      .where(eq(schema.webhookEndpoint.id, webhookId))
       .returning(webhookColumns);
-    return typed(webhook);
+    return webhook;
   }
 
   /** Pending deliveries go with it. */
-  async remove(ref: RepositoryRef & { webhookId: string }) {
-    const repository = await this.authorizeAdmin(ref);
-    await this.find(repository.id, ref.webhookId);
+  async remove(owner: WebhookOwner, webhookId: string) {
+    await this.find(owner, webhookId);
     await this.db
       .delete(schema.webhookEndpoint)
-      .where(eq(schema.webhookEndpoint.id, ref.webhookId));
+      .where(eq(schema.webhookEndpoint.id, webhookId));
   }
 
-  async ping(ref: RepositoryRef & { webhookId: string }) {
-    const repository = await this.authorizeAdmin(ref);
-    const webhook = await this.find(repository.id, ref.webhookId);
-    await this.fanout.ping({
-      ...webhook,
-      repository: `${ref.username}/${ref.repo}`,
-    });
+  async ping(owner: WebhookOwner, webhookId: string) {
+    await this.fanout.ping(await this.find(owner, webhookId), owner);
   }
 
-  async deliveries(ref: RepositoryRef & { webhookId: string }) {
-    const repository = await this.authorizeAdmin(ref);
-    await this.find(repository.id, ref.webhookId);
-
-    const jobs = await this.db
+  async deliveries(owner: WebhookOwner, webhookId: string) {
+    await this.find(owner, webhookId);
+    const deliveries = await this.db
       .select({
         id: schema.deliveryJob.id,
+        event: sql<string>`${schema.deliveryJob.payload}->>'event'`,
         status: schema.deliveryJob.status,
-        payload: schema.deliveryJob.payload,
+        body: sql<string>`${schema.deliveryJob.payload}->>'body'`,
         createdAt: isoTimestamp(schema.deliveryJob.createdAt),
-        nextAttemptAt: isoTimestamp(schema.deliveryJob.nextAttemptAt),
+        nextAttemptAt: sql<
+          string | null
+        >`case when ${schema.deliveryJob.status} = 'pending' then ${isoTimestamp(schema.deliveryJob.nextAttemptAt)} end`,
+        attempts: sql<DeliveryAttemptDTO[]>`coalesce((
+          select json_agg(json_build_object(
+            'startedAt', ${isoTimestamp(sql`a.started_at`)},
+            'durationMs', a.duration_ms,
+            'statusCode', a.status_code,
+            'error', a.error,
+            'requestHeaders', a.request_headers,
+            'responseBody', a.response_body
+          ) order by a.started_at desc)
+          from ${schema.deliveryAttempt} a
+          where a.job_id = ${schema.deliveryJob}.id
+        ), '[]'::json)`,
       })
       .from(schema.deliveryJob)
-      .where(eq(schema.deliveryJob.endpointId, ref.webhookId))
+      .where(eq(schema.deliveryJob.endpointId, webhookId))
       .orderBy(desc(schema.deliveryJob.createdAt))
       .limit(DELIVERY_LOG_LENGTH);
-    const attempts = jobs.length
-      ? await this.db
-          .select({
-            jobId: schema.deliveryAttempt.jobId,
-            startedAt: isoTimestamp(schema.deliveryAttempt.startedAt),
-            durationMs: schema.deliveryAttempt.durationMs,
-            statusCode: schema.deliveryAttempt.statusCode,
-            error: schema.deliveryAttempt.error,
-            requestHeaders: schema.deliveryAttempt.requestHeaders,
-            responseBody: schema.deliveryAttempt.responseBody,
-          })
-          .from(schema.deliveryAttempt)
-          .where(
-            inArray(
-              schema.deliveryAttempt.jobId,
-              jobs.map((job) => job.id),
-            ),
-          )
-          .orderBy(desc(schema.deliveryAttempt.startedAt))
-      : [];
-
-    return {
-      deliveries: jobs.map((job) => {
-        const payload = job.payload as { event: string; body: string };
-        return {
-          id: job.id,
-          event: payload.event,
-          status: job.status,
-          body: payload.body,
-          createdAt: job.createdAt,
-          nextAttemptAt: job.status === 'pending' ? job.nextAttemptAt : null,
-          attempts: attempts
-            .filter((attempt) => attempt.jobId === job.id)
-            .map((attempt) => ({
-              startedAt: attempt.startedAt,
-              durationMs: attempt.durationMs,
-              statusCode: attempt.statusCode,
-              error: attempt.error,
-              requestHeaders: attempt.requestHeaders as Record<string, string>,
-              responseBody: attempt.responseBody,
-            })),
-        };
-      }),
-    };
+    return { deliveries };
   }
 
-  /** Sends the same body again as a new delivery with its own id and a fresh round of retries. */
-  async redeliver(
-    ref: RepositoryRef & { webhookId: string; deliveryId: string },
-  ) {
-    const repository = await this.authorizeAdmin(ref);
-    await this.find(repository.id, ref.webhookId);
-    const [job] = await this.db
-      .select({ payload: schema.deliveryJob.payload })
+  /** The same body again as a new delivery, with its own id and a fresh round of retries. */
+  async redeliver(owner: WebhookOwner, webhookId: string, deliveryId: string) {
+    await this.find(owner, webhookId);
+    const [delivery] = await this.db
+      .select({
+        event: sql<string>`${schema.deliveryJob.payload}->>'event'`,
+        body: sql<string>`${schema.deliveryJob.payload}->>'body'`,
+      })
       .from(schema.deliveryJob)
       .where(
         and(
-          eq(schema.deliveryJob.id, ref.deliveryId),
-          eq(schema.deliveryJob.endpointId, ref.webhookId),
+          eq(schema.deliveryJob.id, deliveryId),
+          eq(schema.deliveryJob.endpointId, webhookId),
         ),
       );
-    if (!job) throw new DeliveryNotFoundError();
-    const payload = job.payload as { event: string; body: string };
+    if (!delivery) throw new DeliveryNotFoundError();
     await this.fanout.enqueue([
       {
-        endpointId: ref.webhookId,
-        event: payload.event,
-        body: payload.body,
-        idempotencyKey: `redeliver:${ref.deliveryId}:${randomUUID()}`,
+        endpointId: webhookId,
+        ...delivery,
+        idempotencyKey: `redeliver:${deliveryId}:${randomUUID()}`,
       },
     ]);
   }
 
-  private async find(repositoryId: string, webhookId: string) {
+  private async find(owner: WebhookOwner, webhookId: string) {
     const [webhook] = await this.db
       .select(webhookColumns)
       .from(schema.webhookEndpoint)
-      .where(
-        and(
-          eq(schema.webhookEndpoint.id, webhookId),
-          eq(schema.webhookEndpoint.repositoryId, repositoryId),
-        ),
-      );
+      .where(and(eq(schema.webhookEndpoint.id, webhookId), ownedBy(owner)));
     if (!webhook) throw new WebhookNotFoundError();
     return webhook;
   }
@@ -240,18 +226,10 @@ export class WebhooksService {
     const problem = await webhookUrlProblem(url, this.allowPrivate);
     if (problem) throw new InvalidWebhookUrlError(problem);
   }
-
-  private authorizeAdmin({ username, repo, requesterId }: RepositoryRef) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: { userId: requesterId },
-      operation: 'admin',
-    });
-  }
 }
 
-/** `events` is text[] in the database; only the API writes it, from the validated list. */
-function typed<T extends { events: string[] }>(webhook: T) {
-  return { ...webhook, events: webhook.events as WebhookEvent[] };
+function ownedBy(owner: WebhookOwner) {
+  return 'repositoryId' in owner
+    ? eq(schema.webhookEndpoint.repositoryId, owner.repositoryId)
+    : eq(schema.webhookEndpoint.organizationId, owner.organizationId);
 }

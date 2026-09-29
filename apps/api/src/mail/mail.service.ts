@@ -116,22 +116,24 @@ export class MailService {
     );
   }
 
+  /** `owner` is `owner/repo` or an organization's slug, which is also where its settings live. */
   async sendWebhookDisabledEmail(
     to: string,
     context: {
-      name?: string;
-      repository: string;
+      name: string;
+      owner: string;
       url: string;
+      reason: string;
       webhookId: string;
     },
   ): Promise<void> {
     await this.send(
       to,
-      `A webhook on ${context.repository} was turned off`,
+      `A webhook on ${context.owner} was turned off`,
       'webhook-disabled',
       {
         ...context,
-        settingsUrl: `${this.appUrl}/${context.repository}/settings/webhooks/${context.webhookId}`,
+        settingsUrl: `${this.appUrl}/${context.owner}/settings/webhooks/${context.webhookId}`,
       },
     );
   }

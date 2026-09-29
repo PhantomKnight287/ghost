@@ -174,11 +174,7 @@ export class GitService {
     };
   }
 
-  /**
-   * One `push` event per ref the push moved, for webhooks.
-   *
-   * Published after the push rather than in the same transaction: refs live in the log in object storage, outside the database. A crash in between loses the event but never publishes one for a push that did not happen.
-   */
+  /** Published after the push, not with it: refs live in object storage, outside any database transaction, so a crash in between loses the event but never invents one. */
   private async publishPushes({
     repositoryId,
     repoDirectory,
@@ -208,14 +204,7 @@ export class GitService {
           ref,
           before,
           after,
-          commits: commits.map((commit) => ({
-            sha: commit.sha,
-            message: commit.body
-              ? `${commit.subject}\n\n${commit.body}`
-              : commit.subject,
-            author: { name: commit.authorName, email: commit.authorEmail },
-            timestamp: commit.committedAt,
-          })),
+          commits,
         },
       });
     }

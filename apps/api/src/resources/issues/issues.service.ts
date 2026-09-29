@@ -23,7 +23,7 @@ import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
-  ownerNameOf,
+  repositoryFullNameOf,
   type Repository,
   type RepositoryOperation,
 } from '../../lib/git/repository-access/repository-access.js';
@@ -737,7 +737,7 @@ export class IssuesService {
             // `owner/repo`, so a pull request in another repository that closed this one still links
             sourceRepository: sql<
               string | null
-            >`${ownerNameOf(eventSourceOwner, eventSourceOrganization)} || '/' || ${eventSourceRepository.slug}`,
+            >`${repositoryFullNameOf(eventSourceOwner, eventSourceOrganization, eventSourceRepository)}`,
             sourceNumber: eventSource.number,
             createdAt: isoTimestamp(schema.issueEvent.createdAt),
           },

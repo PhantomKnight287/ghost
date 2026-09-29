@@ -5,7 +5,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { RepositoryEvent, StoredEvent } from '../../lib/events/events.js';
-import { ownerNameOf } from '../../lib/git/repository-access/repository-access.js';
+import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
 import { MailService, type ThreadTemplate } from '../../mail/mail.service.js';
 import type { NotificationReason } from '../../mail/components/thread.js';
@@ -97,7 +97,11 @@ export class NotifierService {
         authorId: schema.issue.authorId,
         repositoryId: schema.issue.repositoryId,
         organizationId: schema.repository.organizationId,
-        repository: sql<string>`${ownerNameOf(schema.user, schema.organization)} || '/' || ${schema.repository.slug}`,
+        repository: repositoryFullNameOf(
+          schema.user,
+          schema.organization,
+          schema.repository,
+        ),
       })
       .from(schema.issue)
       .innerJoin(

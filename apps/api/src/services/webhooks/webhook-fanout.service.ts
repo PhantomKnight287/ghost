@@ -6,7 +6,8 @@ import { and, arrayContains, eq, inArray, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { StoredEvent } from '../../lib/events/events.js';
-import { ownerNameOf } from '../../lib/git/repository-access/repository-access.js';
+import type { WebhookOwner } from '../../lib/webhooks/webhooks.js';
+import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
 
 type WebhookJob = {
   endpointId: string;
@@ -64,25 +65,21 @@ export class WebhookFanoutService {
   }
 
   /** Sent when an endpoint is created and from its "Send test" button, whatever events it chose. */
-  async ping(endpoint: {
-    id: string;
-    url: string;
-    events: string[];
-    repository: string;
-  }) {
+  async ping(
+    endpoint: { id: string; url: string; events: string[] },
+    owner: WebhookOwner,
+  ) {
     await this.enqueue([
       {
         endpointId: endpoint.id,
         event: 'ping',
         body: JSON.stringify({
           event: 'ping',
-          webhook: {
-            id: endpoint.id,
-            url: endpoint.url,
-            events: endpoint.events,
-          },
-          repository: { full_name: endpoint.repository },
-          created_at: new Date().toISOString(),
+          webhook: endpoint,
+          ...('repositoryId' in owner
+            ? { repository: { fullName: owner.name } }
+            : { organization: { slug: owner.name } }),
+          createdAt: new Date().toISOString(),
         }),
         idempotencyKey: `ping:${endpoint.id}:${randomUUID()}`,
       },
@@ -110,7 +107,11 @@ export class WebhookFanoutService {
     const [repository] = await this.db
       .select({
         id: schema.repository.id,
-        fullName: sql<string>`${ownerNameOf(schema.user, schema.organization)} || '/' || ${schema.repository.slug}`,
+        fullName: repositoryFullNameOf(
+          schema.user,
+          schema.organization,
+          schema.repository,
+        ),
         visibility: schema.repository.visibility,
       })
       .from(schema.repository)
@@ -127,12 +128,12 @@ export class WebhookFanoutService {
       event: event.type,
       repository: {
         id: repository.id,
-        full_name: repository.fullName,
+        fullName: repository.fullName,
         visibility: repository.visibility,
-        html_url: repositoryUrl,
+        htmlUrl: repositoryUrl,
       },
       sender: event.actorId ? await this.userRef(event.actorId) : null,
-      created_at: new Date(event.createdAt).toISOString(),
+      createdAt: new Date(event.createdAt).toISOString(),
     };
 
     if (event.type === 'push') {
@@ -143,10 +144,7 @@ export class WebhookFanoutService {
         after,
         created: /^0+$/.test(before),
         deleted: /^0+$/.test(after),
-        commits: commits.map((commit) => ({
-          ...commit,
-          html_url: `${repositoryUrl}/commit/${commit.sha}`,
-        })),
+        commits,
       });
       return JSON.stringify(body);
     }
@@ -166,14 +164,14 @@ export class WebhookFanoutService {
     if (!thread) return null;
 
     const kind = thread.isPullRequest ? 'pulls' : 'issues';
-    body[thread.isPullRequest ? 'pull_request' : 'issue'] = {
+    body[thread.isPullRequest ? 'pullRequest' : 'issue'] = {
       id: thread.id,
       number: thread.number,
       title: thread.title,
       body: thread.body,
       state: thread.state,
       author: await this.userRef(thread.authorId),
-      html_url: `${repositoryUrl}/${kind}/${thread.number}`,
+      htmlUrl: `${repositoryUrl}/${kind}/${thread.number}`,
     };
 
     switch (event.type) {
