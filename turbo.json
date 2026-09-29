@@ -26,6 +26,7 @@
     "MAIL_SECURE",
     "MAIL_USER",
     "MAIL_PASSWORD",
+    "DELIVERY_EMAIL",
     "INTERNAL_API_URL",
     "S3_BUCKET",
     "S3_ENDPOINT",

@@ -4,7 +4,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { RepositoryEvent } from '../../lib/events/events.js';
+import type { RepositoryEvent, StoredEvent } from '../../lib/events/events.js';
 import { ownerNameOf } from '../../lib/git/repository-access/repository-access.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
 import { MailService, type ThreadTemplate } from '../../mail/mail.service.js';
@@ -48,7 +48,7 @@ export class NotifierService {
     private readonly mail: MailService,
   ) {}
 
-  async handle(event: RepositoryEvent) {
+  async handle(event: StoredEvent) {
     const thread = await this.loadThread(event.payload.issueId);
     if (!thread) return;
     const activity = await this.activityOf(event, thread);
@@ -375,7 +375,7 @@ export class NotifierService {
 
   /** Only to verified addresses, so nobody can sign up with someone else's address and have Ghost mail them. Best effort: a failed send is logged and skipped. */
   private async email(
-    event: RepositoryEvent,
+    event: StoredEvent,
     thread: Thread,
     activity: Activity,
     recipients: Map<string, NotificationReason>,
@@ -405,6 +405,7 @@ export class NotifierService {
         await this.mail.sendThreadEmail(person.email, {
           template: activity.template,
           threadId: thread.id,
+          idempotencyKey: `${event.id}:${person.id}`,
           // a title is user input, and a line break in a header would start a new one
           subject: `[${thread.repository}] ${thread.title.replace(/[\r\n]+/g, ' ')} (#${thread.number})`,
           context: {

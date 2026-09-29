@@ -213,9 +213,3 @@ func process(ctx context.Context, db *pgxpool.Pool, j Job, send sendFunc) {
 		log.Printf("job %s: record result: %v", j.ID, err)
 	}
 }
-
-// logSend is the phase 3 fake sender: it only logs.
-func logSend(ctx context.Context, j Job) error {
-	log.Printf("send %s job %s", j.Kind, j.ID)
-	return nil
-}

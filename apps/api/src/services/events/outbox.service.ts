@@ -9,7 +9,7 @@ import {
 import { asc, eq, isNull } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { RepositoryEvent } from '../../lib/events/events.js';
+import type { StoredEvent } from '../../lib/events/events.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 
 const BATCH_SIZE = 20;
@@ -72,7 +72,7 @@ export class OutboxService
         const attempts = event.attempts + 1;
         try {
           // written by `publishEvent`, which checked the payload against its type
-          await this.dispatch(event as unknown as RepositoryEvent);
+          await this.dispatch(event as unknown as StoredEvent);
           await tx
             .update(schema.outboxEvent)
             .set({ attempts, processedAt: new Date() })
@@ -98,7 +98,7 @@ export class OutboxService
     });
   }
 
-  private async dispatch(event: RepositoryEvent) {
+  private async dispatch(event: StoredEvent) {
     await this.notifier.handle(event);
   }
 }

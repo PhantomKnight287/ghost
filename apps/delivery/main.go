@@ -1,8 +1,10 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -62,7 +64,23 @@ func main() {
 
 	wake := make(chan struct{}, 1)
 	go listen(ctx, pool, wake)
-	run(ctx, pool, workers, wake, logSend) // returns after SIGTERM once in-flight sends drain
+	email := relaySender{
+		url:    os.Getenv("EMAIL_PROXY"),
+		secret: os.Getenv("EMAIL_PROXY_SECRET"),
+		from:   cmp.Or(os.Getenv("EMAIL_SENDER"), "Ghost <noreply@ghost.local>"),
+		client: &http.Client{},
+	}
+	if email.url == "" {
+		log.Printf("EMAIL_PROXY is not set: email jobs will fail and retry until it is")
+	}
+	send := func(ctx context.Context, j Job) error {
+		switch j.Kind {
+		case "email":
+			return email.send(ctx, j)
+		}
+		return fmt.Errorf("no sender for job kind %q", j.Kind)
+	}
+	run(ctx, pool, workers, wake, send) // returns after SIGTERM once in-flight sends drain
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

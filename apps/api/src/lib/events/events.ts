@@ -25,6 +25,9 @@ export type RepositoryEvent = {
   };
 }[EventType];
 
+/** An event as a consumer receives it: stored, so it has an id that stays the same across retries. */
+export type StoredEvent = RepositoryEvent & { id: string };
+
 /** Queues `event` for every consumer. Pass the transaction making the change, so the event exists exactly when the change does. */
 export async function publishEvent(db: Executor, event: RepositoryEvent) {
   await db.insert(schema.outboxEvent).values(event);
