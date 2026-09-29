@@ -65,6 +65,7 @@ func main() {
 
 	wake := make(chan struct{}, 1)
 	go listen(ctx, pool, wake)
+	go pruneEvery(ctx, pool, pruneInterval)
 	email := relaySender{
 		url:    os.Getenv("EMAIL_PROXY"),
 		secret: os.Getenv("EMAIL_PROXY_SECRET"),
@@ -83,10 +84,19 @@ func main() {
 	} else {
 		log.Printf("WEBHOOK_SECRET_KEY is not set: webhook jobs will fail and retry until it is")
 	}
+	hostConcurrency := 4
+	if v := os.Getenv("WEBHOOK_HOST_CONCURRENCY"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			log.Fatalf("WEBHOOK_HOST_CONCURRENCY must be a positive integer, got %q", v)
+		}
+		hostConcurrency = n
+	}
 	webhook := webhookSender{
 		db:     pool,
 		client: newWebhookClient(os.Getenv("WEBHOOK_ALLOW_PRIVATE_NETWORKS") == "true"),
 		key:    key,
+		hosts:  newHostLimiter(hostConcurrency),
 	}
 	send := func(ctx context.Context, j Job) error {
 		switch j.Kind {

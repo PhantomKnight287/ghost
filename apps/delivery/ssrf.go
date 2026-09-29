@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -61,5 +62,44 @@ func newWebhookClient(allowPrivate bool) *http.Client {
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
+	}
+}
+
+// hostLimiter caps sends in flight per host, so one slow receiver cannot hold
+// every worker while other endpoints wait. A nil limiter allows everything.
+//
+// ponytail: per process; with several delivery instances the real cap is
+// instances x max. Move it to Postgres if that matters.
+type hostLimiter struct {
+	mu    sync.Mutex
+	max   int
+	inUse map[string]int
+}
+
+func newHostLimiter(max int) *hostLimiter {
+	return &hostLimiter{max: max, inUse: map[string]int{}}
+}
+
+func (h *hostLimiter) acquire(host string) bool {
+	if h == nil {
+		return true
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.inUse[host] >= h.max {
+		return false
+	}
+	h.inUse[host]++
+	return true
+}
+
+func (h *hostLimiter) release(host string) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.inUse[host]--; h.inUse[host] <= 0 {
+		delete(h.inUse, host)
 	}
 }

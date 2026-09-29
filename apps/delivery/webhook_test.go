@@ -309,3 +309,42 @@ func TestOpenSecretSealedByTheAPI(t *testing.T) {
 		t.Fatalf("openSecret = %q, %v", got, err)
 	}
 }
+
+func TestHostLimiter(t *testing.T) {
+	h := newHostLimiter(2)
+	if !h.acquire("a:443") || !h.acquire("a:443") {
+		t.Fatal("could not take the first two slots")
+	}
+	if h.acquire("a:443") {
+		t.Error("took a third slot for a:443")
+	}
+	if !h.acquire("b:443") {
+		t.Error("a busy a:443 blocked b:443")
+	}
+	h.release("a:443")
+	if !h.acquire("a:443") {
+		t.Error("released slot was not reusable")
+	}
+	var none *hostLimiter
+	if !none.acquire("a:443") {
+		t.Error("a nil limiter refused")
+	}
+}
+
+func TestWebhookSendWaitsWhenItsHostIsBusy(t *testing.T) {
+	db := testDB(t)
+	hits := make(chan struct{}, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { hits <- struct{}{} }))
+	defer srv.Close()
+	s, j, _ := webhookFixture(t, db, srv.URL)
+	s.hosts = newHostLimiter(1)
+	s.hosts.acquire(srv.Listener.Addr().String()) // another send holds the only slot
+
+	var r retryAfterError
+	if err := s.send(t.Context(), j); !errors.As(err, &r) || r.after != hostBusyRetry {
+		t.Errorf("err = %v, want retryAfterError of %v", err, hostBusyRetry)
+	}
+	if len(hits) > 0 {
+		t.Error("sent while the host was at its limit")
+	}
+}

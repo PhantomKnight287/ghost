@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -237,5 +238,56 @@ func process(ctx context.Context, db *pgxpool.Pool, j Job, send sendFunc) {
 		log.Printf("job %s: lease lost, another worker owns it now", j.ID)
 	} else if err != nil {
 		log.Printf("job %s: record result: %v", j.ID, err)
+	}
+}
+
+const (
+	retention     = 30 * 24 * time.Hour
+	pruneInterval = time.Hour
+)
+
+const pruneSQL = `
+DELETE FROM delivery_job
+WHERE id IN (
+  SELECT id FROM delivery_job
+  WHERE status <> 'pending' AND updated_at < now() - $1 * interval '1 millisecond'
+  LIMIT 1000
+)`
+
+type execer interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+// prune deletes finished jobs older than the retention, and their attempts with
+// them, in batches so no single statement holds locks for long.
+func prune(ctx context.Context, db execer) (int64, error) {
+	var total int64
+	for {
+		tag, err := db.Exec(ctx, pruneSQL, retention.Milliseconds())
+		if err != nil {
+			return total, err
+		}
+		total += tag.RowsAffected()
+		if tag.RowsAffected() == 0 {
+			return total, nil
+		}
+	}
+}
+
+// pruneEvery runs prune until ctx is canceled.
+func pruneEvery(ctx context.Context, db *pgxpool.Pool, interval time.Duration) {
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	for {
+		if n, err := prune(ctx, db); err != nil && ctx.Err() == nil {
+			log.Printf("prune: %v", err)
+		} else if n > 0 {
+			log.Printf("pruned %d finished jobs", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
 	}
 }

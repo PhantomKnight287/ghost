@@ -116,6 +116,26 @@ export class MailService {
     );
   }
 
+  async sendWebhookDisabledEmail(
+    to: string,
+    context: {
+      name?: string;
+      repository: string;
+      url: string;
+      webhookId: string;
+    },
+  ): Promise<void> {
+    await this.send(
+      to,
+      `A webhook on ${context.repository} was turned off`,
+      'webhook-disabled',
+      {
+        ...context,
+        settingsUrl: `${this.appUrl}/${context.repository}/settings/webhooks/${context.webhookId}`,
+      },
+    );
+  }
+
   /** Every email about one issue or pull request names the same thread in `References`, so mail clients file them as one conversation. */
   async sendThreadEmail(
     to: string,

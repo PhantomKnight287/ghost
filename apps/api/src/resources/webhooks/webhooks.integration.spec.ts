@@ -1,11 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
 import type { ConfigService } from '@nestjs/config';
-import { desc, eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { desc, eq, ne, sql } from 'drizzle-orm';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { WebhookBreakerService } from '../../services/webhooks/webhook-breaker.service.js';
 import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
+import type { MailService } from '../../mail/mail.service.js';
 import { InvalidWebhookUrlError } from './webhooks.errors.js';
 import { WebhooksService } from './webhooks.service.js';
 
@@ -211,6 +213,71 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
         },
       ],
     });
+  });
+
+  it('turns off an endpoint that only failed for three days and emails the owner', async (context) => {
+    // The sweep covers every endpoint; only run where all of them are this test's.
+    const [others] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(schema.webhookEndpoint)
+      .where(ne(schema.webhookEndpoint.repositoryId, repository.id));
+    if (others.total > 0) context.skip();
+
+    const endpoint = async (path: string, finished: 'dead' | 'succeeded') => {
+      const webhook = await webhooks.create({
+        ...ref,
+        url: `https://93.184.216.34/${path}`,
+        events: ['issue.opened'],
+      });
+      await db
+        .update(schema.webhookEndpoint)
+        .set({ updatedAt: sql`now() - interval '4 days'` })
+        .where(eq(schema.webhookEndpoint.id, webhook.id));
+      await db.insert(schema.deliveryJob).values({
+        kind: 'webhook',
+        idempotencyKey: `webhook:test-breaker-${path}-${RUN}`,
+        endpointId: webhook.id,
+        payload: { event: 'issue.opened', body: '{}' },
+        status: finished,
+      });
+      return webhook.id;
+    };
+    const failing = await endpoint('failing', 'dead');
+    const healthy = await endpoint('healthy', 'succeeded');
+    await db.insert(schema.deliveryJob).values({
+      kind: 'webhook',
+      idempotencyKey: `webhook:test-breaker-healthy-dead-${RUN}`,
+      endpointId: healthy,
+      payload: { event: 'issue.opened', body: '{}' },
+      status: 'dead',
+    });
+
+    const sendWebhookDisabledEmail = vi.fn().mockResolvedValue(undefined);
+    const breaker = new WebhookBreakerService(db, {
+      sendWebhookDisabledEmail,
+    } as unknown as MailService);
+    const disabled = await breaker.disableFailingEndpoints();
+
+    expect(disabled.map((webhook) => webhook.id)).toEqual([failing]);
+    const [row] = await db
+      .select()
+      .from(schema.webhookEndpoint)
+      .where(eq(schema.webhookEndpoint.id, failing));
+    expect(row).toMatchObject({
+      active: false,
+      disabledReason: 'Every delivery failed for three days.',
+    });
+    expect(sendWebhookDisabledEmail).toHaveBeenCalledWith(
+      `${USERNAME}@example.com`,
+      expect.objectContaining({
+        repository: `${USERNAME}/app`,
+        webhookId: failing,
+      }),
+    );
+
+    // turning it back on is a fresh start: the old failure does not turn it off again
+    await webhooks.update({ ...ref, webhookId: failing, active: true });
+    expect(await breaker.disableFailingEndpoints()).toEqual([]);
   });
 
   it('turns a disabled endpoint back on and redelivers as a new delivery', async () => {

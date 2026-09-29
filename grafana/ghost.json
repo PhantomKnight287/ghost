@@ -778,6 +778,167 @@
           "legendFormat": "ref updates"
         }
       ]
+    },
+    {
+      "type": "row",
+      "title": "Delivery",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 79
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Delivery lag",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 80
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(ghost_delivery_lag_seconds)",
+          "legendFormat": "lag"
+        }
+      ],
+      "description": "How overdue the most overdue pending job is. This is the delivery SLO: it stays near zero while apps/delivery keeps up, and climbs when it is down or saturated. Every API instance reports the same number, hence max."
+    },
+    {
+      "type": "timeseries",
+      "title": "Pending deliveries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 80
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (kind) (ghost_delivery_jobs{status=\"pending\"})",
+          "legendFormat": "{{kind}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (kind) (ghost_delivery_jobs{status=\"dead\"})",
+          "legendFormat": "{{kind}} gave up"
+        }
+      ],
+      "description": "Jobs waiting for a first try or a retry, and jobs Ghost gave up on (kept 30 days)."
+    },
+    {
+      "type": "timeseries",
+      "title": "Webhook success rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 88
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(ghost_delivery_attempts{outcome=\"succeeded\"}) / clamp_min(max(ghost_delivery_attempts{outcome=\"succeeded\"}) + max(ghost_delivery_attempts{outcome=\"failed\"}), 1)",
+          "legendFormat": "success"
+        }
+      ],
+      "description": "Share of webhook attempts in the last five minutes that got a 2xx. One broken receiver pulls this down; the delivery log shows which."
+    },
+    {
+      "type": "timeseries",
+      "title": "Webhook attempt p99",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 88
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(ghost_delivery_attempt_p99_milliseconds)",
+          "legendFormat": "p99"
+        }
+      ],
+      "description": "p99 time to send one webhook and read its response, over the last five minutes. The send deadline is 10 s."
     }
   ]
 }

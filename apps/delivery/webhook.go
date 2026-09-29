@@ -36,7 +36,11 @@ type webhookSender struct {
 	db     *pgxpool.Pool
 	client *http.Client
 	key    []byte // AES-256 key for webhook_endpoint.secret, from WEBHOOK_SECRET_KEY
+	hosts  *hostLimiter
 }
+
+// A job that finds its host busy waits this long; it is not the receiver's fault, so it records no attempt.
+const hostBusyRetry = 5 * time.Second
 
 func (w webhookSender) send(ctx context.Context, j Job) error {
 	if j.EndpointID == nil {
@@ -76,6 +80,11 @@ func (w webhookSender) send(ctx context.Context, j Job) error {
 	for k, v := range signedHeaders(secret, j.ID, p.Event, []byte(p.Body), time.Now()) {
 		req.Header.Set(k, v)
 	}
+
+	if !w.hosts.acquire(req.URL.Host) {
+		return retryAfterError{fmt.Errorf("too many deliveries in flight to %s", req.URL.Host), hostBusyRetry}
+	}
+	defer w.hosts.release(req.URL.Host)
 
 	started := time.Now()
 	res, sendErr := w.client.Do(req)

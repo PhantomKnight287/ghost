@@ -369,3 +369,46 @@ func TestRunDrainsInFlightSendOnShutdown(t *testing.T) {
 		}
 	}
 }
+
+// Runs in a transaction that is rolled back, so it prunes nothing for real.
+func TestPruneDeletesOnlyOldFinishedJobs(t *testing.T) {
+	db := testDB(t)
+	tx, err := db.Begin(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+
+	insert := func(status, age string) string {
+		var id string
+		err := tx.QueryRow(t.Context(),
+			`INSERT INTO delivery_job (kind, idempotency_key, payload, status, updated_at)
+			 VALUES ('email', $1 || gen_random_uuid()::text, '{}', $2, now() - $3::interval)
+			 RETURNING id`, testKeyPrefix, status, age).Scan(&id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	oldDone := insert("succeeded", "31 days")
+	oldDead := insert("dead", "31 days")
+	recent := insert("succeeded", "1 day")
+	oldPending := insert("pending", "31 days")
+
+	if _, err := prune(t.Context(), tx); err != nil {
+		t.Fatal(err)
+	}
+
+	exists := func(id string) bool {
+		var n int
+		if err := tx.QueryRow(t.Context(), `SELECT count(*) FROM delivery_job WHERE id = $1`, id).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n == 1
+	}
+	for id, want := range map[string]bool{oldDone: false, oldDead: false, recent: true, oldPending: true} {
+		if got := exists(id); got != want {
+			t.Errorf("job %s exists = %v, want %v", id, got, want)
+		}
+	}
+}
