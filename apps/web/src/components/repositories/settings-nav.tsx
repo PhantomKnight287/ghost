@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings, UserRound, Users, UsersRound } from "lucide-react";
+import { Settings, UserRound, Users, UsersRound, Webhook } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -12,6 +12,7 @@ const icons = {
   users: Users,
   teams: UsersRound,
   outside: UserRound,
+  webhooks: Webhook,
 };
 
 export type SettingsLink = {
@@ -37,7 +38,10 @@ export function SettingsNav({
     >
       {links.map(({ href, label, icon }) => {
         const Icon = icons[icon];
-        const active = pathname === href;
+        // A nested page, such as one webhook, lights up its section; the first link is the parent of every section.
+        const active =
+          pathname === href ||
+          (href !== links[0]?.href && pathname.startsWith(`${href}/`));
         return (
           <Link
             key={href}

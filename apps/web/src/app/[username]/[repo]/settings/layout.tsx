@@ -28,6 +28,11 @@ export default async function RepositorySettingsLayout({
                   label: "Access",
                   icon: "users" as const,
                 },
+                {
+                  href: `${base}/webhooks`,
+                  label: "Webhooks",
+                  icon: "webhooks" as const,
+                },
               ]
             : []),
         ]}
