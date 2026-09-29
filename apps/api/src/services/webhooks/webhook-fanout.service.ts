@@ -107,6 +107,50 @@ export class WebhookFanoutService {
 
   /** The JSON a receiver gets. Null when what the event points at is gone. */
   private async bodyOf(event: StoredEvent): Promise<string | null> {
+    const [repository] = await this.db
+      .select({
+        id: schema.repository.id,
+        fullName: sql<string>`${ownerNameOf(schema.user, schema.organization)} || '/' || ${schema.repository.slug}`,
+        visibility: schema.repository.visibility,
+      })
+      .from(schema.repository)
+      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.repository.organizationId),
+      )
+      .where(eq(schema.repository.id, event.repositoryId));
+    if (!repository) return null;
+    const repositoryUrl = `${this.appUrl}/${repository.fullName}`;
+
+    const body: Record<string, unknown> = {
+      event: event.type,
+      repository: {
+        id: repository.id,
+        full_name: repository.fullName,
+        visibility: repository.visibility,
+        html_url: repositoryUrl,
+      },
+      sender: event.actorId ? await this.userRef(event.actorId) : null,
+      created_at: new Date(event.createdAt).toISOString(),
+    };
+
+    if (event.type === 'push') {
+      const { ref, before, after, commits } = event.payload;
+      Object.assign(body, {
+        ref,
+        before,
+        after,
+        created: /^0+$/.test(before),
+        deleted: /^0+$/.test(after),
+        commits: commits.map((commit) => ({
+          ...commit,
+          html_url: `${repositoryUrl}/commit/${commit.sha}`,
+        })),
+      });
+      return JSON.stringify(body);
+    }
+
     const [thread] = await this.db
       .select({
         id: schema.issue.id,
@@ -116,48 +160,20 @@ export class WebhookFanoutService {
         state: schema.issue.state,
         isPullRequest: schema.issue.isPullRequest,
         authorId: schema.issue.authorId,
-        repositoryId: schema.repository.id,
-        repository: sql<string>`${ownerNameOf(schema.user, schema.organization)} || '/' || ${schema.repository.slug}`,
-        visibility: schema.repository.visibility,
       })
       .from(schema.issue)
-      .innerJoin(
-        schema.repository,
-        eq(schema.repository.id, schema.issue.repositoryId),
-      )
-      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
-      .leftJoin(
-        schema.organization,
-        eq(schema.organization.id, schema.repository.organizationId),
-      )
       .where(eq(schema.issue.id, event.payload.issueId));
     if (!thread) return null;
 
-    const [author, sender] = await Promise.all([
-      this.userRef(thread.authorId),
-      event.actorId ? this.userRef(event.actorId) : null,
-    ]);
-
     const kind = thread.isPullRequest ? 'pulls' : 'issues';
-    const body: Record<string, unknown> = {
-      event: event.type,
-      repository: {
-        id: thread.repositoryId,
-        full_name: thread.repository,
-        visibility: thread.visibility,
-        html_url: `${this.appUrl}/${thread.repository}`,
-      },
-      sender,
-      [thread.isPullRequest ? 'pull_request' : 'issue']: {
-        id: thread.id,
-        number: thread.number,
-        title: thread.title,
-        body: thread.body,
-        state: thread.state,
-        author,
-        html_url: `${this.appUrl}/${thread.repository}/${kind}/${thread.number}`,
-      },
-      created_at: new Date(event.createdAt).toISOString(),
+    body[thread.isPullRequest ? 'pull_request' : 'issue'] = {
+      id: thread.id,
+      number: thread.number,
+      title: thread.title,
+      body: thread.body,
+      state: thread.state,
+      author: await this.userRef(thread.authorId),
+      html_url: `${repositoryUrl}/${kind}/${thread.number}`,
     };
 
     switch (event.type) {

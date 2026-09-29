@@ -6,6 +6,7 @@ import type { EventType } from '../events/events.js';
 
 /** Events an endpoint can subscribe to. `ping` is sent on create and on demand, whatever the endpoint chose. */
 export const webhookEvents = [
+  'push',
   'issue.opened',
   'issue.closed',
   'issue.reopened',

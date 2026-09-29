@@ -12,6 +12,8 @@ import type { NotificationReason } from '../../mail/components/thread.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
 import { excluded } from '../../utils/index.js';
 
+type ThreadEvent = Exclude<RepositoryEvent, { type: 'push' }>;
+
 // Long enough to read the point of a comment in the email, short enough that nobody reads a whole essay there.
 const EXCERPT_LENGTH = 1000;
 
@@ -49,6 +51,8 @@ export class NotifierService {
   ) {}
 
   async handle(event: StoredEvent) {
+    // a push is about a ref, not a thread: it reaches webhooks only
+    if (event.type === 'push') return;
     const thread = await this.loadThread(event.payload.issueId);
     if (!thread) return;
     const activity = await this.activityOf(event, thread);
@@ -111,7 +115,7 @@ export class NotifierService {
 
   /** Null when what the event points at is gone, such as a comment deleted before its event was handled. */
   private async activityOf(
-    event: RepositoryEvent,
+    event: ThreadEvent,
     thread: Thread,
   ): Promise<Activity | null> {
     switch (event.type) {
@@ -222,7 +226,7 @@ export class NotifierService {
 
   /** Everyone to notify, each with the most specific reason that applies. Nobody hears about their own activity, or about a repository they ignore or can no longer read. */
   private async recipientsOf(
-    event: RepositoryEvent,
+    event: ThreadEvent,
     thread: Thread,
     activity: Activity,
   ) {
@@ -375,7 +379,7 @@ export class NotifierService {
 
   /** Only to verified addresses, so nobody can sign up with someone else's address and have Ghost mail them. Best effort: a failed send is logged and skipped. */
   private async email(
-    event: StoredEvent,
+    event: ThreadEvent & { id: string },
     thread: Thread,
     activity: Activity,
     recipients: Map<string, NotificationReason>,

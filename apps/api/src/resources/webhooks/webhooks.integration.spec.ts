@@ -165,6 +165,54 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     ).toEqual(['ping']);
   });
 
+  it('sends a push with its ref and commits', async () => {
+    const webhook = await webhooks.create({
+      ...ref,
+      url: 'https://93.184.216.34/push',
+      events: ['push'],
+    });
+    const sha = 'a'.repeat(40);
+    await fanout.handle({
+      id: `evt_whk_push_${RUN}`,
+      type: 'push',
+      repositoryId: repository.id,
+      actorId: OWNER,
+      payload: {
+        ref: 'refs/heads/main',
+        before: '0'.repeat(40),
+        after: sha,
+        commits: [
+          {
+            sha,
+            message: 'Count the bell',
+            author: { name: 'Owner', email: 'owner@example.com' },
+            timestamp: '2026-09-29T12:00:00.000Z',
+          },
+        ],
+      },
+      createdAt: new Date(),
+    });
+
+    const [job] = (await jobsFor(webhook.id)).filter(
+      (job) => (job.payload as { event: string }).event === 'push',
+    );
+    expect(JSON.parse((job.payload as { body: string }).body)).toMatchObject({
+      event: 'push',
+      ref: 'refs/heads/main',
+      created: true,
+      deleted: false,
+      repository: { full_name: `${USERNAME}/app` },
+      sender: { username: USERNAME },
+      commits: [
+        {
+          sha,
+          message: 'Count the bell',
+          html_url: `https://ghost.test/${USERNAME}/app/commit/${sha}`,
+        },
+      ],
+    });
+  });
+
   it('turns a disabled endpoint back on and redelivers as a new delivery', async () => {
     const webhook = await webhooks.create({
       ...ref,

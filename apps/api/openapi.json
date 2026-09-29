@@ -13027,6 +13027,7 @@
       "WebhookEvent": {
         "type": "string",
         "enum": [
+          "push",
           "issue.opened",
           "issue.closed",
           "issue.reopened",

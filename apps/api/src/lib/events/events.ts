@@ -12,7 +12,27 @@ export type EventPayloads = {
   'pull_request.merged': { issueId: string };
   'pull_request.reviewed': { issueId: string; reviewId: string };
   'pull_request.review_commented': { issueId: string; commentId: string };
+  /** One per ref a push moved. Unlike the others it carries what it describes, since commits are not rows to read back. */
+  push: {
+    ref: string;
+    /** 40 zeros when the push created the ref. */
+    before: string;
+    /** 40 zeros when the push deleted the ref. */
+    after: string;
+    /** Newest first, at most `MAX_PUSH_COMMITS`. */
+    commits: PushCommit[];
+  };
 };
+
+export type PushCommit = {
+  sha: string;
+  message: string;
+  author: { name: string; email: string };
+  timestamp: string;
+};
+
+/** Enough to see what a push did without making a huge push a huge payload; GitHub caps at 20 too. */
+export const MAX_PUSH_COMMITS = 20;
 
 export type EventType = keyof EventPayloads;
 

@@ -4,6 +4,7 @@ export type WebhookEvent = components["schemas"]["WebhookEvent"];
 
 /** In the order the picker lists them, each with what triggers it. */
 export const webhookEventLabels: Record<WebhookEvent, string> = {
+  push: "Someone pushes to a branch or tag",
   "issue.opened": "An issue or pull request is opened",
   "issue.commented": "Someone comments on an issue or pull request",
   "issue.assigned": "Someone is assigned",

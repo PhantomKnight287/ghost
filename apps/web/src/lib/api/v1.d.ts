@@ -3514,7 +3514,7 @@ export interface components {
             role: components["schemas"]["RepositoryRole"];
         };
         /** @enum {string} */
-        WebhookEvent: "issue.opened" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.commented" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_commented";
+        WebhookEvent: "push" | "issue.opened" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.commented" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_commented";
         WebhookDTO: {
             id: string;
             url: string;
