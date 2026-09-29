@@ -46,12 +46,40 @@ func claim(ctx context.Context, db *pgxpool.Pool, limit int) ([]Job, error) {
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[Job])
 }
 
+const completeSQL = `
+UPDATE delivery_job
+SET status = 'succeeded', last_error = NULL, locked_until = now(), updated_at = now()
+WHERE id = $1 AND claim_token = $2`
+
 func complete(ctx context.Context, db *pgxpool.Pool, j Job) error {
-	panic("todo")
+	tag, err := db.Exec(ctx, completeSQL, j.ID, j.ClaimToken)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errLeaseLost
+	}
+	return nil
 }
 
+const failSQL = `
+UPDATE delivery_job SET
+  status = CASE WHEN created_at < now() - interval '3 days'
+                THEN 'dead'::delivery_job_status ELSE 'pending' END,
+  next_attempt_at = now() + $3 * interval '1 millisecond',
+  last_error = $4, locked_until = now(), updated_at = now()
+WHERE id = $1 AND claim_token = $2
+`
+
 func fail(ctx context.Context, db *pgxpool.Pool, j Job, sendErr error, delay time.Duration) error {
-	panic("todo")
+	tag, err := db.Exec(ctx, failSQL, j.ID, j.ClaimToken, delay.Milliseconds(), sendErr.Error())
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errLeaseLost
+	}
+	return nil
 }
 
 func backoff(attempt int, randN func(int64) int64) time.Duration {

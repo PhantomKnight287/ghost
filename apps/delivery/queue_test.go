@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sync"
 	"testing"
@@ -177,4 +178,88 @@ func TestClaimReclaimsAfterLeaseExpires(t *testing.T) {
 	if second[0].Attempts != 2 {
 		t.Errorf("attempts = %d, want 2", second[0].Attempts)
 	}
+
+	// The worker that lost its lease must not overwrite the new owner's result.
+	if err := complete(t.Context(), db, first[0]); !errors.Is(err, errLeaseLost) {
+		t.Errorf("complete with stale token = %v, want errLeaseLost", err)
+	}
+	if err := complete(t.Context(), db, second[0]); err != nil {
+		t.Fatalf("complete with current token: %v", err)
+	}
+	if got := jobStatus(t, db, second[0].ID); got != "succeeded" {
+		t.Errorf("status = %s, want succeeded", got)
+	}
+}
+
+func TestFailSchedulesRetry(t *testing.T) {
+	db := testDB(t)
+	insertJobs(t, db, 1)
+	jobs, err := claim(t.Context(), db, 1)
+	if err != nil || len(jobs) != 1 {
+		t.Fatalf("claim = %v, %v", jobs, err)
+	}
+
+	if err := fail(t.Context(), db, jobs[0], errors.New("boom"), 30*time.Second); err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		status, lastError string
+		delay             time.Duration
+	)
+	err = db.QueryRow(t.Context(),
+		`SELECT status, last_error, next_attempt_at - now() FROM delivery_job WHERE id = $1`,
+		jobs[0].ID).Scan(&status, &lastError, &delay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != "pending" {
+		t.Errorf("status = %s, want pending", status)
+	}
+	if lastError != "boom" {
+		t.Errorf("last_error = %q, want boom", lastError)
+	}
+	if delay < 29*time.Second || delay > 30*time.Second {
+		t.Errorf("next attempt in %v, want about 30s", delay)
+	}
+
+	// Not due yet, so it must not be claimable.
+	again, err := claim(t.Context(), db, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again) != 0 {
+		t.Errorf("claimed %d jobs before next_attempt_at, want 0", len(again))
+	}
+}
+
+func TestFailPastMaxAgeIsDead(t *testing.T) {
+	db := testDB(t)
+	_, err := db.Exec(t.Context(),
+		`INSERT INTO delivery_job (kind, idempotency_key, payload, created_at)
+		 VALUES ('email', $1 || gen_random_uuid()::text, '{}', now() - interval '4 days')`,
+		testKeyPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := claim(t.Context(), db, 1)
+	if err != nil || len(jobs) != 1 {
+		t.Fatalf("claim = %v, %v", jobs, err)
+	}
+
+	if err := fail(t.Context(), db, jobs[0], errors.New("still down"), time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if got := jobStatus(t, db, jobs[0].ID); got != "dead" {
+		t.Errorf("status = %s, want dead", got)
+	}
+}
+
+func jobStatus(t *testing.T, db *pgxpool.Pool, id string) string {
+	t.Helper()
+	var s string
+	if err := db.QueryRow(t.Context(), `SELECT status FROM delivery_job WHERE id = $1`, id).Scan(&s); err != nil {
+		t.Fatal(err)
+	}
+	return s
 }
