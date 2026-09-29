@@ -161,7 +161,7 @@ export function markMatches(tokens: ThemedToken[], ranges: Range[]) {
   }
 
   const parts: ReactNode[] = [];
-  for (let i = 0; i < pieces.length;) {
+  for (let i = 0; i < pieces.length; ) {
     const { range } = pieces[i];
     if (!range) {
       parts.push(pieces[i++].node);

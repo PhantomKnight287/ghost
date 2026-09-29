@@ -39,9 +39,7 @@ export const outboxEvent = pgTable(
     attempts: integer().notNull().default(0),
     lastError: text(),
 
-    createdAt: timestamp({ withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     processedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
@@ -104,9 +102,7 @@ export const issueSubscription = pgTable(
       .notNull(),
     subscribed: boolean().notNull(),
 
-    createdAt: timestamp({ withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.userId, t.issueId] }),
@@ -131,9 +127,7 @@ export const repositoryWatch = pgTable(
       .notNull(),
     level: repositoryWatchLevel().notNull(),
 
-    createdAt: timestamp({ withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.userId, t.repositoryId] }),

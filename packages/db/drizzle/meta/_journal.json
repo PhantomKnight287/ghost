@@ -246,6 +246,13 @@
       "when": 1790583411592,
       "tag": "0034_snake_case_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790660579808,
+      "tag": "0035_parched_bushwacker",
+      "breakpoints": true
     }
   ]
 }
