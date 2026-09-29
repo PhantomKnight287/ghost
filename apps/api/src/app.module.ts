@@ -15,6 +15,7 @@ import {
 } from './mail/mail.module.js';
 import { MailService } from './mail/mail.service.js';
 import { CollaboratorsModule } from './resources/collaborators/collaborators.module.js';
+import { WebhooksModule } from './resources/webhooks/webhooks.module.js';
 import { EmailsModule } from './resources/emails/emails.module.js';
 import { GpgKeysModule } from './resources/gpg-keys/gpg-keys.module.js';
 import { IssuesModule } from './resources/issues/issues.module.js';
@@ -100,6 +101,7 @@ import { UsersService } from './services/users/users.service.js';
     BranchesModule,
     NotificationsModule,
     CollaboratorsModule,
+    WebhooksModule,
     EmailsModule,
     GpgKeysModule,
     SshKeysModule,

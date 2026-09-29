@@ -26,7 +26,7 @@ export type RepositoryEvent = {
 }[EventType];
 
 /** An event as a consumer receives it: stored, so it has an id that stays the same across retries. */
-export type StoredEvent = RepositoryEvent & { id: string };
+export type StoredEvent = RepositoryEvent & { id: string; createdAt: Date };
 
 /** Queues `event` for every consumer. Pass the transaction making the change, so the event exists exactly when the change does. */
 export async function publishEvent(db: Executor, event: RepositoryEvent) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -296,5 +297,15 @@ func TestWebhookSendDropsJobForDisabledEndpoint(t *testing.T) {
 	}
 	if len(hits) > 0 {
 		t.Error("sent to a disabled endpoint")
+	}
+}
+
+// Sealed by sealWebhookSecret in apps/api/src/lib/webhooks/webhooks.ts with a
+// key of 32 bytes of 7. If this breaks, the API and delivery disagree on the format.
+func TestOpenSecretSealedByTheAPI(t *testing.T) {
+	key := bytes.Repeat([]byte{7}, 32)
+	got, err := openSecret(key, "v1:imP+jJazaD8GgSnv6BdCuGKPLoZM2DO5Psxx9jR7ursCPfH6JAzhj4jGDlPn0w==")
+	if err != nil || string(got) != "whsec_from_the_api" {
+		t.Fatalf("openSecret = %q, %v", got, err)
 	}
 }

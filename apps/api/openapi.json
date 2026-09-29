@@ -7647,6 +7647,499 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/webhooks": {
+      "get": {
+        "description": "Admins only.",
+        "operationId": "WebhooksController_list",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListWebhooksResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List webhooks",
+        "tags": [
+          "Webhooks"
+        ]
+      },
+      "post": {
+        "description": "Sends the endpoint a `ping` right away. The response carries the signing secret, which is never shown again. Admins only.",
+        "operationId": "WebhooksController_create",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedWebhookDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a webhook",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}": {
+      "patch": {
+        "description": "Admins only.",
+        "operationId": "WebhooksController_update",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebhookRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update a webhook",
+        "tags": [
+          "Webhooks"
+        ]
+      },
+      "delete": {
+        "description": "Pending deliveries are dropped. Admins only.",
+        "operationId": "WebhooksController_remove",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a webhook",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/pings": {
+      "post": {
+        "description": "Queues a `ping`. Admins only.",
+        "operationId": "WebhooksController_ping",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send a test delivery",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/deliveries": {
+      "get": {
+        "description": "The 50 most recent, each with its attempts. Admins only.",
+        "operationId": "WebhooksController_deliveries",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDeliveriesResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List recent deliveries",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/deliveries/{deliveryId}/redeliveries": {
+      "post": {
+        "description": "Sends the same body again as a new delivery, with its own id and retries. Admins only.",
+        "operationId": "WebhooksController_redeliver",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deliveryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Redeliver",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
     "/api/emails": {
       "get": {
         "operationId": "EmailsController_list",
@@ -12529,6 +13022,259 @@
         },
         "required": [
           "role"
+        ]
+      },
+      "WebhookEvent": {
+        "type": "string",
+        "enum": [
+          "issue.opened",
+          "issue.closed",
+          "issue.reopened",
+          "issue.assigned",
+          "issue.commented",
+          "pull_request.merged",
+          "pull_request.reviewed",
+          "pull_request.review_commented"
+        ]
+      },
+      "WebhookDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEvent"
+            }
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "disabledReason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why Ghost turned the endpoint off, such as a 410 Gone."
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "events",
+          "active",
+          "disabledReason",
+          "createdAt"
+        ]
+      },
+      "ListWebhooksResponseDTO": {
+        "type": "object",
+        "properties": {
+          "webhooks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookDTO"
+            }
+          }
+        },
+        "required": [
+          "webhooks"
+        ]
+      },
+      "CreateWebhookRequestDTO": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://example.com/webhook"
+          },
+          "events": {
+            "type": "array",
+            "description": "Events that trigger a delivery. At least one.",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEvent"
+            }
+          }
+        },
+        "required": [
+          "url",
+          "events"
+        ]
+      },
+      "CreatedWebhookDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEvent"
+            }
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "disabledReason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why Ghost turned the endpoint off, such as a 410 Gone."
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string",
+            "description": "Signs every delivery. Shown only now: Ghost stores it encrypted and never returns it again."
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "events",
+          "active",
+          "disabledReason",
+          "createdAt",
+          "secret"
+        ]
+      },
+      "UpdateWebhookRequestDTO": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEvent"
+            }
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Turning an endpoint back on clears the reason it was turned off."
+          }
+        }
+      },
+      "DeliveryStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "succeeded",
+          "dead"
+        ],
+        "description": "`dead` means Ghost gave up. A redelivery sends it again as a new delivery."
+      },
+      "DeliveryAttemptDTO": {
+        "type": "object",
+        "properties": {
+          "startedAt": {
+            "type": "string"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "statusCode": {
+            "type": "number",
+            "nullable": true,
+            "description": "Null when no response came back."
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestHeaders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "responseBody": {
+            "type": "string",
+            "nullable": true,
+            "description": "The first 4 KB of the response."
+          }
+        },
+        "required": [
+          "startedAt",
+          "durationMs",
+          "statusCode",
+          "error",
+          "requestHeaders",
+          "responseBody"
+        ]
+      },
+      "DeliveryDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Sent as `X-Ghost-Delivery`."
+          },
+          "event": {
+            "type": "string"
+          },
+          "status": {
+            "description": "`dead` means Ghost gave up. A redelivery sends it again as a new delivery.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryStatus"
+              }
+            ]
+          },
+          "body": {
+            "type": "string",
+            "description": "The JSON body the receiver gets."
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "nextAttemptAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the next try is due, while the delivery is pending."
+          },
+          "attempts": {
+            "description": "Newest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeliveryAttemptDTO"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "status",
+          "body",
+          "createdAt",
+          "nextAttemptAt",
+          "attempts"
+        ]
+      },
+      "ListDeliveriesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "deliveries": {
+            "description": "The 50 most recent.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeliveryDTO"
+            }
+          }
+        },
+        "required": [
+          "deliveries"
         ]
       },
       "UserEmailDTO": {

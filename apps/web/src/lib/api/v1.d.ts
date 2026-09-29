@@ -1818,6 +1818,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhooks
+         * @description Admins only.
+         */
+        get: operations["WebhooksController_list"];
+        put?: never;
+        /**
+         * Create a webhook
+         * @description Sends the endpoint a `ping` right away. The response carries the signing secret, which is never shown again. Admins only.
+         */
+        post: operations["WebhooksController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a webhook
+         * @description Pending deliveries are dropped. Admins only.
+         */
+        delete: operations["WebhooksController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a webhook
+         * @description Admins only.
+         */
+        patch: operations["WebhooksController_update"];
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/pings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test delivery
+         * @description Queues a `ping`. Admins only.
+         */
+        post: operations["WebhooksController_ping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent deliveries
+         * @description The 50 most recent, each with its attempts. Admins only.
+         */
+        get: operations["WebhooksController_deliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/deliveries/{deliveryId}/redeliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeliver
+         * @description Sends the same body again as a new delivery, with its own id and retries. Admins only.
+         */
+        post: operations["WebhooksController_redeliver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/emails": {
         parameters: {
             query?: never;
@@ -3404,6 +3512,78 @@ export interface components {
         };
         SetTeamRoleRequestDTO: {
             role: components["schemas"]["RepositoryRole"];
+        };
+        /** @enum {string} */
+        WebhookEvent: "issue.opened" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.commented" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_commented";
+        WebhookDTO: {
+            id: string;
+            url: string;
+            events: components["schemas"]["WebhookEvent"][];
+            active: boolean;
+            /** @description Why Ghost turned the endpoint off, such as a 410 Gone. */
+            disabledReason: string | null;
+            createdAt: string;
+        };
+        ListWebhooksResponseDTO: {
+            webhooks: components["schemas"]["WebhookDTO"][];
+        };
+        CreateWebhookRequestDTO: {
+            /** @example https://example.com/webhook */
+            url: string;
+            /** @description Events that trigger a delivery. At least one. */
+            events: components["schemas"]["WebhookEvent"][];
+        };
+        CreatedWebhookDTO: {
+            id: string;
+            url: string;
+            events: components["schemas"]["WebhookEvent"][];
+            active: boolean;
+            /** @description Why Ghost turned the endpoint off, such as a 410 Gone. */
+            disabledReason: string | null;
+            createdAt: string;
+            /** @description Signs every delivery. Shown only now: Ghost stores it encrypted and never returns it again. */
+            secret: string;
+        };
+        UpdateWebhookRequestDTO: {
+            url?: string;
+            events?: components["schemas"]["WebhookEvent"][];
+            /** @description Turning an endpoint back on clears the reason it was turned off. */
+            active?: boolean;
+        };
+        /**
+         * @description `dead` means Ghost gave up. A redelivery sends it again as a new delivery.
+         * @enum {string}
+         */
+        DeliveryStatus: "pending" | "succeeded" | "dead";
+        DeliveryAttemptDTO: {
+            startedAt: string;
+            durationMs: number;
+            /** @description Null when no response came back. */
+            statusCode: number | null;
+            error: string | null;
+            requestHeaders: {
+                [key: string]: string;
+            };
+            /** @description The first 4 KB of the response. */
+            responseBody: string | null;
+        };
+        DeliveryDTO: {
+            /** @description Sent as `X-Ghost-Delivery`. */
+            id: string;
+            event: string;
+            /** @description `dead` means Ghost gave up. A redelivery sends it again as a new delivery. */
+            status: components["schemas"]["DeliveryStatus"];
+            /** @description The JSON body the receiver gets. */
+            body: string;
+            createdAt: string;
+            /** @description When the next try is due, while the delivery is pending. */
+            nextAttemptAt: string | null;
+            /** @description Newest first. */
+            attempts: components["schemas"]["DeliveryAttemptDTO"][];
+        };
+        ListDeliveriesResponseDTO: {
+            /** @description The 50 most recent. */
+            deliveries: components["schemas"]["DeliveryDTO"][];
         };
         UserEmailDTO: {
             /** @description Row id, or `primary` for the account address itself */
@@ -7991,6 +8171,304 @@ export interface operations {
                 username: string;
                 repo: string;
                 teamId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    WebhooksController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListWebhooksResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    WebhooksController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWebhookRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedWebhookDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    WebhooksController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    WebhooksController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWebhookRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    WebhooksController_ping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    WebhooksController_deliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDeliveriesResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    WebhooksController_redeliver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+                deliveryId: string;
             };
             cookie?: never;
         };
