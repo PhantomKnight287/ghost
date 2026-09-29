@@ -4,24 +4,22 @@ import { CreateWebhookCard } from "@/components/webhooks/create-webhook-card";
 import { WebhookList } from "@/components/webhooks/webhook-list";
 import { createServerClient } from "@/lib/api/server";
 
-export default async function RepositoryWebhooksPage({
+export default async function OrganizationWebhooksPage({
   params,
-}: PageProps<"/[username]/[repo]/settings/webhooks">) {
-  const { username, repo } = await params;
+}: PageProps<"/[username]/settings/webhooks">) {
+  const { username: slug } = await params;
   const client = await createServerClient();
-  const { data } = await client.GET(
-    "/api/repositories/{username}/{repo}/webhooks",
-    { params: { path: { username, repo } } },
-  );
-  // Admins only; the API answers everyone else with 403 or 404.
+  const { data } = await client.GET("/api/organizations/{slug}/webhooks", {
+    params: { path: { slug } },
+  });
   if (!data) notFound();
-  const owner = { kind: "repository" as const, username, repo };
+  const owner = { kind: "organization" as const, slug };
 
   return (
     <div className="flex flex-col gap-8">
       <CreateWebhookCard
         owner={owner}
-        hint="Ghost sends a ping right away, so you can check the URL works."
+        hint="Receives the events of every repository in the organization. Ghost sends a ping right away."
       />
       <WebhookList owner={owner} webhooks={data.webhooks} />
     </div>

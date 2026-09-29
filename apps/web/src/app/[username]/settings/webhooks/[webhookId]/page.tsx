@@ -3,26 +3,25 @@ import { notFound } from "next/navigation";
 import { WebhookDetail } from "@/components/webhooks/webhook-detail";
 import { createServerClient } from "@/lib/api/server";
 
-export default async function RepositoryWebhookPage({
+export default async function OrganizationWebhookPage({
   params,
-}: PageProps<"/[username]/[repo]/settings/webhooks/[webhookId]">) {
-  const { username, repo, webhookId } = await params;
+}: PageProps<"/[username]/settings/webhooks/[webhookId]">) {
+  const { username: slug, webhookId } = await params;
   const client = await createServerClient();
   const [webhooks, deliveries] = await Promise.all([
-    client.GET("/api/repositories/{username}/{repo}/webhooks", {
-      params: { path: { username, repo } },
+    client.GET("/api/organizations/{slug}/webhooks", {
+      params: { path: { slug } },
     }),
-    client.GET(
-      "/api/repositories/{username}/{repo}/webhooks/{webhookId}/deliveries",
-      { params: { path: { username, repo, webhookId } } },
-    ),
+    client.GET("/api/organizations/{slug}/webhooks/{webhookId}/deliveries", {
+      params: { path: { slug, webhookId } },
+    }),
   ]);
   const webhook = webhooks.data?.webhooks.find(({ id }) => id === webhookId);
   if (!webhook || !deliveries.data) notFound();
 
   return (
     <WebhookDetail
-      owner={{ kind: "repository", username, repo }}
+      owner={{ kind: "organization", slug }}
       webhook={webhook}
       deliveries={deliveries.data.deliveries}
     />
