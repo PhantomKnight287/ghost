@@ -76,7 +76,7 @@ export default async function LandingPage() {
           asChild
           variant="ghost"
           size="sm"
-          className="hidden rounded-full md:inline-flex"
+          className="rounded-full px-2.5 md:px-3"
         >
           <Link href="/auth/sign-in">Sign in</Link>
         </Button>
@@ -137,8 +137,8 @@ export default async function LandingPage() {
           />
         </section>
 
-        <section className="flex flex-col gap-9 pt-24 md:flex-row md:justify-between md:gap-16 md:pt-40">
-          <div className="flex flex-col gap-4 md:max-w-sm md:gap-5">
+        <section className="flex flex-col gap-9 pt-24 md:pt-40 lg:flex-row lg:justify-between lg:gap-16">
+          <div className="flex flex-col gap-4 md:max-w-md md:gap-5 lg:max-w-sm">
             <h2 className="text-4xl font-semibold tracking-[-0.04em] text-balance md:text-[52px] md:leading-[1.04]">
               Everything you use daily. Minus the outages.
             </h2>
@@ -147,7 +147,7 @@ export default async function LandingPage() {
               keep working.
             </p>
           </div>
-          <ol className="flex flex-col md:w-[720px] md:shrink-0">
+          <ol className="flex min-w-0 flex-col lg:flex-1 xl:w-[720px] xl:flex-none">
             {FEATURES.map(({ title, body }, index) => (
               <li
                 key={title}
@@ -202,8 +202,8 @@ export default async function LandingPage() {
                 </h2>
               </div>
               <p className="leading-relaxed text-background/70 md:max-w-md md:text-lg lg:max-w-xs">
-                Same Ghost either way. Start on ours today, move to your own
-                server whenever you like.
+                Same Ghost either way. Start on ours today, or run it on your
+                own server.
               </p>
             </div>
             <div className="relative flex flex-col gap-3 md:flex-row md:gap-5">
@@ -238,7 +238,7 @@ export default async function LandingPage() {
                 points={[
                   "Your network, your rules",
                   "Every feature Cloud has",
-                  "Move either way with a git push",
+                  "Bring your repositories over with a git push",
                 ]}
               >
                 <Button
