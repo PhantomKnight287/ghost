@@ -92,6 +92,14 @@ export class CreatedWebhookDTO extends WebhookDTO {
   secret: string;
 }
 
+export class WebhookSecretDTO {
+  @ApiProperty({
+    description:
+      'The new signing secret. The old one stops working at once, and this is the only time the new one is shown.',
+  })
+  secret: string;
+}
+
 export class ListWebhooksResponseDTO {
   @ApiProperty({ type: [WebhookDTO] })
   webhooks: WebhookDTO[];

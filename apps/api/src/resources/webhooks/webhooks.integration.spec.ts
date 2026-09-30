@@ -833,6 +833,31 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     ).rejects.toThrow('Delivery not found');
   });
 
+  it('replaces a secret for its own owner only', async () => {
+    const webhook = await webhooks.create(repositoryOwner, {
+      url: 'https://93.184.216.34/roll',
+      events: ['issue.opened'],
+    });
+    const sealed = async () =>
+      (
+        await db
+          .select({ secret: schema.webhookEndpoint.secret })
+          .from(schema.webhookEndpoint)
+          .where(eq(schema.webhookEndpoint.id, webhook.id))
+      )[0].secret;
+    const before = await sealed();
+
+    const { secret } = await webhooks.rollSecret(repositoryOwner, webhook.id);
+    expect(secret).toMatch(/^whsec_/);
+    expect(secret).not.toBe(webhook.secret);
+    expect(await sealed()).not.toBe(before);
+    expect(await sealed()).not.toContain(secret);
+
+    await expect(
+      webhooks.rollSecret(organizationOwner, webhook.id),
+    ).rejects.toThrow('Webhook not found');
+  });
+
   it('pings and deletes', async () => {
     const webhook = await webhooks.create(repositoryOwner, {
       url: 'https://93.184.216.34/bye',
@@ -848,7 +873,7 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     );
   });
 
-  it('refuses to create webhooks without WEBHOOK_SECRET_KEY', async () => {
+  it('refuses to create webhooks or replace secrets without WEBHOOK_SECRET_KEY', async () => {
     const unconfigured = new WebhooksService(
       db,
       new RepositoryAccessService(db),
@@ -860,6 +885,9 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
         url: 'https://93.184.216.34/none',
         events: ['issue.opened'],
       }),
+    ).rejects.toThrow('WEBHOOK_SECRET_KEY');
+    await expect(
+      unconfigured.rollSecret(repositoryOwner, 'whk_any'),
     ).rejects.toThrow('WEBHOOK_SECRET_KEY');
   });
 });

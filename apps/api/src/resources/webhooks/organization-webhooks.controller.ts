@@ -31,6 +31,7 @@ import {
   ListWebhooksResponseDTO,
   UpdateWebhookRequestDTO,
   WebhookDTO,
+  WebhookSecretDTO,
 } from './dto/webhook.dto.js';
 import { WebhooksService } from './webhooks.service.js';
 
@@ -110,6 +111,25 @@ export class OrganizationWebhooksController {
     @Session() session: UserSession,
   ): Promise<void> {
     return this.webhooks.remove(await this.owner(slug, session), webhookId);
+  }
+
+  @Post(':webhookId/secret')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Replace an organization webhook's signing secret",
+    description:
+      'The old secret stops working at once, pending retries included. The response is the only time the new one is shown. Admins only.',
+  })
+  @ApiOkResponse({ type: WebhookSecretDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiServiceUnavailableResponse({ type: ErrorResponseDTO })
+  async rollSecret(
+    @Param('slug') slug: string,
+    @Param('webhookId') webhookId: string,
+    @Session() session: UserSession,
+  ): Promise<WebhookSecretDTO> {
+    return this.webhooks.rollSecret(await this.owner(slug, session), webhookId);
   }
 
   @Post(':webhookId/pings')

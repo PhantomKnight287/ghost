@@ -116,6 +116,29 @@ export const pingWebhook = actionClient
     if (error) throw new Error(error.message);
   });
 
+export const rollWebhookSecret = actionClient
+  .inputSchema(webhook)
+  .action(async ({ parsedInput: { owner, webhookId } }) => {
+    const { data, error } =
+      owner.kind === "repository"
+        ? await fetchClient.POST(
+            "/api/repositories/{username}/{repo}/webhooks/{webhookId}/secret",
+            {
+              params: { path: { ...owner, webhookId } },
+              headers: await headers(),
+            },
+          )
+        : await fetchClient.POST(
+            "/api/organizations/{slug}/webhooks/{webhookId}/secret",
+            {
+              params: { path: { ...owner, webhookId } },
+              headers: await headers(),
+            },
+          );
+    if (error) throw new Error(error.message);
+    return data;
+  });
+
 export const redeliverWebhook = actionClient
   .inputSchema(webhook.extend({ deliveryId: z.string() }))
   .action(async ({ parsedInput: { owner, webhookId, deliveryId } }) => {

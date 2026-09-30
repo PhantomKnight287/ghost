@@ -152,6 +152,18 @@ export class WebhooksService {
       .where(eq(schema.webhookEndpoint.id, webhookId));
   }
 
+  /** No overlap: a delivery sent from now on, retries included, is signed with the new secret. */
+  async rollSecret(owner: WebhookOwner, webhookId: string) {
+    if (!this.key) throw new WebhooksNotConfiguredError();
+    await this.find(owner, webhookId);
+    const secret = newWebhookSecret();
+    await this.db
+      .update(schema.webhookEndpoint)
+      .set({ secret: sealWebhookSecret(this.key, secret) })
+      .where(eq(schema.webhookEndpoint.id, webhookId));
+    return { secret };
+  }
+
   async ping(owner: WebhookOwner, webhookId: string) {
     await this.fanout.ping(await this.find(owner, webhookId), owner);
   }

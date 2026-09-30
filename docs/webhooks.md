@@ -113,6 +113,10 @@ func VerifyGhostWebhook(secret, rawBody []byte, timestamp, signature string) boo
 
 A receiver or library that already checks GitHub's `X-Hub-Signature-256` works unchanged with the same secret. That signature covers the body only, so it gives no replay protection: prefer `X-Ghost-Signature-256` when you write the check yourself.
 
+### Replacing the secret
+
+"Replace secret" on the webhook's page, or `POST …/webhooks/{webhookId}/secret`, makes a new secret and shows it once. The old secret stops working at once: every delivery after that, retries included, is signed with the new one. There is no overlap, so update the receiver right away; a delivery that fails in between is retried, and it can also be redelivered from the webhook's page.
+
 ## Retries
 
 - A 2xx response is a success.

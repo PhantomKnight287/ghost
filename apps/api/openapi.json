@@ -7942,6 +7942,84 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/secret": {
+      "post": {
+        "description": "The old secret stops working at once, pending retries included. The response is the only time the new one is shown. Admins only.",
+        "operationId": "RepositoryWebhooksController_rollSecret",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookSecretDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace a webhook's signing secret",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/webhooks/{webhookId}/pings": {
       "post": {
         "description": "Queues a `ping`. Admins only.",
@@ -8398,6 +8476,76 @@
           }
         },
         "summary": "Delete an organization webhook",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/webhooks/{webhookId}/secret": {
+      "post": {
+        "description": "The old secret stops working at once, pending retries included. The response is the only time the new one is shown. Admins only.",
+        "operationId": "OrganizationWebhooksController_rollSecret",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookSecretDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace an organization webhook's signing secret",
         "tags": [
           "Webhooks"
         ]
@@ -13627,6 +13775,18 @@
             "description": "Turning an endpoint back on clears the reason it was turned off."
           }
         }
+      },
+      "WebhookSecretDTO": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "description": "The new signing secret. The old one stops working at once, and this is the only time the new one is shown."
+          }
+        },
+        "required": [
+          "secret"
+        ]
       },
       "DeliveryStatus": {
         "type": "string",

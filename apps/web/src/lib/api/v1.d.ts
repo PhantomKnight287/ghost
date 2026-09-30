@@ -1866,6 +1866,26 @@ export interface paths {
         patch: operations["RepositoryWebhooksController_update"];
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace a webhook's signing secret
+         * @description The old secret stops working at once, pending retries included. The response is the only time the new one is shown. Admins only.
+         */
+        post: operations["RepositoryWebhooksController_rollSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/webhooks/{webhookId}/pings": {
         parameters: {
             query?: never;
@@ -1972,6 +1992,26 @@ export interface paths {
          * @description Admins only.
          */
         patch: operations["OrganizationWebhooksController_update"];
+        trace?: never;
+    };
+    "/api/organizations/{slug}/webhooks/{webhookId}/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace an organization webhook's signing secret
+         * @description The old secret stops working at once, pending retries included. The response is the only time the new one is shown. Admins only.
+         */
+        post: operations["OrganizationWebhooksController_rollSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/organizations/{slug}/webhooks/{webhookId}/pings": {
@@ -3657,6 +3697,10 @@ export interface components {
             events?: components["schemas"]["WebhookEvent"][];
             /** @description Turning an endpoint back on clears the reason it was turned off. */
             active?: boolean;
+        };
+        WebhookSecretDTO: {
+            /** @description The new signing secret. The old one stops working at once, and this is the only time the new one is shown. */
+            secret: string;
         };
         /**
          * @description `dead` means Ghost gave up. A redelivery sends it again as a new delivery.
@@ -8492,6 +8536,53 @@ export interface operations {
             };
         };
     };
+    RepositoryWebhooksController_rollSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecretDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     RepositoryWebhooksController_ping: {
         parameters: {
             query?: never;
@@ -8777,6 +8868,52 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationWebhooksController_rollSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecretDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

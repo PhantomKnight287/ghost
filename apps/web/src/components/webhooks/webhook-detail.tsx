@@ -3,6 +3,7 @@ import type { components } from "@/lib/api/v1";
 import type { WebhookOwner } from "@/lib/webhooks";
 
 import { DeleteWebhookCard } from "./delete-webhook-card";
+import { RollSecretCard } from "./roll-secret-card";
 import {
   WebhookDeliveries,
   WebhookDeliveriesSkeleton,
@@ -38,6 +39,7 @@ export function WebhookDetail({
         webhookId={webhook.id}
         deliveries={deliveries}
       />
+      <RollSecretCard owner={owner} webhook={webhook} />
       <DeleteWebhookCard owner={owner} webhook={webhook} />
     </div>
   );
