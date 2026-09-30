@@ -1,56 +1,157 @@
-import { bucket, defineRailway, github, image, postgres, preserve, project, service, volume } from "railway/iac";
+import {
+  bucket,
+  defineRailway,
+  github,
+  image,
+  postgres,
+  preserve,
+  project,
+  service,
+  volume,
+} from "railway/iac";
 
 export default defineRailway(() => {
   const ghost = github("PhantomKnight287/ghost", { checkSuites: false });
 
-  const postgresDatabase = postgres("postgres", { region: "asia-southeast1-eqsg3a" });
+  const postgresDatabase = postgres("postgres", {
+    region: "asia-southeast1-eqsg3a",
+  });
   postgresDatabase.networking = { privateNetworkEndpoint: "postgres-30b4" };
-  const postgresVolumeUO8m = volume("postgres-volume-uO8m", { alerts: { usage: { "100": {}, "80": {}, "95": {} } }, allowOnlineResize: true, region: "asia-southeast1-eqsg3a", sizeMB: 5000 });
+  const postgresVolumeUO8m = volume("postgres-volume-uO8m", {
+    alerts: { usage: { "100": {}, "80": {}, "95": {} } },
+    allowOnlineResize: true,
+    region: "asia-southeast1-eqsg3a",
+    sizeMB: 5000,
+  });
   const ghostBucket = bucket("ghost-bucket", { region: "sin" });
   const web = service("web", {
     source: ghost,
-    build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "/apps/web/Dockerfile", watchPatterns: ["/apps/web/**"] },
+    build: {
+      buildEnvironment: "V3",
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/web/Dockerfile",
+      watchPatterns: ["/apps/web/**"],
+    },
     replicas: { "asia-southeast1-eqsg3a": 1 },
     deploy: { sleepApplication: true },
     domains: ["web.ghost.procrastinator.fyi"],
-    env: { NEXT_PUBLIC_API_URL: preserve(), NEXT_PUBLIC_DOCS_URL: preserve(), NEXT_PUBLIC_SITE_URL: preserve(), NEXT_PUBLIC_SSH_CLONE_HOST: preserve(), OTEL_EXPORTER_OTLP_ENDPOINT: preserve() },
+    env: {
+      NEXT_PUBLIC_API_URL: preserve(),
+      NEXT_PUBLIC_DOCS_URL: preserve(),
+      NEXT_PUBLIC_SITE_URL: preserve(),
+      NEXT_PUBLIC_SSH_CLONE_HOST: preserve(),
+      OTEL_EXPORTER_OTLP_ENDPOINT: preserve(),
+    },
   });
   const docs = service("docs", {
     source: ghost,
-    build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "/apps/docs/Dockerfile", watchPatterns: ["/apps/docs/**"] },
+    build: {
+      buildEnvironment: "V3",
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/docs/Dockerfile",
+      watchPatterns: ["/apps/docs/**"],
+    },
     replicas: { "asia-southeast1-eqsg3a": 1 },
     deploy: { sleepApplication: true },
     domains: ["docs.ghost.procrastinator.fyi"],
-    env: { NEXT_PUBLIC_DOCS_URL: preserve(), NEXT_PUBLIC_WEB_APP_URL: preserve() },
+    env: {
+      NEXT_PUBLIC_DOCS_URL: preserve(),
+      NEXT_PUBLIC_WEB_APP_URL: preserve(),
+    },
   });
   const api = service("api", {
     source: ghost,
-    build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "apps/api/Dockerfile", watchPatterns: ["/apps/api/**"] },
+    build: {
+      buildEnvironment: "V3",
+      builder: "DOCKERFILE",
+      dockerfilePath: "apps/api/Dockerfile",
+      watchPatterns: ["/apps/api/**"],
+    },
     healthcheck: "/api",
     healthcheckTimeout: 60,
     preDeploy: "node packages/db/dist/migrate.js",
-    // Keep at 1: deleting a repository purges only the local git cache of the replica that handles the request (docs/0020).
     replicas: { "asia-southeast1-eqsg3a": 1 },
     deploy: { restartPolicyMaxRetries: 5, sleepApplication: true },
     domains: ["api.ghost.procrastinator.fyi"],
     networking: { tcpProxies: { "3110": {} } },
-    env: { AUTH_COOKIE_DOMAIN: preserve(), AUTH_TRUSTED_ORIGINS: preserve(), BETTER_AUTH_SECRET: preserve(), BETTER_AUTH_URL: preserve(), DATABASE_URL: preserve(), EMAIL_PROXY: preserve(), EMAIL_PROXY_SECRET: preserve(), EMAIL_SENDER: preserve(), EMAIL_VERIFICATION_ENABLED: preserve(), GIT_SSH_HOST_KEY: preserve(), GIT_SSH_PORT: preserve(), PORT: preserve(), S3_ACCESS_KEY_ID: preserve(), S3_BUCKET: preserve(), S3_ENDPOINT: preserve(), S3_SECRET_ACCESS_KEY: preserve(), WEB_APP_URL: preserve(), ZOEKT_URL: preserve(), ZOEKT_URL_BASE: preserve() },
+    env: {
+      AUTH_COOKIE_DOMAIN: preserve(),
+      AUTH_TRUSTED_ORIGINS: preserve(),
+      BETTER_AUTH_SECRET: preserve(),
+      BETTER_AUTH_URL: preserve(),
+      DATABASE_URL: preserve(),
+      EMAIL_PROXY: preserve(),
+      EMAIL_PROXY_SECRET: preserve(),
+      EMAIL_SENDER: preserve(),
+      EMAIL_VERIFICATION_ENABLED: preserve(),
+      GIT_SSH_HOST_KEY: preserve(),
+      GIT_SSH_PORT: preserve(),
+      PORT: preserve(),
+      S3_ACCESS_KEY_ID: preserve(),
+      S3_BUCKET: preserve(),
+      S3_ENDPOINT: preserve(),
+      S3_SECRET_ACCESS_KEY: preserve(),
+      WEBHOOK_ALLOW_PRIVATE_NETWORKS: preserve(),
+      WEB_APP_URL: preserve(),
+      ZOEKT_URL: preserve(),
+      ZOEKT_URL_BASE: preserve(),
+    },
+  });
+  const delivery = service("delivery", {
+    source: ghost,
+    build: {
+      buildEnvironment: "V3",
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/delivery/Dockerfile",
+      watchPatterns: ["/apps/delivery/**"],
+    },
+    replicas: { "asia-southeast1-eqsg3a": 1 },
+    env: {
+      DATABASE_URL: preserve(),
+      EMAIL_PROXY: preserve(),
+      EMAIL_PROXY_SECRET: preserve(),
+      WEBHOOK_ALLOW_PRIVATE_NETWORKS: preserve(),
+      WEBHOOK_SECRET_KEY: preserve(),
+    },
   });
   const zoekt = service("zoekt", {
     source: ghost,
-    build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "/apps/zoekt/Dockerfile", watchPatterns: ["/apps/zoekt/**"] },
+    build: {
+      buildEnvironment: "V3",
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/zoekt/Dockerfile",
+      watchPatterns: ["/apps/zoekt/**"],
+    },
     healthcheck: "/healthz",
     replicas: { "asia-southeast1-eqsg3a": 1 },
-    env: { S3_ACCESS_KEY_ID: preserve(), S3_BUCKET: preserve(), S3_ENDPOINT: preserve(), S3_SECRET_ACCESS_KEY: preserve() },
+    env: {
+      S3_ACCESS_KEY_ID: preserve(),
+      S3_BUCKET: preserve(),
+      S3_ENDPOINT: preserve(),
+      S3_SECRET_ACCESS_KEY: preserve(),
+    },
   });
   const otelLgtm = service("otel-lgtm", {
     source: image("grafana/otel-lgtm"),
     replicas: { "asia-southeast1-eqsg3a": 1 },
     deploy: { sleepApplication: true },
-    env: { GF_SECURITY_ADMIN_PASSWORD: preserve(), GF_SECURITY_ADMIN_USER: preserve() },
+    env: {
+      GF_SECURITY_ADMIN_PASSWORD: preserve(),
+      GF_SECURITY_ADMIN_USER: preserve(),
+    },
   });
 
   return project("Ghost", {
-    resources: [web, docs, api, postgresDatabase, zoekt, otelLgtm, postgresVolumeUO8m, ghostBucket],
+    resources: [
+      web,
+      docs,
+      api,
+      postgresDatabase,
+      delivery,
+      zoekt,
+      otelLgtm,
+      postgresVolumeUO8m,
+      ghostBucket,
+    ],
   });
 });
