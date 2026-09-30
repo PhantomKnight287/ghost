@@ -594,6 +594,8 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
 
     const [slackJob] = await jobsFor(slack.id);
     expect(bodyOf(slackJob)).toEqual({
+      username: 'Ghost',
+      icon_url: 'https://ghost.test/icons/icon-192.png',
       text: `[${USERNAME}/app] <https://ghost.test/${USERNAME}/app|${USERNAME}-member starred ${USERNAME}/app>`,
       unfurl_links: false,
     });

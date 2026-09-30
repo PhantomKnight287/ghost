@@ -6,7 +6,10 @@ import { and, arrayContains, eq, inArray, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { StoredEvent } from '../../lib/events/events.js';
-import { renderWebhookBody } from '../../lib/webhooks/formats/index.js';
+import {
+  renderWebhookBody,
+  type WebhookSender,
+} from '../../lib/webhooks/formats/index.js';
 import type { WebhookBody, WebhookOwner } from '../../lib/webhooks/webhooks.js';
 import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
 
@@ -23,12 +26,17 @@ type WebhookJob = {
 @Injectable()
 export class WebhookFanoutService {
   private readonly appUrl: string;
+  private readonly sender: WebhookSender;
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     config: ConfigService,
   ) {
     this.appUrl = config.get<string>('WEB_APP_URL') ?? 'http://localhost:3000';
+    this.sender = {
+      name: 'Ghost',
+      iconUrl: `${this.appUrl}/icons/icon-192.png`,
+    };
   }
 
   async handle(event: StoredEvent) {
@@ -62,7 +70,7 @@ export class WebhookFanoutService {
       endpoints.map((endpoint) => ({
         endpointId: endpoint.id,
         event: event.type,
-        body: renderWebhookBody(endpoint.url, body),
+        body: renderWebhookBody(endpoint.url, body, this.sender),
         idempotencyKey: `${event.id}:${endpoint.id}`,
       })),
     );
@@ -77,14 +85,18 @@ export class WebhookFanoutService {
       {
         endpointId: endpoint.id,
         event: 'ping',
-        body: renderWebhookBody(endpoint.url, {
-          event: 'ping',
-          webhook: endpoint,
-          ...('repositoryId' in owner
-            ? { repository: { fullName: owner.name } }
-            : { organization: { slug: owner.name } }),
-          createdAt: new Date().toISOString(),
-        }),
+        body: renderWebhookBody(
+          endpoint.url,
+          {
+            event: 'ping',
+            webhook: endpoint,
+            ...('repositoryId' in owner
+              ? { repository: { fullName: owner.name } }
+              : { organization: { slug: owner.name } }),
+            createdAt: new Date().toISOString(),
+          },
+          this.sender,
+        ),
         idempotencyKey: `ping:${endpoint.id}:${randomUUID()}`,
       },
     ]);

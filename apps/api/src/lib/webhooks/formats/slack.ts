@@ -4,7 +4,10 @@ import type { WebhookFormat } from './index.js';
 export const slack: WebhookFormat = {
   matches: (url) =>
     url.hostname === 'hooks.slack.com' && url.pathname.startsWith('/services/'),
-  render: ({ context, summary, url, excerpt }) => ({
+  // Slack honours username and icon_url only for webhooks made before Slack apps; an app's webhook posts as the app.
+  render: ({ context, summary, url, excerpt }, sender) => ({
+    username: sender.name,
+    icon_url: sender.iconUrl,
     text: [
       `[${escape(context)}] ${url ? `<${url}|${escape(summary)}>` : escape(summary)}`,
       ...(excerpt ? [`>${escape(excerpt).replaceAll('\n', '\n>')}`] : []),

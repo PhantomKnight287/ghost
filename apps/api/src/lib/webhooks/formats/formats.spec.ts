@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { WebhookBody } from '../webhooks.js';
-import { renderWebhookBody } from './index.js';
+import { renderWebhookBody as render } from './index.js';
 import { messageOf } from './message.js';
 
 const repository = {
@@ -37,8 +37,14 @@ const commit = (n: number) => ({
   body: '',
 });
 const opened = body({ issue: thread });
+const sender = {
+  name: 'Ghost',
+  iconUrl: 'https://ghost.test/icons/icon-192.png',
+};
+const send = (url: string, sent: Parameters<typeof render>[1]) =>
+  render(url, sent, sender);
 
-describe('renderWebhookBody', () => {
+describe('render', () => {
   it.each([
     ['https://hooks.slack.com/services/T0/B0/x', 'slack'],
     ['https://discord.com/api/webhooks/1/x', 'discord'],
@@ -57,7 +63,7 @@ describe('renderWebhookBody', () => {
     ['https://example.com/hooks.slack.com/services/x', 'ghost'],
     ['https://93.184.216.34/hook', 'ghost'],
   ])('sends %s as %s', (url, expected) => {
-    const sent = JSON.parse(renderWebhookBody(url, opened));
+    const sent = JSON.parse(send(url, opened));
     const format =
       'embeds' in sent
         ? 'discord'
@@ -72,10 +78,10 @@ describe('renderWebhookBody', () => {
   });
 
   it('sends everything else Ghost’s own JSON', () => {
-    expect(
-      JSON.parse(renderWebhookBody('https://93.184.216.34/hook', opened)),
-    ).toEqual(opened);
-    expect(JSON.parse(renderWebhookBody('not a url', opened))).toEqual(opened);
+    expect(JSON.parse(send('https://93.184.216.34/hook', opened))).toEqual(
+      opened,
+    );
+    expect(JSON.parse(send('not a url', opened))).toEqual(opened);
   });
 
   it('keeps user text from pinging a channel or forming a link', () => {
@@ -84,8 +90,10 @@ describe('renderWebhookBody', () => {
     });
 
     expect(
-      JSON.parse(renderWebhookBody('https://hooks.slack.com/services/x', loud)),
+      JSON.parse(send('https://hooks.slack.com/services/x', loud)),
     ).toEqual({
+      username: 'Ghost',
+      icon_url: 'https://ghost.test/icons/icon-192.png',
       text: [
         '[ada/app] <https://ghost.test/ada/app/issues/7|ada opened issue #7: &lt;!channel&gt; &amp; &lt;users/all&gt; @everyone>',
         '>The bell should count',
@@ -93,10 +101,10 @@ describe('renderWebhookBody', () => {
       unfurl_links: false,
     });
     expect(
-      JSON.parse(
-        renderWebhookBody('https://discord.com/api/webhooks/1/x', loud),
-      ),
+      JSON.parse(send('https://discord.com/api/webhooks/1/x', loud)),
     ).toEqual({
+      username: 'Ghost',
+      avatar_url: 'https://ghost.test/icons/icon-192.png',
       allowed_mentions: { parse: [] },
       embeds: [
         {
@@ -108,12 +116,8 @@ describe('renderWebhookBody', () => {
       ],
     });
     expect(
-      JSON.parse(
-        renderWebhookBody(
-          'https://chat.googleapis.com/v1/spaces/A/messages',
-          loud,
-        ),
-      ).text,
+      JSON.parse(send('https://chat.googleapis.com/v1/spaces/A/messages', loud))
+        .text,
     ).toBe(
       [
         '*ada/app*',
@@ -134,9 +138,8 @@ describe('renderWebhookBody', () => {
       organization: { slug: 'acme' },
       createdAt: '2026-09-30T00:00:00.000Z',
     };
-    const card = JSON.parse(
-      renderWebhookBody('https://x.webhook.office.com/a', ping),
-    ).attachments[0].content;
+    const card = JSON.parse(send('https://x.webhook.office.com/a', ping))
+      .attachments[0].content;
 
     expect(card.body.map((block: { text: string }) => block.text)).toEqual([
       'acme',
@@ -145,21 +148,18 @@ describe('renderWebhookBody', () => {
     ]);
     expect(card.actions).toEqual([]);
     expect(
-      JSON.parse(
-        renderWebhookBody('https://discord.com/api/webhooks/1/x', ping),
-      ).embeds[0],
+      JSON.parse(send('https://discord.com/api/webhooks/1/x', ping)).embeds[0],
     ).toEqual({
       title: 'Ghost webhook connected',
       description: 'Events: push',
       footer: { text: 'acme' },
     });
     expect(
-      JSON.parse(renderWebhookBody('https://hooks.slack.com/services/x', ping))
-        .text,
+      JSON.parse(send('https://hooks.slack.com/services/x', ping)).text,
     ).toBe('[acme] Ghost webhook connected\n>Events: push');
     expect(
       JSON.parse(
-        renderWebhookBody('https://chat.googleapis.com/v1/spaces/A/messages', {
+        send('https://chat.googleapis.com/v1/spaces/A/messages', {
           ...ping,
           organization: undefined,
           repository: { fullName: 'ada/app' },
@@ -170,10 +170,7 @@ describe('renderWebhookBody', () => {
 
   it('adds an Open button in Teams when there is somewhere to go', () => {
     const card = JSON.parse(
-      renderWebhookBody(
-        'https://x.webhook.office.com/a',
-        body({ event: 'star.created' }),
-      ),
+      send('https://x.webhook.office.com/a', body({ event: 'star.created' })),
     ).attachments[0].content;
     expect(card.actions).toEqual([
       { type: 'Action.OpenUrl', title: 'Open', url: repository.htmlUrl },

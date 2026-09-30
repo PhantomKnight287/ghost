@@ -11,7 +11,9 @@ const HOSTS = new Set([
 export const discord: WebhookFormat = {
   matches: (url) =>
     HOSTS.has(url.hostname) && url.pathname.startsWith('/api/webhooks/'),
-  render: ({ context, summary, url, excerpt }) => ({
+  render: ({ context, summary, url, excerpt }, sender) => ({
+    username: sender.name,
+    avatar_url: sender.iconUrl,
     // user text may say @everyone; nothing it says pings anyone
     allowed_mentions: { parse: [] },
     embeds: [
