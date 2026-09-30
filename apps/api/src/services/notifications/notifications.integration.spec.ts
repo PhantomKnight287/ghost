@@ -670,5 +670,11 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     } finally {
       await outbox.onApplicationShutdown();
     }
+    // a listener handed back to the pool would still hear this and drain
+    const drain = vi.spyOn(outbox, 'drain');
+    for (let i = 0; i < 5; i++)
+      await pool.query("select pg_notify('outbox', '')");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(drain).not.toHaveBeenCalled();
   });
 });

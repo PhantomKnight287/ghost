@@ -23,6 +23,11 @@ const RECONNECT_DELAY_MS = 5000;
 // After this many failures an event is set aside with its last error rather than retried forever.
 const MAX_ATTEMPTS = 5;
 
+type Listener = {
+  release(destroy: boolean): void;
+  removeAllListeners(event: 'notification'): unknown;
+};
+
 /** Hands each committed event to every consumer, at least once and oldest first. A consumer added later, such as webhook delivery, is one more call in `dispatch`. */
 @Injectable()
 export class OutboxService
@@ -31,7 +36,8 @@ export class OutboxService
   private readonly logger = new Logger(OutboxService.name);
   private timer?: NodeJS.Timeout;
   private draining?: Promise<void>;
-  private listener?: { release(): void };
+  private listener?: Listener;
+  private reconnect?: NodeJS.Timeout;
   private rerun = false;
   private stopped = false;
 
@@ -51,20 +57,28 @@ export class OutboxService
   async onApplicationShutdown() {
     this.stopped = true;
     clearInterval(this.timer);
-    this.listener?.release();
+    clearTimeout(this.reconnect);
+    this.dropListener();
     await this.draining;
   }
 
   /** An idle LISTEN connection sends nothing, unlike polling, so it does not keep the container awake. */
   private async listen() {
+    this.reconnect = undefined;
+    if (this.stopped) return;
     try {
       const client = await this.connection.pool.connect();
+      if (this.stopped) {
+        client.release();
+        return;
+      }
       this.listener = client;
       client.on('notification', () => this.wake());
       client.on('error', (error) => {
+        // stays attached after a drop, so a late error on a destroyed client cannot crash the process
+        if (this.listener !== client) return;
         this.logger.warn(`Outbox listener lost: ${error.message}`);
-        client.release(error);
-        this.listener = undefined;
+        this.dropListener();
         this.retryListen();
       });
       await client.query(`LISTEN ${OUTBOX_CHANNEL}`);
@@ -74,15 +88,27 @@ export class OutboxService
       this.logger.warn(
         `Outbox listener failed: ${error instanceof Error ? error.message : String(error)}`,
       );
+      this.dropListener();
       this.retryListen();
     }
   }
 
+  /** Destroys the connection rather than pooling it: a pooled client would keep the LISTEN and wake the outbox for whoever borrows it next. */
+  private dropListener() {
+    const client = this.listener;
+    if (!client) return;
+    this.listener = undefined;
+    client.removeAllListeners('notification');
+    client.release(true);
+  }
+
   private retryListen() {
-    if (!this.stopped) setTimeout(() => void this.listen(), RECONNECT_DELAY_MS);
+    if (this.stopped || this.reconnect) return;
+    this.reconnect = setTimeout(() => void this.listen(), RECONNECT_DELAY_MS);
   }
 
   private wake() {
+    if (this.stopped) return;
     // A NOTIFY mid-drain may name a row the drain already looked past.
     if (this.draining) {
       this.rerun = true;
