@@ -656,12 +656,14 @@ export class IssuesService {
         .where(eq(schema.issueComment.id, comment.id))
         .returning(commentColumns);
       if (!row) throw new IssueCommentNotFoundError();
-      await publishEvent(tx, {
-        type: 'issue.comment_edited',
-        repositoryId: base.id,
-        actorId: params.requesterId,
-        payload: { issueId: issue.id, commentId: comment.id },
-      });
+      if (params.body !== comment.body) {
+        await publishEvent(tx, {
+          type: 'issue.comment_edited',
+          repositoryId: base.id,
+          actorId: params.requesterId,
+          payload: { issueId: issue.id, commentId: comment.id },
+        });
+      }
 
       await this.references.record(
         tx,
