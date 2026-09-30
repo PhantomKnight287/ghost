@@ -17,6 +17,8 @@
     "signing-commits-and-tags",
     "email-addresses-and-keys",
     "expiration-and-revocation",
-    "troubleshooting"
+    "troubleshooting",
+    "---Webhooks---",
+    "webhooks"
   ]
 }
