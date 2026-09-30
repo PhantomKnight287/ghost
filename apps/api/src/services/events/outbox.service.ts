@@ -6,7 +6,7 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull, notInArray } from 'drizzle-orm';
 
 import {
   DATABASE,
@@ -103,25 +103,33 @@ export class OutboxService
       });
   }
 
-  /** Works through pending events until a batch comes up short. A failed event waits for the next poll. */
+  /** Works through pending events until a batch comes up short. A failed event waits for the next drain, and does not stop this one reaching the rows behind it. */
   async drain() {
-    while ((await this.processBatch()) === BATCH_SIZE);
+    const tried = new Set<string>();
+    while ((await this.processBatch(tried)) === BATCH_SIZE);
   }
 
   // ponytail: rows stay locked while consumers run, emails included; a lease column would let a slow batch release them sooner.
-  private processBatch() {
+  private processBatch(tried: Set<string>) {
     return this.db.transaction(async (tx) => {
       const events = await tx
         .select()
         .from(schema.outboxEvent)
-        .where(isNull(schema.outboxEvent.processedAt))
+        .where(
+          and(
+            isNull(schema.outboxEvent.processedAt),
+            tried.size
+              ? notInArray(schema.outboxEvent.id, [...tried])
+              : undefined,
+          ),
+        )
         .orderBy(asc(schema.outboxEvent.createdAt), asc(schema.outboxEvent.id))
         .limit(BATCH_SIZE)
         // several API instances share the outbox: each claims rows the others have not
         .for('update', { skipLocked: true });
 
-      let handled = 0;
       for (const event of events) {
+        tried.add(event.id);
         const attempts = event.attempts + 1;
         try {
           // written by `publishEvent`, which checked the payload against its type
@@ -130,7 +138,6 @@ export class OutboxService
             .update(schema.outboxEvent)
             .set({ attempts, processedAt: new Date() })
             .where(eq(schema.outboxEvent.id, event.id));
-          handled++;
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
@@ -147,7 +154,7 @@ export class OutboxService
             .where(eq(schema.outboxEvent.id, event.id));
         }
       }
-      return handled;
+      return events.length;
     });
   }
 
