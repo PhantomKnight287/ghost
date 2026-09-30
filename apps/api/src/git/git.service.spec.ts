@@ -16,6 +16,7 @@ import { RepositoryContributionService } from '../services/git/contributions/rep
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { UnsupportedGitServiceError } from './git.errors.js';
+import { DATABASE } from '../database/database.module.js';
 import { GitService } from './git.service.js';
 
 describe('GitService', () => {
@@ -42,6 +43,8 @@ describe('GitService', () => {
 
   const codeSearch = { indexInBackground: vi.fn() };
   const references = { closeFromCommits: vi.fn().mockResolvedValue(undefined) };
+  const published = vi.fn().mockResolvedValue(undefined);
+  const db = { insert: () => ({ values: published }) };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -56,6 +59,7 @@ describe('GitService', () => {
         { provide: RepositoryContributionService, useValue: contributions },
         { provide: CodeSearchService, useValue: codeSearch },
         { provide: IssueReferencesService, useValue: references },
+        { provide: DATABASE, useValue: db },
       ],
     }).compile();
 
@@ -231,6 +235,35 @@ describe('GitService', () => {
           repository: { id: 'repo_ghost' },
           actorId: 'user_pusher',
           commits: [expect.objectContaining({ sha, body: 'Fixes #1' })],
+        }),
+      );
+    });
+
+    it('publishes a push event with the commits the push added', async () => {
+      await push('refs/heads/feature');
+
+      const [before, after] = [
+        git('rev-parse', 'HEAD~1'),
+        git('rev-parse', 'HEAD'),
+      ];
+      await vi.waitFor(() =>
+        expect(published).toHaveBeenCalledWith({
+          type: 'push',
+          repositoryId: 'repo_ghost',
+          actorId: 'user_pusher',
+          payload: {
+            ref: 'refs/heads/feature',
+            before,
+            after,
+            commits: [
+              expect.objectContaining({
+                sha: after,
+                subject: 'second',
+                body: 'Fixes #1',
+                authorName: 'a',
+              }),
+            ],
+          },
         }),
       );
     });

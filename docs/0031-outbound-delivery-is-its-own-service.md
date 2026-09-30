@@ -1,6 +1,6 @@
 # 0031 — Outbound delivery is its own service, and Postgres is its queue
 
-**Status:** proposed
+**Status:** adopted
 
 ## Decision
 

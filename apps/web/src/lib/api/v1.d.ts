@@ -1818,6 +1818,262 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhooks
+         * @description Admins only.
+         */
+        get: operations["RepositoryWebhooksController_list"];
+        put?: never;
+        /**
+         * Create a webhook
+         * @description Sends the endpoint a `ping` right away. The response carries the signing secret, which is never shown again. Admins only.
+         */
+        post: operations["RepositoryWebhooksController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a webhook
+         * @description Pending deliveries are dropped. Admins only.
+         */
+        delete: operations["RepositoryWebhooksController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a webhook
+         * @description Admins only.
+         */
+        patch: operations["RepositoryWebhooksController_update"];
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace a webhook's signing secret
+         * @description The old secret stops working at once, pending retries included. The response is the only time the new one is shown. Admins only.
+         */
+        post: operations["RepositoryWebhooksController_rollSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/pings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test delivery
+         * @description Queues a `ping`. Admins only.
+         */
+        post: operations["RepositoryWebhooksController_ping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent deliveries
+         * @description The 50 most recent, each with its attempts. Admins only.
+         */
+        get: operations["RepositoryWebhooksController_deliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/webhooks/{webhookId}/deliveries/{deliveryId}/redeliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeliver
+         * @description Sends the same body again as a new delivery, with its own id and retries. Admins only.
+         */
+        post: operations["RepositoryWebhooksController_redeliver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization webhooks
+         * @description Admins only.
+         */
+        get: operations["OrganizationWebhooksController_list"];
+        put?: never;
+        /**
+         * Create an organization webhook
+         * @description Receives the events of every repository in the organization. Sends the endpoint a `ping` right away. The response carries the signing secret, which is never shown again. Admins only.
+         */
+        post: operations["OrganizationWebhooksController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/webhooks/{webhookId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an organization webhook
+         * @description Pending deliveries are dropped. Admins only.
+         */
+        delete: operations["OrganizationWebhooksController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update an organization webhook
+         * @description Admins only.
+         */
+        patch: operations["OrganizationWebhooksController_update"];
+        trace?: never;
+    };
+    "/api/organizations/{slug}/webhooks/{webhookId}/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace an organization webhook's signing secret
+         * @description The old secret stops working at once, pending retries included. The response is the only time the new one is shown. Admins only.
+         */
+        post: operations["OrganizationWebhooksController_rollSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/webhooks/{webhookId}/pings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test delivery to an organization webhook
+         * @description Queues a `ping`. Admins only.
+         */
+        post: operations["OrganizationWebhooksController_ping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/webhooks/{webhookId}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recent deliveries of an organization webhook
+         * @description The 50 most recent, each with its attempts. Admins only.
+         */
+        get: operations["OrganizationWebhooksController_deliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/webhooks/{webhookId}/deliveries/{deliveryId}/redeliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeliver to an organization webhook
+         * @description Sends the same body again as a new delivery, with its own id and retries. Admins only.
+         */
+        post: operations["OrganizationWebhooksController_redeliver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/emails": {
         parameters: {
             query?: never;
@@ -3404,6 +3660,82 @@ export interface components {
         };
         SetTeamRoleRequestDTO: {
             role: components["schemas"]["RepositoryRole"];
+        };
+        /** @enum {string} */
+        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
+        WebhookDTO: {
+            id: string;
+            url: string;
+            events: components["schemas"]["WebhookEvent"][];
+            active: boolean;
+            /** @description Why Ghost turned the endpoint off, such as a 410 Gone. */
+            disabledReason: string | null;
+            createdAt: string;
+        };
+        ListWebhooksResponseDTO: {
+            webhooks: components["schemas"]["WebhookDTO"][];
+        };
+        CreateWebhookRequestDTO: {
+            /** @example https://example.com/webhook */
+            url: string;
+            /** @description Events that trigger a delivery. At least one. */
+            events: components["schemas"]["WebhookEvent"][];
+        };
+        CreatedWebhookDTO: {
+            id: string;
+            url: string;
+            events: components["schemas"]["WebhookEvent"][];
+            active: boolean;
+            /** @description Why Ghost turned the endpoint off, such as a 410 Gone. */
+            disabledReason: string | null;
+            createdAt: string;
+            /** @description Signs every delivery. Shown only now: Ghost stores it encrypted and never returns it again. */
+            secret: string;
+        };
+        UpdateWebhookRequestDTO: {
+            url?: string;
+            events?: components["schemas"]["WebhookEvent"][];
+            /** @description Turning an endpoint back on clears the reason it was turned off. */
+            active?: boolean;
+        };
+        WebhookSecretDTO: {
+            /** @description The new signing secret. The old one stops working at once, and this is the only time the new one is shown. */
+            secret: string;
+        };
+        /**
+         * @description `dead` means Ghost gave up. A redelivery sends it again as a new delivery.
+         * @enum {string}
+         */
+        DeliveryStatus: "pending" | "succeeded" | "dead";
+        DeliveryAttemptDTO: {
+            startedAt: string;
+            durationMs: number;
+            /** @description Null when no response came back. */
+            statusCode: number | null;
+            error: string | null;
+            requestHeaders: {
+                [key: string]: string;
+            };
+            /** @description The first 4 KB of the response. */
+            responseBody: string | null;
+        };
+        DeliveryDTO: {
+            /** @description Sent as `X-Ghost-Delivery`. */
+            id: string;
+            event: string;
+            /** @description `dead` means Ghost gave up. A redelivery sends it again as a new delivery. */
+            status: components["schemas"]["DeliveryStatus"];
+            /** @description The JSON body the receiver gets. */
+            body: string;
+            createdAt: string;
+            /** @description When the next try is due, while the delivery is pending. */
+            nextAttemptAt: string | null;
+            /** @description Newest first. */
+            attempts: components["schemas"]["DeliveryAttemptDTO"][];
+        };
+        ListDeliveriesResponseDTO: {
+            /** @description The 50 most recent. */
+            deliveries: components["schemas"]["DeliveryDTO"][];
         };
         UserEmailDTO: {
             /** @description Row id, or `primary` for the account address itself */
@@ -7991,6 +8323,688 @@ export interface operations {
                 username: string;
                 repo: string;
                 teamId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryWebhooksController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListWebhooksResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryWebhooksController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWebhookRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedWebhookDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryWebhooksController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryWebhooksController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWebhookRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryWebhooksController_rollSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecretDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryWebhooksController_ping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryWebhooksController_deliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDeliveriesResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryWebhooksController_redeliver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                webhookId: string;
+                deliveryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationWebhooksController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListWebhooksResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationWebhooksController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWebhookRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedWebhookDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationWebhooksController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationWebhooksController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWebhookRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationWebhooksController_rollSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecretDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationWebhooksController_ping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationWebhooksController_deliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDeliveriesResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationWebhooksController_redeliver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                webhookId: string;
+                deliveryId: string;
             };
             cookie?: never;
         };

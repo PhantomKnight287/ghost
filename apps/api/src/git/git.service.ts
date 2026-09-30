@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import type { Database } from '@ghost/db';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Readable } from 'node:stream';
 
 import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
@@ -18,6 +19,8 @@ import { listCommits } from '../lib/git/commits/list-commits.js';
 import { resolveDefaultRef } from '../lib/git/tree/resolve-ref.js';
 import { type RefTransition, ZERO_OID } from '../lib/git/wal/wal.types.js';
 import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
+import { MAX_PUSH_COMMITS, publishEvent } from '../lib/events/events.js';
+import { DATABASE } from '../database/database.module.js';
 import { isGitServiceName, type GitServiceName } from './git.constants.js';
 import { UnsupportedGitServiceError } from './git.errors.js';
 
@@ -44,6 +47,7 @@ export class GitService {
     private readonly contributions: RepositoryContributionService,
     private readonly codeSearch: CodeSearchService,
     private readonly references: IssueReferencesService,
+    @Inject(DATABASE) private readonly db: Database,
   ) {}
 
   async advertiseRefs({
@@ -152,12 +156,58 @@ export class GitService {
           `Closing referenced issues failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
         ),
       );
+      this.publishPushes({
+        repositoryId,
+        repoDirectory,
+        transitions,
+        pushedBy,
+      }).catch((error: unknown) =>
+        this.logger.warn(
+          `Publishing push events failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
     });
 
     return {
       headers: resultHeaders('git-receive-pack'),
       body: result,
     };
+  }
+
+  /** Published after the push, not with it: refs live in object storage, outside any database transaction, so a crash in between loses the event but never invents one. */
+  private async publishPushes({
+    repositoryId,
+    repoDirectory,
+    transitions,
+    pushedBy,
+  }: Pick<RepositoryRef, 'repositoryId'> & {
+    repoDirectory: string;
+    transitions: RefTransition[];
+    pushedBy: string | null;
+  }) {
+    for (const { ref, oldOid, newOid } of transitions) {
+      const before = oldOid.toString('hex');
+      const after = newOid.toString('hex');
+      const { commits } = newOid.equals(ZERO_OID)
+        ? { commits: [] }
+        : await listCommits({
+            gitDir: repoDirectory,
+            // a new ref lists from its tip, since there is no old one to start after
+            ref: oldOid.equals(ZERO_OID) ? after : `${before}..${after}`,
+            limit: MAX_PUSH_COMMITS,
+          });
+      await publishEvent(this.db, {
+        type: 'push',
+        repositoryId,
+        actorId: pushedBy,
+        payload: {
+          ref,
+          before,
+          after,
+          commits,
+        },
+      });
+    }
   }
 
   /** Commits that moved the default branch forward close the issues they name, like GitHub's `Fixes #1`. */

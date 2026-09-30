@@ -32,6 +32,8 @@ export const webhookEndpoint = pgTable(
     events: text().array().notNull(),
     active: boolean().default(true).notNull(),
     disabledReason: text(),
+    // Set once the owner has been emailed about the disable, so every API instance's sweep emails them once.
+    disabledNotifiedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()

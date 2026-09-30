@@ -282,13 +282,21 @@ export class ReviewsService {
       throw new ReviewNotDismissableError();
     }
 
-    await this.db
-      .update(schema.pullRequestReview)
-      .set({
-        dismissedById: params.requesterId,
-        dismissalMessage: params.message.trim(),
-      })
-      .where(eq(schema.pullRequestReview.id, review.id));
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(schema.pullRequestReview)
+        .set({
+          dismissedById: params.requesterId,
+          dismissalMessage: params.message.trim(),
+        })
+        .where(eq(schema.pullRequestReview.id, review.id));
+      await publishEvent(tx, {
+        type: 'pull_request.review_dismissed',
+        repositoryId: loaded.base.id,
+        actorId: params.requesterId,
+        payload: { issueId: loaded.pullRequest.issueId, reviewId: review.id },
+      });
+    });
     return this.findReview(review.id);
   }
 

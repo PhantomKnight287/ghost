@@ -1,12 +1,16 @@
 package main
 
 import (
+	"cmp"
 	"context"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -24,6 +28,14 @@ func main() {
 
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL is not set")
+	}
+	workers := 32
+	if v := os.Getenv("WORKERS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			log.Fatalf("WORKERS must be a positive integer, got %q", v)
+		}
+		workers = n
 	}
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -51,7 +63,51 @@ func main() {
 	}()
 	log.Printf("listening on :%s", port)
 
-	<-ctx.Done()
+	wake := make(chan struct{}, 1)
+	go listen(ctx, pool, wake)
+	go pruneEvery(ctx, pool, pruneInterval)
+	email := relaySender{
+		url:    os.Getenv("EMAIL_PROXY"),
+		secret: os.Getenv("EMAIL_PROXY_SECRET"),
+		from:   cmp.Or(os.Getenv("EMAIL_SENDER"), "Ghost <noreply@ghost.local>"),
+		client: &http.Client{},
+	}
+	if email.url == "" {
+		log.Printf("EMAIL_PROXY is not set: email jobs will fail and retry until it is")
+	}
+	var key []byte
+	if v := os.Getenv("WEBHOOK_SECRET_KEY"); v != "" {
+		key, err = base64.StdEncoding.DecodeString(v)
+		if err != nil || len(key) != 32 {
+			log.Fatal("WEBHOOK_SECRET_KEY must be 32 bytes, base64-encoded")
+		}
+	} else {
+		log.Printf("WEBHOOK_SECRET_KEY is not set: webhook jobs will fail and retry until it is")
+	}
+	hostConcurrency := 4
+	if v := os.Getenv("WEBHOOK_HOST_CONCURRENCY"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			log.Fatalf("WEBHOOK_HOST_CONCURRENCY must be a positive integer, got %q", v)
+		}
+		hostConcurrency = n
+	}
+	webhook := webhookSender{
+		db:     pool,
+		client: newWebhookClient(os.Getenv("WEBHOOK_ALLOW_PRIVATE_NETWORKS") == "true"),
+		key:    key,
+		hosts:  newHostLimiter(hostConcurrency),
+	}
+	send := func(ctx context.Context, j Job) error {
+		switch j.Kind {
+		case "email":
+			return email.send(ctx, j)
+		case "webhook":
+			return webhook.send(ctx, j)
+		}
+		return fmt.Errorf("no sender for job kind %q", j.Kind)
+	}
+	run(ctx, pool, workers, wake, send) // returns after SIGTERM once in-flight sends drain
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

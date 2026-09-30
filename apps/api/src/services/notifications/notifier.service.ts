@@ -4,13 +4,38 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { RepositoryEvent } from '../../lib/events/events.js';
-import { ownerNameOf } from '../../lib/git/repository-access/repository-access.js';
+import type {
+  EventType,
+  RepositoryEvent,
+  StoredEvent,
+} from '../../lib/events/events.js';
+import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
 import { MailService, type ThreadTemplate } from '../../mail/mail.service.js';
 import type { NotificationReason } from '../../mail/components/thread.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
 import { excluded } from '../../utils/index.js';
+
+// The rest reach webhooks only.
+const notifyingEvents = [
+  'issue.opened',
+  'issue.closed',
+  'issue.reopened',
+  'issue.assigned',
+  'issue.commented',
+  'pull_request.merged',
+  'pull_request.reviewed',
+  'pull_request.review_commented',
+] as const satisfies readonly EventType[];
+
+type ThreadEvent = Extract<
+  RepositoryEvent,
+  { type: (typeof notifyingEvents)[number] }
+>;
+
+function notifies(event: StoredEvent): event is StoredEvent & ThreadEvent {
+  return (notifyingEvents as readonly string[]).includes(event.type);
+}
 
 // Long enough to read the point of a comment in the email, short enough that nobody reads a whole essay there.
 const EXCERPT_LENGTH = 1000;
@@ -48,7 +73,8 @@ export class NotifierService {
     private readonly mail: MailService,
   ) {}
 
-  async handle(event: RepositoryEvent) {
+  async handle(event: StoredEvent) {
+    if (!notifies(event)) return;
     const thread = await this.loadThread(event.payload.issueId);
     if (!thread) return;
     const activity = await this.activityOf(event, thread);
@@ -93,7 +119,11 @@ export class NotifierService {
         authorId: schema.issue.authorId,
         repositoryId: schema.issue.repositoryId,
         organizationId: schema.repository.organizationId,
-        repository: sql<string>`${ownerNameOf(schema.user, schema.organization)} || '/' || ${schema.repository.slug}`,
+        repository: repositoryFullNameOf(
+          schema.user,
+          schema.organization,
+          schema.repository,
+        ),
       })
       .from(schema.issue)
       .innerJoin(
@@ -111,7 +141,7 @@ export class NotifierService {
 
   /** Null when what the event points at is gone, such as a comment deleted before its event was handled. */
   private async activityOf(
-    event: RepositoryEvent,
+    event: ThreadEvent,
     thread: Thread,
   ): Promise<Activity | null> {
     switch (event.type) {
@@ -222,7 +252,7 @@ export class NotifierService {
 
   /** Everyone to notify, each with the most specific reason that applies. Nobody hears about their own activity, or about a repository they ignore or can no longer read. */
   private async recipientsOf(
-    event: RepositoryEvent,
+    event: ThreadEvent,
     thread: Thread,
     activity: Activity,
   ) {
@@ -375,7 +405,7 @@ export class NotifierService {
 
   /** Only to verified addresses, so nobody can sign up with someone else's address and have Ghost mail them. Best effort: a failed send is logged and skipped. */
   private async email(
-    event: RepositoryEvent,
+    event: ThreadEvent & { id: string },
     thread: Thread,
     activity: Activity,
     recipients: Map<string, NotificationReason>,
@@ -405,6 +435,7 @@ export class NotifierService {
         await this.mail.sendThreadEmail(person.email, {
           template: activity.template,
           threadId: thread.id,
+          idempotencyKey: `${event.id}:${person.id}`,
           // a title is user input, and a line break in a header would start a new one
           subject: `[${thread.repository}] ${thread.title.replace(/[\r\n]+/g, ' ')} (#${thread.number})`,
           context: {

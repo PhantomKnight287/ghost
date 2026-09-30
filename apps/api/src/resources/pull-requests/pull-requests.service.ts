@@ -19,6 +19,7 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { publishEvent } from '../../lib/events/events.js';
 import { listCommits } from '../../lib/git/commits/list-commits.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import {
@@ -745,7 +746,7 @@ export class PullRequestsService {
   async setDraft(
     params: PullRequestRef & { requesterId: string; draft: boolean },
   ) {
-    const { pullRequest } = await this.load(params);
+    const { pullRequest, base } = await this.load(params);
     if (pullRequest.authorId !== params.requesterId) {
       await this.authorize({ ...params, operation: 'write' });
     }
@@ -771,6 +772,14 @@ export class PullRequestsService {
         issueId: pullRequest.issueId,
         actorId: params.requesterId,
         type: params.draft ? 'converted_to_draft' : 'ready_for_review',
+      });
+      await publishEvent(tx, {
+        type: params.draft
+          ? 'pull_request.converted_to_draft'
+          : 'pull_request.ready_for_review',
+        repositoryId: base.id,
+        actorId: params.requesterId,
+        payload: { issueId: pullRequest.issueId },
       });
     });
     return this.expandPullRequest((await this.load(params)).pullRequest);

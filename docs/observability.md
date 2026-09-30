@@ -36,6 +36,17 @@ Tempo's metrics generator turns every span into `traces_spanmetrics_*`, so laten
 
 `AppStatsService` observes instance totals once per collection: `ghost_repositories` (by visibility), `ghost_commits`, `ghost_users`, `ghost_issues` (by state), `ghost_pull_requests` (by state), `ghost_stars`. These are counts, not histories — deleting a repository lowers the line, and a force push that drops commits lowers `ghost_commits`.
 
+`apps/delivery` exports nothing itself. The same service reads its tables, so the numbers exist while delivery is down, which is when they matter:
+
+| Metric | Prometheus name | Meaning |
+| --- | --- | --- |
+| `ghost.delivery.lag` | `ghost_delivery_lag_seconds` | How overdue the most overdue pending job is. The delivery SLO: near zero while delivery keeps up. |
+| `ghost.delivery.jobs` | `ghost_delivery_jobs` | Jobs by `kind` and `status`. Finished jobs are pruned after 30 days. |
+| `ghost.delivery.attempts` | `ghost_delivery_attempts` | Webhook attempts in the last five minutes, by `outcome`. |
+| `ghost.delivery.attempt.p99` | `ghost_delivery_attempt_p99_milliseconds` | p99 webhook attempt duration over the last five minutes. |
+
+Every API instance reports the same values, so the dashboard's Delivery row takes `max`, not `sum`.
+
 A meter taken before the SDK starts is a no-op for the life of the process, which is why `instrumentation.ts` is the first import in `main.ts`. In tests there is no SDK, so the instruments record nothing and nothing has to be stubbed.
 
 ## Profiling

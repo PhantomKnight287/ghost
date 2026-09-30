@@ -22,8 +22,12 @@ import { RepositoryAccessService } from '../git/repository-access/repository-acc
 import { IssueReferencesService } from '../issues/issue-references.service.js';
 import { UsersService } from '../users/users.service.js';
 import { NotifierService } from './notifier.service.js';
+import type { WebhookFanoutService } from '../webhooks/webhook-fanout.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
+const noWebhooks = {
+  handle: async () => {},
+} as unknown as WebhookFanoutService;
 const MIGRATIONS = path.resolve(
   import.meta.dirname,
   '../../../../../packages/db/drizzle',
@@ -101,7 +105,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     notifier = new NotifierService(db, access, {
       sendThreadEmail,
     } as unknown as MailService);
-    outbox = new OutboxService(db, notifier);
+    outbox = new OutboxService(db, notifier, noWebhooks);
     inbox = new NotificationsService(db, access, issues);
 
     await db.delete(schema.user).where(inArray(schema.user.id, USERS));
@@ -308,6 +312,22 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     expect((await notified(issue.id))[CAROL]).toMatchObject({
       eventType: 'pull_request.merged',
     });
+  });
+
+  it('leaves webhook-only events out of the inbox', async () => {
+    const issue = await open(null, CAROL);
+    await outbox.drain();
+    const before = await notified(issue.id);
+    sendThreadEmail.mockClear();
+
+    await issues.updateIssue({
+      ...ref(CAROL, issue.number),
+      body: { title: 'Bell count', body: '@ntf-alice see this' },
+    });
+    await outbox.drain();
+
+    expect(await notified(issue.id)).toEqual(before);
+    expect(sendThreadEmail).not.toHaveBeenCalled();
   });
 
   it('notifies about a review and a reply to one of its comments', async () => {
@@ -580,9 +600,13 @@ describe.skipIf(!CONNECTION)('notifications', () => {
   });
 
   it('retries a failing event and sets it aside after five attempts', async () => {
-    const failing = new OutboxService(db, {
-      handle: () => Promise.reject(new Error('mail server on fire')),
-    } as unknown as NotifierService);
+    const failing = new OutboxService(
+      db,
+      {
+        handle: () => Promise.reject(new Error('mail server on fire')),
+      } as unknown as NotifierService,
+      noWebhooks,
+    );
     const issue = await open(null);
     const pending = () =>
       db

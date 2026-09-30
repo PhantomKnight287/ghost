@@ -19,6 +19,7 @@ import {
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
+import { publishEvent } from '../../lib/events/events.js';
 import { CreateRepositoryRequestDTO } from './dto/create-repository.dto.js';
 import { GetRepositoriesQueryDTO } from './dto/get-repositories.dto.js';
 import { UpdateRepositoryRequestDTO } from './dto/update-repository.dto.js';
@@ -563,18 +564,28 @@ export class RepositoriesService {
       );
     if (existing) throw new RepositoryAlreadyForkedError(existing.slug);
 
-    const [fork] = await this.db
-      .insert(schema.repository)
-      .values({
-        name,
-        description,
-        visibility,
-        slug: await this.freeSlug(namespace, name),
-        ownerId: requesterId,
-        organizationId: organizationIdOf(namespace),
-        parentRepositoryId: parent.id,
-      })
-      .returning();
+    const forkSlug = await this.freeSlug(namespace, name);
+    const fork = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(schema.repository)
+        .values({
+          name,
+          description,
+          visibility,
+          slug: forkSlug,
+          ownerId: requesterId,
+          organizationId: organizationIdOf(namespace),
+          parentRepositoryId: parent.id,
+        })
+        .returning();
+      await publishEvent(tx, {
+        type: 'fork.created',
+        repositoryId: parent.id,
+        actorId: requesterId,
+        payload: { forkId: row.id },
+      });
+      return row;
+    });
 
     await this.wal.copyLog(parent.id, fork.id);
 
@@ -616,7 +627,7 @@ export class RepositoriesService {
     await this.assertSlugFree(target, owner, repository.slug);
 
     if (await this.holds(target, requesterId)) {
-      await this.move(repository, target);
+      await this.move(repository, target, requesterId);
       return {
         id: repository.id,
         slug: repository.slug,
@@ -721,7 +732,7 @@ export class RepositoriesService {
       await this.namespaceName(target),
       repository.slug,
     );
-    await this.move(repository, target);
+    await this.move(repository, target, requesterId);
     return {
       id: repository.id,
       slug: repository.slug,
@@ -789,7 +800,11 @@ export class RepositoriesService {
   }
 
   /** Puts the repository in `namespace`, leaving a redirect at its old name and settling any pending transfer. */
-  private async move(repository: Repository, namespace: Namespace) {
+  private async move(
+    repository: Repository,
+    namespace: Namespace,
+    actorId: string,
+  ) {
     const previous = await this.ownerNameOf(repository.id);
     await this.db.transaction(async (tx) => {
       await tx
@@ -815,6 +830,12 @@ export class RepositoriesService {
         .delete(schema.repositoryTransfer)
         .where(eq(schema.repositoryTransfer.repositoryId, repository.id));
       await this.leaveRedirect(tx, previous, repository.slug, repository.id);
+      await publishEvent(tx, {
+        type: 'repository.transferred',
+        repositoryId: repository.id,
+        actorId,
+        payload: { from: previous },
+      });
     });
   }
 
@@ -898,29 +919,40 @@ export class RepositoriesService {
         throw new BranchNotFoundError(defaultBranch);
     }
 
-    const [updated] = await this.db
-      .update(schema.repository)
-      .set({
-        name,
-        description,
-        visibility,
-        defaultBranch,
-        // A form resends the name on every save; recomputing it could hand a suffixed slug a new suffix.
-        slug:
-          name === undefined || name === repository.name
-            ? undefined
-            : await this.freeSlug(namespaceOf(repository), name, repository.id),
-      })
-      .where(eq(schema.repository.id, repository.id))
-      .returning();
-    if (updated.slug !== repository.slug) {
-      await this.leaveRedirect(
-        this.db,
-        await this.ownerNameOf(repository.id),
-        repository.slug,
-        repository.id,
-      );
-    }
+    // A form resends the name on every save; recomputing it could hand a suffixed slug a new suffix.
+    const newSlug =
+      name === undefined || name === repository.name
+        ? undefined
+        : await this.freeSlug(namespaceOf(repository), name, repository.id);
+    const updated = await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(schema.repository)
+        .set({ name, description, visibility, defaultBranch, slug: newSlug })
+        .where(eq(schema.repository.id, repository.id))
+        .returning();
+      if (row.slug !== repository.slug) {
+        await this.leaveRedirect(
+          tx,
+          await this.ownerNameOf(repository.id),
+          repository.slug,
+          repository.id,
+        );
+      }
+      if (
+        row.name !== repository.name ||
+        row.description !== repository.description ||
+        row.visibility !== repository.visibility ||
+        row.defaultBranch !== repository.defaultBranch
+      ) {
+        await publishEvent(tx, {
+          type: 'repository.edited',
+          repositoryId: repository.id,
+          actorId: requesterId,
+          payload: {},
+        });
+      }
+      return row;
+    });
 
     // The shards carry the public flag, so public search follows the change now rather than on the next push or page view.
     if (visibility !== undefined && visibility !== repository.visibility) {
@@ -1066,10 +1098,20 @@ export class RepositoriesService {
       requesterId,
     });
 
-    await this.db
-      .insert(schema.stars)
-      .values({ userId: requesterId, repositoryId: repository.id })
-      .onConflictDoNothing();
+    await this.db.transaction(async (tx) => {
+      const starred = await tx
+        .insert(schema.stars)
+        .values({ userId: requesterId, repositoryId: repository.id })
+        .onConflictDoNothing()
+        .returning({ id: schema.stars.id });
+      if (starred.length === 0) return;
+      await publishEvent(tx, {
+        type: 'star.created',
+        repositoryId: repository.id,
+        actorId: requesterId,
+        payload: {},
+      });
+    });
 
     return this.readStars(repository.id, requesterId);
   }
@@ -1089,14 +1131,24 @@ export class RepositoriesService {
       requesterId,
     });
 
-    await this.db
-      .delete(schema.stars)
-      .where(
-        and(
-          eq(schema.stars.userId, requesterId),
-          eq(schema.stars.repositoryId, repository.id),
-        ),
-      );
+    await this.db.transaction(async (tx) => {
+      const unstarred = await tx
+        .delete(schema.stars)
+        .where(
+          and(
+            eq(schema.stars.userId, requesterId),
+            eq(schema.stars.repositoryId, repository.id),
+          ),
+        )
+        .returning({ id: schema.stars.id });
+      if (unstarred.length === 0) return;
+      await publishEvent(tx, {
+        type: 'star.deleted',
+        repositoryId: repository.id,
+        actorId: requesterId,
+        payload: {},
+      });
+    });
 
     return this.readStars(repository.id, requesterId);
   }

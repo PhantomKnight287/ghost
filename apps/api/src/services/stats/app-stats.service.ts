@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
-import { count, eq, sum } from 'drizzle-orm';
+import { and, count, eq, gt, lte, sql, sum } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { meter } from '../../lib/metrics.js';
@@ -81,6 +81,83 @@ export class AppStatsService implements OnModuleInit {
         result.observe(stars, starRow?.total ?? 0);
       },
       [repositories, commits, users, issues, pullRequests, stars],
+    );
+
+    this.observeDelivery();
+  }
+
+  /** apps/delivery has no metrics of its own; its tables say how it is doing. */
+  private observeDelivery() {
+    const jobs = meter.createObservableGauge('ghost.delivery.jobs', {
+      description:
+        'Delivery jobs, by kind and status. Finished ones are pruned after 30 days.',
+    });
+    const lag = meter.createObservableGauge('ghost.delivery.lag', {
+      unit: 's',
+      description:
+        'How overdue the most overdue pending job is: near zero while apps/delivery keeps up.',
+    });
+    const attempts = meter.createObservableGauge('ghost.delivery.attempts', {
+      description: 'Webhook attempts in the last five minutes, by outcome.',
+    });
+    const p99 = meter.createObservableGauge('ghost.delivery.attempt.p99', {
+      unit: 'ms',
+      description: 'p99 webhook attempt duration over the last five minutes.',
+    });
+
+    meter.addBatchObservableCallback(
+      async (result) => {
+        const [jobRows, [lagRow], [attemptRow]] = await Promise.all([
+          this.db
+            .select({
+              kind: schema.deliveryJob.kind,
+              status: schema.deliveryJob.status,
+              total: count(),
+            })
+            .from(schema.deliveryJob)
+            .groupBy(schema.deliveryJob.kind, schema.deliveryJob.status),
+          this.db
+            .select({
+              seconds: sql<number>`coalesce(extract(epoch from max(now() - ${schema.deliveryJob.nextAttemptAt})), 0)::float`,
+            })
+            .from(schema.deliveryJob)
+            .where(
+              and(
+                eq(schema.deliveryJob.status, 'pending'),
+                lte(schema.deliveryJob.nextAttemptAt, sql`now()`),
+              ),
+            ),
+          this.db
+            .select({
+              succeeded: sql<number>`count(*) filter (where ${schema.deliveryAttempt.statusCode} between 200 and 299)::int`,
+              failed: sql<number>`count(*) filter (where ${schema.deliveryAttempt.statusCode} is null or ${schema.deliveryAttempt.statusCode} not between 200 and 299)::int`,
+              p99: sql<number>`coalesce(percentile_cont(0.99) within group (order by ${schema.deliveryAttempt.durationMs}), 0)::float`,
+            })
+            .from(schema.deliveryAttempt)
+            .where(
+              gt(
+                schema.deliveryAttempt.startedAt,
+                sql`now() - interval '5 minutes'`,
+              ),
+            ),
+        ]);
+
+        for (const row of jobRows) {
+          result.observe(jobs, row.total, {
+            kind: row.kind,
+            status: row.status,
+          });
+        }
+        result.observe(lag, lagRow?.seconds ?? 0);
+        result.observe(attempts, attemptRow?.succeeded ?? 0, {
+          outcome: 'succeeded',
+        });
+        result.observe(attempts, attemptRow?.failed ?? 0, {
+          outcome: 'failed',
+        });
+        result.observe(p99, attemptRow?.p99 ?? 0);
+      },
+      [jobs, lag, attempts, p99],
     );
   }
 }

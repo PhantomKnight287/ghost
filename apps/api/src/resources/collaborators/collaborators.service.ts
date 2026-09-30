@@ -5,6 +5,7 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
+import { publishEvent } from '../../lib/events/events.js';
 import { mailConfigured } from '../../mail/mail.module.js';
 import { MailService } from '../../mail/mail.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
@@ -119,12 +120,21 @@ export class CollaboratorsService {
       operation: user.id === ref.requesterId ? 'read' : 'admin',
     });
 
-    const removed = await this.db
-      .delete(schema.repositoryCollaborator)
-      .where(this.membership(repository.id, user.id))
-      .returning({ id: schema.repositoryCollaborator.id });
-    if (removed.length === 0)
-      throw new CollaboratorNotFoundError(ref.collaborator);
+    await this.db.transaction(async (tx) => {
+      const [removed] = await tx
+        .delete(schema.repositoryCollaborator)
+        .where(this.membership(repository.id, user.id))
+        .returning({ acceptedAt: schema.repositoryCollaborator.acceptedAt });
+      if (!removed) throw new CollaboratorNotFoundError(ref.collaborator);
+      // withdrawing an invitation removes nobody who was a member
+      if (!removed.acceptedAt) return;
+      await publishEvent(tx, {
+        type: 'member.removed',
+        repositoryId: repository.id,
+        actorId: ref.requesterId,
+        payload: { userId: user.id },
+      });
+    });
   }
 
   /** Every team in the repository's organization, with the role each holds here, if any. */
@@ -226,14 +236,27 @@ export class CollaboratorsService {
   }
 
   async acceptInvitation(id: string, userId: string) {
-    const accepted = await this.db
-      .update(schema.repositoryCollaborator)
-      .set({ acceptedAt: new Date() })
-      .where(
-        and(eq(schema.repositoryCollaborator.id, id), this.pendingFor(userId)),
-      )
-      .returning({ id: schema.repositoryCollaborator.id });
-    if (accepted.length === 0) throw new InvitationNotFoundError();
+    await this.db.transaction(async (tx) => {
+      const [accepted] = await tx
+        .update(schema.repositoryCollaborator)
+        .set({ acceptedAt: new Date() })
+        .where(
+          and(
+            eq(schema.repositoryCollaborator.id, id),
+            this.pendingFor(userId),
+          ),
+        )
+        .returning({
+          repositoryId: schema.repositoryCollaborator.repositoryId,
+        });
+      if (!accepted) throw new InvitationNotFoundError();
+      await publishEvent(tx, {
+        type: 'member.added',
+        repositoryId: accepted.repositoryId,
+        actorId: userId,
+        payload: { userId },
+      });
+    });
   }
 
   async declineInvitation(id: string, userId: string) {

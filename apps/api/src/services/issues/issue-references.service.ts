@@ -14,6 +14,7 @@ import {
   canAccess,
   organizationMembership,
   ownerNameOf,
+  repositoryFullNameOf,
   type Repository,
   basePermissionOf,
   roleOf,
@@ -333,7 +334,11 @@ export class IssueReferencesService {
             memberRole: schema.member.role,
             teamRole: teamRoleOf(schema.repository.id, author),
             basePermission: basePermissionOf(schema.repository.organizationId),
-            key: sql<string>`${ownerNameOf(schema.user, schema.organization)} || '/' || ${schema.repository.slug}`,
+            key: repositoryFullNameOf(
+              schema.user,
+              schema.organization,
+              schema.repository,
+            ),
           })
           .from(schema.repository)
           .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))

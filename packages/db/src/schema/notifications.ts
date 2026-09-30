@@ -34,7 +34,7 @@ export const outboxEvent = pgTable(
     actorId: text().references(() => user.id, {
       onDelete: "set null",
     }),
-    payload: jsonb().$type<Record<string, string>>().notNull(),
+    payload: jsonb().$type<Record<string, unknown>>().notNull(),
 
     attempts: integer().notNull().default(0),
     lastError: text(),

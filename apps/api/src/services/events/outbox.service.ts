@@ -9,8 +9,9 @@ import {
 import { asc, eq, isNull } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { RepositoryEvent } from '../../lib/events/events.js';
+import type { StoredEvent } from '../../lib/events/events.js';
 import { NotifierService } from '../notifications/notifier.service.js';
+import { WebhookFanoutService } from '../webhooks/webhook-fanout.service.js';
 
 const BATCH_SIZE = 20;
 const POLL_INTERVAL_MS = 2000;
@@ -29,6 +30,7 @@ export class OutboxService
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly notifier: NotifierService,
+    private readonly webhooks: WebhookFanoutService,
   ) {}
 
   onApplicationBootstrap() {
@@ -72,7 +74,7 @@ export class OutboxService
         const attempts = event.attempts + 1;
         try {
           // written by `publishEvent`, which checked the payload against its type
-          await this.dispatch(event as unknown as RepositoryEvent);
+          await this.dispatch(event as unknown as StoredEvent);
           await tx
             .update(schema.outboxEvent)
             .set({ attempts, processedAt: new Date() })
@@ -98,7 +100,9 @@ export class OutboxService
     });
   }
 
-  private async dispatch(event: RepositoryEvent) {
+  private async dispatch(event: StoredEvent) {
+    // A retry runs both again; webhook jobs are keyed by event and endpoint, so none is queued twice.
     await this.notifier.handle(event);
+    await this.webhooks.handle(event);
   }
 }

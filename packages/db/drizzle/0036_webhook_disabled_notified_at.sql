@@ -1,0 +1,1 @@
+ALTER TABLE "webhook_endpoint" ADD COLUMN "disabled_notified_at" timestamp with time zone;

@@ -70,6 +70,7 @@ export default async function OrganizationSettingsLayout({
                 label: "Outside collaborators",
                 icon: "outside",
               },
+              { href: `${base}/webhooks`, label: "Webhooks", icon: "webhooks" },
             ]}
           />
           <div className="min-w-0 max-w-3xl">{children}</div>

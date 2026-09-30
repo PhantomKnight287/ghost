@@ -51,6 +51,15 @@ export function ownerNameOf(
   return sql<string>`coalesce(${organization.slug}, ${owner.username})`;
 }
 
+/** `owner/repo`, as URLs spell it. */
+export function repositoryFullNameOf(
+  owner: { username: PgColumn },
+  organization: { slug: PgColumn },
+  repository: { slug: PgColumn },
+) {
+  return sql<string>`${ownerNameOf(owner, organization)} || '/' || ${repository.slug}`;
+}
+
 /** Join condition for the actor's membership of the organization whose id is `organizationId`. Matches nothing for an anonymous actor or a user's own repository. */
 export function organizationMembership(
   organizationId: PgColumn,
