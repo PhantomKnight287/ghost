@@ -92,6 +92,7 @@ export default defineRailway(() => {
       S3_ENDPOINT: preserve(),
       S3_SECRET_ACCESS_KEY: preserve(),
       WEBHOOK_ALLOW_PRIVATE_NETWORKS: preserve(),
+      WEBHOOK_SECRET_KEY: preserve(),
       WEB_APP_URL: preserve(),
       ZOEKT_URL: preserve(),
       ZOEKT_URL_BASE: preserve(),
