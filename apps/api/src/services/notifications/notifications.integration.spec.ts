@@ -314,6 +314,22 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     });
   });
 
+  it('leaves webhook-only events out of the inbox', async () => {
+    const issue = await open(null, CAROL);
+    await outbox.drain();
+    const before = await notified(issue.id);
+    sendThreadEmail.mockClear();
+
+    await issues.updateIssue({
+      ...ref(CAROL, issue.number),
+      body: { title: 'Bell count', body: '@ntf-alice see this' },
+    });
+    await outbox.drain();
+
+    expect(await notified(issue.id)).toEqual(before);
+    expect(sendThreadEmail).not.toHaveBeenCalled();
+  });
+
   it('notifies about a review and a reply to one of its comments', async () => {
     const pull = await issues.open(
       {

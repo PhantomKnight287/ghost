@@ -4,7 +4,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { RepositoryEvent, StoredEvent } from '../../lib/events/events.js';
+import type {
+  EventType,
+  RepositoryEvent,
+  StoredEvent,
+} from '../../lib/events/events.js';
 import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
 import { MailService, type ThreadTemplate } from '../../mail/mail.service.js';
@@ -12,7 +16,26 @@ import type { NotificationReason } from '../../mail/components/thread.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
 import { excluded } from '../../utils/index.js';
 
-type ThreadEvent = Exclude<RepositoryEvent, { type: 'push' }>;
+// The rest reach webhooks only.
+const notifyingEvents = [
+  'issue.opened',
+  'issue.closed',
+  'issue.reopened',
+  'issue.assigned',
+  'issue.commented',
+  'pull_request.merged',
+  'pull_request.reviewed',
+  'pull_request.review_commented',
+] as const satisfies readonly EventType[];
+
+type ThreadEvent = Extract<
+  RepositoryEvent,
+  { type: (typeof notifyingEvents)[number] }
+>;
+
+function notifies(event: StoredEvent): event is StoredEvent & ThreadEvent {
+  return (notifyingEvents as readonly string[]).includes(event.type);
+}
 
 // Long enough to read the point of a comment in the email, short enough that nobody reads a whole essay there.
 const EXCERPT_LENGTH = 1000;
@@ -51,8 +74,7 @@ export class NotifierService {
   ) {}
 
   async handle(event: StoredEvent) {
-    // a push is about a ref, not a thread: it reaches webhooks only
-    if (event.type === 'push') return;
+    if (!notifies(event)) return;
     const thread = await this.loadThread(event.payload.issueId);
     if (!thread) return;
     const activity = await this.activityOf(event, thread);

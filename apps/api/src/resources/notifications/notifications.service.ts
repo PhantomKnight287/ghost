@@ -1,9 +1,10 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, lt, or, type SQL, sql } from 'drizzle-orm';
+import { and, count, desc, eq, lt, ne, or, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
+import { publishEvent } from '../../lib/events/events.js';
 import {
   acceptedCollaboration,
   organizationMembership,
@@ -166,20 +167,33 @@ export class NotificationsService {
         .delete(schema.repositoryWatch)
         .where(watchOf(repository.id, target.requesterId));
     } else {
-      await this.db
-        .insert(schema.repositoryWatch)
-        .values({
-          userId: target.requesterId,
+      const level = target.level;
+      await this.db.transaction(async (tx) => {
+        // Returns a row only when the level changed, so re-saving `all` starts no second watch.
+        const changed = await tx
+          .insert(schema.repositoryWatch)
+          .values({
+            userId: target.requesterId,
+            repositoryId: repository.id,
+            level,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.repositoryWatch.userId,
+              schema.repositoryWatch.repositoryId,
+            ],
+            set: { level },
+            setWhere: ne(schema.repositoryWatch.level, level),
+          })
+          .returning({ level: schema.repositoryWatch.level });
+        if (changed.length === 0 || level !== 'all') return;
+        await publishEvent(tx, {
+          type: 'watch.started',
           repositoryId: repository.id,
-          level: target.level,
-        })
-        .onConflictDoUpdate({
-          target: [
-            schema.repositoryWatch.userId,
-            schema.repositoryWatch.repositoryId,
-          ],
-          set: { level: target.level },
+          actorId: target.requesterId,
+          payload: {},
         });
+      });
     }
     return { level: target.level };
   }

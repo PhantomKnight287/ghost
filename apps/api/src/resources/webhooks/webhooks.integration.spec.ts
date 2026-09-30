@@ -423,6 +423,150 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     enqueue.mockRestore();
   });
 
+  it('describes labels, releases, forks, members and what a deletion carried', async () => {
+    const webhook = await webhooks.create(repositoryOwner, {
+      url: 'https://93.184.216.34/catalog',
+      events: [
+        'issue.labeled',
+        'issue.comment_deleted',
+        'label.deleted',
+        'release.published',
+        'release.deleted',
+        'fork.created',
+        'member.added',
+        'star.created',
+        'repository.transferred',
+      ],
+    });
+    const [label] = await db
+      .insert(schema.label)
+      .values({ repositoryId: repository.id, name: 'bug', color: 'ff0000' })
+      .returning();
+    const [release] = await db
+      .insert(schema.release)
+      .values({ repositoryId: repository.id, tagName: 'v1/rc', name: 'One' })
+      .returning();
+    const [fork] = await db
+      .insert(schema.repository)
+      .values({
+        name: 'app-fork',
+        slug: 'app-fork',
+        ownerId: MEMBER,
+        visibility: 'public',
+        parentRepositoryId: repository.id,
+      })
+      .returning();
+    const send = (
+      id: string,
+      event: Parameters<WebhookFanoutService['handle']>[0]['type'],
+      payload: Record<string, unknown>,
+    ) =>
+      fanout.handle({
+        id: `evt_whk_${id}_${RUN}`,
+        type: event,
+        repositoryId: repository.id,
+        actorId: MEMBER,
+        payload,
+        createdAt: new Date(),
+      } as Parameters<WebhookFanoutService['handle']>[0]);
+
+    await send('labeled', 'issue.labeled', {
+      issueId: issue.id,
+      labelId: label.id,
+    });
+    await send('comment_deleted', 'issue.comment_deleted', {
+      issueId: issue.id,
+      comment: { id: 'ic_deleted', body: 'Never mind' },
+    });
+    await send('label_deleted', 'label.deleted', {
+      label: {
+        id: 'label_x',
+        name: 'wontfix',
+        description: null,
+        color: 'ffffff',
+      },
+    });
+    await send('published', 'release.published', { releaseId: release.id });
+    await send('release_deleted', 'release.deleted', {
+      release: { id: 'release_x', tagName: 'v0', name: null },
+    });
+    await send('forked', 'fork.created', { forkId: fork.id });
+    await send('member_added', 'member.added', { userId: MEMBER });
+    await send('starred', 'star.created', {});
+    await send('transferred', 'repository.transferred', { from: 'someone' });
+    // gone before the event was handled
+    await send('label_gone', 'issue.labeled', {
+      issueId: issue.id,
+      labelId: 'label_gone',
+    });
+    await send('release_gone', 'release.published', {
+      releaseId: 'release_gone',
+    });
+    await send('fork_gone', 'fork.created', { forkId: 'repo_gone' });
+    await send('member_gone', 'member.added', { userId: 'user_gone' });
+
+    const bodies = Object.fromEntries(
+      (await jobsFor(webhook.id)).map((job) => [
+        (job.payload as { event: string }).event,
+        bodyOf(job),
+      ]),
+    );
+    expect(Object.keys(bodies).sort()).toEqual([
+      'fork.created',
+      'issue.comment_deleted',
+      'issue.labeled',
+      'label.deleted',
+      'member.added',
+      'ping',
+      'release.deleted',
+      'release.published',
+      'repository.transferred',
+      'star.created',
+    ]);
+    expect(bodies['issue.labeled']).toMatchObject({
+      issue: { number: 1 },
+      label: { id: label.id, name: 'bug', color: 'ff0000' },
+    });
+    expect(bodies['issue.comment_deleted']).toMatchObject({
+      issue: { number: 1 },
+      comment: { id: 'ic_deleted', body: 'Never mind' },
+    });
+    expect(bodies['label.deleted'].label).toEqual({
+      id: 'label_x',
+      name: 'wontfix',
+      description: null,
+      color: 'ffffff',
+    });
+    expect(bodies['release.published'].release).toMatchObject({
+      id: release.id,
+      tagName: 'v1/rc',
+      name: 'One',
+      isDraft: false,
+      htmlUrl: `https://ghost.test/${USERNAME}/app/releases/tag/v1/rc`,
+    });
+    expect(bodies['release.deleted'].release).toEqual({
+      id: 'release_x',
+      tagName: 'v0',
+      name: null,
+    });
+    expect(bodies['fork.created']).toMatchObject({
+      repository: { fullName: `${USERNAME}/app` },
+      fork: {
+        id: fork.id,
+        fullName: `${USERNAME}-member/app-fork`,
+        htmlUrl: `https://ghost.test/${USERNAME}-member/app-fork`,
+      },
+    });
+    expect(bodies['member.added']).toMatchObject({
+      member: { id: MEMBER, username: `${USERNAME}-member` },
+    });
+    expect(bodies['star.created']).toMatchObject({
+      sender: { id: MEMBER },
+      repository: { fullName: `${USERNAME}/app` },
+    });
+    expect(bodies['repository.transferred'].from).toBe('someone');
+  });
+
   it('sends a push with its ref and commits', async () => {
     const webhook = await webhooks.create(repositoryOwner, {
       url: 'https://93.184.216.34/push',

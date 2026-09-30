@@ -17,6 +17,7 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import type {
@@ -174,22 +175,34 @@ export class ReleasesService {
     }
 
     const isDraft = body.isDraft ?? false;
-    // A concurrent create for the same tag loses on the unique index.
-    const [created] = await this.db
-      .insert(schema.release)
-      .values({
+    const created = await this.db.transaction(async (tx) => {
+      // A concurrent create for the same tag loses on the unique index.
+      const [row] = await tx
+        .insert(schema.release)
+        .values({
+          repositoryId: repository.id,
+          tagName: body.tagName,
+          name: body.name || null,
+          body: body.body || null,
+          isDraft,
+          isPrerelease: body.isPrerelease ?? false,
+          authorId: target.requesterId,
+          publishedAt: isDraft ? null : new Date(),
+        })
+        .onConflictDoNothing()
+        .returning({ id: schema.release.id });
+      if (!row) throw new ReleaseAlreadyExistsError(body.tagName);
+      const event = {
         repositoryId: repository.id,
-        tagName: body.tagName,
-        name: body.name || null,
-        body: body.body || null,
-        isDraft,
-        isPrerelease: body.isPrerelease ?? false,
-        authorId: target.requesterId,
-        publishedAt: isDraft ? null : new Date(),
-      })
-      .onConflictDoNothing()
-      .returning({ id: schema.release.id });
-    if (!created) throw new ReleaseAlreadyExistsError(body.tagName);
+        actorId: target.requesterId,
+        payload: { releaseId: row.id },
+      };
+      await publishEvent(tx, { type: 'release.created', ...event });
+      if (!isDraft) {
+        await publishEvent(tx, { type: 'release.published', ...event });
+      }
+      return row;
+    });
 
     return this.readOne(repository, eq(schema.release.id, created.id));
   }
@@ -205,25 +218,44 @@ export class ReleasesService {
   }): Promise<ReleaseDTO> {
     const repository = await this.authorize(target, 'write');
 
-    const [updated] = await this.db
-      .update(schema.release)
-      .set({
-        // always set, so an empty edit still finds the row instead of failing to build the query
-        updatedAt: new Date(),
-        ...(body.name !== undefined && { name: body.name || null }),
-        ...(body.body !== undefined && { body: body.body || null }),
-        ...(body.isPrerelease !== undefined && {
-          isPrerelease: body.isPrerelease,
-        }),
-        ...(body.isDraft !== undefined && { isDraft: body.isDraft }),
-        // stamped the first time it is published, and kept through any later unpublishing
-        ...(body.isDraft === false && {
-          publishedAt: sql`coalesce(${schema.release.publishedAt}, now())`,
-        }),
-      })
-      .where(this.ownRelease(repository, id))
-      .returning({ id: schema.release.id });
-    if (!updated) throw new ReleaseNotFoundError();
+    const updated = await this.db.transaction(async (tx) => {
+      const [before] = await tx
+        .select({ isDraft: schema.release.isDraft })
+        .from(schema.release)
+        .where(this.ownRelease(repository, id))
+        .for('update');
+      if (!before) throw new ReleaseNotFoundError();
+
+      const [row] = await tx
+        .update(schema.release)
+        .set({
+          // always set, so an empty edit still finds the row instead of failing to build the query
+          updatedAt: new Date(),
+          ...(body.name !== undefined && { name: body.name || null }),
+          ...(body.body !== undefined && { body: body.body || null }),
+          ...(body.isPrerelease !== undefined && {
+            isPrerelease: body.isPrerelease,
+          }),
+          ...(body.isDraft !== undefined && { isDraft: body.isDraft }),
+          // stamped the first time it is published, and kept through any later unpublishing
+          ...(body.isDraft === false && {
+            publishedAt: sql`coalesce(${schema.release.publishedAt}, now())`,
+          }),
+        })
+        .where(this.ownRelease(repository, id))
+        .returning({ id: schema.release.id });
+      if (!row) throw new ReleaseNotFoundError();
+      const event = {
+        repositoryId: repository.id,
+        actorId: target.requesterId,
+        payload: { releaseId: row.id },
+      };
+      await publishEvent(tx, { type: 'release.edited', ...event });
+      if (before.isDraft && body.isDraft === false) {
+        await publishEvent(tx, { type: 'release.published', ...event });
+      }
+      return row;
+    });
 
     return this.readOne(repository, eq(schema.release.id, updated.id));
   }
@@ -236,16 +268,26 @@ export class ReleasesService {
     const repository = await this.authorize(target, 'write');
 
     const [release] = await this.db
-      .select({ id: schema.release.id })
+      .select({
+        id: schema.release.id,
+        tagName: schema.release.tagName,
+        name: schema.release.name,
+      })
       .from(schema.release)
       .where(this.ownRelease(repository, id));
     if (!release) throw new ReleaseNotFoundError();
 
     // storage first: the rows go with the release, and an object nothing points at could never be found again
     await this.assets.removeAll(repository, release.id);
-    await this.db
-      .delete(schema.release)
-      .where(eq(schema.release.id, release.id));
+    await this.db.transaction(async (tx) => {
+      await tx.delete(schema.release).where(eq(schema.release.id, release.id));
+      await publishEvent(tx, {
+        type: 'release.deleted',
+        repositoryId: repository.id,
+        actorId: target.requesterId,
+        payload: { release },
+      });
+    });
   }
 
   /** An annotated tag, as `git tag -a` makes, so the tag carries its own date and author rather than borrowing its commit's. Its one object is packed and pushed through `commitPush`. */

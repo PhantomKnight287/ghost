@@ -488,6 +488,14 @@ export class IssuesService {
           body,
         );
       }
+      if ((title !== undefined && title !== oldTitle) || body !== undefined) {
+        await publishEvent(tx, {
+          type: 'issue.edited',
+          repositoryId: base.id,
+          actorId: params.requesterId,
+          payload: { issueId: issue.id },
+        });
+      }
       return row;
     });
 
@@ -645,6 +653,12 @@ export class IssuesService {
         .where(eq(schema.issueComment.id, comment.id))
         .returning(commentColumns);
       if (!row) throw new IssueCommentNotFoundError();
+      await publishEvent(tx, {
+        type: 'issue.comment_edited',
+        repositoryId: base.id,
+        actorId: params.requesterId,
+        payload: { issueId: issue.id, commentId: comment.id },
+      });
 
       await this.references.record(
         tx,
@@ -671,7 +685,7 @@ export class IssuesService {
   async deleteComment(
     params: IssueRef & { requesterId: string; commentId: string },
   ) {
-    const { issue } = await this.load(params);
+    const { issue, base } = await this.load(params);
     const [comment] = await this.db
       .select()
       .from(schema.issueComment)
@@ -690,6 +704,15 @@ export class IssuesService {
       await tx
         .delete(schema.issueComment)
         .where(eq(schema.issueComment.id, comment.id));
+      await publishEvent(tx, {
+        type: 'issue.comment_deleted',
+        repositoryId: base.id,
+        actorId: params.requesterId,
+        payload: {
+          issueId: issue.id,
+          comment: { id: comment.id, body: comment.body },
+        },
+      });
       await this.references.forget(tx, 'comment', comment.id);
       await tx
         .update(schema.issue)
@@ -825,16 +848,24 @@ export class IssuesService {
       );
     if (existing) throw new LabelAlreadyExistsError(name);
 
-    const [created] = await this.db
-      .insert(schema.label)
-      .values({
+    return this.db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(schema.label)
+        .values({
+          repositoryId: repository.id,
+          name,
+          description: params.body.description,
+          color: params.body.color.toLowerCase(),
+        })
+        .returning(labelColumns);
+      await publishEvent(tx, {
+        type: 'label.created',
         repositoryId: repository.id,
-        name,
-        description: params.body.description,
-        color: params.body.color.toLowerCase(),
-      })
-      .returning(labelColumns);
-    return created;
+        actorId: params.requesterId,
+        payload: { labelId: created.id },
+      });
+      return created;
+    });
   }
 
   async updateLabel(params: {
@@ -869,22 +900,30 @@ export class IssuesService {
       if (clash) throw new LabelAlreadyExistsError(params.body.name.trim());
     }
 
-    const [updated] = await this.db
-      .update(schema.label)
-      .set({
-        ...(params.body.name === undefined
-          ? {}
-          : { name: params.body.name.trim() }),
-        ...(params.body.description === undefined
-          ? {}
-          : { description: params.body.description }),
-        ...(params.body.color === undefined
-          ? {}
-          : { color: params.body.color.toLowerCase() }),
-      })
-      .where(eq(schema.label.id, label.id))
-      .returning(labelColumns);
-    return updated;
+    return this.db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(schema.label)
+        .set({
+          ...(params.body.name === undefined
+            ? {}
+            : { name: params.body.name.trim() }),
+          ...(params.body.description === undefined
+            ? {}
+            : { description: params.body.description }),
+          ...(params.body.color === undefined
+            ? {}
+            : { color: params.body.color.toLowerCase() }),
+        })
+        .where(eq(schema.label.id, label.id))
+        .returning(labelColumns);
+      await publishEvent(tx, {
+        type: 'label.edited',
+        repositoryId: repository.id,
+        actorId: params.requesterId,
+        payload: { labelId: label.id },
+      });
+      return updated;
+    });
   }
 
   async deleteLabel(params: {
@@ -904,7 +943,22 @@ export class IssuesService {
         ),
       );
     if (!label) throw new LabelNotFoundError(params.labelId);
-    await this.db.delete(schema.label).where(eq(schema.label.id, label.id));
+    await this.db.transaction(async (tx) => {
+      await tx.delete(schema.label).where(eq(schema.label.id, label.id));
+      await publishEvent(tx, {
+        type: 'label.deleted',
+        repositoryId: repository.id,
+        actorId: params.requesterId,
+        payload: {
+          label: {
+            id: label.id,
+            name: label.name,
+            description: label.description,
+            color: label.color,
+          },
+        },
+      });
+    });
     return { deleted: true };
   }
 
@@ -955,10 +1009,22 @@ export class IssuesService {
         await this.recordEvent(tx, issue.id, params.requesterId, 'unlabeled', {
           labelName: label.name,
         });
+        await publishEvent(tx, {
+          type: 'issue.unlabeled',
+          repositoryId: base.id,
+          actorId: params.requesterId,
+          payload: { issueId: issue.id, labelId: label.id },
+        });
       }
       for (const label of added) {
         await this.recordEvent(tx, issue.id, params.requesterId, 'labeled', {
           labelName: label.name,
+        });
+        await publishEvent(tx, {
+          type: 'issue.labeled',
+          repositoryId: base.id,
+          actorId: params.requesterId,
+          payload: { issueId: issue.id, labelId: label.id },
         });
       }
 
@@ -1019,6 +1085,12 @@ export class IssuesService {
       for (const user of removed) {
         await this.recordEvent(tx, issue.id, params.requesterId, 'unassigned', {
           assigneeUsername: user.username ?? '',
+        });
+        await publishEvent(tx, {
+          type: 'issue.unassigned',
+          repositoryId: issue.repositoryId,
+          actorId: params.requesterId,
+          payload: { issueId: issue.id, assigneeId: user.id },
         });
       }
       for (const user of added) {
