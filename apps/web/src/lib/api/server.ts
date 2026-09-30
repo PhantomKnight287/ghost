@@ -8,29 +8,37 @@ import { INTERNAL_API_URL } from "@/lib/env";
 
 import type { paths } from "@/lib/api/v1";
 
-async function forwardedCookie() {
-  return (await headers()).get("cookie") ?? "";
+/** What the API needs from the browser's request: its cookies, and the client address the proxy put in x-forwarded-for, which Better Auth rate-limits by. */
+async function forwardedHeaders(): Promise<Record<string, string>> {
+  const incoming = await headers();
+  const forwarded: Record<string, string> = {};
+  for (const name of ["cookie", "x-forwarded-for"]) {
+    const value = incoming.get(name);
+    if (value) forwarded[name] = value;
+  }
+  return forwarded;
 }
 
 /** Typed API client for server components. `credentials: "include"` is a browser concept, so the incoming request's cookies are forwarded explicitly. */
 export async function createServerClient() {
-  const cookie = await forwardedCookie();
-
   return createFetchClient<paths>({
     baseUrl: INTERNAL_API_URL,
-    headers: cookie ? { cookie } : undefined,
+    headers: await forwardedHeaders(),
   });
 }
 
-export async function getServerSession() {
-  const cookie = await forwardedCookie();
-  if (!cookie) return null;
+/** The signed-in session, read over INTERNAL_API_URL: in Docker the public API origin can be this container's own localhost. */
+export async function getServerSession(): Promise<
+  typeof authClient.$Infer.Session | null
+> {
+  const forwarded = await forwardedHeaders();
+  if (!forwarded.cookie) return null;
 
-  const { data } = await authClient.getSession({
-    fetchOptions: { headers: { cookie } },
+  const res = await fetch(`${INTERNAL_API_URL}/api/auth/get-session`, {
+    headers: forwarded,
+    cache: "no-store",
   });
-
-  return data;
+  return res.ok ? res.json() : null;
 }
 
 /** The viewer's role on a repository, fetched once per render however many components ask. */
