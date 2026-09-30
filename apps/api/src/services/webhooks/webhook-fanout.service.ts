@@ -6,7 +6,8 @@ import { and, arrayContains, eq, inArray, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { StoredEvent } from '../../lib/events/events.js';
-import type { WebhookOwner } from '../../lib/webhooks/webhooks.js';
+import { renderWebhookBody } from '../../lib/webhooks/formats/index.js';
+import type { WebhookBody, WebhookOwner } from '../../lib/webhooks/webhooks.js';
 import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
 
 type WebhookJob = {
@@ -32,7 +33,10 @@ export class WebhookFanoutService {
 
   async handle(event: StoredEvent) {
     const endpoints = await this.db
-      .select({ id: schema.webhookEndpoint.id })
+      .select({
+        id: schema.webhookEndpoint.id,
+        url: schema.webhookEndpoint.url,
+      })
       .from(schema.webhookEndpoint)
       .where(
         and(
@@ -58,7 +62,7 @@ export class WebhookFanoutService {
       endpoints.map((endpoint) => ({
         endpointId: endpoint.id,
         event: event.type,
-        body,
+        body: renderWebhookBody(endpoint.url, body),
         idempotencyKey: `${event.id}:${endpoint.id}`,
       })),
     );
@@ -73,7 +77,7 @@ export class WebhookFanoutService {
       {
         endpointId: endpoint.id,
         event: 'ping',
-        body: JSON.stringify({
+        body: renderWebhookBody(endpoint.url, {
           event: 'ping',
           webhook: endpoint,
           ...('repositoryId' in owner
@@ -102,12 +106,12 @@ export class WebhookFanoutService {
     await this.db.execute(sql`NOTIFY delivery`);
   }
 
-  /** The JSON a receiver gets. Null when what the event points at is gone. */
-  private async bodyOf(event: StoredEvent): Promise<string | null> {
+  /** Null when what the event points at is gone. */
+  private async bodyOf(event: StoredEvent): Promise<WebhookBody | null> {
     const repository = await this.repositoryRef(event.repositoryId);
     if (!repository) return null;
 
-    const body: Record<string, unknown> = {
+    const body: WebhookBody = {
       event: event.type,
       repository,
       sender: event.actorId ? await this.userRef(event.actorId) : null,
@@ -269,7 +273,7 @@ export class WebhookFanoutService {
         body.from = event.payload.from;
         break;
     }
-    return JSON.stringify(body);
+    return body;
   }
 
   private async repositoryRef(repositoryId: string) {

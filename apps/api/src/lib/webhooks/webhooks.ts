@@ -2,7 +2,10 @@ import { createCipheriv, randomBytes } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 
+import type { schema } from '@ghost/db';
+
 import type { EventType } from '../events/events.js';
+import type { Commit } from '../git/commits/list-commits.js';
 
 /** Events an endpoint can subscribe to. `ping` is sent on create and on demand, whatever the endpoint chose. */
 export const webhookEvents = [
@@ -130,3 +133,78 @@ export async function webhookUrlProblem(
 export type WebhookOwner =
   | { repositoryId: string; name: string }
   | { organizationId: string; name: string };
+
+type UserRef = { id: string; username: string | null };
+
+export type WebhookRepository = {
+  id: string;
+  fullName: string;
+  description: string | null;
+  visibility: (typeof schema.repository.$inferSelect)['visibility'];
+  defaultBranch: string | null;
+  htmlUrl: string;
+};
+
+type WebhookThread = {
+  id: string;
+  number: number;
+  title: string;
+  body: string | null;
+  state: (typeof schema.issue.$inferSelect)['state'];
+  author: UserRef | null;
+  htmlUrl: string;
+};
+
+/** The JSON a receiver gets for an event. Which optional fields are set depends on the event. */
+export type WebhookBody = {
+  event: EventType;
+  repository: WebhookRepository;
+  sender: UserRef | null;
+  createdAt: string;
+  issue?: WebhookThread;
+  pullRequest?: WebhookThread;
+  comment?: { id: string; body: string; path?: string };
+  review?: {
+    id: string;
+    state: (typeof schema.pullRequestReview.$inferSelect)['state'];
+    body: string | null;
+    dismissalMessage: string | null;
+  };
+  assignee?: UserRef;
+  member?: UserRef;
+  label?: {
+    id: string;
+    name: string;
+    description: string | null;
+    color: string;
+  };
+  /** A deleted release carries only its id, tag and name. */
+  release?: {
+    id: string;
+    tagName: string;
+    name: string | null;
+    body?: string | null;
+    isDraft?: boolean;
+    isPrerelease?: boolean;
+    publishedAt?: Date | null;
+    htmlUrl?: string;
+  };
+  fork?: WebhookRepository;
+  /** The previous owner of a transferred repository. */
+  from?: string;
+  ref?: string;
+  before?: string;
+  after?: string;
+  created?: boolean;
+  deleted?: boolean;
+  commits?: Commit[];
+};
+
+/** Sent on create and from the "Send test" button. */
+export type WebhookPing = {
+  event: 'ping';
+  webhook: { id: string; url: string; events: string[] };
+  repository?: { fullName: string };
+  organization?: { slug: string };
+  createdAt: string;
+};

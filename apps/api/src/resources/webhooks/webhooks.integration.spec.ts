@@ -567,6 +567,43 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     expect(bodies['repository.transferred'].from).toBe('someone');
   });
 
+  it('sends a chat service its own message and everyone else Ghost’s JSON', async () => {
+    // inserted directly: saving through the API would resolve these hosts
+    const [slack, plain] = await db
+      .insert(schema.webhookEndpoint)
+      .values(
+        [
+          'https://hooks.slack.com/services/T0/B0/x',
+          'https://93.184.216.34/plain',
+        ].map((url) => ({
+          repositoryId: repository.id,
+          url,
+          secret: `v1:test-${url}-${RUN}`,
+          events: ['star.created'],
+        })),
+      )
+      .returning();
+    await fanout.handle({
+      id: `evt_whk_star_${RUN}`,
+      type: 'star.created',
+      repositoryId: repository.id,
+      actorId: MEMBER,
+      payload: {},
+      createdAt: new Date(),
+    });
+
+    const [slackJob] = await jobsFor(slack.id);
+    expect(bodyOf(slackJob)).toEqual({
+      text: `[${USERNAME}/app] <https://ghost.test/${USERNAME}/app|${USERNAME}-member starred ${USERNAME}/app>`,
+      unfurl_links: false,
+    });
+    const [plainJob] = await jobsFor(plain.id);
+    expect(bodyOf(plainJob)).toMatchObject({
+      event: 'star.created',
+      sender: { username: `${USERNAME}-member` },
+    });
+  });
+
   it('sends a push with its ref and commits', async () => {
     const webhook = await webhooks.create(repositoryOwner, {
       url: 'https://93.184.216.34/push',
