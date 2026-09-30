@@ -6,7 +6,7 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { and, asc, eq, isNull, notInArray } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 
 import {
   DATABASE,
@@ -131,12 +131,12 @@ export class OutboxService
 
   /** Works through pending events until a batch comes up short. A failed event waits for the next drain, and does not stop this one reaching the rows behind it. */
   async drain() {
-    const tried = new Set<string>();
-    while ((await this.processBatch(tried)) === BATCH_SIZE);
+    const failed = new Set<string>();
+    while ((await this.processBatch(failed)) === BATCH_SIZE);
   }
 
   // ponytail: rows stay locked while consumers run, emails included; a lease column would let a slow batch release them sooner.
-  private processBatch(tried: Set<string>) {
+  private processBatch(failed: Set<string>) {
     return this.db.transaction(async (tx) => {
       const events = await tx
         .select()
@@ -144,8 +144,9 @@ export class OutboxService
         .where(
           and(
             isNull(schema.outboxEvent.processedAt),
-            tried.size
-              ? notInArray(schema.outboxEvent.id, [...tried])
+            // one array parameter, not one per id, so a long run of failures stays under Postgres's parameter limit
+            failed.size
+              ? sql`${schema.outboxEvent.id} <> all(${sql.param([...failed])}::text[])`
               : undefined,
           ),
         )
@@ -155,7 +156,6 @@ export class OutboxService
         .for('update', { skipLocked: true });
 
       for (const event of events) {
-        tried.add(event.id);
         const attempts = event.attempts + 1;
         try {
           // written by `publishEvent`, which checked the payload against its type
@@ -178,6 +178,7 @@ export class OutboxService
               processedAt: attempts >= MAX_ATTEMPTS ? new Date() : null,
             })
             .where(eq(schema.outboxEvent.id, event.id));
+          if (attempts < MAX_ATTEMPTS) failed.add(event.id);
         }
       }
       return events.length;
