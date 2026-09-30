@@ -304,7 +304,6 @@ describe.skipIf(!hasBackends)('webhook events', () => {
       ['release.created', owner],
       ['release.edited', owner],
       ['release.published', owner],
-      ['release.edited', owner],
       ['release.deleted', owner],
       ['release.created', owner],
       ['release.published', owner],
