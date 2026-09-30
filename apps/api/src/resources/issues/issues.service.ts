@@ -921,12 +921,18 @@ export class IssuesService {
         })
         .where(eq(schema.label.id, label.id))
         .returning(labelColumns);
-      await publishEvent(tx, {
-        type: 'label.edited',
-        repositoryId: repository.id,
-        actorId: params.requesterId,
-        payload: { labelId: label.id },
-      });
+      if (
+        updated.name !== label.name ||
+        updated.description !== label.description ||
+        updated.color !== label.color
+      ) {
+        await publishEvent(tx, {
+          type: 'label.edited',
+          repositoryId: repository.id,
+          actorId: params.requesterId,
+          payload: { labelId: label.id },
+        });
+      }
       return updated;
     });
   }
