@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton rows have no id */
-import { Webhook } from "lucide-react";
+import { Plus, Webhook } from "lucide-react";
 import Link from "next/link";
 import { Fragment } from "react";
 
@@ -36,12 +36,20 @@ export function WebhookList({
 }) {
   return (
     <section>
-      <h2 className="mb-3 text-sm font-semibold">
-        Webhooks
-        <span className="ml-2 font-normal text-muted-foreground tabular-nums">
-          {webhooks.length}
-        </span>
-      </h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold">
+          Webhooks
+          <span className="ml-2 font-normal text-muted-foreground tabular-nums">
+            {webhooks.length}
+          </span>
+        </h2>
+        <Button size="sm" asChild>
+          <Link href={`${webhooksPath(owner)}/new`}>
+            <Plus />
+            Add webhook
+          </Link>
+        </Button>
+      </div>
       <Card className="py-0">
         {webhooks.length === 0 ? (
           <Empty className="py-10">
@@ -99,7 +107,10 @@ export function WebhookList({
 export function WebhookListSkeleton() {
   return (
     <section>
-      <Skeleton className="mb-3 h-5 w-24" />
+      <div className="mb-3 flex items-center justify-between">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-8 w-28" />
+      </div>
       <ul className="divide-y rounded-lg border">
         {Array.from({ length: 3 }).map((_, index) => (
           <li key={index} className="flex items-center gap-3 px-4 py-3">

@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { CreateWebhookCard } from "@/components/webhooks/create-webhook-card";
 import { WebhookList } from "@/components/webhooks/webhook-list";
 import { createServerClient } from "@/lib/api/server";
 
@@ -15,13 +14,5 @@ export default async function OrganizationWebhooksPage({
   if (!data) notFound();
   const owner = { kind: "organization" as const, slug };
 
-  return (
-    <div className="flex flex-col gap-8">
-      <CreateWebhookCard
-        owner={owner}
-        hint="Receives the events of every repository in the organization. Ghost sends a ping right away."
-      />
-      <WebhookList owner={owner} webhooks={data.webhooks} />
-    </div>
-  );
+  return <WebhookList owner={owner} webhooks={data.webhooks} />;
 }
