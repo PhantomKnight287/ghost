@@ -488,7 +488,10 @@ export class IssuesService {
           body,
         );
       }
-      if ((title !== undefined && title !== oldTitle) || body !== undefined) {
+      if (
+        (title !== undefined && title !== oldTitle) ||
+        (body !== undefined && body !== issue.body)
+      ) {
         await publishEvent(tx, {
           type: 'issue.edited',
           repositoryId: base.id,
