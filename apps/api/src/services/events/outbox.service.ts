@@ -1,4 +1,4 @@
-import { type Database, schema } from '@ghost/db';
+import { type Database, type Pool, schema } from '@ghost/db';
 import {
   Inject,
   Injectable,
@@ -8,13 +8,18 @@ import {
 } from '@nestjs/common';
 import { asc, eq, isNull } from 'drizzle-orm';
 
-import { DATABASE } from '../../database/database.module.js';
-import type { StoredEvent } from '../../lib/events/events.js';
+import {
+  DATABASE,
+  DATABASE_CONNECTION,
+} from '../../database/database.module.js';
+import { OUTBOX_CHANNEL, type StoredEvent } from '../../lib/events/events.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { WebhookFanoutService } from '../webhooks/webhook-fanout.service.js';
 
 const BATCH_SIZE = 20;
-const POLL_INTERVAL_MS = 2000;
+// Only retries failed events: new ones arrive by NOTIFY. Longer than Railway's 10 idle minutes, so the API can sleep.
+const RETRY_INTERVAL_MS = 15 * 60 * 1000;
+const RECONNECT_DELAY_MS = 5000;
 // After this many failures an event is set aside with its last error rather than retried forever.
 const MAX_ATTEMPTS = 5;
 
@@ -26,30 +31,76 @@ export class OutboxService
   private readonly logger = new Logger(OutboxService.name);
   private timer?: NodeJS.Timeout;
   private draining?: Promise<void>;
+  private listener?: { release(): void };
+  private rerun = false;
+  private stopped = false;
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly notifier: NotifierService,
     private readonly webhooks: WebhookFanoutService,
+    @Inject(DATABASE_CONNECTION)
+    private readonly connection: { pool: Pool },
   ) {}
 
-  onApplicationBootstrap() {
-    this.timer = setInterval(() => {
-      this.draining ??= this.drain()
-        .catch((error: unknown) =>
-          this.logger.error(
-            `Draining the outbox failed: ${error instanceof Error ? error.message : String(error)}`,
-          ),
-        )
-        .finally(() => {
-          this.draining = undefined;
-        });
-    }, POLL_INTERVAL_MS);
+  async onApplicationBootstrap() {
+    this.timer = setInterval(() => this.wake(), RETRY_INTERVAL_MS);
+    await this.listen();
   }
 
   async onApplicationShutdown() {
+    this.stopped = true;
     clearInterval(this.timer);
+    this.listener?.release();
     await this.draining;
+  }
+
+  /** An idle LISTEN connection sends nothing, unlike polling, so it does not keep the container awake. */
+  private async listen() {
+    try {
+      const client = await this.connection.pool.connect();
+      this.listener = client;
+      client.on('notification', () => this.wake());
+      client.on('error', (error) => {
+        this.logger.warn(`Outbox listener lost: ${error.message}`);
+        client.release(error);
+        this.listener = undefined;
+        this.retryListen();
+      });
+      await client.query(`LISTEN ${OUTBOX_CHANNEL}`);
+      // Events committed while nobody listened got no NOTIFY.
+      this.wake();
+    } catch (error) {
+      this.logger.warn(
+        `Outbox listener failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.retryListen();
+    }
+  }
+
+  private retryListen() {
+    if (!this.stopped) setTimeout(() => void this.listen(), RECONNECT_DELAY_MS);
+  }
+
+  private wake() {
+    // A NOTIFY mid-drain may name a row the drain already looked past.
+    if (this.draining) {
+      this.rerun = true;
+      return;
+    }
+    this.draining = this.drain()
+      .catch((error: unknown) =>
+        this.logger.error(
+          `Draining the outbox failed: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      )
+      .finally(() => {
+        this.draining = undefined;
+        if (this.rerun && !this.stopped) {
+          this.rerun = false;
+          this.wake();
+        }
+      });
   }
 
   /** Works through pending events until a batch comes up short. A failed event waits for the next poll. */

@@ -105,7 +105,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     notifier = new NotifierService(db, access, {
       sendThreadEmail,
     } as unknown as MailService);
-    outbox = new OutboxService(db, notifier, noWebhooks);
+    outbox = new OutboxService(db, notifier, noWebhooks, { pool });
     inbox = new NotificationsService(db, access, issues);
 
     await db.delete(schema.user).where(inArray(schema.user.id, USERS));
@@ -606,6 +606,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
         handle: () => Promise.reject(new Error('mail server on fire')),
       } as unknown as NotifierService,
       noWebhooks,
+      { pool },
     );
     const issue = await open(null);
     const pending = () =>
@@ -627,5 +628,18 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     const [event] = await pending();
     expect(event.attempts).toBe(5);
     expect(event.processedAt).not.toBeNull();
+  });
+
+  it('drains on NOTIFY without polling', async () => {
+    await outbox.onApplicationBootstrap();
+    await outbox.drain(); // empty now, so only a NOTIFY can deliver the next event
+    try {
+      const issue = await open('@ntf-alice ping');
+      await vi.waitFor(async () => {
+        expect(await notified(issue.id)).toHaveProperty(ALICE);
+      });
+    } finally {
+      await outbox.onApplicationShutdown();
+    }
   });
 });

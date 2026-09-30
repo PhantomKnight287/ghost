@@ -1,4 +1,5 @@
 import { schema } from '@ghost/db';
+import { sql } from 'drizzle-orm';
 
 import type { Commit } from '../git/commits/list-commits.js';
 import type { Executor } from '../issues/close-issue.js';
@@ -87,4 +88,8 @@ export type StoredEvent = RepositoryEvent & { id: string; createdAt: Date };
 /** Queues `event` for every consumer. Pass the transaction making the change, so the event exists exactly when the change does. */
 export async function publishEvent(db: Executor, event: RepositoryEvent) {
   await db.insert(schema.outboxEvent).values(event);
+  // Postgres holds the notification until the transaction commits and folds repeats into one.
+  await db.execute(sql`select pg_notify(${OUTBOX_CHANNEL}, '')`);
 }
+
+export const OUTBOX_CHANNEL = 'outbox';
