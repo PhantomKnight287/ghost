@@ -8,7 +8,7 @@ export const MAX_CLOSING_COMMITS = 250;
 
 export type Executor = Pick<
   Database,
-  'select' | 'insert' | 'update' | 'delete'
+  'select' | 'insert' | 'update' | 'delete' | 'execute'
 >;
 
 /** Closes an issue that is still open and records why: `closed`, naming the pull request or commit that closed it when there is one, or `merged` for a pull request's own issue. Returns null when the issue was not open, so two racing closes record one event. */

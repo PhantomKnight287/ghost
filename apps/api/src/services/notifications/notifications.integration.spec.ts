@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import {
   afterAll,
@@ -105,7 +105,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     notifier = new NotifierService(db, access, {
       sendThreadEmail,
     } as unknown as MailService);
-    outbox = new OutboxService(db, notifier, noWebhooks);
+    outbox = new OutboxService(db, notifier, noWebhooks, { pool });
     inbox = new NotificationsService(db, access, issues);
 
     await db.delete(schema.user).where(inArray(schema.user.id, USERS));
@@ -606,6 +606,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
         handle: () => Promise.reject(new Error('mail server on fire')),
       } as unknown as NotifierService,
       noWebhooks,
+      { pool },
     );
     const issue = await open(null);
     const pending = () =>
@@ -627,5 +628,53 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     const [event] = await pending();
     expect(event.attempts).toBe(5);
     expect(event.processedAt).not.toBeNull();
+  });
+
+  it('drains past a failing event in one run', async () => {
+    const first = await open(null);
+    for (let i = 0; i < 20; i++) await open(null);
+    const flaky = new OutboxService(
+      db,
+      {
+        handle: (event: { payload: { issueId?: string } }) =>
+          event.payload.issueId === first.id
+            ? Promise.reject(new Error('mail server on fire'))
+            : Promise.resolve(),
+      } as unknown as NotifierService,
+      noWebhooks,
+      { pool },
+    );
+
+    await flaky.drain();
+    const pending = await db
+      .select()
+      .from(schema.outboxEvent)
+      .where(
+        and(
+          eq(schema.outboxEvent.repositoryId, repository.id),
+          isNull(schema.outboxEvent.processedAt),
+        ),
+      );
+    expect(pending).toMatchObject([{ attempts: 1 }]);
+    expect(pending[0].payload.issueId).toBe(first.id);
+  });
+
+  it('drains on NOTIFY without polling', async () => {
+    await outbox.onApplicationBootstrap();
+    await outbox.drain(); // empty now, so only a NOTIFY can deliver the next event
+    try {
+      const issue = await open('@ntf-alice ping');
+      await vi.waitFor(async () => {
+        expect(await notified(issue.id)).toHaveProperty(ALICE);
+      });
+    } finally {
+      await outbox.onApplicationShutdown();
+    }
+    // a listener handed back to the pool would still hear this and drain
+    const drain = vi.spyOn(outbox, 'drain');
+    for (let i = 0; i < 5; i++)
+      await pool.query("select pg_notify('outbox', '')");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(drain).not.toHaveBeenCalled();
   });
 });
