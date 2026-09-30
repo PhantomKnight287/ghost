@@ -1,0 +1,13 @@
+# Plain HTTP for an IP address or localhost. Caddy still sits in front so the
+# API sees each visitor's address in X-Forwarded-For.
+:3000 {
+	reverse_proxy web:3000
+}
+
+:3001 {
+	reverse_proxy api:3001
+}
+
+:3003 {
+	reverse_proxy docs:3003
+}

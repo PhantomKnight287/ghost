@@ -1,0 +1,191 @@
+---
+title: Self-hosting configuration
+description: Every setting a self-hosted Ghost reads, how the containers fit together, and what to check when something fails.
+---
+
+The setup script writes `docker/.env`. Every value in this page lives there.
+Edit it and apply the change from the `docker` directory:
+
+```bash
+docker compose up -d --build
+```
+
+Values in `.env` are single-quoted, so `$` and spaces are taken literally. A
+value cannot contain a single quote.
+
+## Containers
+
+| Service | Image | Role |
+| --- | --- | --- |
+| `web` | `apps/web` | Next.js app on port 3000 |
+| `api` | `apps/api` | API and git over HTTP on 3001, git over SSH on `GIT_SSH_PORT` |
+| `docs` | `apps/docs` | These docs on 3003 |
+| `delivery` | `apps/delivery` | Sends webhooks, and emails when `DELIVERY_EMAIL=queue` |
+| `zoekt` | `apps/zoekt` | Code search. Only the API can reach it |
+| `postgres` | `postgres:18-alpine` | Everything except git objects |
+| `rustfs` | `rustfs/rustfs` | Bundled S3 storage (profile `rustfs`) |
+| `caddy` | `caddy:2` | HTTPS on 80/443 for a domain (profile `https`) |
+| `caddy-http` | `caddy:2` | Plain HTTP on 3000, 3001 and 3003 (profile `http`) |
+| `migrate` | `apps/api` | Runs database migrations, then exits |
+| `bucket` | `amazon/aws-cli` | Creates the bucket if it is missing, then exits |
+
+`COMPOSE_PROFILES` in `.env` turns the optional services on. `https,rustfs`
+is a domain with bundled storage; `http` is plain HTTP with an external
+bucket. One of `https` or `http` is always on: the apps publish no ports of
+their own, and Caddy is what tells the API each visitor's address. Without it
+every visitor would share one sign-in rate limit.
+
+## Addresses
+
+| Variable | Meaning |
+| --- | --- |
+| `DOMAIN` | The domain Caddy serves. Empty in IP mode |
+| `WEB_APP_URL`, `API_URL`, `DOCS_URL` | Public origins of the three apps |
+| `SSH_CLONE_HOST` | `host:port` shown in SSH clone URLs |
+| `BETTER_AUTH_URL` | Same as `API_URL` |
+| `AUTH_TRUSTED_ORIGINS` | Origins allowed to sign in. Same as `WEB_APP_URL` |
+| `AUTH_COOKIE_DOMAIN` | `.<DOMAIN>`, so the web app and the API share the session. Empty in IP mode |
+
+<Callout type="warn">
+  `API_URL`, `WEB_APP_URL`, `DOCS_URL` and `SSH_CLONE_HOST` are compiled into
+  the web and docs bundles. Changing them needs `--build`, not a restart.
+</Callout>
+
+### Your own reverse proxy
+
+To terminate TLS in nginx, Traefik or a load balancer, set up the instance
+with its IP (the `http` profile), then set the three URL variables to your
+HTTPS origins and `AUTH_COOKIE_DOMAIN` to `.<your domain>`, and rebuild.
+Proxy:
+
+- `DOMAIN` to port 3000
+- `api.DOMAIN` to port 3001
+- `docs.DOMAIN` to port 3003
+
+Set `X-Forwarded-For` to the client address, as a single value, and do not
+limit the request body size on the API: a git push is one request.
+
+## Email
+
+Set one of the two routes. The Docker setup requires one of them.
+
+Running the API outside Docker with neither set, Ghost falls back to the
+local `sendmail` binary: `SENDMAIL_PATH`, or the first `sendmail` on `PATH`,
+`/usr/sbin` or `/usr/lib`. Windows has no built-in sendmail; a drop-in
+`sendmail.exe` on `PATH` is found the same way. With no route at all, email
+is dropped and verification has to stay off.
+
+| Variable | Meaning |
+| --- | --- |
+| `MAIL_HOST`, `MAIL_PORT` | SMTP server |
+| `MAIL_USER`, `MAIL_PASSWORD` | SMTP credentials |
+| `MAIL_SECURE` | `true` for implicit TLS (port 465). `false` uses STARTTLS when the server offers it |
+| `EMAIL_PROXY` | URL of an HTTP relay that receives each message as JSON |
+| `EMAIL_PROXY_SECRET` | Shared secret sent to the relay |
+| `SENDMAIL_PATH` | A sendmail-compatible binary, used when neither SMTP nor a relay is set |
+| `EMAIL_SENDER` | The From address, such as `Ghost <noreply@example.com>` |
+| `EMAIL_VERIFICATION_ENABLED` | `true` makes new accounts verify their address before they sign in |
+| `DELIVERY_EMAIL` | `queue` hands issue and pull request emails to `delivery`, which retries them. Only works with `EMAIL_PROXY` |
+
+## Storage
+
+| Variable | Meaning |
+| --- | --- |
+| `S3_ENDPOINT` | `http://rustfs:9000` for the bundled storage, or your provider's endpoint |
+| `S3_BUCKET` | Bucket name. Created on start if missing and the key is allowed to |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Credentials |
+| `STORAGE_QUOTA_BYTES` | Most each account may store, such as `10gb`. Empty is unlimited |
+| `RELEASE_ASSET_MAX_BYTES` | Largest release asset. `2gb` unless set, never above `5gb` |
+
+The bucket is the source of truth for git data. Repository working copies in
+the API container are a cache rebuilt from it, so the API needs no volume.
+Ghost uses path-style addressing and region `auto`; any provider that accepts
+those works.
+
+## Secrets
+
+| Variable | Meaning | Generate by hand |
+| --- | --- | --- |
+| `BETTER_AUTH_SECRET` | Signs sessions. Changing it signs everyone out | `openssl rand -base64 32` |
+| `WEBHOOK_SECRET_KEY` | Encrypts webhook signing secrets. Changing it breaks every existing webhook | `openssl rand -base64 32` |
+| `GIT_SSH_HOST_KEY` | The server's SSH identity, base64 of an OpenSSH private key. Empty turns SSH off | see below |
+| `POSTGRES_PASSWORD` | Database password. Also inside `DATABASE_URL` | `openssl rand -hex 24` |
+
+The setup script never replaces a secret that is already in `.env`.
+
+An SSH host key by hand:
+
+```bash
+ssh-keygen -t ed25519 -N '' -f ghost_host_key
+base64 -w0 ghost_host_key   # macOS: base64 -i ghost_host_key
+```
+
+Publish its fingerprint (`ssh-keygen -lf ghost_host_key.pub`) so people can
+check it on their first connection.
+
+## Git over SSH
+
+| Variable | Meaning |
+| --- | --- |
+| `GIT_SSH_PORT` | Port the API listens on and the host publishes. Default `1031` |
+
+Port 22 usually belongs to the server's own SSH daemon. To use it for git,
+move the daemon first.
+
+## Webhooks
+
+| Variable | Meaning |
+| --- | --- |
+| `WEBHOOK_ALLOW_PRIVATE_NETWORKS` | `true` lets webhooks reach private and loopback addresses, for receivers on your own network. Cloud metadata addresses stay blocked |
+| `WEBHOOK_HOST_CONCURRENCY` | Deliveries in flight to one host at a time. Default `4` |
+
+See [Receiving webhooks](/webhooks) for the payload and signature format.
+
+## Telemetry
+
+Off by default. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to an OTLP HTTP endpoint,
+such as a Grafana Alloy or `grafana/otel-lgtm` container, to export traces and
+metrics from the API.
+
+## Running without the script
+
+Copy the variables in this page into `docker/.env` by hand, then:
+
+```bash
+cd docker
+docker compose up -d --build
+```
+
+`DATABASE_URL` has to be
+`postgres://ghost:<POSTGRES_PASSWORD>@postgres:5432/ghost`, and `ZOEKT_URL`
+`http://zoekt:6070`.
+
+## Troubleshooting
+
+Logs for one service:
+
+```bash
+cd docker
+docker compose logs -f api
+```
+
+**Sign-in does nothing, or signs you out on reload.** The web app and API are
+not sharing a cookie. With a domain, check `AUTH_COOKIE_DOMAIN` is
+`.<DOMAIN>` and both are served over HTTPS. In IP mode, open the web app on
+the same host name as `API_URL`, not `localhost` on one and an IP on the other.
+
+**Caddy cannot get a certificate.** DNS for all three names has to reach the
+server, and ports 80 and 443 have to be open. `docker compose logs caddy`
+names the failing domain.
+
+**`migrate` exits with an error.** The API does not start until migrations
+succeed. `docker compose logs migrate` shows the SQL error.
+
+**`bucket` fails with an external bucket.** The key cannot see the bucket.
+Check the endpoint, the bucket name and the key's permissions.
+
+**SSH clone times out.** The SSH port is closed in a firewall, or
+`SSH_CLONE_HOST` names a different host.
+
+**Code search returns nothing.** Repositories are indexed on push. Push once
+after the instance starts, then check `docker compose logs zoekt`.

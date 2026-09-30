@@ -1,0 +1,114 @@
+---
+title: Self-hosting Ghost
+description: Run your own Ghost with Docker and one setup script.
+---
+
+Ghost runs as a handful of containers: the web app, the API, the docs, a
+delivery worker for webhooks and email, a code search node, Postgres, and S3
+storage. One script asks a few questions, writes the configuration, and
+starts all of them.
+
+## What you need
+
+- [Docker](https://docs.docker.com/get-docker/) with Compose v2 (Docker
+  Desktop on macOS and Windows).
+- About 4 GB of memory free while the images build for the first time.
+- An SMTP server or an HTTP email relay. Ghost uses it for email
+  verification, password resets and notifications.
+- For a public instance: a domain, and ports 80 and 443 open. HTTPS
+  certificates are issued automatically.
+
+## Install
+
+<Tabs items={["macOS / Linux", "Windows"]}>
+  <Tab value="macOS / Linux">
+```bash
+git clone https://github.com/PhantomKnight287/ghost.git
+cd ghost
+./docker/setup.sh
+```
+  </Tab>
+  <Tab value="Windows">
+```powershell
+git clone https://github.com/PhantomKnight287/ghost.git
+cd ghost
+powershell -ExecutionPolicy Bypass -File docker\setup.ps1
+```
+  </Tab>
+</Tabs>
+
+The script asks:
+
+1. **Domain or IP.** Enter a domain such as `git.example.com` to serve Ghost
+   over HTTPS. Enter `localhost` or an IP address to serve plain HTTP on
+   ports 3000, 3001 and 3003.
+2. **SSH port.** The port for `git clone ssh://…`. The default is `1031`.
+3. **Email.** Pick SMTP or an HTTP relay, then enter its details. One of them
+   is required.
+4. **Storage.** Use the bundled S3 storage, or point Ghost at an existing
+   bucket on Cloudflare R2, Tigris, MinIO or another S3-compatible service.
+5. **Secrets.** Press enter at each one and the script generates it: the auth
+   secret, the webhook encryption key, the SSH host key, and the database and
+   storage passwords.
+
+The first build takes several minutes. When it is done, the script prints the
+addresses:
+
+```
+Web   https://git.example.com
+API   https://api.git.example.com   (git clone https://api.git.example.com/<user>/<repo>)
+Docs  https://docs.git.example.com
+SSH   ssh://git@git.example.com:1031/<user>/<repo>.git
+```
+
+Open the web address and sign up. The first account is an ordinary account;
+there is no separate admin.
+
+## With a domain
+
+Before you run the script, create DNS records that point three names at the
+server:
+
+| Name | Serves |
+| --- | --- |
+| `git.example.com` | The web app |
+| `api.git.example.com` | The API and git over HTTP |
+| `docs.git.example.com` | These docs |
+
+The web app and the API share a sign-in cookie, so they have to be subdomains
+of one name. A [Caddy](https://caddyserver.com) container takes ports 80 and
+443 and gets a certificate for each name on its first request.
+
+<Callout type="warn">
+  Open the SSH port (default `1031`) in your firewall as well. It does not go
+  through Caddy.
+</Callout>
+
+## Upgrading
+
+```bash
+git pull
+./docker/setup.sh     # answer Y to start with the existing configuration
+```
+
+On Windows, run `setup.ps1` the same way. The images are rebuilt, and database
+migrations run before the API starts.
+
+## Back up
+
+Everything that matters is in two places:
+
+- `docker/.env`: every secret. Without it, sign-ins, webhook secrets and the
+  SSH host key are lost.
+- The `ghost-server_postgres` volume, and the bucket (`ghost-server_rustfs` when you use the
+  bundled storage).
+
+A database dump:
+
+```bash
+cd docker
+docker compose exec postgres pg_dump -U ghost ghost > ghost.sql
+```
+
+Next: [Self-hosting configuration](/self-hosting-configuration) covers every
+setting, running without the script, and troubleshooting.

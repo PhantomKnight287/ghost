@@ -1,0 +1,177 @@
+# Self-hosted Ghost. Run ./setup.sh (or setup.ps1 on Windows) once: it writes
+# .env next to this file and starts everything. Afterwards plain
+# `docker compose up -d --build` from this directory works too.
+#
+# Profiles, chosen by COMPOSE_PROFILES in .env:
+#   rustfs  bundled S3 storage; leave it out to use an external bucket
+#   https   Caddy with HTTPS on 80/443 for a domain
+#   http    Caddy with plain HTTP on 3000 (web), 3001 (api), 3003 (docs)
+# One of https or http is always on: Caddy is what sets X-Forwarded-For, and
+# without it every visitor shares one sign-in rate limit.
+# Not `ghost`: that is the development compose project at the repository root, and the two would share volumes.
+name: ghost-server
+
+x-app-env: &app-env
+  env_file: .env
+
+x-caddy: &caddy
+  image: caddy:2
+  restart: unless-stopped
+  depends_on: [web, api, docs]
+  volumes:
+    - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    - caddy:/data
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ghost
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run setup.sh first}
+      POSTGRES_DB: ghost
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ghost -d ghost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    profiles: [rustfs]
+    restart: unless-stopped
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY_ID}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_ACCESS_KEY}
+    volumes:
+      - rustfs:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  # Creates the bucket, or confirms it exists. Runs against an external bucket too.
+  bucket:
+    image: amazon/aws-cli:latest
+    depends_on:
+      rustfs:
+        condition: service_healthy
+        required: false
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: auto
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'aws --endpoint-url "$$S3_ENDPOINT" s3api head-bucket --bucket "$$S3_BUCKET" || aws --endpoint-url "$$S3_ENDPOINT" s3api create-bucket --bucket "$$S3_BUCKET"'
+    env_file: .env
+    restart: "no"
+
+  migrate:
+    <<: *app-env
+    image: ghost-api
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["node", "packages/db/dist/migrate.js"]
+    restart: "no"
+
+  api:
+    <<: *app-env
+    image: ghost-api
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      bucket:
+        condition: service_completed_successfully
+    environment:
+      PORT: 3001
+    ports:
+      # SSH does not go through Caddy.
+      - "${GIT_SSH_PORT:-1031}:${GIT_SSH_PORT:-1031}"
+
+  delivery:
+    <<: *app-env
+    build:
+      context: ..
+      dockerfile: apps/delivery/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # No published port: zoekt answers for every repository, private ones included, so only the api, which checks access, may reach it.
+  zoekt:
+    <<: *app-env
+    build:
+      context: ..
+      dockerfile: apps/zoekt/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      bucket:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Baked into the browser bundle: changing them needs a rebuild.
+        NEXT_PUBLIC_API_URL: ${API_URL}
+        NEXT_PUBLIC_SITE_URL: ${WEB_APP_URL}
+        NEXT_PUBLIC_DOCS_URL: ${DOCS_URL}
+        NEXT_PUBLIC_SSH_CLONE_HOST: ${SSH_CLONE_HOST}
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      INTERNAL_API_URL: http://api:3001
+
+  docs:
+    build:
+      context: ..
+      dockerfile: apps/docs/Dockerfile
+      args:
+        NEXT_PUBLIC_DOCS_URL: ${DOCS_URL}
+        NEXT_PUBLIC_WEB_APP_URL: ${WEB_APP_URL}
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+
+  caddy:
+    <<: *caddy
+    profiles: [https]
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+
+  caddy-http:
+    <<: *caddy
+    profiles: [http]
+    volumes:
+      - ./Caddyfile.http:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+      - "3003:3003"
+
+volumes:
+  postgres:
+  rustfs:
+  caddy:
