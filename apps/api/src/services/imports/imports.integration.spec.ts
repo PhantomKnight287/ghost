@@ -691,6 +691,36 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
       expect(wake).not.toHaveBeenCalled();
     });
 
+    it('makes an issue being opened wait for a retry holding the import row, then refuses it', async () => {
+      await startImport({ status: 'failed' });
+      const retrying = await pool.connect();
+      try {
+        await retrying.query('begin');
+        await retrying.query(
+          'select 1 from repository_import where repository_id = $1 for update',
+          [repositoryId],
+        );
+
+        let settled = false;
+        const opening = db
+          .transaction((tx) => assertNotImporting(tx, repositoryId))
+          .finally(() => {
+            settled = true;
+          });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(settled).toBe(false);
+
+        await retrying.query(
+          `update repository_import set status = 'pending' where repository_id = $1`,
+          [repositoryId],
+        );
+        await retrying.query('commit');
+        await expect(opening).rejects.toBeInstanceOf(RepositoryImportingError);
+      } finally {
+        retrying.release();
+      }
+    });
+
     it('retries only for a caller with GitHub linked', async () => {
       await startImport({ status: 'failed' });
       await db.delete(schema.account).where(eq(schema.account.userId, OWNER));

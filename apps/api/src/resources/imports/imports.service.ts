@@ -124,42 +124,40 @@ export class ImportsService {
     if (!(await githubAccountIdOf(this.db, requesterId))) {
       throw new GitHubNotConnectedError();
     }
-    const [localIssue] = await this.db
-      .select({ id: schema.issue.id })
-      .from(schema.issue)
-      .where(
-        and(
-          eq(schema.issue.repositoryId, repository.id),
-          ne(schema.issue.authorId, schema.IMPORTER_USER_ID),
-        ),
-      )
-      .limit(1);
-    if (localIssue) throw new ImportRetryWouldOverwriteError();
-
-    const [row] = await this.db
-      .update(schema.repositoryImport)
-      .set({
-        status: 'pending',
-        attempts: 0,
-        nextAttemptAt: new Date(),
-        lastError: null,
-        // Whoever retries is whose GitHub token and push access the next attempt uses.
-        requestedById: requesterId,
-      })
-      .where(
-        and(
-          eq(schema.repositoryImport.repositoryId, repository.id),
-          eq(schema.repositoryImport.status, 'failed'),
-        ),
-      )
-      .returning({ id: schema.repositoryImport.id });
-    if (!row) {
-      const [existing] = await this.db
-        .select({ id: schema.repositoryImport.id })
+    // Locked for update, so an issue being opened (which shares the lock) either commits first and is seen below, or waits and finds the import pending.
+    await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ status: schema.repositoryImport.status })
         .from(schema.repositoryImport)
+        .where(eq(schema.repositoryImport.repositoryId, repository.id))
+        .for('update');
+      if (!row) throw new ImportNotFoundError();
+      if (row.status !== 'failed') throw new ImportNotFailedError();
+
+      const [localIssue] = await tx
+        .select({ id: schema.issue.id })
+        .from(schema.issue)
+        .where(
+          and(
+            eq(schema.issue.repositoryId, repository.id),
+            ne(schema.issue.authorId, schema.IMPORTER_USER_ID),
+          ),
+        )
+        .limit(1);
+      if (localIssue) throw new ImportRetryWouldOverwriteError();
+
+      await tx
+        .update(schema.repositoryImport)
+        .set({
+          status: 'pending',
+          attempts: 0,
+          nextAttemptAt: new Date(),
+          lastError: null,
+          // Whoever retries is whose GitHub token and push access the next attempt uses.
+          requestedById: requesterId,
+        })
         .where(eq(schema.repositoryImport.repositoryId, repository.id));
-      throw existing ? new ImportNotFailedError() : new ImportNotFoundError();
-    }
+    });
     this.dispatcher.wake();
   }
 

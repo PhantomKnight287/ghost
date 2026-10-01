@@ -178,7 +178,6 @@ export class IssuesService {
     },
     extend: (tx: Executor, row: Issue) => Promise<void>,
   ) {
-    await assertNotImporting(this.db, repository.id);
     const values = {
       repositoryId: repository.id,
       title,
@@ -192,6 +191,7 @@ export class IssuesService {
     for (let attempt = 0; ; attempt++) {
       try {
         return await this.db.transaction(async (tx) => {
+          await assertNotImporting(tx, repository.id);
           const [row] = await tx
             .insert(schema.issue)
             .values(values)

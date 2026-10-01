@@ -1,21 +1,24 @@
 import { type Database, schema } from '@ghost/db';
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { RepositoryImportingError } from './imports.errors.js';
 
-/** An import writes issue numbers GitHub chose, so nothing else may take one until it is done. */
+/**
+ * An import writes issue numbers GitHub chose, so nothing else may take one until it is done.
+ *
+ * Call it inside the transaction that inserts the issue. The shared lock on the import row makes a concurrent retry, which locks the row for update, wait for that insert to commit and see it, or makes this wait for the retry and see the import running again.
+ */
 export async function assertNotImporting(
-  db: Pick<Database, 'select'>,
+  tx: Pick<Database, 'select'>,
   repositoryId: string,
 ) {
-  const [active] = await db
-    .select({ id: schema.repositoryImport.id })
+  // Filtering by status in SQL would skip locking a failed row, which is the one a retry is about to flip.
+  const [row] = await tx
+    .select({ status: schema.repositoryImport.status })
     .from(schema.repositoryImport)
-    .where(
-      and(
-        eq(schema.repositoryImport.repositoryId, repositoryId),
-        inArray(schema.repositoryImport.status, ['pending', 'running']),
-      ),
-    );
-  if (active) throw new RepositoryImportingError();
+    .where(eq(schema.repositoryImport.repositoryId, repositoryId))
+    .for('share');
+  if (row?.status === 'pending' || row?.status === 'running') {
+    throw new RepositoryImportingError();
+  }
 }
