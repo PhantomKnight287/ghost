@@ -239,14 +239,24 @@ export function createAuth(db: Database, config: AuthConfig) {
     secret: config.secret,
     baseURL: config.baseURL,
     trustedOrigins: config.trustedOrigins ?? [],
-    advanced: config.cookieDomain
-      ? {
-          crossSubDomainCookies: {
-            enabled: true,
-            domain: config.cookieDomain,
-          },
-        }
-      : undefined,
+    advanced: {
+      ...(config.cookieDomain
+        ? {
+            crossSubDomainCookies: {
+              enabled: true,
+              domain: config.cookieDomain,
+            },
+          }
+        : undefined),
+      ...(process.env.RAILWAY_SERVICE_ID
+        ? {
+            ipAddress: {
+              ipAddressHeaders: ['X-Real-IP'],
+            },
+          }
+        : undefined),
+    },
+
     database: drizzleAdapter(db, {
       provider: 'pg',
     }),
