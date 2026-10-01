@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { accessSync, constants, statSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -24,7 +24,15 @@ export function sendmailPath(
     process.platform === 'win32' ? ['sendmail.exe', 'sendmail'] : ['sendmail'];
   return dirs
     .flatMap((dir) => names.map((name) => join(dir, name)))
-    .find((file) => existsSync(file));
+    .find((file) => {
+      try {
+        if (!statSync(file).isFile()) return false;
+        if (process.platform !== 'win32') accessSync(file, constants.X_OK);
+        return true;
+      } catch {
+        return false;
+      }
+    });
 }
 
 /** True once any delivery route (HTTP relay, SMTP, or a local sendmail) is available. */
