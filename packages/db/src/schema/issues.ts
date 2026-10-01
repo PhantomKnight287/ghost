@@ -1,5 +1,6 @@
 import { createId } from "@paralleldrive/cuid2";
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -100,6 +101,7 @@ export const issueComment = pgTable(
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
     body: text().notNull(),
+    githubId: bigint({ mode: "number" }),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
@@ -107,7 +109,10 @@ export const issueComment = pgTable(
       .defaultNow()
       .$onUpdateFn(() => new Date()),
   },
-  (t) => [index("issue_comment_issue_idx").on(t.issueId, t.createdAt)],
+  (t) => [
+    index("issue_comment_issue_idx").on(t.issueId, t.createdAt),
+    uniqueIndex("issue_comment_issue_github_idx").on(t.issueId, t.githubId),
+  ],
 );
 
 /** Repository-scoped labels, exactly like GitHub: a name, an optional description, and a 6-char hex color (stored without `#`). */

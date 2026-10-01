@@ -260,6 +260,27 @@
       "when": 1790696447060,
       "tag": "0036_webhook_disabled_notified_at",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790838673490,
+      "tag": "0037_repository_import",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790838673969,
+      "tag": "0038_importer_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790845391682,
+      "tag": "0039_imported_comment_id",
+      "breakpoints": true
     }
   ]
 }

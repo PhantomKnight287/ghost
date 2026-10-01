@@ -33,5 +33,6 @@ import { CodeSearchService } from '../../services/git/code-search/code-search.se
     RepositoryContributionService,
     CommitVerificationService,
   ],
+  exports: [RepositoriesService],
 })
 export class RepositoriesModule {}

@@ -22,6 +22,7 @@ value cannot contain a single quote.
 | `docs` | `apps/docs` | These docs on 3003 |
 | `delivery` | `apps/delivery` | Sends webhooks, and emails when `DELIVERY_EMAIL=queue` |
 | `zoekt` | `apps/zoekt` | Code search. Only the API can reach it |
+| `importer` | `apps/importer` | Imports repositories from GitHub (profile `importer`). Only the API can reach it |
 | `postgres` | `postgres:18-alpine` | Everything except git objects |
 | `rustfs` | `rustfs/rustfs` | Bundled S3 storage (profile `rustfs`) |
 | `caddy` | `caddy:2` | HTTPS on 80/443 for a domain (profile `https`) |
@@ -31,9 +32,10 @@ value cannot contain a single quote.
 
 `COMPOSE_PROFILES` in `.env` turns the optional services on. `https,rustfs`
 is a domain with bundled storage; `http` is plain HTTP with an external
-bucket. One of `https` or `http` is always on: the apps publish no ports of
-their own, and Caddy is what tells the API each visitor's address. Without it
-every visitor would share one sign-in rate limit.
+bucket; add `importer` for GitHub imports. One of `https` or `http` is always
+on: the apps publish no ports of their own, and Caddy is what tells the API
+each visitor's address. Without it every visitor would share one sign-in rate
+limit.
 
 ## Addresses
 
@@ -141,6 +143,36 @@ move the daemon first.
 
 See [Receiving webhooks](/webhooks) for the payload and signature format.
 
+## GitHub imports
+
+Off unless all of these are set. With them, the new repository form offers
+**Import from GitHub**: people link their GitHub account, and the `importer`
+container copies the repository's branches, tags, releases, issues, pull
+requests and comments into Ghost. Imported issues and comments are authored by
+the `ghost-importer` account and credit the GitHub author in the text.
+
+| Variable | Meaning |
+| --- | --- |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | A GitHub OAuth app. Used only to link GitHub to an existing account, never to sign in |
+| `IMPORTER_URL` | Where the API sends import jobs: `http://importer:3004` |
+| `IMPORTER_SECRET` | Shared by the API and the importer to authenticate each other |
+| `IMPORTER_CONCURRENCY` | Imports the importer runs at once. Default `2`; more wait and are retried |
+
+Create the OAuth app at
+[github.com/settings/applications/new](https://github.com/settings/applications/new)
+with:
+
+- **Homepage URL:** `WEB_APP_URL`
+- **Authorization callback URL:** `<API_URL>/api/auth/callback/github`
+
+Generate `IMPORTER_SECRET` with `openssl rand -hex 32`, and add `importer` to
+`COMPOSE_PROFILES`. The setup script does both when you turn imports on.
+
+The importer clones each repository to its container's temporary directory
+before pushing it, so the container needs disk for the largest repository you
+import. Release assets, Git LFS objects and line comments on pull requests are
+not imported.
+
 ## Telemetry
 
 Off by default. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to an OTLP HTTP endpoint,
@@ -186,6 +218,15 @@ Check the endpoint, the bucket name and the key's permissions.
 
 **SSH clone times out.** The SSH port is closed in a firewall, or
 `SSH_CLONE_HOST` names a different host.
+
+**An import stays at "Importing" or fails with "The import could not be
+started".** The API cannot reach the importer, or the two disagree on
+`IMPORTER_SECRET`. Check `COMPOSE_PROFILES` includes `importer`, then
+`docker compose logs importer api`. Failed imports retry on their own a few
+times; after that a repository admin can retry from the banner.
+
+**Linking GitHub fails with a redirect error.** The OAuth app's callback URL
+has to be exactly `<API_URL>/api/auth/callback/github`.
 
 **Code search returns nothing.** Repositories are indexed on push. Push once
 after the instance starts, then check `docker compose logs zoekt`.

@@ -14,6 +14,8 @@ import {
 } from "@/components/repositories/repository-languages";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 
+import { ImportBanner } from "./import-banner";
+
 export async function generateMetadata({
   params,
 }: LayoutProps<"/[username]/[repo]">): Promise<Metadata> {
@@ -57,7 +59,7 @@ export default async function RepositoryLayout({
     redirect(`/${repository.data.owner}/${repository.data.slug}`);
   }
 
-  const [branches, pulls, issues, watch] = await Promise.all([
+  const [branches, pulls, issues, watch, imported] = await Promise.all([
     client.GET("/api/repositories/{username}/{slug}/branches", {
       params: { path: { username, slug: repo } },
     }),
@@ -72,6 +74,9 @@ export default async function RepositoryLayout({
           params: { path: { username, repo } },
         })
       : null,
+    client.GET("/api/repositories/{username}/{repo}/import", {
+      params: { path: { username, repo } },
+    }),
   ]);
 
   return (
@@ -114,6 +119,14 @@ export default async function RepositoryLayout({
         </>
       }
     >
+      {imported.data && imported.data.status !== "succeeded" && (
+        <ImportBanner
+          username={username}
+          repo={repository.data.slug}
+          viewerRole={repository.data.viewerRole}
+          initial={imported.data}
+        />
+      )}
       {children}
     </RepositoryFrame>
   );

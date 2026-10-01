@@ -13,6 +13,7 @@ import {
   createBranchSchema,
   createRepositorySchema,
   forkRepositorySchema,
+  importRepositorySchema,
   updateRepositorySchema,
 } from "./common";
 
@@ -30,6 +31,34 @@ export const createRepository = actionClient
     }) => {
       const { data, error } = await fetchClient.POST("/api/repositories", {
         body: { name, description, visibility, organization },
+        headers: { cookie: (await cookies()).toString() },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      redirect(`/${owner}/${data.slug}`);
+    },
+  );
+
+export const importRepository = actionClient
+  .inputSchema(
+    importRepositorySchema.extend({ organization: z.string().optional() }),
+  )
+  .action(
+    async ({
+      parsedInput: {
+        owner,
+        source,
+        name,
+        description,
+        visibility,
+        organization,
+      },
+    }) => {
+      const { data, error } = await fetchClient.POST("/api/imports", {
+        body: { source, name, description, visibility, organization },
         headers: { cookie: (await cookies()).toString() },
       });
 

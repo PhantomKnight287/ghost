@@ -18,6 +18,7 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
+import { assertNotImporting } from '../../lib/imports/importing.js';
 import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
@@ -190,6 +191,7 @@ export class IssuesService {
     for (let attempt = 0; ; attempt++) {
       try {
         return await this.db.transaction(async (tx) => {
+          await assertNotImporting(tx, repository.id);
           const [row] = await tx
             .insert(schema.issue)
             .values(values)

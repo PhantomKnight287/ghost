@@ -185,7 +185,12 @@ export class GitService {
     transitions: RefTransition[];
     pushedBy: string | null;
   }) {
-    for (const { ref, oldOid, newOid } of transitions) {
+    // Branches and tags only, as GitHub sends them: an import pushes a `refs/pull/*` ref per pull request, which nobody subscribes to.
+    const published = transitions.filter(
+      ({ ref }) =>
+        ref.startsWith('refs/heads/') || ref.startsWith('refs/tags/'),
+    );
+    for (const { ref, oldOid, newOid } of published) {
       const before = oldOid.toString('hex');
       const after = newOid.toString('hex');
       const { commits } = newOid.equals(ZERO_OID)

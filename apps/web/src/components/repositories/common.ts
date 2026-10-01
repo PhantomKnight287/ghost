@@ -21,6 +21,24 @@ export const createRepositorySchema = z.object({
 
 export type CreateRepositoryInput = z.infer<typeof createRepositorySchema>;
 
+const githubSource = z
+  .string()
+  .regex(
+    /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/,
+    "Write the GitHub repository as owner/name.",
+  );
+
+export const importRepositorySchema = createRepositorySchema.extend({
+  source: githubSource,
+});
+
+// The new repository form imports when a source is given and creates an empty repository when it is left blank.
+export const newRepositorySchema = createRepositorySchema.extend({
+  source: githubSource.or(z.literal("")),
+});
+
+export type NewRepositoryInput = z.infer<typeof newRepositorySchema>;
+
 export const forkRepositorySchema = createRepositorySchema;
 
 export type ForkRepositoryInput = CreateRepositoryInput;

@@ -106,6 +106,22 @@ else
   ask_secret S3_SECRET_ACCESS_KEY "Secret access key"
 fi
 
+say "GitHub imports (optional)"
+echo "Lets people import a GitHub repository with its code, releases, issues and pull requests."
+echo "Needs a GitHub OAuth app: https://github.com/settings/applications/new"
+echo "  Homepage URL:   $WEB_APP_URL"
+echo "  Callback URL:   $API_URL/api/auth/callback/github"
+github_default=y/N; [[ -n ${GITHUB_CLIENT_ID:-} ]] && github_default=Y/n
+if confirm "Turn on GitHub imports?" "$github_default"; then
+  COMPOSE_PROFILES=$COMPOSE_PROFILES,importer
+  while ask GITHUB_CLIENT_ID "OAuth app client ID" && [[ -z $GITHUB_CLIENT_ID ]]; do echo "Required."; done
+  while ask_secret GITHUB_CLIENT_SECRET "OAuth app client secret" && [[ -z ${GITHUB_CLIENT_SECRET:-} ]]; do echo "Required."; done
+  IMPORTER_URL=http://importer:3004
+  IMPORTER_SECRET=${IMPORTER_SECRET:-$(hex 32)}
+else
+  GITHUB_CLIENT_ID=""; GITHUB_CLIENT_SECRET=""; IMPORTER_URL=""; IMPORTER_SECRET=""
+fi
+
 say "Secrets (press enter to generate)"
 # Existing ones are kept: a new auth secret signs everyone out, a new webhook key
 # makes every stored webhook secret unreadable, a new host key warns every client.
@@ -121,7 +137,7 @@ if [[ -z ${GIT_SSH_HOST_KEY:-} ]]; then
     'apk add -q openssh-keygen >/dev/null && ssh-keygen -q -t ed25519 -N "" -C ghost -f /k && base64 -w0 /k')
 fi
 
-for v in MAIL_PASSWORD EMAIL_PROXY_SECRET S3_SECRET_ACCESS_KEY EMAIL_SENDER; do
+for v in MAIL_PASSWORD EMAIL_PROXY_SECRET S3_SECRET_ACCESS_KEY EMAIL_SENDER GITHUB_CLIENT_SECRET; do
   # ponytail: .env values are single-quoted so $ and spaces are literal; a quote would need an escape compose lacks.
   [[ ${!v:-} != *"'"* ]] || die "$v cannot contain a single quote (')."
 done
@@ -133,7 +149,8 @@ umask 077
     POSTGRES_PASSWORD BETTER_AUTH_SECRET AUTH_COOKIE_DOMAIN WEBHOOK_SECRET_KEY \
     GIT_SSH_HOST_KEY GIT_SSH_PORT S3_ENDPOINT S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY \
     EMAIL_SENDER EMAIL_VERIFICATION_ENABLED EMAIL_PROXY EMAIL_PROXY_SECRET DELIVERY_EMAIL \
-    MAIL_HOST MAIL_PORT MAIL_SECURE MAIL_USER MAIL_PASSWORD; do
+    MAIL_HOST MAIL_PORT MAIL_SECURE MAIL_USER MAIL_PASSWORD \
+    GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET IMPORTER_URL IMPORTER_SECRET; do
     # Empty values are left out: the API reads `EMAIL_PROXY=''` as set.
     [[ -z ${!v:-} ]] || printf "%s='%s'\n" "$v" "${!v}"
   done

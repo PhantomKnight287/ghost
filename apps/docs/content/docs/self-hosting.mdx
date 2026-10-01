@@ -5,7 +5,7 @@ description: Run your own Ghost with Docker and one setup script.
 
 Ghost runs as a handful of containers: the web app, the API, the docs, a
 delivery worker for webhooks and email, a code search node, Postgres, and S3
-storage. One script asks a few questions, writes the configuration, and
+storage, plus an optional importer for GitHub repositories. One script asks a few questions, writes the configuration, and
 starts all of them.
 
 ## What you need
@@ -47,7 +47,12 @@ The script asks:
    is required.
 4. **Storage.** Use the bundled S3 storage, or point Ghost at an existing
    bucket on Cloudflare R2, Tigris, MinIO or another S3-compatible service.
-5. **Secrets.** Press enter at each one and the script generates it: the auth
+5. **GitHub imports.** Optional, off by default. Say yes to let people import
+   a GitHub repository with its code, releases, issues and pull requests, then
+   enter the client ID and secret of a GitHub OAuth app. The script prints the
+   callback URL the app needs. See
+   [GitHub imports](/self-hosting-configuration#github-imports).
+6. **Secrets.** Press enter at each one and the script generates it: the auth
    secret, the webhook encryption key, the SSH host key, and the database and
    storage passwords.
 

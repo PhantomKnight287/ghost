@@ -99,6 +99,21 @@ if (AskYesNo 'Use the bundled S3 storage (RustFS)? Say no for R2, Tigris, MinIO.
   AskSecret S3_SECRET_ACCESS_KEY 'Secret access key'
 }
 
+Say 'GitHub imports (optional)'
+Write-Host 'Lets people import a GitHub repository with its code, releases, issues and pull requests.'
+Write-Host 'Needs a GitHub OAuth app: https://github.com/settings/applications/new'
+Write-Host "  Homepage URL:   $($c.WEB_APP_URL)"
+Write-Host "  Callback URL:   $($c.API_URL)/api/auth/callback/github"
+if (AskYesNo 'Turn on GitHub imports?' ([bool]$c.GITHUB_CLIENT_ID)) {
+  $c.COMPOSE_PROFILES = "$($c.COMPOSE_PROFILES),importer"
+  do { Ask GITHUB_CLIENT_ID 'OAuth app client ID' } until ($c.GITHUB_CLIENT_ID)
+  do { AskSecret GITHUB_CLIENT_SECRET 'OAuth app client secret' } until ($c.GITHUB_CLIENT_SECRET)
+  $c.IMPORTER_URL = 'http://importer:3004'
+  if (-not $c.IMPORTER_SECRET) { $c.IMPORTER_SECRET = Hex 32 }
+} else {
+  $c.GITHUB_CLIENT_ID = ''; $c.GITHUB_CLIENT_SECRET = ''; $c.IMPORTER_URL = ''; $c.IMPORTER_SECRET = ''
+}
+
 Say 'Secrets (press enter to generate)'
 # Existing ones are kept: a new auth secret signs everyone out, a new webhook key
 # makes every stored webhook secret unreadable, a new host key warns every client.
@@ -115,7 +130,7 @@ if (-not $c.GIT_SSH_HOST_KEY) {
   if ($LASTEXITCODE -or -not $c.GIT_SSH_HOST_KEY) { Die 'Could not generate an SSH host key.' }
 }
 
-foreach ($v in 'MAIL_PASSWORD', 'EMAIL_PROXY_SECRET', 'S3_SECRET_ACCESS_KEY', 'EMAIL_SENDER') {
+foreach ($v in 'MAIL_PASSWORD', 'EMAIL_PROXY_SECRET', 'S3_SECRET_ACCESS_KEY', 'EMAIL_SENDER', 'GITHUB_CLIENT_SECRET') {
   # ponytail: .env values are single-quoted so $ and spaces are literal; a quote would need an escape compose lacks.
   if ("$($c[$v])".Contains("'")) { Die "$v cannot contain a single quote (')." }
 }
@@ -129,6 +144,7 @@ $keys = 'COMPOSE_PROFILES', 'DOMAIN', 'WEB_APP_URL', 'API_URL', 'DOCS_URL', 'SSH
   'GIT_SSH_HOST_KEY', 'GIT_SSH_PORT', 'S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY',
   'EMAIL_SENDER', 'EMAIL_VERIFICATION_ENABLED', 'EMAIL_PROXY', 'EMAIL_PROXY_SECRET', 'DELIVERY_EMAIL',
   'MAIL_HOST', 'MAIL_PORT', 'MAIL_SECURE', 'MAIL_USER', 'MAIL_PASSWORD',
+  'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'IMPORTER_URL', 'IMPORTER_SECRET',
   'DATABASE_URL', 'BETTER_AUTH_URL', 'AUTH_TRUSTED_ORIGINS', 'ZOEKT_URL'
 $lines = @('# Written by setup.ps1. Re-run it to change answers, or edit and run: docker compose up -d --build')
 # Empty values are left out: the API reads `EMAIL_PROXY=''` as set.

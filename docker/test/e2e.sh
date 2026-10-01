@@ -30,7 +30,8 @@ cleanup() {
 trap cleanup EXIT
 
 # Answers, in order: address, SSH port, SMTP, host, port, user, password,
-# sender, require verification, bundled storage, then three generated secrets.
-printf '%s\n' localhost '' 1 mailpit 1025 e2e e2e '' y '' '' '' '' | ./setup.sh
+# sender, require verification, bundled storage, no GitHub imports, then three
+# generated secrets.
+printf '%s\n' localhost '' 1 mailpit 1025 e2e e2e '' y '' '' '' '' '' | ./setup.sh
 
 node "$here/e2e.mjs"
