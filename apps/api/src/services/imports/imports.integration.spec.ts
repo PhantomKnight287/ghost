@@ -21,6 +21,7 @@ import {
   GitHubNotConnectedError,
   ImportNotFailedError,
   ImportNotFoundError,
+  ImportRetryWouldOverwriteError,
   RepositoryImportingError,
   StaleImportAttemptError,
 } from '../../lib/imports/imports.errors.js';
@@ -679,9 +680,9 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
         authorId: OWNER,
       });
       const wake = vi.spyOn(dispatcher, 'wake');
-      await expect(imports.retry(owner)).rejects.toMatchObject({
-        status: 409,
-      });
+      await expect(imports.retry(owner)).rejects.toBeInstanceOf(
+        ImportRetryWouldOverwriteError,
+      );
       expect(await importRow()).toMatchObject({
         status: 'failed',
         attempts: 6,

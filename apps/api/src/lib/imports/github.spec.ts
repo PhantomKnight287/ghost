@@ -61,7 +61,10 @@ describe('assertGitHubRepositoryReadable', () => {
 
 describe('listGitHubRepositories', () => {
   const page = (size: number) =>
-    Array.from({ length: size }, (_, index) => ({ ...raw, full_name: `octo/repo-${index}` }));
+    Array.from({ length: size }, (_, index) => ({
+      ...raw,
+      full_name: `octo/repo-${index}`,
+    }));
 
   it('lists repositories the user has direct access to, page by page', async () => {
     const fetch = vi
@@ -72,13 +75,21 @@ describe('listGitHubRepositories', () => {
 
     const repositories = await listGitHubRepositories('tok');
     expect(repositories).toHaveLength(101);
-    expect(repositories[0]).toEqual({ fullName: 'octo/repo-0', private: true, description: null });
-    expect(fetch.mock.calls[0][0]).toContain('/user/repos?sort=pushed&per_page=100&page=1&affiliation=owner,collaborator,organization_member');
+    expect(repositories[0]).toEqual({
+      fullName: 'octo/repo-0',
+      private: true,
+      description: null,
+    });
+    expect(fetch.mock.calls[0][0]).toContain(
+      '/user/repos?sort=pushed&per_page=100&page=1&affiliation=owner,collaborator,organization_member',
+    );
     expect(fetch.mock.calls[1][0]).toContain('page=2');
   });
 
   it('stops after ten pages', async () => {
-    const fetch = vi.fn().mockImplementation(async () => Response.json(page(100)));
+    const fetch = vi
+      .fn()
+      .mockImplementation(async () => Response.json(page(100)));
     vi.stubGlobal('fetch', fetch);
     expect(await listGitHubRepositories('tok')).toHaveLength(1000);
     expect(fetch).toHaveBeenCalledTimes(10);

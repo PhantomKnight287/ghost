@@ -61,6 +61,17 @@ export class StaleImportAttemptError extends DomainError {
   }
 }
 
+/** A retry writes GitHub's issue numbers over whatever holds them, so it is refused once people have opened issues of their own. */
+export class ImportRetryWouldOverwriteError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+
+  constructor() {
+    super(
+      'Issues or pull requests were opened here after the import failed, and retrying it would overwrite them',
+    );
+  }
+}
+
 export class RepositoryImportingError extends DomainError {
   status: number = HttpStatus.CONFLICT;
 

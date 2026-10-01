@@ -16,6 +16,7 @@ import {
   GitHubNotConnectedError,
   ImportNotFailedError,
   ImportNotFoundError,
+  ImportRetryWouldOverwriteError,
 } from '../../lib/imports/imports.errors.js';
 import {
   githubAccessToken,
@@ -133,7 +134,7 @@ export class ImportsService {
         ),
       )
       .limit(1);
-    if (localIssue) throw new ImportNotFailedError();
+    if (localIssue) throw new ImportRetryWouldOverwriteError();
 
     const [row] = await this.db
       .update(schema.repositoryImport)
