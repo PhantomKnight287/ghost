@@ -71,7 +71,8 @@ export function NewRepositoryDialog({
   const create = useAction(createRepository);
   const startImport = useAction(importRepository);
   const importing = Boolean(useWatch({ control, name: "source" }));
-  const { isExecuting, result } = importing ? startImport : create;
+  const isExecuting = create.isExecuting || startImport.isExecuting;
+  const { result } = importing ? startImport : create;
 
   const { data: github } = useQuery({
     queryKey: ["github-import"],

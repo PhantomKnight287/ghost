@@ -132,11 +132,11 @@ describe("wait", () => {
   test("rejects when aborted, before or during", async () => {
     const before = new AbortController();
     before.abort(new Error("stop"));
-    expect(wait(1000, before.signal)).rejects.toThrow("stop");
+    await expect(wait(1000, before.signal)).rejects.toThrow("stop");
 
     const during = new AbortController();
     const pending = wait(1000, during.signal);
     during.abort(new Error("later"));
-    expect(pending).rejects.toThrow("later");
+    await expect(pending).rejects.toThrow("later");
   });
 });

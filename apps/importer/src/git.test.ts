@@ -51,7 +51,7 @@ test("presentCommits keeps only commits the history has", async () => {
 });
 
 test("a failing git command reports its stderr", async () => {
-  expect(listRefs(path.join(dir, "missing"), never)).rejects.toThrow(
+  await expect(listRefs(path.join(dir, "missing"), never)).rejects.toThrow(
     /git -C .* for-each-ref .* exited with/,
   );
 });

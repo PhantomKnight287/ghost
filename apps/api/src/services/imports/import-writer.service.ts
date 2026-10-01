@@ -171,6 +171,7 @@ export class ImportWriterService {
         return [
           {
             issueId,
+            githubId: comment.githubId,
             authorId: IMPORTER,
             body: attributed(comment.authorLogin, 'Posted', comment.body),
             createdAt: new Date(comment.createdAt),
@@ -179,7 +180,12 @@ export class ImportWriterService {
         ];
       });
       if (!rows.length) return;
-      await tx.insert(schema.issueComment).values(rows);
+      await tx
+        .insert(schema.issueComment)
+        .values(rows)
+        .onConflictDoNothing({
+          target: [schema.issueComment.issueId, schema.issueComment.githubId],
+        });
 
       await tx
         .update(schema.issue)

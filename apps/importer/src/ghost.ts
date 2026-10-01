@@ -45,6 +45,7 @@ export type ImportedRelease = {
 };
 
 export type ImportedComment = {
+  githubId: number;
   issueNumber: number;
   authorLogin: string;
   body: string;

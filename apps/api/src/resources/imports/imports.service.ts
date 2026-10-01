@@ -2,7 +2,7 @@ import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
@@ -47,7 +47,9 @@ export class ImportsService {
 
   async githubRepositories(userId: string) {
     return {
-      repositories: await listGitHubRepositories(await this.githubToken(userId)),
+      repositories: await listGitHubRepositories(
+        await this.githubToken(userId),
+      ),
     };
   }
 
@@ -121,6 +123,18 @@ export class ImportsService {
     if (!(await githubAccountIdOf(this.db, requesterId))) {
       throw new GitHubNotConnectedError();
     }
+    const [localIssue] = await this.db
+      .select({ id: schema.issue.id })
+      .from(schema.issue)
+      .where(
+        and(
+          eq(schema.issue.repositoryId, repository.id),
+          ne(schema.issue.authorId, schema.IMPORTER_USER_ID),
+        ),
+      )
+      .limit(1);
+    if (localIssue) throw new ImportNotFailedError();
+
     const [row] = await this.db
       .update(schema.repositoryImport)
       .set({

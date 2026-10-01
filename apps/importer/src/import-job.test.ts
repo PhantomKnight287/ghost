@@ -1,7 +1,12 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { loadConfig } from "./config.ts";
+import { GhostCallbacks } from "./ghost.ts";
 import type { GitHubIssue, GitHubPull } from "./github.ts";
-import { issueFrom, releaseFrom } from "./import-job.ts";
+import { issueFrom, releaseFrom, runImport } from "./import-job.ts";
 
 const issue: GitHubIssue = {
   number: 7,
@@ -109,3 +114,47 @@ test("releaseFrom turns empty names and bodies into null", () => {
     publishedAt: null,
   });
 });
+
+for (const failure of ["mkdir", "mkdtemp"] as const) {
+  test(`runImport reports ${failure} failures and clears its heartbeat`, async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "importer-setup-test-"));
+    const workdir = path.join(root, "work");
+    if (failure === "mkdir") await writeFile(workdir, "not a directory");
+    const finish = spyOn(
+      GhostCallbacks.prototype,
+      "finish",
+    ).mockResolvedValue();
+    const clear = spyOn(globalThis, "clearInterval");
+    const log = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await runImport(
+        {
+          // A missing parent inside the prefix makes mkdtemp fail after mkdir succeeds.
+          importId: failure === "mkdtemp" ? "missing/import" : "import_1",
+          attempt: "attempt-1",
+          source: "octo/repo",
+          destination: "owner/repo",
+          githubToken: "synthetic-github-token",
+          ghostToken: "synthetic-ghost-token",
+        },
+        loadConfig({
+          GHOST_API_URL: "http://localhost:3001",
+          IMPORTER_SECRET: "synthetic-importer-secret",
+          IMPORTER_WORKDIR: workdir,
+        }),
+      );
+      expect(finish).toHaveBeenCalledTimes(1);
+      expect(finish).toHaveBeenCalledWith({
+        succeeded: false,
+        error: expect.any(String),
+        retryable: true,
+      });
+      expect(clear).toHaveBeenCalledTimes(1);
+    } finally {
+      finish.mockRestore();
+      clear.mockRestore();
+      log.mockRestore();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+}

@@ -57,11 +57,10 @@ export async function runImport(job: Job, config: Config) {
     });
   }, HEARTBEAT_MS);
 
-  await mkdir(config.IMPORTER_WORKDIR, { recursive: true });
-  const dir = await mkdtemp(
-    path.join(config.IMPORTER_WORKDIR, `${job.importId}-`),
-  );
+  let dir: string | undefined;
   try {
+    await mkdir(config.IMPORTER_WORKDIR, { recursive: true });
+    dir = await mkdtemp(path.join(config.IMPORTER_WORKDIR, `${job.importId}-`));
     const defaultBranch = await importAll(job, config, ghost, dir, stop);
     await ghost.finish({ succeeded: true, defaultBranch });
     console.log(`import ${job.importId}: done`);
@@ -86,7 +85,7 @@ export async function runImport(job: Job, config: Config) {
       );
   } finally {
     clearInterval(heartbeat);
-    await rm(dir, { recursive: true, force: true });
+    if (dir) await rm(dir, { recursive: true, force: true });
   }
 }
 
@@ -152,6 +151,7 @@ async function importAll(
     `/repos/${job.source}/issues/comments?sort=created&direction=asc`,
   )) {
     const comments = page.map((comment) => ({
+      githubId: comment.id,
       issueNumber: issueNumberOf(comment.issue_url),
       authorLogin: loginOf(comment.user),
       body: comment.body,

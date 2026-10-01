@@ -43,7 +43,7 @@ test("posts the attempt with the secret", async () => {
 
 test("a 409 means the attempt is stale", async () => {
   const { ghost } = callbacks([new Response(null, { status: 409 })]);
-  expect(ghost.heartbeat()).rejects.toBeInstanceOf(StaleAttemptError);
+  await expect(ghost.heartbeat()).rejects.toBeInstanceOf(StaleAttemptError);
 });
 
 test("retries server errors and network failures, then succeeds", async () => {
@@ -63,14 +63,14 @@ test("gives up after the last retry", async () => {
     new Error("down"),
     new Error("down"),
   ]);
-  expect(ghost.comments([])).rejects.toThrow(
+  await expect(ghost.comments([])).rejects.toThrow(
     "The API did not take comments: down",
   );
 });
 
 test("a 4xx other than 409 is not retried", async () => {
   const { ghost, sleeps } = callbacks([new Response("bad", { status: 400 })]);
-  expect(
+  await expect(
     ghost.finish({ succeeded: true, defaultBranch: "main" }),
   ).rejects.toThrow("The API refused finish with 400: bad");
   expect(sleeps).toEqual([]);

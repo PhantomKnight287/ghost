@@ -49,6 +49,7 @@ export type GitHubPull = {
 };
 
 export type GitHubComment = {
+  id: number;
   issue_url: string;
   user: GitHubUser;
   body: string;

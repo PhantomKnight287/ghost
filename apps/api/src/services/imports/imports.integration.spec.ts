@@ -507,9 +507,10 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
       expect(pull).toEqual({ state: 'open', headRepositoryId: repositoryId });
     });
 
-    it('adds comments, counts them, and starts over when the issue is sent again', async () => {
+    it('deduplicates comment batches and starts over when the issue is sent again', async () => {
       await writer.writeIssues(repositoryId, [issue]);
       const comment = {
+        githubId: 4_000_000_000,
         issueNumber: 3,
         authorLogin: 'hubot',
         body: 'Same here',
@@ -519,8 +520,10 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
       await writer.writeComments(repositoryId, [
         comment,
         comment,
+        { ...comment, githubId: comment.githubId + 1 },
         { ...comment, issueNumber: 99 },
       ]);
+      await writer.writeComments(repositoryId, [comment]);
       await writer.writeComments(repositoryId, []);
 
       const read = async () => {
@@ -541,6 +544,11 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
       };
 
       const before = await read();
+      expect(before.comments).toHaveLength(2);
+      expect(before.comments.map((row) => row.githubId).sort()).toEqual([
+        comment.githubId,
+        comment.githubId + 1,
+      ]);
       expect(before.row.commentCount).toBe(2);
       expect(before.row.updatedAt.toISOString()).toBe(issue.updatedAt);
       expect(before.comments[0].body).toBe(
@@ -598,9 +606,9 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
           { fullName: 'octo/repo', private: false, description: 'A repo' },
         ],
       });
-      await expect(
-        imports.githubRepositories(STRANGER),
-      ).rejects.toBeInstanceOf(GitHubNotConnectedError);
+      await expect(imports.githubRepositories(STRANGER)).rejects.toBeInstanceOf(
+        GitHubNotConnectedError,
+      );
     });
 
     it('starts an import for a readable repository', async () => {
@@ -654,11 +662,32 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
       });
       await assertNotImporting(db, repositoryId);
 
+      await writer.writeIssues(repositoryId, [issue]);
       await imports.retry(owner);
       expect(await importRow()).toMatchObject({ attempts: 0, lastError: null });
       await expect(imports.retry(owner)).rejects.toBeInstanceOf(
         ImportNotFailedError,
       );
+    });
+
+    it('refuses a retry after a local issue was created', async () => {
+      await startImport({ status: 'failed', attempts: 6, lastError: 'boom' });
+      await db.insert(schema.issue).values({
+        repositoryId,
+        number: 1,
+        title: 'Local issue',
+        authorId: OWNER,
+      });
+      const wake = vi.spyOn(dispatcher, 'wake');
+      await expect(imports.retry(owner)).rejects.toMatchObject({
+        status: 409,
+      });
+      expect(await importRow()).toMatchObject({
+        status: 'failed',
+        attempts: 6,
+        lastError: 'boom',
+      });
+      expect(wake).not.toHaveBeenCalled();
     });
 
     it('retries only for a caller with GitHub linked', async () => {

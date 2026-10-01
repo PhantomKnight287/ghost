@@ -148,6 +148,10 @@ export class ImportIssuesRequestDTO extends ImportAttemptDTO {
 export class ImportedCommentDTO {
   @IsInt()
   @Min(1)
+  githubId: number;
+
+  @IsInt()
+  @Min(1)
   issueNumber: number;
 
   @Matches(GITHUB_LOGIN)
