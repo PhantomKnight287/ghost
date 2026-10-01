@@ -34,7 +34,9 @@ const needle = `needle${stamp}`;
 const work = mkdtempSync(join(tmpdir(), 'ghost-e2e-'));
 let cookie = '';
 
+/** Resolve after the given delay in milliseconds. */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/** Run a named check, logging its duration or exiting with status 1 on failure. */
 async function step(name, fn) {
   const started = Date.now();
   try {
@@ -45,9 +47,14 @@ async function step(name, fn) {
     process.exit(1);
   }
 }
+/** Throw an error with the supplied message when the condition is falsy. */
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
+/**
+ * Poll every two seconds until fn returns a truthy value, then return that value.
+ * Retry rejected checks and include the last caught error if the deadline expires.
+ */
 async function until(what, fn, timeoutMs = 120_000) {
   const deadline = Date.now() + timeoutMs;
   let last;
@@ -62,6 +69,10 @@ async function until(what, fn, timeoutMs = 120_000) {
   }
   throw new Error(`timed out waiting for ${what}${last ? `: ${last.message}` : ''}`);
 }
+/**
+ * Send JSON with the current session cookie and configured web origin, without following redirects.
+ * Check the expected status and return headers, text, and JSON when parsing succeeds.
+ */
 async function call(method, path, body, { expect = [200, 201], base = API } = {}) {
   const res = await fetch(base + path, {
     method,
@@ -85,6 +96,7 @@ async function call(method, path, body, { expect = [200, 201], base = API } = {}
   );
   return { status: res.status, headers: res.headers, json, text };
 }
+/** Run Git in cwd with the test identity and SSH key, returning trimmed stdout or throwing on failure. */
 function git(cwd, ...args) {
   return execFileSync(
     'git',
@@ -97,12 +109,14 @@ function git(cwd, ...args) {
     },
   ).trim();
 }
+/** Write and commit a repository file, returning the resulting HEAD commit hash. */
 function commit(dir, file, content, message) {
   writeFileSync(join(dir, file), content);
   git(dir, 'add', file);
   git(dir, 'commit', '-q', '-m', message);
   return git(dir, 'rev-parse', 'HEAD');
 }
+/** Return the first Mailpit search result for a recipient, or undefined if none is found. */
 async function latestMail(to) {
   const { messages } = await (
     await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${to}`)}`)
@@ -182,6 +196,7 @@ try {
   });
 
   let secret = '';
+  /** Wait for this run's webhook event and return its headers and decoded body. */
   const delivery = (event) =>
     until(`a ${event} delivery`, async () => {
       const all = await (await fetch(`${HOOKS}/deliveries`)).json();

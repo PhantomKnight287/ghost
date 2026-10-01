@@ -6,7 +6,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 ENV_FILE=.env
 
+# Print an error to stderr and stop setup with exit status 1.
 die() { printf '\n\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
+# Print a highlighted setup section heading.
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 command -v docker >/dev/null || die "Docker is not installed: https://docs.docker.com/get-docker/"
@@ -29,6 +31,7 @@ ask() {
   read -r -p "$2${cur:+ [$cur]}: " ans || die "No input: run this in a terminal."
   printf -v "$1" '%s' "${ans:-$cur}"
 }
+# Read a hidden answer into the named variable, preserving its value on empty input.
 ask_secret() {
   local ans
   read -r -s -p "$2${!1:+ [keep current]}: " ans || die "No input: run this in a terminal."
@@ -36,12 +39,15 @@ ask_secret() {
   [[ -n $ans ]] && printf -v "$1" '%s' "$ans"
   return 0
 }
+# Return success for yes, or for empty input when the prompt defaults to yes.
 confirm() {
   local ans
   read -r -p "$1 [${2:-Y/n}] " ans || die "No input: run this in a terminal."
   [[ -z $ans && ${2:-Y/n} == Y/n ]] || [[ $ans =~ ^[Yy] ]]
 }
+# Encode the requested number of random bytes as base64 without line breaks.
 random() { head -c "$1" /dev/urandom | base64 | tr -d '\n'; }
+# Encode the requested number of random bytes as hexadecimal without whitespace.
 hex() { head -c "$1" /dev/urandom | od -An -tx1 | tr -d ' \n'; }
 
 say "Where will Ghost live?"

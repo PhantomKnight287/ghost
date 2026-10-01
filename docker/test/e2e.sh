@@ -14,6 +14,7 @@ cd "$docker_dir"
 
 export COMPOSE_FILE="compose.yaml:test/compose.e2e.yaml${E2E_COMPOSE_EXTRA:+:$E2E_COMPOSE_EXTRA}"
 
+# Log failures and remove the test stack and .env unless KEEP=1, preserving exit status.
 cleanup() {
   status=$?
   if [[ $status != 0 ]]; then
