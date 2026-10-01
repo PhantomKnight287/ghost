@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+import { accessSync, constants, statSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailerModule } from '@nestjs-modules/mailer';
@@ -7,10 +8,39 @@ import { ReactAdapter } from '@webtre/nestjs-mailer-react-adapter';
 import { MailService } from './mail.service.js';
 import { proxyTransport } from './proxy.transport.js';
 
-/** True once either delivery route (HTTP relay or SMTP) is configured. */
+/** The local sendmail binary: SENDMAIL_PATH, else the first `sendmail` on PATH or in the usual sbin directories. Windows has none built in; a drop-in such as sendmail.exe on PATH is found the same way. */
+export function sendmailPath(
+  config: ConfigService,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const configured = config.get<string>('SENDMAIL_PATH');
+  if (configured) return configured;
+  const dirs = [
+    ...(env.PATH ?? '').split(delimiter),
+    '/usr/sbin',
+    '/usr/lib',
+  ].filter(Boolean);
+  const names =
+    process.platform === 'win32' ? ['sendmail.exe', 'sendmail'] : ['sendmail'];
+  return dirs
+    .flatMap((dir) => names.map((name) => join(dir, name)))
+    .find((file) => {
+      try {
+        if (!statSync(file).isFile()) return false;
+        if (process.platform !== 'win32') accessSync(file, constants.X_OK);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+}
+
+/** True once any delivery route (HTTP relay, SMTP, or a local sendmail) is available. */
 export function mailConfigured(config: ConfigService): boolean {
   return Boolean(
-    config.get<string>('EMAIL_PROXY') ?? config.get<string>('MAIL_HOST'),
+    config.get<string>('EMAIL_PROXY') ||
+      config.get<string>('MAIL_HOST') ||
+      sendmailPath(config),
   );
 }
 
@@ -28,10 +58,16 @@ export function emailVerificationEnabled(config: ConfigService): boolean {
       useFactory: (config: ConfigService) => {
         const proxyUrl = config.get<string>('EMAIL_PROXY');
         const host = config.get<string>('MAIL_HOST');
+        const sendmail = proxyUrl || host ? undefined : sendmailPath(config);
 
-        if (!proxyUrl && !host && emailVerificationEnabled(config)) {
+        if (
+          !proxyUrl &&
+          !host &&
+          !sendmail &&
+          emailVerificationEnabled(config)
+        ) {
           throw new Error(
-            'EMAIL_VERIFICATION_ENABLED requires either EMAIL_PROXY or MAIL_HOST/MAIL_PORT/MAIL_USER/MAIL_PASSWORD',
+            'EMAIL_VERIFICATION_ENABLED requires EMAIL_PROXY, MAIL_HOST/MAIL_PORT/MAIL_USER/MAIL_PASSWORD, or a sendmail binary',
           );
         }
 
@@ -48,8 +84,10 @@ export function emailVerificationEnabled(config: ConfigService): boolean {
                     pass: config.getOrThrow<string>('MAIL_PASSWORD'),
                   },
                 }
-              : // No mail configured and nothing sends mail: swallow instead of crashing.
-                { jsonTransport: true },
+              : sendmail
+                ? { sendmail: true, path: sendmail }
+                : // No mail configured and nothing sends mail: swallow instead of crashing.
+                  { jsonTransport: true },
           defaults: {
             from:
               config.get<string>('EMAIL_SENDER') ??

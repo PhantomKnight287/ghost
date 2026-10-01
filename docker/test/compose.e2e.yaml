@@ -1,0 +1,29 @@
+# Layered over ../compose.yaml by e2e.sh: a mail catcher, a webhook receiver,
+# and webhooks allowed to reach it on the compose network.
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "${E2E_MAILPIT_PORT:-8025}:8025"
+
+  hooks:
+    image: node:22-alpine
+    command: ["node", "/hooks.mjs"]
+    volumes:
+      - ./test/hooks.mjs:/hooks.mjs:ro
+    ports:
+      - "${E2E_HOOKS_PORT:-38090}:8080"
+
+  api:
+    depends_on:
+      mailpit:
+        condition: service_started
+    environment:
+      WEBHOOK_ALLOW_PRIVATE_NETWORKS: "true"
+
+  delivery:
+    environment:
+      WEBHOOK_ALLOW_PRIVATE_NETWORKS: "true"

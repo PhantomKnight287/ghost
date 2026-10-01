@@ -63,7 +63,19 @@ Not built yet: webhooks (in progress), Git LFS, CI.
 | Search   | Zoekt                                                 |
 | Runtime  | Bun, Turborepo workspace                              |
 
-## Running it
+## Self-hosting
+
+Needs Docker. The script asks for a domain (or IP), an SMTP server or email
+relay, and where to store data; it generates every secret you skip.
+
+```sh
+./docker/setup.sh                                           # macOS / Linux
+powershell -ExecutionPolicy Bypass -File docker\setup.ps1   # Windows
+```
+
+Full guide: [`apps/docs/content/docs/self-hosting.mdx`](apps/docs/content/docs/self-hosting.mdx).
+
+## Running it for development
 
 Needs Bun and Docker.
 
@@ -104,6 +116,7 @@ apps/api      NestJS API and the git HTTP transport
 apps/web      Next.js frontend
 apps/docs     Fumadocs user guide, e.g. how to sign commits (port 3003)
 packages/db   Drizzle schema and migrations
+docker/       Self-hosting: compose file, Caddyfile, setup scripts
 docs/         Design decisions, one file each
 ```
 

@@ -1,0 +1,26 @@
+# Installs Ghost with docker/setup.sh on a clean machine and drives it end to
+# end, so no change to main quietly breaks self-hosting.
+name: Self-host e2e
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: self-host-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install, then sign up, verify, push, merge and search
+        run: docker/test/e2e.sh

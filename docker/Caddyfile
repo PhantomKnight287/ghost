@@ -1,0 +1,12 @@
+# Certificates are issued automatically once DNS for all three names points here.
+{$DOMAIN} {
+	reverse_proxy web:3000
+}
+
+api.{$DOMAIN} {
+	reverse_proxy api:3001
+}
+
+docs.{$DOMAIN} {
+	reverse_proxy docs:3003
+}
