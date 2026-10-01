@@ -5841,6 +5841,248 @@
         ]
       }
     },
+    "/api/imports/github": {
+      "get": {
+        "description": "Whether this instance imports from GitHub, and whether the signed-in user has linked the GitHub account an import reads with.",
+        "operationId": "ImportsController_githubStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubImportStatusDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "GitHub import availability",
+        "tags": [
+          "Imports"
+        ]
+      }
+    },
+    "/api/imports/github/repositories": {
+      "get": {
+        "description": "Repositories the signed-in user's linked GitHub account owns, collaborates on or reaches through an organization, most recently pushed first, capped at 1,000. Public repositories the account merely can read are not listed.",
+        "operationId": "ImportsController_githubRepositories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubRepositoriesDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List GitHub repositories to import",
+        "tags": [
+          "Imports"
+        ]
+      }
+    },
+    "/api/imports": {
+      "post": {
+        "description": "Creates the repository, then imports its code, releases, issues and pull requests in the background. Watch progress with `GET /repositories/{username}/{repo}/import`.",
+        "operationId": "ImportsController_start",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartImportRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRepositoryResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Import a repository from GitHub",
+        "tags": [
+          "Imports"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/import": {
+      "get": {
+        "description": "How the GitHub import that created this repository is going.",
+        "operationId": "ImportsController_status",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryImportDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get import progress",
+        "tags": [
+          "Imports"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/import/retry": {
+      "post": {
+        "description": "Starts a failed import over with the caller’s GitHub account. Needs admin on the repository.",
+        "operationId": "ImportsController_retry",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Retry a failed import",
+        "tags": [
+          "Imports"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/releases": {
       "get": {
         "description": "Newest first. Drafts are listed only for people who can write to the repository. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
@@ -12978,6 +13220,136 @@
             "example": "d73a4a"
           }
         }
+      },
+      "GitHubImportStatusDTO": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this instance can import from GitHub at all."
+          },
+          "connected": {
+            "type": "boolean",
+            "description": "Whether the signed-in user has linked a GitHub account to import with."
+          }
+        },
+        "required": [
+          "enabled",
+          "connected"
+        ]
+      },
+      "GitHubRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "octocat/hello-world"
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "fullName",
+          "private",
+          "description"
+        ]
+      },
+      "GitHubRepositoriesDTO": {
+        "type": "object",
+        "properties": {
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GitHubRepositoryDTO"
+            }
+          }
+        },
+        "required": [
+          "repositories"
+        ]
+      },
+      "StartImportRequestDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "organization": {
+            "type": "string",
+            "description": "Slug of the organization to create the repository in; the requester's own account when omitted. Needs admin in the organization."
+          },
+          "visibility": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryVisibility"
+              }
+            ]
+          },
+          "source": {
+            "type": "string",
+            "description": "The GitHub repository to import, as `owner/name`.",
+            "example": "octocat/hello-world"
+          }
+        },
+        "required": [
+          "name",
+          "source"
+        ]
+      },
+      "RepositoryImportStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "succeeded",
+          "failed"
+        ]
+      },
+      "RepositoryImportDTO": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryImportStatus"
+              }
+            ]
+          },
+          "source": {
+            "type": "string",
+            "example": "octocat/hello-world"
+          },
+          "attempts": {
+            "type": "number",
+            "description": "Attempts made so far; a failed attempt is retried automatically a few times before the import fails."
+          },
+          "lastError": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "source",
+          "attempts",
+          "lastError",
+          "createdAt",
+          "updatedAt"
+        ]
       },
       "ReleaseAssetDTO": {
         "type": "object",

@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "next-safe-action/hooks";
 import type { ReactNode } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,8 +36,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { apiClient, apiErrorMessage } from "@/lib/api/client";
 
-import { createRepository } from "./actions";
-import { createRepositorySchema, type CreateRepositoryInput } from "./common";
+import { createRepository, importRepository } from "./actions";
+import { newRepositorySchema, type NewRepositoryInput } from "./common";
+import { GitHubSourceField } from "./github-source-field";
 import { VisibilityField } from "./visibility-field";
 
 export function NewRepositoryDialog({
@@ -53,18 +54,33 @@ export function NewRepositoryDialog({
     control,
     register,
     handleSubmit,
+    getValues,
+    setValue,
     formState: { errors },
-  } = useForm<CreateRepositoryInput>({
-    resolver: zodResolver(createRepositorySchema),
+  } = useForm<NewRepositoryInput>({
+    resolver: zodResolver(newRepositorySchema),
     defaultValues: {
       owner: defaultOwner,
       name: "",
       description: "",
       visibility: "public",
+      source: "",
     },
   });
 
-  const { execute, isExecuting, result } = useAction(createRepository);
+  const create = useAction(createRepository);
+  const startImport = useAction(importRepository);
+  const importing = Boolean(useWatch({ control, name: "source" }));
+  const { isExecuting, result } = importing ? startImport : create;
+
+  const { data: github } = useQuery({
+    queryKey: ["github-import"],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET("/api/imports/github");
+      if (error) throw new Error(apiErrorMessage(error));
+      return data;
+    },
+  });
 
   // Organizations whose policy lets the viewer create repositories there, on top of the accounts the caller passed.
   const { data: organizations = [] } = useQuery({
@@ -94,17 +110,40 @@ export function NewRepositoryDialog({
         </DialogHeader>
 
         <form
-          onSubmit={handleSubmit((input) =>
-            execute({
-              ...input,
-              organization: organizations.includes(input.owner)
-                ? input.owner
-                : undefined,
-            }),
-          )}
+          onSubmit={handleSubmit(({ source, ...input }) => {
+            const organization = organizations.includes(input.owner)
+              ? input.owner
+              : undefined;
+            if (source) startImport.execute({ ...input, source, organization });
+            else create.execute({ ...input, organization });
+          })}
           className="contents"
         >
           <FieldGroup>
+            {github?.enabled && (
+              <>
+                <Controller
+                  control={control}
+                  name="source"
+                  render={({ field }) => (
+                    <GitHubSourceField
+                      id="repository-source"
+                      connected={github.connected}
+                      error={errors.source}
+                      value={field.value}
+                      onChange={(source) => {
+                        field.onChange(source);
+                        // The GitHub name is the likeliest name here too.
+                        const name = source.split("/")[1];
+                        if (name && !getValues("name")) setValue("name", name);
+                      }}
+                    />
+                  )}
+                />
+                <FieldSeparator />
+              </>
+            )}
+
             <div className="flex items-start gap-2">
               <Field className="w-40 shrink-0">
                 <FieldLabel htmlFor="repository-owner">Owner</FieldLabel>
@@ -190,7 +229,7 @@ export function NewRepositoryDialog({
             </DialogClose>
             <Button type="submit" disabled={isExecuting}>
               {isExecuting && <Spinner />}
-              Create repository
+              {importing ? "Import repository" : "Create repository"}
             </Button>
           </DialogFooter>
         </form>

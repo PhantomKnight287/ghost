@@ -48,6 +48,8 @@ export type AuthConfig = {
   }) => Promise<void>;
   /** Origin of the web app, which owns the verify and reset forms. */
   webAppUrl?: string;
+  /** Set only when GitHub imports are configured. GitHub is linked to an existing account for its token, never used to sign up. */
+  github?: { clientId: string; clientSecret: string };
 };
 
 /** better-auth defaults `callbackURL` to `/`, which resolves against the API. Point relative callbacks at the web app instead, where the forms live. */
@@ -260,6 +262,14 @@ export function createAuth(db: Database, config: AuthConfig) {
     database: drizzleAdapter(db, {
       provider: 'pg',
     }),
+    socialProviders: config.github
+      ? { github: { ...config.github, disableSignUp: true } }
+      : undefined,
+    account: {
+      encryptOAuthTokens: true,
+      // GitHub is only ever linked by a signed-in user, whose GitHub address rarely matches; signing in with GitHub never attaches to an account by email.
+      accountLinking: { allowDifferentEmails: true, disableImplicitLinking: true },
+    },
     hooks: { before: beforeAuthHooks(db), after: afterAuthHooks(db) },
     databaseHooks: {
       user: {

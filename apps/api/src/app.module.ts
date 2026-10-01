@@ -18,6 +18,8 @@ import { CollaboratorsModule } from './resources/collaborators/collaborators.mod
 import { WebhooksModule } from './resources/webhooks/webhooks.module.js';
 import { EmailsModule } from './resources/emails/emails.module.js';
 import { GpgKeysModule } from './resources/gpg-keys/gpg-keys.module.js';
+import { ImportsModule } from './resources/imports/imports.module.js';
+import { githubImportConfig } from './lib/imports/importer.js';
 import { IssuesModule } from './resources/issues/issues.module.js';
 import { OrganizationsModule } from './resources/organizations/organizations.module.js';
 import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
@@ -55,6 +57,8 @@ import { UsersService } from './services/users/users.service.js';
         mail: MailService,
         avatars: AvatarStorageService,
       ) => ({
+        // Importer batches carry whole issue bodies, which GitHub allows up to 64K characters each.
+        bodyParser: { json: { limit: '2mb' } },
         auth: createAuth(db, {
           secret: config.getOrThrow<string>('BETTER_AUTH_SECRET'),
           baseURL: config.getOrThrow<string>('BETTER_AUTH_URL'),
@@ -65,6 +69,7 @@ import { UsersService } from './services/users/users.service.js';
             .filter(Boolean),
           cookieDomain: config.get<string>('AUTH_COOKIE_DOMAIN'),
           webAppUrl: config.get<string>('WEB_APP_URL', 'http://localhost:3000'),
+          github: githubImportConfig(config)?.github,
           sendChangeEmail: mailConfigured(config)
             ? ({ email, name, newEmail, url }) =>
                 mail.sendChangeEmailEmail(email, {
@@ -97,6 +102,7 @@ import { UsersService } from './services/users/users.service.js';
     OrganizationsModule,
     PullRequestsModule,
     IssuesModule,
+    ImportsModule,
     ReleasesModule,
     BranchesModule,
     NotificationsModule,

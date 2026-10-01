@@ -91,7 +91,7 @@ API routes, DB schema, web pages and auth plugins.
    by an edit, per-user email preferences.
 
 ### Tier 2: platform
-9. [ ] **Webhooks.** Push/PR/issue events, HMAC signing, delivery log,
+9. [x] **Webhooks.** Push/PR/issue events, HMAC signing, delivery log,
    redelivery. Already advertised on the landing page. Consume the outbox
    ([0029](0029-events-go-through-an-outbox.md)); push events are not
    published yet. Sent by `apps/delivery`
@@ -127,13 +127,11 @@ API routes, DB schema, web pages and auth plugins.
 15. [ ] Follow users, activity feed, explore/trending
 16. [ ] Web file editor, file upload, blame, per-file history
 17. [ ] Gists, wiki, projects/kanban
-18. [ ] Repository mirroring, import from GitHub, archive download (zip/tar)
+18. [ ] Repository mirroring, archive download (zip/tar). Import from GitHub
+    is done: code, releases, issues and pull requests, run by `apps/importer`
+    ([0032](0032-github-imports-run-outside-the-api.md)).
 19. [ ] WAL checkpoints/compaction (push currently reads full log, O(history))
 20. [ ] Rate limiting, audit log, admin panel
-
-## Known stale content
-- Landing page (`apps/web/src/app/page.tsx:147`) says SSH is missing. SSH is
-  implemented.
 
 ## Suggested order
 1 → 3 → 2 → 9 → 10 (status API first). Settings and collaborators unblock

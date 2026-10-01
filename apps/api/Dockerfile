@@ -12,6 +12,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/docs/package.json apps/docs/package.json
 COPY apps/delivery/package.json apps/delivery/package.json
+COPY apps/importer/package.json apps/importer/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/languages/package.json packages/languages/package.json
 COPY packages/permissions/package.json packages/permissions/package.json
@@ -36,6 +37,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/docs/package.json apps/docs/package.json
 COPY apps/delivery/package.json apps/delivery/package.json
+COPY apps/importer/package.json apps/importer/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/languages/package.json packages/languages/package.json
 COPY packages/permissions/package.json packages/permissions/package.json

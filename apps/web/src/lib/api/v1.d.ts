@@ -1361,6 +1361,106 @@ export interface paths {
         patch: operations["LabelsController_updateLabel"];
         trace?: never;
     };
+    "/api/imports/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GitHub import availability
+         * @description Whether this instance imports from GitHub, and whether the signed-in user has linked the GitHub account an import reads with.
+         */
+        get: operations["ImportsController_githubStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/github/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List GitHub repositories to import
+         * @description Repositories the signed-in user's linked GitHub account owns, collaborates on or reaches through an organization, most recently pushed first, capped at 1,000. Public repositories the account merely can read are not listed.
+         */
+        get: operations["ImportsController_githubRepositories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a repository from GitHub
+         * @description Creates the repository, then imports its code, releases, issues and pull requests in the background. Watch progress with `GET /repositories/{username}/{repo}/import`.
+         */
+        post: operations["ImportsController_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get import progress
+         * @description How the GitHub import that created this repository is going.
+         */
+        get: operations["ImportsController_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/import/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed import
+         * @description Starts a failed import over with the caller’s GitHub account. Needs admin on the repository.
+         */
+        post: operations["ImportsController_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/releases": {
         parameters: {
             query?: never;
@@ -3455,6 +3555,45 @@ export interface components {
             description?: string | null;
             /** @example d73a4a */
             color?: string;
+        };
+        GitHubImportStatusDTO: {
+            /** @description Whether this instance can import from GitHub at all. */
+            enabled: boolean;
+            /** @description Whether the signed-in user has linked a GitHub account to import with. */
+            connected: boolean;
+        };
+        GitHubRepositoryDTO: {
+            /** @example octocat/hello-world */
+            fullName: string;
+            private: boolean;
+            description: string | null;
+        };
+        GitHubRepositoriesDTO: {
+            repositories: components["schemas"]["GitHubRepositoryDTO"][];
+        };
+        StartImportRequestDTO: {
+            name: string;
+            description?: string;
+            /** @description Slug of the organization to create the repository in; the requester's own account when omitted. Needs admin in the organization. */
+            organization?: string;
+            visibility?: components["schemas"]["RepositoryVisibility"];
+            /**
+             * @description The GitHub repository to import, as `owner/name`.
+             * @example octocat/hello-world
+             */
+            source: string;
+        };
+        /** @enum {string} */
+        RepositoryImportStatus: "pending" | "running" | "succeeded" | "failed";
+        RepositoryImportDTO: {
+            status: components["schemas"]["RepositoryImportStatus"];
+            /** @example octocat/hello-world */
+            source: string;
+            /** @description Attempts made so far; a failed attempt is retried automatically a few times before the import fails. */
+            attempts: number;
+            lastError: string | null;
+            createdAt: string;
+            updatedAt: string;
         };
         ReleaseAssetDTO: {
             id: string;
@@ -7204,6 +7343,181 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LabelDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ImportsController_githubStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubImportStatusDTO"];
+                };
+            };
+        };
+    };
+    ImportsController_githubRepositories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubRepositoriesDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ImportsController_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartImportRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateRepositoryResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ImportsController_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryImportDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ImportsController_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
             404: {

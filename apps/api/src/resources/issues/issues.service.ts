@@ -18,6 +18,7 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
+import { assertNotImporting } from '../../lib/imports/importing.js';
 import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
@@ -177,6 +178,7 @@ export class IssuesService {
     },
     extend: (tx: Executor, row: Issue) => Promise<void>,
   ) {
+    await assertNotImporting(this.db, repository.id);
     const values = {
       repositoryId: repository.id,
       title,

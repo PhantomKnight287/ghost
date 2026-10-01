@@ -268,6 +268,15 @@ describe('GitService', () => {
       );
     });
 
+    it('publishes nothing for a ref outside branches and tags', async () => {
+      await push('refs/pull/1/head');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(published).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'push' }),
+      );
+    });
+
     it('ignores pushes to other branches', async () => {
       await push('refs/heads/feature');
       // nothing to wait for when nothing happens, so give the hook time to have run

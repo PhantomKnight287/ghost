@@ -94,9 +94,24 @@ services:
       GIT_SSH_HOST_KEY: ${GIT_SSH_HOST_KEY:-}
       GIT_SSH_PORT: 1031
       ZOEKT_URL: http://zoekt:6070
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      IMPORTER_URL: http://importer:3004
+      IMPORTER_SECRET: ${IMPORTER_SECRET:-}
     ports:
       - "3001:3001"
       - "1031:1031"
+
+  # No published port: only the api hands it jobs. Imports stay off until GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET and IMPORTER_SECRET are set.
+  importer:
+    build:
+      context: .
+      dockerfile: apps/importer/Dockerfile
+    restart: unless-stopped
+    profiles: ["importer"]
+    environment:
+      IMPORTER_SECRET: ${IMPORTER_SECRET:-}
+      GHOST_API_URL: http://api:3001
 
   # No published port: zoekt answers for every repository, private ones included, so only the api, which checks access, may reach it.
   zoekt:

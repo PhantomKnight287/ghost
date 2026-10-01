@@ -24,3 +24,7 @@ jobs:
 
       - name: Install, then sign up, verify, push, merge and search
         run: docker/test/e2e.sh
+
+      # The importer sits behind a profile the install above leaves off, so its image is built here.
+      - name: Build the importer
+        run: docker build -f apps/importer/Dockerfile .

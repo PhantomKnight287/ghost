@@ -6,6 +6,7 @@
 #   rustfs  bundled S3 storage; leave it out to use an external bucket
 #   https   Caddy with HTTPS on 80/443 for a domain
 #   http    Caddy with plain HTTP on 3000 (web), 3001 (api), 3003 (docs)
+#   importer  apps/importer, for importing repositories from GitHub
 # One of https or http is always on: Caddy is what sets X-Forwarded-For, and
 # without it every visitor shares one sign-in rate limit.
 # Not `ghost`: that is the development compose project at the repository root, and the two would share volumes.
@@ -112,6 +113,17 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+
+  # No published port: only the api hands it jobs, and it pushes back to the api over the compose network.
+  importer:
+    <<: *app-env
+    profiles: [importer]
+    build:
+      context: ..
+      dockerfile: apps/importer/Dockerfile
+    restart: unless-stopped
+    environment:
+      GHOST_API_URL: http://api:3001
 
   # No published port: zoekt answers for every repository, private ones included, so only the api, which checks access, may reach it.
   zoekt:
