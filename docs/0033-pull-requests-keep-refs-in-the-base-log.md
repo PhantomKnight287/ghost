@@ -46,7 +46,7 @@ Each sync's pack size is recorded in `pull_request_ref_write`.
 
 - While a request is unmerged, open or closed, its bytes are billed to nobody.
 - Once it merges, they count against the base repository's account in `StorageQuotaService.usageOf`.
-- `PULL_REF_MAX_BYTES` caps one sync; `PULL_REF_UNMERGED_MAX_BYTES` caps what one author's unmerged requests may hold altogether, checked under a per-author advisory lock. Both are unset by default. A sync refused by either leaves the refs where they were.
+- `PULL_REF_MAX_BYTES` caps one sync; `PULL_REF_UNMERGED_MAX_BYTES` caps what one author's unmerged requests may hold altogether, checked under a per-author advisory lock. Both are unset by default. A sync refused by either leaves the refs where they were and stores the reason in `pull_request.pull_refs_blocked`, which the request page shows; the next sync that finds the refs current clears it.
 
 A merge excludes the pull head ref when it packs, so the head's objects, already written by the last sync, are not stored twice.
 

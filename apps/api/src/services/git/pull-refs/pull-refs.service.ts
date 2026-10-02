@@ -20,6 +20,11 @@ import {
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 import { PushTransactionService } from '../wal/push-transaction.service.js';
 import { StorageQuotaService } from '../../storage/storage-quota.service.js';
+import type { Executor } from '../../../lib/issues/close-issue.js';
+import {
+  PullRefWriteTooLargeError,
+  UnmergedPullRefQuotaExceededError,
+} from '../../../lib/storage/storage.errors.js';
 
 // Each lost race re-reads the log, so this only runs out when the base is being pushed to faster than a merge-tree.
 const MAX_ATTEMPTS = 3;
@@ -150,6 +155,7 @@ export class PullRefsService {
         headRepositoryId: schema.pullRequest.headRepositoryId,
         headRef: schema.pullRequest.headRef,
         headSha: schema.pullRequest.headSha,
+        pullRefsBlocked: schema.pullRequest.pullRefsBlocked,
       })
       .from(schema.pullRequest)
       .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
@@ -177,7 +183,10 @@ export class PullRefsService {
       transition(headRef, refs.get(headRef) ?? null, target.head),
       transition(mergeRef, refs.get(mergeRef) ?? null, target.merge),
     ].filter((change) => change !== null);
-    if (transitions.length === 0) return;
+    if (transitions.length === 0) {
+      if (pullRequest.pullRefsBlocked) await this.block(pullRequestId, null);
+      return;
+    }
 
     const directory = await mkdtemp(path.join(tmpdir(), 'ghost-pull-refs-'));
     try {
@@ -189,10 +198,8 @@ export class PullRefsService {
         exclude: [...new Set(refs.values())],
         prefix: path.join(directory, 'pull'),
       });
-      await this.quota.reservePullRefWrite(
-        pullRequest.authorId,
-        pack.size,
-        async (tx) => {
+      await this.quota
+        .reservePullRefWrite(pullRequest.authorId, pack.size, async (tx) => {
           await this.pushTransaction.commitPush({
             repoId: pullRequest.baseRepositoryId,
             transitions,
@@ -202,11 +209,32 @@ export class PullRefsService {
           await tx
             .insert(schema.pullRequestRefWrite)
             .values({ pullRequestId, size: pack.size });
-        },
-      );
+          if (pullRequest.pullRefsBlocked)
+            await this.block(pullRequestId, null, tx);
+        })
+        .catch(async (error: unknown) => {
+          // A limit is the author's to act on, so it is kept where the request page can say it; anything else is the server's problem and goes to the log.
+          if (
+            !(error instanceof PullRefWriteTooLargeError) &&
+            !(error instanceof UnmergedPullRefQuotaExceededError)
+          )
+            throw error;
+          await this.block(pullRequestId, error.message);
+        });
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  }
+
+  private async block(
+    pullRequestId: string,
+    reason: string | null,
+    executor: Executor = this.db,
+  ) {
+    await executor
+      .update(schema.pullRequest)
+      .set({ pullRefsBlocked: reason })
+      .where(eq(schema.pullRequest.id, pullRequestId));
   }
 
   /** The branch tips as they stand now. Null when the head branch or repository is gone: the refs keep its last tip rather than lose it. */

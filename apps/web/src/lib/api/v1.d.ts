@@ -1361,6 +1361,26 @@ export interface paths {
         patch: operations["LabelsController_updateLabel"];
         trace?: never;
     };
+    "/api/storage/{owner}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Storage usage of an account
+         * @description Bytes the signed-in user's own account, or an organization they belong to, keeps in release assets and merged pull requests' heads, against this instance's quota.
+         */
+        get: operations["StorageController_getStorageUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports/github": {
         parameters: {
             query?: never;
@@ -1604,26 +1624,6 @@ export interface paths {
          * @description Needs write access.
          */
         delete: operations["ReleaseAssetsController_deleteReleaseAsset"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/storage/{owner}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Storage usage of an account
-         * @description Bytes the signed-in user's own account, or an organization they belong to, keeps in release assets, against this instance's quota.
-         */
-        get: operations["StorageController_getStorageUsage"];
-        put?: never;
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3175,6 +3175,8 @@ export interface components {
             mergeable: boolean;
             /** @description Paths that conflict when the head is merged into the base, right now. Empty when it merges cleanly. */
             conflicts: string[];
+            /** @description Why `refs/pull/<number>/head` and `/merge` stopped following the branches: the size limit that refused the last update. Null while they are current. */
+            pullRefsBlocked: string | null;
             /** @description What a squash merge commits unless the merger rewrites it. Null when there is nothing to merge. */
             squash: components["schemas"]["SquashMessageDTO"] | null;
             reviewers: components["schemas"]["ReviewerDTO"][];
@@ -3556,6 +3558,14 @@ export interface components {
             /** @example d73a4a */
             color?: string;
         };
+        StorageUsageDTO: {
+            /** @description Bytes stored, including uploads in progress. */
+            usedBytes: number;
+            /** @description `null` when this instance sets no quota. */
+            quotaBytes: number | null;
+            /** @description Largest single release asset. */
+            maxAssetBytes: number;
+        };
         GitHubImportStatusDTO: {
             /** @description Whether this instance can import from GitHub at all. */
             enabled: boolean;
@@ -3667,14 +3677,6 @@ export interface components {
             /** @description Publishing a draft stamps `publishedAt` the first time. */
             isDraft?: boolean;
             isPrerelease?: boolean;
-        };
-        StorageUsageDTO: {
-            /** @description Bytes stored, including uploads in progress. */
-            usedBytes: number;
-            /** @description `null` when this instance sets no quota. */
-            quotaBytes: number | null;
-            /** @description Largest single release asset. */
-            maxAssetBytes: number;
         };
         CreateBranchRequestDTO: {
             /**
@@ -7363,6 +7365,35 @@ export interface operations {
             };
         };
     };
+    StorageController_getStorageUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUsageDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     ImportsController_githubStatus: {
         parameters: {
             query?: never;
@@ -7924,35 +7955,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    StorageController_getStorageUsage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                owner: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StorageUsageDTO"];
                 };
             };
             404: {

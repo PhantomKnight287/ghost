@@ -56,6 +56,8 @@ export const pullRequest = pgTable(
     headSha: text().notNull(),
 
     mergeCommitSha: text(),
+    // Why `refs/pull/<n>/*` stopped following the branches: the size limit that refused the last update. Cleared by the next update that lands.
+    pullRefsBlocked: text(),
 
     mergedAt: timestamp({ withTimezone: true }),
   },

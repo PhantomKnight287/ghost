@@ -1,5 +1,5 @@
 {
-  "id": "2dfbc8b7-d4b6-4c1c-b8e7-62a871aee168",
+  "id": "0996182c-cc2e-4b48-ae36-04a512697ea6",
   "prevId": "ee821d70-75db-4d0e-95d9-a8a7cb7c66ab",
   "version": "7",
   "dialect": "postgresql",
@@ -2209,6 +2209,12 @@
         },
         "merge_commit_sha": {
           "name": "merge_commit_sha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pull_refs_blocked": {
+          "name": "pull_refs_blocked",
           "type": "text",
           "primaryKey": false,
           "notNull": false

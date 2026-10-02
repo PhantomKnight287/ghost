@@ -97,6 +97,7 @@ const pullRequestColumns = {
   headRef: schema.pullRequest.headRef,
   headSha: schema.pullRequest.headSha,
   mergeCommitSha: schema.pullRequest.mergeCommitSha,
+  pullRefsBlocked: schema.pullRequest.pullRefsBlocked,
   createdAt: schema.issue.createdAt,
   updatedAt: schema.issue.updatedAt,
 };
@@ -367,6 +368,7 @@ export class PullRequestsService {
       deletions: files.reduce((total, file) => total + file.deletions, 0),
       mergeable: !pullRequest.draft && merge !== null && merge.clean,
       conflicts: merge?.conflicts ?? [],
+      pullRefsBlocked: pullRequest.pullRefsBlocked,
       squash: merge ? await this.squashMessage({ ...git, pullRequest }) : null,
       reviewers: await this.reviewers(pullRequest.id),
     };

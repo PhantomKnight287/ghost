@@ -8,6 +8,11 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { type Database, schema } from '@ghost/db';
+import { eq } from 'drizzle-orm';
+
+import { DATABASE } from '../src/database/database.module.js';
+import { PullRefsService } from '../src/services/git/pull-refs/pull-refs.service.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
@@ -294,6 +299,34 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
         expect((await pullRefs())[`refs/pull/${body.number}/head`]).toBe(other),
       { timeout: 15_000, interval: 200 },
     );
+  });
+
+  it('clears a refusal once the refs are current again, whether or not that took a write', async () => {
+    const { body } = await api().get(pulls('/1')).expect(200);
+    const refuse = () =>
+      app
+        .get<Database>(DATABASE)
+        .update(schema.pullRequest)
+        .set({ pullRefsBlocked: 'refused earlier' })
+        .where(eq(schema.pullRequest.id, body.id));
+    const cleared = () =>
+      vi.waitFor(
+        async () =>
+          expect(
+            (await api().get(pulls('/1'))).body.pullRefsBlocked,
+          ).toBeNull(),
+        { timeout: 15_000, interval: 200 },
+      );
+
+    await refuse();
+    app.get(PullRefsService).syncInBackground(body.id);
+    await cleared();
+
+    await refuse();
+    const feature = commit('feature', 'later.txt', 'one more\n');
+    await run(['push', '-q', url(contributor, forker.key, fork), 'feature']);
+    await cleared();
+    expect((await pullRefs())['refs/pull/1/head']).toBe(feature);
   });
 
   it('leaves pull request refs behind when the repository is forked', async () => {
