@@ -16,6 +16,7 @@ import {
   storageAccountKey,
 } from '../../lib/storage/storage-account.js';
 import {
+  MergeStorageQuotaExceededError,
   PullRefWriteTooLargeError,
   StorageQuotaExceededError,
   UnmergedPullRefQuotaExceededError,
@@ -163,9 +164,7 @@ export class StorageQuotaService {
     return this.db.transaction(async (tx) => {
       const quota = this.quotaOf(account);
       if (quota !== null) {
-        await tx.execute(
-          sql`select pg_advisory_xact_lock(hashtext(${storageAccountKey(account)}))`,
-        );
+        await this.lockAccount(account, tx);
         const used = await this.usageOf(account, tx);
         if (used + bytes > quota) {
           throw new StorageQuotaExceededError(used, quota, bytes);
@@ -173,5 +172,20 @@ export class StorageQuotaService {
       }
       return insert(tx);
     });
+  }
+
+  /** Refuses a merge once `account` is at or past its quota. A merge needs room left, not room enough: the pull refs it starts billing may carry the account past its quota, and the next merge is the one refused. Run inside the merge's transaction, so merges into one account see each other. */
+  async assertRoomToMerge(account: StorageAccount, tx: Executor) {
+    const quota = this.quotaOf(account);
+    if (quota === null) return;
+    await this.lockAccount(account, tx);
+    const used = await this.usageOf(account, tx);
+    if (used >= quota) throw new MergeStorageQuotaExceededError(used, quota);
+  }
+
+  private lockAccount(account: StorageAccount, tx: Executor) {
+    return tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${storageAccountKey(account)}))`,
+    );
   }
 }

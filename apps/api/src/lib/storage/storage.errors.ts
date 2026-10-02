@@ -13,6 +13,16 @@ export class StorageQuotaExceededError extends DomainError {
   }
 }
 
+export class MergeStorageQuotaExceededError extends DomainError {
+  status: number = HttpStatus.PAYLOAD_TOO_LARGE;
+
+  constructor(used: number, quota: number) {
+    super(
+      `Storage quota exceeded: ${formatByteSize(used)} of ${formatByteSize(quota)} used, so no more pull requests can merge until space is freed`,
+    );
+  }
+}
+
 export class PullRefWriteTooLargeError extends DomainError {
   status: number = HttpStatus.PAYLOAD_TOO_LARGE;
 

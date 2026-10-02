@@ -14,6 +14,7 @@ import {
 } from 'vitest';
 
 import {
+  MergeStorageQuotaExceededError,
   PullRefWriteTooLargeError,
   UnmergedPullRefQuotaExceededError,
 } from '../../lib/storage/storage.errors.js';
@@ -167,5 +168,38 @@ describe.skipIf(!CONNECTION)('pull request ref bytes', () => {
         PULL_REF_UNMERGED_MAX_BYTES: '1000',
       }).reservePullRefWrite(AUTHOR, 1000, write),
     ).toBe('written');
+  });
+
+  it('lets a merge through while the account has any room left, however much the request holds', async () => {
+    await requestHolding('merged', 999);
+    await requestHolding('open', 5000);
+
+    await db.transaction((tx) =>
+      quotaWith({ STORAGE_QUOTA_BYTES: '1000' }).assertRoomToMerge(
+        { userId: OWNER },
+        tx,
+      ),
+    );
+  });
+
+  it('refuses a merge once the account is at its quota', async () => {
+    await requestHolding('merged', 1000);
+
+    await expect(
+      db.transaction((tx) =>
+        quotaWith({ STORAGE_QUOTA_BYTES: '1000' }).assertRoomToMerge(
+          { userId: OWNER },
+          tx,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(MergeStorageQuotaExceededError);
+  });
+
+  it('never refuses a merge without STORAGE_QUOTA_BYTES', async () => {
+    await requestHolding('merged', 1_000_000);
+
+    await db.transaction((tx) =>
+      quotaWith({}).assertRoomToMerge({ userId: OWNER }, tx),
+    );
   });
 });
