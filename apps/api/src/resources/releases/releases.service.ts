@@ -137,7 +137,7 @@ export class ReleasesService {
     body: CreateReleaseRequestDTO;
   }): Promise<ReleaseDTO> {
     const repository = await this.authorize(target, 'write');
-    if (!(await isValidRefName('tags', body.tagName))) {
+    if (!isValidRefName('tags', body.tagName)) {
       throw new InvalidTagNameError(body.tagName);
     }
 

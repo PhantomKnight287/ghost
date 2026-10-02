@@ -72,7 +72,7 @@ export class RepositoryMaterializerService {
       const seq = index.compactedThroughSeq + offset + 1;
       if (seq <= cachedSeq) continue;
 
-      // Packs from receive-pack are thin: deltas may reference objects from earlier layers, which is why replay must stay in sequence order.
+      // Pushes since 0034 store self-contained packs, but older layers may be thin, with deltas against objects from earlier layers, which is why replay must stay in sequence order.
       if (layer.size > 0) {
         await runGit({
           args: ['index-pack', '--fix-thin', '--stdin'],

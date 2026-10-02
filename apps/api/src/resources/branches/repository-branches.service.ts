@@ -45,7 +45,7 @@ export class RepositoryBranchesService {
     ...target
   }: RepositoryRef & { body: CreateBranchRequestDTO }): Promise<BranchDTO> {
     const repository = await this.authorize(target);
-    if (!(await isValidRefName('heads', body.name))) {
+    if (!isValidRefName('heads', body.name)) {
       throw new InvalidBranchNameError(body.name);
     }
 

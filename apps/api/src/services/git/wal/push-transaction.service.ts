@@ -10,8 +10,13 @@ import { WalStoreService } from './wal-store.service.js';
 import {
   NonFastForwardError,
   RepositoryDeletedError,
+  UnreplayableRefError,
   WalContentionError,
 } from '../../../lib/git/wal/wal.errors.js';
+import {
+  directoryConflict,
+  isWellFormedRef,
+} from '../../../lib/git/refs/is-valid-ref-name.js';
 import {
   applyTransitions,
   emptyIndex,
@@ -60,6 +65,11 @@ export class PushTransactionService {
     pushedBy = null,
     ulid = createUlid(),
   }: CommitPushOptions): Promise<CommitPushResult> {
+    for (const { ref, newOid } of transitions) {
+      if (!newOid.equals(ZERO_OID) && !isWellFormedRef(ref)) {
+        throw new UnreplayableRefError(ref, 'git refuses this name');
+      }
+    }
     const packSize = body.size - packOffset;
     const packHash = createHash('sha256');
     await pipeline(body.open(packOffset), packHash);
@@ -86,6 +96,7 @@ export class PushTransactionService {
       // Only a verdict that the entry was not committed: a failed CAS request may still have landed, and deleting its entry would corrupt the log.
       if (
         error instanceof NonFastForwardError ||
+        error instanceof UnreplayableRefError ||
         error instanceof WalContentionError ||
         error instanceof RepositoryDeletedError
       )
@@ -116,11 +127,21 @@ export class PushTransactionService {
       }
 
       this.assertFastForward(index, transitions);
+      const refs = applyTransitions(index.refs, transitions);
+      // Checked against the index this CAS replaces, never a cache: two pushes creating `a` and `a/b` each pass against a view that lacks the other.
+      for (const { ref, newOid } of transitions) {
+        const conflict = newOid.equals(ZERO_OID)
+          ? null
+          : directoryConflict(refs, ref);
+        if (conflict) {
+          throw new UnreplayableRefError(ref, `it conflicts with ${conflict}`);
+        }
+      }
 
       const next: WalIndex = {
         seq: index.seq + 1,
         compactedThroughSeq: index.compactedThroughSeq,
-        refs: applyTransitions(index.refs, transitions),
+        refs,
         layers: [...index.layers, { ulid, packSha, size: packSize }],
         deleted: false,
       };

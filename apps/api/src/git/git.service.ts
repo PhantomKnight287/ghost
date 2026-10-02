@@ -10,6 +10,7 @@ import {
   isProbeRequest,
   readReceivePackHeader,
 } from '../lib/git/protocol/receive-pack-request.js';
+import { withVerifiedPack } from '../lib/git/protocol/verify-push.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
@@ -142,13 +143,16 @@ export class GitService {
       defaultBranch,
     });
 
-    await this.pushTransaction.commitPush({
-      repoId: repositoryId,
-      transitions,
-      body,
-      packOffset,
-      pushedBy,
-    });
+    await withVerifiedPack(
+      { gitDir: repoDirectory, transitions, body, packOffset },
+      (pack) =>
+        this.pushTransaction.commitPush({
+          repoId: repositoryId,
+          transitions,
+          ...pack,
+          pushedBy,
+        }),
+    );
 
     const result = this.packProcess.streamReceivePack({
       repoDirectory,

@@ -19,6 +19,14 @@ import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
 import { DATABASE } from '../database/database.module.js';
 import { GitService } from './git.service.js';
 
+// Verification runs real git over a real pack; it has its own spec, and these bodies are stand-ins.
+vi.mock('../lib/git/protocol/verify-push.js', () => ({
+  withVerifiedPack: (
+    { body, packOffset }: { body: unknown; packOffset: number },
+    commit: (pack: { body: unknown; packOffset: number }) => unknown,
+  ) => commit({ body, packOffset }),
+}));
+
 describe('GitService', () => {
   let service: GitService;
   const refAdvertisement = {
