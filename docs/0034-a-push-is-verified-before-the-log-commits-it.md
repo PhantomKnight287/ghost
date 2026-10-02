@@ -34,4 +34,13 @@ The cache still receives the original request through `receive-pack`, which reso
 - A push git would refuse now gets a 422 naming the ref and the reason, instead of landing and breaking the repository.
 - A push is indexed twice: once into the quarantine, once by `receive-pack` into the cache. Moving the quarantine's pack into the cache instead would save the second pass.
 - Layers grow by whatever delta bases a thin pack borrowed. Layers written before this decision may still be thin, so replay keeps `--fix-thin` and sequence order.
-- Repositories already broken this way are not repaired. That needs removing the bad ref from the index directly; the log has no tool for it yet.
+
+## Repairing a log broken before this decision
+
+`src/scripts/repair-repositories.ts` (`node dist/scripts/repair-repositories.js [--apply]`, run by hand) checks every repository and, with `--apply`, repairs it. `RepositoryRepairService` does the work:
+
+1. **Replay the log into an empty scratch repository**, never into the cache: the cache can hold objects the log lacks and so hide exactly this damage. An entry that does not index is retried with the local cache lent for delta bases; if that works, a new entry holding the self-contained pack replaces it in place under the old entry's header. Otherwise its layer's size becomes 0, which replay skips. Both keep every layer at its sequence number, so caches stay aligned.
+2. **Check every ref.** A ref whose history the scratch repository cannot walk gets the missing objects from the local cache, written back as a new entry. Then a ref is dropped when it is still unwalkable, names a branch at anything but a commit, has a name git refuses, or cannot coexist with another ref; of two that cannot coexist, the one whose entry came later goes.
+3. **Commit.** Layer swaps are one compare-and-swap of the index. Dropped refs and rescued objects are one ordinary `commitPush`, so the repair is an entry in the log like any other and moves the sequence forward, which makes every cache reconcile its refs. A push landing first sends the repair back to step 1.
+
+Run it on the API host, where the caches are: elsewhere it finds everything but can rescue nothing.
