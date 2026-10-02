@@ -10,3 +10,13 @@ export class UnsupportedGitServiceError extends DomainError {
     );
   }
 }
+
+export class ProtectedRefError extends DomainError {
+  status: number = HttpStatus.FORBIDDEN;
+
+  constructor(ref: string) {
+    super(
+      `${ref} is kept by Ghost for its pull request and cannot be pushed to`,
+    );
+  }
+}

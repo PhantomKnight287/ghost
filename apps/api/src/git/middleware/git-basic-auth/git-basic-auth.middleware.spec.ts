@@ -7,7 +7,7 @@ const basic = (username: string, password: string) =>
   `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
 
 function harness({
-  verify = { valid: true, key: { referenceId: 'user_owner' } },
+  verify = { valid: true, key: { id: 'key_1', referenceId: 'user_owner' } },
   authorize = vi.fn(),
 }: {
   verify?: unknown;
@@ -35,7 +35,7 @@ function harness({
       ...overrides,
     };
     await middleware.use(req as never, res as never, next);
-    return req as { actor?: unknown };
+    return req as { actor?: unknown; apiKeyId?: unknown };
   };
 
   return { run, res, next, auth, authorize };
@@ -51,6 +51,7 @@ describe('GitBasicAuthMiddleware', () => {
 
     expect(next).toHaveBeenCalledWith();
     expect(req.actor).toEqual({ userId: 'user_owner' });
+    expect(req.apiKeyId).toBe('key_1');
   });
 
   it('passes an anonymous actor through for a public fetch', async () => {

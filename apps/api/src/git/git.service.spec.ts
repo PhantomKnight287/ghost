@@ -15,7 +15,7 @@ import { RepositoryStorageService } from '../services/git/repository-storage/rep
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
-import { UnsupportedGitServiceError } from './git.errors.js';
+import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
 import { DATABASE } from '../database/database.module.js';
 import { GitService } from './git.service.js';
 
@@ -44,7 +44,11 @@ describe('GitService', () => {
   const codeSearch = { indexInBackground: vi.fn() };
   const references = { closeFromCommits: vi.fn().mockResolvedValue(undefined) };
   const published = vi.fn().mockResolvedValue(undefined);
-  const db = { insert: () => ({ values: published }) };
+  const runningImports = vi.fn().mockResolvedValue([]);
+  const db = {
+    insert: () => ({ values: published }),
+    select: () => ({ from: () => ({ where: runningImports }) }),
+  };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -158,6 +162,51 @@ describe('GitService', () => {
     expect(commitOrder).toBeLessThan(spawnOrder);
   });
 
+  it('refuses a push to a pull request ref before it reaches the log', async () => {
+    await expect(
+      service.receivePack({
+        repositoryId: 'repo_ghost',
+        defaultBranch: null,
+        isPublic: true,
+        body: bufferBody(
+          receivePackBody(undefined, undefined, 'refs/pull/1/head'),
+        ),
+        apiKeyId: 'key_someone',
+      }),
+    ).rejects.toBeInstanceOf(ProtectedRefError);
+    expect(pushTransaction.commitPush).not.toHaveBeenCalled();
+  });
+
+  it('lets a running import write pull request refs with its own key', async () => {
+    runningImports.mockResolvedValueOnce([{ id: 'import_1' }]);
+
+    await service.receivePack({
+      repositoryId: 'repo_ghost',
+      defaultBranch: null,
+      isPublic: true,
+      body: bufferBody(
+        receivePackBody(undefined, undefined, 'refs/pull/1/head'),
+      ),
+      apiKeyId: 'key_import',
+    });
+
+    expect(pushTransaction.commitPush).toHaveBeenCalled();
+  });
+
+  it('refuses pull request refs to a push with no key, without asking the database', async () => {
+    await expect(
+      service.receivePack({
+        repositoryId: 'repo_ghost',
+        defaultBranch: null,
+        isPublic: true,
+        body: bufferBody(
+          receivePackBody(undefined, undefined, 'refs/pull/1/merge'),
+        ),
+      }),
+    ).rejects.toBeInstanceOf(ProtectedRefError);
+    expect(runningImports).not.toHaveBeenCalled();
+  });
+
   it('indexes contributions once the pushed pack finishes streaming', async () => {
     const { body } = await service.receivePack({
       repositoryId: 'repo_ghost',
@@ -269,7 +318,7 @@ describe('GitService', () => {
     });
 
     it('publishes nothing for a ref outside branches and tags', async () => {
-      await push('refs/pull/1/head');
+      await push('refs/notes/commits');
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(published).not.toHaveBeenCalledWith(

@@ -1,5 +1,6 @@
-import type { Database } from '@ghost/db';
+import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { and, eq } from 'drizzle-orm';
 import { Readable } from 'node:stream';
 
 import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
@@ -17,12 +18,13 @@ import { CodeSearchService } from '../services/git/code-search/code-search.servi
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { listCommits } from '../lib/git/commits/list-commits.js';
 import { resolveDefaultRef } from '../lib/git/tree/resolve-ref.js';
+import { isPullRef } from '../lib/git/refs/pull-refs.js';
 import { type RefTransition, ZERO_OID } from '../lib/git/wal/wal.types.js';
 import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
 import { MAX_PUSH_COMMITS, publishEvent } from '../lib/events/events.js';
 import { DATABASE } from '../database/database.module.js';
 import { isGitServiceName, type GitServiceName } from './git.constants.js';
-import { UnsupportedGitServiceError } from './git.errors.js';
+import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
 
 export interface GitTransportResponse {
   headers: Record<string, string>;
@@ -101,10 +103,13 @@ export class GitService {
     isPublic,
     body,
     pushedBy = null,
+    apiKeyId = null,
   }: RepositoryRef & {
     isPublic: boolean;
     body: GitRequestBody;
     pushedBy?: string | null;
+    /** The key an HTTP push authenticated with; only the key minted for a running import may write `refs/pull/*`. */
+    apiKeyId?: string | null;
   }): Promise<GitTransportResponse> {
     if (await isProbeRequest(body)) {
       return {
@@ -114,6 +119,11 @@ export class GitService {
     }
 
     const { transitions, packOffset } = await readReceivePackHeader(body);
+    // Checked before the log: receive-pack's own refusals land after the commit point, too late to keep a ref out.
+    const pullRef = transitions.find(({ ref }) => isPullRef(ref));
+    if (pullRef && !(await this.isImportKey(repositoryId, apiKeyId))) {
+      throw new ProtectedRefError(pullRef.ref);
+    }
     const repoDirectory = await this.openRepository(
       repositoryId,
       defaultBranch,
@@ -248,6 +258,21 @@ export class GitService {
       actorId: pushedBy,
       commits,
     });
+  }
+
+  private async isImportKey(repositoryId: string, apiKeyId: string | null) {
+    if (!apiKeyId) return false;
+    const [running] = await this.db
+      .select({ id: schema.repositoryImport.id })
+      .from(schema.repositoryImport)
+      .where(
+        and(
+          eq(schema.repositoryImport.repositoryId, repositoryId),
+          eq(schema.repositoryImport.apiKeyId, apiKeyId),
+          eq(schema.repositoryImport.status, 'running'),
+        ),
+      );
+    return Boolean(running);
   }
 
   /** The local cache directory, current with the log. Every transport opens a repository this way before it hands anything to git. */

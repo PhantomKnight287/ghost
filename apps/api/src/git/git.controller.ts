@@ -56,6 +56,7 @@ export class GitController {
         isPublic: req.repository.visibility === 'public',
         body: req.gitBody,
         pushedBy: req.actor?.userId ?? null,
+        apiKeyId: req.apiKeyId ?? null,
       }),
     );
   }
