@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { ThemePicker } from "@/components/theme-picker";
 import { Button } from "@/components/ui/button";
+import { BugInvasion } from "@/components/bug-invasion";
 
 import { getServerSession } from "@/lib/api/server";
 import { DOCS_URL } from "@/lib/env";
@@ -322,6 +323,7 @@ export default async function LandingPage() {
           </div>
         </div>
       </footer>
+      <BugInvasion />
     </div>
   );
 }
