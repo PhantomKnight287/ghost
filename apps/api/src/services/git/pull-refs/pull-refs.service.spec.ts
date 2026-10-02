@@ -36,6 +36,7 @@ describe('PullRefsService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     gitDir = mkdtempSync(path.join(tmpdir(), 'ghost-pull-refs-'));
     execFileSync('git', ['init', '-q', '--bare', gitDir]);
@@ -72,6 +73,15 @@ describe('PullRefsService', () => {
     reconcile(base, head);
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(sync).not.toHaveBeenCalled();
+  });
+
+  it('reconciles pending accounting even when refs already match', async () => {
+    where.mockResolvedValueOnce([{ id: 'pending-entry' }]);
+    const sync = vi
+      .spyOn(service, 'syncInBackground')
+      .mockImplementation(() => {});
+    reconcile(base, head);
+    await vi.waitFor(() => expect(sync).toHaveBeenCalledWith('pr_1'));
   });
 
   it('syncs when the base moved past the test merge', async () => {

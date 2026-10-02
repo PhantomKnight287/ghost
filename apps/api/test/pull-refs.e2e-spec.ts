@@ -12,6 +12,11 @@ import { type Database, schema } from '@ghost/db';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE } from '../src/database/database.module.js';
+import { PullRefsModule } from '../src/pull-refs/pull-refs.module.js';
+import { RepositoryMaterializerService } from '../src/services/git/materializer/repository-materializer.service.js';
+import { PushTransactionService } from '../src/services/git/wal/push-transaction.service.js';
+import { WalStoreService } from '../src/services/git/wal/wal-store.service.js';
+import { StorageQuotaService } from '../src/services/storage/storage-quota.service.js';
 import { PullRefsService } from '../src/services/git/pull-refs/pull-refs.service.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
@@ -215,9 +220,9 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
   });
 
   it('stays on v0 over SSH for a client that does not ask', async () => {
-    const { stderr } = await sshFetch(
-      '0',
-      '+refs/pull/1/head:refs/fetched/ssh-v0',
+    const { stderr } = await vi.waitFor(
+      () => sshFetch('0', '+refs/pull/1/head:refs/fetched/ssh-v0'),
+      { timeout: 10_000, interval: 250 },
     );
 
     expect(stderr).not.toContain('version 2');
@@ -328,6 +333,125 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
     await cleared();
     expect((await pullRefs())['refs/pull/1/head']).toBe(feature);
   });
+
+  it.each([
+    'accounting rollback',
+    'lost WAL response',
+    'lost database response',
+  ])(
+    'recovers a committed pack after %s without rewriting refs or double counting',
+    async (failure) => {
+      const { body: pull } = await api().get(pulls('/1')).expect(200);
+      const db = app.get<Database>(DATABASE);
+      const service = app.get(PullRefsService);
+      const quota = app.get(StorageQuotaService);
+      const push = app
+        .select(PullRefsModule)
+        .get(PushTransactionService, { strict: true });
+      const store = app.get(WalStoreService);
+      const writes = () =>
+        db
+          .select()
+          .from(schema.pullRequestRefWrite)
+          .where(eq(schema.pullRequestRefWrite.pullRequestId, pull.id));
+      const pending = () =>
+        db
+          .select()
+          .from(schema.pullRequestRefWritePending)
+          .where(eq(schema.pullRequestRefWritePending.pullRequestId, pull.id));
+      // Settle earlier background work before injecting one failure.
+      await service.sync(pull.id);
+      const before = await writes();
+      const background = vi
+        .spyOn(service, 'syncInBackground')
+        .mockImplementation(() => {});
+      const reserve = quota.reservePullRefWrite.bind(quota);
+      const commitPush = push.commitPush.bind(push);
+      const pushSpy = vi.spyOn(push, 'commitPush');
+      const reservation = vi.spyOn(quota, 'reservePullRefWrite');
+      try {
+        commit('feature', 'recovery.txt', `${failure}\n`);
+        await run([
+          'push',
+          '-q',
+          url(contributor, forker.key, fork),
+          'feature',
+        ]);
+        pushSpy.mockClear();
+        reservation.mockClear();
+        const error = new Error('injected lost transaction');
+        if (failure === 'lost WAL response') {
+          pushSpy.mockImplementationOnce(async (options) => {
+            await commitPush(options);
+            throw error;
+          });
+        } else {
+          reservation.mockImplementationOnce(async (author, bytes, write) => {
+            if (failure === 'accounting rollback') {
+              return reserve(author, bytes, async (tx) => {
+                await write(tx);
+                throw error;
+              });
+            }
+            await reserve(author, bytes, write);
+            throw error;
+          });
+        }
+        await expect(service.sync(pull.id)).rejects.toThrow(error.message);
+        expect((await pullRefs())['refs/pull/1/head']).toBe(
+          git('rev-parse', 'feature'),
+        );
+        const intents = await pending();
+        expect(intents).toHaveLength(
+          failure === 'lost database response' ? 0 : 1,
+        );
+        expect(await writes()).toHaveLength(
+          before.length + (failure === 'lost database response' ? 1 : 0),
+        );
+
+        // A new instance has no in-memory knowledge of the failed sync.
+        const restarted = new PullRefsService(
+          db,
+          app.get(RepositoryMaterializerService),
+          push,
+          quota,
+          store,
+        );
+        await restarted.sync(pull.id);
+        const after = await writes();
+        expect(after).toHaveLength(before.length + 1);
+        const added = after.find(
+          (row) => !before.some(({ id }) => row.id === id),
+        )!;
+        const [storedPull] = await db
+          .select()
+          .from(schema.pullRequest)
+          .where(eq(schema.pullRequest.id, pull.id));
+        const index = await store.readIndex(storedPull.baseRepositoryId);
+        expect(added.size).toBe(
+          index!.index.layers.find(({ ulid }) => `prw_${ulid}` === added.id)!
+            .size,
+        );
+        expect(added.size).toBeGreaterThan(0);
+        expect(await pending()).toHaveLength(0);
+
+        // A stale recovery attempt may still see an intent already accounted for.
+        await db
+          .insert(schema.pullRequestRefWritePending)
+          .values({ id: added.id.slice(4), pullRequestId: pull.id });
+        await restarted.sync(pull.id);
+        expect(await writes()).toHaveLength(after.length);
+        expect(await pending()).toHaveLength(0);
+        expect(pushSpy).toHaveBeenCalledTimes(1);
+        expect(reservation).toHaveBeenCalledTimes(1);
+      } finally {
+        background.mockRestore();
+        pushSpy.mockRestore();
+        reservation.mockRestore();
+      }
+    },
+    30_000,
+  );
 
   it('leaves pull request refs behind when the repository is forked', async () => {
     const username = `pulllate${Date.now()}`;

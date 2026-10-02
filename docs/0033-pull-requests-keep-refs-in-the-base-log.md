@@ -42,7 +42,7 @@ Ghost passes an exact `Git-Protocol: version=2` header, or an SSH `GIT_PROTOCOL=
 
 ## Storage
 
-Each sync's pack size is recorded in `pull_request_ref_write`.
+Each sync's pack size is recorded in `pull_request_ref_write`. Before committing the log entry, the sync durably records its preallocated entry ID in `pull_request_ref_write_pending`, outside the quota transaction. Later syncs reconcile pending IDs against the base log's committed layers before any early return, and reads trigger this reconciliation even when the refs match. Recovery inserts the size with an entry-derived accounting ID, so retrying an ambiguous database commit cannot charge twice. Entries absent from the index stay pending because another writer may still commit them; definite log rejections remove their intents. A crash before committing can leave an uncharged intent. Any future log compaction must preserve pending entries until their accounting is recovered.
 
 - While a request is unmerged, open or closed, its bytes are billed to nobody.
 - Once it merges, they count against the base repository's account in `StorageQuotaService.usageOf`.

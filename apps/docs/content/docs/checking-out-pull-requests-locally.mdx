@@ -37,9 +37,9 @@ git switch --detach FETCH_HEAD
 It does not exist while the pull request conflicts with its base. A CI job that needs it should fall back to merging locally:
 
 ```bash
-git fetch origin main pull/42/head
-git switch --detach FETCH_HEAD
-git merge --no-edit origin/main
+git fetch origin +refs/heads/main:refs/remotes/origin/main +refs/pull/42/head:refs/remotes/origin/pr/42
+git switch --detach refs/remotes/origin/pr/42
+git merge --no-edit refs/remotes/origin/main
 ```
 
 Both refs update a few seconds after a push, not at the same instant.

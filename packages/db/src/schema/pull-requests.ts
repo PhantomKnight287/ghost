@@ -181,3 +181,16 @@ export const pullRequestRefWrite = pgTable(
   },
   (t) => [index("pull_request_ref_write_pull_idx").on(t.pullRequestId)],
 );
+
+/** Durable intent written before a pull-ref log commit, outside its quota transaction. The WAL index supplies the committed pack size during recovery. */
+export const pullRequestRefWritePending = pgTable(
+  "pull_request_ref_write_pending",
+  {
+    // The preallocated WAL entry ULID; also forms the final accounting row id.
+    id: text().primaryKey(),
+    pullRequestId: text()
+      .references(() => pullRequest.id, { onDelete: "cascade" })
+      .notNull(),
+  },
+  (t) => [index("pull_request_ref_write_pending_pull_idx").on(t.pullRequestId)],
+);

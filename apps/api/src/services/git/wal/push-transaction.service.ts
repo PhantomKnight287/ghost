@@ -31,6 +31,8 @@ const BASE_BACKOFF_MS = 50;
 const MAX_BACKOFF_MS = 1000;
 
 export interface CommitPushOptions {
+  /** Preallocated by callers that durably track this write before committing it. */
+  ulid?: string;
   repoId: string;
   transitions: RefTransition[];
   /** The whole request body; the packfile starts at `packOffset`. */
@@ -56,8 +58,8 @@ export class PushTransactionService {
     body,
     packOffset,
     pushedBy = null,
+    ulid = createUlid(),
   }: CommitPushOptions): Promise<CommitPushResult> {
-    const ulid = createUlid();
     const packSize = body.size - packOffset;
     const packHash = createHash('sha256');
     await pipeline(body.open(packOffset), packHash);

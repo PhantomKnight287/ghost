@@ -12,7 +12,13 @@ import { packRange, testMergeCommit } from '../../../lib/git/merge/merge.js';
 import { fileBody } from '../../../lib/git/protocol/git-request-body.js';
 import { pullHeadRef, pullMergeRef } from '../../../lib/git/refs/pull-refs.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
-import { NonFastForwardError } from '../../../lib/git/wal/wal.errors.js';
+import {
+  NonFastForwardError,
+  RepositoryDeletedError,
+  WalContentionError,
+} from '../../../lib/git/wal/wal.errors.js';
+import { createUlid } from '../../../lib/git/wal/ulid.js';
+import { WalStoreService } from '../wal/wal-store.service.js';
 import {
   type RefTransition,
   ZERO_OID,
@@ -42,6 +48,7 @@ export class PullRefsService {
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
     private readonly quota: StorageQuotaService,
+    private readonly store: WalStoreService,
   ) {}
 
   /** Every open request whose head or base branch a push just moved. */
@@ -127,10 +134,17 @@ export class PullRefsService {
       gitDir,
     })
       .catch(() => '')
-      .then((current) => {
-        if (current.trim() !== [headSha, baseSha, headSha].join('\n'))
+      .then(async (current) => {
+        const pending = await this.pendingWrites(pullRequestId);
+        if (
+          pending.length > 0 ||
+          current.trim() !== [headSha, baseSha, headSha].join('\n')
+        )
           this.syncInBackground(pullRequestId);
-      });
+      })
+      .catch((error: unknown) =>
+        this.logger.warn(`Pull ref reconciliation failed: ${String(error)}`),
+      );
   }
 
   async sync(pullRequestId: string) {
@@ -161,7 +175,9 @@ export class PullRefsService {
       .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
       .where(eq(schema.pullRequest.id, pullRequestId));
     // A closed request keeps the refs it had; GitHub leaves them where they last pointed too.
-    if (!pullRequest || pullRequest.state === 'closed') return;
+    if (!pullRequest) return;
+    await this.reconcileWrites(pullRequestId, pullRequest.baseRepositoryId);
+    if (pullRequest.state === 'closed') return;
 
     const baseDirectory = await this.open(pullRequest.baseRepositoryId);
     const headRef = pullHeadRef(pullRequest.number);
@@ -198,9 +214,17 @@ export class PullRefsService {
         exclude: [...new Set(refs.values())],
         prefix: path.join(directory, 'pull'),
       });
+      const ulid = createUlid();
       await this.quota
         .reservePullRefWrite(pullRequest.authorId, pack.size, async (tx) => {
+          // This intent must survive a rollback of the quota transaction, or a
+          // crash/ambiguous response after the log's commit point.
+          await this.db.insert(schema.pullRequestRefWritePending).values({
+            id: ulid,
+            pullRequestId,
+          });
           await this.pushTransaction.commitPush({
+            ulid,
             repoId: pullRequest.baseRepositoryId,
             transitions,
             body: fileBody(pack.path, pack.size),
@@ -208,11 +232,24 @@ export class PullRefsService {
           });
           await tx
             .insert(schema.pullRequestRefWrite)
-            .values({ pullRequestId, size: pack.size });
+            .values({ id: `prw_${ulid}`, pullRequestId, size: pack.size })
+            .onConflictDoNothing({ target: schema.pullRequestRefWrite.id });
+          await tx
+            .delete(schema.pullRequestRefWritePending)
+            .where(eq(schema.pullRequestRefWritePending.id, ulid));
           if (pullRequest.pullRefsBlocked)
             await this.block(pullRequestId, null, tx);
         })
         .catch(async (error: unknown) => {
+          // Only discard an intent when the log definitely did not commit.
+          if (
+            error instanceof NonFastForwardError ||
+            error instanceof WalContentionError ||
+            error instanceof RepositoryDeletedError
+          )
+            await this.db
+              .delete(schema.pullRequestRefWritePending)
+              .where(eq(schema.pullRequestRefWritePending.id, ulid));
           // A limit is the author's to act on, so it is kept where the request page can say it; anything else is the server's problem and goes to the log.
           if (
             !(error instanceof PullRefWriteTooLargeError) &&
@@ -224,6 +261,46 @@ export class PullRefsService {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  }
+
+  private pendingWrites(pullRequestId: string) {
+    return this.db
+      .select({ id: schema.pullRequestRefWritePending.id })
+      .from(schema.pullRequestRefWritePending)
+      .where(
+        eq(schema.pullRequestRefWritePending.pullRequestId, pullRequestId),
+      );
+  }
+
+  private async reconcileWrites(pullRequestId: string, repositoryId: string) {
+    const pending = await this.pendingWrites(pullRequestId);
+    if (pending.length === 0) return;
+    const stored = await this.store.readIndex(repositoryId);
+    const layers = new Map(
+      stored?.index.layers.map((layer) => [layer.ulid, layer]),
+    );
+    const committed = pending.flatMap(({ id }) => {
+      const layer = layers.get(id);
+      return layer
+        ? [{ id: `prw_${id}`, pullRequestId, size: layer.size }]
+        : [];
+    });
+    if (committed.length === 0) return;
+
+    // The index is the commit verdict, even if refs have since moved again.
+    // Retain absent entries: another instance may still be committing them.
+    await this.db.transaction(async (tx) => {
+      await tx
+        .insert(schema.pullRequestRefWrite)
+        .values(committed)
+        .onConflictDoNothing({ target: schema.pullRequestRefWrite.id });
+      await tx.delete(schema.pullRequestRefWritePending).where(
+        inArray(
+          schema.pullRequestRefWritePending.id,
+          committed.map(({ id }) => id.slice(4)),
+        ),
+      );
+    });
   }
 
   private async block(
