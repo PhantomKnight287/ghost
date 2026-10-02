@@ -115,13 +115,14 @@ describe.skipIf(!CONNECTION)('branches', () => {
     execFileSync('git', ['init', '-q', '--bare', '-b', 'main', cache]);
 
     const store = new InMemoryWalStore() as unknown as WalStoreService;
-    materializer = new RepositoryMaterializerService(store);
+    materializer = new RepositoryMaterializerService(store, {
+      getRepoPath: async () => cache,
+    } as unknown as RepositoryStorageService);
     pushes = new PushTransactionService(store);
     branches = new BranchesService();
     service = new RepositoryBranchesService(
       db,
       new RepositoryAccessService(db),
-      { getRepoPath: async () => cache } as unknown as RepositoryStorageService,
       materializer,
       branches,
       pushes,

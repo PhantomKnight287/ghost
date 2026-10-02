@@ -52,7 +52,6 @@ import {
   type Repository,
   type RepositoryOperation,
 } from '../../lib/git/repository-access/repository-access.js';
-import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
 import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
@@ -119,7 +118,6 @@ export class PullRequestsService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly users: UsersService,
     private readonly access: RepositoryAccessService,
-    private readonly storage: RepositoryStorageService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
     private readonly verification: CommitVerificationService,
@@ -150,8 +148,8 @@ export class PullRequestsService {
     }
 
     const [baseDirectory, headDirectory] = await Promise.all([
-      this.openCache(base),
-      this.openCache(head),
+      this.materializer.open(base),
+      this.materializer.open(head),
     ]);
     const baseSha = await this.resolveBranch(baseDirectory, body.base);
     const headSha = await this.resolveBranch(headDirectory, headRef);
@@ -240,8 +238,8 @@ export class PullRequestsService {
       : headSpec;
 
     const [baseDirectory, headDirectory] = await Promise.all([
-      this.openCache(base),
-      this.openCache(head),
+      this.materializer.open(base),
+      this.materializer.open(head),
     ]);
     const alternates = head.id === base.id ? [] : [headDirectory];
 
@@ -817,7 +815,7 @@ export class PullRequestsService {
       return {
         pullRequest,
         base,
-        baseDirectory: await this.openCache(base),
+        baseDirectory: await this.materializer.open(base),
         alternates: [],
         env: undefined,
         baseSha: pullRequest.headSha,
@@ -834,7 +832,7 @@ export class PullRequestsService {
     base: Repository,
     mergeCommitSha: string,
   ) {
-    const baseDirectory = await this.openCache(base);
+    const baseDirectory = await this.materializer.open(base);
     const baseSha = await resolveCommit(baseDirectory, `${mergeCommitSha}^1`);
     if (!baseSha) throw new CommitNotFoundError(mergeCommitSha);
 
@@ -868,8 +866,8 @@ export class PullRequestsService {
       .where(eq(schema.repository.id, headRepositoryId));
 
     const [baseDirectory, headDirectory] = await Promise.all([
-      this.openCache(base),
-      this.openCache(head),
+      this.materializer.open(base),
+      this.materializer.open(head),
     ]);
     const alternates = head.id === base.id ? [] : [headDirectory];
 
@@ -961,16 +959,6 @@ export class PullRequestsService {
       actor: requesterId ? { userId: requesterId } : null,
       operation,
     });
-  }
-
-  private async openCache(repository: Repository) {
-    const directory = await this.storage.getRepoPath(repository.id);
-    await this.materializer.materialize(
-      repository.id,
-      directory,
-      repository.defaultBranch,
-    );
-    return directory;
   }
 
   private async resolveBranch(gitDir: string, branch: string) {

@@ -21,6 +21,7 @@ import {
   type GitServiceName,
   toGitBinary,
 } from '../../../git/git.constants.js';
+import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 import { GitService } from '../../../git/git.service.js';
 import { spoolToFile } from '../../../lib/git/protocol/spool.js';
 import { greeting, replyTo } from '../../../lib/git/ssh/easter-eggs.js';
@@ -74,6 +75,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     private readonly git: GitService,
     private readonly packProcess: PackProcessService,
     private readonly refAdvertisement: RefAdvertisementService,
+    private readonly materializer: RepositoryMaterializerService,
   ) {}
 
   onModuleInit() {
@@ -236,10 +238,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
         actor,
         operation: parsed.service === 'git-receive-pack' ? 'write' : 'read',
       });
-      const repoDirectory = await this.git.openRepository(
-        repository.id,
-        repository.defaultBranch,
-      );
+      const repoDirectory = await this.materializer.open(repository);
 
       if (parsed.service === 'git-receive-pack') {
         await this.push(channel, repository, repoDirectory, actor);

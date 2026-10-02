@@ -3,7 +3,6 @@ import { Module } from '@nestjs/common';
 import { MaterializerModule } from '../materializer/materializer.module.js';
 import { StorageModule } from '../resources/storage/storage.module.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
-import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
 import { S3Service } from '../services/s3/s3.service.js';
@@ -13,7 +12,6 @@ import { S3Service } from '../services/s3/s3.service.js';
   imports: [MaterializerModule, StorageModule],
   providers: [
     PullRefsService,
-    RepositoryStorageService,
     PushTransactionService,
     WalStoreService,
     S3Service,

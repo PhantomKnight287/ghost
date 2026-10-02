@@ -163,8 +163,9 @@ describe.skipIf(!CONNECTION)('releases', () => {
     releases = new ReleasesService(
       db,
       new RepositoryAccessService(db),
-      { getRepoPath: async () => cache } as unknown as RepositoryStorageService,
-      new RepositoryMaterializerService(store),
+      new RepositoryMaterializerService(store, {
+        getRepoPath: async () => cache,
+      } as unknown as RepositoryStorageService),
       new BranchesService(),
       pushes,
       new UsersService(db),

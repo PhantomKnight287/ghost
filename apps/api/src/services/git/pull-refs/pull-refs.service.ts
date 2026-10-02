@@ -18,7 +18,6 @@ import {
   ZERO_OID,
 } from '../../../lib/git/wal/wal.types.js';
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
-import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../wal/push-transaction.service.js';
 import { StorageQuotaService } from '../../storage/storage-quota.service.js';
 
@@ -35,7 +34,6 @@ export class PullRefsService {
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
-    private readonly storage: RepositoryStorageService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
     private readonly quota: StorageQuotaService,
@@ -277,16 +275,13 @@ export class PullRefsService {
 
   private async open(repositoryId: string) {
     const [repository] = await this.db
-      .select({ defaultBranch: schema.repository.defaultBranch })
+      .select({
+        id: schema.repository.id,
+        defaultBranch: schema.repository.defaultBranch,
+      })
       .from(schema.repository)
       .where(eq(schema.repository.id, repositoryId));
-    const directory = await this.storage.getRepoPath(repositoryId);
-    await this.materializer.materialize(
-      repositoryId,
-      directory,
-      repository?.defaultBranch ?? null,
-    );
-    return directory;
+    return this.materializer.open(repository);
   }
 }
 

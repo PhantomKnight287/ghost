@@ -16,7 +16,6 @@ import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { BranchNotFoundError } from '../repositories/repositories.errors.js';
 import type { BranchDTO, CreateBranchRequestDTO } from './dto/branch.dto.js';
@@ -36,7 +35,6 @@ export class RepositoryBranchesService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
-    private readonly storage: RepositoryStorageService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly branches: BranchesService,
     private readonly pushTransaction: PushTransactionService,
@@ -51,7 +49,7 @@ export class RepositoryBranchesService {
       throw new InvalidBranchNameError(body.name);
     }
 
-    const directory = await this.openCache(repository);
+    const directory = await this.materializer.open(repository);
     const [branches, tags] = await Promise.all([
       this.branches.getGitBranches(directory),
       listTags(directory),
@@ -89,7 +87,7 @@ export class RepositoryBranchesService {
     ...target
   }: RepositoryRef & { branch: string }) {
     const repository = await this.authorize(target);
-    const directory = await this.openCache(repository);
+    const directory = await this.materializer.open(repository);
 
     if (!(await this.branches.getGitBranches(directory)).includes(branch)) {
       throw new BranchNotFoundError(branch);
@@ -146,16 +144,6 @@ export class RepositoryBranchesService {
       packOffset: 0,
       pushedBy: requesterId,
     });
-  }
-
-  private async openCache(repository: AuthorizedRepository) {
-    const directory = await this.storage.getRepoPath(repository.id);
-    await this.materializer.materialize(
-      repository.id,
-      directory,
-      repository.defaultBranch,
-    );
-    return directory;
   }
 
   private authorize({ username, repo, requesterId }: RepositoryRef) {

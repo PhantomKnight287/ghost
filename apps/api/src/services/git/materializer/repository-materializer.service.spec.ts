@@ -6,6 +6,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PushTransactionService } from '../wal/push-transaction.service.js';
+import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
 import {
   ZERO_OID,
@@ -47,6 +48,10 @@ describe('RepositoryMaterializerService', () => {
         RepositoryMaterializerService,
         PushTransactionService,
         { provide: WalStoreService, useValue: store },
+        {
+          provide: RepositoryStorageService,
+          useValue: { getRepoPath: async () => cache },
+        },
       ],
     }).compile();
 
@@ -109,6 +114,15 @@ describe('RepositoryMaterializerService', () => {
 
     expect(index.seq).toBe(0);
     expect(git(cache, 'for-each-ref', '--format=%(refname)')).toBe('');
+  });
+
+  it('opens a repository at its cache directory, current with the log', async () => {
+    const oid = await commitAndLog('README.md', '# ghost\n');
+
+    expect(await materializer.open({ id: REPO_ID, defaultBranch: null })).toBe(
+      cache,
+    );
+    expect(git(cache, 'rev-parse', 'refs/heads/main')).toBe(oid);
   });
 
   it('reconstructs a repository from the log alone', async () => {

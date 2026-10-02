@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { runGit } from '../../../lib/git/exec/run-git.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
+import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { emptyIndex, type WalIndex } from '../../../lib/git/wal/wal.types.js';
 
 const SEQ_MARKER = 'ghost-wal-seq';
@@ -19,7 +20,17 @@ export class RepositoryMaterializerService {
   private readonly logger = new Logger(RepositoryMaterializerService.name);
   private readonly inFlight = new Map<string, Promise<WalIndex>>();
 
-  constructor(private readonly store: WalStoreService) {}
+  constructor(
+    private readonly store: WalStoreService,
+    private readonly storage: RepositoryStorageService,
+  ) {}
+
+  /** The repository's cache directory, current with its log. Everything that hands a repository to git opens it this way. */
+  async open(repository: { id: string; defaultBranch: string | null }) {
+    const directory = await this.storage.getRepoPath(repository.id);
+    await this.materialize(repository.id, directory, repository.defaultBranch);
+    return directory;
+  }
 
   async materialize(
     repoId: string,

@@ -36,7 +36,6 @@ describe('PullRefsService', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
     );
     gitDir = mkdtempSync(path.join(tmpdir(), 'ghost-pull-refs-'));
     execFileSync('git', ['init', '-q', '--bare', gitDir]);

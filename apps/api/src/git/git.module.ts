@@ -3,7 +3,6 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { MaterializerModule } from '../materializer/materializer.module.js';
 import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
-import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
@@ -27,7 +26,6 @@ import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-au
     GitService,
     PackProcessService,
     RefAdvertisementService,
-    RepositoryStorageService,
     RepositoryContributionService,
     CodeSearchService,
     PushTransactionService,

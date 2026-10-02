@@ -11,7 +11,6 @@ import {
   readReceivePackHeader,
 } from '../lib/git/protocol/receive-pack-request.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
-import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
@@ -42,7 +41,6 @@ export class GitService {
   private readonly logger = new Logger(GitService.name);
 
   constructor(
-    private readonly storage: RepositoryStorageService,
     private readonly refAdvertisement: RefAdvertisementService,
     private readonly packProcess: PackProcessService,
     private readonly pushTransaction: PushTransactionService,
@@ -65,10 +63,10 @@ export class GitService {
   }): Promise<GitTransportResponse> {
     if (!isGitServiceName(service)) throw new UnsupportedGitServiceError();
 
-    const repoDirectory = await this.openRepository(
-      repositoryId,
+    const repoDirectory = await this.materializer.open({
+      id: repositoryId,
       defaultBranch,
-    );
+    });
 
     return {
       headers: {
@@ -92,10 +90,10 @@ export class GitService {
     body: GitRequestBody;
     protocol?: string;
   }): Promise<GitTransportResponse> {
-    const repoDirectory = await this.openRepository(
-      repositoryId,
+    const repoDirectory = await this.materializer.open({
+      id: repositoryId,
       defaultBranch,
-    );
+    });
 
     return {
       headers: resultHeaders('git-upload-pack'),
@@ -139,10 +137,10 @@ export class GitService {
     if (pullRef && !(await this.isImportKey(repositoryId, apiKeyId))) {
       throw new ProtectedRefError(pullRef.ref);
     }
-    const repoDirectory = await this.openRepository(
-      repositoryId,
+    const repoDirectory = await this.materializer.open({
+      id: repositoryId,
       defaultBranch,
-    );
+    });
 
     await this.pushTransaction.commitPush({
       repoId: repositoryId,
@@ -295,17 +293,6 @@ export class GitService {
         ),
       );
     return Boolean(running);
-  }
-
-  /** The local cache directory, current with the log. Every transport opens a repository this way before it hands anything to git. */
-  async openRepository(repositoryId: string, defaultBranch: string | null) {
-    const repoDirectory = await this.storage.getRepoPath(repositoryId);
-    await this.materializer.materialize(
-      repositoryId,
-      repoDirectory,
-      defaultBranch,
-    );
-    return repoDirectory;
   }
 }
 
