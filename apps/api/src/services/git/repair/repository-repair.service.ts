@@ -18,7 +18,10 @@ import {
 } from '../../../lib/git/refs/is-valid-ref-name.js';
 import { createUlid } from '../../../lib/git/wal/ulid.js';
 import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
-import { NonFastForwardError } from '../../../lib/git/wal/wal.errors.js';
+import {
+  NonFastForwardError,
+  RepositoryDeletedError,
+} from '../../../lib/git/wal/wal.errors.js';
 import {
   type WalIndex,
   type WalLayer,
@@ -63,7 +66,7 @@ export class RepositoryRepairService {
 
   /** What a repair would change, changing nothing. Null when the log replays cleanly or holds nothing. */
   async check(repositoryId: string): Promise<RepairReport | null> {
-    const stored = await this.store.readIndex(repositoryId);
+    const stored = await this.readIndex(repositoryId);
     if (!stored || stored.index.deleted) return null;
     const diagnosis = await this.diagnose(repositoryId, stored.index);
     try {
@@ -76,7 +79,7 @@ export class RepositoryRepairService {
   /** Repairs the log so a node holding nothing else can replay it, and says what changed. Null when nothing needed changing. */
   async repair(repositoryId: string): Promise<RepairReport | null> {
     for (let attempt = 1; ; attempt++) {
-      const stored = await this.store.readIndex(repositoryId);
+      const stored = await this.readIndex(repositoryId);
       if (!stored || stored.index.deleted) return null;
       const diagnosis = await this.diagnose(repositoryId, stored.index);
       try {
@@ -92,6 +95,15 @@ export class RepositoryRepairService {
       if (attempt === MAX_ATTEMPTS) {
         throw new Error(`the log kept changing while it was being repaired`);
       }
+    }
+  }
+
+  private async readIndex(repositoryId: string) {
+    try {
+      return await this.store.readIndex(repositoryId);
+    } catch (error) {
+      if (error instanceof RepositoryDeletedError) return null;
+      throw error;
     }
   }
 

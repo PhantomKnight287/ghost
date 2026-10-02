@@ -9,6 +9,7 @@ import { InMemoryWalStore } from '../../../lib/git/materializer/wal-store.fake.j
 import { bufferBody } from '../../../lib/git/protocol/git-request-body.js';
 import { createUlid } from '../../../lib/git/wal/ulid.js';
 import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
+import { RepositoryDeletedError } from '../../../lib/git/wal/wal.errors.js';
 import {
   applyTransitions,
   emptyIndex,
@@ -155,6 +156,29 @@ describe('RepositoryRepairService', () => {
     expect(await repair.check('repo_never_pushed')).toBeNull();
     expect(await repair.repair('repo_never_pushed')).toBeNull();
   });
+
+  it.each(['check', 'repair'] as const)(
+    '%s treats a deleted repository as absent',
+    async (operation) => {
+      vi.spyOn(store, 'readIndex').mockRejectedValue(new RepositoryDeletedError());
+      const openPack = vi.spyOn(store, 'openEntryPack');
+      const writeIndex = vi.spyOn(store, 'casIndex');
+
+      await expect(repair[operation](REPO)).resolves.toBeNull();
+      expect(openPack).not.toHaveBeenCalled();
+      expect(writeIndex).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['check', 'repair'] as const)(
+    '%s propagates other index read errors',
+    async (operation) => {
+      const error = new Error('object storage is unavailable');
+      vi.spyOn(store, 'readIndex').mockRejectedValue(error);
+
+      await expect(repair[operation](REPO)).rejects.toBe(error);
+    },
+  );
 
   it('only reports when checking, and writes nothing', async () => {
     await append([set('refs/heads/evil', 'ab'.repeat(20))], Buffer.alloc(0));
