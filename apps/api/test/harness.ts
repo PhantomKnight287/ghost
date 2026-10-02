@@ -17,8 +17,8 @@ export const s3Credentials = {
 /** Suites need a throwaway Postgres and an S3 endpoint (RustFS from compose.yaml works), and are skipped without them. */
 export const hasBackends = Boolean(DATABASE_URL && S3_ENDPOINT);
 
-/** Serves the whole app on a random port, against the database and bucket global-setup.ts prepared. */
-export async function startApp() {
+/** Serves the whole app on a random port, against the database and bucket global-setup.ts prepared. `env` overrides the defaults below, such as turning the SSH transport on. */
+export async function startApp(env: Record<string, string> = {}) {
   Object.assign(process.env, {
     DATABASE_URL,
     S3_ENDPOINT,
@@ -33,6 +33,7 @@ export async function startApp() {
     GIT_SSH_HOST_KEY: '',
     OTEL_EXPORTER_OTLP_ENDPOINT: '',
     PYROSCOPE_SERVER_ADDRESS: '',
+    ...env,
   });
 
   // Imported late so the module reads the environment set above.

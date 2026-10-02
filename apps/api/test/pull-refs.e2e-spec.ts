@@ -1,5 +1,6 @@
 import { execFile, execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -19,6 +20,9 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
   const contributor = `pullfork${Date.now()}`;
   let repo: string;
   let fork: string;
+  let sshPort: number;
+  let sshKey: string;
+  let keys: string;
 
   const api = () => request(app.getHttpServer());
   const pulls = (suffix = '') =>
@@ -61,8 +65,41 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
   const parentsOf = async (ref: string) =>
     git('log', '-1', '--format=%P', await fetchRef(ref)).split(' ');
 
+  /** Fetches over SSH as the upstream owner, tracing the packets so a test can read which protocol was spoken. */
+  const sshFetch = (version: string, refspec: string) =>
+    run(
+      [
+        '-c',
+        `protocol.version=${version}`,
+        'fetch',
+        `ssh://git@127.0.0.1:${sshPort}/${owner}/${repo}.git`,
+        refspec,
+      ],
+      {
+        GIT_TRACE_PACKET: '1',
+        GIT_SSH_COMMAND: `ssh -i ${sshKey} -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR`,
+      },
+    );
+
   beforeAll(async () => {
-    ({ app, origin } = await startApp());
+    work = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-pull-refs-'));
+    keys = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-ssh-'));
+    const hostKey = path.join(keys, 'host');
+    sshKey = path.join(keys, 'client');
+    for (const file of [hostKey, sshKey]) {
+      execFileSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', file]);
+    }
+    sshPort = await new Promise<number>((resolve) => {
+      const probe = createServer().listen(0, '127.0.0.1', () => {
+        const { port } = probe.address() as { port: number };
+        probe.close(() => resolve(port));
+      });
+    });
+
+    ({ app, origin } = await startApp({
+      GIT_SSH_HOST_KEY: readFileSync(hostKey, 'utf8'),
+      GIT_SSH_PORT: String(sshPort),
+    }));
     upstream = await signUp(app, owner);
     forker = await signUp(app, contributor);
 
@@ -73,7 +110,12 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
         .send({ name: 'upstream', visibility: 'public' })
         .expect(201)
     ).body.slug;
-    work = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-pull-refs-'));
+    await api()
+      .post('/api/ssh-keys')
+      .set('cookie', upstream.cookie)
+      .send({ title: 'e2e', publicKey: readFileSync(`${sshKey}.pub`, 'utf8') })
+      .expect(201);
+
     git('init', '-q', '-b', 'main');
     writeFileSync(path.join(work, 'shared.txt'), 'shared\n');
     git('add', '.');
@@ -108,7 +150,9 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
 
   afterAll(async () => {
     await app?.close();
-    if (work) rmSync(work, { recursive: true, force: true });
+    for (const directory of [work, keys]) {
+      if (directory) rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it('publishes a fork request as its head and a test merge into the base', async () => {
@@ -148,6 +192,31 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
     expect(stderr).toContain('ref-prefix refs/pull/1/head');
     expect(stderr).not.toContain('refs/heads/main');
     expect(git('rev-parse', 'refs/fetched/v2')).toBe(
+      git('rev-parse', 'feature'),
+    );
+  });
+
+  it('fetches over SSH with protocol v2 when the client asks for it', async () => {
+    const { stderr } = await vi.waitFor(
+      () => sshFetch('2', '+refs/pull/1/head:refs/fetched/ssh-v2'),
+      { timeout: 10_000, interval: 250 },
+    );
+
+    expect(stderr).toContain('version 2');
+    expect(stderr).toContain('ref-prefix refs/pull/1/head');
+    expect(git('rev-parse', 'refs/fetched/ssh-v2')).toBe(
+      git('rev-parse', 'feature'),
+    );
+  });
+
+  it('stays on v0 over SSH for a client that does not ask', async () => {
+    const { stderr } = await sshFetch(
+      '0',
+      '+refs/pull/1/head:refs/fetched/ssh-v0',
+    );
+
+    expect(stderr).not.toContain('version 2');
+    expect(git('rev-parse', 'refs/fetched/ssh-v0')).toBe(
       git('rev-parse', 'feature'),
     );
   });
