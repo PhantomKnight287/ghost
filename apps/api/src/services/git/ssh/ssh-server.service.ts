@@ -184,12 +184,21 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
   }
 
   private session(session: Session, state: SessionActor, client: Connection) {
+    let protocol: string | undefined;
+    // OpenSSH sends `GIT_PROTOCOL` only when the client's git asks for v2; every other variable is refused.
+    session.on('env', (accept, reject, info) => {
+      if (info.key !== 'GIT_PROTOCOL') return reject?.();
+      protocol = info.val;
+      accept?.();
+    });
+
     session.on('exec', (accept, _reject, info) => {
       const channel = accept();
       // The connection outlives the channel on purpose: ending it while megabytes are still queued behind the flow-control window truncates the fetch.
       channel.on('close', () => client.end());
-      void this.exec(channel, info.command, state).catch((error: Error) =>
-        this.logger.error(`SSH session failed: ${error.message}`),
+      void this.exec(channel, info.command, state, protocol).catch(
+        (error: Error) =>
+          this.logger.error(`SSH session failed: ${error.message}`),
       );
     });
 
@@ -211,6 +220,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     channel: ServerChannel,
     command: string,
     { actor, username }: SessionActor,
+    protocol: string | undefined,
   ) {
     this.logger.debug(`SSH exec ${command}`);
     const parsed = parseGitCommand(command);
@@ -235,7 +245,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
         await this.push(channel, repository, repoDirectory, actor);
         return;
       }
-      await this.fetch(channel, repoDirectory, parsed.service);
+      await this.fetch(channel, repoDirectory, parsed.service, protocol);
     } catch (error) {
       // SSH has no status line to carry this, so the reason goes where git prints remote errors.
       const message =
@@ -255,6 +265,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     channel: ServerChannel,
     repoDirectory: string,
     service: GitServiceName,
+    protocol: string | undefined,
   ) {
     const binary = toGitBinary(service);
 
@@ -262,6 +273,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
       const child = this.packProcess.spawnInteractive({
         repoDirectory,
         service,
+        protocol,
       });
       let running = true;
 

@@ -56,7 +56,11 @@ export class GitService {
     repositoryId,
     defaultBranch,
     service,
-  }: RepositoryRef & { service: string }): Promise<GitTransportResponse> {
+    protocol,
+  }: RepositoryRef & {
+    service: string;
+    protocol?: string;
+  }): Promise<GitTransportResponse> {
     if (!isGitServiceName(service)) throw new UnsupportedGitServiceError();
 
     const repoDirectory = await this.openRepository(
@@ -69,7 +73,11 @@ export class GitService {
         'Content-Type': `application/x-${service}-advertisement`,
         'Cache-Control': 'no-cache',
       },
-      body: this.refAdvertisement.advertise({ repoDirectory, service }),
+      body: this.refAdvertisement.advertise({
+        repoDirectory,
+        service,
+        protocol,
+      }),
     };
   }
 
@@ -77,7 +85,11 @@ export class GitService {
     repositoryId,
     defaultBranch,
     body,
-  }: RepositoryRef & { body: GitRequestBody }): Promise<GitTransportResponse> {
+    protocol,
+  }: RepositoryRef & {
+    body: GitRequestBody;
+    protocol?: string;
+  }): Promise<GitTransportResponse> {
     const repoDirectory = await this.openRepository(
       repositoryId,
       defaultBranch,
@@ -88,6 +100,7 @@ export class GitService {
       body: this.packProcess.streamUploadPack({
         repoDirectory,
         input: body.open(),
+        protocol,
       }),
     };
   }

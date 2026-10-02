@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { PassThrough, Readable, type Writable } from 'node:stream';
 import {
+  protocolEnv,
   toGitBinary,
   type GitServiceName,
 } from '../../../git/git.constants.js';
@@ -10,6 +11,8 @@ interface StreamOptions {
   repoDirectory: string;
   /** The client's request body: `want`/`have` lines or a packfile. */
   input: Readable;
+  /** What the client asked for in `Git-Protocol` or `GIT_PROTOCOL`. */
+  protocol?: string;
 }
 
 /**
@@ -33,12 +36,15 @@ export class PackProcessService {
   spawnInteractive({
     repoDirectory,
     service,
+    protocol,
   }: {
     repoDirectory: string;
     service: GitServiceName;
+    protocol?: string;
   }): ChildProcessByStdio<Writable, Readable, Readable> {
     return spawn('git', [toGitBinary(service), repoDirectory], {
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, ...protocolEnv(protocol) },
     });
   }
 
@@ -46,10 +52,13 @@ export class PackProcessService {
     repoDirectory,
     input,
     service,
+    protocol,
   }: StreamOptions & { service: GitServiceName }): Readable {
     const binary = toGitBinary(service);
     const output = new PassThrough();
-    const child = spawn('git', [binary, '--stateless-rpc', repoDirectory]);
+    const child = spawn('git', [binary, '--stateless-rpc', repoDirectory], {
+      env: { ...process.env, ...protocolEnv(protocol) },
+    });
 
     input.pipe(child.stdin);
     child.stdout.pipe(output);

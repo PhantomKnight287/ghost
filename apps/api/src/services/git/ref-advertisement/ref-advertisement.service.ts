@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { PassThrough, Readable } from 'node:stream';
 import {
   FLUSH_PACKET,
+  protocolEnv,
   toGitBinary,
   type GitServiceName,
 } from '../../../git/git.constants.js';
@@ -21,15 +22,17 @@ export class RefAdvertisementService {
   advertise({
     repoDirectory,
     service,
+    protocol,
   }: {
     repoDirectory: string;
     service: GitServiceName;
+    protocol?: string;
   }): Readable {
     const output = new PassThrough();
 
     output.write(this.convertToPacketLine(`# service=${service}\n`));
     output.write(FLUSH_PACKET);
-    this.advertiseRefs({ repoDirectory, service }).pipe(output);
+    this.advertiseRefs({ repoDirectory, service, protocol }).pipe(output);
 
     return output;
   }
@@ -38,19 +41,20 @@ export class RefAdvertisementService {
   advertiseRefs({
     repoDirectory,
     service,
+    protocol,
   }: {
     repoDirectory: string;
     service: GitServiceName;
+    protocol?: string;
   }): Readable {
     const binary = toGitBinary(service);
     const output = new PassThrough();
 
-    const child = spawn('git', [
-      binary,
-      '--stateless-rpc',
-      '--advertise-refs',
-      repoDirectory,
-    ]);
+    const child = spawn(
+      'git',
+      [binary, '--stateless-rpc', '--advertise-refs', repoDirectory],
+      { env: { ...process.env, ...protocolEnv(protocol) } },
+    );
     child.stdout.pipe(output);
     child.stderr.on('data', (chunk: Buffer) =>
       this.logger.warn(`${binary} stderr: ${chunk.toString()}`),

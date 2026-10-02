@@ -24,6 +24,7 @@ export class GitController {
         repositoryId: req.repository.id,
         defaultBranch: req.repository.defaultBranch,
         service,
+        protocol: req.get('git-protocol'),
       }),
     );
   }
@@ -39,6 +40,7 @@ export class GitController {
         repositoryId: req.repository.id,
         defaultBranch: req.repository.defaultBranch,
         body: req.gitBody,
+        protocol: req.get('git-protocol'),
       }),
     );
   }
