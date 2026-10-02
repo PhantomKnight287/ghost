@@ -454,6 +454,35 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
     30_000,
   );
 
+  it('records the intent before the quota transaction holds a connection', async () => {
+    const { body: pull } = await api().get(pulls('/1')).expect(200);
+    const db = app.get<Database>(DATABASE);
+    const quota = app.get(StorageQuotaService);
+    const reserve = quota.reservePullRefWrite.bind(quota);
+    let intents = -1;
+    const reservation = vi
+      .spyOn(quota, 'reservePullRefWrite')
+      .mockImplementationOnce(async (author, bytes, write) => {
+        intents = (
+          await db
+            .select()
+            .from(schema.pullRequestRefWritePending)
+            .where(eq(schema.pullRequestRefWritePending.pullRequestId, pull.id))
+        ).length;
+        return reserve(author, bytes, write);
+      });
+    try {
+      commit('feature', 'ordering.txt', 'intent first\n');
+      await run(['push', '-q', url(contributor, forker.key, fork), 'feature']);
+      await vi.waitFor(() => expect(intents).toBe(1), {
+        timeout: 15_000,
+        interval: 200,
+      });
+    } finally {
+      reservation.mockRestore();
+    }
+  });
+
   it('forgets an intent that never reached the log once it is past its grace, and keeps a young one', async () => {
     const { body: pull } = await api().get(pulls('/1')).expect(200);
     const db = app.get<Database>(DATABASE);

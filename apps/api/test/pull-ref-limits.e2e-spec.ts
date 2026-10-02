@@ -7,6 +7,10 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { type Database, schema } from '@ghost/db';
+import { eq } from 'drizzle-orm';
+
+import { DATABASE } from '../src/database/database.module.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('pull refs past PULL_REF_MAX_BYTES', () => {
@@ -63,7 +67,7 @@ describe.skipIf(!hasBackends)('pull refs past PULL_REF_MAX_BYTES', () => {
   });
 
   it('leaves the refs unwritten and says why on the request', async () => {
-    await api()
+    const { body: pull } = await api()
       .post(`/api/repositories/${username}/${repo}/pulls`)
       .set('cookie', owner.cookie)
       .send({ title: 'feature', base: 'main', head: 'feature' })
@@ -80,5 +84,12 @@ describe.skipIf(!hasBackends)('pull refs past PULL_REF_MAX_BYTES', () => {
     );
     const { stdout } = await run('ls-remote', remote(), 'refs/pull/*');
     expect(stdout).toBe('');
+    expect(
+      await app
+        .get<Database>(DATABASE)
+        .select()
+        .from(schema.pullRequestRefWritePending)
+        .where(eq(schema.pullRequestRefWritePending.pullRequestId, pull.id)),
+    ).toEqual([]);
   });
 });

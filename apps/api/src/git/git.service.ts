@@ -179,13 +179,7 @@ export class GitService {
           `Closing referenced issues failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
         ),
       );
-      this.pullRefs
-        .syncAfterPush({ repositoryId, transitions })
-        .catch((error: unknown) =>
-          this.logger.warn(
-            `Pull request refs were not queued for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
-          ),
-        );
+      void this.pullRefs.syncAfterPush({ repositoryId, transitions });
       this.publishPushes({
         repositoryId,
         repoDirectory,

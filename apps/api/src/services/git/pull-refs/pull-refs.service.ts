@@ -53,7 +53,7 @@ export class PullRefsService {
     private readonly store: WalStoreService,
   ) {}
 
-  /** Every open request whose head or base branch a push just moved. */
+  /** Every open request whose head or base branch a push just moved. Never rejects: the push it follows has already landed, and a read or the next push reconciles anything missed here. */
   async syncAfterPush({
     repositoryId,
     transitions,
@@ -84,7 +84,13 @@ export class PullRefsService {
             ),
           ),
         ),
-      );
+      )
+      .catch((error: unknown) => {
+        this.logger.warn(
+          `Pull request refs were not queued for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return [];
+      });
     for (const { id } of affected) this.syncInBackground(id);
   }
 
@@ -217,13 +223,12 @@ export class PullRefsService {
         prefix: path.join(directory, 'pull'),
       });
       const ulid = createUlid();
+      // Written before the quota transaction opens, so the intent survives that transaction rolling back or a crash after the log's commit point; inside it, this insert would wait on a second pooled connection while the transaction holds the first.
+      await this.db
+        .insert(schema.pullRequestRefWritePending)
+        .values({ id: ulid, pullRequestId });
       await this.quota
         .reservePullRefWrite(pullRequest.authorId, pack.size, async (tx) => {
-          // Written outside the quota transaction, so the intent survives that transaction rolling back or a crash after the log's commit point.
-          await this.db.insert(schema.pullRequestRefWritePending).values({
-            id: ulid,
-            pullRequestId,
-          });
           await this.pushTransaction.commitPush({
             ulid,
             repoId: pullRequest.baseRepositoryId,
@@ -242,11 +247,13 @@ export class PullRefsService {
             await this.block(pullRequestId, null, tx);
         })
         .catch(async (error: unknown) => {
-          // Only discard an intent when the log definitely did not commit.
+          // Only discard an intent when the log definitely did not commit: it refused the entry, or a limit refused it before the log was asked.
           if (
             error instanceof NonFastForwardError ||
             error instanceof WalContentionError ||
-            error instanceof RepositoryDeletedError
+            error instanceof RepositoryDeletedError ||
+            error instanceof PullRefWriteTooLargeError ||
+            error instanceof UnmergedPullRefQuotaExceededError
           )
             await this.db
               .delete(schema.pullRequestRefWritePending)

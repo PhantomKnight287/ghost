@@ -131,6 +131,21 @@ describe('PullRefsService', () => {
     expect(sync).toHaveBeenCalledTimes(2);
   });
 
+  it('swallows a failed lookup, since the push it follows already landed', async () => {
+    where.mockRejectedValueOnce(new Error('connection reset'));
+    const sync = vi.spyOn(service, 'syncInBackground');
+
+    await expect(
+      service.syncAfterPush({
+        repositoryId: 'repo_1',
+        transitions: [
+          { ref: 'refs/heads/main', oldOid: ZERO_OID, newOid: ZERO_OID },
+        ],
+      }),
+    ).resolves.toBeUndefined();
+    expect(sync).not.toHaveBeenCalled();
+  });
+
   it('looks nothing up for a push that moved no branch', async () => {
     await service.syncAfterPush({
       repositoryId: 'repo_1',
