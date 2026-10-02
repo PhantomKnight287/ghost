@@ -18,6 +18,7 @@ import { PushTransactionService } from '../src/services/git/wal/push-transaction
 import { WalStoreService } from '../src/services/git/wal/wal-store.service.js';
 import { StorageQuotaService } from '../src/services/storage/storage-quota.service.js';
 import { PullRefsService } from '../src/services/git/pull-refs/pull-refs.service.js';
+import { createUlid } from '../src/lib/git/wal/ulid.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
@@ -452,6 +453,28 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
     },
     30_000,
   );
+
+  it('forgets an intent that never reached the log once it is past its grace, and keeps a young one', async () => {
+    const { body: pull } = await api().get(pulls('/1')).expect(200);
+    const db = app.get<Database>(DATABASE);
+    const abandoned = createUlid(Date.now() - 2 * 60 * 60 * 1000);
+    const young = createUlid();
+    await db.insert(schema.pullRequestRefWritePending).values([
+      { id: abandoned, pullRequestId: pull.id },
+      { id: young, pullRequestId: pull.id },
+    ]);
+
+    await app.get(PullRefsService).sync(pull.id);
+
+    const left = await db
+      .select({ id: schema.pullRequestRefWritePending.id })
+      .from(schema.pullRequestRefWritePending)
+      .where(eq(schema.pullRequestRefWritePending.pullRequestId, pull.id));
+    expect(left).toEqual([{ id: young }]);
+    await db
+      .delete(schema.pullRequestRefWritePending)
+      .where(eq(schema.pullRequestRefWritePending.id, young));
+  });
 
   it('leaves pull request refs behind when the repository is forked', async () => {
     const username = `pulllate${Date.now()}`;

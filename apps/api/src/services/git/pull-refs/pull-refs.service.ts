@@ -17,7 +17,7 @@ import {
   RepositoryDeletedError,
   WalContentionError,
 } from '../../../lib/git/wal/wal.errors.js';
-import { createUlid } from '../../../lib/git/wal/ulid.js';
+import { createUlid, ulidToBytes } from '../../../lib/git/wal/ulid.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
 import {
   type RefTransition,
@@ -35,6 +35,8 @@ import {
 // Each lost race re-reads the log, so this only runs out when the base is being pushed to faster than a merge-tree.
 const MAX_ATTEMPTS = 3;
 const BRANCH_PREFIX = 'refs/heads/';
+// A commitPush settles in seconds, so an intent this old that the index does not name never committed.
+const PENDING_GRACE_MS = 60 * 60 * 1000;
 
 /** Keeps `refs/pull/<n>/head` and `/merge` in the base repository's log (0033). Runs after the push that made them stale, never inside it. */
 @Injectable()
@@ -217,8 +219,7 @@ export class PullRefsService {
       const ulid = createUlid();
       await this.quota
         .reservePullRefWrite(pullRequest.authorId, pack.size, async (tx) => {
-          // This intent must survive a rollback of the quota transaction, or a
-          // crash/ambiguous response after the log's commit point.
+          // Written outside the quota transaction, so the intent survives that transaction rolling back or a crash after the log's commit point.
           await this.db.insert(schema.pullRequestRefWritePending).values({
             id: ulid,
             pullRequestId,
@@ -285,21 +286,30 @@ export class PullRefsService {
         ? [{ id: `prw_${id}`, pullRequestId, size: layer.size }]
         : [];
     });
-    if (committed.length === 0) return;
-
-    // The index is the commit verdict, even if refs have since moved again.
-    // Retain absent entries: another instance may still be committing them.
-    await this.db.transaction(async (tx) => {
-      await tx
-        .insert(schema.pullRequestRefWrite)
-        .values(committed)
-        .onConflictDoNothing({ target: schema.pullRequestRefWrite.id });
-      await tx.delete(schema.pullRequestRefWritePending).where(
-        inArray(
-          schema.pullRequestRefWritePending.id,
-          committed.map(({ id }) => id.slice(4)),
-        ),
+    const abandoned = pending
+      .map(({ id }) => id)
+      .filter(
+        (id) =>
+          !layers.has(id) &&
+          Date.now() - ulidToBytes(id).readUIntBE(0, 6) > PENDING_GRACE_MS,
       );
+    if (committed.length === 0 && abandoned.length === 0) return;
+
+    // The index is the commit verdict, even if refs have since moved again; a younger absent intent is kept, since another instance may still be committing it.
+    await this.db.transaction(async (tx) => {
+      if (committed.length > 0)
+        await tx
+          .insert(schema.pullRequestRefWrite)
+          .values(committed)
+          .onConflictDoNothing({ target: schema.pullRequestRefWrite.id });
+      await tx
+        .delete(schema.pullRequestRefWritePending)
+        .where(
+          inArray(schema.pullRequestRefWritePending.id, [
+            ...committed.map(({ id }) => id.slice('prw_'.length)),
+            ...abandoned,
+          ]),
+        );
     });
   }
 
