@@ -100,41 +100,46 @@ export class RepositoryRepairService {
     index: WalIndex,
   ): Promise<Diagnosis> {
     const scratch = await mkdtemp(path.join(tmpdir(), 'ghost-repair-'));
-    await runGit({ args: ['init', '--quiet', '--bare'], gitDir: scratch });
-    const cache = await this.storage.getRepoPath(repositoryId);
-    const diagnosis: Diagnosis = {
-      scratch,
-      layers: [],
-      rescued: [],
-      dropped: [],
-      rebuiltPacks: new Map(),
-      rescuePack: null,
-    };
+    try {
+      await runGit({ args: ['init', '--quiet', '--bare'], gitDir: scratch });
+      const cache = await this.storage.getRepoPath(repositoryId);
+      const diagnosis: Diagnosis = {
+        scratch,
+        layers: [],
+        rescued: [],
+        dropped: [],
+        rebuiltPacks: new Map(),
+        rescuePack: null,
+      };
 
-    for (const layer of index.layers) {
-      if (layer.size === 0) continue;
-      const replayed = await this.replay(repositoryId, layer, scratch);
-      if ('pack' in replayed) continue;
-      // The cache can lend the delta bases a thin entry leaned on; the pack index-pack writes then carries them itself.
-      const rebuilt = await this.replay(repositoryId, layer, scratch, cache);
-      if ('pack' in rebuilt) {
-        diagnosis.rebuiltPacks.set(layer.ulid, rebuilt.pack);
-        diagnosis.layers.push({
-          ulid: layer.ulid,
-          outcome: 'rebuilt',
-          reason: replayed.failure,
-        });
-      } else {
-        diagnosis.layers.push({
-          ulid: layer.ulid,
-          outcome: 'dropped',
-          reason: rebuilt.failure,
-        });
+      for (const layer of index.layers) {
+        if (layer.size === 0) continue;
+        const replayed = await this.replay(repositoryId, layer, scratch);
+        if ('pack' in replayed) continue;
+        // The cache can lend the delta bases a thin entry leaned on; the pack index-pack writes then carries them itself.
+        const rebuilt = await this.replay(repositoryId, layer, scratch, cache);
+        if ('pack' in rebuilt) {
+          diagnosis.rebuiltPacks.set(layer.ulid, rebuilt.pack);
+          diagnosis.layers.push({
+            ulid: layer.ulid,
+            outcome: 'rebuilt',
+            reason: replayed.failure,
+          });
+        } else {
+          diagnosis.layers.push({
+            ulid: layer.ulid,
+            outcome: 'dropped',
+            reason: rebuilt.failure,
+          });
+        }
       }
-    }
 
-    await this.checkRefs(repositoryId, index, diagnosis, cache);
-    return diagnosis;
+      await this.checkRefs(repositoryId, index, diagnosis, cache);
+      return diagnosis;
+    } catch (error) {
+      await rm(scratch, { recursive: true, force: true });
+      throw error;
+    }
   }
 
   private async replay(
