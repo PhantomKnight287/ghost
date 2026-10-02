@@ -14,6 +14,7 @@ import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-a
 import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
+import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { listCommits } from '../lib/git/commits/list-commits.js';
@@ -49,6 +50,7 @@ export class GitService {
     private readonly contributions: RepositoryContributionService,
     private readonly codeSearch: CodeSearchService,
     private readonly references: IssueReferencesService,
+    private readonly pullRefs: PullRefsService,
     @Inject(DATABASE) private readonly db: Database,
   ) {}
 
@@ -179,6 +181,13 @@ export class GitService {
           `Closing referenced issues failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
         ),
       );
+      this.pullRefs
+        .syncAfterPush({ repositoryId, transitions })
+        .catch((error: unknown) =>
+          this.logger.warn(
+            `Pull request refs were not queued for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
       this.publishPushes({
         repositoryId,
         repoDirectory,

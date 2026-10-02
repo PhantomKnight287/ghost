@@ -74,7 +74,7 @@ export async function commitTree({
   message: string;
   /** `date` is git's raw `<seconds> <offset>`, kept when a commit is replayed; without it git stamps the current time. */
   author: { name: string; email: string; date?: string };
-  committer?: { name: string; email: string };
+  committer?: { name: string; email: string; date?: string };
 }): Promise<string> {
   const raw = await runGit({
     args: [
@@ -93,10 +93,43 @@ export async function commitTree({
       ...(author.date && { GIT_AUTHOR_DATE: author.date }),
       GIT_COMMITTER_NAME: committer.name,
       GIT_COMMITTER_EMAIL: committer.email,
+      ...(committer.date && { GIT_COMMITTER_DATE: committer.date }),
     },
   });
 
   return raw.trim();
+}
+
+const TEST_MERGE_IDENTITY = { name: 'Ghost', email: 'noreply@ghost.local' };
+
+/** What `base` would become if `head` merged into it now, or null when they conflict. Dated by its later parent rather than the clock, so recomputing an unchanged pair rebuilds the same commit and leaves nothing to write. */
+export async function testMergeCommit({
+  gitDir,
+  alternates,
+  base,
+  head,
+}: MergeContext & { base: string; head: string }): Promise<string | null> {
+  const { tree, clean } = await mergeTree({ gitDir, alternates, base, head });
+  if (!clean) return null;
+
+  const dates = await runGit({
+    args: ['log', '--no-walk', '--format=%ct', '--end-of-options', base, head],
+    gitDir,
+    env: alternatesEnv(alternates),
+  });
+  const identity = {
+    ...TEST_MERGE_IDENTITY,
+    date: `${Math.max(...dates.trim().split('\n').map(Number))} +0000`,
+  };
+  return commitTree({
+    gitDir,
+    alternates,
+    tree,
+    parents: [base, head],
+    message: `Merge ${head} into ${base}\n`,
+    author: identity,
+    committer: identity,
+  });
 }
 
 /**

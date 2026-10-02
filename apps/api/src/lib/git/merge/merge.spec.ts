@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { commitTree, mergeTree, packRange, rebaseCommits } from './merge.js';
+import {
+  commitTree,
+  mergeTree,
+  packRange,
+  rebaseCommits,
+  testMergeCommit,
+} from './merge.js';
 
 const identity = {
   GIT_AUTHOR_NAME: 'Test',
@@ -116,6 +122,61 @@ describe('merging across two repositories', () => {
     expect(
       git(cold, 'fsck', '--no-progress', '--connectivity-only'),
     ).not.toMatch(/missing/);
+  });
+
+  it('rebuilds the same test merge for the same pair, dated by its later parent', async () => {
+    const pair = {
+      gitDir: baseDir,
+      alternates: [headDir],
+      base: baseSha,
+      head: headSha,
+    };
+    const first = await testMergeCommit(pair);
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
+    expect(await testMergeCommit(pair)).toBe(first);
+    const later = Math.max(
+      Number(git(baseDir, 'log', '-1', '--format=%ct', baseSha)),
+      Number(git(headDir, 'log', '-1', '--format=%ct', headSha)),
+    );
+    // the fork's side is only readable through the alternate the merge was built with
+    const shown = execFileSync(
+      'git',
+      ['log', '-1', '--format=%P|%ct|%cn|%s', first!],
+      {
+        cwd: baseDir,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          GIT_ALTERNATE_OBJECT_DIRECTORIES: path.join(headDir, 'objects'),
+        },
+      },
+    ).trim();
+    expect(shown).toBe(
+      `${baseSha} ${headSha}|${later}|Ghost|Merge ${headSha} into ${baseSha}`,
+    );
+  });
+
+  it('has no test merge for a pair that conflicts', async () => {
+    const fork = path.join(root, 'fork');
+    const work = path.join(root, 'work');
+    writeFileSync(path.join(fork, 'clash.txt'), 'fork side\n');
+    git(fork, 'add', '-A');
+    git(fork, 'commit', '-m', 'fork edits');
+    git(fork, 'push', '-q', headDir, 'feature');
+    writeFileSync(path.join(work, 'clash.txt'), 'base side\n');
+    git(work, 'add', '-A');
+    git(work, 'commit', '-m', 'base edits');
+    git(work, 'push', '-q', baseDir, 'main');
+
+    expect(
+      await testMergeCommit({
+        gitDir: baseDir,
+        alternates: [headDir],
+        base: git(work, 'rev-parse', 'HEAD'),
+        head: git(fork, 'rev-parse', 'HEAD'),
+      }),
+    ).toBeNull();
   });
 
   it('names the conflicted paths instead of throwing when the merge conflicts', async () => {

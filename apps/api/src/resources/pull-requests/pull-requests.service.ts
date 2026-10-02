@@ -54,6 +54,7 @@ import {
 } from '../../lib/git/repository-access/repository-access.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { decodeCursor, encodeCursor } from '../../utils/index.js';
 import {
@@ -123,6 +124,7 @@ export class PullRequestsService {
     private readonly verification: CommitVerificationService,
     private readonly issues: IssuesService,
     private readonly references: IssueReferencesService,
+    private readonly pullRefs: PullRefsService,
   ) {}
 
   async createPullRequest({
@@ -207,6 +209,7 @@ export class PullRequestsService {
       number: issue.number,
       requesterId,
     });
+    this.pullRefs.syncInBackground(pullRequest.id);
     return this.expandPullRequest(pullRequest);
   }
 
@@ -611,6 +614,19 @@ export class PullRequestsService {
         .set({ lastPushedAt: new Date() })
         .where(eq(schema.repository.id, base.id));
 
+      // The base moved, so every other request into it needs a new test merge; this one only needs its head pinned to what merged.
+      this.pullRefs.syncInBackground(pullRequest.id);
+      await this.pullRefs.syncAfterPush({
+        repositoryId: base.id,
+        transitions: [
+          {
+            ref: `refs/heads/${pullRequest.baseRef}`,
+            oldOid: Buffer.from(git.baseSha, 'hex'),
+            newOid: Buffer.from(mergeCommitSha, 'hex'),
+          },
+        ],
+      });
+
       return { mergeCommitSha, seq };
     } finally {
       await rm(directory, { recursive: true, force: true });
@@ -859,6 +875,13 @@ export class PullRequestsService {
       headDirectory,
       pullRequest.headRef,
     );
+    this.pullRefs.reconcileInBackground({
+      pullRequestId: pullRequest.id,
+      number: pullRequest.number,
+      gitDir: baseDirectory,
+      baseSha,
+      headSha,
+    });
 
     return {
       pullRequest,

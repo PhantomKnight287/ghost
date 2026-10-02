@@ -15,6 +15,7 @@ import { RepositoryStorageService } from '../services/git/repository-storage/rep
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
+import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
 import { DATABASE } from '../database/database.module.js';
 import { GitService } from './git.service.js';
@@ -42,6 +43,7 @@ describe('GitService', () => {
   };
 
   const codeSearch = { indexInBackground: vi.fn() };
+  const pullRefs = { syncAfterPush: vi.fn().mockResolvedValue(undefined) };
   const references = { closeFromCommits: vi.fn().mockResolvedValue(undefined) };
   const published = vi.fn().mockResolvedValue(undefined);
   const runningImports = vi.fn().mockResolvedValue([]);
@@ -63,6 +65,7 @@ describe('GitService', () => {
         { provide: RepositoryContributionService, useValue: contributions },
         { provide: CodeSearchService, useValue: codeSearch },
         { provide: IssueReferencesService, useValue: references },
+        { provide: PullRefsService, useValue: pullRefs },
         { provide: DATABASE, useValue: db },
       ],
     }).compile();
@@ -228,6 +231,10 @@ describe('GitService', () => {
       repositoryId: 'repo_ghost',
       isPublic: true,
       repoDirectory: '/repos/ghost.git',
+    });
+    expect(pullRefs.syncAfterPush).toHaveBeenCalledWith({
+      repositoryId: 'repo_ghost',
+      transitions: [expect.objectContaining({ ref: 'refs/heads/main' })],
     });
     // creating a branch closes nothing
     expect(references.closeFromCommits).not.toHaveBeenCalled();

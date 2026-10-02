@@ -9,13 +9,14 @@ import { CommitVerificationService } from '../../services/gpg/commit-verificatio
 import { S3Service } from '../../services/s3/s3.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { IssuesModule } from '../issues/issues.module.js';
+import { PullRefsModule } from '../../pull-refs/pull-refs.module.js';
 import { PullRequestsController } from './pull-requests.controller.js';
 import { PullRequestsService } from './pull-requests.service.js';
 import { ReviewsController } from './reviews.controller.js';
 import { ReviewsService } from './reviews.service.js';
 
 @Module({
-  imports: [MaterializerModule, IssuesModule],
+  imports: [MaterializerModule, IssuesModule, PullRefsModule],
   controllers: [PullRequestsController, ReviewsController],
   providers: [
     PullRequestsService,
