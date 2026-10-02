@@ -43,6 +43,7 @@ rejected, and the consequences — including the bad ones.
 - [0029 — Repository events go through an outbox, and notifications are its first consumer](0029-events-go-through-an-outbox.md)
 - [0030 — Columns are snake_case in the database, camelCase in the schema](0030-columns-are-snake-case.md)
 - [0031 — Outbound delivery is its own service, and Postgres is its queue](0031-outbound-delivery-is-its-own-service.md)
+- [0033 — Pull requests keep `refs/pull/<n>/head` and `/merge` in the base log](0033-pull-requests-keep-refs-in-the-base-log.md)
 
 ## Open
 

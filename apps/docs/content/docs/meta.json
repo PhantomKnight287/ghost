@@ -21,6 +21,8 @@
     "email-addresses-and-keys",
     "expiration-and-revocation",
     "troubleshooting",
+    "---Pull requests---",
+    "checking-out-pull-requests-locally",
     "---Webhooks---",
     "webhooks"
   ]
