@@ -2,6 +2,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
   index,
   integer,
@@ -161,4 +162,20 @@ export const pullRequestReviewComment = pgTable(
     index("pull_request_review_comment_reply_idx").on(t.inReplyToId),
     index("pull_request_review_comment_pull_idx").on(t.pullRequestId),
   ],
+);
+
+/** One entry Ghost wrote into a base repository's log to keep `refs/pull/<n>/*` current, and the bytes it added. Nobody pays for them while the request is unmerged; a merge bills them to the base repository's account. */
+export const pullRequestRefWrite = pgTable(
+  "pull_request_ref_write",
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => `prw_${createId()}`),
+    pullRequestId: text()
+      .references(() => pullRequest.id, { onDelete: "cascade" })
+      .notNull(),
+    size: bigint({ mode: "number" }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pull_request_ref_write_pull_idx").on(t.pullRequestId)],
 );

@@ -55,6 +55,7 @@ import {
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
+import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { decodeCursor, encodeCursor } from '../../utils/index.js';
 import {
@@ -520,13 +521,18 @@ export class PullRequestsService {
 
     const directory = await mkdtemp(path.join(tmpdir(), 'ghost-merge-'));
     try {
-      // ponytail: excludes only the base tip, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
+      // The pull head ref is in the base log, so whatever it reaches was already written there by the last sync and only the merge itself is new.
+      const pulledHead = await resolveCommit(
+        git.baseDirectory,
+        pullHeadRef(pullRequest.number),
+      );
+      // ponytail: excludes only the base tip and the pull head, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
       const pack = await packRange({
         gitDir: git.baseDirectory,
         alternates: git.alternates,
         // The head rides along even when a squash or rebase leaves it unreachable: a merged request reads its commits and diff from the base alone.
         include: [mergeCommitSha, git.headSha],
-        exclude: [git.baseSha],
+        exclude: pulledHead ? [git.baseSha, pulledHead] : [git.baseSha],
         prefix: path.join(directory, 'merge'),
       });
 

@@ -20,6 +20,7 @@ import {
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../wal/push-transaction.service.js';
+import { StorageQuotaService } from '../../storage/storage-quota.service.js';
 
 // Each lost race re-reads the log, so this only runs out when the base is being pushed to faster than a merge-tree.
 const MAX_ATTEMPTS = 3;
@@ -41,6 +42,7 @@ export class PullRefsService {
     private readonly storage: RepositoryStorageService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
+    private readonly quota: StorageQuotaService,
   ) {}
 
   /** Every open request whose head or base branch a push just moved. */
@@ -152,6 +154,7 @@ export class PullRefsService {
     const [pullRequest] = await this.db
       .select({
         number: schema.issue.number,
+        authorId: schema.issue.authorId,
         state: schema.pullRequest.state,
         baseRepositoryId: schema.pullRequest.baseRepositoryId,
         baseRef: schema.pullRequest.baseRef,
@@ -197,12 +200,21 @@ export class PullRefsService {
         exclude: [...new Set(refs.values())],
         prefix: path.join(directory, 'pull'),
       });
-      await this.pushTransaction.commitPush({
-        repoId: pullRequest.baseRepositoryId,
-        transitions,
-        body: fileBody(pack.path, pack.size),
-        packOffset: 0,
-      });
+      await this.quota.reservePullRefWrite(
+        pullRequest.authorId,
+        pack.size,
+        async (tx) => {
+          await this.pushTransaction.commitPush({
+            repoId: pullRequest.baseRepositoryId,
+            transitions,
+            body: fileBody(pack.path, pack.size),
+            packOffset: 0,
+          });
+          await tx
+            .insert(schema.pullRequestRefWrite)
+            .values({ pullRequestId, size: pack.size });
+        },
+      );
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

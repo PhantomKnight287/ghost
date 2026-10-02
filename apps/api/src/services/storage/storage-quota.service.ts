@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, gt, or, sql } from 'drizzle-orm';
+import { and, eq, gt, ne, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Executor } from '../../lib/issues/close-issue.js';
@@ -15,7 +15,11 @@ import {
   type StorageAccount,
   storageAccountKey,
 } from '../../lib/storage/storage-account.js';
-import { StorageQuotaExceededError } from '../../lib/storage/storage.errors.js';
+import {
+  PullRefWriteTooLargeError,
+  StorageQuotaExceededError,
+  UnmergedPullRefQuotaExceededError,
+} from '../../lib/storage/storage.errors.js';
 
 /** How long an `uploading` reservation counts before it is taken for an upload that died with its process. */
 const RESERVATION_TTL = sql`interval '1 day'`;
@@ -30,6 +34,10 @@ export class StorageQuotaService {
   private readonly quota: number | null;
   /** Largest single release asset, from `RELEASE_ASSET_MAX_BYTES`; 2 GB unless set, and never past what one upload can carry. */
   readonly maxAssetBytes: number;
+  /** Most one update of a request's `refs/pull/*` may add to its base log, from `PULL_REF_MAX_BYTES`; unset, nothing is limited. */
+  private readonly maxPullRefWriteBytes: number | null;
+  /** Most an author's unmerged requests may hold in base logs altogether, from `PULL_REF_UNMERGED_MAX_BYTES`; unset, nothing is limited. */
+  private readonly maxUnmergedPullRefBytes: number | null;
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -46,6 +54,14 @@ export class StorageQuotaService {
       ) ?? DEFAULT_RELEASE_ASSET_MAX_BYTES,
       RELEASE_ASSET_CEILING,
     );
+    this.maxPullRefWriteBytes = parseByteSize(
+      config.get<string>('PULL_REF_MAX_BYTES'),
+      'PULL_REF_MAX_BYTES',
+    );
+    this.maxUnmergedPullRefBytes = parseByteSize(
+      config.get<string>('PULL_REF_UNMERGED_MAX_BYTES'),
+      'PULL_REF_UNMERGED_MAX_BYTES',
+    );
   }
 
   /** The limit for `account`, or null for none. Per-account overrides, such as a paid plan, belong here. */
@@ -54,7 +70,7 @@ export class StorageQuotaService {
   }
 
   async usageOf(account: StorageAccount, executor: Executor = this.db) {
-    const [row] = await executor
+    const [assets] = await executor
       .select({
         used: sql<string>`coalesce(sum(${schema.releaseAsset.size}), 0)`,
       })
@@ -72,7 +88,70 @@ export class StorageQuotaService {
           ),
         ),
       );
+    // A request's head starts counting against the base repository once it merges, never before.
+    const [pullRefs] = await executor
+      .select({
+        used: sql<string>`coalesce(sum(${schema.pullRequestRefWrite.size}), 0)`,
+      })
+      .from(schema.pullRequestRefWrite)
+      .innerJoin(
+        schema.pullRequest,
+        eq(schema.pullRequest.id, schema.pullRequestRefWrite.pullRequestId),
+      )
+      .innerJoin(
+        schema.repository,
+        eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
+      )
+      .where(and(billedTo(account), eq(schema.pullRequest.state, 'merged')));
+    return Number(assets?.used ?? 0) + Number(pullRefs?.used ?? 0);
+  }
+
+  /** Bytes Ghost has written into base logs for `authorId`'s requests that never merged, open or closed. */
+  async unmergedPullRefBytesOf(authorId: string, executor: Executor = this.db) {
+    const [row] = await executor
+      .select({
+        used: sql<string>`coalesce(sum(${schema.pullRequestRefWrite.size}), 0)`,
+      })
+      .from(schema.pullRequestRefWrite)
+      .innerJoin(
+        schema.pullRequest,
+        eq(schema.pullRequest.id, schema.pullRequestRefWrite.pullRequestId),
+      )
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
+      .where(
+        and(
+          eq(schema.issue.authorId, authorId),
+          ne(schema.pullRequest.state, 'merged'),
+        ),
+      );
     return Number(row?.used ?? 0);
+  }
+
+  /** Runs `write`, which must commit the entry and record its row, only if neither pull ref limit refuses `bytes`. Writes for one author are serialized, so two syncs cannot both fit into the last free space. */
+  async reservePullRefWrite<T>(
+    authorId: string,
+    bytes: number,
+    write: (tx: Executor) => Promise<T>,
+  ) {
+    if (
+      this.maxPullRefWriteBytes !== null &&
+      bytes > this.maxPullRefWriteBytes
+    ) {
+      throw new PullRefWriteTooLargeError(bytes, this.maxPullRefWriteBytes);
+    }
+    return this.db.transaction(async (tx) => {
+      const limit = this.maxUnmergedPullRefBytes;
+      if (limit !== null) {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext(${`pull-refs:${authorId}`}))`,
+        );
+        const used = await this.unmergedPullRefBytesOf(authorId, tx);
+        if (used + bytes > limit) {
+          throw new UnmergedPullRefQuotaExceededError(used, limit, bytes);
+        }
+      }
+      return write(tx);
+    });
   }
 
   /** Runs `insert`, which must write the row that holds `bytes`, only if the account has room for them. Reservations for one account are serialized, so two uploads cannot both fit into the last free space. */
