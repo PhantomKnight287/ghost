@@ -26,11 +26,7 @@ import { StorageQuotaService } from '../../storage/storage-quota.service.js';
 const MAX_ATTEMPTS = 3;
 const BRANCH_PREFIX = 'refs/heads/';
 
-/**
- * Keeps `refs/pull/<n>/head` and `refs/pull/<n>/merge` in the base repository's log, so a plain `git fetch origin pull/<n>/head` works the way it does on GitHub.
- *
- * Runs after the push that made a ref stale, never inside it, and is reconciled again whenever a request is read, so a sync lost to a crash only delays the ref.
- */
+/** Keeps `refs/pull/<n>/head` and `/merge` in the base repository's log (0033). Runs after the push that made them stale, never inside it. */
 @Injectable()
 export class PullRefsService {
   private readonly logger = new Logger(PullRefsService.name);
@@ -118,9 +114,9 @@ export class PullRefsService {
     const mergeRef = pullMergeRef(number);
     // ponytail: a request that conflicts has no merge ref, so every read of it reruns a merge-tree that writes nothing. Remember the conflicting pair if that shows up in profiles.
     runGit({
+      // no --end-of-options: without --verify rev-parse echoes it, and these refs are built from a number
       args: [
         'rev-parse',
-        '--end-of-options',
         pullHeadRef(number),
         `${mergeRef}^1`,
         `${mergeRef}^2`,
@@ -132,11 +128,6 @@ export class PullRefsService {
         if (current.trim() !== [headSha, baseSha, headSha].join('\n'))
           this.syncInBackground(pullRequestId);
       });
-  }
-
-  /** Resolves once the sync in flight for the request, and any rerun it queued, has finished. */
-  async settle(pullRequestId: string) {
-    await this.running.get(pullRequestId);
   }
 
   async sync(pullRequestId: string) {
