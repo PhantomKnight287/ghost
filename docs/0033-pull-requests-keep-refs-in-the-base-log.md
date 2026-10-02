@@ -42,7 +42,13 @@ Ghost passes an exact `Git-Protocol: version=2` header, or an SSH `GIT_PROTOCOL=
 
 ## Storage
 
-Each sync's pack size is recorded in `pull_request_ref_write`. Before committing the log entry, the sync durably records its preallocated entry ID in `pull_request_ref_write_pending`, outside the quota transaction. Later syncs reconcile pending IDs against the base log's committed layers before any early return, and reads trigger this reconciliation even when the refs match. Recovery inserts the size with an entry-derived accounting ID, so retrying an ambiguous database commit cannot charge twice. Entries absent from the index stay pending because another writer may still commit them; definite log rejections remove their intents. A crash before committing can leave an uncharged intent. Any future log compaction must preserve pending entries until their accounting is recovered.
+Each sync's pack size is recorded in `pull_request_ref_write`. Before committing the log entry, a sync records the entry's preallocated ULID in `pull_request_ref_write_pending`, outside the quota transaction, so the intent survives that transaction rolling back or the process dying after the log's commit point.
+
+Every sync reconciles pending intents against the base log's index before any early return, and a read that finds pending intents starts a sync even when the refs match. The index is the verdict:
+
+- An intent the index names is recorded with the layer's size under an id derived from the ULID, inserted with `onConflictDoNothing`, so a retried or ambiguous database commit cannot charge twice.
+- An intent the index does not name is kept for an hour, measured from the ULID's timestamp, because another instance may still be committing it. Past that it never committed and is deleted.
+- A definite log rejection (non-fast-forward, contention, deleted repository) deletes the intent at once.
 
 - While a request is unmerged, open or closed, its bytes are billed to nobody.
 - Once it merges, they count against the base repository's account in `StorageQuotaService.usageOf`.
@@ -61,3 +67,10 @@ Kept current eagerly, which is the cost: a push to a base branch rebuilds the te
 - A closed request keeps its refs where they last pointed. A merged one keeps its last test merge.
 - The refs trail the push that moved them by however long a sync takes.
 - A request that conflicts has no merge ref, so every read of it reruns a `merge-tree` that writes nothing.
+
+## Known limits
+
+- **Compaction can lose accounting.** Recovery reads committed sizes from `index.layers`. Once compaction exists and drops layers from the index, an intent still pending past its hour would be deleted as never committed, and its bytes would go uncounted. Compaction must recover or carry over every pending intent's layer before it drops that layer (0011).
+- **A closed request's last bytes can go uncounted.** Pending intents are reconciled only by a later sync of the same request. Nothing syncs a closed request, so if the sync that committed its last entry failed to record the size, those bytes never count against the author's `PULL_REF_UNMERGED_MAX_BYTES`. A merged request is synced once more at merge, which recovers its earlier intents; only a failure in that final sync is lost the same way.
+- **Conflicting requests cost a `merge-tree` per read.** See above. Remember the conflicting tip pair if it shows in profiles.
+- **Refusals are author-facing only.** A sync refused by a size limit is shown on the request page; any other sync failure goes to the server log, and the refs stay where they were until the next push or read.

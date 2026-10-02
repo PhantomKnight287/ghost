@@ -59,6 +59,8 @@ leaves nothing to clean up. Compaction must stay off the push critical path.
 `compactedThroughSeq` exists in the index format for this and is currently
 always 0.
 
+A compactor that drops layers from the index must first let pull ref accounting recover every layer named in `pull_request_ref_write_pending`; see the known limits in [0033](0033-pull-requests-keep-refs-in-the-base-log.md).
+
 ## Garbage collection
 
 See [0010](0010-orphans-are-garbage.md), including the grace-period trap.
