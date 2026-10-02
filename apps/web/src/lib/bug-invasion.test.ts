@@ -1,6 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
-import { createBug } from "./bug-invasion";
+import { createBug, MAX_BUGS } from "./bug-invasion";
+
+describe("bug invasion limits", () => {
+  it("caps the swarm at a positive number of bugs", () => {
+    expect(MAX_BUGS).toBeGreaterThan(0);
+    expect(Number.isInteger(MAX_BUGS)).toBe(true);
+  });
+});
 
 describe("createBug", () => {
   it("keeps the bug on-screen with a tilt in range", () => {

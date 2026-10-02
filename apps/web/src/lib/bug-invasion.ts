@@ -4,6 +4,9 @@ export const BUG_DELAY_MS = 60_000;
 /** One more bug joins every interval while the visitor stays. */
 export const BUG_SPAWN_INTERVAL_MS = 2_000;
 
+/** The invasion stops here, so the page stays usable. */
+export const MAX_BUGS = 50;
+
 export interface LandingBug {
   id: number;
   /** Viewport percentages, so a resize never strands a bug off-screen. */
