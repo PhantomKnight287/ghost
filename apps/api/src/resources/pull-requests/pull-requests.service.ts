@@ -21,6 +21,7 @@ import {
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { listCommits } from '../../lib/git/commits/list-commits.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import {
   listDiffFiles,
@@ -124,6 +125,7 @@ export class PullRequestsService {
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
     private readonly verification: CommitVerificationService,
+    private readonly signing: CommitSigningService,
     private readonly issues: IssuesService,
     private readonly references: IssueReferencesService,
     private readonly pullRefs: PullRefsService,
@@ -679,6 +681,7 @@ export class PullRequestsService {
         message: `${title ?? fallback.title}\n${body && `\n${body}\n`}`,
         author: { name: author.name, email: author.email },
         committer,
+        sign: this.signing.signer,
       });
     }
 
@@ -695,6 +698,7 @@ export class PullRequestsService {
       parents: [git.baseSha, git.headSha],
       message: `${title ?? `Merge pull request #${pullRequest.number} from ${headLabel}`}\n`,
       author: committer,
+      sign: this.signing.signer,
     });
   }
 
@@ -741,6 +745,7 @@ export class PullRequestsService {
       from: git.mergeBase!,
       to: git.headSha,
       committer,
+      sign: this.signing.signer,
     });
     if (!rebased.clean) throw new PullRequestConflictError(rebased.conflicts);
     return rebased.tip;

@@ -1,5 +1,9 @@
 import { stat } from 'node:fs/promises';
 
+import {
+  type CommitSigner,
+  insertSignature,
+} from '../commits/commit-signature.js';
 import { alternatesEnv } from '../diff/diff.js';
 import { GitCommandFailedError } from '../exec/exec.errors.js';
 import { runGit } from '../exec/run-git.js';
@@ -68,6 +72,7 @@ export async function commitTree({
   message,
   author,
   committer = author,
+  sign,
 }: MergeContext & {
   tree: string;
   parents: string[];
@@ -75,6 +80,7 @@ export async function commitTree({
   /** `date` is git's raw `<seconds> <offset>`, kept when a commit is replayed; without it git stamps the current time. */
   author: { name: string; email: string; date?: string };
   committer?: { name: string; email: string; date?: string };
+  sign?: CommitSigner;
 }): Promise<string> {
   const raw = await runGit({
     args: [
@@ -96,8 +102,19 @@ export async function commitTree({
       ...(committer.date && { GIT_COMMITTER_DATE: committer.date }),
     },
   });
+  if (!sign) return raw.trim();
 
-  return raw.trim();
+  // `commit-tree -S` would need gpg and a keyring on every node; signing the unsigned object here and writing it again needs neither.
+  const payload = await runGit({
+    args: ['cat-file', 'commit', raw.trim()],
+    gitDir,
+  });
+  const signed = await runGit({
+    args: ['hash-object', '-t', 'commit', '-w', '--stdin'],
+    gitDir,
+    input: Buffer.from(insertSignature(payload, await sign(payload)), 'utf8'),
+  });
+  return signed.trim();
 }
 
 const TEST_MERGE_IDENTITY = { name: 'Ghost', email: 'noreply@ghost.local' };
@@ -144,11 +161,13 @@ export async function rebaseCommits({
   from,
   to,
   committer,
+  sign,
 }: MergeContext & {
   onto: string;
   from: string;
   to: string;
   committer: { name: string; email: string };
+  sign?: CommitSigner;
 }): Promise<
   { clean: true; tip: string } | { clean: false; conflicts: string[] }
 > {
@@ -191,6 +210,7 @@ export async function rebaseCommits({
       message,
       author: { name, email, date },
       committer,
+      sign,
     });
   }
   return { clean: true, tip };

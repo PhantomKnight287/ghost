@@ -5,11 +5,20 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  GITHUB_EXPIRED_KEY_COMMIT,
+  GITHUB_MERGE_COMMIT_OBJECT,
+} from '../../gpg/__fixtures__/github-commits.js';
+import {
   SIGNED_COMMIT_OBJECT,
   SIGNING_PUBLIC_KEY,
 } from '../../gpg/__fixtures__/signed-commit.js';
+import { GITHUB_WEB_FLOW_KEYS } from '../../gpg/github-web-flow.js';
 import { verifySignature } from '../../gpg/openpgp.js';
-import { readSignedCommits, splitSignature } from './commit-signature.js';
+import {
+  insertSignature,
+  readSignedCommits,
+  splitSignature,
+} from './commit-signature.js';
 
 describe('splitSignature', () => {
   it('splits a real git signature from what it covers', () => {
@@ -51,6 +60,25 @@ describe('splitSignature', () => {
     ).resolves.toBe(false);
   });
 
+  it("verifies GitHub's merge commits under its current and its expired web-flow key", async () => {
+    const merge = splitSignature(GITHUB_MERGE_COMMIT_OBJECT);
+
+    await expect(
+      verifySignature({
+        payload: merge!.payload,
+        armoredSignature: merge!.signature,
+        armoredKey: GITHUB_WEB_FLOW_KEYS,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      verifySignature({
+        payload: GITHUB_EXPIRED_KEY_COMMIT.payload,
+        armoredSignature: GITHUB_EXPIRED_KEY_COMMIT.signature,
+        armoredKey: GITHUB_WEB_FLOW_KEYS,
+      }),
+    ).resolves.toBe(true);
+  });
+
   it('is null for an unsigned commit', () => {
     expect(
       splitSignature(
@@ -66,6 +94,16 @@ describe('splitSignature', () => {
     );
 
     expect(splitSignature(commit)).toBeNull();
+  });
+});
+
+describe('insertSignature', () => {
+  it('puts back exactly the header splitSignature takes out', () => {
+    const signed = splitSignature(SIGNED_COMMIT_OBJECT)!;
+
+    expect(insertSignature(signed.payload, signed.signature)).toBe(
+      SIGNED_COMMIT_OBJECT,
+    );
   });
 });
 

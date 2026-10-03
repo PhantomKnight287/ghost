@@ -3,15 +3,19 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
+import { ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import * as openpgp from 'openpgp';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import * as openpgp from 'openpgp';
-
 import { DATABASE } from '../../database/database.module.js';
+import { insertSignature } from '../../lib/git/commits/commit-signature.js';
+import { GITHUB_MERGE_COMMIT_OBJECT } from '../../lib/gpg/__fixtures__/github-commits.js';
+import { signPayload } from '../../lib/gpg/openpgp.js';
 import { UsersService } from '../users/users.service.js';
+import { CommitSigningService } from './commit-signing.service.js';
 import { CommitVerificationService } from './commit-verification.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
@@ -23,37 +27,24 @@ const MIGRATIONS = path.resolve(
 const USER_ID = 'user_gpg_spec';
 const SIGNER_EMAIL = 'verify-spec@ghost.local';
 
-/** A commit object signed the way git signs one: the armored signature goes in a `gpgsig` header whose continuation lines each carry a leading space, and everything else is what was signed. */
+/** A commit object signed the way git signs one, authored by `authorEmail`. */
 async function signCommit(
   message: string,
   signingKey: openpgp.PrivateKey,
+  authorEmail = SIGNER_EMAIL,
 ): Promise<string> {
   const payload = [
     'tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904',
-    `author Spec <${SIGNER_EMAIL}> 1700000000 +0000`,
-    `committer Spec <${SIGNER_EMAIL}> 1700000000 +0000`,
+    `author Spec <${authorEmail}> 1700000000 +0000`,
+    `committer Spec <${authorEmail}> 1700000000 +0000`,
     '',
     `${message}\n`,
   ].join('\n');
 
-  const signature = await openpgp.sign({
-    message: await openpgp.createMessage({
-      binary: new Uint8Array(Buffer.from(payload, 'utf8')),
-    }),
-    signingKeys: signingKey,
-    detached: true,
-    format: 'armored',
-  });
-
-  // `sign` types its result as a possible stream; armored output is a string.
-  const header = (signature as string)
-    .trimEnd()
-    .split('\n')
-    .map((line, index) => (index === 0 ? `gpgsig ${line}` : ` ${line}`))
-    .join('\n');
-
-  const [tree, author, committer, ...rest] = payload.split('\n');
-  return [tree, author, committer, header, ...rest].join('\n');
+  return insertSignature(
+    payload,
+    await signPayload({ payload, privateKey: signingKey }),
+  );
 }
 
 // Needs a throwaway Postgres; the suite is skipped without one.
@@ -66,18 +57,35 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
   let sha: string;
   let keyId: string;
   let publicKey: string;
+  let platformKey: openpgp.PrivateKey;
 
   beforeAll(async () => {
     ({ db, pool } = createDatabase({ connectionString: CONNECTION }));
     await migrate(db, { migrationsFolder: MIGRATIONS });
 
+    const platform = await openpgp.generateKey({
+      userIDs: [{ name: 'Ghost', email: 'noreply@ghost.local' }],
+      format: 'object',
+    });
+    platformKey = platform.privateKey;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CommitVerificationService,
+        CommitSigningService,
         UsersService,
         { provide: DATABASE, useValue: db },
+        {
+          provide: ConfigService,
+          useValue: new ConfigService({
+            COMMIT_SIGNING_KEY: Buffer.from(platformKey.armor()).toString(
+              'base64',
+            ),
+          }),
+        },
       ],
     }).compile();
+    await module.init();
     service = module.get(CommitVerificationService);
 
     // Signed here so the suite needs no gpg on the machine; git's own header layout is covered by the fixture in commit-signature.spec.ts.
@@ -194,5 +202,68 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
     });
 
     expect([...verdicts.keys()]).toEqual([sha]);
+  });
+
+  function writeCommit(object: string) {
+    return execFileSync(
+      'git',
+      ['hash-object', '-t', 'commit', '-w', '--stdin'],
+      {
+        cwd: root,
+        input: object,
+        encoding: 'utf8',
+      },
+    ).trim();
+  }
+
+  it("verifies GitHub's own merge commits whoever authored them", async () => {
+    const merge = writeCommit(GITHUB_MERGE_COMMIT_OBJECT);
+
+    const verdict = (
+      await service.verifyCommits({
+        gitDir,
+        commits: [{ sha: merge, authorEmail: 'not-on-ghost@example.com' }],
+      })
+    ).get(merge);
+
+    expect(verdict).toEqual({
+      verified: true,
+      reason: 'Signed by GitHub',
+      keyId: 'b5690eeebb952194',
+    });
+  });
+
+  it('verifies commits Ghost signed with its own key', async () => {
+    const merge = writeCommit(
+      await signCommit('merged by ghost', platformKey, 'merger@example.com'),
+    );
+
+    const verdict = (
+      await service.verifyCommits({
+        gitDir,
+        commits: [{ sha: merge, authorEmail: 'merger@example.com' }],
+      })
+    ).get(merge);
+
+    expect(verdict?.verified).toBe(true);
+    expect(verdict?.reason).toBe('Signed by Ghost');
+  });
+
+  it("refuses a commit that names GitHub's key but was not signed by it", async () => {
+    const forged = GITHUB_MERGE_COMMIT_OBJECT.replace(
+      'Verify a push before the log commits it',
+      'Something GitHub never signed',
+    );
+    const sha = writeCommit(forged);
+
+    const verdict = (
+      await service.verifyCommits({
+        gitDir,
+        commits: [{ sha, authorEmail: SIGNER_EMAIL }],
+      })
+    ).get(sha);
+
+    expect(verdict?.verified).toBe(false);
+    expect(verdict?.reason).toBe('Signature does not match the commit');
   });
 });

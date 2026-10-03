@@ -116,10 +116,12 @@ if (AskYesNo 'Turn on GitHub imports?' ([bool]$c.GITHUB_CLIENT_ID)) {
 
 Say 'Secrets (press enter to generate)'
 # Existing ones are kept: a new auth secret signs everyone out, a new webhook key
-# makes every stored webhook secret unreadable, a new host key warns every client.
+# makes every stored webhook secret unreadable, a new host key warns every client,
+# a new signing key unverifies every merge commit the old one signed.
 if (-not $c.BETTER_AUTH_SECRET) { AskSecret BETTER_AUTH_SECRET 'BETTER_AUTH_SECRET' }
 if (-not $c.WEBHOOK_SECRET_KEY) { AskSecret WEBHOOK_SECRET_KEY 'WEBHOOK_SECRET_KEY (32 bytes, base64)' }
 if (-not $c.GIT_SSH_HOST_KEY) { AskSecret GIT_SSH_HOST_KEY 'GIT_SSH_HOST_KEY (base64 private key)' }
+if (-not $c.COMMIT_SIGNING_KEY) { AskSecret COMMIT_SIGNING_KEY 'COMMIT_SIGNING_KEY (base64 armored OpenPGP private key)' }
 if (-not $c.BETTER_AUTH_SECRET) { $c.BETTER_AUTH_SECRET = Random64 32 }
 if (-not $c.WEBHOOK_SECRET_KEY) { $c.WEBHOOK_SECRET_KEY = Random64 32 }
 if (-not $c.POSTGRES_PASSWORD) { $c.POSTGRES_PASSWORD = Hex 24 }
@@ -128,6 +130,11 @@ if (-not $c.GIT_SSH_HOST_KEY) {
   # No double quotes in the script: Windows PowerShell mangles them on the way to docker.
   $c.GIT_SSH_HOST_KEY = (docker run --rm alpine:3 sh -c 'apk add -q openssh-keygen >/dev/null && ssh-keygen -q -t ed25519 -N '''' -C ghost -f /k && base64 -w0 /k' | Out-String).Trim()
   if ($LASTEXITCODE -or -not $c.GIT_SSH_HOST_KEY) { Die 'Could not generate an SSH host key.' }
+}
+if (-not $c.COMMIT_SIGNING_KEY) {
+  Write-Host 'Generating a commit signing key...'
+  $c.COMMIT_SIGNING_KEY = (docker run --rm alpine:3 sh -c 'apk add -q gnupg >/dev/null && gpg -q --batch --pinentry-mode loopback --passphrase '''' --quick-gen-key Ghost ed25519 sign never 2>/dev/null && gpg --armor --export-secret-keys | base64 -w0' | Out-String).Trim()
+  if ($LASTEXITCODE -or -not $c.COMMIT_SIGNING_KEY) { Die 'Could not generate a commit signing key.' }
 }
 
 foreach ($v in 'MAIL_PASSWORD', 'EMAIL_PROXY_SECRET', 'S3_SECRET_ACCESS_KEY', 'EMAIL_SENDER', 'GITHUB_CLIENT_SECRET') {
@@ -141,7 +148,7 @@ $c.AUTH_TRUSTED_ORIGINS = $c.WEB_APP_URL
 $c.ZOEKT_URL = 'http://zoekt:6070'
 $keys = 'COMPOSE_PROFILES', 'DOMAIN', 'WEB_APP_URL', 'API_URL', 'DOCS_URL', 'SSH_CLONE_HOST',
   'POSTGRES_PASSWORD', 'BETTER_AUTH_SECRET', 'AUTH_COOKIE_DOMAIN', 'WEBHOOK_SECRET_KEY',
-  'GIT_SSH_HOST_KEY', 'GIT_SSH_PORT', 'S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY',
+  'GIT_SSH_HOST_KEY', 'COMMIT_SIGNING_KEY', 'GIT_SSH_PORT', 'S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY',
   'EMAIL_SENDER', 'EMAIL_VERIFICATION_ENABLED', 'EMAIL_PROXY', 'EMAIL_PROXY_SECRET', 'DELIVERY_EMAIL',
   'MAIL_HOST', 'MAIL_PORT', 'MAIL_SECURE', 'MAIL_USER', 'MAIL_PASSWORD',
   'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'IMPORTER_URL', 'IMPORTER_SECRET',

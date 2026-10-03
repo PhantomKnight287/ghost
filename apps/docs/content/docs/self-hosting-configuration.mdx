@@ -113,6 +113,7 @@ those works.
 | `BETTER_AUTH_SECRET` | Signs sessions. Changing it signs everyone out | `openssl rand -base64 32` |
 | `WEBHOOK_SECRET_KEY` | Encrypts webhook signing secrets. Changing it breaks every existing webhook | `openssl rand -base64 32` |
 | `GIT_SSH_HOST_KEY` | The server's SSH identity, base64 of an OpenSSH private key. Empty turns SSH off | see below |
+| `COMMIT_SIGNING_KEY` | Signs the merge commits Ghost writes, so they show as verified. Base64 of an armored OpenPGP private key with no passphrase. Empty leaves them unsigned; changing it unverifies what the old key signed | see below |
 | `POSTGRES_PASSWORD` | Database password. Also inside `DATABASE_URL` | `openssl rand -hex 24` |
 
 The setup script never replaces a secret that is already in `.env`.
@@ -126,6 +127,16 @@ base64 -w0 ghost_host_key   # macOS: base64 -i ghost_host_key
 
 Publish its fingerprint (`ssh-keygen -lf ghost_host_key.pub`) so people can
 check it on their first connection.
+
+A commit signing key by hand:
+
+```bash
+gpg --batch --pinentry-mode loopback --passphrase '' --quick-gen-key Ghost ed25519 sign never
+gpg --armor --export-secret-keys Ghost | base64 | tr -d '\n'
+```
+
+Commits GitHub signed, such as the merges in an imported repository, show as
+verified without any setup.
 
 ## Git over SSH
 
