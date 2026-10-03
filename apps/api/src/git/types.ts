@@ -7,6 +7,7 @@ import { GitRequestBody } from '../lib/git/protocol/git-request-body.js';
 
 export interface GitAuthenticatedBufferedRequest extends Request {
   actor?: Actor;
+  apiKeyId?: string | null;
   repository?: Repository;
   gitBody?: GitRequestBody;
 }

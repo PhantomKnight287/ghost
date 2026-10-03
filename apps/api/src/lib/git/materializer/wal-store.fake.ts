@@ -46,7 +46,9 @@ export class InMemoryWalStore {
   }
 
   async openEntryPack(repoId: string, ulid: string) {
-    const stored = this.objects.get(this.entryKey(repoId, ulid))!;
+    const stored = this.objects.get(this.entryKey(repoId, ulid));
+    // the name the S3 SDK gives a missing key
+    if (!stored) throw Object.assign(new Error(ulid), { name: 'NoSuchKey' });
     return Readable.from(stored.subarray(decodeEntryHeader(stored).packOffset));
   }
 

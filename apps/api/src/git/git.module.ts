@@ -3,7 +3,6 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { MaterializerModule } from '../materializer/materializer.module.js';
 import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
-import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
@@ -12,6 +11,7 @@ import { RepositoryAccessService } from '../services/git/repository-access/repos
 import { SshServerService } from '../services/git/ssh/ssh-server.service.js';
 import { SshKeysModule } from '../resources/ssh-keys/ssh-keys.module.js';
 import { IssuesModule } from '../resources/issues/issues.module.js';
+import { PullRefsModule } from '../pull-refs/pull-refs.module.js';
 import { GitController } from './git.controller.js';
 import { GIT_PACK_ROUTES, GIT_TRANSPORT_ROUTES } from './git.constants.js';
 import { GitRawBodyMiddleware } from './middleware/git-raw-body.middleware.js';
@@ -20,13 +20,12 @@ import { CodeSearchService } from '../services/git/code-search/code-search.servi
 import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-auth.middleware.js';
 
 @Module({
-  imports: [MaterializerModule, SshKeysModule, IssuesModule],
+  imports: [MaterializerModule, SshKeysModule, IssuesModule, PullRefsModule],
   controllers: [GitController],
   providers: [
     GitService,
     PackProcessService,
     RefAdvertisementService,
-    RepositoryStorageService,
     RepositoryContributionService,
     CodeSearchService,
     PushTransactionService,

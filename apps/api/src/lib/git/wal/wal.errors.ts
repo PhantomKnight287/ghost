@@ -35,3 +35,15 @@ export class RepositoryDeletedError extends DomainError {
     super('Repository not found');
   }
 }
+
+/** A ref the log must never hold: git refuses it on replay, so every node materializing the repository would stop at it for good. */
+export class UnreplayableRefError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(
+    readonly ref: string,
+    reason: string,
+  ) {
+    super(`${ref} cannot be stored: ${reason}`);
+  }
+}

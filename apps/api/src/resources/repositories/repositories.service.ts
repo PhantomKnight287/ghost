@@ -967,12 +967,7 @@ export class RepositoriesService {
   }
 
   private async reindexCodeSearch(repository: Repository) {
-    const directory = await this.storage.getRepoPath(repository.id);
-    await this.materializer.materialize(
-      repository.id,
-      directory,
-      repository.defaultBranch,
-    );
+    const directory = await this.materializer.open(repository);
     await this.codeSearch.index({
       repositoryId: repository.id,
       isPublic: repository.visibility === 'public',
@@ -1927,12 +1922,7 @@ export class RepositoriesService {
       requesterId,
     });
 
-    const directory = await this.storage.getRepoPath(repository.id);
-    await this.materializer.materialize(
-      repository.id,
-      directory,
-      repository.defaultBranch,
-    );
+    const directory = await this.materializer.open(repository);
 
     // Pushes index too; this catches repositories that predate code search, while the objects are already on disk.
     this.codeSearch.indexInBackground({

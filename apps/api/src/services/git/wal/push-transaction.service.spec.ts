@@ -6,8 +6,10 @@ import { WalStoreService } from './wal-store.service.js';
 import {
   NonFastForwardError,
   RepositoryDeletedError,
+  UnreplayableRefError,
 } from '../../../lib/git/wal/wal.errors.js';
 import {
+  ZERO_OID,
   emptyIndex,
   type RefTransition,
   type WalIndex,
@@ -118,6 +120,89 @@ describe('PushTransactionService', () => {
     expect(result.seq).toBe(1);
     expect(store.casIndex.mock.calls[0][1].layers[0].size).toBe(huge.size);
   }, 120_000);
+
+  it('refuses a ref name git would refuse before uploading anything', async () => {
+    await expect(
+      service.commitPush({
+        repoId: 'phantomknight287/ghost',
+        transitions: [
+          { ref: 'refs/heads/a..b', oldOid: ZERO_OID, newOid: oid(0xaa) },
+        ],
+        body,
+        packOffset: PACK_OFFSET,
+      }),
+    ).rejects.toBeInstanceOf(UnreplayableRefError);
+    expect(store.putEntry).not.toHaveBeenCalled();
+  });
+
+  it('refuses a branch that would sit under another, checked against the live index, and drops its entry', async () => {
+    store.readIndex.mockResolvedValue({
+      index: {
+        ...emptyIndex(),
+        seq: 2,
+        refs: new Map([['refs/heads/a', oid(0xaa)]]),
+      },
+      etag: '"two"',
+    });
+
+    for (const ref of ['refs/heads/a/b', 'refs/heads/a/b/c']) {
+      await expect(
+        service.commitPush({
+          repoId: 'phantomknight287/ghost',
+          transitions: [{ ref, oldOid: ZERO_OID, newOid: oid(0xbb) }],
+          body,
+          packOffset: PACK_OFFSET,
+        }),
+      ).rejects.toThrow('conflicts with refs/heads/a');
+    }
+    expect(store.casIndex).not.toHaveBeenCalled();
+    expect(store.deleteEntry).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses a branch that would sit above another', async () => {
+    store.readIndex.mockResolvedValue({
+      index: {
+        ...emptyIndex(),
+        seq: 2,
+        refs: new Map([['refs/heads/a/b', oid(0xaa)]]),
+      },
+      etag: '"two"',
+    });
+
+    await expect(
+      service.commitPush({
+        repoId: 'phantomknight287/ghost',
+        transitions: [
+          { ref: 'refs/heads/a', oldOid: ZERO_OID, newOid: oid(0xbb) },
+        ],
+        body,
+        packOffset: PACK_OFFSET,
+      }),
+    ).rejects.toThrow('conflicts with refs/heads/a/b');
+  });
+
+  it('lets one push replace a branch with one beneath its name', async () => {
+    store.readIndex.mockResolvedValue({
+      index: {
+        ...emptyIndex(),
+        seq: 2,
+        refs: new Map([['refs/heads/a', oid(0xaa)]]),
+      },
+      etag: '"two"',
+    });
+    store.casIndex.mockResolvedValue(true);
+
+    const result = await service.commitPush({
+      repoId: 'phantomknight287/ghost',
+      transitions: [
+        { ref: 'refs/heads/a', oldOid: oid(0xaa), newOid: ZERO_OID },
+        { ref: 'refs/heads/a/b', oldOid: ZERO_OID, newOid: oid(0xbb) },
+      ],
+      body,
+      packOffset: PACK_OFFSET,
+    });
+    expect(result.seq).toBe(3);
+  });
 
   it('rejects a stale ref instead of clobbering it', async () => {
     store.readIndex.mockResolvedValue({

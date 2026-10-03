@@ -158,6 +158,16 @@ export class PullRequestDetailDTO extends PullRequestDTO {
   conflicts: string[];
 
   @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Why `refs/pull/<number>/head` and `/merge` stopped following the branches: the size limit that refused the last update. Null while they are current.',
+  })
+  @IsString()
+  @IsOptional()
+  pullRefsBlocked: string | null;
+
+  @ApiProperty({
     type: SquashMessageDTO,
     nullable: true,
     description:

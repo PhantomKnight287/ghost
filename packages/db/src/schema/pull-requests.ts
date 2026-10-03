@@ -2,6 +2,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
   index,
   integer,
@@ -55,6 +56,8 @@ export const pullRequest = pgTable(
     headSha: text().notNull(),
 
     mergeCommitSha: text(),
+    // Why `refs/pull/<n>/*` stopped following the branches: the size limit that refused the last update. Cleared by the next update that lands.
+    pullRefsBlocked: text(),
 
     mergedAt: timestamp({ withTimezone: true }),
   },
@@ -161,4 +164,33 @@ export const pullRequestReviewComment = pgTable(
     index("pull_request_review_comment_reply_idx").on(t.inReplyToId),
     index("pull_request_review_comment_pull_idx").on(t.pullRequestId),
   ],
+);
+
+/** One entry Ghost wrote into a base repository's log to keep `refs/pull/<n>/*` current, and the bytes it added. Nobody pays for them while the request is unmerged; a merge bills them to the base repository's account. */
+export const pullRequestRefWrite = pgTable(
+  "pull_request_ref_write",
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => `prw_${createId()}`),
+    pullRequestId: text()
+      .references(() => pullRequest.id, { onDelete: "cascade" })
+      .notNull(),
+    size: bigint({ mode: "number" }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pull_request_ref_write_pull_idx").on(t.pullRequestId)],
+);
+
+/** Durable intent written before a pull-ref log commit, outside its quota transaction. The WAL index supplies the committed pack size during recovery. */
+export const pullRequestRefWritePending = pgTable(
+  "pull_request_ref_write_pending",
+  {
+    // The preallocated WAL entry ULID; also forms the final accounting row id.
+    id: text().primaryKey(),
+    pullRequestId: text()
+      .references(() => pullRequest.id, { onDelete: "cascade" })
+      .notNull(),
+  },
+  (t) => [index("pull_request_ref_write_pending_pull_idx").on(t.pullRequestId)],
 );

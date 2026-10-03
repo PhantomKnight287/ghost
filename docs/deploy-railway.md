@@ -133,6 +133,8 @@ variables on the `api` service bound them; sizes are bytes or binary units
 | ------------------------- | ------------------------------------------------------------------- |
 | `STORAGE_QUOTA_BYTES`     | Most each account may store: a user, or an organization for its repositories. Empty (the default) means unlimited. |
 | `RELEASE_ASSET_MAX_BYTES` | Largest single asset. `2gb` unless set, and never above `5gb`.       |
+| `PULL_REF_MAX_BYTES`      | Most one update of a pull request's `refs/pull/<n>/head` may copy into the base repository. Empty means unlimited. |
+| `PULL_REF_UNMERGED_MAX_BYTES` | Most one author's unmerged pull requests may hold in base repositories altogether. Empty means unlimited. |
 
 A value the server cannot read stops it at boot rather than silently lifting
 the limit. Lowering the quota deletes nothing: an account over it can still

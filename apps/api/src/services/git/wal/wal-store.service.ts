@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 
 import { S3Service } from '../../s3/s3.service.js';
+import { isPullRef } from '../../../lib/git/refs/pull-refs.js';
 import { isNotFound, statusOf } from '../../../lib/s3/s3.errors.js';
 import {
   prefixed,
@@ -108,7 +109,17 @@ export class WalStoreService {
       });
     }
 
-    await this.casIndex(toRepoId, stored.index, null);
+    // A fork starts with the parent's branches and tags, not its pull requests: those refs belong to the repository the requests were opened against.
+    await this.casIndex(
+      toRepoId,
+      {
+        ...stored.index,
+        refs: new Map(
+          [...stored.index.refs].filter(([ref]) => !isPullRef(ref)),
+        ),
+      },
+      null,
+    );
   }
 
   /** The commit point of a push. A null etag means create-if-absent. Returns false when another writer won the race. */

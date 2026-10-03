@@ -20,6 +20,7 @@ import {
   extractSuggestion,
 } from '../../lib/pull-requests/suggestion.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
@@ -67,6 +68,7 @@ export class ReviewsService {
     private readonly pullRequests: PullRequestsService,
     private readonly users: UsersService,
     private readonly pushTransaction: PushTransactionService,
+    private readonly pullRefs: PullRefsService,
   ) {}
 
   /** Submits the requester's pending review, or a new one, together with any further line comments. */
@@ -534,18 +536,23 @@ export class ReviewsService {
         exclude: [git.headSha],
         prefix: path.join(directory, 'suggestion'),
       });
+      const transitions = [
+        {
+          ref: `refs/heads/${pullRequest.headRef}`,
+          oldOid: Buffer.from(git.headSha, 'hex'),
+          newOid: Buffer.from(commitSha, 'hex'),
+        },
+      ];
       await this.pushTransaction.commitPush({
         repoId: headRepositoryId,
-        transitions: [
-          {
-            ref: `refs/heads/${pullRequest.headRef}`,
-            oldOid: Buffer.from(git.headSha, 'hex'),
-            newOid: Buffer.from(commitSha, 'hex'),
-          },
-        ],
+        transitions,
         body: fileBody(pack.path, pack.size),
         packOffset: 0,
         pushedBy: params.requesterId,
+      });
+      await this.pullRefs.syncAfterPush({
+        repositoryId: headRepositoryId,
+        transitions,
       });
     } finally {
       await rm(directory, { recursive: true, force: true });

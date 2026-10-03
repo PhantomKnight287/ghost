@@ -32,7 +32,6 @@ import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { decodeCursor, encodeCursor, isoTimestamp } from '../../utils/index.js';
@@ -69,7 +68,6 @@ export class ReleasesService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
-    private readonly storage: RepositoryStorageService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly branches: BranchesService,
     private readonly pushTransaction: PushTransactionService,
@@ -139,7 +137,7 @@ export class ReleasesService {
     body: CreateReleaseRequestDTO;
   }): Promise<ReleaseDTO> {
     const repository = await this.authorize(target, 'write');
-    if (!(await isValidRefName('tags', body.tagName))) {
+    if (!isValidRefName('tags', body.tagName)) {
       throw new InvalidTagNameError(body.tagName);
     }
 
@@ -154,7 +152,7 @@ export class ReleasesService {
       );
     if (existing) throw new ReleaseAlreadyExistsError(body.tagName);
 
-    const directory = await this.openCache(repository);
+    const directory = await this.materializer.open(repository);
     const tags = await listTags(directory);
     // ponytail: a draft tags its commit straight away; GitHub waits for publishing, which needs the target stored on the row.
     if (!tags.some((tag) => tag.name === body.tagName)) {
@@ -413,7 +411,7 @@ export class ReleasesService {
     if (releases.length === 0) return [];
 
     const [tags, assets] = await Promise.all([
-      this.openCache(repository).then(listTags),
+      this.materializer.open(repository).then(listTags),
       this.db
         .select({
           releaseId: schema.releaseAsset.releaseId,
@@ -442,16 +440,6 @@ export class ReleasesService {
         .map(({ releaseId: _, ...asset }) => asset),
       viewerCanEdit,
     }));
-  }
-
-  private async openCache(repository: AuthorizedRepository) {
-    const directory = await this.storage.getRepoPath(repository.id);
-    await this.materializer.materialize(
-      repository.id,
-      directory,
-      repository.defaultBranch,
-    );
-    return directory;
   }
 
   private authorize(

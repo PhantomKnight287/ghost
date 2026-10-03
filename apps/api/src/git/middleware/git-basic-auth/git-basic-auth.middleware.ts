@@ -31,7 +31,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
       req.query.service === 'git-receive-pack';
 
     try {
-      const actor = await this.resolveActor(req);
+      const { actor, apiKeyId } = await this.resolveKey(req);
       req.repository = await this.access.authorize({
         username,
         repo: repo.replace(/\.git$/, ''),
@@ -40,6 +40,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
       });
 
       req.actor = actor;
+      req.apiKeyId = apiKeyId;
       next();
     } catch (error) {
       if (!(error instanceof AuthenticationRequiredError)) return next(error);
@@ -49,20 +50,25 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     }
   }
 
-  private async resolveActor(req: Request): Promise<Actor> {
+  private async resolveKey(
+    req: Request,
+  ): Promise<{ actor: Actor; apiKeyId: string | null }> {
+    const anonymous = { actor: null, apiKeyId: null };
     const header = req.headers.authorization;
-    if (!header?.startsWith('Basic ')) return null;
+    if (!header?.startsWith('Basic ')) return anonymous;
 
     // Username is ignored; the password is the API key, and may contain ":".
     const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
     const key = decoded.slice(decoded.indexOf(':') + 1);
-    if (!key) return null;
+    if (!key) return anonymous;
 
     const { valid, key: apiKey } = await this.auth.api.verifyApiKey({
       body: { key },
     });
 
     // A bad key is treated as no key, so the caller is challenged again.
-    return valid && apiKey ? { userId: apiKey.referenceId } : null;
+    return valid && apiKey
+      ? { actor: { userId: apiKey.referenceId }, apiKeyId: apiKey.id }
+      : anonymous;
   }
 }

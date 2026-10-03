@@ -98,6 +98,8 @@ is dropped and verification has to stay off.
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Credentials |
 | `STORAGE_QUOTA_BYTES` | Most each account may store, such as `10gb`. Empty is unlimited |
 | `RELEASE_ASSET_MAX_BYTES` | Largest release asset. `2gb` unless set, never above `5gb` |
+| `PULL_REF_MAX_BYTES` | Most one update of a pull request's `refs/pull/<n>/head` may copy into the base repository. Empty is unlimited |
+| `PULL_REF_UNMERGED_MAX_BYTES` | Most one author's unmerged pull requests may hold in base repositories altogether. Empty is unlimited |
 
 The bucket is the source of truth for git data. Repository working copies in
 the API container are a cache rebuilt from it, so the API needs no volume.

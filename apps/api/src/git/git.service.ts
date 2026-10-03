@@ -1,5 +1,6 @@
-import type { Database } from '@ghost/db';
+import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { and, eq } from 'drizzle-orm';
 import { Readable } from 'node:stream';
 
 import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
@@ -9,20 +10,22 @@ import {
   isProbeRequest,
   readReceivePackHeader,
 } from '../lib/git/protocol/receive-pack-request.js';
+import { withVerifiedPack } from '../lib/git/protocol/verify-push.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
-import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
+import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { listCommits } from '../lib/git/commits/list-commits.js';
 import { resolveDefaultRef } from '../lib/git/tree/resolve-ref.js';
+import { isPullRef } from '../lib/git/refs/pull-refs.js';
 import { type RefTransition, ZERO_OID } from '../lib/git/wal/wal.types.js';
 import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
 import { MAX_PUSH_COMMITS, publishEvent } from '../lib/events/events.js';
 import { DATABASE } from '../database/database.module.js';
 import { isGitServiceName, type GitServiceName } from './git.constants.js';
-import { UnsupportedGitServiceError } from './git.errors.js';
+import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
 
 export interface GitTransportResponse {
   headers: Record<string, string>;
@@ -39,7 +42,6 @@ export class GitService {
   private readonly logger = new Logger(GitService.name);
 
   constructor(
-    private readonly storage: RepositoryStorageService,
     private readonly refAdvertisement: RefAdvertisementService,
     private readonly packProcess: PackProcessService,
     private readonly pushTransaction: PushTransactionService,
@@ -47,6 +49,7 @@ export class GitService {
     private readonly contributions: RepositoryContributionService,
     private readonly codeSearch: CodeSearchService,
     private readonly references: IssueReferencesService,
+    private readonly pullRefs: PullRefsService,
     @Inject(DATABASE) private readonly db: Database,
   ) {}
 
@@ -54,20 +57,28 @@ export class GitService {
     repositoryId,
     defaultBranch,
     service,
-  }: RepositoryRef & { service: string }): Promise<GitTransportResponse> {
+    protocol,
+  }: RepositoryRef & {
+    service: string;
+    protocol?: string;
+  }): Promise<GitTransportResponse> {
     if (!isGitServiceName(service)) throw new UnsupportedGitServiceError();
 
-    const repoDirectory = await this.openRepository(
-      repositoryId,
+    const repoDirectory = await this.materializer.open({
+      id: repositoryId,
       defaultBranch,
-    );
+    });
 
     return {
       headers: {
         'Content-Type': `application/x-${service}-advertisement`,
         'Cache-Control': 'no-cache',
       },
-      body: this.refAdvertisement.advertise({ repoDirectory, service }),
+      body: this.refAdvertisement.advertise({
+        repoDirectory,
+        service,
+        protocol,
+      }),
     };
   }
 
@@ -75,17 +86,22 @@ export class GitService {
     repositoryId,
     defaultBranch,
     body,
-  }: RepositoryRef & { body: GitRequestBody }): Promise<GitTransportResponse> {
-    const repoDirectory = await this.openRepository(
-      repositoryId,
+    protocol,
+  }: RepositoryRef & {
+    body: GitRequestBody;
+    protocol?: string;
+  }): Promise<GitTransportResponse> {
+    const repoDirectory = await this.materializer.open({
+      id: repositoryId,
       defaultBranch,
-    );
+    });
 
     return {
       headers: resultHeaders('git-upload-pack'),
       body: this.packProcess.streamUploadPack({
         repoDirectory,
         input: body.open(),
+        protocol,
       }),
     };
   }
@@ -101,10 +117,13 @@ export class GitService {
     isPublic,
     body,
     pushedBy = null,
+    apiKeyId = null,
   }: RepositoryRef & {
     isPublic: boolean;
     body: GitRequestBody;
     pushedBy?: string | null;
+    /** The key an HTTP push authenticated with; only the key minted for a running import may write `refs/pull/*`. */
+    apiKeyId?: string | null;
   }): Promise<GitTransportResponse> {
     if (await isProbeRequest(body)) {
       return {
@@ -114,18 +133,26 @@ export class GitService {
     }
 
     const { transitions, packOffset } = await readReceivePackHeader(body);
-    const repoDirectory = await this.openRepository(
-      repositoryId,
+    // Checked before the log: receive-pack's own refusals land after the commit point, too late to keep a ref out.
+    const pullRef = transitions.find(({ ref }) => isPullRef(ref));
+    if (pullRef && !(await this.isImportKey(repositoryId, apiKeyId))) {
+      throw new ProtectedRefError(pullRef.ref);
+    }
+    const repoDirectory = await this.materializer.open({
+      id: repositoryId,
       defaultBranch,
-    );
-
-    await this.pushTransaction.commitPush({
-      repoId: repositoryId,
-      transitions,
-      body,
-      packOffset,
-      pushedBy,
     });
+
+    await withVerifiedPack(
+      { gitDir: repoDirectory, transitions, body, packOffset },
+      (pack) =>
+        this.pushTransaction.commitPush({
+          repoId: repositoryId,
+          transitions,
+          ...pack,
+          pushedBy,
+        }),
+    );
 
     const result = this.packProcess.streamReceivePack({
       repoDirectory,
@@ -156,6 +183,7 @@ export class GitService {
           `Closing referenced issues failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
         ),
       );
+      void this.pullRefs.syncAfterPush({ repositoryId, transitions });
       this.publishPushes({
         repositoryId,
         repoDirectory,
@@ -250,15 +278,19 @@ export class GitService {
     });
   }
 
-  /** The local cache directory, current with the log. Every transport opens a repository this way before it hands anything to git. */
-  async openRepository(repositoryId: string, defaultBranch: string | null) {
-    const repoDirectory = await this.storage.getRepoPath(repositoryId);
-    await this.materializer.materialize(
-      repositoryId,
-      repoDirectory,
-      defaultBranch,
-    );
-    return repoDirectory;
+  private async isImportKey(repositoryId: string, apiKeyId: string | null) {
+    if (!apiKeyId) return false;
+    const [running] = await this.db
+      .select({ id: schema.repositoryImport.id })
+      .from(schema.repositoryImport)
+      .where(
+        and(
+          eq(schema.repositoryImport.repositoryId, repositoryId),
+          eq(schema.repositoryImport.apiKeyId, apiKeyId),
+          eq(schema.repositoryImport.status, 'running'),
+        ),
+      );
+    return Boolean(running);
   }
 }
 

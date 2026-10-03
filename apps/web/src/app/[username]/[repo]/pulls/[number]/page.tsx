@@ -105,6 +105,7 @@ export default async function PullRequestPage({
         squash={pull.data.squash}
         draft={pull.data.draft}
         reviewers={pull.data.reviewers}
+        pullRefsBlocked={pull.data.pullRefsBlocked}
       />
     </div>
   );

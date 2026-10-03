@@ -11,19 +11,24 @@ import { PackProcessService } from '../services/git/pack-process/pack-process.se
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
 import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
-import { RepositoryStorageService } from '../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
-import { UnsupportedGitServiceError } from './git.errors.js';
+import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
+import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
 import { DATABASE } from '../database/database.module.js';
 import { GitService } from './git.service.js';
 
+// Verification runs real git over a real pack; it has its own spec, and these bodies are stand-ins.
+vi.mock('../lib/git/protocol/verify-push.js', () => ({
+  withVerifiedPack: (
+    { body, packOffset }: { body: unknown; packOffset: number },
+    commit: (pack: { body: unknown; packOffset: number }) => unknown,
+  ) => commit({ body, packOffset }),
+}));
+
 describe('GitService', () => {
   let service: GitService;
-  const storage = {
-    getRepoPath: vi.fn().mockResolvedValue('/repos/ghost.git'),
-  };
   const refAdvertisement = {
     advertise: vi.fn().mockReturnValue(new PassThrough()),
   };
@@ -31,7 +36,7 @@ describe('GitService', () => {
     streamUploadPack: vi.fn().mockReturnValue(new PassThrough()),
     streamReceivePack: vi.fn().mockReturnValue(new PassThrough()),
   };
-  const materializer = { materialize: vi.fn().mockResolvedValue(undefined) };
+  const materializer = { open: vi.fn().mockResolvedValue('/repos/ghost.git') };
   const pushTransaction = {
     commitPush: vi
       .fn()
@@ -42,16 +47,20 @@ describe('GitService', () => {
   };
 
   const codeSearch = { indexInBackground: vi.fn() };
+  const pullRefs = { syncAfterPush: vi.fn().mockResolvedValue(undefined) };
   const references = { closeFromCommits: vi.fn().mockResolvedValue(undefined) };
   const published = vi.fn().mockResolvedValue(undefined);
-  const db = { insert: () => ({ values: published }) };
+  const runningImports = vi.fn().mockResolvedValue([]);
+  const db = {
+    insert: () => ({ values: published }),
+    select: () => ({ from: () => ({ where: runningImports }) }),
+  };
 
   beforeEach(async () => {
     vi.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GitService,
-        { provide: RepositoryStorageService, useValue: storage },
         { provide: RefAdvertisementService, useValue: refAdvertisement },
         { provide: PackProcessService, useValue: packProcess },
         { provide: PushTransactionService, useValue: pushTransaction },
@@ -59,6 +68,7 @@ describe('GitService', () => {
         { provide: RepositoryContributionService, useValue: contributions },
         { provide: CodeSearchService, useValue: codeSearch },
         { provide: IssueReferencesService, useValue: references },
+        { provide: PullRefsService, useValue: pullRefs },
         { provide: DATABASE, useValue: db },
       ],
     }).compile();
@@ -80,11 +90,10 @@ describe('GitService', () => {
     expect(headers['Content-Type']).toBe(
       'application/x-git-upload-pack-advertisement',
     );
-    expect(materializer.materialize).toHaveBeenCalledWith(
-      'repo_ghost',
-      '/repos/ghost.git',
-      null,
-    );
+    expect(materializer.open).toHaveBeenCalledWith({
+      id: 'repo_ghost',
+      defaultBranch: null,
+    });
     expect(refAdvertisement.advertise).toHaveBeenCalledWith({
       repoDirectory: '/repos/ghost.git',
       service: 'git-upload-pack',
@@ -102,7 +111,7 @@ describe('GitService', () => {
   });
 
   it('reads the command section before doing any slower work', async () => {
-    materializer.materialize.mockImplementationOnce(async () => {
+    materializer.open.mockImplementationOnce(async () => {
       expect(pushTransaction.commitPush).not.toHaveBeenCalled();
     });
 
@@ -113,7 +122,7 @@ describe('GitService', () => {
       body: bufferBody(receivePackBody()),
     });
 
-    expect(materializer.materialize).toHaveBeenCalled();
+    expect(materializer.open).toHaveBeenCalled();
   });
 
   it('answers the pre-push probe without touching the log', async () => {
@@ -149,13 +158,57 @@ describe('GitService', () => {
     const [{ transitions }] = pushTransaction.commitPush.mock.calls[0];
     expect(transitions[0].ref).toBe('refs/heads/main');
 
-    const materializeOrder =
-      materializer.materialize.mock.invocationCallOrder[0];
+    const materializeOrder = materializer.open.mock.invocationCallOrder[0];
     const commitOrder = pushTransaction.commitPush.mock.invocationCallOrder[0];
     const spawnOrder =
       packProcess.streamReceivePack.mock.invocationCallOrder[0];
     expect(materializeOrder).toBeLessThan(commitOrder);
     expect(commitOrder).toBeLessThan(spawnOrder);
+  });
+
+  it('refuses a push to a pull request ref before it reaches the log', async () => {
+    await expect(
+      service.receivePack({
+        repositoryId: 'repo_ghost',
+        defaultBranch: null,
+        isPublic: true,
+        body: bufferBody(
+          receivePackBody(undefined, undefined, 'refs/pull/1/head'),
+        ),
+        apiKeyId: 'key_someone',
+      }),
+    ).rejects.toBeInstanceOf(ProtectedRefError);
+    expect(pushTransaction.commitPush).not.toHaveBeenCalled();
+  });
+
+  it('lets a running import write pull request refs with its own key', async () => {
+    runningImports.mockResolvedValueOnce([{ id: 'import_1' }]);
+
+    await service.receivePack({
+      repositoryId: 'repo_ghost',
+      defaultBranch: null,
+      isPublic: true,
+      body: bufferBody(
+        receivePackBody(undefined, undefined, 'refs/pull/1/head'),
+      ),
+      apiKeyId: 'key_import',
+    });
+
+    expect(pushTransaction.commitPush).toHaveBeenCalled();
+  });
+
+  it('refuses pull request refs to a push with no key, without asking the database', async () => {
+    await expect(
+      service.receivePack({
+        repositoryId: 'repo_ghost',
+        defaultBranch: null,
+        isPublic: true,
+        body: bufferBody(
+          receivePackBody(undefined, undefined, 'refs/pull/1/merge'),
+        ),
+      }),
+    ).rejects.toBeInstanceOf(ProtectedRefError);
+    expect(runningImports).not.toHaveBeenCalled();
   });
 
   it('indexes contributions once the pushed pack finishes streaming', async () => {
@@ -180,6 +233,10 @@ describe('GitService', () => {
       isPublic: true,
       repoDirectory: '/repos/ghost.git',
     });
+    expect(pullRefs.syncAfterPush).toHaveBeenCalledWith({
+      repositoryId: 'repo_ghost',
+      transitions: [expect.objectContaining({ ref: 'refs/heads/main' })],
+    });
     // creating a branch closes nothing
     expect(references.closeFromCommits).not.toHaveBeenCalled();
   });
@@ -203,7 +260,7 @@ describe('GitService', () => {
       git('init', '-q', '-b', 'main');
       git('commit', '-q', '--allow-empty', '-m', 'first');
       git('commit', '-q', '--allow-empty', '-m', 'second', '-m', 'Fixes #1');
-      storage.getRepoPath.mockResolvedValueOnce(path.join(directory, '.git'));
+      materializer.open.mockResolvedValueOnce(path.join(directory, '.git'));
     });
 
     afterEach(() => rmSync(directory, { recursive: true, force: true }));
@@ -269,7 +326,7 @@ describe('GitService', () => {
     });
 
     it('publishes nothing for a ref outside branches and tags', async () => {
-      await push('refs/pull/1/head');
+      await push('refs/notes/commits');
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(published).not.toHaveBeenCalledWith(

@@ -5841,6 +5841,48 @@
         ]
       }
     },
+    "/api/storage/{owner}": {
+      "get": {
+        "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps in release assets and merged pull requests' heads, against this instance's quota.",
+        "operationId": "StorageController_getStorageUsage",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUsageDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Storage usage of an account",
+        "tags": [
+          "Storage"
+        ]
+      }
+    },
     "/api/imports/github": {
       "get": {
         "description": "Whether this instance imports from GitHub, and whether the signed-in user has linked the GitHub account an import reads with.",
@@ -6761,48 +6803,6 @@
         "summary": "Delete a release asset",
         "tags": [
           "Releases"
-        ]
-      }
-    },
-    "/api/storage/{owner}": {
-      "get": {
-        "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps in release assets, against this instance's quota.",
-        "operationId": "StorageController_getStorageUsage",
-        "parameters": [
-          {
-            "name": "owner",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StorageUsageDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Storage usage of an account",
-        "tags": [
-          "Storage"
         ]
       }
     },
@@ -11975,6 +11975,11 @@
               "type": "string"
             }
           },
+          "pullRefsBlocked": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why `refs/pull/<number>/head` and `/merge` stopped following the branches: the size limit that refused the last update. Null while they are current."
+          },
           "squash": {
             "nullable": true,
             "description": "What a squash merge commits unless the merger rewrites it. Null when there is nothing to merge.",
@@ -12014,6 +12019,7 @@
           "deletions",
           "mergeable",
           "conflicts",
+          "pullRefsBlocked",
           "squash",
           "reviewers"
         ]
@@ -13221,6 +13227,29 @@
           }
         }
       },
+      "StorageUsageDTO": {
+        "type": "object",
+        "properties": {
+          "usedBytes": {
+            "type": "number",
+            "description": "Bytes stored, including uploads in progress."
+          },
+          "quotaBytes": {
+            "type": "number",
+            "nullable": true,
+            "description": "`null` when this instance sets no quota."
+          },
+          "maxAssetBytes": {
+            "type": "number",
+            "description": "Largest single release asset."
+          }
+        },
+        "required": [
+          "usedBytes",
+          "quotaBytes",
+          "maxAssetBytes"
+        ]
+      },
       "GitHubImportStatusDTO": {
         "type": "object",
         "properties": {
@@ -13541,29 +13570,6 @@
             "type": "boolean"
           }
         }
-      },
-      "StorageUsageDTO": {
-        "type": "object",
-        "properties": {
-          "usedBytes": {
-            "type": "number",
-            "description": "Bytes stored, including uploads in progress."
-          },
-          "quotaBytes": {
-            "type": "number",
-            "nullable": true,
-            "description": "`null` when this instance sets no quota."
-          },
-          "maxAssetBytes": {
-            "type": "number",
-            "description": "Largest single release asset."
-          }
-        },
-        "required": [
-          "usedBytes",
-          "quotaBytes",
-          "maxAssetBytes"
-        ]
       },
       "CreateBranchRequestDTO": {
         "type": "object",

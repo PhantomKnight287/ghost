@@ -52,9 +52,12 @@ import {
   type Repository,
   type RepositoryOperation,
 } from '../../lib/git/repository-access/repository-access.js';
-import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
+import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
 import { UsersService } from '../../services/users/users.service.js';
+import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
+import { storageAccountOf } from '../../lib/storage/storage-account.js';
 import { decodeCursor, encodeCursor } from '../../utils/index.js';
 import {
   BranchNotFoundError,
@@ -96,6 +99,7 @@ const pullRequestColumns = {
   headRef: schema.pullRequest.headRef,
   headSha: schema.pullRequest.headSha,
   mergeCommitSha: schema.pullRequest.mergeCommitSha,
+  pullRefsBlocked: schema.pullRequest.pullRefsBlocked,
   createdAt: schema.issue.createdAt,
   updatedAt: schema.issue.updatedAt,
 };
@@ -117,12 +121,13 @@ export class PullRequestsService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly users: UsersService,
     private readonly access: RepositoryAccessService,
-    private readonly storage: RepositoryStorageService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
     private readonly verification: CommitVerificationService,
     private readonly issues: IssuesService,
     private readonly references: IssueReferencesService,
+    private readonly pullRefs: PullRefsService,
+    private readonly quota: StorageQuotaService,
   ) {}
 
   async createPullRequest({
@@ -147,8 +152,8 @@ export class PullRequestsService {
     }
 
     const [baseDirectory, headDirectory] = await Promise.all([
-      this.openCache(base),
-      this.openCache(head),
+      this.materializer.open(base),
+      this.materializer.open(head),
     ]);
     const baseSha = await this.resolveBranch(baseDirectory, body.base);
     const headSha = await this.resolveBranch(headDirectory, headRef);
@@ -207,6 +212,7 @@ export class PullRequestsService {
       number: issue.number,
       requesterId,
     });
+    this.pullRefs.syncInBackground(pullRequest.id);
     return this.expandPullRequest(pullRequest);
   }
 
@@ -236,8 +242,8 @@ export class PullRequestsService {
       : headSpec;
 
     const [baseDirectory, headDirectory] = await Promise.all([
-      this.openCache(base),
-      this.openCache(head),
+      this.materializer.open(base),
+      this.materializer.open(head),
     ]);
     const alternates = head.id === base.id ? [] : [headDirectory];
 
@@ -365,6 +371,7 @@ export class PullRequestsService {
       deletions: files.reduce((total, file) => total + file.deletions, 0),
       mergeable: !pullRequest.draft && merge !== null && merge.clean,
       conflicts: merge?.conflicts ?? [],
+      pullRefsBlocked: pullRequest.pullRefsBlocked,
       squash: merge ? await this.squashMessage({ ...git, pullRequest }) : null,
       reviewers: await this.reviewers(pullRequest.id),
     };
@@ -517,13 +524,18 @@ export class PullRequestsService {
 
     const directory = await mkdtemp(path.join(tmpdir(), 'ghost-merge-'));
     try {
-      // ponytail: excludes only the base tip, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
+      // The pull head ref is in the base log, so whatever it reaches was already written there by the last sync and only the merge itself is new.
+      const pulledHead = await resolveCommit(
+        git.baseDirectory,
+        pullHeadRef(pullRequest.number),
+      );
+      // ponytail: excludes only the base tip and the pull head, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
       const pack = await packRange({
         gitDir: git.baseDirectory,
         alternates: git.alternates,
         // The head rides along even when a squash or rebase leaves it unreachable: a merged request reads its commits and diff from the base alone.
         include: [mergeCommitSha, git.headSha],
-        exclude: [git.baseSha],
+        exclude: pulledHead ? [git.baseSha, pulledHead] : [git.baseSha],
         prefix: path.join(directory, 'merge'),
       });
 
@@ -541,6 +553,7 @@ export class PullRequestsService {
         if (locked.state !== 'open') {
           throw new PullRequestNotOpenError(locked.state);
         }
+        await this.quota.assertRoomToMerge(storageAccountOf(base), tx);
 
         const { seq } = await this.pushTransaction.commitPush({
           repoId: base.id,
@@ -610,6 +623,19 @@ export class PullRequestsService {
         .update(schema.repository)
         .set({ lastPushedAt: new Date() })
         .where(eq(schema.repository.id, base.id));
+
+      // The base moved, so every other request into it needs a new test merge; this one only needs its head pinned to what merged.
+      this.pullRefs.syncInBackground(pullRequest.id);
+      await this.pullRefs.syncAfterPush({
+        repositoryId: base.id,
+        transitions: [
+          {
+            ref: `refs/heads/${pullRequest.baseRef}`,
+            oldOid: Buffer.from(git.baseSha, 'hex'),
+            newOid: Buffer.from(mergeCommitSha, 'hex'),
+          },
+        ],
+      });
 
       return { mergeCommitSha, seq };
     } finally {
@@ -795,7 +821,7 @@ export class PullRequestsService {
       return {
         pullRequest,
         base,
-        baseDirectory: await this.openCache(base),
+        baseDirectory: await this.materializer.open(base),
         alternates: [],
         env: undefined,
         baseSha: pullRequest.headSha,
@@ -812,7 +838,7 @@ export class PullRequestsService {
     base: Repository,
     mergeCommitSha: string,
   ) {
-    const baseDirectory = await this.openCache(base);
+    const baseDirectory = await this.materializer.open(base);
     const baseSha = await resolveCommit(baseDirectory, `${mergeCommitSha}^1`);
     if (!baseSha) throw new CommitNotFoundError(mergeCommitSha);
 
@@ -846,8 +872,8 @@ export class PullRequestsService {
       .where(eq(schema.repository.id, headRepositoryId));
 
     const [baseDirectory, headDirectory] = await Promise.all([
-      this.openCache(base),
-      this.openCache(head),
+      this.materializer.open(base),
+      this.materializer.open(head),
     ]);
     const alternates = head.id === base.id ? [] : [headDirectory];
 
@@ -859,6 +885,13 @@ export class PullRequestsService {
       headDirectory,
       pullRequest.headRef,
     );
+    this.pullRefs.reconcileInBackground({
+      pullRequestId: pullRequest.id,
+      number: pullRequest.number,
+      gitDir: baseDirectory,
+      baseSha,
+      headSha,
+    });
 
     return {
       pullRequest,
@@ -932,16 +965,6 @@ export class PullRequestsService {
       actor: requesterId ? { userId: requesterId } : null,
       operation,
     });
-  }
-
-  private async openCache(repository: Repository) {
-    const directory = await this.storage.getRepoPath(repository.id);
-    await this.materializer.materialize(
-      repository.id,
-      directory,
-      repository.defaultBranch,
-    );
-    return directory;
   }
 
   private async resolveBranch(gitDir: string, branch: string) {

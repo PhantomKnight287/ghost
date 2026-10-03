@@ -13,3 +13,12 @@ export class InvalidReceivePackRequestError extends DomainError {
     );
   }
 }
+
+/** A push git would refuse, caught before the log commits it: once committed, every node replaying the repository would stop at it. */
+export class PushRejectedError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(reason: string) {
+    super(`Push rejected: ${reason}`);
+  }
+}

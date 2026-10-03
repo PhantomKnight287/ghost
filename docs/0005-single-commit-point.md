@@ -1,6 +1,6 @@
 # 0005 — One commit point per push, and it is a compare-and-swap
 
-**Status:** adopted
+**Status:** adopted. [0034](0034-a-push-is-verified-before-the-log-commits-it.md) moves git's push checks ahead of this commit point.
 
 ## Decision
 

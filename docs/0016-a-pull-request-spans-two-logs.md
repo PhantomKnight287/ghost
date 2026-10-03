@@ -1,6 +1,6 @@
 # 0016 — A pull request spans two logs, and lends objects rather than copying them
 
-**Status:** adopted
+**Status:** adopted. Its "no `refs/pull/*`" rule is superseded by [0033](0033-pull-requests-keep-refs-in-the-base-log.md).
 
 ## Decision
 

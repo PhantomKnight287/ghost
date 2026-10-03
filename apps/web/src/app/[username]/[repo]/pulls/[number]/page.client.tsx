@@ -1,11 +1,12 @@
 "use client";
 
-import { CircleCheck, CircleX, GitMerge } from "lucide-react";
+import { CircleCheck, CircleX, GitMerge, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { closePullRequest, setDraft } from "@/components/pull-requests/actions";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { UserLink } from "@/components/users/user-link";
@@ -75,6 +76,7 @@ export function MergePanel({
   draft,
   squash,
   reviewers,
+  pullRefsBlocked,
 }: {
   username: string;
   repo: string;
@@ -93,6 +95,8 @@ export function MergePanel({
     image: string | null;
     state: "approved" | "changes_requested";
   }[];
+  /** Why `refs/pull/<number>/*` stopped following the branches, or null while they are current. */
+  pullRefsBlocked: string | null;
 }) {
   const router = useRouter();
 
@@ -150,6 +154,20 @@ export function MergePanel({
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border px-4 py-3">
+      {pullRefsBlocked && (
+        <Alert>
+          <TriangleAlert />
+          <AlertTitle>
+            <code>refs/pull/{number}/head</code> is not following this branch
+          </AlertTitle>
+          <AlertDescription>
+            {pullRefsBlocked} A fetch of <code>pull/{number}/head</code> or{" "}
+            <code>pull/{number}/merge</code> gets the branch as of the last
+            update that fit, or fails if no update has fit yet.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {reviewers.length > 0 && (
         <ul className="flex flex-col gap-1 text-sm">
           {reviewers.map((reviewer) => (

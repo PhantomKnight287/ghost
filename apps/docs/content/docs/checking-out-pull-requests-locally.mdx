@@ -1,0 +1,60 @@
+---
+title: Checking out pull requests locally
+description: Fetch any pull request, including one from a fork, with plain git.
+---
+
+Every pull request has two refs in the repository it was opened against, whichever repository its branch lives in:
+
+| Ref | Points at |
+| --- | --- |
+| `refs/pull/<number>/head` | The tip of the pull request's branch |
+| `refs/pull/<number>/merge` | What the base branch would become if the pull request merged now |
+
+Both are read-only. A push to either is refused.
+
+## Check out a pull request
+
+```bash
+git fetch origin pull/42/head:pr-42
+git switch pr-42
+```
+
+To update it after the author pushes again:
+
+```bash
+git fetch origin +pull/42/head:pr-42
+```
+
+## Test the merge result
+
+`refs/pull/<number>/merge` is rebuilt when either the pull request's branch or its base branch moves, so it tests the code that would actually land:
+
+```bash
+git fetch origin pull/42/merge
+git switch --detach FETCH_HEAD
+```
+
+It does not exist while the pull request conflicts with its base. A CI job that needs it should fall back to merging locally:
+
+```bash
+git fetch origin +refs/heads/main:refs/remotes/origin/main +refs/pull/42/head:refs/remotes/origin/pr/42
+git switch --detach refs/remotes/origin/pr/42
+git merge --no-edit refs/remotes/origin/main
+```
+
+Both refs update a few seconds after a push, not at the same instant.
+
+An instance can limit how much a pull request may copy into the repository. When an update is over the limit, the refs stay at the last update that fit and the pull request page says why.
+
+## Fetch every pull request
+
+```bash
+git config --add remote.origin.fetch '+refs/pull/*/head:refs/remotes/origin/pr/*'
+git fetch origin
+```
+
+## What stays in the repository
+
+Commits pushed to a pull request are copied into the repository it was opened against, and stay there after the branch is force-pushed, the pull request is closed, or the fork is deleted. Ghost cannot remove them. If a secret was pushed to a pull request, rotate it.
+
+A merged pull request's head counts toward the base repository's storage. An unmerged one counts toward nobody's.
