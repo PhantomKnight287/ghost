@@ -20,7 +20,7 @@ const FLAG_DELETED = 0b1;
 export const INDEX_CONTENT_TYPE = 'application/vnd.ghost.wal-index';
 export const ENTRY_CONTENT_TYPE = 'application/vnd.ghost.wal-entry';
 
-/** Enough to cover any plausible header, for ranged metadata reads. */
+/** Covers the header of an ordinary push in one ranged read; a push of thousands of refs needs a second read of `entryHeaderLength` bytes. */
 export const ENTRY_HEADER_PROBE_BYTES = 64 * 1024;
 
 export function encodeIndex(index: WalIndex): Buffer {
@@ -113,6 +113,15 @@ export function encodeEntryHeader(header: WalEntryHeader): Buffer {
   }
 
   return cursor.buffer;
+}
+
+/** The header's full length (where the pack begins), from any prefix holding its first fields. */
+export function entryHeaderLength(prefix: Buffer): number {
+  const reader = new Reader(prefix);
+  if (reader.u32() !== ENTRY_MAGIC)
+    throw new WalCorruptError('bad entry magic');
+  reader.u8();
+  return reader.u32();
 }
 
 export function decodeEntryHeader(buffer: Buffer): {
