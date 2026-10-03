@@ -86,6 +86,18 @@ describe('parseReceivePackRequest', () => {
     expect(raw.subarray(header.packOffset).toString()).toBe('PACKPAYLOAD');
   });
 
+  it('reads a command section larger than the first window', async () => {
+    const lines = Array.from({ length: 20_000 }, (_, i) =>
+      pkt(`${ZERO} ${NEW} refs/pull/${i}/head\n`),
+    );
+    const raw = body(lines, Buffer.from('PACKPAYLOAD'));
+
+    const header = await readReceivePackHeader(bufferBody(raw));
+
+    expect(header.transitions).toHaveLength(20_000);
+    expect(raw.subarray(header.packOffset).toString()).toBe('PACKPAYLOAD');
+  });
+
   it('rejects a body with no commands', () => {
     expect(() => parseReceivePackRequest(body([]))).toThrow(
       InvalidReceivePackRequestError,

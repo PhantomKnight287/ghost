@@ -106,7 +106,24 @@ export async function presentCommits(
   );
 }
 
-/** Not forced: refs a previous attempt already pushed are up to date, and anything else on the other side is a conflict worth failing on. */
+// Keeps each push's ref list near 100 KB, far under what the API reads before the packfile, and its argv far under ARG_MAX.
+const PUSH_BATCH_REFS = 1000;
+
+/** The refs to push, branches and tags first, in batches of `size`. */
+export function pushBatches(refs: Set<string>, size = PUSH_BATCH_REFS) {
+  const ordered = REFSPECS.flatMap((spec) => {
+    const [prefix, suffix] = spec.split("*") as [string, string];
+    return [...refs].filter(
+      (ref) => ref.startsWith(prefix) && ref.endsWith(suffix),
+    );
+  });
+  const batches: string[][] = [];
+  for (let i = 0; i < ordered.length; i += size)
+    batches.push(ordered.slice(i, i + size));
+  return batches;
+}
+
+/** Not forced: refs a previous attempt already pushed are up to date, and anything else on the other side is a conflict worth failing on. Batched so a repository with tens of thousands of pull requests is not one giant push. */
 export async function pushToGhost({
   dir,
   apiUrl,
@@ -122,23 +139,21 @@ export async function pushToGhost({
   refs: Set<string>;
   signal: AbortSignal;
 }) {
-  const specs = REFSPECS.filter((spec) =>
-    [...refs].some((ref) => ref.startsWith(spec.slice(0, spec.indexOf("*")))),
-  );
-  if (!specs.length) return;
   const origin = new URL(apiUrl).origin;
-  await git(
-    [
-      "-C",
-      dir,
-      "push",
-      "--quiet",
-      `${origin}/${destination}.git`,
-      ...specs.map((spec) => `${spec}:${spec}`),
-    ],
-    {
-      env: credentialEnv(origin, "import", token),
-      signal,
-    },
-  );
+  for (const batch of pushBatches(refs)) {
+    await git(
+      [
+        "-C",
+        dir,
+        "push",
+        "--quiet",
+        `${origin}/${destination}.git`,
+        ...batch.map((ref) => `${ref}:${ref}`),
+      ],
+      {
+        env: credentialEnv(origin, "import", token),
+        signal,
+      },
+    );
+  }
 }

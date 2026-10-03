@@ -15,8 +15,10 @@ export async function isProbeRequest(body: GitRequestBody) {
   );
 }
 
-/** A push touching thousands of refs still keeps its command section well inside this. */
-const MAX_COMMAND_SECTION_BYTES = 1024 * 1024;
+/** Most pushes fit the first window; an import pushing the head ref of every pull request in a big repository runs to megabytes. */
+const INITIAL_HEAD_BYTES = 64 * 1024;
+/** Each command is ~100 bytes, so this still admits ~600k refs while bounding what one request can make us buffer. */
+const MAX_COMMAND_SECTION_BYTES = 64 * 1024 * 1024;
 
 export interface ReceivePackRequest {
   transitions: RefTransition[];
@@ -35,7 +37,16 @@ export interface ReceivePackHeader {
 export async function readReceivePackHeader(
   body: GitRequestBody,
 ): Promise<ReceivePackHeader> {
-  const head = await readHead(body, MAX_COMMAND_SECTION_BYTES);
+  let limit = INITIAL_HEAD_BYTES;
+  let head = await readHead(body, limit);
+  while (
+    head.length < body.size &&
+    limit < MAX_COMMAND_SECTION_BYTES &&
+    !holdsCommandSection(head)
+  ) {
+    limit *= 2;
+    head = await readHead(body, limit);
+  }
   const { transitions, capabilities, packOffset } = parseCommandSection(head);
 
   return {
@@ -60,6 +71,19 @@ export function parseReceivePackRequest(body: Buffer): ReceivePackRequest {
   }
 
   return { transitions, capabilities, pack };
+}
+
+/** Whether `head` reaches the flush packet; a malformed length counts as complete so the parser reports it. */
+function holdsCommandSection(head: Buffer) {
+  let offset = 0;
+  while (offset + PKT_LENGTH_CHARS <= head.length) {
+    const marker = head.toString('ascii', offset, offset + PKT_LENGTH_CHARS);
+    if (marker === FLUSH_PACKET) return true;
+    const length = Number.parseInt(marker, 16);
+    if (!Number.isInteger(length) || length < PKT_LENGTH_CHARS) return true;
+    offset += length;
+  }
+  return false;
 }
 
 /** <pkt-line> "<old-oid> <new-oid> <ref>\0<capabilities>" <pkt-line> "<old-oid> <new-oid> <ref>" 0000 PACK... */

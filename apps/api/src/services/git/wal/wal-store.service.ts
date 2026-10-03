@@ -15,6 +15,7 @@ import {
   encodeIndex,
   ENTRY_CONTENT_TYPE,
   ENTRY_HEADER_PROBE_BYTES,
+  entryHeaderLength,
   INDEX_CONTENT_TYPE,
 } from '../../../lib/git/wal/wal-codec.js';
 import {
@@ -166,28 +167,34 @@ export class WalStoreService {
     ulid: string,
   ): Promise<WalEntryHeader | null> {
     try {
-      const response = await this.s3.getObject({
-        Bucket: this.s3.bucket,
-        Key: this.entryKey(repoId, ulid),
-        Range: `bytes=0-${ENTRY_HEADER_PROBE_BYTES - 1}`,
-      });
-      const body = Buffer.from(await response.Body!.transformToByteArray());
-      return decodeEntryHeader(body).header;
+      return decodeEntryHeader(await this.readEntryHeaderBytes(repoId, ulid))
+        .header;
     } catch (error) {
       if (isNotFound(error)) return null;
       throw error;
     }
   }
 
+  /** One ranged GET for an ordinary header; a header past the probe, from a push of thousands of refs, takes a second one sized to fit. */
+  private async readEntryHeaderBytes(repoId: string, ulid: string) {
+    const read = async (length: number) => {
+      const response = await this.s3.getObject({
+        Bucket: this.s3.bucket,
+        Key: this.entryKey(repoId, ulid),
+        Range: `bytes=0-${length - 1}`,
+      });
+      return Buffer.from(await response.Body!.transformToByteArray());
+    };
+
+    const probe = await read(ENTRY_HEADER_PROBE_BYTES);
+    const length = entryHeaderLength(probe);
+    return length > probe.length ? read(length) : probe;
+  }
+
   /** A ranged GET that skips the header, so the packfile never becomes a Buffer. */
   async openEntryPack(repoId: string, ulid: string): Promise<Readable> {
-    const head = await this.s3.getObject({
-      Bucket: this.s3.bucket,
-      Key: this.entryKey(repoId, ulid),
-      Range: `bytes=0-${ENTRY_HEADER_PROBE_BYTES - 1}`,
-    });
     const { packOffset } = decodeEntryHeader(
-      Buffer.from(await head.Body!.transformToByteArray()),
+      await this.readEntryHeaderBytes(repoId, ulid),
     );
 
     const response = await this.s3.getObject({
