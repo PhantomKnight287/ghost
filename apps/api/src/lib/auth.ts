@@ -268,7 +268,10 @@ export function createAuth(db: Database, config: AuthConfig) {
     account: {
       encryptOAuthTokens: true,
       // GitHub is only ever linked by a signed-in user, whose GitHub address rarely matches; signing in with GitHub never attaches to an account by email.
-      accountLinking: { allowDifferentEmails: true, disableImplicitLinking: true },
+      accountLinking: {
+        allowDifferentEmails: true,
+        disableImplicitLinking: true,
+      },
     },
     hooks: { before: beforeAuthHooks(db), after: afterAuthHooks(db) },
     databaseHooks: {
