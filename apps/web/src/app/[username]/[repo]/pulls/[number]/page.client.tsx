@@ -162,7 +162,8 @@ export function MergePanel({
           </AlertTitle>
           <AlertDescription>
             {pullRefsBlocked} A fetch of <code>pull/{number}/head</code> or{" "}
-            <code>pull/{number}/merge</code> returns the last update that fit.
+            <code>pull/{number}/merge</code> gets the branch as of the last
+            update that fit, or fails if no update has fit yet.
           </AlertDescription>
         </Alert>
       )}
