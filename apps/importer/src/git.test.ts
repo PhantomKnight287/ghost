@@ -3,7 +3,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { credentialEnv, listRefs, presentCommits } from "./git.ts";
+import {
+  credentialEnv,
+  listRefs,
+  presentCommits,
+  pushBatches,
+} from "./git.ts";
 
 const never = new AbortController().signal;
 const dir = await mkdtemp(path.join(os.tmpdir(), "importer-git-test-"));
@@ -54,4 +59,20 @@ test("a failing git command reports its stderr", async () => {
   await expect(listRefs(path.join(dir, "missing"), never)).rejects.toThrow(
     /git -C .* for-each-ref .* exited with/,
   );
+});
+
+test("pushBatches sends branches and tags first and skips other refs", () => {
+  const refs = new Set([
+    "refs/pull/1/head",
+    "refs/pull/1/merge",
+    "refs/tags/v1",
+    "refs/pull/2/head",
+    "refs/heads/main",
+    "refs/notes/commits",
+  ]);
+  expect(pushBatches(refs, 2)).toEqual([
+    ["refs/heads/main", "refs/tags/v1"],
+    ["refs/pull/1/head", "refs/pull/2/head"],
+  ]);
+  expect(pushBatches(new Set())).toEqual([]);
 });
