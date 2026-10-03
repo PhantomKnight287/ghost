@@ -1,11 +1,18 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
 import { and, eq } from 'drizzle-orm';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { runGit, runGitStream } from '../../../lib/git/exec/run-git.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
-import { languageForPath } from '@ghost/languages';
+import {
+  LINGUIST_ATTRIBUTES,
+  type LinguistAttributes,
+  statsLanguage,
+} from '@ghost/languages';
 import { excluded } from '../../../utils/index.js';
 
 const INSERT_CHUNK = 1_000;
@@ -77,21 +84,22 @@ export class RepositoryLanguageService {
       state !== undefined &&
       (await this.isAncestor(repoDirectory, state.indexedCommitSha, tip));
 
-    const totals = incremental
+    const delta = incremental
       ? await this.applyDiff({
           repoDirectory,
           from: state!.indexedCommitSha,
           to: tip,
           totals: await this.readMap(repositoryId, ref),
         })
-      : await this.countTree(repoDirectory, tip);
+      : null;
+    const totals = delta ?? (await this.countTree(repoDirectory, tip));
 
     await this.forget(repositoryId, ref);
     await this.write(repositoryId, ref, tip, totals);
 
     this.logger.log(
       `Counted ${totals.size} languages for ${repositoryId} ${ref} (${
-        incremental ? `${state!.indexedCommitSha}..${tip}` : 'full recount'
+        delta ? `${state!.indexedCommitSha}..${tip}` : 'full recount'
       })`,
     );
 
@@ -99,7 +107,8 @@ export class RepositoryLanguageService {
   }
 
   private async countTree(repoDirectory: string, tip: string) {
-    const totals = new Map<string, number>();
+    // ponytail: every blob's path is held until the attributes are read; stream them through check-attr if trees outgrow memory
+    const files: { file: string; size: number }[] = [];
 
     const records = splitRecords(
       runGitStream({
@@ -116,7 +125,20 @@ export class RepositoryLanguageService {
       const [mode, type, , size] = record.slice(0, tab).trim().split(/\s+/);
       if (type !== 'blob' || SKIPPED_MODES.has(mode)) continue;
 
-      add(totals, record.slice(tab + 1), Number(size));
+      files.push({ file: record.slice(tab + 1), size: Number(size) });
+    }
+
+    const attributes = files.some(({ file }) => isGitAttributes(file))
+      ? await readAttributes(
+          repoDirectory,
+          tip,
+          files.map(({ file }) => file),
+        )
+      : new Map<string, LinguistAttributes>();
+
+    const totals = new Map<string, number>();
+    for (const { file, size } of files) {
+      add(totals, file, size, attributes.get(file));
     }
 
     return totals;
@@ -132,8 +154,19 @@ export class RepositoryLanguageService {
     from: string;
     to: string;
     totals: Map<string, number>;
-  }) {
+  }): Promise<Map<string, number> | null> {
     const changes = await readRawDiff(repoDirectory, from, to);
+
+    const files = changes.flatMap(({ before, after }) =>
+      [before?.path, after?.path].filter((file): file is string =>
+        Boolean(file),
+      ),
+    );
+    // a changed .gitattributes can move any file in or out of the stats, so the stored totals no longer apply
+    if (files.some(isGitAttributes)) return null;
+
+    // .gitattributes is the same at both ends, so `to` decides for the old paths too
+    const attributes = await readAttributes(repoDirectory, to, files);
     const sizes = await this.sizesOf(
       repoDirectory,
       changes.flatMap(({ before, after }) =>
@@ -142,8 +175,22 @@ export class RepositoryLanguageService {
     );
 
     for (const { before, after } of changes) {
-      if (before) add(totals, before.path, -(sizes.get(before.oid) ?? 0));
-      if (after) add(totals, after.path, sizes.get(after.oid) ?? 0);
+      if (before) {
+        add(
+          totals,
+          before.path,
+          -(sizes.get(before.oid) ?? 0),
+          attributes.get(before.path),
+        );
+      }
+      if (after) {
+        add(
+          totals,
+          after.path,
+          sizes.get(after.oid) ?? 0,
+          attributes.get(after.path),
+        );
+      }
     }
 
     // a size git no longer agrees with would otherwise drift negative forever
@@ -332,7 +379,7 @@ function isCounted(mode: string, oid: string) {
   return !SKIPPED_MODES.has(mode) && !/^0+$/.test(oid);
 }
 
-/** NUL-terminated records, streamed, so a large tree is never held whole. */
+/** NUL-terminated records, parsed as git streams them. */
 async function* splitRecords(chunks: AsyncIterable<string>) {
   let carry = '';
 
@@ -346,8 +393,58 @@ async function* splitRecords(chunks: AsyncIterable<string>) {
   if (carry) yield carry;
 }
 
-function add(totals: Map<string, number>, path: string, bytes: number) {
-  const language = languageForPath(path);
+function isGitAttributes(file: string) {
+  return file === '.gitattributes' || file.endsWith('/.gitattributes');
+}
+
+/**
+ * Each path's linguist attributes as the `.gitattributes` files in `tree` assign them; paths with none are left out.
+ *
+ * Read through a throwaway index, which works in a bare repository and on git older than 2.40's `check-attr --source`.
+ */
+async function readAttributes(
+  gitDir: string,
+  tree: string,
+  files: string[],
+): Promise<Map<string, LinguistAttributes>> {
+  const attributes = new Map<string, LinguistAttributes>();
+  if (files.length === 0) return attributes;
+
+  const directory = await mkdtemp(path.join(tmpdir(), 'ghost-attributes-'));
+  try {
+    const env = { GIT_INDEX_FILE: path.join(directory, 'index') };
+    await runGit({ args: ['read-tree', tree], gitDir, env });
+    const output = await runGit({
+      args: ['check-attr', '--cached', '-z', '--stdin', ...LINGUIST_ATTRIBUTES],
+      gitDir,
+      env,
+      input: Buffer.from(files.map((file) => `${file}\0`).join('')),
+    });
+
+    // "<path>\0<attribute>\0<value>\0" for every path and attribute asked for
+    const fields = output.split('\0');
+    for (let i = 0; i + 2 < fields.length; i += 3) {
+      const [file, name, value] = fields.slice(i, i + 3);
+      if (value === 'unspecified') continue;
+      attributes.set(file, {
+        ...attributes.get(file),
+        [name]: value,
+      });
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+
+  return attributes;
+}
+
+function add(
+  totals: Map<string, number>,
+  path: string,
+  bytes: number,
+  attributes?: LinguistAttributes,
+) {
+  const language = statsLanguage(path, attributes);
   if (!language || !Number.isFinite(bytes)) return;
   totals.set(language, (totals.get(language) ?? 0) + bytes);
 }

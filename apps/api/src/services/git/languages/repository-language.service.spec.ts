@@ -186,6 +186,57 @@ describe.skipIf(!CONNECTION)('RepositoryLanguageService', () => {
     expect(after).toEqual(before);
   });
 
+  it('leaves out data, prose, vendored, documentation and generated files', async () => {
+    commit('src/a.ts', 'x'.repeat(30), 'add a');
+    commit('src/schema.json', 'j'.repeat(900), 'add data');
+    commit('db/0001.sql', 's'.repeat(900), 'add data');
+    commit('notes.md', 'm'.repeat(900), 'add prose');
+    commit('src/api.d.ts', 'd'.repeat(900), 'add vendored');
+    commit('docs/guide.ts', 'g'.repeat(900), 'add documentation');
+    commit('package-lock.json', 'l'.repeat(900), 'add generated');
+    commit('src/post.mdx', 'p'.repeat(5), 'add markup');
+
+    expect(await languages()).toEqual([
+      { language: 'TypeScript', bytes: 30 },
+      { language: 'MDX', bytes: 5 },
+    ]);
+  });
+
+  it('follows the linguist overrides in .gitattributes', async () => {
+    commit(
+      '.gitattributes',
+      [
+        '*.sql linguist-detectable',
+        'src/gen/** linguist-generated',
+        'docs/** -linguist-documentation',
+        '*.inc linguist-language=bash',
+      ].join('\n'),
+      'add attributes',
+    );
+    commit('db/a.sql', 's'.repeat(20), 'add sql');
+    commit('bin/run.inc', 'b'.repeat(5), 'add shell under another extension');
+    commit('src/gen/client.ts', 'x'.repeat(900), 'add generated');
+    commit('docs/site.ts', 'x'.repeat(30), 'add docs that count');
+
+    expect(await languages()).toEqual([
+      { language: 'TypeScript', bytes: 30 },
+      { language: 'SQL', bytes: 20 },
+      { language: 'Shell', bytes: 5 },
+    ]);
+  });
+
+  it('applies the attributes to a fast-forward, and recounts when they change', async () => {
+    commit('.gitattributes', 'src/gen/** linguist-generated', 'add attributes');
+    commit('src/a.ts', 'x'.repeat(30), 'add a');
+    await languages();
+
+    commit('src/gen/client.ts', 'x'.repeat(900), 'add generated');
+    expect(await bytesOf('TypeScript')).toBe(30);
+
+    commit('.gitattributes', '', 'stop marking it generated');
+    expect(await bytesOf('TypeScript')).toBe(930);
+  });
+
   it('skips symlinks', async () => {
     commit('src/a.ts', 'x'.repeat(30), 'add a');
     execFileSync('ln', ['-s', 'a.ts', path.join(root, 'src/link.ts')]);
