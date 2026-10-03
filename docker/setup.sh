@@ -142,6 +142,7 @@ if [[ -z ${COMMIT_SIGNING_KEY:-} ]]; then
   echo "Generating a commit signing key..."
   COMMIT_SIGNING_KEY=$(docker run --rm alpine:3 sh -c \
     'apk add -q gnupg >/dev/null && gpg -q --batch --pinentry-mode loopback --passphrase "" --quick-gen-key Ghost ed25519 sign never 2>/dev/null && gpg --armor --export-secret-keys | base64 -w0')
+  [[ -n $COMMIT_SIGNING_KEY ]] || die "Could not generate a commit signing key."
 fi
 
 for v in MAIL_PASSWORD EMAIL_PROXY_SECRET S3_SECRET_ACCESS_KEY EMAIL_SENDER GITHUB_CLIENT_SECRET; do
