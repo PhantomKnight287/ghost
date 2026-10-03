@@ -136,7 +136,7 @@ describe.skipIf(!CONNECTION)('pull request ref bytes', () => {
 
     await expect(
       quotaWith({ PULL_REF_MAX_BYTES: '1kb' }).reservePullRefWrite(
-        AUTHOR,
+        { authorId: AUTHOR, state: 'open' },
         1025,
         write,
       ),
@@ -150,7 +150,7 @@ describe.skipIf(!CONNECTION)('pull request ref bytes', () => {
 
     await expect(
       quotaWith({ PULL_REF_UNMERGED_MAX_BYTES: '1000' }).reservePullRefWrite(
-        AUTHOR,
+        { authorId: AUTHOR, state: 'open' },
         101,
         write,
       ),
@@ -166,8 +166,32 @@ describe.skipIf(!CONNECTION)('pull request ref bytes', () => {
       await quotaWith({
         PULL_REF_MAX_BYTES: '1000',
         PULL_REF_UNMERGED_MAX_BYTES: '1000',
-      }).reservePullRefWrite(AUTHOR, 1000, write),
+      }).reservePullRefWrite({ authorId: AUTHOR, state: 'open' }, 1000, write),
     ).toBe('written');
+  });
+
+  it('never counts a merged request against its author, but still holds it to PULL_REF_MAX_BYTES', async () => {
+    await requestHolding('open', 1000);
+    const quota = quotaWith({
+      PULL_REF_MAX_BYTES: '500',
+      PULL_REF_UNMERGED_MAX_BYTES: '1000',
+    });
+    const write = vi.fn().mockResolvedValue('written');
+
+    expect(
+      await quota.reservePullRefWrite(
+        { authorId: AUTHOR, state: 'merged' },
+        500,
+        write,
+      ),
+    ).toBe('written');
+    await expect(
+      quota.reservePullRefWrite(
+        { authorId: AUTHOR, state: 'merged' },
+        501,
+        write,
+      ),
+    ).rejects.toBeInstanceOf(PullRefWriteTooLargeError);
   });
 
   it('lets a merge through while the account has any room left, however much the request holds', async () => {

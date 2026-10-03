@@ -22,6 +22,8 @@ import {
   UnmergedPullRefQuotaExceededError,
 } from '../../lib/storage/storage.errors.js';
 
+type PullRequestState = (typeof schema.pullRequestState.enumValues)[number];
+
 /** How long an `uploading` reservation counts before it is taken for an upload that died with its process. */
 const RESERVATION_TTL = sql`interval '1 day'`;
 
@@ -128,9 +130,9 @@ export class StorageQuotaService {
     return Number(row?.used ?? 0);
   }
 
-  /** Runs `write`, which must commit the entry and record its row, only if neither pull ref limit refuses `bytes`. Writes for one author are serialized, so two syncs cannot both fit into the last free space. */
+  /** Runs `write`, which must commit the entry and record its row, only if neither pull ref limit refuses `bytes`. A merged request's bytes bill its base account, so only the per-write limit applies to it. Writes for one author are serialized, so two syncs cannot both fit into the last free space. */
   async reservePullRefWrite<T>(
-    authorId: string,
+    { authorId, state }: { authorId: string; state: PullRequestState },
     bytes: number,
     write: (tx: Executor) => Promise<T>,
   ) {
@@ -142,7 +144,7 @@ export class StorageQuotaService {
     }
     return this.db.transaction(async (tx) => {
       const limit = this.maxUnmergedPullRefBytes;
-      if (limit !== null) {
+      if (limit !== null && state !== 'merged') {
         await tx.execute(
           sql`select pg_advisory_xact_lock(hashtext(${`pull-refs:${authorId}`}))`,
         );

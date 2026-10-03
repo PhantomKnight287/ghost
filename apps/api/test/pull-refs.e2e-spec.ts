@@ -387,14 +387,14 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
             throw error;
           });
         } else {
-          reservation.mockImplementationOnce(async (author, bytes, write) => {
+          reservation.mockImplementationOnce(async (request, bytes, write) => {
             if (failure === 'accounting rollback') {
-              return reserve(author, bytes, async (tx) => {
+              return reserve(request, bytes, async (tx) => {
                 await write(tx);
                 throw error;
               });
             }
-            await reserve(author, bytes, write);
+            await reserve(request, bytes, write);
             throw error;
           });
         }
@@ -462,14 +462,14 @@ describe.skipIf(!hasBackends)('refs/pull/<n>/head and /merge', () => {
     let intents = -1;
     const reservation = vi
       .spyOn(quota, 'reservePullRefWrite')
-      .mockImplementationOnce(async (author, bytes, write) => {
+      .mockImplementationOnce(async (request, bytes, write) => {
         intents = (
           await db
             .select()
             .from(schema.pullRequestRefWritePending)
             .where(eq(schema.pullRequestRefWritePending.pullRequestId, pull.id))
         ).length;
-        return reserve(author, bytes, write);
+        return reserve(request, bytes, write);
       });
     try {
       commit('feature', 'ordering.txt', 'intent first\n');

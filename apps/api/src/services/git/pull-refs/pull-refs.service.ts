@@ -228,7 +228,7 @@ export class PullRefsService {
         .insert(schema.pullRequestRefWritePending)
         .values({ id: ulid, pullRequestId });
       await this.quota
-        .reservePullRefWrite(pullRequest.authorId, pack.size, async (tx) => {
+        .reservePullRefWrite(pullRequest, pack.size, async (tx) => {
           await this.pushTransaction.commitPush({
             ulid,
             repoId: pullRequest.baseRepositoryId,
