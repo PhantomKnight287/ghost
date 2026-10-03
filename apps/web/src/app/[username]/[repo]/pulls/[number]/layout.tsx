@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { EditableField } from "@/components/issues/editable-field";
+import { CheckoutPopover } from "@/components/pull-requests/checkout-popover";
 import { branchLabel } from "@/components/pull-requests/common";
 import {
   ThreadSubscription,
@@ -133,7 +134,12 @@ export default async function PullRequestLayout({
             · opened <FromNowHoverCard date={pull.data.createdAt} />
           </span>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <CheckoutPopover
+              username={username}
+              repo={repo}
+              number={pull.data.number}
+            />
             <Suspense fallback={<ThreadSubscriptionSkeleton />}>
               <ThreadSubscription
                 username={username}
