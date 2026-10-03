@@ -88,6 +88,15 @@ railway config pull
 
 `PORT` is injected by Railway and the server prefers it over `API_PORT`.
 
+### Commit signing
+
+Merges, squashes, rebases and applied suggestions go out unsigned until `COMMIT_SIGNING_KEY` is set on the `api` service. Generate the key once and keep it: Ghost trusts only the current key, so replacing it unverifies every commit the old one signed.
+
+```bash
+gpg --batch --pinentry-mode loopback --passphrase '' --quick-gen-key Ghost ed25519 sign never
+gpg --armor --export-secret-keys Ghost | base64 | tr -d '\n'
+```
+
 ### SSH
 
 The git SSH transport is off until `GIT_SSH_HOST_KEY` is set, so a deployment

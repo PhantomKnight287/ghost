@@ -157,7 +157,6 @@ export class CommitVerificationService {
   /** Keys of the platforms that sign their own commits, by every key id they can sign under. */
   private platformKeysById(): Promise<Map<string, PlatformKey>> {
     this.platformKeys ??= (async () => {
-      // ponytail: only the current Ghost key is trusted, so rotating it unverifies what the old one signed. Keep retired public keys here if a rotation happens.
       const platforms = [
         { signer: 'GitHub', armoredKey: GITHUB_WEB_FLOW_KEYS },
         ...(this.signing.publicKey

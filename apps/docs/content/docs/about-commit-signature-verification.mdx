@@ -21,7 +21,7 @@ states:
 
 | Badge | Meaning |
 | --- | --- |
-| **Verified** | The signature is valid, the key that made it has been uploaded to a Ghost account, and the commit's author address is one that account has verified. |
+| **Verified** | The signature is valid, the key that made it has been uploaded to a Ghost account, and the commit's author address is one that account has verified. Or the commit was signed by Ghost or GitHub itself; see below. |
 | **Unverified** | The commit is signed, but something in that chain does not hold. Hover the badge for the reason. |
 | *No badge* | The commit carries no signature at all. This is the ordinary case and is not a warning. |
 
@@ -41,6 +41,24 @@ Three separate things have to be true, and the badge tells you which one failed:
   [Email addresses and keys](/email-addresses-and-keys).
 - **"Signature does not match the commit"** — the commit was altered after it
   was signed, or the signature belongs to different content.
+
+## Commits signed by Ghost or GitHub
+
+Some commits are written by the platform rather than by a person, and the
+platform signs them with its own key:
+
+- **Ghost** signs the commits it writes for you: merging, squashing or rebasing
+  a pull request from the web, and applying a review suggestion. The badge
+  reads "Signed by Ghost". This needs the instance to have a signing key; see
+  [Secrets](/self-hosting-configuration#secrets).
+- **GitHub** signs the commits it wrote the same way, so the merge commits in
+  a repository imported from GitHub read "Signed by GitHub". Both of GitHub's
+  [published keys](https://github.com/web-flow.gpg) are trusted, including the
+  one that expired in January 2024.
+
+The author address is not checked for these. The commit is credited to whoever
+merged or authored the change, and the signature vouches that the platform
+wrote it on their behalf, not that the author holds a key.
 
 ## Checks that happen when you upload, not when you read
 
@@ -63,8 +81,7 @@ them against.
   commit shows no badge, exactly like an unsigned one.
 - **Tag signatures are not shown.** Signing tags still works and is still worth
   doing; Ghost just does not surface a badge for them yet.
-- **Merge commits Ghost creates are unsigned.** When you merge a pull request
-  from the web, the merge commit is made on the server with no key, so it
-  carries no badge.
+- **No signing key, no signature.** An instance without a signing key writes
+  its merge commits unsigned, and they carry no badge.
 - **Nothing is enforced.** Unsigned commits push and merge normally. There is
   no branch protection rule requiring signatures.

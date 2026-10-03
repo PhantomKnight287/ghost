@@ -53,8 +53,8 @@ The script asks:
    callback URL the app needs. See
    [GitHub imports](/self-hosting-configuration#github-imports).
 6. **Secrets.** Press enter at each one and the script generates it: the auth
-   secret, the webhook encryption key, the SSH host key, and the database and
-   storage passwords.
+   secret, the webhook encryption key, the SSH host key, the commit signing
+   key, and the database and storage passwords.
 
 The first build takes several minutes. When it is done, the script prints the
 addresses:
@@ -103,8 +103,8 @@ migrations run before the API starts.
 
 Everything that matters is in two places:
 
-- `docker/.env`: every secret. Without it, sign-ins, webhook secrets and the
-  SSH host key are lost.
+- `docker/.env`: every secret. Without it, sign-ins, webhook secrets, the
+  SSH host key and the commit signing key are lost.
 - The `ghost-server_postgres` volume, and the bucket (`ghost-server_rustfs` when you use the
   bundled storage).
 

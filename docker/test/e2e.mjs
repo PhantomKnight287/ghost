@@ -274,6 +274,9 @@ try {
     git(local, 'fetch', '-q', 'origin');
     const files = git(local, 'ls-tree', '--name-only', 'origin/main');
     assert(files.includes('feature.txt'), `main after merge: ${files}`);
+    const merge = git(local, 'rev-parse', 'origin/main');
+    const { json: commit } = await call('GET', `/api/repositories/${username}/hello/commits/${merge}`);
+    assert(commit.verification?.verified, `merge commit verification: ${JSON.stringify(commit.verification)}`);
   });
 
   await step('create an organization and a repository in it', async () => {
