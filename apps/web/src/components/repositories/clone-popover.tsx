@@ -35,33 +35,45 @@ export function ClonePopover({
       </PopoverTrigger>
 
       <PopoverContent align="end" className="w-80">
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold">Clone</p>
-          <CloneTransports
-            http={
-              <>
-                <CloneUrlField cloneUrl={cloneUrl} />
-                <p className="text-xs text-muted-foreground">
-                  The password is a personal access token from account settings,
-                  not your login password.
-                </p>
-              </>
-            }
-            ssh={
-              sshCloneUrl && (
-                <>
-                  <CloneUrlField cloneUrl={sshCloneUrl} />
-                  <p className="text-xs text-muted-foreground">
-                    Needs an SSH key on your account. Log in as <code>git</code>
-                    ; the key says who you are.
-                  </p>
-                </>
-              )
-            }
-          />
-        </div>
+        <CloneSection cloneUrl={cloneUrl} sshCloneUrl={sshCloneUrl} />
       </PopoverContent>
     </Popover>
+  );
+}
+
+export function CloneSection({
+  cloneUrl,
+  sshCloneUrl,
+}: {
+  cloneUrl: string;
+  sshCloneUrl?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-semibold">Clone</p>
+      <CloneTransports
+        http={
+          <>
+            <CloneUrlField cloneUrl={cloneUrl} />
+            <p className="text-xs text-muted-foreground">
+              The password is a personal access token from account settings, not
+              your login password.
+            </p>
+          </>
+        }
+        ssh={
+          sshCloneUrl && (
+            <>
+              <CloneUrlField cloneUrl={sshCloneUrl} />
+              <p className="text-xs text-muted-foreground">
+                Needs an SSH key on your account. Log in as <code>git</code>;
+                the key says who you are.
+              </p>
+            </>
+          )
+        }
+      />
+    </div>
   );
 }
 
@@ -92,17 +104,7 @@ export function CloneTransports({
 }
 
 export function CloneUrlField({ cloneUrl }: { cloneUrl: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(cloneUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Could not copy the clone URL.");
-    }
-  }
+  const { copied, copy } = useCopy(cloneUrl, "Could not copy the clone URL.");
 
   return (
     <InputGroup>
@@ -118,4 +120,43 @@ export function CloneUrlField({ cloneUrl }: { cloneUrl: string }) {
       </InputGroupAddon>
     </InputGroup>
   );
+}
+
+/** Shell commands in one block, copied together. */
+export function CommandsField({ commands }: { commands: string[] }) {
+  const text = commands.join("\n");
+  const { copied, copy } = useCopy(text, "Could not copy the commands.");
+
+  return (
+    <div className="relative">
+      <pre className="overflow-x-auto rounded-md border bg-muted/40 p-3 pr-10 text-xs leading-relaxed">
+        <code>{text}</code>
+      </pre>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Copy commands"
+        className="absolute top-2 right-2"
+        onClick={copy}
+      >
+        {copied ? <Check /> : <Copy />}
+      </Button>
+    </div>
+  );
+}
+
+function useCopy(text: string, failure: string) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error(failure);
+    }
+  }
+
+  return { copied, copy };
 }
