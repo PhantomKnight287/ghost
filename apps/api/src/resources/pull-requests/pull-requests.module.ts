@@ -4,6 +4,7 @@ import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { UsersService } from '../../services/users/users.service.js';
@@ -26,6 +27,7 @@ import { ReviewsService } from './reviews.service.js';
     PushTransactionService,
     WalStoreService,
     S3Service,
+    CommitSigningService,
     CommitVerificationService,
   ],
 })

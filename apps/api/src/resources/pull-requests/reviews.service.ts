@@ -22,6 +22,7 @@ import {
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { isoTimestamp } from '../../utils/index.js';
@@ -69,6 +70,7 @@ export class ReviewsService {
     private readonly users: UsersService,
     private readonly pushTransaction: PushTransactionService,
     private readonly pullRefs: PullRefsService,
+    private readonly signing: CommitSigningService,
   ) {}
 
   /** Submits the requester's pending review, or a new one, together with any further line comments. */
@@ -526,6 +528,7 @@ export class ReviewsService {
       ),
       message: `Apply suggestion from ${comment.authorUsername || 'code review'}\n`,
       author: { name: author.name, email: author.email },
+      sign: this.signing.signer,
     });
 
     const directory = await mkdtemp(path.join(tmpdir(), 'ghost-suggestion-'));

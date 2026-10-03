@@ -2,8 +2,10 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import * as openpgp from 'openpgp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
+import { signPayload, verifySignature } from '../../gpg/openpgp.js';
+import { readSignedCommits } from '../commits/commit-signature.js';
 import {
   commitTree,
   mergeTree,
@@ -289,5 +291,47 @@ describe('merging across two repositories', () => {
         committer: { name: 'Merger', email: 'merger@example.com' },
       }),
     ).toEqual({ clean: false, conflicts: ['clash.txt'] });
+  });
+});
+
+describe('commitTree with a signer', () => {
+  it('writes a commit git accepts, signed over its own bytes', async () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'ghost-sign-'));
+    const gitDir = path.join(root, 'repo.git');
+    execFileSync('git', ['init', '-q', '--bare', gitDir]);
+    const { privateKey, publicKey } = await openpgp.generateKey({
+      userIDs: [{ name: 'Ghost', email: 'noreply@ghost.local' }],
+      format: 'armored',
+    });
+    const signingKey = await openpgp.readPrivateKey({ armoredKey: privateKey });
+
+    try {
+      const sha = await commitTree({
+        gitDir,
+        // git's empty tree, which every repository can name without holding it
+        tree: '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
+        parents: [],
+        message: 'signed by the platform\n',
+        author: { name: 'Test', email: 'test@example.com' },
+        sign: (payload) => signPayload({ payload, privateKey: signingKey }),
+      });
+
+      execFileSync('git', ['fsck', '--no-progress', '--strict'], {
+        env: { ...process.env, GIT_DIR: gitDir },
+      });
+      const signed = (await readSignedCommits({ gitDir, shas: [sha] })).get(
+        sha,
+      );
+      expect(signed?.payload).toContain('signed by the platform');
+      await expect(
+        verifySignature({
+          payload: signed!.payload,
+          armoredSignature: signed!.signature,
+          armoredKey: publicKey,
+        }),
+      ).resolves.toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -78,6 +78,7 @@ export default defineRailway(() => {
       AUTH_COOKIE_DOMAIN: preserve(),
       AUTH_TRUSTED_ORIGINS: preserve(),
       BETTER_AUTH_SECRET: preserve(),
+      COMMIT_SIGNING_KEY: preserve(),
       BETTER_AUTH_URL: preserve(),
       DATABASE_URL: preserve(),
       EMAIL_PROXY: preserve(),

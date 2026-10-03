@@ -124,10 +124,12 @@ fi
 
 say "Secrets (press enter to generate)"
 # Existing ones are kept: a new auth secret signs everyone out, a new webhook key
-# makes every stored webhook secret unreadable, a new host key warns every client.
+# makes every stored webhook secret unreadable, a new host key warns every client,
+# a new signing key unverifies every merge commit the old one signed.
 [[ -n ${BETTER_AUTH_SECRET:-} ]] || ask_secret BETTER_AUTH_SECRET "BETTER_AUTH_SECRET"
 [[ -n ${WEBHOOK_SECRET_KEY:-} ]] || ask_secret WEBHOOK_SECRET_KEY "WEBHOOK_SECRET_KEY (32 bytes, base64)"
 [[ -n ${GIT_SSH_HOST_KEY:-} ]] || ask_secret GIT_SSH_HOST_KEY "GIT_SSH_HOST_KEY (base64 private key)"
+[[ -n ${COMMIT_SIGNING_KEY:-} ]] || ask_secret COMMIT_SIGNING_KEY "COMMIT_SIGNING_KEY (base64 armored OpenPGP private key)"
 BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-$(random 32)}
 WEBHOOK_SECRET_KEY=${WEBHOOK_SECRET_KEY:-$(random 32)}
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-$(hex 24)}
@@ -135,6 +137,12 @@ if [[ -z ${GIT_SSH_HOST_KEY:-} ]]; then
   echo "Generating an SSH host key..."
   GIT_SSH_HOST_KEY=$(docker run --rm alpine:3 sh -c \
     'apk add -q openssh-keygen >/dev/null && ssh-keygen -q -t ed25519 -N "" -C ghost -f /k && base64 -w0 /k')
+fi
+if [[ -z ${COMMIT_SIGNING_KEY:-} ]]; then
+  echo "Generating a commit signing key..."
+  COMMIT_SIGNING_KEY=$(docker run --rm alpine:3 sh -c \
+    'apk add -q gnupg >/dev/null && gpg -q --batch --pinentry-mode loopback --passphrase "" --quick-gen-key Ghost ed25519 sign never 2>/dev/null && gpg --armor --export-secret-keys | base64 -w0')
+  [[ -n $COMMIT_SIGNING_KEY ]] || die "Could not generate a commit signing key."
 fi
 
 for v in MAIL_PASSWORD EMAIL_PROXY_SECRET S3_SECRET_ACCESS_KEY EMAIL_SENDER GITHUB_CLIENT_SECRET; do
@@ -147,7 +155,7 @@ umask 077
   echo "# Written by setup.sh. Re-run it to change answers, or edit and run: docker compose up -d --build"
   for v in COMPOSE_PROFILES DOMAIN WEB_APP_URL API_URL DOCS_URL SSH_CLONE_HOST \
     POSTGRES_PASSWORD BETTER_AUTH_SECRET AUTH_COOKIE_DOMAIN WEBHOOK_SECRET_KEY \
-    GIT_SSH_HOST_KEY GIT_SSH_PORT S3_ENDPOINT S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY \
+    GIT_SSH_HOST_KEY COMMIT_SIGNING_KEY GIT_SSH_PORT S3_ENDPOINT S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY \
     EMAIL_SENDER EMAIL_VERIFICATION_ENABLED EMAIL_PROXY EMAIL_PROXY_SECRET DELIVERY_EMAIL \
     MAIL_HOST MAIL_PORT MAIL_SECURE MAIL_USER MAIL_PASSWORD \
     GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET IMPORTER_URL IMPORTER_SECRET; do

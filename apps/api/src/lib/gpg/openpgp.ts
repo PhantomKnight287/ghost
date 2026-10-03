@@ -46,8 +46,53 @@ export async function signingKeyIds(
     .map((keyId) => keyId.toHex().toLowerCase());
 }
 
+/** Long key ids of every key and subkey in an armored block, lowercase hex. */
+export async function publicKeyIds(armoredKeys: string): Promise<string[]> {
+  const keys = await openpgp.readKeys({ armoredKeys });
+  return keys.flatMap((key) =>
+    [key, ...key.getSubkeys()].map((part) =>
+      part.getKeyID().toHex().toLowerCase(),
+    ),
+  );
+}
+
+export interface SigningKey {
+  privateKey: openpgp.PrivateKey;
+  /** The armored public half, for verifying what the key signs. */
+  publicKey: string;
+}
+
+/** Reads an armored private key that can sign without a passphrase, or throws saying why it cannot. */
+export async function readSigningKey(armoredKey: string): Promise<SigningKey> {
+  const privateKey = await openpgp.readPrivateKey({ armoredKey });
+  if (!privateKey.isDecrypted()) {
+    throw new Error(
+      'the signing key is passphrase-protected; export it without a passphrase',
+    );
+  }
+  return { privateKey, publicKey: privateKey.toPublic().armor() };
+}
+
+/** A detached armored signature over `payload`, made the way git signs a commit. */
+export async function signPayload({
+  payload,
+  privateKey,
+}: {
+  payload: string;
+  privateKey: openpgp.PrivateKey;
+}): Promise<string> {
+  return openpgp.sign({
+    message: await openpgp.createMessage({
+      binary: new Uint8Array(Buffer.from(payload, 'utf8')),
+    }),
+    signingKeys: privateKey,
+    detached: true,
+    format: 'armored',
+  });
+}
+
 /**
- * Whether `armoredKey` made this signature over this payload.
+ * Whether a key in `armoredKey` made this signature over this payload.
  *
  * The payload is verified as binary: git detach-signs the commit object with no canonicalisation, so anything that rewrote line endings would verify a different set of bytes than the ones git hashed.
  */
@@ -66,7 +111,7 @@ export async function verifySignature({
         binary: new Uint8Array(Buffer.from(payload, 'utf8')),
       }),
       signature: await openpgp.readSignature({ armoredSignature }),
-      verificationKeys: await openpgp.readKey({ armoredKey }),
+      verificationKeys: await openpgp.readKeys({ armoredKeys: armoredKey }),
       // An expired key that was valid when it signed is still proof of who signed, which is what a commit badge claims.
       expectSigned: false,
       config: { allowInsecureVerificationWithReformattedKeys: false },

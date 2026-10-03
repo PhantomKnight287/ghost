@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import type { CommitSigner } from '../commits/commit-signature.js';
 import { runGit } from '../exec/run-git.js';
 import { commitTree } from '../merge/merge.js';
 
@@ -13,6 +14,7 @@ export async function replaceFile({
   content,
   message,
   author,
+  sign,
 }: {
   gitDir: string;
   parent: string;
@@ -20,6 +22,7 @@ export async function replaceFile({
   content: Buffer;
   message: string;
   author: { name: string; email: string };
+  sign?: CommitSigner;
 }): Promise<string> {
   const listed = await runGit({
     args: ['ls-tree', '--full-tree', parent, '--', file],
@@ -50,6 +53,7 @@ export async function replaceFile({
       parents: [parent],
       message,
       author,
+      sign,
     });
   } finally {
     await rm(directory, { recursive: true, force: true });

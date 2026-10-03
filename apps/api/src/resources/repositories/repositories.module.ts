@@ -13,6 +13,7 @@ import { S3Service } from '../../services/s3/s3.service.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 
@@ -31,6 +32,7 @@ import { CodeSearchService } from '../../services/git/code-search/code-search.se
     BranchesService,
     RepositoryAccessService,
     RepositoryContributionService,
+    CommitSigningService,
     CommitVerificationService,
   ],
   exports: [RepositoriesService],
