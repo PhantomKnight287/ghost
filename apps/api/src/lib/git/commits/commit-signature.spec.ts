@@ -105,6 +105,12 @@ describe('insertSignature', () => {
       SIGNED_COMMIT_OBJECT,
     );
   });
+
+  it('refuses an object with no end to its headers rather than corrupt it', () => {
+    expect(() =>
+      insertSignature('tree abc\nauthor A <a@b.c> 1 +0000', 'signature'),
+    ).toThrow('no blank line');
+  });
 });
 
 describe('readSignedCommits', () => {

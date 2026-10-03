@@ -110,6 +110,9 @@ export type CommitSigner = (payload: string) => Promise<string>;
 /** Puts `signature` into `payload` as its `gpgsig` header, the inverse of {@link splitSignature}. */
 export function insertSignature(payload: string, signature: string): string {
   const headersEnd = payload.indexOf('\n\n');
+  if (headersEnd === -1) {
+    throw new Error('commit object has no blank line ending its headers');
+  }
   const header = signature
     .trimEnd()
     .split('\n')
