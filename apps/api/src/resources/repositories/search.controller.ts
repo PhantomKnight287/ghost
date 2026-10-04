@@ -1,11 +1,13 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiOkResponse,
   ApiOperation,
   ApiServiceUnavailableResponse,
   ApiTags,
+  ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { OptionalAuth } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
@@ -38,6 +40,8 @@ export class SearchController {
   }
 
   @Get('code')
+  @UseGuards(ThrottlerGuard)
+  @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
   @OptionalAuth()
   @ApiOperation({
     summary: 'Search code',

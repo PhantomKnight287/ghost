@@ -9,11 +9,11 @@ import { splitRevision } from "@/lib/revision";
 
 import type { paths } from "@/lib/api/v1";
 
-/** What the API needs from the browser's request: its cookies, and the client address the proxy put in x-forwarded-for, which Better Auth rate-limits by. */
+/** What the API needs from the browser's request: its cookies, and the client address the proxy set (x-real-ip on Railway, x-forwarded-for behind Caddy), which Better Auth and code search rate-limit by. */
 async function forwardedHeaders(): Promise<Record<string, string>> {
   const incoming = await headers();
   const forwarded: Record<string, string> = {};
-  for (const name of ["cookie", "x-forwarded-for"]) {
+  for (const name of ["cookie", "x-forwarded-for", "x-real-ip"]) {
     const value = incoming.get(name);
     if (value) forwarded[name] = value;
   }
