@@ -245,4 +245,48 @@ describe.skipIf(!CONNECTION)('RepositoryPathIndexService', () => {
       );
     expect(rows).toEqual([]);
   });
+
+  describe('ensureIndexed', () => {
+    const ensureIndexed = () =>
+      service.ensureIndexed({ repositoryId, repoDirectory: gitDir, ref: REF });
+
+    it('is false and builds nothing when the ref does not exist', async () => {
+      expect(await ensureIndexed()).toBe(false);
+      expect(await rowsByPath()).toEqual(new Map());
+    });
+
+    it('builds a first index in the background, then answers true', async () => {
+      const first = commit('README.md', 'a', 'first commit');
+
+      expect(await ensureIndexed()).toBe(false);
+      // joins the walk the call above left running
+      await sync();
+
+      expect(await ensureIndexed()).toBe(true);
+      expect((await rowsByPath()).get('README.md')?.commitSha).toBe(first);
+    });
+
+    it('waits for a fast-forward top-up', async () => {
+      commit('README.md', 'a', 'first commit');
+      await sync();
+      const next = commit('src/x.ts', 'b', 'add x');
+
+      expect(await ensureIndexed()).toBe(true);
+      expect((await rowsByPath()).get('src/x.ts')?.commitSha).toBe(next);
+    });
+
+    it('rebuilds in the background after a force push', async () => {
+      const first = commit('README.md', 'a', 'first commit');
+      commit('gone.txt', 'b', 'add a file that will be discarded');
+      await sync();
+      git('reset', '-q', '--hard', first);
+      const replacement = commit('kept.txt', 'c', 'rewritten history');
+
+      expect(await ensureIndexed()).toBe(false);
+      await sync();
+
+      expect(await ensureIndexed()).toBe(true);
+      expect((await rowsByPath()).get('kept.txt')?.commitSha).toBe(replacement);
+    });
+  });
 });

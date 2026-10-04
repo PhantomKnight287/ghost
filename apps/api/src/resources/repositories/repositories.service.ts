@@ -1216,12 +1216,25 @@ export class RepositoriesService {
       ref: requestedRef,
     });
 
-    // a commit is a fixed point in history, so there is no moving tip to index
-    if (detached) {
-      const [entries, commitCount, commit] = await Promise.all([
+    // a commit is a fixed point in history, so there is no moving tip to index; a branch whose index is still being built reads the same way meanwhile
+    const indexed =
+      !detached &&
+      (await this.pathIndex.ensureIndexed({
+        repositoryId: repository.id,
+        repoDirectory: directory,
+        ref,
+      }));
+
+    if (!indexed) {
+      const commit = await readCommitSummary({ gitDir: directory, ref });
+      // No commit means the ref does not exist yet, i.e. nothing has been pushed.
+      if (!commit) {
+        return { ref, path: prefix, commitCount: 0, commit: null, entries: [] };
+      }
+
+      const [entries, commitCount] = await Promise.all([
         listTree({ gitDir: directory, ref, prefix }),
         this.countCommits({ directory, range: ref }),
-        readCommitSummary({ gitDir: directory, ref }),
       ]);
 
       return {
@@ -1232,17 +1245,6 @@ export class RepositoriesService {
         // per-entry history would be one walk per path, which only the index makes cheap; a point-in-time listing does without it
         entries: entries.map((entry) => ({ ...entry, lastCommit: null })),
       };
-    }
-
-    const tip = await this.pathIndex.sync({
-      repositoryId: repository.id,
-      repoDirectory: directory,
-      ref,
-    });
-
-    // No tip means the ref does not exist yet, i.e. nothing has been pushed.
-    if (!tip) {
-      return { ref, path: prefix, commitCount: 0, commit: null, entries: [] };
     }
 
     const [entries, commitCount] = await Promise.all([
@@ -1293,25 +1295,25 @@ export class RepositoriesService {
     const blob = await readBlob({ gitDir: directory, ref, path: filePath });
     if (!blob) throw new BlobNotFoundError(filePath);
 
-    // one file is one history walk, cheap enough to skip the index for
-    const lastCommit = detached
-      ? await readCommitSummary({ gitDir: directory, ref, path: filePath })
-      : null;
-
-    if (!detached) {
-      await this.pathIndex.sync({
+    const indexed =
+      !detached &&
+      (await this.pathIndex.ensureIndexed({
         repositoryId: repository.id,
         repoDirectory: directory,
         ref,
-      });
-    }
-    const commits = detached
-      ? new Map()
-      : await this.pathIndex.lookup({
+      }));
+
+    // one file is one history walk, cheap enough to skip the index for
+    const lastCommit = indexed
+      ? null
+      : await readCommitSummary({ gitDir: directory, ref, path: filePath });
+    const commits = indexed
+      ? await this.pathIndex.lookup({
           repositoryId: repository.id,
           ref,
           paths: [filePath],
-        });
+        })
+      : new Map();
 
     const text = isTextBlob(blob.content);
 
@@ -1931,11 +1933,14 @@ export class RepositoriesService {
       repoDirectory: directory,
     });
 
-    // Keep the contribution index warm while the objects are hot. The profile graph reads the index only, so rendering it never materializes anything itself. A no-op once the default tip is indexed.
-    await this.contributions.sync({
-      repositoryId: repository.id,
-      repoDirectory: directory,
-    });
+    // Keep the contribution index warm while the objects are hot. The profile graph reads the index only, so rendering it never materializes anything itself. Not awaited: a first build walks the whole history, and the contributors list may show what is indexed so far until it lands.
+    this.contributions
+      .sync({ repositoryId: repository.id, repoDirectory: directory })
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Contribution index update failed for ${repository.id}: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
 
     const name = requested?.trim();
     if (!name) {
