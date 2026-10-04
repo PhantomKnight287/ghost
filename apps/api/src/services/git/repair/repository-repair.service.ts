@@ -275,9 +275,11 @@ export class RepositoryRepairService {
   /** The refs whose history the scratch repository cannot walk in full. */
   private async unreachable(scratch: string, refs: Map<string, Buffer>) {
     const walks = (oids: string[]) =>
+      // on stdin: thousands of refs overflow argv, and that failure would read as a broken walk
       runGit({
-        args: ['rev-list', '--objects', '--quiet', ...oids],
+        args: ['rev-list', '--objects', '--quiet', '--stdin'],
         gitDir: scratch,
+        input: Buffer.from(`${oids.join('\n')}\n`),
       }).then(
         () => true,
         () => false,
@@ -305,9 +307,10 @@ export class RepositoryRepairService {
         '--objects',
         '--missing=allow-any',
         '--ignore-missing',
-        ...oids,
+        '--stdin',
       ],
       gitDir: scratch,
+      input: Buffer.from(`${oids.join('\n')}\n`),
       env: { GIT_ALTERNATE_OBJECT_DIRECTORIES: path.join(cache, 'objects') },
     });
     const candidates = reachable

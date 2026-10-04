@@ -1,14 +1,14 @@
+import { once } from 'node:events';
 import { mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 
 import { GitCommandFailedError } from '../exec/exec.errors.js';
-import { runGit } from '../exec/run-git.js';
-import { OID_LENGTH, type RefTransition, ZERO_OID } from '../wal/wal.types.js';
+import { runGit, runGitStream } from '../exec/run-git.js';
+import { type RefTransition, ZERO_OID } from '../wal/wal.types.js';
 import { fileBody, type GitRequestBody } from './git-request-body.js';
 import { PushRejectedError } from './protocol.errors.js';
-
-const OID_HEX_LENGTH = OID_LENGTH * 2;
 
 /**
  * Proves a push can be replayed by a node holding only the log, then hands `commit` the pack the log should store (0034).
@@ -99,41 +99,81 @@ async function verifyRefs({
     }
   }
 
-  // ponytail: holds the name of every new object in memory. Stream it into cat-file if pushes of millions of objects show up.
-  const reached = (
-    await runGit({
-      args: ['rev-list', '--objects', ...oids, '--not', '--all'],
-      gitDir,
-      env,
-    }).catch(refuse('the push does not carry every object its refs reach'))
-  )
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => line.slice(0, OID_HEX_LENGTH));
-  if (reached.length === 0) return;
-
+  // Streamed end to end: an import's first push reaches millions of objects, whose names alone run to gigabytes as strings.
+  const reached = runGitStream({
+    // The tips on stdin: an import pushes tens of thousands of refs, past what argv can carry (E2BIG). `--stdin` reads them where it stands, so they stay wanted and only `--all` is negated.
+    args: [
+      'rev-list',
+      '--objects',
+      '--no-object-names',
+      '--stdin',
+      '--not',
+      '--all',
+    ],
+    gitDir,
+    env,
+    input: Buffer.from(`${oids.join('\n')}\n`),
+  });
   // The cache holds objects the log does not, such as the trees merge-tree writes, so an object only it holds cannot satisfy a ref.
-  const missing = quarantine
-    ? (
-        await runGit({
-          args: ['cat-file', '--batch-check=%(objectname) %(objecttype)'],
-          gitDir,
-          env: {
-            GIT_OBJECT_DIRECTORY: quarantine,
-            GIT_ALTERNATE_OBJECT_DIRECTORIES: '',
-          },
-          input: Buffer.from(`${reached.join('\n')}\n`),
-        })
-      )
-        .trim()
-        .split('\n')
-        .find((line) => line.endsWith(' missing'))
-    : reached[0];
+  const missing = await (
+    quarantine ? firstMissing(gitDir, quarantine, reached) : firstLine(reached)
+  ).catch(refuse('the push does not carry every object its refs reach'));
   if (missing) {
     throw new PushRejectedError(
-      `${missing.split(' ')[0]} is reachable from the pushed refs but was not in the push`,
+      `${missing} is reachable from the pushed refs but was not in the push`,
     );
   }
+}
+
+/** The first object `objects` names, or null when it names none. Stops git as soon as it has one. */
+async function firstLine(objects: AsyncIterable<string>) {
+  let text = '';
+  for await (const chunk of objects) {
+    text += chunk;
+    const end = text.indexOf('\n');
+    if (end >= 0) return text.slice(0, end);
+  }
+  return text.trim() || null;
+}
+
+/** The first of `objects` the quarantine lacks, or null. Reads cat-file to the end even after a hit: killing it while its stdin is still being written would raise EPIPE. */
+async function firstMissing(
+  gitDir: string,
+  quarantine: string,
+  objects: AsyncIterable<string>,
+) {
+  const names = new PassThrough();
+  const feeding = (async () => {
+    try {
+      for await (const chunk of objects) {
+        if (!names.write(chunk)) await once(names, 'drain');
+      }
+    } finally {
+      // Ended even when rev-list fails, so cat-file finishes and the failure surfaces below.
+      names.end();
+    }
+  })();
+  feeding.catch(() => {});
+
+  let missing: string | null = null;
+  let carry = '';
+  for await (const chunk of runGitStream({
+    args: ['cat-file', '--batch-check=%(objectname) %(objecttype)'],
+    gitDir,
+    env: {
+      GIT_OBJECT_DIRECTORY: quarantine,
+      GIT_ALTERNATE_OBJECT_DIRECTORIES: '',
+    },
+    input: names,
+  })) {
+    if (missing) continue;
+    const lines = (carry + chunk).split('\n');
+    carry = lines.pop() ?? '';
+    missing =
+      lines.find((line) => line.endsWith(' missing'))?.split(' ')[0] ?? null;
+  }
+  await feeding;
+  return missing;
 }
 
 function lend(gitDir: string, quarantine: string) {

@@ -178,6 +178,19 @@ describe('withVerifiedPack', () => {
     ).toEqual(Buffer.alloc(0));
   });
 
+  it('verifies a push of more refs than argv can carry', async () => {
+    writeFileSync(path.join(work, 'a.txt'), 'second\n');
+    git(work, ['commit', '-q', '-am', 'second']);
+    const second = text(work, 'rev-parse', 'HEAD');
+    // ~1.2 MB of object names, past macOS's 1 MB ARG_MAX, as an import's pull request refs are
+    const refs = Array.from({ length: 30_000 }, (_, number) =>
+      update(`refs/pull/${number}/head`, second),
+    );
+    expect(
+      (await verified(refs, thinPack(second, first))).length,
+    ).toBeGreaterThan(0);
+  });
+
   it('accepts a new branch at a commit the repository already reaches', async () => {
     expect(
       await verified([update('refs/heads/copy', first)], Buffer.alloc(0)),
