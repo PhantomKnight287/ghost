@@ -8,6 +8,8 @@ import { highlightLines } from "@/lib/highlight";
 import { ogUrl } from "@/lib/og-url";
 import { formatBytes } from "@/lib/utils";
 
+import { LineTarget } from "./line-target";
+
 export async function generateMetadata({
   params,
 }: PageProps<"/[username]/[repo]/blob/[ref]/[[...path]]">): Promise<Metadata> {
@@ -111,6 +113,7 @@ export default async function RepositoryBlobPage({
         </a>
       </div>
 
+      <LineTarget />
       {lines ? (
         <div className="overflow-x-auto" data-shiki>
           <table className="w-full border-collapse font-mono text-sm">
@@ -119,10 +122,13 @@ export default async function RepositoryBlobPage({
                 <tr
                   key={i}
                   id={`L${i + 1}`}
-                  className="scroll-mt-20 hover:bg-muted/40 target:bg-primary/10"
+                  className="scroll-mt-20 hover:bg-muted/40"
                 >
                   <td className="w-12 select-none border-r py-0.5 pr-3 text-right align-top text-xs text-muted-foreground">
-                    {i + 1}
+                    {/* a plain anchor, so the browser fires hashchange for the line it moves to */}
+                    <a href={`#L${i + 1}`} className="hover:text-foreground">
+                      {i + 1}
+                    </a>
                   </td>
                   <td className="py-0.5 pl-4 whitespace-pre">
                     {line.map((t, j) => (
