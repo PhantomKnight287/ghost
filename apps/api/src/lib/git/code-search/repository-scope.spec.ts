@@ -8,6 +8,6 @@ describe('repositoryScope', () => {
   });
 
   it('anchors and escapes each repository id', () => {
-    expect(repositoryScope(['a.b', 'c'])).toBe(' r:^(a\\.b|c)$');
+    expect(repositoryScope(['a.b', 'c'])).toBe(String.raw` r:^(a\x{2e}b|c)$`);
   });
 });

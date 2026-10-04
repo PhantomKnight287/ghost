@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  Matches,
   MaxLength,
   Min,
   MinLength,
@@ -26,8 +27,16 @@ export class SearchCodeQueryDTO {
   q: string;
 
   @ApiPropertyOptional({
+    description:
+      'Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.',
+  })
+  @Matches(/^\d{1,5}$/)
+  @IsOptional()
+  cursor?: string;
+
+  @ApiPropertyOptional({
     description: 'Most files to return.',
-    default: 50,
+    default: 20,
     minimum: 1,
     maximum: 100,
   })
@@ -91,8 +100,17 @@ export class CodeSearchFileDTO {
   language: string;
 
   @ApiProperty({
+    description:
+      'Matches in the file, as far as zoekt counts before its limits. One line can hold several, so this can exceed the ranges in `lines`.',
+    example: 3,
+  })
+  @IsInt()
+  matchCount: number;
+
+  @ApiProperty({
     type: [CodeSearchLineDTO],
-    description: 'Matching lines. Empty when only the path matched.',
+    description:
+      'Up to ten matching lines, each cut at 500 characters with at most twenty ranges. Empty when only the path matched.',
   })
   @IsArray()
   @ValidateNested({ each: true })
@@ -117,6 +135,11 @@ export class SearchRepositoryCodeResponseDTO {
   @ValidateNested({ each: true })
   @Type(() => CodeSearchFileDTO)
   files: CodeSearchFileDTO[];
+
+  @ApiProperty({ type: String, nullable: true })
+  @IsString()
+  @IsOptional()
+  nextCursor: string | null;
 }
 
 export class SearchCodeRepositoryDTO {
@@ -150,4 +173,9 @@ export class SearchCodeResponseDTO {
   @ValidateNested({ each: true })
   @Type(() => SearchCodeFileDTO)
   files: SearchCodeFileDTO[];
+
+  @ApiProperty({ type: String, nullable: true })
+  @IsString()
+  @IsOptional()
+  nextCursor: string | null;
 }

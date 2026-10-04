@@ -10,8 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CodeSearchUnavailableError } from '../../../lib/git/code-search/code-search.errors.js';
 import {
   indexRepository,
-  searchIndex,
-  type CodeSearchHit,
+  listMatchingFiles,
+  searchFiles,
+  type CodeSearchFile,
 } from '../../../lib/git/code-search/zoekt.js';
 import type { S3Service } from '../../s3/s3.service.js';
 import { CodeSearchService } from './code-search.service.js';
@@ -21,7 +22,8 @@ vi.mock('../../../lib/git/code-search/zoekt.js', async (importOriginal) => ({
     typeof import('../../../lib/git/code-search/zoekt.js')
   >()),
   indexRepository: vi.fn(),
-  searchIndex: vi.fn(),
+  listMatchingFiles: vi.fn(),
+  searchFiles: vi.fn(),
 }));
 
 const URL = 'http://zoekt:6070';
@@ -57,11 +59,15 @@ function fakeS3() {
   };
 }
 
-const hit = (repositoryId: string): CodeSearchHit => ({
+const file = (repositoryId: string, path = 'a.ts'): CodeSearchFile => ({
   repositoryId,
+  path,
   commit: 'c1',
-  path: 'a.ts',
   language: 'TypeScript',
+});
+const hit = (repositoryId: string, path = 'a.ts') => ({
+  ...file(repositoryId, path),
+  matchCount: 0,
   lines: [],
 });
 
@@ -107,7 +113,12 @@ describe('CodeSearchService', () => {
         writeFileSync(path.join(indexDir, 'repo_a_v16.00000.zoekt'), 'shard');
         return ['repo_a_v16.00000.zoekt'];
       });
-    vi.mocked(searchIndex).mockReset().mockResolvedValue([]);
+    vi.mocked(listMatchingFiles).mockReset().mockResolvedValue([]);
+    vi.mocked(searchFiles)
+      .mockReset()
+      .mockImplementation(async ({ files }) =>
+        files.map((page) => ({ ...page, matchCount: 0, lines: [] })),
+      );
   });
 
   afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -289,41 +300,87 @@ describe('CodeSearchService', () => {
 
       expect(indexing).toBe(false);
       expect(indexRepository).not.toHaveBeenCalled();
-      expect(searchIndex).toHaveBeenCalledWith({
+      expect(listMatchingFiles).toHaveBeenCalledWith({
         url: URL,
         query: 'r:^repo_a$ (x)',
-        limit: 10,
       });
     });
 
-    it('drops hits from other repositories', async () => {
+    it('drops files from other repositories before cutting the page', async () => {
       s3.objects.set(MARKER, stamp(commit('one')));
-      vi.mocked(searchIndex).mockResolvedValue([hit('repo_a'), hit('repo_b')]);
+      vi.mocked(listMatchingFiles).mockResolvedValue([
+        file('repo_b', 'a.ts'),
+        file('repo_a', 'a.ts'),
+        file('repo_b', 'b.ts'),
+        file('repo_a', 'b.ts'),
+      ]);
 
-      const { files } = await search(service(), 'x) or (r:repo_b');
+      const { files, nextCursor } = await search(service(), 'x) or (r:repo_b');
 
-      expect(files).toEqual([hit('repo_a')]);
+      expect(searchFiles).toHaveBeenCalledWith({
+        url: URL,
+        query: 'r:^repo_a$ (x) or (r:repo_b)',
+        files: [file('repo_a', 'a.ts'), file('repo_a', 'b.ts')],
+      });
+      expect(files).toEqual([hit('repo_a', 'a.ts'), hit('repo_a', 'b.ts')]);
+      expect(nextCursor).toBeNull();
+    });
+
+    it('pages through the files with an offset cursor', async () => {
+      s3.objects.set(MARKER, stamp(commit('one')));
+      vi.mocked(listMatchingFiles).mockResolvedValue(
+        ['a.ts', 'b.ts', 'c.ts'].map((path) => file('repo_a', path)),
+      );
+      const page = (cursor?: string) =>
+        service().searchRepository({
+          ...target(),
+          query: 'x',
+          cursor,
+          limit: 2,
+        });
+
+      const first = await page();
+      expect(first.files).toEqual([
+        hit('repo_a', 'a.ts'),
+        hit('repo_a', 'b.ts'),
+      ]);
+      expect(first.nextCursor).toBe('2');
+
+      const second = await page('2');
+      expect(second.files).toEqual([hit('repo_a', 'c.ts')]);
+      expect(second.nextCursor).toBeNull();
     });
   });
 
   describe('searchPublic', () => {
+    const visible = async () => new Set(['repo_a']);
+
     it('is unavailable when code search is off', async () => {
       await expect(
-        service({}).searchPublic({ query: 'x', limit: 10 }),
+        service({}).searchPublic({ query: 'x', limit: 10, visible }),
       ).rejects.toBeInstanceOf(CodeSearchUnavailableError);
     });
 
-    it('narrows the query to public shards', async () => {
-      vi.mocked(searchIndex).mockResolvedValue([hit('repo_a')]);
+    it('narrows the query to public shards and keeps only what the caller sees', async () => {
+      vi.mocked(listMatchingFiles).mockResolvedValue([
+        file('repo_a'),
+        file('repo_private'),
+      ]);
+      const sees = vi.fn(visible);
 
       await expect(
-        service().searchPublic({ query: 'x', limit: 10 }),
-      ).resolves.toEqual([hit('repo_a')]);
-      expect(searchIndex).toHaveBeenCalledWith({
+        service().searchPublic({
+          query: 'x',
+          limit: 10,
+          repositoryIds: ['repo_a'],
+          visible: sees,
+        }),
+      ).resolves.toEqual({ files: [hit('repo_a')], nextCursor: null });
+      expect(listMatchingFiles).toHaveBeenCalledWith({
         url: URL,
-        query: 'public:yes (x)',
-        limit: 10,
+        query: 'public:yes r:^(repo_a)$ (x)',
       });
+      expect(sees).toHaveBeenCalledWith(['repo_a', 'repo_private']);
     });
   });
 });

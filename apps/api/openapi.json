@@ -1482,6 +1482,15 @@
             }
           },
           {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "limit",
             "required": false,
             "in": "query",
@@ -1489,7 +1498,7 @@
             "schema": {
               "minimum": 1,
               "maximum": 100,
-              "default": 50,
+              "default": 20,
               "type": "number"
             }
           }
@@ -1847,6 +1856,15 @@
             }
           },
           {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "limit",
             "required": false,
             "in": "query",
@@ -1854,7 +1872,7 @@
             "schema": {
               "minimum": 1,
               "maximum": 100,
-              "default": 50,
+              "default": 20,
               "type": "number"
             }
           }
@@ -10607,8 +10625,13 @@
             "type": "string",
             "example": "TypeScript"
           },
+          "matchCount": {
+            "type": "number",
+            "description": "Matches in the file, as far as zoekt counts before its limits. One line can hold several, so this can exceed the ranges in `lines`.",
+            "example": 3
+          },
           "lines": {
-            "description": "Matching lines. Empty when only the path matched.",
+            "description": "Up to ten matching lines, each cut at 500 characters with at most twenty ranges. Empty when only the path matched.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CodeSearchLineDTO"
@@ -10619,6 +10642,7 @@
           "commit",
           "path",
           "language",
+          "matchCount",
           "lines"
         ]
       },
@@ -10636,11 +10660,16 @@
             "items": {
               "$ref": "#/components/schemas/CodeSearchFileDTO"
             }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
           "indexing",
-          "files"
+          "files",
+          "nextCursor"
         ]
       },
       "StargazerDTO": {
@@ -10904,8 +10933,13 @@
             "type": "string",
             "example": "TypeScript"
           },
+          "matchCount": {
+            "type": "number",
+            "description": "Matches in the file, as far as zoekt counts before its limits. One line can hold several, so this can exceed the ranges in `lines`.",
+            "example": 3
+          },
           "lines": {
-            "description": "Matching lines. Empty when only the path matched.",
+            "description": "Up to ten matching lines, each cut at 500 characters with at most twenty ranges. Empty when only the path matched.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CodeSearchLineDTO"
@@ -10919,6 +10953,7 @@
           "commit",
           "path",
           "language",
+          "matchCount",
           "lines",
           "repository"
         ]
@@ -10932,10 +10967,15 @@
             "items": {
               "$ref": "#/components/schemas/SearchCodeFileDTO"
             }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
-          "files"
+          "files",
+          "nextCursor"
         ]
       },
       "IncomingTransferRepositoryDTO": {

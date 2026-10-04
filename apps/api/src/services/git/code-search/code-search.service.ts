@@ -9,8 +9,9 @@ import { CodeSearchUnavailableError } from '../../../lib/git/code-search/code-se
 import type { IndexTarget } from '../../../lib/git/code-search/code-search.types.js';
 import {
   indexRepository,
+  listMatchingFiles,
   repositoryScope,
-  searchIndex,
+  searchFiles,
 } from '../../../lib/git/code-search/zoekt.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { isNotFound } from '../../../lib/s3/s3.errors.js';
@@ -82,44 +83,69 @@ export class CodeSearchService {
 
   async searchRepository({
     query,
+    cursor,
     limit,
     ...target
-  }: IndexTarget & { query: string; limit: number }) {
-    const url = this.requireUrl();
-
+  }: IndexTarget & { query: string; cursor?: string; limit: number }) {
     const indexing =
       this.running.has(target.repositoryId) ||
       (await this.unpublishedStamp(target)) !== null;
     if (indexing) this.indexInBackground(target);
 
-    const hits = await searchIndex({
-      url,
+    const page = await this.searchPage({
       query: `r:^${target.repositoryId}$ (${query})`,
+      cursor,
       limit,
+      visible: () => new Set([target.repositoryId]),
     });
-
-    return {
-      indexing,
-      // The query can close the parenthesis and OR in other repositories: the `r:` above only narrows the scan, this filter is what enforces access.
-      files: hits.filter((hit) => hit.repositoryId === target.repositoryId),
-    };
+    return { indexing, ...page };
   }
 
-  /** Narrowed to shards flagged public and, given `repositoryIds`, to those repositories; a query can OR its way out of both, so the caller must still keep only repositories it knows to be public and in scope. */
+  /** Narrowed to shards flagged public and, given `repositoryIds`, to those repositories; a query can OR its way out of both, so `visible` must keep only repositories the caller knows to be public and in scope. */
   async searchPublic({
     query,
-    limit,
     repositoryIds,
+    ...page
   }: {
     query: string;
+    cursor?: string;
     limit: number;
     repositoryIds?: string[];
+    visible: (repositoryIds: string[]) => Promise<Set<string>>;
   }) {
-    return searchIndex({
-      url: this.requireUrl(),
+    return this.searchPage({
       query: `public:yes${repositoryScope(repositoryIds)} (${query})`,
-      limit,
+      ...page,
     });
+  }
+
+  /** One page of matching files, best first. The query can reach any repository, so `visible` is what enforces access, and it runs before the page is cut so a hidden file never takes a slot. `cursor` is the offset into the visible list, validated by the DTO. */
+  private async searchPage({
+    query,
+    cursor,
+    limit,
+    visible,
+  }: {
+    query: string;
+    cursor?: string;
+    limit: number;
+    visible: (repositoryIds: string[]) => Set<string> | Promise<Set<string>>;
+  }) {
+    const url = this.requireUrl();
+    const offset = Number(cursor ?? 0);
+
+    const listed = await listMatchingFiles({ url, query });
+    const allowed = await visible([
+      ...new Set(listed.map((file) => file.repositoryId)),
+    ]);
+    const files = listed.filter((file) => allowed.has(file.repositoryId));
+
+    const end = offset + limit;
+    return {
+      // searchFiles answers only for the files it is given, however the query is written
+      files: await searchFiles({ url, query, files: files.slice(offset, end) }),
+      nextCursor: end < files.length ? String(end) : null,
+    };
   }
 
   private requireUrl() {

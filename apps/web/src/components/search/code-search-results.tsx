@@ -59,6 +59,13 @@ export async function CodeSearchResults({
     ),
   );
 
+  // `matchCount` counts matches, and one line can hold several
+  const hidden = files.map(
+    (file) =>
+      file.matchCount -
+      file.lines.reduce((shown, line) => shown + line.ranges.length, 0),
+  );
+
   return (
     <div className="flex flex-col gap-4">
       {files.map((file, f) => {
@@ -128,6 +135,15 @@ export async function CodeSearchResults({
                   </tbody>
                 </table>
               </div>
+            )}
+            {hidden[f] > 0 && (
+              <Link
+                href={blob}
+                className="block border-t bg-muted/20 px-4 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                {hidden[f]} more {hidden[f] === 1 ? "match" : "matches"} in this
+                file
+              </Link>
             )}
           </article>
         );

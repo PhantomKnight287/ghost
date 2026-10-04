@@ -134,6 +134,7 @@ import { CodeSearchService } from '../../services/git/code-search/code-search.se
 import { S3Service } from '../../services/s3/s3.service.js';
 import { releaseAssetKey } from '../../lib/releases/release-assets.js';
 import type {
+  SearchCodeRepositoryDTO,
   SearchCodeResponseDTO,
   SearchRepositoryCodeResponseDTO,
 } from './dto/search-code.dto.js';
@@ -145,7 +146,7 @@ const RESERVED_REPOSITORY_SLUGS = new Set(['settings', 'teams']);
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const MIN_LANGUAGE_PERCENT = 0.5;
-const DEFAULT_SEARCH_LIMIT = 50;
+const DEFAULT_SEARCH_LIMIT = 20;
 
 @Injectable()
 export class RepositoriesService {
@@ -386,13 +387,15 @@ export class RepositoriesService {
   /** Code in public repositories, limited to those opened or pushed to since code search was switched on. */
   async searchCode({
     query,
+    cursor,
     limit = DEFAULT_SEARCH_LIMIT,
   }: {
     query: string;
+    cursor?: string;
     limit?: number;
   }): Promise<SearchCodeResponseDTO> {
     const { owner, rest } = ownerQualifier(query);
-    if (!rest) return { files: [] };
+    if (!rest) return { files: [], nextCursor: null };
     // `org:` names public repositories to scan; one that owns none matches nothing.
     const scoped = owner
       ? await this.db
@@ -410,44 +413,50 @@ export class RepositoriesService {
             ),
           )
       : null;
-    if (scoped?.length === 0) return { files: [] };
-
-    const hits = await this.codeSearch.searchPublic({
-      query: rest,
-      limit,
-      repositoryIds: scoped?.map((row) => row.id),
-    });
-    const ids = [...new Set(hits.map((hit) => hit.repositoryId))];
-    if (ids.length === 0) return { files: [] };
+    if (scoped?.length === 0) return { files: [], nextCursor: null };
 
     // The index only narrows to shards flagged public; the database is what decides.
-    const repositories = await this.db
-      .select({
-        id: schema.repository.id,
-        owner: ownerNameOf(schema.user, schema.organization),
-        name: schema.repository.name,
-        slug: schema.repository.slug,
-      })
-      .from(schema.repository)
-      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
-      .leftJoin(
-        schema.organization,
-        eq(schema.organization.id, schema.repository.organizationId),
-      )
-      .where(
-        and(
-          inArray(schema.repository.id, ids),
-          eq(schema.repository.visibility, 'public'),
-          isNotNull(ownerNameOf(schema.user, schema.organization)),
-        ),
-      );
-    const byId = new Map(repositories.map((row) => [row.id, row]));
+    const repositories = new Map<string, SearchCodeRepositoryDTO>();
+    const { files, nextCursor } = await this.codeSearch.searchPublic({
+      query: rest,
+      cursor,
+      limit,
+      repositoryIds: scoped?.map((row) => row.id),
+      visible: async (ids) => {
+        if (ids.length === 0) return new Set();
+        const rows = await this.db
+          .select({
+            id: schema.repository.id,
+            owner: ownerNameOf(schema.user, schema.organization),
+            name: schema.repository.name,
+            slug: schema.repository.slug,
+          })
+          .from(schema.repository)
+          .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+          .leftJoin(
+            schema.organization,
+            eq(schema.organization.id, schema.repository.organizationId),
+          )
+          .where(
+            and(
+              inArray(schema.repository.id, ids),
+              eq(schema.repository.visibility, 'public'),
+              isNotNull(ownerNameOf(schema.user, schema.organization)),
+            ),
+          );
+        for (const { id, owner, name, slug } of rows) {
+          repositories.set(id, { owner: owner!, name, slug });
+        }
+        return new Set(repositories.keys());
+      },
+    });
 
     return {
-      files: hits.flatMap((hit) => {
-        const repository = byId.get(hit.repositoryId);
-        return repository ? [{ ...hit, repository }] : [];
-      }),
+      files: files.map((hit) => ({
+        ...hit,
+        repository: repositories.get(hit.repositoryId)!,
+      })),
+      nextCursor,
     };
   }
 
@@ -1651,12 +1660,14 @@ export class RepositoriesService {
     repo,
     requesterId,
     query,
+    cursor,
     limit = DEFAULT_SEARCH_LIMIT,
   }: {
     username: string;
     repo: string;
     requesterId?: string;
     query: string;
+    cursor?: string;
     limit?: number;
   }): Promise<SearchRepositoryCodeResponseDTO> {
     const { repository, directory } = await this.openRepository({
@@ -1670,6 +1681,7 @@ export class RepositoriesService {
       isPublic: repository.visibility === 'public',
       repoDirectory: directory,
       query,
+      cursor,
       limit,
     });
   }
