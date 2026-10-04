@@ -3,16 +3,22 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { Markdown } from "./markdown";
 
-/** The rendered markdown, without the wrapper's class soup. */
+/** The rendered markdown, without the wrapper or the image preloads React hoists ahead of it. */
 function render(
   markdown: string,
   resolveUrl?: (url: string, key: string) => string,
+  repository?: { username: string; repo: string },
 ) {
   const html = renderToStaticMarkup(
-    <Markdown resolveUrl={resolveUrl}>{markdown}</Markdown>,
+    <Markdown resolveUrl={resolveUrl} repository={repository}>
+      {markdown}
+    </Markdown>,
   );
-  return html.slice(html.indexOf('pl-1">') + 6, -6);
+  const open = '<div class="markdown">';
+  return html.slice(html.indexOf(open) + open.length, -6);
 }
+
+const REPOSITORY = { username: "me", repo: "app" };
 
 describe("Markdown", () => {
   it("turns GitHub emoji shortcodes into emoji, outside code", () => {
@@ -73,8 +79,38 @@ describe("Markdown", () => {
     ).not.toContain("evilframe");
   });
 
-  it("gives every link the w-fit class", () => {
-    expect(render("[x](https://example.com)")).toContain("w-fit");
+  it("breaks lines on every newline in comment text, but not in a README", () => {
+    expect(render("one\r\ntwo", undefined, REPOSITORY)).toBe(
+      "<p>one<br/>\ntwo</p>",
+    );
+    expect(render("one\ntwo")).toBe("<p>one\ntwo</p>");
+    expect(render("`a\nb`", undefined, REPOSITORY)).toBe(
+      "<p><code>a b</code></p>",
+    );
+  });
+
+  it("renders GitHub alerts, and leaves look-alikes as quotes", () => {
+    const alert = render(
+      "> [!IMPORTANT]\n> ## Revert\n> first",
+      undefined,
+      REPOSITORY,
+    );
+    expect(alert).toStartWith(
+      '<div class="markdown-alert markdown-alert-important">\n<p class="markdown-alert-title"><svg',
+    );
+    expect(alert).toContain("Important</p>");
+    expect(alert).toContain("<h2>Revert</h2>");
+    expect(render("> [!note]\n> body")).toContain("markdown-alert-note");
+    expect(render("> [!NOTE]")).toStartWith("<blockquote>");
+    expect(render("> [!NOTE] **x**")).toStartWith("<blockquote>");
+    expect(render("- > [!NOTE]\n  > body")).not.toContain("markdown-alert");
+  });
+
+  it("allows only the alert classes through", () => {
+    expect(render('<div class="markdown-alert evil">x</div>')).toBe(
+      '<div class="markdown-alert">x</div>',
+    );
+    expect(render('<p class="evil">x</p>')).toBe("<p>x</p>");
   });
 
   it("rewrites relative URLs, in markdown and in raw HTML alike", () => {

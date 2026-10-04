@@ -524,3 +524,182 @@
 .custom [data-shiki] span {
   color: var(--shiki-custom);
 }
+
+/* Rendered Markdown, spaced and sized the way GitHub's `.markdown-body` is. In a layer, so a caller's utility classes still win. */
+@layer components {
+  .markdown {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+  }
+  .markdown > :first-child {
+    margin-top: 0;
+  }
+  .markdown > :last-child {
+    margin-bottom: 0;
+  }
+  .markdown :where(p, blockquote, ul, ol, dl, table, pre, details, .markdown-alert) {
+    margin-top: 0;
+    margin-bottom: 1rem;
+  }
+  .markdown :where(h1, h2, h3, h4, h5, h6) {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .markdown :where(h1, h2) {
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--border);
+  }
+  .markdown h1 {
+    font-size: 2em;
+  }
+  .markdown h2 {
+    font-size: 1.5em;
+  }
+  .markdown h3 {
+    font-size: 1.25em;
+  }
+  .markdown h5 {
+    font-size: 0.875em;
+  }
+  .markdown h6 {
+    font-size: 0.85em;
+    color: var(--muted-foreground);
+  }
+  .markdown :where(ul, ol) {
+    padding-left: 2em;
+  }
+  .markdown ul {
+    list-style: disc;
+  }
+  .markdown ol {
+    list-style: decimal;
+  }
+  .markdown :where(ul, ol) ul {
+    list-style: circle;
+  }
+  .markdown :where(ul, ol) ol {
+    list-style: lower-roman;
+  }
+  .markdown :where(ul, ol) :where(ul, ol) {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  .markdown li + li {
+    margin-top: 0.25em;
+  }
+  .markdown li > p {
+    margin-top: 1rem;
+  }
+  .markdown li:has(> input[type="checkbox"]) {
+    list-style: none;
+  }
+  .markdown li > input[type="checkbox"] {
+    margin: 0 0.2em 0.25em -1.4em;
+    vertical-align: middle;
+  }
+  .markdown a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .markdown img {
+    display: inline;
+    max-width: 100%;
+    box-sizing: content-box;
+  }
+  /* a row of badges sits side by side, centred on the text */
+  .markdown a:has(> img) {
+    vertical-align: middle;
+  }
+  .markdown code {
+    padding: 0.2em 0.4em;
+    font-family: var(--font-mono);
+    font-size: 85%;
+    white-space: break-spaces;
+    background: var(--muted);
+    border-radius: 6px;
+  }
+  .markdown pre {
+    padding: 1rem;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background: var(--muted);
+    border-radius: 6px;
+  }
+  .markdown pre code {
+    padding: 0;
+    font-size: 100%;
+    white-space: pre;
+    background: transparent;
+    border-radius: 0;
+  }
+  .markdown blockquote {
+    padding: 0 1em;
+    color: var(--muted-foreground);
+    border-left: 0.25em solid var(--border);
+  }
+  .markdown hr {
+    height: 0.25em;
+    margin: 1.5rem 0;
+    background: var(--border);
+    border: 0;
+  }
+  .markdown table {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow: auto;
+    border-collapse: collapse;
+  }
+  .markdown :where(th, td) {
+    padding: 6px 13px;
+    border: 1px solid var(--border);
+  }
+  .markdown th {
+    font-weight: 600;
+  }
+  .markdown tr:nth-child(2n) {
+    background: var(--muted);
+  }
+  .markdown summary {
+    cursor: pointer;
+  }
+  .markdown details > :not(summary):first-of-type {
+    margin-top: 1rem;
+  }
+  .markdown-alert {
+    padding: 0.5rem 1rem;
+    border-left: 0.25em solid var(--alert);
+  }
+  .markdown-alert > :last-child {
+    margin-bottom: 0;
+  }
+  .markdown .markdown-alert-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--alert);
+  }
+  .markdown-alert-note {
+    --alert: #4493f8;
+  }
+  .markdown-alert-tip {
+    --alert: #3fb950;
+  }
+  .markdown-alert-important {
+    --alert: #ab7df8;
+  }
+  .markdown-alert-warning {
+    --alert: #d29922;
+  }
+  .markdown-alert-caution {
+    --alert: #f85149;
+  }
+}

@@ -1,9 +1,18 @@
+import {
+  Info,
+  Lightbulb,
+  type LucideIcon,
+  MessageSquareWarning,
+  OctagonAlert,
+  TriangleAlert,
+} from "lucide-react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGemoji from "remark-gemoji";
 import remarkGfm from "remark-gfm";
 
+import { ALERTS, remarkAlerts, remarkBreaks } from "@/lib/remark-github";
 import { remarkReferences } from "@/lib/remark-references";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +26,19 @@ const SCHEMA = {
       ...(defaultSchema.attributes?.a ?? []),
       ["target", "_blank", "_self", "_parent", "_top"],
       "rel",
+    ],
+    // the classes `remarkAlerts` puts on an alert and its title, and nothing else
+    div: [
+      ...(defaultSchema.attributes?.div ?? []),
+      [
+        "className",
+        "markdown-alert",
+        ...Object.keys(ALERTS).map((type) => `markdown-alert-${type}`),
+      ],
+    ],
+    p: [
+      ...(defaultSchema.attributes?.p ?? []),
+      ["className", "markdown-alert-title"],
     ],
     // `align` becomes `style="text-align:<value>"` after sanitizing, so anything but the four legal values is a CSS injection. This is the last point where it is still an attribute.
     "*": [
@@ -40,6 +62,14 @@ const SCHEMA = {
   ],
 };
 
+const ALERT_ICONS: Record<(typeof ALERTS)[keyof typeof ALERTS], LucideIcon> = {
+  Note: Info,
+  Tip: Lightbulb,
+  Important: MessageSquareWarning,
+  Warning: TriangleAlert,
+  Caution: OctagonAlert,
+};
+
 export function Markdown({
   children,
   className,
@@ -53,45 +83,40 @@ export function Markdown({
   repository?: { username: string; repo: string };
 }) {
   return (
-    <div
-      className={cn(
-        "text-sm wrap-break-word",
-        "[&_p]:block",
-        "[&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold",
-        "[&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold",
-        "[&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:font-semibold",
-        "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
-        "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5",
-        "[&_li]:my-0.5",
-        "[&_a]:text-primary [&_a]:underline",
-        "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs",
-        "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:bg-muted/50 [&_pre]:p-3",
-        "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
-        "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
-        "[&_hr]:my-4 [&_hr]:border-t",
-        // inline, as on GitHub: a row of badges in one paragraph sits side by side instead of stacking
-        "[&_img]:inline [&_img]:max-w-full [&_img]:rounded [&_a:has(>img)]:align-middle",
-        "[&_table]:my-2 [&_table]:block [&_table]:overflow-x-auto [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1",
-        "[&_li:has(input)]:list-none [&_li_input]:mr-1.5 [&_ul:has(input)]:pl-1",
-        className,
-      )}
-    >
+    <div className={cn("markdown", className)}>
       <ReactMarkdown
         remarkPlugins={
+          // Issue, pull request and comment text breaks lines on every newline, as on GitHub; a README does not.
           repository
-            ? [remarkGfm, remarkGemoji, [remarkReferences, repository]]
-            : [remarkGfm, remarkGemoji]
+            ? [
+                remarkGfm,
+                remarkGemoji,
+                remarkAlerts,
+                remarkBreaks,
+                [remarkReferences, repository],
+              ]
+            : [remarkGfm, remarkGemoji, remarkAlerts]
         }
         rehypePlugins={[rehypeRaw, [rehypeSanitize, SCHEMA]]}
         components={{
-          a({ node, className, target, rel, ...props }) {
+          a({ node, target, rel, ...props }) {
             return (
               <a
                 {...props}
                 target={target}
                 rel={target === "_blank" ? noopener(rel) : rel}
-                className={cn("w-fit inline-flex", className)}
               />
+            );
+          },
+          p({ node, className, children, ...props }) {
+            const Icon =
+              className === "markdown-alert-title" &&
+              ALERT_ICONS[children as (typeof ALERTS)[keyof typeof ALERTS]];
+            return (
+              <p {...props} className={className || undefined}>
+                {Icon && <Icon aria-hidden className="size-4" />}
+                {children}
+              </p>
             );
           },
         }}
