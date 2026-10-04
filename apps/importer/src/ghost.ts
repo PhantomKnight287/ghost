@@ -57,6 +57,11 @@ export type Outcome =
   | { succeeded: true; defaultBranch: string }
   | { succeeded: false; error: string; retryable: boolean };
 
+/** Postgres cannot store U+0000 in text, and GitHub text can carry it, such as a pasted error message about a binary file. */
+function withoutNul(_key: string, value: unknown) {
+  return typeof value === "string" ? value.replaceAll("\0", "\uFFFD") : value;
+}
+
 /** The API's callbacks for one attempt. Every call carries the attempt, and a 409 means the API moved on. */
 export class GhostCallbacks {
   constructor(
@@ -93,7 +98,10 @@ export class GhostCallbacks {
       `/api/internal/imports/${this.importId}/${path}`,
       this.apiUrl,
     );
-    const payload = JSON.stringify({ attempt: this.attempt, ...body });
+    const payload = JSON.stringify(
+      { attempt: this.attempt, ...body },
+      withoutNul,
+    );
 
     for (let attempt = 0; ; attempt++) {
       const response = await this.fetchImpl(url, {

@@ -2,8 +2,8 @@ import { PermanentImportError } from "./errors.ts";
 
 const API = "https://api.github.com";
 const REQUEST_TIMEOUT_MS = 30_000;
-// Longer than this and the import is better retried later than held open.
-const MAX_RATE_LIMIT_WAIT_MS = 15 * 60_000;
+// The hourly quota resets within the hour, and a retried import starts over and spends it again, so waiting is cheaper. Anything longer is not the hourly quota.
+const MAX_RATE_LIMIT_WAIT_MS = 65 * 60_000;
 
 export type GitHubUser = { login: string } | null;
 
@@ -74,6 +74,9 @@ export const wait: Wait = (ms, signal) =>
   });
 
 export class GitHubClient {
+  /** Set by the first answer GitHub accepts. A 401 after that is the token expiring mid-attempt, which the next attempt's fresh token fixes; one before it is a token that was never good. */
+  authenticated = false;
+
   constructor(
     private readonly token: string,
     private readonly signal: AbortSignal,
@@ -86,14 +89,18 @@ export class GitHubClient {
     return (await response.json()) as T;
   }
 
-  /** Follows `Link: rel="next"` and yields one page at a time, so a repository with fifty thousand issues is never held in memory at once. */
+  /** Follows `Link: rel="next"` and yields one page at a time, so a repository with fifty thousand issues is never held in memory at once. The next page is requested before this one is handed over, so GitHub's latency overlaps the caller's work. */
   async *pages<T>(path: string): AsyncGenerator<T[]> {
-    let next: URL | null = new URL(path, API);
-    next.searchParams.set("per_page", "100");
-    while (next) {
-      const response = await this.request(next);
+    const first = new URL(path, API);
+    first.searchParams.set("per_page", "100");
+    let pending: Promise<Response> | null = this.request(first);
+    while (pending) {
+      const response: Response = await pending;
+      const next = nextLink(response.headers.get("link"));
+      pending = next && this.request(next);
+      // A caller that stops early never awaits the page in flight; its failure must not surface as an unhandled rejection.
+      pending?.catch(() => {});
       yield (await response.json()) as T[];
-      next = nextLink(response.headers.get("link"));
     }
   }
 
@@ -110,7 +117,10 @@ export class GitHubClient {
           AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         ]),
       });
-      if (response.ok) return response;
+      if (response.ok) {
+        this.authenticated = true;
+        return response;
+      }
 
       const delay = rateLimitDelay(response, Date.now());
       if (delay !== null) {
@@ -119,11 +129,19 @@ export class GitHubClient {
             `GitHub rate limit reached, it resets in ${Math.ceil(delay / 60_000)} minutes`,
           );
         }
+        console.log(
+          `GitHub rate limit on ${url.pathname}: waiting ${Math.ceil(delay / 1000)}s`,
+        );
         await this.sleep(delay, this.signal);
         continue;
       }
 
       const detail = `GitHub answered ${response.status} for ${url.pathname}: ${await response.text()}`;
+      if (response.status === 401 && this.authenticated) {
+        throw new Error(
+          `${detail} (the GitHub token expired during the import)`,
+        );
+      }
       if (
         response.status === 401 ||
         response.status === 403 ||

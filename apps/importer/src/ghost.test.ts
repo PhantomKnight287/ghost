@@ -41,6 +41,25 @@ test("posts the attempt with the secret", async () => {
   );
 });
 
+test("replaces NUL, which Postgres cannot store, in every string", async () => {
+  const { ghost, calls } = callbacks([new Response(null, { status: 204 })]);
+  await ghost.comments([
+    {
+      githubId: 1,
+      issueNumber: 1,
+      authorLogin: "octocat",
+      body: "Unexpected character '\0' (1:0)",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    },
+  ]);
+  const body = calls[0]!.init.body as string;
+  expect(body).not.toContain("\\u0000");
+  expect(JSON.parse(body).comments[0].body).toBe(
+    "Unexpected character '\uFFFD' (1:0)",
+  );
+});
+
 test("a 409 means the attempt is stale", async () => {
   const { ghost } = callbacks([new Response(null, { status: 409 })]);
   await expect(ghost.heartbeat()).rejects.toBeInstanceOf(StaleAttemptError);

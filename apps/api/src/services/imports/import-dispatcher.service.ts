@@ -257,6 +257,7 @@ export class ImportDispatcherService
         destination: await this.destinationOf(row.repositoryId),
         githubToken,
         ghostToken: key.key,
+        lastAttempt: row.attempts >= MAX_IMPORT_ATTEMPTS,
       });
     } catch (error) {
       const reason =

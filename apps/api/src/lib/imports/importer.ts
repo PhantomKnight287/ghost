@@ -15,6 +15,8 @@ export type ImportJob = {
   destination: string;
   githubToken: string;
   ghostToken: string;
+  /** No retry follows this attempt, so the importer should not keep its clone for one. */
+  lastAttempt: boolean;
 };
 
 const DISPATCH_TIMEOUT_MS = 10_000;

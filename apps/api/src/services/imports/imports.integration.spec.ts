@@ -219,6 +219,7 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
         destination: 'import_owner/repo',
         githubToken: 'gh-token',
         ghostToken: `ghost_pat_${row.apiKeyId}`,
+        lastAttempt: false,
       });
     });
 

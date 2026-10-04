@@ -50,11 +50,14 @@ export async function fetchFromGitHub({
   dir,
   source,
   token,
+  tokenWorked,
   signal,
 }: {
   dir: string;
   source: string;
   token: string;
+  /** GitHub has already accepted `token` in this attempt, so a refusal now means it expired rather than that it never worked. */
+  tokenWorked: boolean;
   signal: AbortSignal;
 }) {
   await git(["init", "--bare", "--quiet", dir], { signal });
@@ -70,10 +73,19 @@ export async function fetchFromGitHub({
     ],
     { env: credentialEnv(GITHUB, "x-access-token", token), signal },
   ).catch((error: Error) => {
-    if (/Repository not found|Authentication failed|403/.test(error.message))
-      throw new PermanentImportError(error.message);
-    throw error;
+    throw fetchFailure(error, tokenWorked);
   });
+}
+
+/** Whether a failed fetch is worth another attempt. No access stays no access; a token that expired mid-attempt is replaced by the next one. */
+export function fetchFailure(error: Error, tokenWorked: boolean) {
+  if (tokenWorked && /Authentication failed/.test(error.message))
+    return new Error(
+      `${error.message} (the GitHub token expired during the import)`,
+    );
+  if (/Repository not found|Authentication failed|403/.test(error.message))
+    return new PermanentImportError(error.message);
+  return error;
 }
 
 export async function listRefs(
@@ -106,54 +118,30 @@ export async function presentCommits(
   );
 }
 
-// Keeps each push's ref list near 100 KB, far under what the API reads before the packfile, and its argv far under ARG_MAX.
-const PUSH_BATCH_REFS = 1000;
-
-/** The refs to push, branches and tags first, in batches of `size`. */
-export function pushBatches(refs: Set<string>, size = PUSH_BATCH_REFS) {
-  const ordered = REFSPECS.flatMap((spec) => {
-    const [prefix, suffix] = spec.split("*") as [string, string];
-    return [...refs].filter(
-      (ref) => ref.startsWith(prefix) && ref.endsWith(suffix),
-    );
-  });
-  const batches: string[][] = [];
-  for (let i = 0; i < ordered.length; i += size)
-    batches.push(ordered.slice(i, i + size));
-  return batches;
-}
-
-/** Not forced: refs a previous attempt already pushed are up to date, and anything else on the other side is a conflict worth failing on. Batched so a repository with tens of thousands of pull requests is not one giant push. */
+/** One push of every imported ref, named by pattern so argv stays small however many pull requests there are. Not forced: refs a previous attempt already pushed are up to date, and anything else on the other side is a conflict worth failing on. */
 export async function pushToGhost({
   dir,
   apiUrl,
   destination,
   token,
-  refs,
   signal,
 }: {
   dir: string;
   apiUrl: string;
   destination: string;
   token: string;
-  refs: Set<string>;
   signal: AbortSignal;
 }) {
   const origin = new URL(apiUrl).origin;
-  for (const batch of pushBatches(refs)) {
-    await git(
-      [
-        "-C",
-        dir,
-        "push",
-        "--quiet",
-        `${origin}/${destination}.git`,
-        ...batch.map((ref) => `${ref}:${ref}`),
-      ],
-      {
-        env: credentialEnv(origin, "import", token),
-        signal,
-      },
-    );
-  }
+  await git(
+    [
+      "-C",
+      dir,
+      "push",
+      "--quiet",
+      `${origin}/${destination}.git`,
+      ...REFSPECS.map((spec) => `${spec}:${spec}`),
+    ],
+    { env: credentialEnv(origin, "import", token), signal },
+  );
 }
