@@ -7,24 +7,23 @@ import {
   RepositoryReadme,
   RepositoryReadmeSkeleton,
 } from "@/components/repositories/repository-readme";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, resolveRevisionPath } from "@/lib/api/server";
 import { ogUrl } from "@/lib/og-url";
 
 export async function generateMetadata({
   params,
 }: PageProps<"/[username]/[repo]/tree/[ref]/[[...path]]">): Promise<Metadata> {
   const { username, repo, ref, path } = await params;
-  const segments = (path ?? []).map(decodeURIComponent);
-  const revision = decodeURIComponent(ref);
-
-  const location = segments.length ? `${segments.join("/")} at ` : "";
-  const title = `${username}/${repo} · ${location}${revision}`;
-  const image = ogUrl({
+  const { revision, path: dirPath } = await resolveRevisionPath(
     username,
     repo,
-    ref: revision,
-    path: segments.join("/"),
-  });
+    ref,
+    path,
+  );
+
+  const location = dirPath ? `${dirPath} at ` : "";
+  const title = `${username}/${repo} · ${location}${revision}`;
+  const image = ogUrl({ username, repo, ref: revision, path: dirPath });
 
   return {
     title,
@@ -38,17 +37,17 @@ export default async function RepositoryTreePage({
 }: PageProps<"/[username]/[repo]/tree/[ref]/[[...path]]">) {
   const { username, repo, ref, path } = await params;
 
-  const client = await createServerClient();
-
-  const revision = decodeURIComponent(ref);
-  const segments = (path ?? []).map(decodeURIComponent);
+  const [client, { revision, path: dirPath }] = await Promise.all([
+    createServerClient(),
+    resolveRevisionPath(username, repo, ref, path),
+  ]);
 
   const contents = await client.GET(
     "/api/repositories/{username}/{slug}/contents",
     {
       params: {
         path: { username, slug: repo },
-        query: { ref: revision, path: segments.join("/") || undefined },
+        query: { ref: revision, path: dirPath || undefined },
       },
     },
   );
@@ -69,7 +68,7 @@ export default async function RepositoryTreePage({
           username={username}
           repo={repo}
           revision={revision}
-          path={segments.join("/")}
+          path={dirPath}
         />
       </Suspense>
     </>

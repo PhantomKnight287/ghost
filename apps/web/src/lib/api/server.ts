@@ -5,6 +5,7 @@ import createFetchClient from "openapi-fetch";
 import { authClient } from "@/lib/auth-client";
 import { administers } from "@ghost/permissions";
 import { INTERNAL_API_URL } from "@/lib/env";
+import { splitRevision } from "@/lib/revision";
 
 import type { paths } from "@/lib/api/v1";
 
@@ -58,3 +59,26 @@ export const getAdminOrganizations = cache(async () => {
     .filter((organization) => administers(organization.viewerRole))
     .map((organization) => organization.slug);
 });
+
+/** Branch names of a repository, fetched once per render however many components ask. */
+export const getBranchNames = cache(async (username: string, slug: string) => {
+  const client = await createServerClient();
+  const { data } = await client.GET(
+    "/api/repositories/{username}/{slug}/branches",
+    { params: { path: { username, slug } } },
+  );
+  return data?.branches ?? [];
+});
+
+/** The revision and path a `[ref]/[[...path]]` route names, where a branch like `feat/x` spans more than one segment. */
+export async function resolveRevisionPath(
+  username: string,
+  slug: string,
+  ref: string,
+  path: string[] = [],
+) {
+  return splitRevision(
+    [ref, ...path].map(decodeURIComponent),
+    await getBranchNames(username, slug),
+  );
+}

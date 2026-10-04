@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 
 import { API_URL, sshCloneUrlFor } from "@/lib/env";
+import { splitRevision } from "@/lib/revision";
 import { atLeast } from "@ghost/permissions";
 import type { RepositoryFrameProps } from "@/types/repository";
 
@@ -58,15 +59,17 @@ export function RepositoryFrame({
 }: RepositoryFrameProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [view, revSegment, ...path] = pathname
+  const [view, ...rest] = pathname
     .split("/")
     .slice(3)
     .filter(Boolean)
     .map(decodeURIComponent);
 
   const hasRev = view === "tree" || view === "blob" || view === "commits";
-  const rev = (hasRev && revSegment) || defaultBranch;
-  const segments = view === "tree" || view === "blob" ? path : [];
+  const { revision, path } = splitRevision(hasRev ? rest : [], branches ?? []);
+  const rev = revision || defaultBranch;
+  const segments =
+    (view === "tree" || view === "blob") && path ? path.split("/") : [];
   const onBranch = rev != null && (branches ?? []).includes(rev);
 
   const base = `/${username}/${slug}`;

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Download, GitCommitHorizontal } from "lucide-react";
 
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, resolveRevisionPath } from "@/lib/api/server";
 import { highlightLines } from "@/lib/highlight";
 import { ogUrl } from "@/lib/og-url";
 import { formatBytes } from "@/lib/utils";
@@ -12,13 +12,18 @@ export async function generateMetadata({
   params,
 }: PageProps<"/[username]/[repo]/blob/[ref]/[[...path]]">): Promise<Metadata> {
   const { username, repo, ref, path } = await params;
-  const segments = (path ?? []).map(decodeURIComponent);
-  const title = `${username}/${repo} · ${segments.join("/")} at ${decodeURIComponent(ref)}`;
+  const { revision, path: filePath } = await resolveRevisionPath(
+    username,
+    repo,
+    ref,
+    path,
+  );
+  const title = `${username}/${repo} · ${filePath} at ${revision}`;
   const image = ogUrl({
     username,
     repo,
-    ref: decodeURIComponent(ref),
-    path: segments.join("/"),
+    ref: revision,
+    path: filePath,
     kind: "blob",
   });
 
@@ -34,13 +39,16 @@ export default async function RepositoryBlobPage({
 }: PageProps<"/[username]/[repo]/blob/[ref]/[[...path]]">) {
   const { username, repo, ref, path } = await params;
 
-  const segments = (path ?? []).map(decodeURIComponent);
-  if (segments.length === 0) notFound();
+  const { revision, path: filePath } = await resolveRevisionPath(
+    username,
+    repo,
+    ref,
+    path,
+  );
+  if (!filePath) notFound();
+  const segments = filePath.split("/");
 
   const client = await createServerClient();
-
-  const revision = decodeURIComponent(ref);
-  const filePath = segments.join("/");
 
   const blob = await client.GET("/api/repositories/{username}/{slug}/blob", {
     params: {
