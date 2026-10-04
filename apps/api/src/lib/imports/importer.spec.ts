@@ -62,6 +62,7 @@ describe('dispatchToImporter', () => {
     destination: 'me/repo',
     githubToken: 'gh',
     ghostToken: 'ghost',
+    lastAttempt: false,
   };
 
   it('posts the job with the secret', async () => {

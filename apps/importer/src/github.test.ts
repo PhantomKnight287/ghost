@@ -95,13 +95,41 @@ describe("GitHubClient", () => {
 
   test("gives up on a long rate limit with a retryable error", async () => {
     const { impl } = fakeFetch([
-      new Response(null, { status: 429, headers: { "retry-after": "3600" } }),
+      new Response(null, { status: 429, headers: { "retry-after": "7200" } }),
     ]);
     const error = await new GitHubClient("t", never, impl)
       .get("/x")
       .catch((e) => e);
     expect(error).toBeInstanceOf(Error);
     expect(error).not.toBeInstanceOf(PermanentImportError);
+  });
+
+  test("a token refused from the start is permanent, one that expires mid-attempt is not", async () => {
+    const never401 = await new GitHubClient(
+      "t",
+      never,
+      fakeFetch([new Response("Bad credentials", { status: 401 })]).impl,
+    )
+      .get("/x")
+      .catch((e) => e);
+    expect(never401).toBeInstanceOf(PermanentImportError);
+
+    const client = new GitHubClient(
+      "t",
+      never,
+      fakeFetch([
+        Response.json({}),
+        new Response("Bad credentials", { status: 401 }),
+      ]).impl,
+    );
+    await client.get("/repos/o/r");
+    const expired = await client.get("/x").then(
+      () => null,
+      (e: Error) => e,
+    );
+    expect(expired).toBeInstanceOf(Error);
+    expect(expired).not.toBeInstanceOf(PermanentImportError);
+    expect(expired?.message).toContain("expired");
   });
 
   test("a missing repository is permanent, a server error is not", async () => {

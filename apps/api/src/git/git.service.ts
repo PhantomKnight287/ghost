@@ -133,9 +133,10 @@ export class GitService {
     }
 
     const { transitions, packOffset } = await readReceivePackHeader(body);
+    const importing = await this.isImportKey(repositoryId, apiKeyId);
     // Checked before the log: receive-pack's own refusals land after the commit point, too late to keep a ref out.
     const pullRef = transitions.find(({ ref }) => isPullRef(ref));
-    if (pullRef && !(await this.isImportKey(repositoryId, apiKeyId))) {
+    if (pullRef && !importing) {
       throw new ProtectedRefError(pullRef.ref);
     }
     const repoDirectory = await this.materializer.open({
@@ -184,6 +185,8 @@ export class GitService {
         ),
       );
       void this.pullRefs.syncAfterPush({ repositoryId, transitions });
+      // An import is history, not activity: its push names every branch and tag the repository ever had.
+      if (importing) return;
       this.publishPushes({
         repositoryId,
         repoDirectory,

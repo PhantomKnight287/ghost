@@ -35,6 +35,9 @@ export async function runGitBuffer({
     child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
 
     child.on('error', reject);
+    child.stdin.on('error', (error: NodeJS.ErrnoException) => {
+      if (!isUnreadInput(error)) reject(error);
+    });
     child.on('close', (code) => {
       if (code === 0) return resolve(Buffer.concat(stdout));
       reject(
@@ -79,12 +82,16 @@ export async function* runGitStream({
     env: { ...process.env, GIT_DIR: gitDir, ...env },
   });
 
+  const stderr: Buffer[] = [];
+  const failures: Error[] = [];
+  child.stdin.on('error', (error: NodeJS.ErrnoException) => {
+    if (!isUnreadInput(error)) failures.push(error);
+  });
+
   if (input === undefined) child.stdin.end();
   else if (Buffer.isBuffer(input)) child.stdin.end(input);
   else input.pipe(child.stdin);
 
-  const stderr: Buffer[] = [];
-  const failures: Error[] = [];
   child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
   child.on('error', (error) => failures.push(error));
 
@@ -113,4 +120,9 @@ export async function* runGitStream({
       Buffer.concat(stderr).toString('utf8').trim(),
     );
   }
+}
+
+/** git exited before reading all it was given, as when a caller stops early; its exit status says what happened, so the failed write is not an error of its own. */
+function isUnreadInput(error: NodeJS.ErrnoException) {
+  return error.code === 'EPIPE';
 }

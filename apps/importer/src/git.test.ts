@@ -3,11 +3,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { PermanentImportError } from "./errors.ts";
 import {
   credentialEnv,
+  fetchFailure,
   listRefs,
   presentCommits,
-  pushBatches,
 } from "./git.ts";
 
 const never = new AbortController().signal;
@@ -61,18 +62,17 @@ test("a failing git command reports its stderr", async () => {
   );
 });
 
-test("pushBatches sends branches and tags first and skips other refs", () => {
-  const refs = new Set([
-    "refs/pull/1/head",
-    "refs/pull/1/merge",
-    "refs/tags/v1",
-    "refs/pull/2/head",
-    "refs/heads/main",
-    "refs/notes/commits",
-  ]);
-  expect(pushBatches(refs, 2)).toEqual([
-    ["refs/heads/main", "refs/tags/v1"],
-    ["refs/pull/1/head", "refs/pull/2/head"],
-  ]);
-  expect(pushBatches(new Set())).toEqual([]);
+test("fetchFailure retries only a token that expired after working", () => {
+  const auth = new Error(
+    "fatal: Authentication failed for 'https://github.com/o/r.git/'",
+  );
+  expect(fetchFailure(auth, false)).toBeInstanceOf(PermanentImportError);
+  const expired = fetchFailure(auth, true);
+  expect(expired).not.toBeInstanceOf(PermanentImportError);
+  expect(expired.message).toContain("expired");
+
+  const missing = new Error("remote: Repository not found.");
+  expect(fetchFailure(missing, true)).toBeInstanceOf(PermanentImportError);
+  const network = new Error("fatal: unable to access: Could not resolve host");
+  expect(fetchFailure(network, true)).toBe(network);
 });
