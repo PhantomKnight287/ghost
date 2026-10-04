@@ -1,14 +1,11 @@
 import { atLeast } from "@ghost/permissions";
-import { GitBranch } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Badge } from "@/components/ui/badge";
 import { createServerClient } from "@/lib/api/server";
 
+import { BranchList } from "./branch-list";
 import { CreateBranchDialog } from "./create-branch-dialog";
-import { DeleteBranchButton } from "./delete-branch-button";
 
 export async function generateMetadata({
   params,
@@ -61,34 +58,13 @@ export default async function BranchesPage({
           </p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
-          {branches.data.branches.map((branch) => (
-            <li
-              key={branch}
-              className="flex items-center gap-3 px-4 py-3 text-sm"
-            >
-              <GitBranch className="size-4 shrink-0 text-muted-foreground" />
-              <Link
-                href={`/${username}/${repo}/tree/${encodeURIComponent(branch)}`}
-                className="min-w-0 truncate font-medium hover:underline"
-              >
-                {branch}
-              </Link>
-              {branch === defaultBranch && (
-                <Badge variant="outline">Default</Badge>
-              )}
-              {canWrite && branch !== defaultBranch && (
-                <div className="ml-auto">
-                  <DeleteBranchButton
-                    username={username}
-                    repo={repo}
-                    branch={branch}
-                  />
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
+        <BranchList
+          username={username}
+          repo={repo}
+          branches={branches.data.branches}
+          defaultBranch={defaultBranch}
+          canWrite={canWrite}
+        />
       )}
     </div>
   );

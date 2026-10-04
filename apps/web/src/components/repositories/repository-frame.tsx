@@ -16,18 +16,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { WatchButton } from "@/components/notifications/watch-button";
 import { TabLink } from "@/components/tab-link";
+import { BranchSelect } from "@/components/repositories/branch-select";
 import { ClonePopover } from "@/components/repositories/clone-popover";
 import { StarButton } from "@/components/repositories/star-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 import { API_URL, sshCloneUrlFor } from "@/lib/env";
 import { splitRevision } from "@/lib/revision";
@@ -222,34 +215,18 @@ export function RepositoryFrame({
             {activeTab === "code" && !OWN_HEADER_VIEWS.has(view) && rev && (
               // one row on a phone too: the select gives way first, and the count drops its word
               <div className="flex items-center gap-3">
-                <Select
+                <BranchSelect
+                  branches={branches ?? []}
                   value={onBranch ? rev : ""}
                   onValueChange={(branch) =>
                     router.push(`${base}/tree/${encodeURIComponent(branch)}`)
                   }
-                >
-                  <SelectTrigger className="w-[180px] min-w-0 shrink">
-                    <SelectValue
-                      placeholder={
-                        // a sha is shortened; a tag reads in full
-                        onBranch
-                          ? "Select a branch"
-                          : /^[0-9a-f]{40}$/.test(rev)
-                            ? rev.slice(0, 7)
-                            : rev
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {(branches ?? []).map((item) => (
-                        <SelectItem key={item} value={item}>
-                          {item}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                  placeholder={
+                    // a sha is shortened; a tag reads in full
+                    /^[0-9a-f]{40}$/.test(rev) ? rev.slice(0, 7) : rev
+                  }
+                  className="w-[180px] min-w-0 shrink"
+                />
                 <Link
                   href={`${base}/branches`}
                   className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
