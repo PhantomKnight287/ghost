@@ -1,4 +1,10 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
+import type { Request } from 'express';
+import {
+  rateLimitPerMinute,
+  rateLimitTracker,
+} from '../../lib/http/rate-limit.js';
 import { RepositoriesService } from './repositories.service.js';
 import { RepositoriesController } from './repositories.controller.js';
 import { SearchController } from './search.controller.js';
@@ -18,7 +24,21 @@ import { CommitVerificationService } from '../../services/gpg/commit-verificatio
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 
 @Module({
-  imports: [MaterializerModule],
+  imports: [
+    MaterializerModule,
+    // Only code search is guarded: it is the one endpoint whose cost a query string decides. Counters live in this process, so with N replicas a client gets N times the limit.
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60_000,
+          limit: (context) =>
+            rateLimitPerMinute(context.switchToHttp().getRequest()),
+        },
+      ],
+      getTracker: (request) => rateLimitTracker(request as Request),
+      errorMessage: 'Too many searches. Try again in a minute.',
+    }),
+  ],
   controllers: [RepositoriesController, SearchController, TransfersController],
   providers: [
     RepositoriesService,

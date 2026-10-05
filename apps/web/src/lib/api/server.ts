@@ -5,14 +5,15 @@ import createFetchClient from "openapi-fetch";
 import { authClient } from "@/lib/auth-client";
 import { administers } from "@ghost/permissions";
 import { INTERNAL_API_URL } from "@/lib/env";
+import { splitRevision } from "@/lib/revision";
 
 import type { paths } from "@/lib/api/v1";
 
-/** What the API needs from the browser's request: its cookies, and the client address the proxy put in x-forwarded-for, which Better Auth rate-limits by. */
+/** What the API needs from the browser's request: its cookies, and the client address the proxy set (x-real-ip on Railway, x-forwarded-for behind Caddy), which Better Auth and code search rate-limit by. */
 async function forwardedHeaders(): Promise<Record<string, string>> {
   const incoming = await headers();
   const forwarded: Record<string, string> = {};
-  for (const name of ["cookie", "x-forwarded-for"]) {
+  for (const name of ["cookie", "x-forwarded-for", "x-real-ip"]) {
     const value = incoming.get(name);
     if (value) forwarded[name] = value;
   }
@@ -58,3 +59,26 @@ export const getAdminOrganizations = cache(async () => {
     .filter((organization) => administers(organization.viewerRole))
     .map((organization) => organization.slug);
 });
+
+/** Branch names of a repository, fetched once per render however many components ask. */
+export const getBranchNames = cache(async (username: string, slug: string) => {
+  const client = await createServerClient();
+  const { data } = await client.GET(
+    "/api/repositories/{username}/{slug}/branches",
+    { params: { path: { username, slug } } },
+  );
+  return data?.branches ?? [];
+});
+
+/** The revision and path a `[ref]/[[...path]]` page names, where a branch like `feat/x` spans more than one segment. Pages get params still encoded; route handlers get them decoded and call `splitRevision` themselves. */
+export async function resolveRevisionPath(
+  username: string,
+  slug: string,
+  ref: string,
+  path: string[] = [],
+) {
+  return splitRevision(
+    [ref, ...path].map(decodeURIComponent),
+    await getBranchNames(username, slug),
+  );
+}

@@ -3,22 +3,29 @@ import { notFound } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Download, GitCommitHorizontal } from "lucide-react";
 
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, resolveRevisionPath } from "@/lib/api/server";
 import { highlightLines } from "@/lib/highlight";
 import { ogUrl } from "@/lib/og-url";
 import { formatBytes } from "@/lib/utils";
+
+import { LineTarget } from "./line-target";
 
 export async function generateMetadata({
   params,
 }: PageProps<"/[username]/[repo]/blob/[ref]/[[...path]]">): Promise<Metadata> {
   const { username, repo, ref, path } = await params;
-  const segments = (path ?? []).map(decodeURIComponent);
-  const title = `${username}/${repo} · ${segments.join("/")} at ${decodeURIComponent(ref)}`;
+  const { revision, path: filePath } = await resolveRevisionPath(
+    username,
+    repo,
+    ref,
+    path,
+  );
+  const title = `${username}/${repo} · ${filePath} at ${revision}`;
   const image = ogUrl({
     username,
     repo,
-    ref: decodeURIComponent(ref),
-    path: segments.join("/"),
+    ref: revision,
+    path: filePath,
     kind: "blob",
   });
 
@@ -34,13 +41,16 @@ export default async function RepositoryBlobPage({
 }: PageProps<"/[username]/[repo]/blob/[ref]/[[...path]]">) {
   const { username, repo, ref, path } = await params;
 
-  const segments = (path ?? []).map(decodeURIComponent);
-  if (segments.length === 0) notFound();
+  const { revision, path: filePath } = await resolveRevisionPath(
+    username,
+    repo,
+    ref,
+    path,
+  );
+  if (!filePath) notFound();
+  const segments = filePath.split("/");
 
   const client = await createServerClient();
-
-  const revision = decodeURIComponent(ref);
-  const filePath = segments.join("/");
 
   const blob = await client.GET("/api/repositories/{username}/{slug}/blob", {
     params: {
@@ -103,6 +113,7 @@ export default async function RepositoryBlobPage({
         </a>
       </div>
 
+      <LineTarget />
       {lines ? (
         <div className="overflow-x-auto" data-shiki>
           <table className="w-full border-collapse font-mono text-sm">
@@ -111,10 +122,13 @@ export default async function RepositoryBlobPage({
                 <tr
                   key={i}
                   id={`L${i + 1}`}
-                  className="scroll-mt-20 hover:bg-muted/40 target:bg-primary/10"
+                  className="scroll-mt-20 hover:bg-muted/40"
                 >
                   <td className="w-12 select-none border-r py-0.5 pr-3 text-right align-top text-xs text-muted-foreground">
-                    {i + 1}
+                    {/* a plain anchor, so the browser fires hashchange for the line it moves to */}
+                    <a href={`#L${i + 1}`} className="hover:text-foreground">
+                      {i + 1}
+                    </a>
                   </td>
                   <td className="py-0.5 pl-4 whitespace-pre">
                     {line.map((t, j) => (

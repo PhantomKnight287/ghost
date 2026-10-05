@@ -12,13 +12,14 @@ const PAGE_SIZE = 20;
 export default async function RepositoryCommitsPage({
   params,
   searchParams,
-}: PageProps<"/[username]/[repo]/commits/[ref]">) {
+}: PageProps<"/[username]/[repo]/commits/[...ref]">) {
   const { username, repo, ref } = await params;
   const { cursor } = await searchParams;
 
   const client = await createServerClient();
 
-  const revision = decodeURIComponent(ref);
+  // a branch like `feat/x` arrives as more than one segment
+  const revision = ref.map(decodeURIComponent).join("/");
 
   const commits = await client.GET(
     "/api/repositories/{username}/{slug}/commits",

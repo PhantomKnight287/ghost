@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { Controller, useForm } from "react-hook-form";
 
+import { BranchSelect } from "@/components/repositories/branch-select";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -14,13 +15,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import type { CreatePullRequestFormProps } from "@/types/pull-request";
@@ -75,24 +69,16 @@ export function CreatePullRequestForm({
               control={control}
               name="base"
               render={({ field }) => (
-                <Select
+                <BranchSelect
+                  id="pull-base"
+                  branches={bases}
                   value={field.value}
                   onValueChange={(value) => {
                     field.onChange(value);
                     preview({ base: value });
                   }}
-                >
-                  <SelectTrigger id="pull-base" className="w-full">
-                    <SelectValue placeholder="Select a branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bases.map((branch) => (
-                      <SelectItem key={branch} value={branch}>
-                        {branch}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  className="w-full"
+                />
               )}
             />
             <FieldError errors={[errors.base]} />
@@ -106,26 +92,16 @@ export function CreatePullRequestForm({
               control={control}
               name="head"
               render={({ field }) => (
-                <Select
+                <BranchSelect
+                  id="pull-head"
+                  branches={heads.filter((branch) => branch !== base)}
                   value={field.value}
                   onValueChange={(value) => {
                     field.onChange(value);
                     preview({ head: value });
                   }}
-                >
-                  <SelectTrigger id="pull-head" className="w-full">
-                    <SelectValue placeholder="Select a branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {heads
-                      .filter((branch) => branch !== base)
-                      .map((branch) => (
-                        <SelectItem key={branch} value={branch}>
-                          {branch}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  className="w-full"
+                />
               )}
             />
             <FieldError errors={[errors.head]} />

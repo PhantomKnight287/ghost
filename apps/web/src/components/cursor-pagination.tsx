@@ -9,12 +9,16 @@ export function CursorPagination({
   params = {},
   cursor,
   nextCursor,
+  firstLabel = "Newest",
+  nextLabel = "Older",
 }: {
   pathname: string;
   /** The page's other query parameters, kept on both links; unset ones are dropped. */
   params?: Record<string, string | undefined>;
   cursor: string | undefined;
   nextCursor: string | null | undefined;
+  firstLabel?: string;
+  nextLabel?: string;
 }) {
   const isFirstPage = !cursor;
   if (isFirstPage && !nextCursor) return null;
@@ -43,14 +47,14 @@ export function CursorPagination({
         aria-disabled={isFirstPage}
         className={link(!isFirstPage)}
       >
-        Newest
+        {firstLabel}
       </Link>
       <Link
         href={nextHref ?? firstHref}
         aria-disabled={!nextHref}
         className={link(nextHref !== null)}
       >
-        Older
+        {nextLabel}
       </Link>
     </div>
   );

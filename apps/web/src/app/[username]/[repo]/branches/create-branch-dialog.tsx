@@ -6,6 +6,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 
+import { BranchSelect } from "@/components/repositories/branch-select";
 import { createBranch } from "@/components/repositories/actions";
 import {
   type CreateBranchInput,
@@ -28,13 +29,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 
 export function CreateBranchDialog({
@@ -106,18 +100,13 @@ export function CreateBranchDialog({
                 control={control}
                 name="from"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="branch-from" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((branch) => (
-                        <SelectItem key={branch} value={branch}>
-                          {branch}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <BranchSelect
+                    id="branch-from"
+                    branches={branches}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    className="w-full"
+                  />
                 )}
               />
             </Field>

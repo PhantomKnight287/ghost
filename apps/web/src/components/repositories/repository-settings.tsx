@@ -6,6 +6,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { BranchSelect } from "@/components/repositories/branch-select";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -35,13 +36,6 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -236,21 +230,13 @@ function DefaultBranchSetting({
         <FieldLabel htmlFor="settings-default-branch" className="sr-only">
           Default branch
         </FieldLabel>
-        <Select value={value} onValueChange={setValue}>
-          <SelectTrigger
-            id="settings-default-branch"
-            className="w-full sm:w-64"
-          >
-            <SelectValue placeholder="Select a branch" />
-          </SelectTrigger>
-          <SelectContent>
-            {branches.map((branch) => (
-              <SelectItem key={branch} value={branch}>
-                {branch}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <BranchSelect
+          id="settings-default-branch"
+          branches={branches}
+          value={value}
+          onValueChange={setValue}
+          className="w-full sm:w-64"
+        />
       </Field>
     </SettingCard>
   );

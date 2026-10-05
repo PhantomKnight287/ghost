@@ -12,6 +12,7 @@ import {
   Res,
   Session,
   StreamableFile,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -25,7 +26,9 @@ import {
   ApiOperation,
   ApiServiceUnavailableResponse,
   ApiTags,
+  ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
 import type { Response } from 'express';
 import { ErrorResponseDTO } from '../../domain/http.js';
@@ -700,6 +703,8 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/search')
+  @UseGuards(ThrottlerGuard)
+  @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
   @OptionalAuth()
   @ApiOperation({
     summary: 'Search code',
@@ -729,6 +734,7 @@ export class RepositoriesController {
       repo: slug,
       requesterId: session?.user?.id,
       query: query.q,
+      cursor: query.cursor,
       limit: query.limit,
     });
   }

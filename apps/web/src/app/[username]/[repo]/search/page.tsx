@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LoaderCircle, Search } from "lucide-react";
 
+import { CursorPagination } from "@/components/cursor-pagination";
 import { CodeSearchResults } from "@/components/search/code-search-results";
 import { SearchForm } from "@/components/search/search-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -13,6 +14,8 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { createServerClient } from "@/lib/api/server";
+
+const PAGE_SIZE = 20;
 
 export async function generateMetadata({
   params,
@@ -34,8 +37,12 @@ export default async function RepositorySearchPage({
   params,
   searchParams,
 }: PageProps<"/[username]/[repo]/search">) {
-  const [{ username, repo }, { q }] = await Promise.all([params, searchParams]);
+  const [{ username, repo }, { q, cursor }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const query = typeof q === "string" ? q.trim() : "";
+  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
   const searchForm = (
     <SearchForm
@@ -69,7 +76,12 @@ export default async function RepositorySearchPage({
   const client = await createServerClient();
   const { data, error, response } = await client.GET(
     "/api/repositories/{username}/{slug}/search",
-    { params: { path: { username, slug: repo }, query: { q: query } } },
+    {
+      params: {
+        path: { username, slug: repo },
+        query: { q: query, cursor: pageCursor, limit: PAGE_SIZE },
+      },
+    },
   );
   if (response.status === 404) notFound();
 
@@ -89,6 +101,14 @@ export default async function RepositorySearchPage({
         files={data?.files ?? []}
         repository={{ owner: username, slug: repo }}
         error={error?.message}
+      />
+      <CursorPagination
+        pathname={`/${username}/${repo}/search`}
+        params={{ q: query }}
+        cursor={pageCursor}
+        nextCursor={data?.nextCursor}
+        firstLabel="First page"
+        nextLabel="Next"
       />
     </div>
   );

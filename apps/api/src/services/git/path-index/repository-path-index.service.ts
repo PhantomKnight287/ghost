@@ -63,6 +63,46 @@ export class RepositoryPathIndexService {
     return run;
   }
 
+  /** Whether `lookup` answers for the ref's tip now. A fast-forward top-up is waited for; a first build or a rebuild walks the whole history, so it runs in the background and this returns false until it lands. False too when the ref does not exist. */
+  async ensureIndexed({
+    repositoryId,
+    repoDirectory,
+    ref,
+  }: {
+    repositoryId: string;
+    repoDirectory: string;
+    ref: string;
+  }): Promise<boolean> {
+    const tip = await resolveCommit(repoDirectory, ref);
+    if (!tip) return false;
+
+    const [state] = await this.db
+      .select()
+      .from(schema.repositoryRefIndex)
+      .where(
+        and(
+          eq(schema.repositoryRefIndex.repositoryId, repositoryId),
+          eq(schema.repositoryRefIndex.ref, ref),
+        ),
+      );
+    if (state?.indexedCommitSha === tip) return true;
+
+    if (
+      state &&
+      (await this.isAncestor(repoDirectory, state.indexedCommitSha, tip))
+    ) {
+      // A walk already in flight may have started before the ref moved to this tip.
+      return (await this.sync({ repositoryId, repoDirectory, ref })) === tip;
+    }
+
+    this.sync({ repositoryId, repoDirectory, ref }).catch((error: unknown) =>
+      this.logger.warn(
+        `Path index build failed for ${repositoryId} ${ref}: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    );
+    return false;
+  }
+
   /** Latest commit per path, for the paths a listing actually shows. */
   async lookup({
     repositoryId,

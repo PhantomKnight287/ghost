@@ -134,6 +134,7 @@ import { CodeSearchService } from '../../services/git/code-search/code-search.se
 import { S3Service } from '../../services/s3/s3.service.js';
 import { releaseAssetKey } from '../../lib/releases/release-assets.js';
 import type {
+  SearchCodeRepositoryDTO,
   SearchCodeResponseDTO,
   SearchRepositoryCodeResponseDTO,
 } from './dto/search-code.dto.js';
@@ -145,7 +146,7 @@ const RESERVED_REPOSITORY_SLUGS = new Set(['settings', 'teams']);
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const MIN_LANGUAGE_PERCENT = 0.5;
-const DEFAULT_SEARCH_LIMIT = 50;
+const DEFAULT_SEARCH_LIMIT = 20;
 
 @Injectable()
 export class RepositoriesService {
@@ -386,13 +387,15 @@ export class RepositoriesService {
   /** Code in public repositories, limited to those opened or pushed to since code search was switched on. */
   async searchCode({
     query,
+    cursor,
     limit = DEFAULT_SEARCH_LIMIT,
   }: {
     query: string;
+    cursor?: string;
     limit?: number;
   }): Promise<SearchCodeResponseDTO> {
     const { owner, rest } = ownerQualifier(query);
-    if (!rest) return { files: [] };
+    if (!rest) return { files: [], nextCursor: null };
     // `org:` names public repositories to scan; one that owns none matches nothing.
     const scoped = owner
       ? await this.db
@@ -410,44 +413,50 @@ export class RepositoriesService {
             ),
           )
       : null;
-    if (scoped?.length === 0) return { files: [] };
-
-    const hits = await this.codeSearch.searchPublic({
-      query: rest,
-      limit,
-      repositoryIds: scoped?.map((row) => row.id),
-    });
-    const ids = [...new Set(hits.map((hit) => hit.repositoryId))];
-    if (ids.length === 0) return { files: [] };
+    if (scoped?.length === 0) return { files: [], nextCursor: null };
 
     // The index only narrows to shards flagged public; the database is what decides.
-    const repositories = await this.db
-      .select({
-        id: schema.repository.id,
-        owner: ownerNameOf(schema.user, schema.organization),
-        name: schema.repository.name,
-        slug: schema.repository.slug,
-      })
-      .from(schema.repository)
-      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
-      .leftJoin(
-        schema.organization,
-        eq(schema.organization.id, schema.repository.organizationId),
-      )
-      .where(
-        and(
-          inArray(schema.repository.id, ids),
-          eq(schema.repository.visibility, 'public'),
-          isNotNull(ownerNameOf(schema.user, schema.organization)),
-        ),
-      );
-    const byId = new Map(repositories.map((row) => [row.id, row]));
+    const repositories = new Map<string, SearchCodeRepositoryDTO>();
+    const { files, nextCursor } = await this.codeSearch.searchPublic({
+      query: rest,
+      cursor,
+      limit,
+      repositoryIds: scoped?.map((row) => row.id),
+      visible: async (ids) => {
+        if (ids.length === 0) return new Set();
+        const rows = await this.db
+          .select({
+            id: schema.repository.id,
+            owner: ownerNameOf(schema.user, schema.organization),
+            name: schema.repository.name,
+            slug: schema.repository.slug,
+          })
+          .from(schema.repository)
+          .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+          .leftJoin(
+            schema.organization,
+            eq(schema.organization.id, schema.repository.organizationId),
+          )
+          .where(
+            and(
+              inArray(schema.repository.id, ids),
+              eq(schema.repository.visibility, 'public'),
+              isNotNull(ownerNameOf(schema.user, schema.organization)),
+            ),
+          );
+        for (const { id, owner, name, slug } of rows) {
+          repositories.set(id, { owner: owner!, name, slug });
+        }
+        return new Set(repositories.keys());
+      },
+    });
 
     return {
-      files: hits.flatMap((hit) => {
-        const repository = byId.get(hit.repositoryId);
-        return repository ? [{ ...hit, repository }] : [];
-      }),
+      files: files.map((hit) => ({
+        ...hit,
+        repository: repositories.get(hit.repositoryId)!,
+      })),
+      nextCursor,
     };
   }
 
@@ -1216,12 +1225,25 @@ export class RepositoriesService {
       ref: requestedRef,
     });
 
-    // a commit is a fixed point in history, so there is no moving tip to index
-    if (detached) {
-      const [entries, commitCount, commit] = await Promise.all([
+    // a commit is a fixed point in history, so there is no moving tip to index; a branch whose index is still being built reads the same way meanwhile
+    const indexed =
+      !detached &&
+      (await this.pathIndex.ensureIndexed({
+        repositoryId: repository.id,
+        repoDirectory: directory,
+        ref,
+      }));
+
+    if (!indexed) {
+      const commit = await readCommitSummary({ gitDir: directory, ref });
+      // No commit means the ref does not exist yet, i.e. nothing has been pushed.
+      if (!commit) {
+        return { ref, path: prefix, commitCount: 0, commit: null, entries: [] };
+      }
+
+      const [entries, commitCount] = await Promise.all([
         listTree({ gitDir: directory, ref, prefix }),
         this.countCommits({ directory, range: ref }),
-        readCommitSummary({ gitDir: directory, ref }),
       ]);
 
       return {
@@ -1232,17 +1254,6 @@ export class RepositoriesService {
         // per-entry history would be one walk per path, which only the index makes cheap; a point-in-time listing does without it
         entries: entries.map((entry) => ({ ...entry, lastCommit: null })),
       };
-    }
-
-    const tip = await this.pathIndex.sync({
-      repositoryId: repository.id,
-      repoDirectory: directory,
-      ref,
-    });
-
-    // No tip means the ref does not exist yet, i.e. nothing has been pushed.
-    if (!tip) {
-      return { ref, path: prefix, commitCount: 0, commit: null, entries: [] };
     }
 
     const [entries, commitCount] = await Promise.all([
@@ -1293,25 +1304,25 @@ export class RepositoriesService {
     const blob = await readBlob({ gitDir: directory, ref, path: filePath });
     if (!blob) throw new BlobNotFoundError(filePath);
 
-    // one file is one history walk, cheap enough to skip the index for
-    const lastCommit = detached
-      ? await readCommitSummary({ gitDir: directory, ref, path: filePath })
-      : null;
-
-    if (!detached) {
-      await this.pathIndex.sync({
+    const indexed =
+      !detached &&
+      (await this.pathIndex.ensureIndexed({
         repositoryId: repository.id,
         repoDirectory: directory,
         ref,
-      });
-    }
-    const commits = detached
-      ? new Map()
-      : await this.pathIndex.lookup({
+      }));
+
+    // one file is one history walk, cheap enough to skip the index for
+    const lastCommit = indexed
+      ? null
+      : await readCommitSummary({ gitDir: directory, ref, path: filePath });
+    const commits = indexed
+      ? await this.pathIndex.lookup({
           repositoryId: repository.id,
           ref,
           paths: [filePath],
-        });
+        })
+      : new Map();
 
     const text = isTextBlob(blob.content);
 
@@ -1649,12 +1660,14 @@ export class RepositoriesService {
     repo,
     requesterId,
     query,
+    cursor,
     limit = DEFAULT_SEARCH_LIMIT,
   }: {
     username: string;
     repo: string;
     requesterId?: string;
     query: string;
+    cursor?: string;
     limit?: number;
   }): Promise<SearchRepositoryCodeResponseDTO> {
     const { repository, directory } = await this.openRepository({
@@ -1668,6 +1681,7 @@ export class RepositoriesService {
       isPublic: repository.visibility === 'public',
       repoDirectory: directory,
       query,
+      cursor,
       limit,
     });
   }
@@ -1931,11 +1945,14 @@ export class RepositoriesService {
       repoDirectory: directory,
     });
 
-    // Keep the contribution index warm while the objects are hot. The profile graph reads the index only, so rendering it never materializes anything itself. A no-op once the default tip is indexed.
-    await this.contributions.sync({
-      repositoryId: repository.id,
-      repoDirectory: directory,
-    });
+    // Keep the contribution index warm while the objects are hot. The profile graph reads the index only, so rendering it never materializes anything itself. Not awaited: a first build walks the whole history, and the contributors list may show what is indexed so far until it lands.
+    this.contributions
+      .sync({ repositoryId: repository.id, repoDirectory: directory })
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Contribution index update failed for ${repository.id}: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
 
     const name = requested?.trim();
     if (!name) {

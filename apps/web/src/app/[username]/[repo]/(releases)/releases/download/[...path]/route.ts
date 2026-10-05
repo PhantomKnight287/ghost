@@ -9,7 +9,8 @@ export async function GET(
   { params }: RouteContext<"/[username]/[repo]/releases/download/[...path]">,
 ) {
   const { username, repo, path } = await params;
-  const segments = path.map(decodeURIComponent);
+  // Route handlers get params already decoded.
+  const segments = [...path];
   const name = segments.pop();
   if (!name || segments.length === 0) notFound();
 
