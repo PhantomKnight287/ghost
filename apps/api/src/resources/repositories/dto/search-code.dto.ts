@@ -13,7 +13,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class SearchCodeQueryDTO {
   @ApiProperty({
@@ -30,6 +30,8 @@ export class SearchCodeQueryDTO {
     description:
       'Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.',
   })
+  // `?cursor=` arrives as an empty string, which `@IsOptional` would still validate.
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @Matches(/^\d{1,5}$/)
   @IsOptional()
   cursor?: string;
