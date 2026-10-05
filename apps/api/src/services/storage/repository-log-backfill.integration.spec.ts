@@ -121,8 +121,8 @@ describe.skipIf(!CONNECTION)('RepositoryLogBackfillService', () => {
     const missing = await backfill.missingEntries(repositoryId);
     expect(missing).toEqual([{ repositoryId, ulid: old, size: 40 }]);
 
-    await backfill.record(missing);
-    await backfill.record(missing);
+    expect(await backfill.record(missing)).toBe(40);
+    expect(await backfill.record(missing)).toBe(0);
     expect(await backfill.missingEntries(repositoryId)).toEqual([]);
     expect(
       await db

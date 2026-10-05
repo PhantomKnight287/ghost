@@ -134,9 +134,11 @@ so their first connection has something to compare against.
 
 ### Storage limits
 
-Release assets are stored in the same bucket, under `release-assets/`. Two
-variables on the `api` service bound them; sizes are bytes or binary units
-(`1073741824`, `1gb`, `500mb`):
+Pushed git data, release assets and Git LFS objects are all stored in the same
+bucket. These variables on the `api` service limit what each account may store
+there, what one release asset may be, and what pull requests may copy into a
+base repository. A `storage_limit` row overrides the first three for one
+account. Sizes are bytes or binary units (`1073741824`, `1gb`, `500mb`):
 
 | Variable                  | Effect                                                              |
 | ------------------------- | ------------------------------------------------------------------- |

@@ -65,7 +65,14 @@ describe('GitService', () => {
         _kind: unknown,
         _bytes: number,
         insert: (tx: unknown) => Promise<unknown>,
-      ) => insert({ insert: () => ({ values: logged }) }),
+      ) =>
+        insert({
+          insert: () => ({
+            values: (row: unknown) => ({
+              onConflictDoNothing: () => logged(row),
+            }),
+          }),
+        }),
     ),
   };
   const repository = {

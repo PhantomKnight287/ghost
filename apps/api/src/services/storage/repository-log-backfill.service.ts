@@ -64,12 +64,17 @@ export class RepositoryLogBackfillService {
       .map(({ ulid, size }) => ({ repositoryId, ulid, size }));
   }
 
+  /** Bytes actually recorded: a row a push recorded meanwhile is skipped and not counted. */
   async record(rows: LogEntryRow[]) {
+    let recorded = 0;
     for (let start = 0; start < rows.length; start += INSERT_BATCH) {
-      await this.db
+      const inserted = await this.db
         .insert(schema.repositoryLogEntry)
         .values(rows.slice(start, start + INSERT_BATCH))
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .returning({ size: schema.repositoryLogEntry.size });
+      recorded += inserted.reduce((sum, { size }) => sum + size, 0);
     }
+    return recorded;
   }
 }

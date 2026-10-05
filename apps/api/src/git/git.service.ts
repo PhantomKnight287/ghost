@@ -284,7 +284,8 @@ export class GitService {
             });
             await tx
               .insert(schema.repositoryLogEntry)
-              .values({ repositoryId, ulid, size });
+              .values({ repositoryId, ulid, size })
+              .onConflictDoNothing();
           },
         );
       },

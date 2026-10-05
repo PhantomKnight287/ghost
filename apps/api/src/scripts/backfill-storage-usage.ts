@@ -41,10 +41,11 @@ for (const { id } of repositories) {
   try {
     const rows = await backfill.missingEntries(id);
     if (rows.length === 0) continue;
-    const bytes = rows.reduce((sum, { size }) => sum + size, 0);
+    const bytes = apply
+      ? await backfill.record(rows)
+      : rows.reduce((sum, { size }) => sum + size, 0);
     total += bytes;
     console.log(`${id}: ${rows.length} entries, ${formatByteSize(bytes)}`);
-    if (apply) await backfill.record(rows);
   } catch (error) {
     failed++;
     console.error(
