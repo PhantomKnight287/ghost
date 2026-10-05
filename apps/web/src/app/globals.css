@@ -538,7 +538,8 @@
   .markdown > :last-child {
     margin-bottom: 0;
   }
-  .markdown :where(p, blockquote, ul, ol, dl, table, pre, details, .markdown-alert) {
+  .markdown
+    :where(p, blockquote, ul, ol, dl, table, pre, details, .markdown-alert) {
     margin-top: 0;
     margin-bottom: 1rem;
   }

@@ -160,7 +160,9 @@ describe('RepositoryRepairService', () => {
   it.each(['check', 'repair'] as const)(
     '%s treats a deleted repository as absent',
     async (operation) => {
-      vi.spyOn(store, 'readIndex').mockRejectedValue(new RepositoryDeletedError());
+      vi.spyOn(store, 'readIndex').mockRejectedValue(
+        new RepositoryDeletedError(),
+      );
       const openPack = vi.spyOn(store, 'openEntryPack');
       const writeIndex = vi.spyOn(store, 'casIndex');
 
