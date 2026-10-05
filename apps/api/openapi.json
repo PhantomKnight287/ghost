@@ -2044,6 +2044,48 @@
         ]
       }
     },
+    "/api/storage/{owner}": {
+      "get": {
+        "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps in pushed git data, release assets and merged pull requests' heads, against its quota. Forks count against a separate quota.",
+        "operationId": "StorageController_getStorageUsage",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUsageDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Storage usage of an account",
+        "tags": [
+          "Storage"
+        ]
+      }
+    },
     "/api/organizations": {
       "get": {
         "description": "Organizations the signed-in user belongs to, with the user's role in each.",
@@ -5876,48 +5918,6 @@
         "summary": "Delete a label",
         "tags": [
           "Labels"
-        ]
-      }
-    },
-    "/api/storage/{owner}": {
-      "get": {
-        "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps in release assets and merged pull requests' heads, against this instance's quota.",
-        "operationId": "StorageController_getStorageUsage",
-        "parameters": [
-          {
-            "name": "owner",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StorageUsageDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Storage usage of an account",
-        "tags": [
-          "Storage"
         ]
       }
     },
@@ -11060,6 +11060,51 @@
           "transfers"
         ]
       },
+      "ForkStorageUsageDTO": {
+        "type": "object",
+        "properties": {
+          "usedBytes": {
+            "type": "number",
+            "description": "Bytes stored in forks."
+          },
+          "quotaBytes": {
+            "type": "number",
+            "nullable": true,
+            "description": "`null` when no fork quota applies."
+          }
+        },
+        "required": [
+          "usedBytes",
+          "quotaBytes"
+        ]
+      },
+      "StorageUsageDTO": {
+        "type": "object",
+        "properties": {
+          "usedBytes": {
+            "type": "number",
+            "description": "Bytes stored outside forks, including uploads in progress."
+          },
+          "quotaBytes": {
+            "type": "number",
+            "nullable": true,
+            "description": "`null` when no quota applies."
+          },
+          "maxAssetBytes": {
+            "type": "number",
+            "description": "Largest single release asset."
+          },
+          "fork": {
+            "$ref": "#/components/schemas/ForkStorageUsageDTO"
+          }
+        },
+        "required": [
+          "usedBytes",
+          "quotaBytes",
+          "maxAssetBytes",
+          "fork"
+        ]
+      },
       "OrganizationRole": {
         "type": "string",
         "enum": [
@@ -13286,29 +13331,6 @@
             "example": "d73a4a"
           }
         }
-      },
-      "StorageUsageDTO": {
-        "type": "object",
-        "properties": {
-          "usedBytes": {
-            "type": "number",
-            "description": "Bytes stored, including uploads in progress."
-          },
-          "quotaBytes": {
-            "type": "number",
-            "nullable": true,
-            "description": "`null` when this instance sets no quota."
-          },
-          "maxAssetBytes": {
-            "type": "number",
-            "description": "Largest single release asset."
-          }
-        },
-        "required": [
-          "usedBytes",
-          "quotaBytes",
-          "maxAssetBytes"
-        ]
       },
       "GitHubImportStatusDTO": {
         "type": "object",
