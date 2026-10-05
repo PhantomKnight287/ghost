@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ThemedToken } from "shiki";
 
-import { markMatches } from "./code-search-results";
+import { markMatches } from "./code-search-file";
 
 const token = (content: string, offset: number, color: string) =>
   ({
