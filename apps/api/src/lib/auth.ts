@@ -1,6 +1,11 @@
 import { apiKey } from '@better-auth/api-key';
+import { tryGetCurrentAuthEndpointContext } from '@better-auth/core/context';
 import { type Database, schema } from '@ghost/db';
-import { betterAuth } from 'better-auth';
+import {
+  type BetterAuthOptions,
+  betterAuth,
+  type DBAdapter,
+} from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import {
   APIError,
@@ -243,6 +248,41 @@ export async function usernameForGitHubLogin(db: Database, login: string) {
   }
 }
 
+const isUsernameConflict = (error: unknown): boolean =>
+  error instanceof Error &&
+  (('constraint' in error && error.constraint === 'user_username_unique') ||
+    isUsernameConflict(error.cause));
+
+/** Two GitHub sign-ups can both find the same name free before either is inserted; the one whose insert loses takes the next free name instead of failing. */
+export function retryGitHubUsernameConflicts(
+  db: Database,
+  adapter: DBAdapter,
+): DBAdapter {
+  const create: DBAdapter['create'] = async (args) => {
+    try {
+      return await adapter.create(args);
+    } catch (error) {
+      const taken = (args.data as { username?: unknown }).username;
+      const signingUpWithGitHub =
+        tryGetCurrentAuthEndpointContext()?.path?.startsWith('/callback/');
+      if (
+        args.model !== 'user' ||
+        typeof taken !== 'string' ||
+        !signingUpWithGitHub ||
+        !isUsernameConflict(error)
+      ) {
+        throw error;
+      }
+      const username = await usernameForGitHubLogin(db, taken);
+      return create({
+        ...args,
+        data: { ...args.data, username, displayUsername: username },
+      });
+    }
+  };
+  return { ...adapter, create };
+}
+
 /** Same check, then the write: the account's own extra row is dropped so the address is not held twice once it lands on `user.email`. */
 async function claimEmailForAccount(
   db: Database,
@@ -278,9 +318,11 @@ export function createAuth(db: Database, config: AuthConfig) {
         : undefined),
     },
 
-    database: drizzleAdapter(db, {
-      provider: 'pg',
-    }),
+    database: (options: BetterAuthOptions) =>
+      retryGitHubUsernameConflicts(
+        db,
+        drizzleAdapter(db, { provider: 'pg' })(options),
+      ),
     socialProviders: config.github
       ? {
           github: {

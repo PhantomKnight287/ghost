@@ -106,18 +106,26 @@ else
   ask_secret S3_SECRET_ACCESS_KEY "Secret access key"
 fi
 
-say "GitHub sign-in and imports (optional)"
-echo "Lets people sign in with GitHub, and import a GitHub repository with its code, releases, issues and pull requests."
+say "GitHub sign-in (optional)"
+echo "Lets people sign in with GitHub. GitHub imports need it too."
 echo "Needs a GitHub OAuth app: https://github.com/settings/applications/new"
 echo "  Homepage URL:   $WEB_APP_URL"
 echo "  Callback URL:   $API_URL/api/auth/callback/github"
 github_default=y/N; [[ -n ${GITHUB_CLIENT_ID:-} ]] && github_default=Y/n
-if confirm "Turn on GitHub sign-in and imports?" "$github_default"; then
-  COMPOSE_PROFILES=$COMPOSE_PROFILES,importer
+if confirm "Turn on GitHub sign-in?" "$github_default"; then
   while ask GITHUB_CLIENT_ID "OAuth app client ID" && [[ -z $GITHUB_CLIENT_ID ]]; do echo "Required."; done
   while ask_secret GITHUB_CLIENT_SECRET "OAuth app client secret" && [[ -z ${GITHUB_CLIENT_SECRET:-} ]]; do echo "Required."; done
-  IMPORTER_URL=http://importer:3004
-  IMPORTER_SECRET=${IMPORTER_SECRET:-$(hex 32)}
+
+  say "GitHub imports (optional)"
+  echo "Lets people import a GitHub repository with its code, releases, issues and pull requests."
+  import_default=y/N; [[ -n ${IMPORTER_URL:-} ]] && import_default=Y/n
+  if confirm "Turn on GitHub imports?" "$import_default"; then
+    COMPOSE_PROFILES=$COMPOSE_PROFILES,importer
+    IMPORTER_URL=http://importer:3004
+    IMPORTER_SECRET=${IMPORTER_SECRET:-$(hex 32)}
+  else
+    IMPORTER_URL=""; IMPORTER_SECRET=""
+  fi
 else
   GITHUB_CLIENT_ID=""; GITHUB_CLIENT_SECRET=""; IMPORTER_URL=""; IMPORTER_SECRET=""
 fi

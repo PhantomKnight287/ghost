@@ -1,6 +1,7 @@
 import path from 'node:path';
+import { runWithEndpointContext } from '@better-auth/core/context';
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -208,5 +209,66 @@ describe.skipIf(!CONNECTION)('usernameForGitHubLogin', () => {
       'gh_spec_org1',
     );
     expect(await usernameForGitHubLogin(db, 'settings')).toBe('settings1');
+  });
+});
+
+describe.skipIf(!CONNECTION)('a GitHub sign-up losing its username', () => {
+  const RACE_EMAILS = ['gh-race-1@example.com', 'gh-race-2@example.com'];
+  let db: Database;
+  let pool: Pool;
+  let auth: Auth;
+
+  const createUser = async (email: string) => {
+    const { adapter } = await auth.$context;
+    return adapter.create<Record<string, unknown>, { username: string }>({
+      model: 'user',
+      data: {
+        name: 'Race',
+        email,
+        emailVerified: true,
+        username: 'gh_race',
+        displayUsername: 'gh_race',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+  };
+
+  beforeAll(async () => {
+    ({ db, pool } = createDatabase({ connectionString: CONNECTION }));
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+    auth = createAuth(db, {
+      secret: 'auth-spec-secret-auth-spec-secret',
+      baseURL: 'http://localhost:3001',
+    });
+    await db.delete(schema.user).where(inArray(schema.user.email, RACE_EMAILS));
+    await db.insert(schema.user).values({
+      id: 'user_gh_race',
+      name: 'Race Winner',
+      email: 'gh-race-winner@example.com',
+      username: 'gh_race',
+    });
+  });
+
+  afterAll(async () => {
+    await db.delete(schema.user).where(inArray(schema.user.email, RACE_EMAILS));
+    await db.delete(schema.user).where(eq(schema.user.id, 'user_gh_race'));
+    await pool.end();
+  });
+
+  it('takes the next free name during the GitHub callback', async () => {
+    const created = await runWithEndpointContext(
+      { path: '/callback/:id' } as never,
+      () => createUser(RACE_EMAILS[0]!),
+    );
+    expect(created.username).toBe('gh_race1');
+  });
+
+  it('leaves a conflict anywhere else to fail', async () => {
+    await expect(
+      runWithEndpointContext({ path: '/sign-up/email' } as never, () =>
+        createUser(RACE_EMAILS[1]!),
+      ),
+    ).rejects.toThrow();
   });
 });
