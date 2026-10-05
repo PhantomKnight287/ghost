@@ -1482,6 +1482,18 @@
             }
           },
           {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Files to skip, in rank order. Pass the previous `offset` plus `limit` for the next page; results stop at 2000 files.",
+            "schema": {
+              "minimum": 0,
+              "maximum": 1999,
+              "default": 0,
+              "type": "number"
+            }
+          },
+          {
             "name": "limit",
             "required": false,
             "in": "query",
@@ -1844,6 +1856,18 @@
             "schema": {
               "example": "readReceivePackHeader lang:typescript",
               "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Files to skip, in rank order. Pass the previous `offset` plus `limit` for the next page; results stop at 2000 files.",
+            "schema": {
+              "minimum": 0,
+              "maximum": 1999,
+              "default": 0,
+              "type": "number"
             }
           },
           {
@@ -10636,11 +10660,17 @@
             "items": {
               "$ref": "#/components/schemas/CodeSearchFileDTO"
             }
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "More files match past this page.",
+            "example": false
           }
         },
         "required": [
           "indexing",
-          "files"
+          "files",
+          "hasMore"
         ]
       },
       "StargazerDTO": {
@@ -10932,10 +10962,16 @@
             "items": {
               "$ref": "#/components/schemas/SearchCodeFileDTO"
             }
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "More files match past this page.",
+            "example": false
           }
         },
         "required": [
-          "files"
+          "files",
+          "hasMore"
         ]
       },
       "IncomingTransferRepositoryDTO": {

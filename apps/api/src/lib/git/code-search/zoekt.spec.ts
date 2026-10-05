@@ -16,7 +16,7 @@ import {
   CodeSearchUnavailableError,
   InvalidSearchQueryError,
 } from './code-search.errors.js';
-import { indexRepository, searchIndex } from './zoekt.js';
+import { indexRepository, MAX_SEARCH_FILES, searchIndex } from './zoekt.js';
 
 const hasZoekt = (() => {
   try {
@@ -42,13 +42,106 @@ describe('searchIndex', () => {
         }),
       ),
     );
-  const search = () =>
-    searchIndex({ url: 'http://zoekt:6070', query: 'x', limit: 5 });
+  const search = ({ offset = 0, limit = 5 } = {}) =>
+    searchIndex({ url: 'http://zoekt:6070', query: 'x', offset, limit });
+  const file = (FileName: string) => ({
+    FileName,
+    Repository: 'repo_a',
+    Version: 'c1',
+    Language: 'TypeScript',
+  });
 
   it('returns no files when zoekt reports none', async () => {
     replyWith({ Result: { Files: null } });
 
-    await expect(search()).resolves.toEqual([]);
+    await expect(search()).resolves.toEqual({ files: [], hasMore: false });
+  });
+
+  it('asks for one file past the page and returns only the page', async () => {
+    replyWith({ Result: { Files: ['a', 'b', 'c', 'd'].map(file) } });
+
+    const { files, hasMore } = await search({ offset: 1, limit: 2 });
+
+    expect(files.map((hit) => hit.path)).toEqual(['b', 'c']);
+    expect(hasMore).toBe(true);
+    expect(
+      JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string),
+    ).toEqual({ Q: 'x', Opts: { MaxDocDisplayCount: 4 } });
+  });
+
+  it('has no more once zoekt runs out of files', async () => {
+    replyWith({ Result: { Files: ['a', 'b'].map(file) } });
+
+    await expect(search({ offset: 1, limit: 2 })).resolves.toMatchObject({
+      hasMore: false,
+    });
+  });
+
+  it('stops at the file cap', async () => {
+    replyWith({ Result: { Files: [] } });
+
+    await expect(
+      search({ offset: MAX_SEARCH_FILES - 1, limit: 5 }),
+    ).resolves.toEqual({ files: [], hasMore: false });
+    expect(
+      JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string),
+    ).toEqual({ Q: 'x', Opts: { MaxDocDisplayCount: MAX_SEARCH_FILES + 1 } });
+  });
+
+  it('turns many byte offsets on one line into string offsets, whatever their order', async () => {
+    const line = 'é€x'.repeat(1000);
+    const at = (i: number) => ({
+      LineOffset: i * Buffer.byteLength('é€x') + Buffer.byteLength('é€'),
+      MatchLength: 1,
+    });
+    replyWith({
+      Result: {
+        Files: [
+          {
+            ...file('a'),
+            LineMatches: [
+              {
+                Line: b64(line),
+                LineNumber: 1,
+                FileName: false,
+                LineFragments: [999, 0, 1].map(at),
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const { files } = await search();
+
+    expect(files[0].lines[0].ranges).toEqual([
+      { start: 2, end: 3 },
+      { start: 5, end: 6 },
+      { start: 2999, end: 3000 },
+    ]);
+    for (const { start, end } of files[0].lines[0].ranges) {
+      expect(line.slice(start, end)).toBe('x');
+    }
+  });
+
+  it('orders lines by line number', async () => {
+    const match = (LineNumber: number) => ({
+      Line: b64(`line ${LineNumber}\n`),
+      LineNumber,
+      FileName: false,
+      LineFragments: [],
+    });
+    replyWith({
+      Result: {
+        Files: [{ ...file('a'), LineMatches: [1, 10, 2, 3].map(match) }],
+      },
+    });
+
+    const { files } = await search();
+
+    expect(files[0].lines.map((line) => line.lineNumber)).toEqual([
+      1, 2, 3, 10,
+    ]);
   });
 
   it('decodes lines and turns byte offsets into string offsets', async () => {
@@ -91,28 +184,31 @@ describe('searchIndex', () => {
       },
     });
 
-    await expect(search()).resolves.toEqual([
-      {
-        repositoryId: 'repo_a',
-        commit: 'c1',
-        path: 'a.ts',
-        language: 'TypeScript',
-        lines: [
-          {
-            lineNumber: 3,
-            line,
-            ranges: [{ start: 13, end: 19 }],
-          },
-        ],
-      },
-      {
-        repositoryId: 'repo_a',
-        commit: 'c1',
-        path: 'b.ts',
-        language: 'TypeScript',
-        lines: [],
-      },
-    ]);
+    await expect(search()).resolves.toEqual({
+      hasMore: false,
+      files: [
+        {
+          repositoryId: 'repo_a',
+          commit: 'c1',
+          path: 'a.ts',
+          language: 'TypeScript',
+          lines: [
+            {
+              lineNumber: 3,
+              line,
+              ranges: [{ start: 13, end: 19 }],
+            },
+          ],
+        },
+        {
+          repositoryId: 'repo_a',
+          commit: 'c1',
+          path: 'b.ts',
+          language: 'TypeScript',
+          lines: [],
+        },
+      ],
+    });
   });
 
   it('rejects a query zoekt cannot parse', async () => {
@@ -207,9 +303,14 @@ describe.skipIf(!hasZoekt)('zoekt round trip', () => {
   const searchUntil = (query: string, count: number) =>
     vi.waitFor(
       async () => {
-        const found = await searchIndex({ url, query, limit: 5 });
-        expect(found).toHaveLength(count);
-        return found;
+        const { files } = await searchIndex({
+          url,
+          query,
+          offset: 0,
+          limit: 5,
+        });
+        expect(files).toHaveLength(count);
+        return files;
       },
       { timeout: 10_000, interval: 100 },
     );

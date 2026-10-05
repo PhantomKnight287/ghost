@@ -107,7 +107,9 @@ describe('CodeSearchService', () => {
         writeFileSync(path.join(indexDir, 'repo_a_v16.00000.zoekt'), 'shard');
         return ['repo_a_v16.00000.zoekt'];
       });
-    vi.mocked(searchIndex).mockReset().mockResolvedValue([]);
+    vi.mocked(searchIndex)
+      .mockReset()
+      .mockResolvedValue({ files: [], hasMore: false });
   });
 
   afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -248,7 +250,7 @@ describe('CodeSearchService', () => {
 
   describe('searchRepository', () => {
     const search = (on: CodeSearchService, query = 'x') =>
-      on.searchRepository({ ...target(), query, limit: 10 });
+      on.searchRepository({ ...target(), query, offset: 0, limit: 10 });
 
     it('is unavailable when code search is off', async () => {
       await expect(search(service({}))).rejects.toBeInstanceOf(
@@ -292,36 +294,43 @@ describe('CodeSearchService', () => {
       expect(searchIndex).toHaveBeenCalledWith({
         url: URL,
         query: 'r:^repo_a$ (x)',
+        offset: 0,
         limit: 10,
       });
     });
 
     it('drops hits from other repositories', async () => {
       s3.objects.set(MARKER, stamp(commit('one')));
-      vi.mocked(searchIndex).mockResolvedValue([hit('repo_a'), hit('repo_b')]);
+      vi.mocked(searchIndex).mockResolvedValue({
+        files: [hit('repo_a'), hit('repo_b')],
+        hasMore: true,
+      });
 
-      const { files } = await search(service(), 'x) or (r:repo_b');
+      const { files, hasMore } = await search(service(), 'x) or (r:repo_b');
 
       expect(files).toEqual([hit('repo_a')]);
+      expect(hasMore).toBe(true);
     });
   });
 
   describe('searchPublic', () => {
     it('is unavailable when code search is off', async () => {
       await expect(
-        service({}).searchPublic({ query: 'x', limit: 10 }),
+        service({}).searchPublic({ query: 'x', offset: 0, limit: 10 }),
       ).rejects.toBeInstanceOf(CodeSearchUnavailableError);
     });
 
     it('narrows the query to public shards', async () => {
-      vi.mocked(searchIndex).mockResolvedValue([hit('repo_a')]);
+      const page = { files: [hit('repo_a')], hasMore: false };
+      vi.mocked(searchIndex).mockResolvedValue(page);
 
       await expect(
-        service().searchPublic({ query: 'x', limit: 10 }),
-      ).resolves.toEqual([hit('repo_a')]);
+        service().searchPublic({ query: 'x', offset: 20, limit: 10 }),
+      ).resolves.toEqual(page);
       expect(searchIndex).toHaveBeenCalledWith({
         url: URL,
         query: 'public:yes (x)',
+        offset: 20,
         limit: 10,
       });
     });

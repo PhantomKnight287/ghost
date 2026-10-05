@@ -729,6 +729,7 @@ export class RepositoriesController {
       repo: slug,
       requesterId: session?.user?.id,
       query: query.q,
+      offset: query.offset,
       limit: query.limit,
     });
   }

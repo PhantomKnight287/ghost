@@ -386,13 +386,15 @@ export class RepositoriesService {
   /** Code in public repositories, limited to those opened or pushed to since code search was switched on. */
   async searchCode({
     query,
+    offset = 0,
     limit = DEFAULT_SEARCH_LIMIT,
   }: {
     query: string;
+    offset?: number;
     limit?: number;
   }): Promise<SearchCodeResponseDTO> {
     const { owner, rest } = ownerQualifier(query);
-    if (!rest) return { files: [] };
+    if (!rest) return { files: [], hasMore: false };
     // `org:` names public repositories to scan; one that owns none matches nothing.
     const scoped = owner
       ? await this.db
@@ -410,15 +412,16 @@ export class RepositoriesService {
             ),
           )
       : null;
-    if (scoped?.length === 0) return { files: [] };
+    if (scoped?.length === 0) return { files: [], hasMore: false };
 
-    const hits = await this.codeSearch.searchPublic({
+    const { files: hits, hasMore } = await this.codeSearch.searchPublic({
       query: rest,
+      offset,
       limit,
       repositoryIds: scoped?.map((row) => row.id),
     });
     const ids = [...new Set(hits.map((hit) => hit.repositoryId))];
-    if (ids.length === 0) return { files: [] };
+    if (ids.length === 0) return { files: [], hasMore };
 
     // The index only narrows to shards flagged public; the database is what decides.
     const repositories = await this.db
@@ -448,6 +451,7 @@ export class RepositoriesService {
         const repository = byId.get(hit.repositoryId);
         return repository ? [{ ...hit, repository }] : [];
       }),
+      hasMore,
     };
   }
 
@@ -1649,12 +1653,14 @@ export class RepositoriesService {
     repo,
     requesterId,
     query,
+    offset = 0,
     limit = DEFAULT_SEARCH_LIMIT,
   }: {
     username: string;
     repo: string;
     requesterId?: string;
     query: string;
+    offset?: number;
     limit?: number;
   }): Promise<SearchRepositoryCodeResponseDTO> {
     const { repository, directory } = await this.openRepository({
@@ -1668,6 +1674,7 @@ export class RepositoriesService {
       isPublic: repository.visibility === 'public',
       repoDirectory: directory,
       query,
+      offset,
       limit,
     });
   }

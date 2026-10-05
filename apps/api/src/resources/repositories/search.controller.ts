@@ -52,6 +52,7 @@ export class SearchController {
   ): Promise<SearchCodeResponseDTO> {
     return this.repositoriesService.searchCode({
       query: query.q,
+      offset: query.offset,
       limit: query.limit,
     });
   }

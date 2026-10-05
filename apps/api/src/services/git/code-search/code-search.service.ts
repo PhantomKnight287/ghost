@@ -82,9 +82,10 @@ export class CodeSearchService {
 
   async searchRepository({
     query,
+    offset,
     limit,
     ...target
-  }: IndexTarget & { query: string; limit: number }) {
+  }: IndexTarget & { query: string; offset: number; limit: number }) {
     const url = this.requireUrl();
 
     const indexing =
@@ -92,32 +93,37 @@ export class CodeSearchService {
       (await this.unpublishedStamp(target)) !== null;
     if (indexing) this.indexInBackground(target);
 
-    const hits = await searchIndex({
+    const { files, hasMore } = await searchIndex({
       url,
       query: `r:^${target.repositoryId}$ (${query})`,
+      offset,
       limit,
     });
 
     return {
       indexing,
       // The query can close the parenthesis and OR in other repositories: the `r:` above only narrows the scan, this filter is what enforces access.
-      files: hits.filter((hit) => hit.repositoryId === target.repositoryId),
+      files: files.filter((hit) => hit.repositoryId === target.repositoryId),
+      hasMore,
     };
   }
 
   /** Narrowed to shards flagged public and, given `repositoryIds`, to those repositories; a query can OR its way out of both, so the caller must still keep only repositories it knows to be public and in scope. */
   async searchPublic({
     query,
+    offset,
     limit,
     repositoryIds,
   }: {
     query: string;
+    offset: number;
     limit: number;
     repositoryIds?: string[];
   }) {
     return searchIndex({
       url: this.requireUrl(),
       query: `public:yes${repositoryScope(repositoryIds)} (${query})`,
+      offset,
       limit,
     });
   }

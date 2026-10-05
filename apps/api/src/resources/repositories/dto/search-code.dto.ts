@@ -14,6 +14,8 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+import { MAX_SEARCH_FILES } from '../../../lib/git/code-search/zoekt.js';
+
 export class SearchCodeQueryDTO {
   @ApiProperty({
     description:
@@ -24,6 +26,19 @@ export class SearchCodeQueryDTO {
   @MinLength(1)
   @MaxLength(512)
   q: string;
+
+  @ApiPropertyOptional({
+    description: `Files to skip, in rank order. Pass the previous \`offset\` plus \`limit\` for the next page; results stop at ${MAX_SEARCH_FILES} files.`,
+    default: 0,
+    minimum: 0,
+    maximum: MAX_SEARCH_FILES - 1,
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(MAX_SEARCH_FILES - 1)
+  @IsOptional()
+  offset?: number;
 
   @ApiPropertyOptional({
     description: 'Most files to return.',
@@ -117,6 +132,13 @@ export class SearchRepositoryCodeResponseDTO {
   @ValidateNested({ each: true })
   @Type(() => CodeSearchFileDTO)
   files: CodeSearchFileDTO[];
+
+  @ApiProperty({
+    description: 'More files match past this page.',
+    example: false,
+  })
+  @IsBoolean()
+  hasMore: boolean;
 }
 
 export class SearchCodeRepositoryDTO {
@@ -150,4 +172,11 @@ export class SearchCodeResponseDTO {
   @ValidateNested({ each: true })
   @Type(() => SearchCodeFileDTO)
   files: SearchCodeFileDTO[];
+
+  @ApiProperty({
+    description: 'More files match past this page.',
+    example: false,
+  })
+  @IsBoolean()
+  hasMore: boolean;
 }

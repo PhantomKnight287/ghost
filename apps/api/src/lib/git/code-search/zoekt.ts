@@ -12,6 +12,9 @@ const execFileAsync = promisify(execFile);
 
 const SEARCH_TIMEOUT_MS = 10_000;
 
+// ponytail: zoekt has no offset, so every page ranks and ships every file before it; this caps that cost. A deeper reach needs zoekt's gRPC stream.
+export const MAX_SEARCH_FILES = 2000;
+
 export interface CodeSearchHit {
   repositoryId: string;
   /** The commit the shard was built from, which is what the line numbers refer to. */
@@ -36,8 +39,13 @@ interface ZoektFile {
     Line: string;
     LineNumber: number;
     FileName: boolean;
-    LineFragments: { LineOffset: number; MatchLength: number }[];
+    LineFragments: ZoektFragment[];
   }[];
+}
+
+interface ZoektFragment {
+  LineOffset: number;
+  MatchLength: number;
 }
 
 /** Shards are named `<name>_v16.00000.zoekt`, with further numbered shards for a large repository. Returns their file names. */
@@ -71,20 +79,24 @@ export async function indexRepository({
   return (await readdir(indexDir)).filter((name) => name.endsWith('.zoekt'));
 }
 
-/** Matching lines only: a file that matched by its path alone comes back with none. */
+/** Matching lines only, in file order: a file that matched by its path alone comes back with none. Results stop at `MAX_SEARCH_FILES`. */
 export async function searchIndex({
   url,
   query,
+  offset,
   limit,
 }: {
   url: string;
   query: string;
+  offset: number;
   limit: number;
-}): Promise<CodeSearchHit[]> {
+}): Promise<{ files: CodeSearchHit[]; hasMore: boolean }> {
+  const end = Math.min(offset + limit, MAX_SEARCH_FILES);
   const response = await fetch(new URL('/api/search', url), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ Q: query, Opts: { MaxDocDisplayCount: limit } }),
+    // One file past the page tells whether another page exists.
+    body: JSON.stringify({ Q: query, Opts: { MaxDocDisplayCount: end + 1 } }),
     signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
   }).catch((cause: unknown) => {
     throw new CodeSearchUnavailableError({ cause });
@@ -105,31 +117,47 @@ export async function searchIndex({
   const { Result } = (await response.json()) as {
     Result: { Files: ZoektFile[] | null };
   };
+  const files = Result.Files ?? [];
 
-  return (Result.Files ?? []).map((file) => ({
-    repositoryId: file.Repository,
-    commit: file.Version,
-    path: file.FileName,
-    language: file.Language,
-    lines: (file.LineMatches ?? [])
-      .filter((match) => !match.FileName)
-      .map((match) => {
-        const line = Buffer.from(match.Line, 'base64');
-        return {
-          lineNumber: match.LineNumber,
-          line: line.toString('utf8').replace(/\r?\n$/, ''),
-          ranges: match.LineFragments.map((fragment) => ({
-            start: charOffset(line, fragment.LineOffset),
-            end: charOffset(line, fragment.LineOffset + fragment.MatchLength),
-          })),
-        };
-      }),
-  }));
+  return {
+    hasMore: files.length > end && end < MAX_SEARCH_FILES,
+    files: files.slice(offset, end).map((file) => ({
+      repositoryId: file.Repository,
+      commit: file.Version,
+      path: file.FileName,
+      language: file.Language,
+      // zoekt orders a file's lines by score.
+      lines: (file.LineMatches ?? [])
+        .filter((match) => !match.FileName)
+        .sort((a, b) => a.LineNumber - b.LineNumber)
+        .map((match) => {
+          const line = Buffer.from(match.Line, 'base64');
+          return {
+            lineNumber: match.LineNumber,
+            line: line.toString('utf8').replace(/\r?\n$/, ''),
+            ranges: charRanges(line, match.LineFragments),
+          };
+        }),
+    })),
+  };
 }
 
-// zoekt reports byte offsets; a browser slices UTF-16 strings.
-function charOffset(line: Buffer, byteOffset: number) {
-  return line.subarray(0, byteOffset).toString('utf8').length;
+// zoekt reports byte offsets; a browser slices UTF-16 strings. Fragments never overlap, so walking them in order decodes each byte once however many matches a minified line holds.
+function charRanges(line: Buffer, fragments: ZoektFragment[]) {
+  let byte = 0;
+  let char = 0;
+  const charAt = (target: number) => {
+    char += line.subarray(byte, target).toString('utf8').length;
+    byte = target;
+    return char;
+  };
+
+  return [...fragments]
+    .sort((a, b) => a.LineOffset - b.LineOffset)
+    .map((fragment) => ({
+      start: charAt(fragment.LineOffset),
+      end: charAt(fragment.LineOffset + fragment.MatchLength),
+    }));
 }
 
 /** A zoekt `r:` clause matching exactly these repositories, or nothing to add when unscoped. */
