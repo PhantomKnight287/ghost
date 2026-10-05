@@ -162,3 +162,8 @@ Anything that waits for data shows a skeleton while it waits. A route segment th
   <OrganizationTeamList slug={username} />
 </Suspense>
 ```
+
+
+## 11. Changes to Infra or env variables must be propagated to `docker` and `apps/*/Dockerfile`
+
+If a new item to the workspace is added, the apps/*/Dockerfile needs to update else the build fails. and self hosting setup(in /docker) and docs in (apps/docker) needs to be updated too.
