@@ -14,6 +14,7 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from 'vitest';
 
 import { DATABASE } from '../../../database/database.module.js';
@@ -273,6 +274,16 @@ describe.skipIf(!CONNECTION)('RepositoryPathIndexService', () => {
 
       expect(await ensureIndexed()).toBe(true);
       expect((await rowsByPath()).get('src/x.ts')?.commitSha).toBe(next);
+    });
+
+    it('is false when the top-up it joined stopped short of the tip', async () => {
+      const first = commit('README.md', 'a', 'first commit');
+      await sync();
+      commit('src/x.ts', 'b', 'add x');
+      // what a walk started before the commit above hands back
+      vi.spyOn(service, 'sync').mockResolvedValueOnce(first);
+
+      expect(await ensureIndexed()).toBe(false);
     });
 
     it('rebuilds in the background after a force push', async () => {

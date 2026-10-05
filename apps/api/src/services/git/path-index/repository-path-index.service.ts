@@ -91,8 +91,8 @@ export class RepositoryPathIndexService {
       state &&
       (await this.isAncestor(repoDirectory, state.indexedCommitSha, tip))
     ) {
-      await this.sync({ repositoryId, repoDirectory, ref });
-      return true;
+      // A walk already in flight may have started before the ref moved to this tip.
+      return (await this.sync({ repositoryId, repoDirectory, ref })) === tip;
     }
 
     this.sync({ repositoryId, repoDirectory, ref }).catch((error: unknown) =>
