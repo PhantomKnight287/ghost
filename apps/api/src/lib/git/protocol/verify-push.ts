@@ -115,8 +115,9 @@ async function verifyRefs({
     input: Buffer.from(`${oids.join('\n')}\n`),
   });
   // The cache holds objects the log does not, such as the trees merge-tree writes, so an object only it holds cannot satisfy a ref.
-  const missing = await (
-    quarantine ? firstMissing(gitDir, quarantine, reached) : firstLine(reached)
+  const missing = await (quarantine
+    ? firstMissing(gitDir, quarantine, reached)
+    : firstLine(reached)
   ).catch(refuse('the push does not carry every object its refs reach'));
   if (missing) {
     throw new PushRejectedError(

@@ -103,7 +103,7 @@ describe('listMatchingFiles', () => {
     expect(sentQuery(fetch)).toEqual({
       Q: 'type:filename (x)',
       Opts: {
-        MaxDocDisplayCount: 1000,
+        MaxDocDisplayCount: 2000,
         TotalMaxMatchCount: 10_000,
         MaxWallTime: 3_000_000_000,
       },

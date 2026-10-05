@@ -15,9 +15,9 @@ const SEARCH_TIMEOUT_MS = 10_000;
 const MAX_WALL_TIME_NS = 3_000_000_000;
 const TOTAL_MAX_MATCHES = 10_000;
 // zoekt has no offset and its order shifts between calls, so every page is cut from one name list of this fixed size, sorted here.
-const LISTED_FILES = 1_000;
-// A thousand names with paths up to git's 4 KiB each.
-const LIST_RESPONSE_BYTES = 8 * 1024 * 1024;
+const LISTED_FILES = 2_000;
+// Two thousand names with paths up to git's 4 KiB each.
+const LIST_RESPONSE_BYTES = 16 * 1024 * 1024;
 // The indexer skips larger files, so a file's matching lines can never add up to more than this.
 const FILE_LIMIT_BYTES = 2 * 1024 * 1024;
 // Base64 grows a file's lines by a third; the rest is room for the JSON around them.

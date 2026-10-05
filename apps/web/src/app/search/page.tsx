@@ -14,6 +14,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { searchCode } from "@/lib/api/code-search";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 
 const PAGE_SIZE = 20;
@@ -81,7 +82,7 @@ export default async function SearchPage({
         </nav>
 
         {kind === "code" ? (
-          <CodeResults query={query} cursor={pageCursor} />
+          <CodeResults query={query} />
         ) : (
           <RepositoryResults query={query} cursor={pageCursor} />
         )}
@@ -148,13 +149,7 @@ async function RepositoryResults({
   );
 }
 
-async function CodeResults({
-  query,
-  cursor,
-}: {
-  query: string;
-  cursor?: string;
-}) {
+async function CodeResults({ query }: { query: string }) {
   if (!query) {
     return (
       <Empty className="border border-dashed">
@@ -172,22 +167,14 @@ async function CodeResults({
     );
   }
 
-  const client = await createServerClient();
-  const { data, error } = await client.GET("/api/search/code", {
-    params: { query: { q: query, cursor, limit: PAGE_SIZE } },
-  });
+  const { data, error } = await searchCode({ query });
 
   return (
-    <>
-      <CodeSearchResults files={data?.files ?? []} error={error?.message} />
-      <CursorPagination
-        pathname="/search"
-        params={{ q: query, type: "code" }}
-        cursor={cursor}
-        nextCursor={data?.nextCursor}
-        firstLabel="First page"
-        nextLabel="Next"
-      />
-    </>
+    <CodeSearchResults
+      query={query}
+      files={data?.files ?? []}
+      nextCursor={data?.nextCursor ?? null}
+      error={error?.message}
+    />
   );
 }

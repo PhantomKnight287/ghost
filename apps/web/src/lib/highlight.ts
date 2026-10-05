@@ -1,13 +1,16 @@
 import pierreDark from "@pierre/theme/pierre-dark";
 import pierreLight from "@pierre/theme/pierre-light";
 import {
-  bundledLanguages,
-  codeToTokens,
-  type BundledLanguage,
+  createBundledHighlighter,
+  createSingletonShorthands,
+  guessEmbeddedLanguages,
   type ThemeRegistrationRaw,
-} from "shiki";
+} from "shiki/core";
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+import { bundledLanguages, type BundledLanguage } from "shiki/langs";
+import { bundledThemes } from "shiki/themes";
 
-import { APP_THEMES } from "@/lib/themes";
+import { APP_THEME_IDS, APP_THEMES } from "@/lib/themes";
 
 // the pierre themes ship as frozen TextMate objects, which shiki loads and caches by their own `name`; the rest are bundled names. keys line up with the `--shiki-<id>` selectors in globals.css.
 const THEMES = Object.fromEntries(
@@ -19,6 +22,17 @@ const THEMES = Object.fromEntries(
         ? (pierreDark as ThemeRegistrationRaw)
         : t.shiki,
   ]),
+);
+
+// The JavaScript engine spares the browser the oniguruma wasm download. Its default target mis-tokenizes TypeScript in JavaScriptCore, so Safari would; ES2018 runs the same everywhere. `forgiving` skips the rare grammar pattern it cannot run instead of failing the whole highlight.
+const { codeToTokens } = createSingletonShorthands(
+  createBundledHighlighter({
+    langs: bundledLanguages,
+    themes: bundledThemes,
+    engine: () =>
+      createJavaScriptRegexEngine({ target: "ES2018", forgiving: true }),
+  }),
+  { guessEmbeddedLanguages },
 );
 
 const LANGUAGE_BY_NAME: Record<string, BundledLanguage> = {
@@ -38,11 +52,15 @@ function languageFor(filename: string): BundledLanguage | "text" {
     : "text";
 }
 
-/** Tokens per line, coloured for every app theme at once. Render them inside `[data-shiki]`, which picks the active theme's colour. */
-export async function highlightLines(code: string, filename: string) {
+/** Tokens per line, coloured for every theme in `themeIds` at once. Render them inside `[data-shiki]`, which picks the active theme's colour. */
+export async function highlightLines(
+  code: string,
+  filename: string,
+  themeIds = APP_THEME_IDS,
+) {
   const { tokens } = await codeToTokens(code, {
     lang: languageFor(filename),
-    themes: THEMES,
+    themes: Object.fromEntries(themeIds.map((id) => [id, THEMES[id]])),
     defaultColor: false,
   });
   return tokens;

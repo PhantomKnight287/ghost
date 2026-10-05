@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LoaderCircle, Search } from "lucide-react";
 
-import { CursorPagination } from "@/components/cursor-pagination";
 import { CodeSearchResults } from "@/components/search/code-search-results";
 import { SearchForm } from "@/components/search/search-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -13,9 +12,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { createServerClient } from "@/lib/api/server";
-
-const PAGE_SIZE = 20;
+import { searchCode } from "@/lib/api/code-search";
 
 export async function generateMetadata({
   params,
@@ -37,12 +34,8 @@ export default async function RepositorySearchPage({
   params,
   searchParams,
 }: PageProps<"/[username]/[repo]/search">) {
-  const [{ username, repo }, { q, cursor }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  const [{ username, repo }, { q }] = await Promise.all([params, searchParams]);
   const query = typeof q === "string" ? q.trim() : "";
-  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
   const searchForm = (
     <SearchForm
@@ -73,22 +66,14 @@ export default async function RepositorySearchPage({
     );
   }
 
-  const client = await createServerClient();
-  const { data, error, response } = await client.GET(
-    "/api/repositories/{username}/{slug}/search",
-    {
-      params: {
-        path: { username, slug: repo },
-        query: { q: query, cursor: pageCursor, limit: PAGE_SIZE },
-      },
-    },
-  );
+  const repository = { owner: username, slug: repo };
+  const { data, error, response } = await searchCode({ query, repository });
   if (response.status === 404) notFound();
 
   return (
     <div className="flex flex-col gap-4">
       {searchForm}
-      {data?.indexing && (
+      {data && "indexing" in data && data.indexing && (
         <Alert>
           <LoaderCircle className="animate-spin" />
           <AlertDescription>
@@ -98,17 +83,11 @@ export default async function RepositorySearchPage({
         </Alert>
       )}
       <CodeSearchResults
+        query={query}
         files={data?.files ?? []}
-        repository={{ owner: username, slug: repo }}
+        nextCursor={data?.nextCursor ?? null}
+        repository={repository}
         error={error?.message}
-      />
-      <CursorPagination
-        pathname={`/${username}/${repo}/search`}
-        params={{ q: query }}
-        cursor={pageCursor}
-        nextCursor={data?.nextCursor}
-        firstLabel="First page"
-        nextLabel="Next"
       />
     </div>
   );
