@@ -99,12 +99,12 @@ if (AskYesNo 'Use the bundled S3 storage (RustFS)? Say no for R2, Tigris, MinIO.
   AskSecret S3_SECRET_ACCESS_KEY 'Secret access key'
 }
 
-Say 'GitHub imports (optional)'
-Write-Host 'Lets people import a GitHub repository with its code, releases, issues and pull requests.'
+Say 'GitHub sign-in and imports (optional)'
+Write-Host 'Lets people sign in with GitHub, and import a GitHub repository with its code, releases, issues and pull requests.'
 Write-Host 'Needs a GitHub OAuth app: https://github.com/settings/applications/new'
 Write-Host "  Homepage URL:   $($c.WEB_APP_URL)"
 Write-Host "  Callback URL:   $($c.API_URL)/api/auth/callback/github"
-if (AskYesNo 'Turn on GitHub imports?' ([bool]$c.GITHUB_CLIENT_ID)) {
+if (AskYesNo 'Turn on GitHub sign-in and imports?' ([bool]$c.GITHUB_CLIENT_ID)) {
   $c.COMPOSE_PROFILES = "$($c.COMPOSE_PROFILES),importer"
   do { Ask GITHUB_CLIENT_ID 'OAuth app client ID' } until ($c.GITHUB_CLIENT_ID)
   do { AskSecret GITHUB_CLIENT_SECRET 'OAuth app client secret' } until ($c.GITHUB_CLIENT_SECRET)

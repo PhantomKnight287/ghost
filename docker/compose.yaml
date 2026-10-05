@@ -146,6 +146,7 @@ services:
         NEXT_PUBLIC_SITE_URL: ${WEB_APP_URL}
         NEXT_PUBLIC_DOCS_URL: ${DOCS_URL}
         NEXT_PUBLIC_SSH_CLONE_HOST: ${SSH_CLONE_HOST}
+        NEXT_PUBLIC_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
     restart: unless-stopped
     environment:
       PORT: 3000

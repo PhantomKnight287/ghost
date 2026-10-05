@@ -106,13 +106,13 @@ else
   ask_secret S3_SECRET_ACCESS_KEY "Secret access key"
 fi
 
-say "GitHub imports (optional)"
-echo "Lets people import a GitHub repository with its code, releases, issues and pull requests."
+say "GitHub sign-in and imports (optional)"
+echo "Lets people sign in with GitHub, and import a GitHub repository with its code, releases, issues and pull requests."
 echo "Needs a GitHub OAuth app: https://github.com/settings/applications/new"
 echo "  Homepage URL:   $WEB_APP_URL"
 echo "  Callback URL:   $API_URL/api/auth/callback/github"
 github_default=y/N; [[ -n ${GITHUB_CLIENT_ID:-} ]] && github_default=Y/n
-if confirm "Turn on GitHub imports?" "$github_default"; then
+if confirm "Turn on GitHub sign-in and imports?" "$github_default"; then
   COMPOSE_PROFILES=$COMPOSE_PROFILES,importer
   while ask GITHUB_CLIENT_ID "OAuth app client ID" && [[ -z $GITHUB_CLIENT_ID ]]; do echo "Required."; done
   while ask_secret GITHUB_CLIENT_SECRET "OAuth app client secret" && [[ -z ${GITHUB_CLIENT_SECRET:-} ]]; do echo "Required."; done

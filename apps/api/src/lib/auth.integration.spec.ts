@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { type Auth, createAuth } from './auth.js';
+import { type Auth, createAuth, usernameForGitHubLogin } from './auth.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
 const MIGRATIONS = path.resolve(
@@ -148,5 +148,65 @@ describe.skipIf(!CONNECTION)('createAuth with extra addresses', () => {
         body: { email: UNVERIFIED, password: PASSWORD },
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe.skipIf(!CONNECTION)('usernameForGitHubLogin', () => {
+  let db: Database;
+  let pool: Pool;
+
+  beforeAll(async () => {
+    ({ db, pool } = createDatabase({ connectionString: CONNECTION }));
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+    await db.delete(schema.user).where(eq(schema.user.id, 'user_gh_spec'));
+    await db
+      .delete(schema.organization)
+      .where(eq(schema.organization.id, 'org_gh_spec'));
+    await db.insert(schema.user).values({
+      id: 'user_gh_spec',
+      name: 'GitHub Spec',
+      email: 'gh-spec@example.com',
+      username: 'gh_spec_taken',
+    });
+    await db.insert(schema.organization).values({
+      id: 'org_gh_spec',
+      name: 'GitHub Spec Org',
+      slug: 'gh_spec_org',
+      createdAt: new Date(),
+    });
+  });
+
+  afterAll(async () => {
+    await db.delete(schema.user).where(eq(schema.user.id, 'user_gh_spec'));
+    await db
+      .delete(schema.organization)
+      .where(eq(schema.organization.id, 'org_gh_spec'));
+    await pool.end();
+  });
+
+  it('turns hyphens into underscores and lowercases', async () => {
+    expect(await usernameForGitHubLogin(db, 'GH-Spec-Free')).toBe(
+      'gh_spec_free',
+    );
+  });
+
+  it('pads a login shorter than three characters', async () => {
+    expect(await usernameForGitHubLogin(db, 'x')).toBe('x__');
+  });
+
+  it('cuts a long login so a suffix still fits', async () => {
+    expect(await usernameForGitHubLogin(db, 'a'.repeat(39))).toBe(
+      'a'.repeat(26),
+    );
+  });
+
+  it('suffixes a name a user, an organization or a route holds', async () => {
+    expect(await usernameForGitHubLogin(db, 'gh-spec-taken')).toBe(
+      'gh_spec_taken1',
+    );
+    expect(await usernameForGitHubLogin(db, 'GH-Spec-Org')).toBe(
+      'gh_spec_org1',
+    );
+    expect(await usernameForGitHubLogin(db, 'settings')).toBe('settings1');
   });
 });

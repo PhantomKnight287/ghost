@@ -40,6 +40,7 @@ export default defineRailway(() => {
       NEXT_PUBLIC_DOCS_URL: preserve(),
       NEXT_PUBLIC_SITE_URL: preserve(),
       NEXT_PUBLIC_SSH_CLONE_HOST: preserve(),
+      NEXT_PUBLIC_GITHUB_CLIENT_ID: preserve(),
       OTEL_EXPORTER_OTLP_ENDPOINT: preserve(),
     },
   });

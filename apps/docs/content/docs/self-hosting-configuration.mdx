@@ -158,9 +158,17 @@ move the daemon first.
 
 See [Receiving webhooks](/webhooks) for the payload and signature format.
 
-## GitHub imports
+## GitHub sign-in and imports
 
-Off unless all of these are set. With them, the new repository form offers
+With `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` set, the sign-in and sign-up
+forms offer **Continue with GitHub**. Someone new gets an account named after
+their GitHub login, with hyphens turned into underscores and a number added
+when the name is taken. Signing in with GitHub never takes over an existing
+account that shares the address: link GitHub from **Settings → Security**
+instead. The web app reads the client ID at build time, so rebuild `web` after
+setting it.
+
+Imports are off unless all of these are set. With them, the new repository form offers
 **Import from GitHub**: people link their GitHub account, and the `importer`
 container copies the repository's branches, tags, releases, issues, pull
 requests and comments into Ghost. Imported issues and comments are authored by
@@ -168,7 +176,7 @@ the `ghost-importer` account and credit the GitHub author in the text.
 
 | Variable | Meaning |
 | --- | --- |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | A GitHub OAuth app. Used only to link GitHub to an existing account, never to sign in |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | A GitHub OAuth app, for signing in and for the token an import reads with |
 | `IMPORTER_URL` | Where the API sends import jobs: `http://importer:3004` |
 | `IMPORTER_SECRET` | Shared by the API and the importer to authenticate each other |
 | `IMPORTER_CONCURRENCY` | Imports the importer runs at once. Default `2`; more wait and are retried |
