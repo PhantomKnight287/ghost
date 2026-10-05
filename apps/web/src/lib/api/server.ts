@@ -70,7 +70,7 @@ export const getBranchNames = cache(async (username: string, slug: string) => {
   return data?.branches ?? [];
 });
 
-/** The revision and path a `[ref]/[[...path]]` route names, where a branch like `feat/x` spans more than one segment. */
+/** The revision and path a `[ref]/[[...path]]` page names, where a branch like `feat/x` spans more than one segment. Pages get params still encoded; route handlers get them decoded and call `splitRevision` themselves. */
 export async function resolveRevisionPath(
   username: string,
   slug: string,
