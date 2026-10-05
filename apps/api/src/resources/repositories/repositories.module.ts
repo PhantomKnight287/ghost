@@ -15,6 +15,7 @@ import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { StorageModule } from '../storage/storage.module.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
@@ -25,6 +26,7 @@ import { CodeSearchService } from '../../services/git/code-search/code-search.se
 
 @Module({
   imports: [
+    StorageModule,
     MaterializerModule,
     // Only code search is guarded: it is the one endpoint whose cost a query string decides. Counters live in this process, so with N replicas a client gets N times the limit.
     ThrottlerModule.forRoot({

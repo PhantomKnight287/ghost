@@ -14,7 +14,10 @@ import {
   releaseAssetKey,
 } from '../../lib/releases/release-assets.js';
 import { formatByteSize } from '../../lib/storage/byte-size.js';
-import { storageAccountOf } from '../../lib/storage/storage-account.js';
+import {
+  storageAccountOf,
+  storageKindOf,
+} from '../../lib/storage/storage-account.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
@@ -101,6 +104,7 @@ export class ReleaseAssetsService {
 
     const asset = await this.quota.reserve(
       storageAccountOf(repository),
+      storageKindOf(repository),
       size,
       async (tx) => {
         // An upload that died with its process leaves a reservation behind; once it has lapsed it must not hold the name forever.

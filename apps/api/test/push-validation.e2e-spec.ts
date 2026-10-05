@@ -94,7 +94,8 @@ describe.skipIf(!hasBackends)('pushes the log could not replay', () => {
       emptyPack,
     );
 
-    expect(response.status).toBe(422);
+    expect(response.ok).toBe(true);
+    expect(await response.text()).toContain('ng refs/heads/evil ');
     expect(await stillClones()).toBe(first);
   });
 
@@ -105,15 +106,19 @@ describe.skipIf(!hasBackends)('pushes the log could not replay', () => {
       Buffer.alloc(0),
     );
 
-    expect(response.status).toBe(422);
-    expect(await response.text()).toContain('must point at a commit');
+    expect(response.ok).toBe(true);
+    expect(await response.text()).toMatch(
+      /ng refs\/heads\/tree .*must point at a commit/,
+    );
     expect(await stillClones()).toBe(first);
   });
 
   it('refuses a branch beneath an existing one, and the repository still clones', async () => {
     await expect(
       run('push', '-q', remote(), 'main:refs/heads/main/nested'),
-    ).rejects.toThrow();
+    ).rejects.toThrow(
+      /\[remote rejected\] main -> main\/nested \(.*conflicts with refs\/heads\/main/,
+    );
     expect(await stillClones()).toBe(first);
   });
 

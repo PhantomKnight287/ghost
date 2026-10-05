@@ -508,7 +508,9 @@ describe.skipIf(!CONNECTION)('releases', () => {
       await expect(upload(release.id, 'app.zip', zip)).rejects.toThrow(
         'connection reset',
       );
-      await expect(quota.usageOf({ userId: OWNER })).resolves.toBe(0);
+      await expect(
+        quota.usageOf({ userId: OWNER }, 'repository'),
+      ).resolves.toBe(0);
       await expect(upload(release.id, 'app.zip', zip)).resolves.toMatchObject({
         name: 'app.zip',
       });
@@ -541,9 +543,9 @@ describe.skipIf(!CONNECTION)('releases', () => {
       await expect(upload(release.id, 'b.zip', zip)).resolves.toMatchObject({
         name: 'b.zip',
       });
-      await expect(quota.usageOf({ userId: OWNER })).resolves.toBe(
-        zip.length * 2,
-      );
+      await expect(
+        quota.usageOf({ userId: OWNER }, 'repository'),
+      ).resolves.toBe(zip.length * 2);
     });
 
     it('lets concurrent uploads fill the quota exactly, never past it', async () => {
@@ -581,9 +583,11 @@ describe.skipIf(!CONNECTION)('releases', () => {
           .set({ organizationId: 'org_release' })
           .where(inArray(schema.repository.id, [repository.id]));
 
-        await expect(quota.usageOf({ userId: OWNER })).resolves.toBe(0);
         await expect(
-          quota.usageOf({ organizationId: 'org_release' }),
+          quota.usageOf({ userId: OWNER }, 'repository'),
+        ).resolves.toBe(0);
+        await expect(
+          quota.usageOf({ organizationId: 'org_release' }, 'repository'),
         ).resolves.toBe(zip.length);
       } finally {
         await db
@@ -622,6 +626,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
         usedBytes: zip.length,
         quotaBytes: 1024 ** 3,
         maxAssetBytes: 2 * 1024 ** 3,
+        fork: { usedBytes: 0, quotaBytes: null },
       });
       await expect(
         storage.usage('release-owner', READER),

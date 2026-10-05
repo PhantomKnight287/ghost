@@ -130,6 +130,7 @@ import {
 import { administers, atLeast, organizationRoleOf } from '@ghost/permissions';
 import { RepositoryForbiddenError } from '../../lib/git/repository-access/repository-access.errors.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { releaseAssetKey } from '../../lib/releases/release-assets.js';
@@ -166,6 +167,7 @@ export class RepositoriesService {
     private readonly verification: CommitVerificationService,
     private readonly codeSearch: CodeSearchService,
     private readonly s3: S3Service,
+    private readonly quota: StorageQuotaService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -574,29 +576,46 @@ export class RepositoriesService {
     if (existing) throw new RepositoryAlreadyForkedError(existing.slug);
 
     const forkSlug = await this.freeSlug(namespace, name);
-    const fork = await this.db.transaction(async (tx) => {
-      const [row] = await tx
-        .insert(schema.repository)
-        .values({
-          name,
-          description,
-          visibility,
-          slug: forkSlug,
-          ownerId: requesterId,
-          organizationId: organizationIdOf(namespace),
-          parentRepositoryId: parent.id,
-        })
-        .returning();
-      await publishEvent(tx, {
-        type: 'fork.created',
-        repositoryId: parent.id,
-        actorId: requesterId,
-        payload: { forkId: row.id },
-      });
-      return row;
-    });
+    // The fork bills the bytes of the index it copies, however the parent moves on meanwhile.
+    const parentLog = await this.wal.readIndex(parent.id);
+    const layers = parentLog?.index.layers ?? [];
+    const size = layers.reduce((total, layer) => total + layer.size, 0);
+    const fork = await this.quota.reserve(
+      namespace,
+      'fork',
+      size,
+      async (tx) => {
+        const [row] = await tx
+          .insert(schema.repository)
+          .values({
+            name,
+            description,
+            visibility,
+            slug: forkSlug,
+            ownerId: requesterId,
+            organizationId: organizationIdOf(namespace),
+            parentRepositoryId: parent.id,
+          })
+          .returning();
+        await publishEvent(tx, {
+          type: 'fork.created',
+          repositoryId: parent.id,
+          actorId: requesterId,
+          payload: { forkId: row.id },
+        });
+        if (layers.length > 0)
+          await tx.insert(schema.repositoryLogEntry).values(
+            layers.map(({ ulid, size }) => ({
+              repositoryId: row.id,
+              ulid,
+              size,
+            })),
+          );
+        return row;
+      },
+    );
 
-    await this.wal.copyLog(parent.id, fork.id);
+    if (parentLog) await this.wal.copyLog(parent.id, parentLog.index, fork.id);
 
     return {
       id: fork.id,

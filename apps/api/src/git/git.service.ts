@@ -16,16 +16,25 @@ import { RepositoryContributionService } from '../services/git/contributions/rep
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
+import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { listCommits } from '../lib/git/commits/list-commits.js';
 import { resolveDefaultRef } from '../lib/git/tree/resolve-ref.js';
 import { isPullRef } from '../lib/git/refs/pull-refs.js';
 import { type RefTransition, ZERO_OID } from '../lib/git/wal/wal.types.js';
+import { createUlid } from '../lib/git/wal/ulid.js';
+import type { Repository } from '../lib/git/repository-access/repository-access.js';
+import {
+  storageAccountOf,
+  storageKindOf,
+} from '../lib/storage/storage-account.js';
 import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
 import { MAX_PUSH_COMMITS, publishEvent } from '../lib/events/events.js';
 import { DATABASE } from '../database/database.module.js';
 import { isGitServiceName, type GitServiceName } from './git.constants.js';
 import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
+import { DomainError } from '../domain/errors.js';
+import { rejectedPushReport } from '../lib/git/protocol/report-status.js';
 
 export interface GitTransportResponse {
   headers: Record<string, string>;
@@ -50,6 +59,7 @@ export class GitService {
     private readonly codeSearch: CodeSearchService,
     private readonly references: IssueReferencesService,
     private readonly pullRefs: PullRefsService,
+    private readonly quota: StorageQuotaService,
     @Inject(DATABASE) private readonly db: Database,
   ) {}
 
@@ -112,14 +122,20 @@ export class GitService {
    * Materialize before the ref checks so they see what the log holds. The cache keeps its pre-push sequence marker; the next materialize reconciles whatever git wrote locally.
    */
   async receivePack({
-    repositoryId,
-    defaultBranch,
-    isPublic,
+    repository,
     body,
     pushedBy = null,
     apiKeyId = null,
-  }: RepositoryRef & {
-    isPublic: boolean;
+  }: {
+    repository: Pick<
+      Repository,
+      | 'id'
+      | 'defaultBranch'
+      | 'visibility'
+      | 'ownerId'
+      | 'organizationId'
+      | 'parentRepositoryId'
+    >;
     body: GitRequestBody;
     pushedBy?: string | null;
     /** The key an HTTP push authenticated with; only the key minted for a running import may write `refs/pull/*`. */
@@ -132,28 +148,37 @@ export class GitService {
       };
     }
 
-    const { transitions, packOffset } = await readReceivePackHeader(body);
-    const importing = await this.isImportKey(repositoryId, apiKeyId);
-    // Checked before the log: receive-pack's own refusals land after the commit point, too late to keep a ref out.
-    const pullRef = transitions.find(({ ref }) => isPullRef(ref));
-    if (pullRef && !importing) {
-      throw new ProtectedRefError(pullRef.ref);
+    const { id: repositoryId } = repository;
+    const isPublic = repository.visibility === 'public';
+    const { transitions, capabilities, packOffset } =
+      await readReceivePackHeader(body);
+    let importing: boolean;
+    let repoDirectory: string;
+    try {
+      ({ importing, repoDirectory } = await this.commitToLog({
+        repository,
+        transitions,
+        body,
+        packOffset,
+        pushedBy,
+        apiKeyId,
+      }));
+    } catch (error) {
+      // Every refusal lands before the log commits, so the client is told per ref, the way git itself refuses one, instead of seeing a dropped connection.
+      const report =
+        error instanceof DomainError
+          ? rejectedPushReport({
+              refs: transitions.map(({ ref }) => ref),
+              capabilities,
+              reason: error.message,
+            })
+          : null;
+      if (!report) throw error;
+      return {
+        headers: resultHeaders('git-receive-pack'),
+        body: Readable.from([report]),
+      };
     }
-    const repoDirectory = await this.materializer.open({
-      id: repositoryId,
-      defaultBranch,
-    });
-
-    await withVerifiedPack(
-      { gitDir: repoDirectory, transitions, body, packOffset },
-      (pack) =>
-        this.pushTransaction.commitPush({
-          repoId: repositoryId,
-          transitions,
-          ...pack,
-          pushedBy,
-        }),
-    );
 
     const result = this.packProcess.streamReceivePack({
       repoDirectory,
@@ -203,6 +228,68 @@ export class GitService {
       headers: resultHeaders('git-receive-pack'),
       body: result,
     };
+  }
+
+  /** Checks, bills and commits a push to the log. Checked before the log: receive-pack's own refusals land after the commit point, too late to keep a ref out. */
+  private async commitToLog({
+    repository,
+    transitions,
+    body,
+    packOffset,
+    pushedBy,
+    apiKeyId,
+  }: {
+    repository: Pick<
+      Repository,
+      | 'id'
+      | 'defaultBranch'
+      | 'ownerId'
+      | 'organizationId'
+      | 'parentRepositoryId'
+    >;
+    transitions: RefTransition[];
+    body: GitRequestBody;
+    packOffset: number;
+    pushedBy: string | null;
+    apiKeyId: string | null;
+  }) {
+    const repositoryId = repository.id;
+    const importing = await this.isImportKey(repositoryId, apiKeyId);
+    const pullRef = transitions.find(({ ref }) => isPullRef(ref));
+    if (pullRef && !importing) {
+      throw new ProtectedRefError(pullRef.ref);
+    }
+    const repoDirectory = await this.materializer.open({
+      id: repositoryId,
+      defaultBranch: repository.defaultBranch,
+    });
+
+    await withVerifiedPack(
+      { gitDir: repoDirectory, transitions, body, packOffset },
+      (pack) => {
+        const ulid = createUlid();
+        const size = pack.body.size - pack.packOffset;
+        // ponytail: a crash between the log's commit point and this transaction's commit leaves the push unbilled; reconcile against the WAL index, as pull refs do, if that leak matters.
+        return this.quota.reserve(
+          storageAccountOf(repository),
+          storageKindOf(repository),
+          size,
+          async (tx) => {
+            await this.pushTransaction.commitPush({
+              ulid,
+              repoId: repositoryId,
+              transitions,
+              ...pack,
+              pushedBy,
+            });
+            await tx
+              .insert(schema.repositoryLogEntry)
+              .values({ repositoryId, ulid, size });
+          },
+        );
+      },
+    );
+    return { importing, repoDirectory };
   }
 
   /** Published after the push, not with it: refs live in object storage, outside any database transaction, so a crash in between loses the event but never invents one. */

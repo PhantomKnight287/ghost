@@ -20,7 +20,7 @@ export class StorageController {
   @ApiOperation({
     summary: 'Storage usage of an account',
     description:
-      "Bytes the signed-in user's own account, or an organization they belong to, keeps in release assets and merged pull requests' heads, against this instance's quota.",
+      "Bytes the signed-in user's own account, or an organization they belong to, keeps in pushed git data, release assets and merged pull requests' heads, against its quota. Forks count against a separate quota.",
   })
   @ApiOkResponse({ type: StorageUsageDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })

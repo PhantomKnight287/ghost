@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
+import { buffer as readAll } from 'node:stream/consumers';
 
 import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
@@ -16,6 +17,7 @@ import { CodeSearchService } from '../services/git/code-search/code-search.servi
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
+import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { DATABASE } from '../database/database.module.js';
 import { GitService } from './git.service.js';
 
@@ -55,6 +57,25 @@ describe('GitService', () => {
     insert: () => ({ values: published }),
     select: () => ({ from: () => ({ where: runningImports }) }),
   };
+  const logged = vi.fn().mockResolvedValue(undefined);
+  const quota = {
+    reserve: vi.fn(
+      (
+        _account: unknown,
+        _kind: unknown,
+        _bytes: number,
+        insert: (tx: unknown) => Promise<unknown>,
+      ) => insert({ insert: () => ({ values: logged }) }),
+    ),
+  };
+  const repository = {
+    id: 'repo_ghost',
+    defaultBranch: null,
+    visibility: 'public' as const,
+    ownerId: 'user_owner',
+    organizationId: null,
+    parentRepositoryId: null,
+  };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -69,6 +90,7 @@ describe('GitService', () => {
         { provide: CodeSearchService, useValue: codeSearch },
         { provide: IssueReferencesService, useValue: references },
         { provide: PullRefsService, useValue: pullRefs },
+        { provide: StorageQuotaService, useValue: quota },
         { provide: DATABASE, useValue: db },
       ],
     }).compile();
@@ -116,9 +138,7 @@ describe('GitService', () => {
     });
 
     await service.receivePack({
-      repositoryId: 'repo_ghost',
-      defaultBranch: null,
-      isPublic: true,
+      repository,
       body: bufferBody(receivePackBody()),
     });
 
@@ -127,9 +147,7 @@ describe('GitService', () => {
 
   it('answers the pre-push probe without touching the log', async () => {
     const { headers } = await service.receivePack({
-      repositoryId: 'repo_ghost',
-      defaultBranch: null,
-      isPublic: true,
+      repository,
       body: bufferBody(Buffer.from('0000')),
     });
 
@@ -142,9 +160,7 @@ describe('GitService', () => {
 
   it('commits to the log before touching the local repository', async () => {
     const { headers } = await service.receivePack({
-      repositoryId: 'repo_ghost',
-      defaultBranch: null,
-      isPublic: true,
+      repository,
       body: bufferBody(receivePackBody()),
     });
 
@@ -166,28 +182,69 @@ describe('GitService', () => {
     expect(commitOrder).toBeLessThan(spawnOrder);
   });
 
-  it('refuses a push to a pull request ref before it reaches the log', async () => {
+  it('bills the pack to its account inside the quota reservation', async () => {
+    await service.receivePack({
+      repository: { ...repository, parentRepositoryId: 'repo_parent' },
+      body: bufferBody(receivePackBody()),
+    });
+
+    expect(quota.reserve).toHaveBeenCalledWith(
+      { userId: 'user_owner' },
+      'fork',
+      'PACKDATA'.length,
+      expect.any(Function),
+    );
+    const [{ ulid }] = pushTransaction.commitPush.mock.calls[0];
+    expect(logged).toHaveBeenCalledWith({
+      repositoryId: 'repo_ghost',
+      ulid,
+      size: 'PACKDATA'.length,
+    });
+  });
+
+  it('refuses a push to a pull request ref before it reaches the log, telling the client why', async () => {
+    const { body } = await service.receivePack({
+      repository,
+      body: bufferBody(
+        receivePackBody(undefined, undefined, 'refs/pull/1/head'),
+      ),
+      apiKeyId: 'key_someone',
+    });
+
+    expect((await readAll(body)).toString()).toContain(
+      `ng refs/pull/1/head ${new ProtectedRefError('refs/pull/1/head').message}\n`,
+    );
+    expect(pushTransaction.commitPush).not.toHaveBeenCalled();
+    expect(packProcess.streamReceivePack).not.toHaveBeenCalled();
+  });
+
+  it('throws the refusal to a client that asked for no report', async () => {
     await expect(
       service.receivePack({
-        repositoryId: 'repo_ghost',
-        defaultBranch: null,
-        isPublic: true,
+        repository,
         body: bufferBody(
-          receivePackBody(undefined, undefined, 'refs/pull/1/head'),
+          receivePackBody(undefined, undefined, 'refs/pull/1/head', ''),
         ),
-        apiKeyId: 'key_someone',
       }),
     ).rejects.toBeInstanceOf(ProtectedRefError);
-    expect(pushTransaction.commitPush).not.toHaveBeenCalled();
+  });
+
+  it('lets an error that is not a refusal through', async () => {
+    materializer.open.mockRejectedValueOnce(new Error('disk full'));
+
+    await expect(
+      service.receivePack({
+        repository,
+        body: bufferBody(receivePackBody()),
+      }),
+    ).rejects.toThrow('disk full');
   });
 
   it('lets a running import write pull request refs with its own key', async () => {
     runningImports.mockResolvedValueOnce([{ id: 'import_1' }]);
 
     await service.receivePack({
-      repositoryId: 'repo_ghost',
-      defaultBranch: null,
-      isPublic: true,
+      repository,
       body: bufferBody(
         receivePackBody(undefined, undefined, 'refs/pull/1/head'),
       ),
@@ -198,24 +255,20 @@ describe('GitService', () => {
   });
 
   it('refuses pull request refs to a push with no key, without asking the database', async () => {
-    await expect(
-      service.receivePack({
-        repositoryId: 'repo_ghost',
-        defaultBranch: null,
-        isPublic: true,
-        body: bufferBody(
-          receivePackBody(undefined, undefined, 'refs/pull/1/merge'),
-        ),
-      }),
-    ).rejects.toBeInstanceOf(ProtectedRefError);
+    const { body } = await service.receivePack({
+      repository,
+      body: bufferBody(
+        receivePackBody(undefined, undefined, 'refs/pull/1/merge'),
+      ),
+    });
+
+    expect((await readAll(body)).toString()).toContain('ng refs/pull/1/merge');
     expect(runningImports).not.toHaveBeenCalled();
   });
 
   it('indexes contributions once the pushed pack finishes streaming', async () => {
     const { body } = await service.receivePack({
-      repositoryId: 'repo_ghost',
-      defaultBranch: null,
-      isPublic: true,
+      repository,
       body: bufferBody(receivePackBody()),
     });
 
@@ -267,9 +320,7 @@ describe('GitService', () => {
 
     async function push(ref: string) {
       const { body } = await service.receivePack({
-        repositoryId: 'repo_ghost',
-        defaultBranch: null,
-        isPublic: true,
+        repository,
         body: bufferBody(
           receivePackBody(
             git('rev-parse', 'HEAD~1'),
@@ -348,8 +399,9 @@ function receivePackBody(
   old = '0'.repeat(40),
   next = '55ff3318cbb1ad74a1e1a1e6f4bd91f4b5a9c0d2',
   ref = 'refs/heads/main',
+  capabilities = 'report-status',
 ) {
-  const command = `${old} ${next} ${ref}\0report-status\n`;
+  const command = `${old} ${next} ${ref}\0${capabilities}\n`;
   const length = (Buffer.byteLength(command) + 4).toString(16).padStart(4, '0');
   return Buffer.concat([
     Buffer.from(length + command + '0000', 'utf8'),

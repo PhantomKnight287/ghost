@@ -8,7 +8,7 @@ export class StorageQuotaExceededError extends DomainError {
 
   constructor(used: number, quota: number, requested: number) {
     super(
-      `Storage quota exceeded: ${formatByteSize(used)} of ${formatByteSize(quota)} used, and this file needs ${formatByteSize(requested)}`,
+      `Storage quota exceeded: ${formatByteSize(used)} of ${formatByteSize(quota)} used, and this needs ${formatByteSize(requested)} more`,
     );
   }
 }

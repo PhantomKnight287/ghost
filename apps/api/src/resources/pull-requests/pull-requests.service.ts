@@ -58,7 +58,10 @@ import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.
 import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
-import { storageAccountOf } from '../../lib/storage/storage-account.js';
+import {
+  storageAccountOf,
+  storageKindOf,
+} from '../../lib/storage/storage-account.js';
 import { decodeCursor, encodeCursor } from '../../utils/index.js';
 import {
   BranchNotFoundError,
@@ -555,7 +558,11 @@ export class PullRequestsService {
         if (locked.state !== 'open') {
           throw new PullRequestNotOpenError(locked.state);
         }
-        await this.quota.assertRoomToMerge(storageAccountOf(base), tx);
+        await this.quota.assertRoomToMerge(
+          storageAccountOf(base),
+          storageKindOf(base),
+          tx,
+        );
 
         const { seq } = await this.pushTransaction.commitPush({
           repoId: base.id,

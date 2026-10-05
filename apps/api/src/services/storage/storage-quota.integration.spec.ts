@@ -16,6 +16,7 @@ import {
 import {
   MergeStorageQuotaExceededError,
   PullRefWriteTooLargeError,
+  StorageQuotaExceededError,
   UnmergedPullRefQuotaExceededError,
 } from '../../lib/storage/storage.errors.js';
 import { StorageQuotaService } from './storage-quota.service.js';
@@ -30,7 +31,7 @@ const OWNER = 'user_pull_ref_owner';
 const AUTHOR = 'user_pull_ref_author';
 
 // Needs a throwaway Postgres; the suite is skipped without one.
-describe.skipIf(!CONNECTION)('pull request ref bytes', () => {
+describe.skipIf(!CONNECTION)('StorageQuotaService', () => {
   let db: Database;
   let pool: Pool;
   let repositoryId: string;
@@ -119,8 +120,12 @@ describe.skipIf(!CONNECTION)('pull request ref bytes', () => {
     await requestHolding('closed', 200);
     await requestHolding('merged', 400);
 
-    expect(await quotaWith({}).usageOf({ userId: OWNER })).toBe(400);
-    expect(await quotaWith({}).usageOf({ userId: AUTHOR })).toBe(0);
+    expect(await quotaWith({}).usageOf({ userId: OWNER }, 'repository')).toBe(
+      400,
+    );
+    expect(await quotaWith({}).usageOf({ userId: AUTHOR }, 'repository')).toBe(
+      0,
+    );
   });
 
   it('counts an author against open and closed requests, never merged ones', async () => {
@@ -201,6 +206,7 @@ describe.skipIf(!CONNECTION)('pull request ref bytes', () => {
     await db.transaction((tx) =>
       quotaWith({ STORAGE_QUOTA_BYTES: '1000' }).assertRoomToMerge(
         { userId: OWNER },
+        'repository',
         tx,
       ),
     );
@@ -213,6 +219,7 @@ describe.skipIf(!CONNECTION)('pull request ref bytes', () => {
       db.transaction((tx) =>
         quotaWith({ STORAGE_QUOTA_BYTES: '1000' }).assertRoomToMerge(
           { userId: OWNER },
+          'repository',
           tx,
         ),
       ),
@@ -223,7 +230,79 @@ describe.skipIf(!CONNECTION)('pull request ref bytes', () => {
     await requestHolding('merged', 1_000_000);
 
     await db.transaction((tx) =>
-      quotaWith({}).assertRoomToMerge({ userId: OWNER }, tx),
+      quotaWith({}).assertRoomToMerge({ userId: OWNER }, 'repository', tx),
     );
+  });
+
+  it("bills pushed bytes to the repository quota and a fork's to the fork quota", async () => {
+    const [fork] = await db
+      .insert(schema.repository)
+      .values({
+        name: 'fork',
+        slug: 'fork',
+        ownerId: OWNER,
+        parentRepositoryId: repositoryId,
+      })
+      .returning();
+    await db.insert(schema.repositoryLogEntry).values([
+      { repositoryId, ulid: 'push', size: 300 },
+      { repositoryId: fork.id, ulid: 'push', size: 700 },
+    ]);
+    await requestHolding('merged', 50);
+
+    expect(await quotaWith({}).usageOf({ userId: OWNER }, 'repository')).toBe(
+      350,
+    );
+    expect(await quotaWith({}).usageOf({ userId: OWNER }, 'fork')).toBe(700);
+  });
+
+  it("takes an account's own limit over the environment's, and the environment's where the account sets none", async () => {
+    const quota = quotaWith({
+      STORAGE_QUOTA_BYTES: '1kb',
+      FORK_STORAGE_QUOTA_BYTES: '2kb',
+      LFS_STORAGE_QUOTA_BYTES: '3kb',
+    });
+    expect(await quota.quotaOf({ userId: OWNER }, 'lfs')).toBe(3072);
+
+    await db
+      .insert(schema.storageLimit)
+      .values({ userId: OWNER, repositoryBytes: 10, lfsBytes: 30 });
+
+    expect(await quota.quotaOf({ userId: OWNER }, 'repository')).toBe(10);
+    expect(await quota.quotaOf({ userId: OWNER }, 'fork')).toBe(2048);
+    expect(await quota.quotaOf({ userId: OWNER }, 'lfs')).toBe(30);
+    expect(await quota.quotaOf({ userId: AUTHOR }, 'repository')).toBe(1024);
+  });
+
+  it('refuses a write past the quota of its kind only', async () => {
+    await db
+      .insert(schema.repositoryLogEntry)
+      .values({ repositoryId, ulid: 'push', size: 900 });
+    const quota = quotaWith({ STORAGE_QUOTA_BYTES: '1000' });
+    const write = vi.fn().mockResolvedValue('written');
+
+    await expect(
+      quota.reserve({ userId: OWNER }, 'repository', 101, write),
+    ).rejects.toBeInstanceOf(StorageQuotaExceededError);
+    expect(write).not.toHaveBeenCalled();
+    expect(await quota.reserve({ userId: OWNER }, 'fork', 101, write)).toBe(
+      'written',
+    );
+  });
+
+  it('lets an account past its quota write nothing', async () => {
+    await db
+      .insert(schema.repositoryLogEntry)
+      .values({ repositoryId, ulid: 'push', size: 2000 });
+    const write = vi.fn().mockResolvedValue('written');
+
+    expect(
+      await quotaWith({ STORAGE_QUOTA_BYTES: '1000' }).reserve(
+        { userId: OWNER },
+        'repository',
+        0,
+        write,
+      ),
+    ).toBe('written');
   });
 });
