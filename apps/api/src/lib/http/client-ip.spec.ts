@@ -15,16 +15,16 @@ describe('clientIp', () => {
     ).toBe('1.1.1.1');
   });
 
-  it('reads the first X-Forwarded-For address elsewhere', () => {
+  it('leaves the headers to trust proxy elsewhere', () => {
     expect(
       clientIp(
         {
-          headers: { 'x-forwarded-for': '2.2.2.2, 10.0.0.2' },
+          headers: { 'x-real-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2' },
           ip: '10.0.0.1',
         },
         false,
       ),
-    ).toBe('2.2.2.2');
+    ).toBe('10.0.0.1');
   });
 
   it('falls back to the socket address without a header', () => {
