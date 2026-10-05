@@ -156,13 +156,25 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
         username: 'import_stranger',
       },
     ]);
-    await db.insert(schema.account).values({
-      id: 'account_import_owner',
-      accountId: '1',
-      providerId: 'github',
-      userId: OWNER,
-      updatedAt: new Date(),
-    });
+    await db.insert(schema.account).values([
+      {
+        id: 'account_import_owner',
+        accountId: '1',
+        providerId: 'github',
+        userId: OWNER,
+        scope: 'read:user,user:email,repo',
+        updatedAt: new Date(),
+      },
+      // Signed in with GitHub, which never asks for `repo`.
+      {
+        id: 'account_import_stranger',
+        accountId: '2',
+        providerId: 'github',
+        userId: STRANGER,
+        scope: 'read:user,user:email',
+        updatedAt: new Date(),
+      },
+    ]);
     const [repository] = await db
       .insert(schema.repository)
       .values({

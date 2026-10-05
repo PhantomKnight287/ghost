@@ -13,6 +13,9 @@ export const SITE_URL =
 export const DOCS_URL =
   process.env.NEXT_PUBLIC_DOCS_URL ?? "http://localhost:3003";
 
+/** Whether the API has a GitHub OAuth app to sign in with. Only its presence is read; the client ID is public anyway. */
+export const GITHUB_SIGN_IN = Boolean(process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID);
+
 /** `host:port` the SSH transport answers on. Empty when the instance runs without a host key, and the clone panel then offers HTTP alone. */
 export const SSH_CLONE_HOST = process.env.NEXT_PUBLIC_SSH_CLONE_HOST ?? "";
 

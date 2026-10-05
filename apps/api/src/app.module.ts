@@ -19,7 +19,7 @@ import { WebhooksModule } from './resources/webhooks/webhooks.module.js';
 import { EmailsModule } from './resources/emails/emails.module.js';
 import { GpgKeysModule } from './resources/gpg-keys/gpg-keys.module.js';
 import { ImportsModule } from './resources/imports/imports.module.js';
-import { githubImportConfig } from './lib/imports/importer.js';
+import { githubOAuthConfig } from './lib/imports/importer.js';
 import { IssuesModule } from './resources/issues/issues.module.js';
 import { OrganizationsModule } from './resources/organizations/organizations.module.js';
 import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
@@ -69,7 +69,7 @@ import { UsersService } from './services/users/users.service.js';
             .filter(Boolean),
           cookieDomain: config.get<string>('AUTH_COOKIE_DOMAIN'),
           webAppUrl: config.get<string>('WEB_APP_URL', 'http://localhost:3000'),
-          github: githubImportConfig(config)?.github,
+          github: githubOAuthConfig(config) ?? undefined,
           sendChangeEmail: mailConfigured(config)
             ? ({ email, name, newEmail, url }) =>
                 mail.sendChangeEmailEmail(email, {

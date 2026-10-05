@@ -10,6 +10,7 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { ThemeEffects } from "@/components/theme-effects";
 import { authClient } from "@/lib/auth-client";
 import { avatar } from "@/lib/auth/avatar";
+import { GITHUB_SIGN_IN, SITE_URL } from "@/lib/env";
 import { usernamePlugin } from "@/lib/auth/username-plugin";
 import { organizationPlugin } from "@/lib/auth/organization-plugin";
 import { organizationRoleLabels } from "@/lib/organization-role";
@@ -35,7 +36,10 @@ export function Providers({ children }: { children: ReactNode }) {
         <AuthProvider
           authClient={authClient}
           avatar={avatar}
+          // Callback URLs go to the API, which resolves a relative one against its own origin.
+          baseURL={SITE_URL}
           redirectTo="/dashboard"
+          socialProviders={GITHUB_SIGN_IN ? ["github"] : undefined}
           plugins={[
             usernamePlugin(),
             apiKeyPlugin(),

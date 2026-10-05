@@ -23,18 +23,23 @@ const DISPATCH_TIMEOUT_MS = 10_000;
 const RETRY_BASE_MS = 30_000;
 const RETRY_CAP_MS = 30 * 60_000;
 
+/** The GitHub OAuth app people sign in with and imports take their token from, or null when none is configured. */
+export function githubOAuthConfig(config: ConfigService) {
+  const clientId = config.get<string>('GITHUB_CLIENT_ID');
+  const clientSecret = config.get<string>('GITHUB_CLIENT_SECRET');
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
+}
+
 /** Imports run only with all four set: the importer to hand jobs to, and the GitHub OAuth app that supplies a token for them. */
 export function githubImportConfig(
   config: ConfigService,
 ): GitHubImportConfig | null {
   const importerUrl = config.get<string>('IMPORTER_URL');
   const importerSecret = config.get<string>('IMPORTER_SECRET');
-  const clientId = config.get<string>('GITHUB_CLIENT_ID');
-  const clientSecret = config.get<string>('GITHUB_CLIENT_SECRET');
-  if (!importerUrl || !importerSecret || !clientId || !clientSecret) {
-    return null;
-  }
-  return { importerUrl, importerSecret, github: { clientId, clientSecret } };
+  const github = githubOAuthConfig(config);
+  if (!importerUrl || !importerSecret || !github) return null;
+  return { importerUrl, importerSecret, github };
 }
 
 /** Exponential with full jitter, so importers recovering together are not hit by every waiting import at once. */
