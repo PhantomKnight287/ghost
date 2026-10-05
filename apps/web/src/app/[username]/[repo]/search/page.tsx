@@ -12,7 +12,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { createServerClient } from "@/lib/api/server";
+import { searchCode } from "@/lib/api/code-search";
 
 export async function generateMetadata({
   params,
@@ -66,17 +66,18 @@ export default async function RepositorySearchPage({
     );
   }
 
-  const client = await createServerClient();
-  const { data, error, response } = await client.GET(
-    "/api/repositories/{username}/{slug}/search",
-    { params: { path: { username, slug: repo }, query: { q: query } } },
-  );
+  const repository = { owner: username, slug: repo };
+  const { data, error, response, nextOffset } = await searchCode({
+    query,
+    offset: 0,
+    repository,
+  });
   if (response.status === 404) notFound();
 
   return (
     <div className="flex flex-col gap-4">
       {searchForm}
-      {data?.indexing && (
+      {data && "indexing" in data && data.indexing && (
         <Alert>
           <LoaderCircle className="animate-spin" />
           <AlertDescription>
@@ -86,8 +87,10 @@ export default async function RepositorySearchPage({
         </Alert>
       )}
       <CodeSearchResults
+        query={query}
         files={data?.files ?? []}
-        repository={{ owner: username, slug: repo }}
+        nextOffset={nextOffset}
+        repository={repository}
         error={error?.message}
       />
     </div>

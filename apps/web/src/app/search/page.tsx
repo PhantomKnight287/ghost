@@ -14,6 +14,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { searchCode } from "@/lib/api/code-search";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 
 const PAGE_SIZE = 20;
@@ -166,10 +167,14 @@ async function CodeResults({ query }: { query: string }) {
     );
   }
 
-  const client = await createServerClient();
-  const { data, error } = await client.GET("/api/search/code", {
-    params: { query: { q: query } },
-  });
+  const { data, error, nextOffset } = await searchCode({ query, offset: 0 });
 
-  return <CodeSearchResults files={data?.files ?? []} error={error?.message} />;
+  return (
+    <CodeSearchResults
+      query={query}
+      files={data?.files ?? []}
+      nextOffset={nextOffset}
+      error={error?.message}
+    />
+  );
 }

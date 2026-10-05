@@ -2789,6 +2789,11 @@ export interface components {
             indexing: boolean;
             /** @description Files on the default branch that match, best first. */
             files: components["schemas"]["CodeSearchFileDTO"][];
+            /**
+             * @description More files match past this page.
+             * @example false
+             */
+            hasMore: boolean;
         };
         StargazerDTO: {
             username: string;
@@ -2879,6 +2884,11 @@ export interface components {
         SearchCodeResponseDTO: {
             /** @description Files in public repositories that match, best first. Only repositories opened since code search was switched on are indexed. */
             files: components["schemas"]["SearchCodeFileDTO"][];
+            /**
+             * @description More files match past this page.
+             * @example false
+             */
+            hasMore: boolean;
         };
         IncomingTransferRepositoryDTO: {
             owner: string;
@@ -4841,6 +4851,8 @@ export interface operations {
             query: {
                 /** @description A zoekt query: plain text, `/regex/`, `file:` and `lang:` filters, `case:yes`. */
                 q: string;
+                /** @description Files to skip, in rank order. Pass the previous `offset` plus `limit` for the next page; results stop at 2000 files. */
+                offset?: number;
                 /** @description Most files to return. */
                 limit?: number;
             };
@@ -5045,6 +5057,8 @@ export interface operations {
             query: {
                 /** @description A zoekt query: plain text, `/regex/`, `file:` and `lang:` filters, `case:yes`. */
                 q: string;
+                /** @description Files to skip, in rank order. Pass the previous `offset` plus `limit` for the next page; results stop at 2000 files. */
+                offset?: number;
                 /** @description Most files to return. */
                 limit?: number;
             };
