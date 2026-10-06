@@ -43,4 +43,4 @@ Bytes go through the API rather than presigned URLs for the reason 0025 gives: a
 - `git-lfs-transfer`, the pure-SSH protocol, is refused; git-lfs falls back to `git-lfs-authenticate`.
 - A token cannot be revoked before it expires; removing the user's SSH key or access stops new ones, and access is still checked on every request.
 - An upload that finishes while its repository is being deleted can leave its object behind, an orphan as in 0010.
-- The web UI shows an LFS file as its pointer.
+- The web UI shows an LFS file as its pointer only when the repository does not hold its object.
