@@ -40,6 +40,14 @@ export class InMemoryS3 {
     return { Body: Readable.from([bytes]), ContentLength: bytes.length };
   }
 
+  async copyObject({ Key, CopySource }: { Key: string; CopySource: string }) {
+    const { Body } = await this.getObject({
+      Key: CopySource.slice(this.bucket.length + 1),
+    });
+    this.objects.set(Key, await buffer(Body));
+    return {};
+  }
+
   async deleteObject({ Key }: { Key: string }) {
     this.objects.delete(Key);
     return {};

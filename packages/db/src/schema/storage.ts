@@ -66,6 +66,8 @@ export const lfsObject = pgTable(
     oid: text().notNull(),
     size: bigint({ mode: "number" }).notNull(),
     uploadedAt: timestamp({ withTimezone: true }),
+    // Which upload holds the reservation, so one whose reservation lapsed and was taken cannot clean up after its successor. Null for rows a fork or merge copied.
+    uploadId: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.repositoryId, t.oid] })],

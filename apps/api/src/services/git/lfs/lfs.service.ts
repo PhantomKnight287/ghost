@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
@@ -20,6 +20,7 @@ import {
   LFS_OID,
   lfsEndpoint,
   lfsObjectKey,
+  lfsUploadKey,
 } from '../../../lib/git/lfs/lfs-objects.js';
 import { signLfsToken } from '../../../lib/git/lfs/lfs-token.js';
 import {
@@ -38,7 +39,6 @@ import {
   storageAccountOf,
 } from '../../../lib/storage/storage-account.js';
 import { ContentLengthRequiredError } from '../../../lib/storage/storage.errors.js';
-import { RepositoryNotFoundError } from '../../../resources/repositories/repositories.errors.js';
 import { S3Service } from '../../s3/s3.service.js';
 import { StorageQuotaService } from '../../storage/storage-quota.service.js';
 
@@ -152,7 +152,7 @@ export class LfsService {
     };
   }
 
-  /** Streams one object to the bucket, hashing it on the way, and keeps it only if the bytes hash to `oid`. Until then its row is a reservation against the account's quota. */
+  /** Streams one object to a staging key of its own, hashing it on the way, and copies it to the object's key only if the bytes hash to `oid`. Until then its row is a reservation against the account's quota. */
   async upload({
     repository,
     oid,
@@ -184,6 +184,8 @@ export class LfsService {
       .where(and(row, isNotNull(schema.lfsObject.uploadedAt)));
     if (existing) return;
 
+    const uploadId = randomUUID();
+    const mine = and(row, eq(schema.lfsObject.uploadId, uploadId));
     await this.quota.reserve(
       storageAccountOf(repository),
       lfsKindOf(repository),
@@ -201,42 +203,47 @@ export class LfsService {
           );
         const [reserved] = await tx
           .insert(schema.lfsObject)
-          .values({ repositoryId: repository.id, oid, size })
+          .values({ repositoryId: repository.id, oid, size, uploadId })
           .onConflictDoNothing()
           .returning({ oid: schema.lfsObject.oid });
         if (!reserved) throw new LfsUploadInProgressError(oid);
       },
     );
 
-    const key = lfsObjectKey(repository.id, oid);
+    // Bytes that never verified must not reach the object's key, where another upload of the same oid may already have stored the real ones.
+    const staging = lfsUploadKey(repository.id, uploadId);
     const hash = createHash('sha256');
     // A listener beside the upload's own reader, not a transform in front of it: `putStream` has to see the request's errors to abort.
     body.on('data', (chunk: Buffer) => hash.update(chunk));
     try {
       await this.s3.putStream({
-        Key: key,
+        Key: staging,
         Body: body,
         ContentLength: size,
         ContentType: 'application/octet-stream',
       });
       const actual = hash.digest('hex');
       if (actual !== oid) throw new LfsObjectMismatchError(oid, actual);
+      // Verified bytes are the same bytes whoever wrote them, so overwriting another upload's copy loses nothing.
+      await this.s3.copyObject({
+        Bucket: this.s3.bucket,
+        Key: lfsObjectKey(repository.id, oid),
+        CopySource: `${this.s3.bucket}/${staging}`,
+      });
     } catch (error) {
-      await this.s3.deleteObject({ Bucket: this.s3.bucket, Key: key });
-      await this.db.delete(schema.lfsObject).where(row);
+      await this.db.delete(schema.lfsObject).where(mine);
       throw error;
+    } finally {
+      await this.s3.deleteObject({ Bucket: this.s3.bucket, Key: staging });
     }
 
     const [uploaded] = await this.db
       .update(schema.lfsObject)
       .set({ uploadedAt: new Date() })
-      .where(row)
+      .where(mine)
       .returning({ oid: schema.lfsObject.oid });
-    // the repository was deleted while the bytes were in flight, taking the row with it
-    if (!uploaded) {
-      await this.s3.deleteObject({ Bucket: this.s3.bucket, Key: key });
-      throw new RepositoryNotFoundError();
-    }
+    // The repository was deleted meanwhile, or this reservation lapsed and another upload took the oid. Either way the stored bytes are not this upload's to remove.
+    if (!uploaded) throw new LfsUploadInProgressError(oid);
   }
 
   /** The size of an object the repository holds, or null. */

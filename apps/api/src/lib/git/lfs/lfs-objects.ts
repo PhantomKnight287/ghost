@@ -13,3 +13,8 @@ export const LFS_OID = /^[0-9a-f]{64}$/;
 export function lfsEndpoint(baseUrl: string, path: string) {
   return `${baseUrl}/${path}.git/info/lfs`;
 }
+
+/** Where one upload's bytes wait until they are verified. `uploads` can never be an oid, so staging and stored objects share a repository's prefix without colliding. */
+export function lfsUploadKey(repositoryId: string, uploadId: string) {
+  return `lfs/${repositoryId}/uploads/${uploadId}`;
+}

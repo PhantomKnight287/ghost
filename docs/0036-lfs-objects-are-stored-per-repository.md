@@ -17,7 +17,7 @@ Ghost speaks the Git LFS batch API and its `basic` transfer under the clone URL,
 
 `GitBasicAuthMiddleware` authorizes them as it does git: an upload or a lock change needs write access, a download or a lock list read access. LFS bodies are parsed before it runs, since the batch's operation is in its body. Each action carries the batch request's own `Authorization` header, so the client needs no second credential lookup. Hrefs start with `BETTER_AUTH_URL`, the clone URL's origin.
 
-Objects live at `lfs/<repositoryId>/<oid>`, one `lfs_object` row each. Only SHA-256 oids are accepted. An upload follows the release asset reservation (0025): the row is inserted under the account's lock, the bytes stream to the bucket while they are hashed, and the row is marked uploaded only if they hash to the oid. Otherwise the object and the row are removed. One object can be at most 5 GiB, what a single `PutObject` carries.
+Objects live at `lfs/<repositoryId>/<oid>`, one `lfs_object` row each. Only SHA-256 oids are accepted. An upload follows the release asset reservation (0025): the row is inserted under the account's lock with an id of its own, the bytes stream to `lfs/<repositoryId>/uploads/<uploadId>` while they are hashed, and only bytes that hash to the oid are copied to the object's key and marked uploaded. Otherwise the staging object and that upload's row are removed. An upload whose reservation lapsed and was taken by another cannot touch its successor's row or bytes. The price is a server-side copy per upload. One object can be at most 5 GiB, what a single `PutObject` carries.
 
 LFS objects count against the `lfs` limit, except in forks, where they count against the `fork` limit like everything else a fork holds (0035).
 
