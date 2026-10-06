@@ -10,22 +10,22 @@ import { PUT_OBJECT_MAX_BYTES } from '../../lib/s3/s3.limits.js';
 import { parseByteSize } from '../../lib/storage/byte-size.js';
 import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
 import {
-  billedTo,
-  type StorageAccount,
-  storageAccountKey,
-  type StorageKind,
-} from '../../lib/storage/storage-account.js';
-import {
   MergeStorageQuotaExceededError,
   PullRefWriteTooLargeError,
   StorageQuotaExceededError,
   UnmergedPullRefQuotaExceededError,
 } from '../../lib/storage/storage.errors.js';
+import {
+  billedTo,
+  type StorageAccount,
+  storageAccountKey,
+  type StorageKind,
+} from '../../lib/storage/storage-account.js';
 
 type PullRequestState = (typeof schema.pullRequestState.enumValues)[number];
 
 /**
- * Bytes an account may keep in object storage, per {@link StorageKind}. `STORAGE_QUOTA_BYTES`, `FORK_STORAGE_QUOTA_BYTES` and `LFS_STORAGE_QUOTA_BYTES` set the instance's limits, which a `storage_limit` row overrides for one account; unset, nothing is limited, which is what a self-hosted instance gets by default.
+ * Bytes an account may keep in object storage, per {@link StorageKind}. `STORAGE_QUOTA_BYTES`, `FORK_STORAGE_QUOTA_BYTES`, `LFS_STORAGE_QUOTA_BYTES` and `ASSET_STORAGE_QUOTA_BYTES` set the instance's limits, which a `storage_limit` row overrides for one account; unset, nothing is limited, which is what a self-hosted instance gets by default.
  *
  * Usage is summed from the rows that hold the files, never kept as a counter, so it cannot drift from what is stored and follows a repository when it is transferred.
  */
@@ -55,6 +55,10 @@ export class StorageQuotaService {
       lfs: parseByteSize(
         config.get<string>('LFS_STORAGE_QUOTA_BYTES'),
         'LFS_STORAGE_QUOTA_BYTES',
+      ),
+      asset: parseByteSize(
+        config.get<string>('ASSET_STORAGE_QUOTA_BYTES'),
+        'ASSET_STORAGE_QUOTA_BYTES',
       ),
     };
     this.maxAssetBytes = Math.min(
@@ -86,6 +90,7 @@ export class StorageQuotaService {
         repository: schema.storageLimit.repositoryBytes,
         fork: schema.storageLimit.forkBytes,
         lfs: schema.storageLimit.lfsBytes,
+        asset: schema.storageLimit.assetBytes,
       })
       .from(schema.storageLimit)
       .where(
@@ -101,83 +106,91 @@ export class StorageQuotaService {
     kind: StorageKind,
     executor: Executor = this.db,
   ) {
-    const [lfs] =
-      kind === 'repository'
-        ? []
-        : await executor
-            .select({
-              used: sql<string>`coalesce(sum(${schema.lfsObject.size}), 0)`,
-            })
-            .from(schema.lfsObject)
-            .innerJoin(
-              schema.repository,
-              eq(schema.repository.id, schema.lfsObject.repositoryId),
-            )
-            .where(
-              and(
-                billedTo(account, kind === 'fork' ? 'fork' : 'repository'),
-                or(
-                  isNotNull(schema.lfsObject.uploadedAt),
-                  gt(
-                    schema.lfsObject.createdAt,
-                    sql`now() - ${RESERVATION_TTL}`,
-                  ),
-                ),
-              ),
-            );
-    if (kind === 'lfs') return Number(lfs?.used ?? 0);
-
-    const [logs] = await executor
-      .select({
-        used: sql<string>`coalesce(sum(${schema.repositoryLogEntry.size}), 0)`,
-      })
-      .from(schema.repositoryLogEntry)
-      .innerJoin(
-        schema.repository,
-        eq(schema.repository.id, schema.repositoryLogEntry.repositoryId),
-      )
-      .where(billedTo(account, kind));
-    const [assets] = await executor
-      .select({
-        used: sql<string>`coalesce(sum(${schema.releaseAsset.size}), 0)`,
-      })
-      .from(schema.releaseAsset)
-      .innerJoin(
-        schema.repository,
-        eq(schema.repository.id, schema.releaseAsset.repositoryId),
-      )
-      .where(
-        and(
-          billedTo(account, kind),
-          or(
-            eq(schema.releaseAsset.state, 'uploaded'),
-            gt(schema.releaseAsset.createdAt, sql`now() - ${RESERVATION_TTL}`),
-          ),
-        ),
-      );
-    // A request's head starts counting against the base repository once it merges, never before.
-    const [pullRefs] = await executor
-      .select({
-        used: sql<string>`coalesce(sum(${schema.pullRequestRefWrite.size}), 0)`,
-      })
-      .from(schema.pullRequestRefWrite)
-      .innerJoin(
-        schema.pullRequest,
-        eq(schema.pullRequest.id, schema.pullRequestRefWrite.pullRequestId),
-      )
-      .innerJoin(
-        schema.repository,
-        eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
-      )
-      .where(
-        and(billedTo(account, kind), eq(schema.pullRequest.state, 'merged')),
-      );
-    return (
-      Number(logs?.used ?? 0) +
-      Number(assets?.used ?? 0) +
-      Number(pullRefs?.used ?? 0) +
-      Number(lfs?.used ?? 0)
+    // A fork's files all count against the fork limit; elsewhere each kind of file has a limit of its own.
+    const repositories = billedTo(
+      account,
+      kind === 'fork' ? 'fork' : 'repository',
     );
+    const counts = (file: StorageKind) => kind === 'fork' || kind === file;
+    let used = 0;
+
+    if (counts('lfs')) {
+      const [lfs] = await executor
+        .select({
+          used: sql<string>`coalesce(sum(${schema.lfsObject.size}), 0)`,
+        })
+        .from(schema.lfsObject)
+        .innerJoin(
+          schema.repository,
+          eq(schema.repository.id, schema.lfsObject.repositoryId),
+        )
+        .where(
+          and(
+            repositories,
+            or(
+              isNotNull(schema.lfsObject.uploadedAt),
+              gt(schema.lfsObject.createdAt, sql`now() - ${RESERVATION_TTL}`),
+            ),
+          ),
+        );
+      used += Number(lfs?.used ?? 0);
+    }
+
+    if (counts('asset')) {
+      const [assets] = await executor
+        .select({
+          used: sql<string>`coalesce(sum(${schema.releaseAsset.size}), 0)`,
+        })
+        .from(schema.releaseAsset)
+        .innerJoin(
+          schema.repository,
+          eq(schema.repository.id, schema.releaseAsset.repositoryId),
+        )
+        .where(
+          and(
+            repositories,
+            or(
+              eq(schema.releaseAsset.state, 'uploaded'),
+              gt(
+                schema.releaseAsset.createdAt,
+                sql`now() - ${RESERVATION_TTL}`,
+              ),
+            ),
+          ),
+        );
+      used += Number(assets?.used ?? 0);
+    }
+
+    if (counts('repository')) {
+      const [logs] = await executor
+        .select({
+          used: sql<string>`coalesce(sum(${schema.repositoryLogEntry.size}), 0)`,
+        })
+        .from(schema.repositoryLogEntry)
+        .innerJoin(
+          schema.repository,
+          eq(schema.repository.id, schema.repositoryLogEntry.repositoryId),
+        )
+        .where(repositories);
+      // A request's head starts counting against the base repository once it merges, never before.
+      const [pullRefs] = await executor
+        .select({
+          used: sql<string>`coalesce(sum(${schema.pullRequestRefWrite.size}), 0)`,
+        })
+        .from(schema.pullRequestRefWrite)
+        .innerJoin(
+          schema.pullRequest,
+          eq(schema.pullRequest.id, schema.pullRequestRefWrite.pullRequestId),
+        )
+        .innerJoin(
+          schema.repository,
+          eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
+        )
+        .where(and(repositories, eq(schema.pullRequest.state, 'merged')));
+      used += Number(logs?.used ?? 0) + Number(pullRefs?.used ?? 0);
+    }
+
+    return used;
   }
 
   /** Bytes Ghost has written into base logs for `authorId`'s requests that never merged, open or closed. */

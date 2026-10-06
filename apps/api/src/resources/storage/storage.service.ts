@@ -29,6 +29,10 @@ export class StorageService {
         usedBytes: await this.quota.usageOf(account, 'lfs'),
         quotaBytes: await this.quota.quotaOf(account, 'lfs'),
       },
+      asset: {
+        usedBytes: await this.quota.usageOf(account, 'asset'),
+        quotaBytes: await this.quota.quotaOf(account, 'asset'),
+      },
     };
   }
 

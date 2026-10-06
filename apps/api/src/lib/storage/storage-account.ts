@@ -14,9 +14,9 @@ export function storageAccountOf(repository: {
 }
 
 /** Which of an account's limits bytes count against. Forks have their own, since people fork large repositories they never push to. */
-export type StorageKind = 'repository' | 'fork' | 'lfs';
+export type StorageKind = 'repository' | 'fork' | 'lfs' | 'asset';
 
-export type RepositoryStorageKind = Exclude<StorageKind, 'lfs'>;
+export type RepositoryStorageKind = Extract<StorageKind, 'repository' | 'fork'>;
 
 export function storageKindOf(repository: {
   parentRepositoryId: string | null;
@@ -27,8 +27,15 @@ export function storageKindOf(repository: {
 /** LFS objects count against the fork limit in a fork, like everything else a fork holds, and against the LFS limit anywhere else. */
 export function lfsKindOf(repository: {
   parentRepositoryId: string | null;
-}): Exclude<StorageKind, 'repository'> {
+}): Extract<StorageKind, 'fork' | 'lfs'> {
   return repository.parentRepositoryId ? 'fork' : 'lfs';
+}
+
+/** Release assets count against the fork limit in a fork, like everything else a fork holds, and against the asset limit anywhere else. */
+export function assetKindOf(repository: {
+  parentRepositoryId: string | null;
+}): Extract<StorageKind, 'fork' | 'asset'> {
+  return repository.parentRepositoryId ? 'fork' : 'asset';
 }
 
 /** Repositories of `kind` whose files count against `account`. */

@@ -256,21 +256,64 @@ describe.skipIf(!CONNECTION)('StorageQuotaService', () => {
     expect(await quotaWith({}).usageOf({ userId: OWNER }, 'fork')).toBe(700);
   });
 
+  it("bills release assets to the asset quota and a fork's to the fork quota", async () => {
+    const [fork] = await db
+      .insert(schema.repository)
+      .values({
+        name: 'fork',
+        slug: 'fork',
+        ownerId: OWNER,
+        parentRepositoryId: repositoryId,
+      })
+      .returning();
+    const releases = await db
+      .insert(schema.release)
+      .values([
+        { repositoryId, tagName: 'v1' },
+        { repositoryId: fork.id, tagName: 'v1' },
+      ])
+      .returning();
+    await db.insert(schema.releaseAsset).values(
+      releases.map((release, index) => ({
+        releaseId: release.id,
+        repositoryId: release.repositoryId,
+        name: 'app.zip',
+        contentType: 'application/zip',
+        size: index === 0 ? 300 : 700,
+        state: 'uploaded' as const,
+      })),
+    );
+    await db
+      .insert(schema.repositoryLogEntry)
+      .values({ repositoryId, ulid: 'push', size: 50 });
+
+    const quota = quotaWith({});
+    expect(await quota.usageOf({ userId: OWNER }, 'asset')).toBe(300);
+    expect(await quota.usageOf({ userId: OWNER }, 'repository')).toBe(50);
+    expect(await quota.usageOf({ userId: OWNER }, 'fork')).toBe(700);
+  });
+
   it("takes an account's own limit over the environment's, and the environment's where the account sets none", async () => {
     const quota = quotaWith({
       STORAGE_QUOTA_BYTES: '1kb',
       FORK_STORAGE_QUOTA_BYTES: '2kb',
       LFS_STORAGE_QUOTA_BYTES: '3kb',
+      ASSET_STORAGE_QUOTA_BYTES: '4kb',
     });
     expect(await quota.quotaOf({ userId: OWNER }, 'lfs')).toBe(3072);
+    expect(await quota.quotaOf({ userId: OWNER }, 'asset')).toBe(4096);
 
-    await db
-      .insert(schema.storageLimit)
-      .values({ userId: OWNER, repositoryBytes: 10, lfsBytes: 30 });
+    await db.insert(schema.storageLimit).values({
+      userId: OWNER,
+      repositoryBytes: 10,
+      lfsBytes: 30,
+      assetBytes: 40,
+    });
 
     expect(await quota.quotaOf({ userId: OWNER }, 'repository')).toBe(10);
     expect(await quota.quotaOf({ userId: OWNER }, 'fork')).toBe(2048);
     expect(await quota.quotaOf({ userId: OWNER }, 'lfs')).toBe(30);
+    expect(await quota.quotaOf({ userId: OWNER }, 'asset')).toBe(40);
     expect(await quota.quotaOf({ userId: AUTHOR }, 'repository')).toBe(1024);
   });
 

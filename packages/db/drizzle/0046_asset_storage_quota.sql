@@ -1,0 +1,1 @@
+ALTER TABLE "storage_limit" ADD COLUMN "asset_bytes" bigint;

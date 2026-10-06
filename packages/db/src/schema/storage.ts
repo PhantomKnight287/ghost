@@ -29,6 +29,7 @@ export const storageLimit = pgTable(
     repositoryBytes: bigint({ mode: "number" }),
     forkBytes: bigint({ mode: "number" }),
     lfsBytes: bigint({ mode: "number" }),
+    assetBytes: bigint({ mode: "number" }),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
       .defaultNow()

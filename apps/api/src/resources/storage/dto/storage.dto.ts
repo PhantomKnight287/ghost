@@ -20,7 +20,7 @@ export class StorageLimitUsageDTO {
 export class StorageUsageDTO {
   @ApiProperty({
     description:
-      'Bytes stored in repositories that are not forks, including uploads in progress and leaving out Git LFS objects.',
+      "Bytes of pushed git data and merged pull requests' heads in repositories that are not forks, leaving out Git LFS objects and release assets.",
   })
   @IsInt()
   usedBytes: number;
@@ -40,7 +40,8 @@ export class StorageUsageDTO {
 
   @ApiProperty({
     type: StorageLimitUsageDTO,
-    description: 'Everything forks hold, Git LFS objects included.',
+    description:
+      'Everything forks hold, Git LFS objects and release assets included.',
   })
   @ValidateNested()
   @Type(() => StorageLimitUsageDTO)
@@ -53,4 +54,13 @@ export class StorageUsageDTO {
   @ValidateNested()
   @Type(() => StorageLimitUsageDTO)
   lfs: StorageLimitUsageDTO;
+
+  @ApiProperty({
+    type: StorageLimitUsageDTO,
+    description:
+      'Release assets in repositories that are not forks, including uploads in progress.',
+  })
+  @ValidateNested()
+  @Type(() => StorageLimitUsageDTO)
+  asset: StorageLimitUsageDTO;
 }

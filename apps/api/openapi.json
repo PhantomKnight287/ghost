@@ -2046,7 +2046,7 @@
     },
     "/api/storage/{owner}": {
       "get": {
-        "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps in pushed git data, release assets and merged pull requests' heads, against its quota. Forks count against a separate quota.",
+        "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps against each of its quotas: pushed git data and merged pull requests' heads, Git LFS objects, release assets, and forks, which hold all three under one quota.",
         "operationId": "StorageController_getStorageUsage",
         "parameters": [
           {
@@ -11101,7 +11101,7 @@
         "properties": {
           "usedBytes": {
             "type": "number",
-            "description": "Bytes stored in repositories that are not forks, including uploads in progress and leaving out Git LFS objects."
+            "description": "Bytes of pushed git data and merged pull requests' heads in repositories that are not forks, leaving out Git LFS objects and release assets."
           },
           "quotaBytes": {
             "type": "number",
@@ -11113,7 +11113,7 @@
             "description": "Largest single release asset."
           },
           "fork": {
-            "description": "Everything forks hold, Git LFS objects included.",
+            "description": "Everything forks hold, Git LFS objects and release assets included.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/StorageLimitUsageDTO"
@@ -11127,6 +11127,14 @@
                 "$ref": "#/components/schemas/StorageLimitUsageDTO"
               }
             ]
+          },
+          "asset": {
+            "description": "Release assets in repositories that are not forks, including uploads in progress.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StorageLimitUsageDTO"
+              }
+            ]
           }
         },
         "required": [
@@ -11134,7 +11142,8 @@
           "quotaBytes",
           "maxAssetBytes",
           "fork",
-          "lfs"
+          "lfs",
+          "asset"
         ]
       },
       "OrganizationRole": {
