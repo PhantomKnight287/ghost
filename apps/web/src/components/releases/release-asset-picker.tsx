@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldError } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { formatBytes } from "@/lib/utils";
-import type { ReleaseAsset, StorageUsage } from "@/types/release";
+import type { ReleaseAsset } from "@/types/release";
 
 import { deleteReleaseAsset } from "./actions";
 
@@ -29,7 +29,11 @@ export function ReleaseAssetPicker({
   existing: ReleaseAsset[];
   files: File[];
   onFilesChange: (files: File[]) => void;
-  storage: StorageUsage | null;
+  storage: {
+    usedBytes: number;
+    quotaBytes: number | null;
+    maxAssetBytes: number;
+  } | null;
   problem: string | null;
   disabled: boolean;
 }) {
@@ -106,8 +110,8 @@ export function ReleaseAssetPicker({
       {storage && (
         <FieldDescription>
           Up to {formatBytes(storage.maxAssetBytes)} per file
-          {storage.asset.quotaBytes !== null &&
-            ` · ${formatBytes(storage.asset.usedBytes)} of ${formatBytes(storage.asset.quotaBytes)} used`}
+          {storage.quotaBytes !== null &&
+            ` · ${formatBytes(storage.usedBytes)} of ${formatBytes(storage.quotaBytes)} used`}
         </FieldDescription>
       )}
 

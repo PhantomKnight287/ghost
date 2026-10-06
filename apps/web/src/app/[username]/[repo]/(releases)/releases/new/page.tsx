@@ -50,6 +50,7 @@ export default async function NewReleasePage({
         repo={repo}
         branches={branches.data?.branches ?? []}
         defaultBranch={branches.data?.defaultBranch ?? null}
+        isFork={Boolean(repository.data.parent)}
         storage={storage.data ?? null}
       />
     </div>

@@ -20,4 +20,4 @@ Release binaries grow with every release and are easy to delete and re-upload, w
 
 - An instance that sets `STORAGE_QUOTA_BYTES` and not `ASSET_STORAGE_QUOTA_BYTES` stops limiting release assets on upgrade, since an unset limit means unlimited. Operators who want them capped set the new variable.
 - An account that was full only because of release assets can push again after the upgrade.
-- Release asset uploads to a fork are still refused by the fork limit, which the release form does not know about; it shows the asset limit, and the API's refusal is the final word.
+- The release form checks a fork's uploads against the fork limit and anyone else's against the asset limit, choosing by the repository's `parent`, as the API does.
