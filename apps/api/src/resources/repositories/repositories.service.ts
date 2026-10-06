@@ -626,7 +626,19 @@ export class RepositoriesService {
         if (parentLog)
           await this.wal.copyLog(parent.id, parentLog.index, row.id);
         await this.lfs.record(tx, lfsObjects, row.id);
-        await this.lfs.copy(lfsObjects, parent.id, row.id);
+        try {
+          await this.lfs.copy(lfsObjects, parent.id, row.id);
+        } catch (error) {
+          // The rollback takes the rows; the objects copied before the failure would outlive them.
+          await this.lfs
+            .remove(row.id)
+            .catch((cleanup: unknown) =>
+              this.logger.warn(
+                `Removing LFS objects of failed fork ${row.id} failed: ${cleanup instanceof Error ? cleanup.message : String(cleanup)}`,
+              ),
+            );
+          throw error;
+        }
         return row;
       },
     );
