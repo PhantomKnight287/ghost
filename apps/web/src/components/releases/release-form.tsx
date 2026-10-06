@@ -41,6 +41,7 @@ export function ReleaseForm({
   branches,
   defaultBranch,
   release,
+  isFork,
   storage,
 }: {
   username: string;
@@ -48,6 +49,8 @@ export function ReleaseForm({
   branches: string[];
   defaultBranch: string | null;
   release?: Release;
+  /** A fork's assets count against its fork quota, not the asset quota. */
+  isFork: boolean;
   /** Null when the viewer may not see the owner's usage, such as a collaborator outside the organization. */
   storage: StorageUsage | null;
 }) {
@@ -76,7 +79,11 @@ export function ReleaseForm({
     create.isExecuting || update.isExecuting || uploading !== null;
   const serverError =
     create.result.serverError ?? update.result.serverError ?? null;
-  const problem = assetProblem(files, release?.assets ?? [], storage);
+  const quota = storage && {
+    ...(isFork ? storage.fork : storage.asset),
+    maxAssetBytes: storage.maxAssetBytes,
+  };
+  const problem = assetProblem(files, release?.assets ?? [], quota);
 
   const submit = (isDraft: boolean) =>
     handleSubmit(async (input) => {
@@ -196,7 +203,7 @@ export function ReleaseForm({
             existing={release?.assets ?? []}
             files={files}
             onFilesChange={setFiles}
-            storage={storage}
+            storage={quota}
             problem={problem}
             disabled={isExecuting}
           />

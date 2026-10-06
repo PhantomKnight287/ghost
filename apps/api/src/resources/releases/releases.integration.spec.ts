@@ -508,16 +508,14 @@ describe.skipIf(!CONNECTION)('releases', () => {
       await expect(upload(release.id, 'app.zip', zip)).rejects.toThrow(
         'connection reset',
       );
-      await expect(
-        quota.usageOf({ userId: OWNER }, 'repository'),
-      ).resolves.toBe(0);
+      await expect(quota.usageOf({ userId: OWNER }, 'asset')).resolves.toBe(0);
       await expect(upload(release.id, 'app.zip', zip)).resolves.toMatchObject({
         name: 'app.zip',
       });
     });
 
     it('holds an account to its quota, counting live reservations but not lapsed ones', async () => {
-      limits({ STORAGE_QUOTA_BYTES: String(zip.length * 2) });
+      limits({ ASSET_STORAGE_QUOTA_BYTES: String(zip.length * 2) });
       await upload(release.id, 'a.zip', zip);
 
       // an upload in flight elsewhere holds its space
@@ -543,13 +541,13 @@ describe.skipIf(!CONNECTION)('releases', () => {
       await expect(upload(release.id, 'b.zip', zip)).resolves.toMatchObject({
         name: 'b.zip',
       });
-      await expect(
-        quota.usageOf({ userId: OWNER }, 'repository'),
-      ).resolves.toBe(zip.length * 2);
+      await expect(quota.usageOf({ userId: OWNER }, 'asset')).resolves.toBe(
+        zip.length * 2,
+      );
     });
 
     it('lets concurrent uploads fill the quota exactly, never past it', async () => {
-      limits({ STORAGE_QUOTA_BYTES: String(zip.length * 2) });
+      limits({ ASSET_STORAGE_QUOTA_BYTES: String(zip.length * 2) });
       const results = await Promise.allSettled(
         ['a', 'b', 'c', 'd'].map((name) =>
           upload(release.id, `${name}.zip`, zip),
@@ -561,7 +559,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
     });
 
     it('bills an organization repository to the organization, not its owner', async () => {
-      limits({ STORAGE_QUOTA_BYTES: String(zip.length) });
+      limits({ ASSET_STORAGE_QUOTA_BYTES: String(zip.length) });
       await upload(release.id, 'a.zip', zip);
 
       await db.insert(schema.organization).values({
@@ -583,11 +581,11 @@ describe.skipIf(!CONNECTION)('releases', () => {
           .set({ organizationId: 'org_release' })
           .where(inArray(schema.repository.id, [repository.id]));
 
+        await expect(quota.usageOf({ userId: OWNER }, 'asset')).resolves.toBe(
+          0,
+        );
         await expect(
-          quota.usageOf({ userId: OWNER }, 'repository'),
-        ).resolves.toBe(0);
-        await expect(
-          quota.usageOf({ organizationId: 'org_release' }, 'repository'),
+          quota.usageOf({ organizationId: 'org_release' }, 'asset'),
         ).resolves.toBe(zip.length);
       } finally {
         await db
@@ -618,16 +616,17 @@ describe.skipIf(!CONNECTION)('releases', () => {
     });
 
     it('reports usage to the account itself and its organization members only', async () => {
-      limits({ STORAGE_QUOTA_BYTES: '1gb' });
+      limits({ STORAGE_QUOTA_BYTES: '1gb', ASSET_STORAGE_QUOTA_BYTES: '2gb' });
       await upload(release.id, 'app.zip', zip);
       const storage = new StorageService(db, quota);
 
       await expect(storage.usage('release-owner', OWNER)).resolves.toEqual({
-        usedBytes: zip.length,
+        usedBytes: 0,
         quotaBytes: 1024 ** 3,
         maxAssetBytes: 2 * 1024 ** 3,
         fork: { usedBytes: 0, quotaBytes: null },
         lfs: { usedBytes: 0, quotaBytes: null },
+        asset: { usedBytes: zip.length, quotaBytes: 2 * 1024 ** 3 },
       });
       await expect(
         storage.usage('release-owner', READER),

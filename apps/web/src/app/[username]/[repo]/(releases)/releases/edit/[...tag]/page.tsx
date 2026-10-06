@@ -10,9 +10,12 @@ export default async function EditReleasePage({
   const tagName = tag.map(decodeURIComponent).join("/");
 
   const client = await createServerClient();
-  const [release, storage] = await Promise.all([
+  const [release, repository, storage] = await Promise.all([
     client.GET("/api/repositories/{username}/{repo}/releases/tags/{tag}", {
       params: { path: { username, repo, tag: tagName } },
+    }),
+    client.GET("/api/repositories/{username}/{slug}", {
+      params: { path: { username, slug: repo } },
     }),
     client.GET("/api/storage/{owner}", {
       params: { path: { owner: username } },
@@ -36,6 +39,7 @@ export default async function EditReleasePage({
         branches={[]}
         defaultBranch={null}
         release={release.data}
+        isFork={Boolean(repository.data?.parent)}
         storage={storage.data ?? null}
       />
     </div>

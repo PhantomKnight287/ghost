@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 
 import { Settings } from "@/components/auth/settings/settings";
 
-// Plugins add their own tabs, and the organization plugin's is `organizations`.
+// Plugins add their own tabs, and the organization plugin's is `organizations`; `storage` is Ghost's own.
 const validSettingsPaths = new Set([
   ...Object.values(viewPaths.settings),
   "organizations",
+  "storage",
 ]);
 
 export default async function SettingsPage({

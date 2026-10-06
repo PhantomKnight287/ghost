@@ -17,8 +17,8 @@ import { formatByteSize } from '../../lib/storage/byte-size.js';
 import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
 import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
 import {
+  assetKindOf,
   storageAccountOf,
-  storageKindOf,
 } from '../../lib/storage/storage-account.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
@@ -105,7 +105,7 @@ export class ReleaseAssetsService {
 
     const asset = await this.quota.reserve(
       storageAccountOf(repository),
-      storageKindOf(repository),
+      assetKindOf(repository),
       size,
       async (tx) => {
         // An upload that died with its process leaves a reservation behind; once it has lapsed it must not hold the name forever.

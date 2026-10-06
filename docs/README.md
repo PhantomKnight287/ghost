@@ -48,6 +48,7 @@ rejected, and the consequences — including the bad ones.
 - [0034 — A push is verified before the log commits it, and the log stores the indexed pack](0034-a-push-is-verified-before-the-log-commits-it.md)
 - [0035 — Pushes and forks count against separate quotas, which an account can override](0035-pushes-and-forks-count-against-separate-quotas.md)
 - [0036 — Git LFS objects are stored per repository and served through the API](0036-lfs-objects-are-stored-per-repository.md)
+- [0037 — Release assets count against a quota of their own](0037-release-assets-count-against-their-own-quota.md)
 
 ## Open
 
