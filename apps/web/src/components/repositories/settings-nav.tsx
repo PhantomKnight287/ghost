@@ -1,6 +1,13 @@
 "use client";
 
-import { Settings, UserRound, Users, UsersRound, Webhook } from "lucide-react";
+import {
+  HardDrive,
+  Settings,
+  UserRound,
+  Users,
+  UsersRound,
+  Webhook,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,6 +20,7 @@ const icons = {
   teams: UsersRound,
   outside: UserRound,
   webhooks: Webhook,
+  storage: HardDrive,
 };
 
 export type SettingsLink = {
