@@ -94,22 +94,22 @@ describe.skipIf(!hasBackends)('Git LFS', () => {
     `${origin.replace('://', `://${username}:${key}@`)}/${username}/${slug}.git`;
   const sshCommand = () =>
     `ssh -i ${sshKey} -p ${sshPort} -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR`;
+  // The machine's own git config, such as a global `git lfs install`, must not change what a test pushes.
+  const gitEnv = () => ({
+    ...process.env,
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_TERMINAL_PROMPT: '0',
+    GIT_SSH_COMMAND: sshCommand(),
+  });
   const git = (cwd: string, ...args: string[]) =>
     execFileSync(
       'git',
       ['-c', 'user.name=E2E', '-c', 'user.email=e2e@example.com', ...args],
-      { cwd, encoding: 'utf8' },
+      { cwd, encoding: 'utf8', env: gitEnv() },
     );
   // The server runs in this process, so anything that talks to it must not block the event loop.
   const run = (cwd: string, ...args: string[]) =>
-    promisify(execFile)('git', args, {
-      cwd,
-      env: {
-        ...process.env,
-        GIT_TERMINAL_PROMPT: '0',
-        GIT_SSH_COMMAND: sshCommand(),
-      },
-    });
+    promisify(execFile)('git', args, { cwd, env: gitEnv() });
   const usage = (cookie: string, account: string) =>
     api()
       .get(`/api/storage/${account}`)
