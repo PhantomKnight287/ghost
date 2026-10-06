@@ -18,9 +18,13 @@ export class StorageService {
   async usage(owner: string, requesterId: string): Promise<StorageUsageDTO> {
     const account = await this.accountNamed(owner, requesterId);
     return {
-      usedBytes: await this.quota.usageOf(account),
-      quotaBytes: this.quota.quotaOf(account),
+      usedBytes: await this.quota.usageOf(account, 'repository'),
+      quotaBytes: await this.quota.quotaOf(account, 'repository'),
       maxAssetBytes: this.quota.maxAssetBytes,
+      fork: {
+        usedBytes: await this.quota.usageOf(account, 'fork'),
+        quotaBytes: await this.quota.quotaOf(account, 'fork'),
+      },
     };
   }
 

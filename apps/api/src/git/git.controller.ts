@@ -53,9 +53,7 @@ export class GitController {
     this.send(
       res,
       await this.gitService.receivePack({
-        repositoryId: req.repository.id,
-        defaultBranch: req.repository.defaultBranch,
-        isPublic: req.repository.visibility === 'public',
+        repository: req.repository,
         body: req.gitBody,
         pushedBy: req.actor?.userId ?? null,
         apiKeyId: req.apiKeyId ?? null,

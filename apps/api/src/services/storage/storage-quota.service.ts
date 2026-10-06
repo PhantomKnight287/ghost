@@ -12,8 +12,10 @@ import {
 import { parseByteSize } from '../../lib/storage/byte-size.js';
 import {
   billedTo,
+  type RepositoryStorageKind,
   type StorageAccount,
   storageAccountKey,
+  type StorageKind,
 } from '../../lib/storage/storage-account.js';
 import {
   MergeStorageQuotaExceededError,
@@ -28,13 +30,13 @@ type PullRequestState = (typeof schema.pullRequestState.enumValues)[number];
 const RESERVATION_TTL = sql`interval '1 day'`;
 
 /**
- * Bytes an account may keep in object storage. `STORAGE_QUOTA_BYTES` sets one limit for every account; unset, nothing is limited, which is what a self-hosted instance gets by default.
+ * Bytes an account may keep in object storage, per {@link StorageKind}. `STORAGE_QUOTA_BYTES`, `FORK_STORAGE_QUOTA_BYTES` and `LFS_STORAGE_QUOTA_BYTES` set the instance's limits, which a `storage_limit` row overrides for one account; unset, nothing is limited, which is what a self-hosted instance gets by default.
  *
  * Usage is summed from the rows that hold the files, never kept as a counter, so it cannot drift from what is stored and follows a repository when it is transferred.
  */
 @Injectable()
 export class StorageQuotaService {
-  private readonly quota: number | null;
+  private readonly defaults: Record<StorageKind, number | null>;
   /** Largest single release asset, from `RELEASE_ASSET_MAX_BYTES`; 2 GB unless set, and never past what one upload can carry. */
   readonly maxAssetBytes: number;
   /** Most one update of a request's `refs/pull/*` may add to its base log, from `PULL_REF_MAX_BYTES`; unset, nothing is limited. */
@@ -46,10 +48,20 @@ export class StorageQuotaService {
     @Inject(DATABASE) private readonly db: Database,
     config: ConfigService,
   ) {
-    this.quota = parseByteSize(
-      config.get<string>('STORAGE_QUOTA_BYTES'),
-      'STORAGE_QUOTA_BYTES',
-    );
+    this.defaults = {
+      repository: parseByteSize(
+        config.get<string>('STORAGE_QUOTA_BYTES'),
+        'STORAGE_QUOTA_BYTES',
+      ),
+      fork: parseByteSize(
+        config.get<string>('FORK_STORAGE_QUOTA_BYTES'),
+        'FORK_STORAGE_QUOTA_BYTES',
+      ),
+      lfs: parseByteSize(
+        config.get<string>('LFS_STORAGE_QUOTA_BYTES'),
+        'LFS_STORAGE_QUOTA_BYTES',
+      ),
+    };
     this.maxAssetBytes = Math.min(
       parseByteSize(
         config.get<string>('RELEASE_ASSET_MAX_BYTES'),
@@ -67,12 +79,42 @@ export class StorageQuotaService {
     );
   }
 
-  /** The limit for `account`, or null for none. Per-account overrides, such as a paid plan, belong here. */
-  quotaOf(_account: StorageAccount) {
-    return this.quota;
+  /** The limit for `account`, or null for none. */
+  async quotaOf(
+    account: StorageAccount,
+    kind: StorageKind,
+    executor: Executor = this.db,
+  ) {
+    const [limit] = await executor
+      .select({
+        repository: schema.storageLimit.repositoryBytes,
+        fork: schema.storageLimit.forkBytes,
+        lfs: schema.storageLimit.lfsBytes,
+      })
+      .from(schema.storageLimit)
+      .where(
+        'organizationId' in account
+          ? eq(schema.storageLimit.organizationId, account.organizationId)
+          : eq(schema.storageLimit.userId, account.userId),
+      );
+    return limit?.[kind] ?? this.defaults[kind];
   }
 
-  async usageOf(account: StorageAccount, executor: Executor = this.db) {
+  async usageOf(
+    account: StorageAccount,
+    kind: RepositoryStorageKind,
+    executor: Executor = this.db,
+  ) {
+    const [logs] = await executor
+      .select({
+        used: sql<string>`coalesce(sum(${schema.repositoryLogEntry.size}), 0)`,
+      })
+      .from(schema.repositoryLogEntry)
+      .innerJoin(
+        schema.repository,
+        eq(schema.repository.id, schema.repositoryLogEntry.repositoryId),
+      )
+      .where(billedTo(account, kind));
     const [assets] = await executor
       .select({
         used: sql<string>`coalesce(sum(${schema.releaseAsset.size}), 0)`,
@@ -84,7 +126,7 @@ export class StorageQuotaService {
       )
       .where(
         and(
-          billedTo(account),
+          billedTo(account, kind),
           or(
             eq(schema.releaseAsset.state, 'uploaded'),
             gt(schema.releaseAsset.createdAt, sql`now() - ${RESERVATION_TTL}`),
@@ -105,8 +147,14 @@ export class StorageQuotaService {
         schema.repository,
         eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
       )
-      .where(and(billedTo(account), eq(schema.pullRequest.state, 'merged')));
-    return Number(assets?.used ?? 0) + Number(pullRefs?.used ?? 0);
+      .where(
+        and(billedTo(account, kind), eq(schema.pullRequest.state, 'merged')),
+      );
+    return (
+      Number(logs?.used ?? 0) +
+      Number(assets?.used ?? 0) +
+      Number(pullRefs?.used ?? 0)
+    );
   }
 
   /** Bytes Ghost has written into base logs for `authorId`'s requests that never merged, open or closed. */
@@ -160,14 +208,16 @@ export class StorageQuotaService {
   /** Runs `insert`, which must write the row that holds `bytes`, only if the account has room for them. Reservations for one account are serialized, so two uploads cannot both fit into the last free space. */
   reserve<T>(
     account: StorageAccount,
+    kind: RepositoryStorageKind,
     bytes: number,
     insert: (tx: Executor) => Promise<T>,
   ) {
     return this.db.transaction(async (tx) => {
-      const quota = this.quotaOf(account);
-      if (quota !== null) {
-        await this.lockAccount(account, tx);
-        const used = await this.usageOf(account, tx);
+      const quota = await this.quotaOf(account, kind, tx);
+      // An account past its quota may still write nothing, such as a push that only deletes branches.
+      if (quota !== null && bytes > 0) {
+        await this.lockAccount(account, kind, tx);
+        const used = await this.usageOf(account, kind, tx);
         if (used + bytes > quota) {
           throw new StorageQuotaExceededError(used, quota, bytes);
         }
@@ -177,17 +227,25 @@ export class StorageQuotaService {
   }
 
   /** Refuses a merge once `account` is at or past its quota. A merge needs room left, not room enough: the pull refs it starts billing may carry the account past its quota, and the next merge is the one refused. Run inside the merge's transaction, so merges into one account see each other. */
-  async assertRoomToMerge(account: StorageAccount, tx: Executor) {
-    const quota = this.quotaOf(account);
+  async assertRoomToMerge(
+    account: StorageAccount,
+    kind: RepositoryStorageKind,
+    tx: Executor,
+  ) {
+    const quota = await this.quotaOf(account, kind, tx);
     if (quota === null) return;
-    await this.lockAccount(account, tx);
-    const used = await this.usageOf(account, tx);
+    await this.lockAccount(account, kind, tx);
+    const used = await this.usageOf(account, kind, tx);
     if (used >= quota) throw new MergeStorageQuotaExceededError(used, quota);
   }
 
-  private lockAccount(account: StorageAccount, tx: Executor) {
+  private lockAccount(
+    account: StorageAccount,
+    kind: StorageKind,
+    tx: Executor,
+  ) {
     return tx.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${storageAccountKey(account)}))`,
+      sql`select pg_advisory_xact_lock(hashtext(${`${storageAccountKey(account)}:${kind}`}))`,
     );
   }
 }

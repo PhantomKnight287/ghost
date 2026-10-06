@@ -533,6 +533,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/storage/{owner}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Storage usage of an account
+         * @description Bytes the signed-in user's own account, or an organization they belong to, keeps in pushed git data, release assets and merged pull requests' heads, against its quota. Forks count against a separate quota.
+         */
+        get: operations["StorageController_getStorageUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/organizations": {
         parameters: {
             query?: never;
@@ -1359,26 +1379,6 @@ export interface paths {
         head?: never;
         /** Update a label */
         patch: operations["LabelsController_updateLabel"];
-        trace?: never;
-    };
-    "/api/storage/{owner}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Storage usage of an account
-         * @description Bytes the signed-in user's own account, or an organization they belong to, keeps in release assets and merged pull requests' heads, against this instance's quota.
-         */
-        get: operations["StorageController_getStorageUsage"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/imports/github": {
@@ -2908,6 +2908,21 @@ export interface components {
         ListIncomingTransfersResponseDTO: {
             transfers: components["schemas"]["IncomingTransferDTO"][];
         };
+        ForkStorageUsageDTO: {
+            /** @description Bytes stored in forks. */
+            usedBytes: number;
+            /** @description `null` when no fork quota applies. */
+            quotaBytes: number | null;
+        };
+        StorageUsageDTO: {
+            /** @description Bytes stored outside forks, including uploads in progress. */
+            usedBytes: number;
+            /** @description `null` when no quota applies. */
+            quotaBytes: number | null;
+            /** @description Largest single release asset. */
+            maxAssetBytes: number;
+            fork: components["schemas"]["ForkStorageUsageDTO"];
+        };
         /**
          * @description Highest built-in role held; null when only custom roles are held.
          * @enum {string}
@@ -3569,14 +3584,6 @@ export interface components {
             description?: string | null;
             /** @example d73a4a */
             color?: string;
-        };
-        StorageUsageDTO: {
-            /** @description Bytes stored, including uploads in progress. */
-            usedBytes: number;
-            /** @description `null` when this instance sets no quota. */
-            quotaBytes: number | null;
-            /** @description Largest single release asset. */
-            maxAssetBytes: number;
         };
         GitHubImportStatusDTO: {
             /** @description Whether this instance can import from GitHub at all. */
@@ -5184,6 +5191,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    StorageController_getStorageUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageUsageDTO"];
+                };
             };
             404: {
                 headers: {
@@ -7388,35 +7424,6 @@ export interface operations {
                 };
             };
             409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    StorageController_getStorageUsage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                owner: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StorageUsageDTO"];
-                };
-            };
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };

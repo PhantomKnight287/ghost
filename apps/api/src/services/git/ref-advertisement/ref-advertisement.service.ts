@@ -7,16 +7,11 @@ import {
   toGitBinary,
   type GitServiceName,
 } from '../../../git/git.constants.js';
+import { pktLine } from '../../../lib/git/protocol/pkt-line.js';
 
 @Injectable()
 export class RefAdvertisementService {
   private readonly logger = new Logger(RefAdvertisementService.name);
-
-  /** pkt-line: 4 hex bytes of total length, then the payload. */
-  convertToPacketLine(str: string) {
-    const len = (Buffer.byteLength(str) + 4).toString(16).padStart(4, '0');
-    return len + str;
-  }
 
   /** The `GET /info/refs` body: the service header, a flush packet, then the advertisement. SSH sends the advertisement alone - the header exists so an HTTP client can tell which service answered. */
   advertise({
@@ -30,7 +25,7 @@ export class RefAdvertisementService {
   }): Readable {
     const output = new PassThrough();
 
-    output.write(this.convertToPacketLine(`# service=${service}\n`));
+    output.write(pktLine(`# service=${service}\n`));
     output.write(FLUSH_PACKET);
     this.advertiseRefs({ repoDirectory, service, protocol }).pipe(output);
 

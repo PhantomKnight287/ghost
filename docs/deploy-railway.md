@@ -134,13 +134,17 @@ so their first connection has something to compare against.
 
 ### Storage limits
 
-Release assets are stored in the same bucket, under `release-assets/`. Two
-variables on the `api` service bound them; sizes are bytes or binary units
-(`1073741824`, `1gb`, `500mb`):
+Pushed git data, release assets and Git LFS objects are all stored in the same
+bucket. These variables on the `api` service limit what each account may store
+there, what one release asset may be, and what pull requests may copy into a
+base repository. A `storage_limit` row overrides the first three for one
+account. Sizes are bytes or binary units (`1073741824`, `1gb`, `500mb`):
 
 | Variable                  | Effect                                                              |
 | ------------------------- | ------------------------------------------------------------------- |
-| `STORAGE_QUOTA_BYTES`     | Most each account may store: a user, or an organization for its repositories. Empty (the default) means unlimited. |
+| `STORAGE_QUOTA_BYTES`     | Most each account may store outside forks: a user, or an organization for its repositories. Empty (the default) means unlimited. |
+| `FORK_STORAGE_QUOTA_BYTES` | Most each account may store in forks. Empty means unlimited. |
+| `LFS_STORAGE_QUOTA_BYTES` | Most each account may store in Git LFS objects. Empty means unlimited. |
 | `RELEASE_ASSET_MAX_BYTES` | Largest single asset. `2gb` unless set, and never above `5gb`.       |
 | `PULL_REF_MAX_BYTES`      | Most one update of a pull request's `refs/pull/<n>/head` may copy into the base repository. Empty means unlimited. |
 | `PULL_REF_UNMERGED_MAX_BYTES` | Most one author's unmerged pull requests may hold in base repositories altogether. Empty means unlimited. |
