@@ -106,8 +106,8 @@ export function ReleaseAssetPicker({
       {storage && (
         <FieldDescription>
           Up to {formatBytes(storage.maxAssetBytes)} per file
-          {storage.quotaBytes !== null &&
-            ` · ${formatBytes(storage.usedBytes)} of ${formatBytes(storage.quotaBytes)} used`}
+          {storage.asset.quotaBytes !== null &&
+            ` · ${formatBytes(storage.asset.usedBytes)} of ${formatBytes(storage.asset.quotaBytes)} used`}
         </FieldDescription>
       )}
 

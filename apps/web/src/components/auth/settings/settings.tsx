@@ -4,13 +4,14 @@ import type { SettingsView } from "@better-auth-ui/core";
 import { useAuth } from "@better-auth-ui/react";
 
 import { useAuthenticate } from "@/lib/auth/use-authenticate";
-import { Shield, User2 } from "lucide-react";
+import { HardDrive, Shield, User2 } from "lucide-react";
 import { useMemo } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { AccountSettings } from "./account/account-settings";
 import { SecuritySettings } from "./security/security-settings";
+import { StorageSettings } from "./storage/storage-settings";
 
 export type SettingsProps = {
   className?: string;
@@ -35,6 +36,8 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
   const currentView = useMemo(() => {
     if (view) return view;
     if (!path) return undefined;
+    // Ghost's own tab, which no better-auth-ui plugin knows about.
+    if (path === "storage") return "storage" as SettingsView;
 
     const match = [
       viewPaths.settings,
@@ -93,6 +96,15 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
             {localization.settings.security}
           </TabsTrigger>
 
+          <TabsTrigger
+            value="storage"
+            className="gap-1"
+            onClick={() => navigate({ to: `${basePaths.settings}/storage` })}
+          >
+            <HardDrive className="text-muted-foreground" />
+            Storage
+          </TabsTrigger>
+
           {plugins.flatMap(
             (plugin) =>
               plugin.settingsTabs?.map((settingsTab) => (
@@ -119,6 +131,10 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
 
       <TabsContent value="security" tabIndex={-1}>
         <SecuritySettings />
+      </TabsContent>
+
+      <TabsContent value="storage" tabIndex={-1}>
+        <StorageSettings />
       </TabsContent>
 
       {plugins.flatMap((plugin) =>

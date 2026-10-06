@@ -542,7 +542,7 @@ export interface paths {
         };
         /**
          * Storage usage of an account
-         * @description Bytes the signed-in user's own account, or an organization they belong to, keeps in pushed git data, release assets and merged pull requests' heads, against its quota. Forks count against a separate quota.
+         * @description Bytes the signed-in user's own account, or an organization they belong to, keeps against each of its quotas: pushed git data and merged pull requests' heads, Git LFS objects, release assets, and forks, which hold all three under one quota.
          */
         get: operations["StorageController_getStorageUsage"];
         put?: never;
@@ -2922,16 +2922,18 @@ export interface components {
             quotaBytes: number | null;
         };
         StorageUsageDTO: {
-            /** @description Bytes stored in repositories that are not forks, including uploads in progress and leaving out Git LFS objects. */
+            /** @description Bytes of pushed git data and merged pull requests' heads in repositories that are not forks, leaving out Git LFS objects and release assets. */
             usedBytes: number;
             /** @description `null` when no quota applies. */
             quotaBytes: number | null;
             /** @description Largest single release asset. */
             maxAssetBytes: number;
-            /** @description Everything forks hold, Git LFS objects included. */
+            /** @description Everything forks hold, Git LFS objects and release assets included. */
             fork: components["schemas"]["StorageLimitUsageDTO"];
             /** @description Git LFS objects in repositories that are not forks. */
             lfs: components["schemas"]["StorageLimitUsageDTO"];
+            /** @description Release assets in repositories that are not forks, including uploads in progress. */
+            asset: components["schemas"]["StorageLimitUsageDTO"];
         };
         /**
          * @description Highest built-in role held; null when only custom roles are held.

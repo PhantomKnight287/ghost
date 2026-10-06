@@ -76,7 +76,11 @@ export function ReleaseForm({
     create.isExecuting || update.isExecuting || uploading !== null;
   const serverError =
     create.result.serverError ?? update.result.serverError ?? null;
-  const problem = assetProblem(files, release?.assets ?? [], storage);
+  const problem = assetProblem(
+    files,
+    release?.assets ?? [],
+    storage && { ...storage.asset, maxAssetBytes: storage.maxAssetBytes },
+  );
 
   const submit = (isDraft: boolean) =>
     handleSubmit(async (input) => {
