@@ -51,7 +51,7 @@ import { RepositoryStorageService } from '../../services/git/repository-storage/
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
-import { runGit } from '../../lib/git/exec/run-git.js';
+import { runGit, runGitBuffer } from '../../lib/git/exec/run-git.js';
 import {
   type CommitVerification,
   CommitVerificationService,
@@ -66,6 +66,7 @@ import {
 } from '../../lib/git/commits/list-commits.js';
 import {
   isTextBlob,
+  MAX_BLOB_BYTES,
   readBlob,
   statBlob,
   streamBlob,
@@ -133,6 +134,11 @@ import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
+import { LfsService } from '../../services/git/lfs/lfs.service.js';
+import {
+  LFS_POINTER_MAX_BYTES,
+  parseLfsPointer,
+} from '../../lib/git/lfs/lfs-pointer.js';
 import { releaseAssetKey } from '../../lib/releases/release-assets.js';
 import type {
   SearchCodeRepositoryDTO,
@@ -168,6 +174,7 @@ export class RepositoriesService {
     private readonly codeSearch: CodeSearchService,
     private readonly s3: S3Service,
     private readonly quota: StorageQuotaService,
+    private readonly lfs: LfsService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -579,7 +586,11 @@ export class RepositoriesService {
     // The fork bills the bytes of the index it copies, however the parent moves on meanwhile.
     const parentLog = await this.wal.readIndex(parent.id);
     const layers = parentLog?.index.layers ?? [];
-    const size = layers.reduce((total, layer) => total + layer.size, 0);
+    const lfsObjects = await this.lfs.objectsOf(parent.id);
+    const size = [...layers, ...lfsObjects].reduce(
+      (total, { size }) => total + size,
+      0,
+    );
     const fork = await this.quota.reserve(
       namespace,
       'fork',
@@ -614,6 +625,8 @@ export class RepositoriesService {
         // A failed copy rolls the fork back rather than leaving a row with no log behind it.
         if (parentLog)
           await this.wal.copyLog(parent.id, parentLog.index, row.id);
+        await this.lfs.record(tx, lfsObjects, row.id);
+        await this.lfs.copy(lfsObjects, parent.id, row.id);
         return row;
       },
     );
@@ -1053,6 +1066,7 @@ export class RepositoriesService {
         .then(() => this.storage.remove(repository.id)),
       this.codeSearch.remove(repository.id),
       this.s3.deleteUnder(releaseAssetKey(repository.id)),
+      this.lfs.remove(repository.id),
     ]);
 
     await this.db.transaction(async (tx) => {
@@ -1344,15 +1358,27 @@ export class RepositoriesService {
         })
       : new Map();
 
-    const text = isTextBlob(blob.content);
+    const pointer = blob.content && parseLfsPointer(blob.content);
+    const object = pointer && (await this.lfs.find(repository.id, pointer.oid));
+    const file = object
+      ? {
+          size: object.size,
+          content:
+            object.size > MAX_BLOB_BYTES
+              ? null
+              : await this.lfs.read(repository.id, pointer.oid),
+        }
+      : blob;
+    const text = isTextBlob(file.content);
 
     return {
       ref,
       path: filePath,
       oid: blob.oid,
-      size: blob.size,
+      size: file.size,
       encoding: text ? 'utf-8' : 'base64',
-      content: blob.content?.toString(text ? 'utf8' : 'base64') ?? null,
+      content: file.content?.toString(text ? 'utf8' : 'base64') ?? null,
+      lfs: pointer ? (object ? 'stored' : 'missing') : null,
       commit: lastCommit ?? commits.get(filePath) ?? null,
     };
   }
@@ -1409,7 +1435,7 @@ export class RepositoriesService {
     ref?: string;
   }) {
     const filePath = normalizeBlobPath(path);
-    const { directory, ref } = await this.openRepository({
+    const { repository, directory, ref } = await this.openRepository({
       username,
       repo,
       requesterId,
@@ -1420,9 +1446,29 @@ export class RepositoriesService {
     if (!blob) throw new BlobNotFoundError(filePath);
 
     const filename = filePath.split('/').pop() ?? filePath;
+    // A file stored with LFS is served as the object, not its pointer, when the repository holds it.
+    const pointer =
+      blob.size <= LFS_POINTER_MAX_BYTES &&
+      parseLfsPointer(
+        await runGitBuffer({
+          args: ['cat-file', 'blob', blob.oid],
+          gitDir: directory,
+        }),
+      );
+    const object = pointer && (await this.lfs.find(repository.id, pointer.oid));
+    if (pointer && object) {
+      return {
+        oid: blob.oid,
+        size: object.size,
+        ...mediaTypeFor(filename),
+        filename,
+        stream: (await this.lfs.download(repository.id, pointer.oid)).stream,
+      };
+    }
 
     return {
-      ...blob,
+      oid: blob.oid,
+      size: blob.size,
       ...mediaTypeFor(filename),
       filename,
       stream: streamBlob({ gitDir: directory, oid: blob.oid }),

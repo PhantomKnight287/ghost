@@ -37,8 +37,8 @@ import { listTags } from '../../lib/git/tags/list-tags.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { InvalidCursorError } from '../repositories/repositories.errors.js';
 import { ReleaseAssetsService } from './release-assets.service.js';
+import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
 import {
-  ContentLengthRequiredError,
   InvalidAssetNameError,
   ReleaseAssetExistsError,
   ReleaseAssetNotFoundError,
@@ -627,6 +627,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
         quotaBytes: 1024 ** 3,
         maxAssetBytes: 2 * 1024 ** 3,
         fork: { usedBytes: 0, quotaBytes: null },
+        lfs: { usedBytes: 0, quotaBytes: null },
       });
       await expect(
         storage.usage('release-owner', READER),

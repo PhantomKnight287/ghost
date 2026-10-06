@@ -23,6 +23,7 @@ import { RepositoryContributionService } from '../../services/git/contributions/
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
+import { LfsService } from '../../services/git/lfs/lfs.service.js';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { CodeSearchService } from '../../services/git/code-search/code-search.se
     RepositoryContributionService,
     CommitSigningService,
     CommitVerificationService,
+    LfsService,
   ],
   exports: [RepositoriesService],
 })

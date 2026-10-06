@@ -65,14 +65,6 @@ export class ReleaseAssetTooLargeError extends DomainError {
   }
 }
 
-export class ContentLengthRequiredError extends DomainError {
-  status: number = HttpStatus.LENGTH_REQUIRED;
-
-  constructor() {
-    super('An upload must declare its Content-Length');
-  }
-}
-
 export class UploadNotOctetStreamError extends DomainError {
   status: number = HttpStatus.UNSUPPORTED_MEDIA_TYPE;
 

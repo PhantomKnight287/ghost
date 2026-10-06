@@ -1,14 +1,20 @@
+import { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
+import { signLfsToken } from '../../../lib/git/lfs/lfs-token.js';
 import { AuthenticationRequiredError } from '../../../lib/git/repository-access/repository-access.errors.js';
 import { GitBasicAuthMiddleware } from './git-basic-auth.middleware.js';
 
 const basic = (username: string, password: string) =>
   `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+const SECRET = 'lfs-secret';
+const bearer = (operation: 'download' | 'upload', repositoryId = 'repo_1') =>
+  `Bearer ${signLfsToken(SECRET, { userId: 'user_owner', repositoryId, operation, expiresAt: Date.now() + 60_000 })}`;
+const LFS_BATCH = '/owner/repo/info/lfs/objects/batch';
 
 function harness({
   verify = { valid: true, key: { id: 'key_1', referenceId: 'user_owner' } },
-  authorize = vi.fn(),
+  authorize = vi.fn().mockResolvedValue({ id: 'repo_1' }),
 }: {
   verify?: unknown;
   authorize?: ReturnType<typeof vi.fn>;
@@ -17,6 +23,7 @@ function harness({
   const middleware = new GitBasicAuthMiddleware(
     auth as never,
     { authorize } as never,
+    new ConfigService({ BETTER_AUTH_SECRET: SECRET }),
   );
 
   const res = {
@@ -133,5 +140,68 @@ describe('GitBasicAuthMiddleware', () => {
     expect(authorize).toHaveBeenCalledWith(
       expect.objectContaining({ repo: 'repo' }),
     );
+  });
+
+  it('treats an LFS upload, PUT and lock change as a write', async () => {
+    for (const req of [
+      { path: LFS_BATCH, body: { operation: 'upload' } },
+      { path: '/owner/repo/info/lfs/objects/abc', method: 'PUT' },
+      { path: '/owner/repo/info/lfs/locks/verify', method: 'POST' },
+    ]) {
+      const { run, authorize } = harness();
+      await run(req);
+      expect(authorize).toHaveBeenCalledWith(
+        expect.objectContaining({ operation: 'write' }),
+      );
+    }
+  });
+
+  it('accepts a git-lfs-authenticate token on the LFS API of its repository', async () => {
+    const { run, next } = harness();
+
+    const req = await run({
+      path: LFS_BATCH,
+      method: 'POST',
+      body: { operation: 'upload' },
+      headers: { authorization: bearer('upload') },
+    });
+
+    expect(next).toHaveBeenCalledWith();
+    expect(req.actor).toEqual({ userId: 'user_owner' });
+  });
+
+  it('refuses a token outside its scope', async () => {
+    for (const req of [
+      {
+        path: '/owner/repo/git-receive-pack',
+        headers: { authorization: bearer('upload') },
+      },
+      {
+        path: LFS_BATCH,
+        headers: { authorization: bearer('download', 'repo_2') },
+      },
+      {
+        path: LFS_BATCH,
+        body: { operation: 'upload' },
+        headers: { authorization: bearer('download') },
+      },
+    ]) {
+      const { run, res, next } = harness();
+      await run(req);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(next).not.toHaveBeenCalled();
+    }
+  });
+
+  it('treats a forged or expired token as no credentials at all', async () => {
+    const expired = `Bearer ${signLfsToken(SECRET, { userId: 'user_owner', repositoryId: 'repo_1', operation: 'download', expiresAt: Date.now() - 1 })}`;
+    const forged = `Bearer ${signLfsToken('other', { userId: 'user_owner', repositoryId: 'repo_1', operation: 'download', expiresAt: Date.now() + 60_000 })}`;
+    for (const authorization of [expired, forged]) {
+      const { run, authorize } = harness();
+      await run({ path: LFS_BATCH, headers: { authorization } });
+      expect(authorize).toHaveBeenCalledWith(
+        expect.objectContaining({ actor: null }),
+      );
+    }
   });
 });

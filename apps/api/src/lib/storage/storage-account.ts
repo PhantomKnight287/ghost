@@ -24,6 +24,13 @@ export function storageKindOf(repository: {
   return repository.parentRepositoryId ? 'fork' : 'repository';
 }
 
+/** LFS objects count against the fork limit in a fork, like everything else a fork holds, and against the LFS limit anywhere else. */
+export function lfsKindOf(repository: {
+  parentRepositoryId: string | null;
+}): Exclude<StorageKind, 'repository'> {
+  return repository.parentRepositoryId ? 'fork' : 'lfs';
+}
+
 /** Repositories of `kind` whose files count against `account`. */
 export function billedTo(account: StorageAccount, kind: RepositoryStorageKind) {
   const ofKind =

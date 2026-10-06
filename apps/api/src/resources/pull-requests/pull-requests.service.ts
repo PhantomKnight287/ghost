@@ -54,11 +54,14 @@ import {
   type RepositoryOperation,
 } from '../../lib/git/repository-access/repository-access.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { LfsService } from '../../services/git/lfs/lfs.service.js';
+import { lfsPointersIn } from '../../lib/git/lfs/lfs-pointer.js';
 import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
 import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import {
+  lfsKindOf,
   storageAccountOf,
   storageKindOf,
 } from '../../lib/storage/storage-account.js';
@@ -133,6 +136,7 @@ export class PullRequestsService {
     private readonly references: IssueReferencesService,
     private readonly pullRefs: PullRefsService,
     private readonly quota: StorageQuotaService,
+    private readonly lfs: LfsService,
   ) {}
 
   async createPullRequest({
@@ -544,6 +548,21 @@ export class PullRequestsService {
         prefix: path.join(directory, 'merge'),
       });
 
+      // A fork's LFS objects stay in the fork, so the merge brings along the ones its commits point at. Bytes go first: a merge that fails afterwards leaves only orphans (0010).
+      const lfsObjects =
+        git.head.id === base.id
+          ? []
+          : await this.lfs.missingFrom(
+              base.id,
+              git.head.id,
+              await lfsPointersIn({
+                gitDir: git.headDirectory,
+                include: [git.headSha],
+                exclude: [git.mergeBase],
+              }),
+            );
+      await this.lfs.copy(lfsObjects, git.head.id, base.id);
+
       // The row stays locked until the merge is recorded, so the request cannot be closed or turned into a draft between this check and the push. Nothing that can fail after the push belongs in here: a rollback would leave the branch merged and the request open.
       const seq = await this.db.transaction(async (tx) => {
         const [locked] = await tx
@@ -563,6 +582,14 @@ export class PullRequestsService {
           storageKindOf(base),
           tx,
         );
+        if (lfsObjects.length > 0) {
+          await this.quota.assertRoomToMerge(
+            storageAccountOf(base),
+            lfsKindOf(base),
+            tx,
+          );
+          await this.lfs.record(tx, lfsObjects, base.id);
+        }
 
         const { seq } = await this.pushTransaction.commitPush({
           repoId: base.id,

@@ -17,8 +17,8 @@ export const s3Credentials = {
 /** Suites need a throwaway Postgres and an S3 endpoint (RustFS from compose.yaml works), and are skipped without them. */
 export const hasBackends = Boolean(DATABASE_URL && S3_ENDPOINT);
 
-/** Serves the whole app on a random port, against the database and bucket global-setup.ts prepared. `env` overrides the defaults below, such as turning the SSH transport on. */
-export async function startApp(env: Record<string, string> = {}) {
+/** Serves the whole app on `port`, random unless given, against the database and bucket global-setup.ts prepared. `env` overrides the defaults below, such as turning the SSH transport on. */
+export async function startApp(env: Record<string, string> = {}, port = 0) {
   Object.assign(process.env, {
     DATABASE_URL,
     S3_ENDPOINT,
@@ -44,7 +44,7 @@ export async function startApp(env: Record<string, string> = {}) {
   }).compile();
   const app = moduleRef.createNestApplication({ bodyParser: false });
   configureApp(app);
-  await app.listen(0, '127.0.0.1');
+  await app.listen(port, '127.0.0.1');
 
   return {
     app,

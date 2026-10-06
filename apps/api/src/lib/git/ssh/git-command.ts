@@ -25,3 +25,24 @@ export function parseGitCommand(command: string): GitSshCommand | null {
 
   return { service, username, repo };
 }
+
+export interface LfsAuthenticateCommand {
+  username: string;
+  repo: string;
+  operation: 'download' | 'upload';
+}
+
+const LFS_AUTHENTICATE =
+  /^git-lfs-authenticate '?\/?([A-Za-z0-9][A-Za-z0-9._-]*)\/([A-Za-z0-9][A-Za-z0-9._-]*?)(?:\.git)?\/?'? (download|upload)$/;
+
+/** `git-lfs-authenticate octocat/hello.git upload` - how git-lfs asks an SSH remote for HTTPS credentials. */
+export function parseLfsAuthenticateCommand(
+  command: string,
+): LfsAuthenticateCommand | null {
+  const match = LFS_AUTHENTICATE.exec(command.trim());
+  if (!match) return null;
+
+  const [, username, repo, operation] = match;
+  if (username.includes('..') || repo.includes('..')) return null;
+  return { username, repo, operation: operation as 'download' | 'upload' };
+}

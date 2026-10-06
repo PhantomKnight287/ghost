@@ -2,15 +2,15 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, ValidateNested } from 'class-validator';
 
-export class ForkStorageUsageDTO {
-  @ApiProperty({ description: 'Bytes stored in forks.' })
+export class StorageLimitUsageDTO {
+  @ApiProperty({ description: 'Bytes counted against this limit.' })
   @IsInt()
   usedBytes: number;
 
   @ApiProperty({
     type: Number,
     nullable: true,
-    description: '`null` when no fork quota applies.',
+    description: '`null` when no quota applies.',
   })
   @IsInt()
   @IsOptional()
@@ -19,7 +19,8 @@ export class ForkStorageUsageDTO {
 
 export class StorageUsageDTO {
   @ApiProperty({
-    description: 'Bytes stored outside forks, including uploads in progress.',
+    description:
+      'Bytes stored in repositories that are not forks, including uploads in progress and leaving out Git LFS objects.',
   })
   @IsInt()
   usedBytes: number;
@@ -37,8 +38,19 @@ export class StorageUsageDTO {
   @IsInt()
   maxAssetBytes: number;
 
-  @ApiProperty({ type: ForkStorageUsageDTO })
+  @ApiProperty({
+    type: StorageLimitUsageDTO,
+    description: 'Everything forks hold, Git LFS objects included.',
+  })
   @ValidateNested()
-  @Type(() => ForkStorageUsageDTO)
-  fork: ForkStorageUsageDTO;
+  @Type(() => StorageLimitUsageDTO)
+  fork: StorageLimitUsageDTO;
+
+  @ApiProperty({
+    type: StorageLimitUsageDTO,
+    description: 'Git LFS objects in repositories that are not forks.',
+  })
+  @ValidateNested()
+  @Type(() => StorageLimitUsageDTO)
+  lfs: StorageLimitUsageDTO;
 }
