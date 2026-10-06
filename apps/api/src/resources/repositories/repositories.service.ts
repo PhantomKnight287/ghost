@@ -611,11 +611,12 @@ export class RepositoriesService {
               size,
             })),
           );
+        // A failed copy rolls the fork back rather than leaving a row with no log behind it.
+        if (parentLog)
+          await this.wal.copyLog(parent.id, parentLog.index, row.id);
         return row;
       },
     );
-
-    if (parentLog) await this.wal.copyLog(parent.id, parentLog.index, fork.id);
 
     return {
       id: fork.id,

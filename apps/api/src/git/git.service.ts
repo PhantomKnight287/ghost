@@ -269,25 +269,38 @@ export class GitService {
       (pack) => {
         const ulid = createUlid();
         const size = pack.body.size - pack.packOffset;
-        // ponytail: a crash between the log's commit point and this transaction's commit leaves the push unbilled; reconcile against the WAL index, as pull refs do, if that leak matters.
-        return this.quota.reserve(
-          storageAccountOf(repository),
-          storageKindOf(repository),
-          size,
-          async (tx) => {
-            await this.pushTransaction.commitPush({
-              ulid,
-              repoId: repositoryId,
-              transitions,
-              ...pack,
-              pushedBy,
-            });
-            await tx
-              .insert(schema.repositoryLogEntry)
-              .values({ repositoryId, ulid, size })
-              .onConflictDoNothing();
-          },
-        );
+        const entry = { repositoryId, ulid, size };
+        let committed = false;
+        // ponytail: a crash between the log's commit point and the billing row leaves the push unbilled; reconcile against the WAL index, as pull refs do, if that leak matters.
+        return this.quota
+          .reserve(
+            storageAccountOf(repository),
+            storageKindOf(repository),
+            size,
+            async (tx) => {
+              await this.pushTransaction.commitPush({
+                ulid,
+                repoId: repositoryId,
+                transitions,
+                ...pack,
+                pushedBy,
+              });
+              committed = true;
+              await tx
+                .insert(schema.repositoryLogEntry)
+                .values(entry)
+                .onConflictDoNothing();
+            },
+          )
+          .catch(async (error: unknown) => {
+            // The layer is in the log whatever the transaction did, so it is billed outside it for the next push's quota check to count.
+            if (committed)
+              await this.db
+                .insert(schema.repositoryLogEntry)
+                .values(entry)
+                .onConflictDoNothing();
+            throw error;
+          });
       },
     );
     return { importing, repoDirectory };

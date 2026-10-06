@@ -209,6 +209,42 @@ describe('GitService', () => {
     });
   });
 
+  it('bills a layer the log committed when its transaction fails', async () => {
+    const billed = vi.fn().mockResolvedValue(undefined);
+    const insert = vi.spyOn(db, 'insert').mockReturnValueOnce({
+      values: (row: unknown) => ({ onConflictDoNothing: () => billed(row) }),
+    } as never);
+    quota.reserve.mockImplementationOnce(async (...args) => {
+      await quota.reserve.getMockImplementation()!(...args);
+      throw new Error('commit failed');
+    });
+
+    await expect(
+      service.receivePack({ repository, body: bufferBody(receivePackBody()) }),
+    ).rejects.toThrow('commit failed');
+
+    const [{ ulid }] = pushTransaction.commitPush.mock.calls[0];
+    expect(billed).toHaveBeenCalledWith({
+      repositoryId: 'repo_ghost',
+      ulid,
+      size: 'PACKDATA'.length,
+    });
+    insert.mockRestore();
+  });
+
+  it('bills nothing when the quota refuses the push before the log commits', async () => {
+    const insert = vi.spyOn(db, 'insert');
+    quota.reserve.mockRejectedValueOnce(new Error('over quota'));
+
+    await expect(
+      service.receivePack({ repository, body: bufferBody(receivePackBody()) }),
+    ).rejects.toThrow('over quota');
+
+    expect(pushTransaction.commitPush).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+    insert.mockRestore();
+  });
+
   it('refuses a push to a pull request ref before it reaches the log, telling the client why', async () => {
     const { body } = await service.receivePack({
       repository,
