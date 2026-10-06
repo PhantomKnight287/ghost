@@ -2612,6 +2612,11 @@ export interface components {
          * @enum {string}
          */
         BlobEncoding: "utf-8" | "base64";
+        /**
+         * @description Whether the file is stored with Git LFS: `stored` when its size and contents are the LFS object, `missing` when the repository does not hold the object and they are the pointer, `null` when it is an ordinary file.
+         * @enum {string}
+         */
+        BlobLfs: "stored" | "missing";
         GetRepositoryBlobResponseDTO: {
             /**
              * @description Ref that was read, always fully qualified.
@@ -2631,6 +2636,8 @@ export interface components {
             encoding: components["schemas"]["BlobEncoding"];
             /** @description File contents, `null` when the file is past the inline size limit. */
             content: string | null;
+            /** @description Whether the file is stored with Git LFS: `stored` when its size and contents are the LFS object, `missing` when the repository does not hold the object and they are the pointer, `null` when it is an ordinary file. */
+            lfs: components["schemas"]["BlobLfs"] | null;
             /** @description Newest commit touching this file. */
             commit: components["schemas"]["CommitSummaryDTO"] | null;
         };
@@ -2908,20 +2915,23 @@ export interface components {
         ListIncomingTransfersResponseDTO: {
             transfers: components["schemas"]["IncomingTransferDTO"][];
         };
-        ForkStorageUsageDTO: {
-            /** @description Bytes stored in forks. */
+        StorageLimitUsageDTO: {
+            /** @description Bytes counted against this limit. */
             usedBytes: number;
-            /** @description `null` when no fork quota applies. */
+            /** @description `null` when no quota applies. */
             quotaBytes: number | null;
         };
         StorageUsageDTO: {
-            /** @description Bytes stored outside forks, including uploads in progress. */
+            /** @description Bytes stored in repositories that are not forks, including uploads in progress and leaving out Git LFS objects. */
             usedBytes: number;
             /** @description `null` when no quota applies. */
             quotaBytes: number | null;
             /** @description Largest single release asset. */
             maxAssetBytes: number;
-            fork: components["schemas"]["ForkStorageUsageDTO"];
+            /** @description Everything forks hold, Git LFS objects included. */
+            fork: components["schemas"]["StorageLimitUsageDTO"];
+            /** @description Git LFS objects in repositories that are not forks. */
+            lfs: components["schemas"]["StorageLimitUsageDTO"];
         };
         /**
          * @description Highest built-in role held; null when only custom roles are held.

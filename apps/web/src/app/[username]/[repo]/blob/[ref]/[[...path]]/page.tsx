@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Download, GitCommitHorizontal } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { createServerClient, resolveRevisionPath } from "@/lib/api/server";
 import { highlightLines } from "@/lib/highlight";
 import { ogUrl } from "@/lib/og-url";
-import { formatBytes } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 
 import { LineTarget } from "./line-target";
 
@@ -67,7 +68,7 @@ export default async function RepositoryBlobPage({
     .map(encodeURIComponent)
     .join("/")}`;
 
-  const { commit, size, encoding, content } = blob.data;
+  const { commit, size, encoding, content, lfs } = blob.data;
 
   const text =
     encoding === "utf-8" && content !== null
@@ -99,7 +100,27 @@ export default async function RepositoryBlobPage({
             </span>
           </>
         )}
-        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+        {lfs && (
+          <Badge
+            variant="outline"
+            className="ml-auto shrink-0"
+            title={
+              lfs === "missing"
+                ? "This repository does not hold the file's Git LFS object, so its pointer is shown."
+                : undefined
+            }
+          >
+            {lfs === "stored"
+              ? "Stored with Git LFS"
+              : "Git LFS object missing"}
+          </Badge>
+        )}
+        <span
+          className={cn(
+            "shrink-0 text-xs text-muted-foreground",
+            !lfs && "ml-auto",
+          )}
+        >
           {lines ? `${lines.length} lines · ` : ""}
           {formatBytes(size)}
         </span>
