@@ -3,6 +3,7 @@ import {
   bigint,
   check,
   primaryKey,
+  uniqueIndex,
   pgTable,
   text,
   timestamp,
@@ -53,4 +54,40 @@ export const repositoryLogEntry = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.repositoryId, t.ulid] })],
+);
+
+/** A Git LFS object a repository holds, stored at `lfs/<repositoryId>/<oid>`. A null `uploadedAt` is a reservation for an upload still in flight. */
+export const lfsObject = pgTable(
+  "lfs_object",
+  {
+    repositoryId: text()
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    oid: text().notNull(),
+    size: bigint({ mode: "number" }).notNull(),
+    uploadedAt: timestamp({ withTimezone: true }),
+    // Which upload holds the reservation, so one whose reservation lapsed and was taken cannot clean up after its successor. Null for rows a fork or merge copied.
+    uploadId: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.repositoryId, t.oid] })],
+);
+
+/** A Git LFS lock: one person's claim on a path, which git-lfs checks before it pushes. */
+export const lfsLock = pgTable(
+  "lfs_lock",
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => `lock_${createId()}`),
+    repositoryId: text()
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    path: text().notNull(),
+    ownerId: text()
+      .references(() => user.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("lfs_lock_repository_path_idx").on(t.repositoryId, t.path)],
 );

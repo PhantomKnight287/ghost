@@ -1,18 +1,16 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, gt, ne, or, sql } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, ne, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Executor } from '../../lib/issues/close-issue.js';
-import {
-  DEFAULT_RELEASE_ASSET_MAX_BYTES,
-  RELEASE_ASSET_CEILING,
-} from '../../lib/releases/release-assets.js';
+import { DEFAULT_RELEASE_ASSET_MAX_BYTES } from '../../lib/releases/release-assets.js';
+import { PUT_OBJECT_MAX_BYTES } from '../../lib/s3/s3.limits.js';
 import { parseByteSize } from '../../lib/storage/byte-size.js';
+import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
 import {
   billedTo,
-  type RepositoryStorageKind,
   type StorageAccount,
   storageAccountKey,
   type StorageKind,
@@ -25,9 +23,6 @@ import {
 } from '../../lib/storage/storage.errors.js';
 
 type PullRequestState = (typeof schema.pullRequestState.enumValues)[number];
-
-/** How long an `uploading` reservation counts before it is taken for an upload that died with its process. */
-const RESERVATION_TTL = sql`interval '1 day'`;
 
 /**
  * Bytes an account may keep in object storage, per {@link StorageKind}. `STORAGE_QUOTA_BYTES`, `FORK_STORAGE_QUOTA_BYTES` and `LFS_STORAGE_QUOTA_BYTES` set the instance's limits, which a `storage_limit` row overrides for one account; unset, nothing is limited, which is what a self-hosted instance gets by default.
@@ -67,7 +62,8 @@ export class StorageQuotaService {
         config.get<string>('RELEASE_ASSET_MAX_BYTES'),
         'RELEASE_ASSET_MAX_BYTES',
       ) ?? DEFAULT_RELEASE_ASSET_MAX_BYTES,
-      RELEASE_ASSET_CEILING,
+      // assets are uploaded in one PutObject
+      PUT_OBJECT_MAX_BYTES,
     );
     this.maxPullRefWriteBytes = parseByteSize(
       config.get<string>('PULL_REF_MAX_BYTES'),
@@ -102,9 +98,35 @@ export class StorageQuotaService {
 
   async usageOf(
     account: StorageAccount,
-    kind: RepositoryStorageKind,
+    kind: StorageKind,
     executor: Executor = this.db,
   ) {
+    const [lfs] =
+      kind === 'repository'
+        ? []
+        : await executor
+            .select({
+              used: sql<string>`coalesce(sum(${schema.lfsObject.size}), 0)`,
+            })
+            .from(schema.lfsObject)
+            .innerJoin(
+              schema.repository,
+              eq(schema.repository.id, schema.lfsObject.repositoryId),
+            )
+            .where(
+              and(
+                billedTo(account, kind === 'fork' ? 'fork' : 'repository'),
+                or(
+                  isNotNull(schema.lfsObject.uploadedAt),
+                  gt(
+                    schema.lfsObject.createdAt,
+                    sql`now() - ${RESERVATION_TTL}`,
+                  ),
+                ),
+              ),
+            );
+    if (kind === 'lfs') return Number(lfs?.used ?? 0);
+
     const [logs] = await executor
       .select({
         used: sql<string>`coalesce(sum(${schema.repositoryLogEntry.size}), 0)`,
@@ -153,7 +175,8 @@ export class StorageQuotaService {
     return (
       Number(logs?.used ?? 0) +
       Number(assets?.used ?? 0) +
-      Number(pullRefs?.used ?? 0)
+      Number(pullRefs?.used ?? 0) +
+      Number(lfs?.used ?? 0)
     );
   }
 
@@ -208,7 +231,7 @@ export class StorageQuotaService {
   /** Runs `insert`, which must write the row that holds `bytes`, only if the account has room for them. Reservations for one account are serialized, so two uploads cannot both fit into the last free space. */
   reserve<T>(
     account: StorageAccount,
-    kind: RepositoryStorageKind,
+    kind: StorageKind,
     bytes: number,
     insert: (tx: Executor) => Promise<T>,
   ) {
@@ -229,7 +252,7 @@ export class StorageQuotaService {
   /** Refuses a merge once `account` is at or past its quota. A merge needs room left, not room enough: the pull refs it starts billing may carry the account past its quota, and the next merge is the one refused. Run inside the merge's transaction, so merges into one account see each other. */
   async assertRoomToMerge(
     account: StorageAccount,
-    kind: RepositoryStorageKind,
+    kind: StorageKind,
     tx: Executor,
   ) {
     const quota = await this.quotaOf(account, kind, tx);

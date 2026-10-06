@@ -14,6 +14,8 @@ import {
   releaseAssetKey,
 } from '../../lib/releases/release-assets.js';
 import { formatByteSize } from '../../lib/storage/byte-size.js';
+import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
+import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
 import {
   storageAccountOf,
   storageKindOf,
@@ -23,7 +25,6 @@ import { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { isoTimestamp } from '../../utils/index.js';
 import {
-  ContentLengthRequiredError,
   InvalidAssetNameError,
   ReleaseAssetExistsError,
   ReleaseAssetNotFoundError,
@@ -115,7 +116,10 @@ export class ReleaseAssetsService {
               eq(schema.releaseAsset.releaseId, release.id),
               eq(schema.releaseAsset.name, fileName),
               eq(schema.releaseAsset.state, 'uploading'),
-              lt(schema.releaseAsset.createdAt, sql`now() - interval '1 day'`),
+              lt(
+                schema.releaseAsset.createdAt,
+                sql`now() - ${RESERVATION_TTL}`,
+              ),
             ),
           );
 

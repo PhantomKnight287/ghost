@@ -25,7 +25,11 @@ import { RepositoryMaterializerService } from '../materializer/repository-materi
 import { GitService } from '../../../git/git.service.js';
 import { spoolToFile } from '../../../lib/git/protocol/spool.js';
 import { greeting, replyTo } from '../../../lib/git/ssh/easter-eggs.js';
-import { parseGitCommand } from '../../../lib/git/ssh/git-command.js';
+import {
+  parseGitCommand,
+  parseLfsAuthenticateCommand,
+} from '../../../lib/git/ssh/git-command.js';
+import { LfsService } from '../lfs/lfs.service.js';
 import {
   fingerprintOf,
   parseStoredKey,
@@ -56,7 +60,7 @@ interface SessionActor {
 }
 
 /**
- * The SSH transport. It authenticates the connection, then runs exactly one of two git binaries on it.
+ * The SSH transport. It authenticates the connection, then runs exactly one of two git binaries on it, or hands git-lfs credentials for HTTPS.
  *
  * Nothing here is a shell: a command is matched against a regex, the repository comes from the database, and git is spawned with an argv array. A session that asks for anything else gets text and a non-zero exit.
  */
@@ -76,6 +80,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     private readonly packProcess: PackProcessService,
     private readonly refAdvertisement: RefAdvertisementService,
     private readonly materializer: RepositoryMaterializerService,
+    private readonly lfs: LfsService,
   ) {}
 
   onModuleInit() {
@@ -225,7 +230,8 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     protocol: string | undefined,
   ) {
     this.logger.debug(`SSH exec ${command}`);
-    const parsed = parseGitCommand(command);
+    const parsed =
+      parseLfsAuthenticateCommand(command) ?? parseGitCommand(command);
     if (!parsed) {
       channel.stderr.write(`${replyTo(command, username)}\n`);
       return end(channel, 1);
@@ -236,8 +242,24 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
         username: parsed.username,
         repo: parsed.repo,
         actor,
-        operation: parsed.service === 'git-receive-pack' ? 'write' : 'read',
+        operation: (
+          'service' in parsed
+            ? parsed.service === 'git-receive-pack'
+            : parsed.operation === 'upload'
+        )
+          ? 'write'
+          : 'read',
       });
+      if (!('service' in parsed)) {
+        const credentials = this.lfs.authenticate({
+          repositoryId: repository.id,
+          path: `${parsed.username}/${repository.slug}`,
+          userId: actor?.userId ?? null,
+          operation: parsed.operation,
+        });
+        channel.write(`${JSON.stringify(credentials)}\n`);
+        return end(channel, 0);
+      }
       const repoDirectory = await this.materializer.open(repository);
 
       if (parsed.service === 'git-receive-pack') {

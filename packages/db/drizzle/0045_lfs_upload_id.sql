@@ -1,0 +1,1 @@
+ALTER TABLE "lfs_object" ADD COLUMN "upload_id" text;

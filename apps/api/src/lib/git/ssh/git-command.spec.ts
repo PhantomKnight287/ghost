@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseGitCommand } from './git-command.js';
+import { parseGitCommand, parseLfsAuthenticateCommand } from './git-command.js';
 
 describe('parseGitCommand', () => {
   it('reads the fetch command git sends', () => {
@@ -39,5 +39,28 @@ describe('parseGitCommand', () => {
     '',
   ])('refuses %j', (command) => {
     expect(parseGitCommand(command)).toBeNull();
+  });
+});
+
+describe('parseLfsAuthenticateCommand', () => {
+  it('reads the command git-lfs sends, with or without a leading slash', () => {
+    for (const command of [
+      'git-lfs-authenticate octocat/hello.git upload',
+      "git-lfs-authenticate '/octocat/hello.git' upload",
+    ]) {
+      expect(parseLfsAuthenticateCommand(command)).toEqual({
+        username: 'octocat',
+        repo: 'hello',
+        operation: 'upload',
+      });
+    }
+  });
+
+  it.each([
+    'git-lfs-authenticate octocat/hello.git delete',
+    'git-lfs-authenticate ../etc/hello.git download',
+    'git-lfs-transfer octocat/hello.git download',
+  ])('refuses %j', (command) => {
+    expect(parseLfsAuthenticateCommand(command)).toBeNull();
   });
 });

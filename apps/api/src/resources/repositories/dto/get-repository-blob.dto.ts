@@ -79,6 +79,17 @@ export class GetRepositoryBlobResponseDTO {
   content: string | null;
 
   @ApiProperty({
+    enumName: 'BlobLfs',
+    enum: ['stored', 'missing'],
+    nullable: true,
+    description:
+      'Whether the file is stored with Git LFS: `stored` when its size and contents are the LFS object, `missing` when the repository does not hold the object and they are the pointer, `null` when it is an ordinary file.',
+  })
+  @IsString()
+  @IsOptional()
+  lfs: 'stored' | 'missing' | null;
+
+  @ApiProperty({
     type: CommitSummaryDTO,
     nullable: true,
     description: 'Newest commit touching this file.',

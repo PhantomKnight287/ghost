@@ -42,3 +42,11 @@ export class UnmergedPullRefQuotaExceededError extends DomainError {
     );
   }
 }
+
+export class ContentLengthRequiredError extends DomainError {
+  status: number = HttpStatus.LENGTH_REQUIRED;
+
+  constructor() {
+    super('An upload must declare its Content-Length');
+  }
+}

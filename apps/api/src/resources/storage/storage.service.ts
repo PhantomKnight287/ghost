@@ -25,6 +25,10 @@ export class StorageService {
         usedBytes: await this.quota.usageOf(account, 'fork'),
         quotaBytes: await this.quota.quotaOf(account, 'fork'),
       },
+      lfs: {
+        usedBytes: await this.quota.usageOf(account, 'lfs'),
+        quotaBytes: await this.quota.quotaOf(account, 'lfs'),
+      },
     };
   }
 
