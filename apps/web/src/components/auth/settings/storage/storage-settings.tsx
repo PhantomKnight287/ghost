@@ -26,10 +26,13 @@ type Limit = {
   over: string;
 };
 
-/** What the signed-in account stores against each of its quotas, what each one covers, and what is refused once it is full. */
-export function StorageSettings() {
+/** What an account stores against each of its quotas, what each one covers, and what is refused once it is full. */
+export function StorageSettings(props: {
+  /** An organization's slug; the signed-in user's own account when left out. */
+  owner?: string;
+}) {
   const { data: session } = useAuthenticate(authClient);
-  const owner = session?.user.username ?? "";
+  const owner = props.owner ?? session?.user.username ?? "";
 
   const { data, error, isPending } = useQuery({
     queryKey: ["storage", owner],
@@ -50,8 +53,8 @@ export function StorageSettings() {
           usedBytes: data.usedBytes,
           quotaBytes: data.quotaBytes,
           counts:
-            "Pushed git data and the heads of pull requests merged into your repositories. Git LFS objects, release assets and forks count separately.",
-          over: "Pushes that add data are refused, and pull requests stop merging into your repositories. Pushes that only delete branches or tags still work.",
+            "Pushed git data and the heads of pull requests merged into the account's repositories. Git LFS objects, release assets and forks count separately.",
+          over: "Pushes that add data are refused, and pull requests stop merging into the account's repositories. Pushes that only delete branches or tags still work.",
         },
         {
           title: "Git LFS",
@@ -74,7 +77,7 @@ export function StorageSettings() {
           usedBytes: data.fork.usedBytes,
           quotaBytes: data.fork.quotaBytes,
           counts:
-            "Everything your forks hold, Git LFS objects and release assets included. A new fork counts the full size of the repository it copies.",
+            "Everything the account's forks hold, Git LFS objects and release assets included. A new fork counts the full size of the repository it copies.",
           over: "New forks are refused, as are pushes, LFS uploads and release asset uploads that add data to forks.",
         },
       ]
