@@ -142,9 +142,10 @@ account. Sizes are bytes or binary units (`1073741824`, `1gb`, `500mb`):
 
 | Variable                  | Effect                                                              |
 | ------------------------- | ------------------------------------------------------------------- |
-| `STORAGE_QUOTA_BYTES`     | Most each account may store outside forks, Git LFS objects aside: a user, or an organization for its repositories. Empty (the default) means unlimited. |
-| `FORK_STORAGE_QUOTA_BYTES` | Most each account may store in forks, their Git LFS objects included. Empty means unlimited. |
+| `STORAGE_QUOTA_BYTES`     | Most each account may store outside forks, Git LFS objects and release assets aside: a user, or an organization for its repositories. Empty (the default) means unlimited. |
+| `FORK_STORAGE_QUOTA_BYTES` | Most each account may store in forks, their Git LFS objects and release assets included. Empty means unlimited. |
 | `LFS_STORAGE_QUOTA_BYTES` | Most each account may store in Git LFS objects outside forks. Empty means unlimited. |
+| `ASSET_STORAGE_QUOTA_BYTES` | Most each account may store in release assets outside forks. Empty means unlimited. |
 | `RELEASE_ASSET_MAX_BYTES` | Largest single asset. `2gb` unless set, and never above `5gb`.       |
 | `PULL_REF_MAX_BYTES`      | Most one update of a pull request's `refs/pull/<n>/head` may copy into the base repository. Empty means unlimited. |
 | `PULL_REF_UNMERGED_MAX_BYTES` | Most one author's unmerged pull requests may hold in base repositories altogether. Empty means unlimited. |

@@ -4,15 +4,16 @@
 
 ## Decision
 
-An account has three storage limits, one per kind:
+An account has four storage limits, one per kind:
 
 | Kind | Environment default | Counts |
 | --- | --- | --- |
-| `repository` | `STORAGE_QUOTA_BYTES` | Pushed git data, release assets and merged pull requests' heads, in repositories that are not forks |
-| `fork` | `FORK_STORAGE_QUOTA_BYTES` | The same, plus Git LFS objects, in forks |
+| `repository` | `STORAGE_QUOTA_BYTES` | Pushed git data and merged pull requests' heads, in repositories that are not forks |
+| `fork` | `FORK_STORAGE_QUOTA_BYTES` | The same, plus Git LFS objects and release assets, in forks |
 | `lfs` | `LFS_STORAGE_QUOTA_BYTES` | Git LFS objects in repositories that are not forks (0036) |
+| `asset` | `ASSET_STORAGE_QUOTA_BYTES` | Release assets in repositories that are not forks (0037) |
 
-A `storage_limit` row, keyed by a user or an organization, overrides any of the three for that account. A null column falls back to the environment, and an unset environment value means unlimited. `StorageQuotaService.quotaOf(account, kind)` is still the one place a limit is decided (see 0025).
+A `storage_limit` row, keyed by a user or an organization, overrides any of the four for that account. A null column falls back to the environment, and an unset environment value means unlimited. `StorageQuotaService.quotaOf(account, kind)` is still the one place a limit is decided (see 0025).
 
 Forks get their own limit because people fork large repositories they never push to. Billing that copy against the same quota as their own work would make forking the thing that fills it.
 
