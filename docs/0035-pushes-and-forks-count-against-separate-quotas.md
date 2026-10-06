@@ -9,8 +9,8 @@ An account has three storage limits, one per kind:
 | Kind | Environment default | Counts |
 | --- | --- | --- |
 | `repository` | `STORAGE_QUOTA_BYTES` | Pushed git data, release assets and merged pull requests' heads, in repositories that are not forks |
-| `fork` | `FORK_STORAGE_QUOTA_BYTES` | The same, in forks |
-| `lfs` | `LFS_STORAGE_QUOTA_BYTES` | Git LFS objects, once they are stored |
+| `fork` | `FORK_STORAGE_QUOTA_BYTES` | The same, plus Git LFS objects, in forks |
+| `lfs` | `LFS_STORAGE_QUOTA_BYTES` | Git LFS objects in repositories that are not forks (0036) |
 
 A `storage_limit` row, keyed by a user or an organization, overrides any of the three for that account. A null column falls back to the environment, and an unset environment value means unlimited. `StorageQuotaService.quotaOf(account, kind)` is still the one place a limit is decided (see 0025).
 

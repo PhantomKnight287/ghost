@@ -1,0 +1,38 @@
+---
+title: Git LFS
+description: Store large files outside git history with Git LFS.
+---
+
+Ghost hosts [Git LFS](https://git-lfs.com) objects for every repository. Install `git-lfs`, then use it as with any other host:
+
+```bash
+git lfs install
+git lfs track "*.psd"
+git add .gitattributes design.psd
+git commit -m "Add the design"
+git push
+```
+
+Clones and fetches download the objects automatically. Over HTTPS, git-lfs uses the same API key as git.
+
+## Over SSH
+
+SSH remotes work as they are: git-lfs asks Ghost over SSH for a short-lived token, then moves the files over HTTPS.
+
+## Locks
+
+Lock a file so others know you are editing it:
+
+```bash
+git lfs lock design.psd
+git lfs locks
+git lfs unlock design.psd
+```
+
+git-lfs refuses to push changes to a file someone else has locked. A repository admin can remove another person's lock with `git lfs unlock --force`.
+
+## Storage
+
+LFS objects count against your account's LFS storage limit, or its fork limit in a fork, when the instance sets one. A fork starts with a copy of every LFS object in its parent, and merging a pull request from a fork copies the objects its commits point at into the base repository.
+
+The web view shows a file stored with LFS as its contents, marked "Stored with Git LFS".

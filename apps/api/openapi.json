@@ -10235,6 +10235,14 @@
         ],
         "description": "`base64` for binary files, and for anything that is not valid UTF-8."
       },
+      "BlobLfs": {
+        "type": "string",
+        "enum": [
+          "stored",
+          "missing"
+        ],
+        "description": "Whether the file is stored with Git LFS: `stored` when its size and contents are the LFS object, `missing` when the repository does not hold the object and they are the pointer, `null` when it is an ordinary file."
+      },
       "GetRepositoryBlobResponseDTO": {
         "type": "object",
         "properties": {
@@ -10269,6 +10277,15 @@
             "nullable": true,
             "description": "File contents, `null` when the file is past the inline size limit."
           },
+          "lfs": {
+            "nullable": true,
+            "description": "Whether the file is stored with Git LFS: `stored` when its size and contents are the LFS object, `missing` when the repository does not hold the object and they are the pointer, `null` when it is an ordinary file.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BlobLfs"
+              }
+            ]
+          },
           "commit": {
             "nullable": true,
             "description": "Newest commit touching this file.",
@@ -10287,6 +10304,7 @@
           "size",
           "encoding",
           "content",
+          "lfs",
           "commit"
         ]
       },
@@ -11060,17 +11078,17 @@
           "transfers"
         ]
       },
-      "ForkStorageUsageDTO": {
+      "StorageLimitUsageDTO": {
         "type": "object",
         "properties": {
           "usedBytes": {
             "type": "number",
-            "description": "Bytes stored in forks."
+            "description": "Bytes counted against this limit."
           },
           "quotaBytes": {
             "type": "number",
             "nullable": true,
-            "description": "`null` when no fork quota applies."
+            "description": "`null` when no quota applies."
           }
         },
         "required": [
@@ -11083,7 +11101,7 @@
         "properties": {
           "usedBytes": {
             "type": "number",
-            "description": "Bytes stored outside forks, including uploads in progress."
+            "description": "Bytes stored in repositories that are not forks, including uploads in progress and leaving out Git LFS objects."
           },
           "quotaBytes": {
             "type": "number",
@@ -11095,14 +11113,28 @@
             "description": "Largest single release asset."
           },
           "fork": {
-            "$ref": "#/components/schemas/ForkStorageUsageDTO"
+            "description": "Everything forks hold, Git LFS objects included.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StorageLimitUsageDTO"
+              }
+            ]
+          },
+          "lfs": {
+            "description": "Git LFS objects in repositories that are not forks.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StorageLimitUsageDTO"
+              }
+            ]
           }
         },
         "required": [
           "usedBytes",
           "quotaBytes",
           "maxAssetBytes",
-          "fork"
+          "fork",
+          "lfs"
         ]
       },
       "OrganizationRole": {

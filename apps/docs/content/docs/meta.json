@@ -23,6 +23,8 @@
     "troubleshooting",
     "---Pull requests---",
     "checking-out-pull-requests-locally",
+    "---Large files---",
+    "git-lfs",
     "---Webhooks---",
     "webhooks"
   ]
