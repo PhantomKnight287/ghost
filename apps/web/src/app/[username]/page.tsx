@@ -304,9 +304,6 @@ export default async function ProfilePage({
             }
             overview={
               <>
-                {org && org.pinned.length > 0 && (
-                  <PinnedRepositories owner={username} pinned={org.pinned} />
-                )}
                 <Suspense fallback={<RepositoryReadmeSkeleton bare />}>
                   {org ? (
                     // ORG's readme at .ghost/profile/README.md
@@ -319,6 +316,9 @@ export default async function ProfilePage({
                     <ProfileReadme username={username} slug={username} />
                   )}
                 </Suspense>
+                {org && org.pinned.length > 0 && (
+                  <PinnedRepositories owner={username} pinned={org.pinned} />
+                )}
                 {!org && (
                   <Suspense fallback={<ContributionGraphSkeleton />}>
                     <ProfileContributions username={username} />
