@@ -1,4 +1,5 @@
 import { Globe, Mail, MapPin } from "lucide-react";
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -429,12 +430,11 @@ function PeopleList({
             href={person.href}
             className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50"
           >
-            <Avatar className={cn("size-10", square && "rounded-lg")}>
-              <AvatarImage src={person.image ?? undefined} alt="" />
-              <AvatarFallback>
-                {person.subtitle.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <ProfileAvatar
+              name={person.subtitle}
+              image={person.image}
+              className={cn("size-10", square && "rounded-lg")}
+            />
             <span className="flex min-w-0 flex-col">
               <span className="truncate text-sm font-medium">
                 {person.title}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { cn } from "@/lib/utils";
 
 /** A username linking to its profile, with the avatar in front when `avatar` sets its size. A deleted account has no username and no profile to link to. */
@@ -28,12 +28,12 @@ export function UserLink({
       )}
     >
       {avatar && (
-        <Avatar size="sm" className={cn(avatar === "xs" && "size-4")}>
-          <AvatarImage src={image ?? undefined} alt="" />
-          <AvatarFallback className="text-[10px]">
-            {username.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <ProfileAvatar
+          name={username}
+          image={image}
+          className={avatar === "xs" ? "size-4" : "size-6"}
+          fallbackClassName="text-[10px]"
+        />
       )}
       {username}
     </Link>

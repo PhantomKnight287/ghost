@@ -1,5 +1,6 @@
 "use client";
 
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -8,7 +9,6 @@ import { toast } from "sonner";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { RoleSelect } from "@/components/role-select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -233,14 +233,11 @@ function PersonRow({
   return (
     <Item className="flex-wrap">
       <ItemMedia>
-        <Avatar className="size-9">
-          {collaborator.image && (
-            <AvatarImage src={collaborator.image} alt="" />
-          )}
-          <AvatarFallback>
-            {collaborator.username.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <ProfileAvatar
+          name={collaborator.username}
+          image={collaborator.image}
+          className="size-9"
+        />
       </ItemMedia>
       <ItemContent className="min-w-0">
         <ItemTitle>

@@ -1,11 +1,11 @@
 "use client";
 
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { Fragment, useState } from "react";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { SettingCard } from "@/components/repositories/setting-card";
 import { RoleSelect } from "@/components/role-select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -123,15 +123,11 @@ export function OrganizationPeople({
                     {index > 0 && <ItemSeparator className="my-0!" />}
                     <Item className="flex-wrap">
                       <ItemMedia>
-                        <Avatar className="size-9">
-                          <AvatarImage
-                            src={member.user.image ?? undefined}
-                            alt=""
-                          />
-                          <AvatarFallback>
-                            {member.user.name.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <ProfileAvatar
+                          name={member.user.name}
+                          image={member.user.image}
+                          className="size-9"
+                        />
                       </ItemMedia>
                       <ItemContent className="min-w-0">
                         <ItemTitle>{member.user.name}</ItemTitle>

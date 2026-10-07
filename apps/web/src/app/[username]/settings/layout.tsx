@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { notFound, redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
 import { SettingsNav } from "@/components/repositories/settings-nav";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   createServerClient,
   getAdminOrganizations,
@@ -43,10 +43,11 @@ export default async function OrganizationSettingsLayout({
       <AppHeader username={viewer} owners={[viewer]} />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 md:px-6">
         <div className="flex items-center gap-3">
-          <Avatar className="size-10 rounded-lg">
-            <AvatarImage src={profile.data.logo ?? undefined} alt="" />
-            <AvatarFallback>{slug.slice(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
+          <ProfileAvatar
+            name={slug}
+            image={profile.data.logo}
+            className="size-10 rounded-lg"
+          />
           <div className="flex flex-col">
             <h1 className="text-xl font-semibold">{profile.data.name}</h1>
             <Link

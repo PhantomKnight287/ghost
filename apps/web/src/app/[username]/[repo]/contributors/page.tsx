@@ -1,9 +1,9 @@
 import { Users } from "lucide-react";
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
@@ -49,12 +49,11 @@ export default async function ContributorsPage({
                 key={`${contributor.username ?? contributor.name}`}
                 className="flex items-center gap-3 px-4 py-3"
               >
-                <Avatar className="size-9">
-                  <AvatarImage src={contributor.image ?? undefined} alt="" />
-                  <AvatarFallback>
-                    {contributor.name.slice(0, 1).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <ProfileAvatar
+                  name={contributor.name}
+                  image={contributor.image}
+                  className="size-9"
+                />
 
                 <div className="flex min-w-0 flex-col">
                   {contributor.username ? (

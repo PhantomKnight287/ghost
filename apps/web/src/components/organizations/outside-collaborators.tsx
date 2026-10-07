@@ -1,12 +1,12 @@
 "use client";
 
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -85,15 +85,11 @@ export function OutsideCollaborators({
                 {index > 0 && <ItemSeparator className="my-0!" />}
                 <Item className="flex-wrap">
                   <ItemMedia>
-                    <Avatar className="size-9">
-                      <AvatarImage
-                        src={collaborator.image ?? undefined}
-                        alt=""
-                      />
-                      <AvatarFallback>
-                        {collaborator.username.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <ProfileAvatar
+                      name={collaborator.username}
+                      image={collaborator.image}
+                      className="size-9"
+                    />
                   </ItemMedia>
                   <ItemContent className="min-w-0">
                     <ItemTitle>

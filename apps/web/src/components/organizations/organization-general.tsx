@@ -1,5 +1,6 @@
 "use client";
 
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { useAuth } from "@better-auth-ui/react";
 import { Trash2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,7 +19,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -308,12 +308,12 @@ function LogoSetting({ slug }: { slug: string }) {
       <Card className="py-0">
         <Item>
           <ItemMedia>
-            <Avatar className="size-16 rounded-xl">
-              <AvatarImage src={organization?.logo ?? undefined} alt="" />
-              <AvatarFallback className="text-lg">
-                {slug.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <ProfileAvatar
+              name={slug}
+              image={organization?.logo}
+              className="size-16 rounded-xl"
+              fallbackClassName="text-lg"
+            />
           </ItemMedia>
           <ItemContent>
             <ItemDescription>
