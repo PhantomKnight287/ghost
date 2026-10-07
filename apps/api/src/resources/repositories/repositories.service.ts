@@ -1679,7 +1679,6 @@ export class RepositoriesService {
 
     const total = languages.reduce((sum, { bytes }) => sum + bytes, 0);
 
-    // pool anything which is less than half a percentage
     const rows = languages.map(({ language, bytes }) => ({
       language,
       bytes,
@@ -1969,7 +1968,7 @@ export class RepositoriesService {
       repoDirectory: directory,
     });
 
-    // Keep the contribution index warm while the objects are hot. The profile graph reads the index only, so rendering it never materializes anything itself. Not awaited: a first build walks the whole history, and the contributors list may show what is indexed so far until it lands.
+    // Indexed while the objects are hot, so the profile graph never materializes. Not awaited: a first build walks the whole history.
     this.contributions
       .sync({ repositoryId: repository.id, repoDirectory: directory })
       .catch((error: unknown) =>

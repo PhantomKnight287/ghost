@@ -19,7 +19,6 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
-  ApiInternalServerErrorResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -108,9 +107,6 @@ export class RepositoriesController {
   @ApiNotFoundResponse({
     type: ErrorResponseDTO,
   })
-  @ApiInternalServerErrorResponse({
-    type: ErrorResponseDTO,
-  })
   createRepository(
     @Body() body: CreateRepositoryRequestDTO,
     @Session() session: UserSession,
@@ -151,9 +147,6 @@ export class RepositoriesController {
   @ApiNotFoundResponse({
     type: ErrorResponseDTO,
   })
-  @ApiInternalServerErrorResponse({
-    type: ErrorResponseDTO,
-  })
   @OptionalAuth()
   getRepositories(
     @Param('username') username: string,
@@ -177,9 +170,6 @@ export class RepositoriesController {
     type: RepositoryEntity,
   })
   @ApiNotFoundResponse({
-    type: ErrorResponseDTO,
-  })
-  @ApiInternalServerErrorResponse({
     type: ErrorResponseDTO,
   })
   getRepository(
@@ -271,9 +261,6 @@ export class RepositoriesController {
   @ApiNotFoundResponse({
     type: ErrorResponseDTO,
   })
-  @ApiInternalServerErrorResponse({
-    type: ErrorResponseDTO,
-  })
   forkRepository(
     @Param('username') username: string,
     @Param('slug') slug: string,
@@ -335,9 +322,6 @@ export class RepositoriesController {
   @ApiNotFoundResponse({
     type: ErrorResponseDTO,
   })
-  @ApiInternalServerErrorResponse({
-    type: ErrorResponseDTO,
-  })
   starRepository(
     @Param('username') username: string,
     @Param('slug') slug: string,
@@ -359,9 +343,6 @@ export class RepositoriesController {
     type: StarRepositoryResponseDTO,
   })
   @ApiNotFoundResponse({
-    type: ErrorResponseDTO,
-  })
-  @ApiInternalServerErrorResponse({
     type: ErrorResponseDTO,
   })
   unstarRepository(
@@ -394,9 +375,6 @@ export class RepositoriesController {
   @ApiNotFoundResponse({
     type: ErrorResponseDTO,
   })
-  @ApiInternalServerErrorResponse({
-    type: ErrorResponseDTO,
-  })
   getRepositoryContents(
     @Param('username') username: string,
     @Param('slug') slug: string,
@@ -423,9 +401,6 @@ export class RepositoriesController {
     type: GetRepositoryReadmeResponseDTO,
   })
   @ApiNotFoundResponse({
-    type: ErrorResponseDTO,
-  })
-  @ApiInternalServerErrorResponse({
     type: ErrorResponseDTO,
   })
   getRepositoryReadme(
@@ -459,9 +434,6 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   @ApiNotFoundResponse({
-    type: ErrorResponseDTO,
-  })
-  @ApiInternalServerErrorResponse({
     type: ErrorResponseDTO,
   })
   getRepositoryBlob(
@@ -630,9 +602,6 @@ export class RepositoriesController {
   @ApiNotFoundResponse({
     type: ErrorResponseDTO,
   })
-  @ApiInternalServerErrorResponse({
-    type: ErrorResponseDTO,
-  })
   getRepositoryBranches(
     @Param('username') username: string,
     @Param('slug') slug: string,
@@ -685,9 +654,6 @@ export class RepositoriesController {
     type: GetRepositoryLanguagesResponseDTO,
   })
   @ApiNotFoundResponse({
-    type: ErrorResponseDTO,
-  })
-  @ApiInternalServerErrorResponse({
     type: ErrorResponseDTO,
   })
   getRepositoryLanguages(

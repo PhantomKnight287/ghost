@@ -15,11 +15,7 @@ interface StreamOptions {
   protocol?: string;
 }
 
-/**
- * Runs `git upload-pack` / `git receive-pack` in `--stateless-rpc` mode.
- *
- * Deliberately knows nothing about HTTP: it consumes a Readable and returns a Readable, so a test can drive it with `Readable.from(buffer)`.
- */
+/** Runs `git upload-pack` / `git receive-pack` in `--stateless-rpc` mode over Readables, knowing nothing of HTTP so a test can drive it with `Readable.from(buffer)`. */
 @Injectable()
 export class PackProcessService {
   private readonly logger = new Logger(PackProcessService.name);

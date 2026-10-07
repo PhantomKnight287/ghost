@@ -55,7 +55,12 @@ export class EmailsService {
     const [user, rows] = await Promise.all([
       this.users.getUserById(userId),
       this.db
-        .select()
+        .select({
+          id: schema.userEmail.id,
+          email: schema.userEmail.email,
+          verified: schema.userEmail.verified,
+          primary: sql<boolean>`false`,
+        })
         .from(schema.userEmail)
         .where(eq(schema.userEmail.userId, userId))
         .orderBy(schema.userEmail.createdAt),
@@ -68,12 +73,7 @@ export class EmailsService {
         verified: user.emailVerified,
         primary: true,
       },
-      ...rows.map((row) => ({
-        id: row.id,
-        email: row.email,
-        verified: row.verified,
-        primary: false,
-      })),
+      ...rows,
     ];
 
     return { emails };

@@ -11,11 +11,7 @@ import { SingleFlight } from '../../../lib/single-flight.js';
 const SEQ_MARKER = 'ghost-wal-seq';
 const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
 
-/**
- * Brings a cached bare repository up to the state the log describes.
- *
- * The cache is only ever behind the log, never ahead of it, so replay is always forward-only: apply the packfiles of every layer past the cached sequence, then reconcile refs to the index snapshot.
- */
+/** Brings a cached bare repository up to the log. The cache is only ever behind it, so replay is forward-only: apply the packs past the cached sequence, then reconcile refs to the index snapshot. */
 @Injectable()
 export class RepositoryMaterializerService {
   private readonly logger = new Logger(RepositoryMaterializerService.name);

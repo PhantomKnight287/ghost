@@ -1,5 +1,4 @@
-// Every field is a big-endian
-
+/** Writes fields into a buffer one after another, every integer big-endian. */
 export class Cursor {
   private off = 0;
 

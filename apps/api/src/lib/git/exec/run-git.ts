@@ -67,11 +67,7 @@ export function runGitReadable({ args, gitDir, env }: RunGitOptions): Readable {
   return child.stdout;
 }
 
-/**
- * Same as {@link runGit}, but hands stdout back in chunks as git produces it.
- *
- * A consumer that stops iterating kills git rather than paying for output nobody reads, so the exit status is only checked once the stream drains.
- */
+/** {@link runGit} that yields stdout as git produces it. A consumer that stops iterating kills git, so the exit status is only checked once the stream drains. */
 export async function* runGitStream({
   args,
   gitDir,

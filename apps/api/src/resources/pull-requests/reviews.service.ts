@@ -443,7 +443,7 @@ export class ReviewsService {
             and(
               eq(schema.pullRequestReview.id, comment.reviewId),
               eq(schema.pullRequestReview.state, 'commented'),
-              sql`${schema.pullRequestReview.body} is null`,
+              isNull(schema.pullRequestReview.body),
               notExists(
                 tx
                   .select({ id: schema.pullRequestReviewComment.id })

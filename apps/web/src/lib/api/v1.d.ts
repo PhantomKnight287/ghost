@@ -4203,14 +4203,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
         };
     };
     RepositoriesController_getRepositories: {
@@ -4247,14 +4239,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
         };
     };
     RepositoriesController_getRepository: {
@@ -4278,14 +4262,6 @@ export interface operations {
                 };
             };
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4423,14 +4399,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
         };
     };
     RepositoriesController_transferRepository: {
@@ -4519,14 +4487,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
         };
     };
     RepositoriesController_unstarRepository: {
@@ -4550,14 +4510,6 @@ export interface operations {
                 };
             };
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4609,14 +4561,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
         };
     };
     RepositoriesController_getRepositoryReadme: {
@@ -4645,14 +4589,6 @@ export interface operations {
                 };
             };
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4697,14 +4633,6 @@ export interface operations {
                 };
             };
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4889,14 +4817,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
         };
     };
     RepositoriesController_getRepositoryTags: {
@@ -4963,14 +4883,6 @@ export interface operations {
                 };
             };
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -59,11 +59,7 @@ interface SessionActor {
   username: string;
 }
 
-/**
- * The SSH transport. It authenticates the connection, then runs exactly one of two git binaries on it, or hands git-lfs credentials for HTTPS.
- *
- * Nothing here is a shell: a command is matched against a regex, the repository comes from the database, and git is spawned with an argv array. A session that asks for anything else gets text and a non-zero exit.
- */
+/** The SSH transport: authenticates, then runs one of two git binaries or hands out git-lfs credentials. Nothing here is a shell: commands match a regex and git gets an argv array. */
 @Injectable()
 export class SshServerService implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(SshServerService.name);

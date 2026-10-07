@@ -119,11 +119,7 @@ export class GitService {
     };
   }
 
-  /**
-   * `POST /:username/:repo/git-receive-pack` - a push.
-   *
-   * Materialize before the ref checks so they see what the log holds. The cache keeps its pre-push sequence marker; the next materialize reconciles whatever git wrote locally.
-   */
+  /** A push. Materializes before the ref checks so they see what the log holds; the next materialize reconciles whatever git wrote locally. */
   async receivePack({
     repository,
     body,
