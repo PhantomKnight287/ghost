@@ -6,12 +6,13 @@ import { attachmentMarkdown } from "@/lib/markdown-editor";
 export async function uploadAttachment({
   username,
   repo,
-  file,
+  file: picked,
 }: {
   username: string;
   repo: string;
   file: File;
 }) {
+  const file = isHeic(picked) ? await toJpeg(picked) : picked;
   const { data, error } = await apiClient.POST(
     "/api/repositories/{username}/{repo}/attachments",
     {
@@ -29,4 +30,20 @@ export async function uploadAttachment({
     `${API_URL}/api/attachments/${data.id}`,
     data.contentType,
   );
+}
+
+const HEIC = /\.hei[cf]$/i;
+
+/** iPhone photos arrive as HEIC, which only Safari can draw: anywhere else the embed would show a broken image. */
+function isHeic(file: File) {
+  return HEIC.test(file.name) || /^image\/hei[cf]/.test(file.type);
+}
+
+async function toJpeg(file: File) {
+  // a few MB of wasm, so only fetched once someone attaches a HEIC photo
+  const { heicTo } = await import("heic-to/next");
+  const jpeg = await heicTo({ blob: file, type: "image/jpeg", quality: 0.9 });
+  return new File([jpeg], `${file.name.replace(HEIC, "")}.jpg`, {
+    type: "image/jpeg",
+  });
 }

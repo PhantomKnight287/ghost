@@ -10,6 +10,7 @@ export const ATTACHMENT_MAX_BYTES = 25 * 1024 ** 2;
 /** What may be attached, by extension. The type a file is served with comes from here, never from the uploader. SVG is left out: it can carry script. */
 const ATTACHMENT_TYPES: Record<string, string> = {
   '.png': 'image/png',
+  '.heic': 'image/heic',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',

@@ -130,7 +130,7 @@ export function MarkdownEditor({
   const open =
     mention !== null &&
     suggestions.length > 0 &&
-    ("username" in suggestions[0]) === (mention.trigger === "@");
+    "username" in suggestions[0] === (mention.trigger === "@");
 
   /** Applies an edit through the browser's own editing, so ⌘Z undoes it like typing. */
   function apply(edit: Edit) {

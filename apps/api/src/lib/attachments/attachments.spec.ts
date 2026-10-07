@@ -18,6 +18,7 @@ describe('attachmentKey', () => {
 describe('attachmentTypeOf', () => {
   it('types a file by its extension, ignoring case', () => {
     expect(attachmentTypeOf('screenshot.PNG')).toBe('image/png');
+    expect(attachmentTypeOf('IMG_0001.HEIC')).toBe('image/heic');
     expect(attachmentTypeOf('build.log')).toBe('text/plain');
     expect(attachmentTypeOf('logs.tar.gz')).toBe('application/gzip');
   });
