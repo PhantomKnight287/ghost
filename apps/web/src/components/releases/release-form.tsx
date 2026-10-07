@@ -256,7 +256,10 @@ export function ReleaseForm({
             type="button"
             variant="outline"
             disabled={isExecuting}
-            onClick={submit(true)}
+            // a button outside submit skips the form's validation, which holds back text with uploads still in it
+            onClick={(event) =>
+              event.currentTarget.form?.reportValidity() && submit(true)(event)
+            }
           >
             Save draft
           </Button>

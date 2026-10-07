@@ -165,9 +165,13 @@ export function CreatePullRequestForm({
           type="button"
           variant="outline"
           disabled={isExecuting || heads.length === 0 || !head}
-          onClick={handleSubmit((input) =>
-            execute({ ...input, username, repo, draft: true }),
-          )}
+          // a button outside submit skips the form's validation, which holds back text with uploads still in it
+          onClick={(event) =>
+            event.currentTarget.form?.reportValidity() &&
+            handleSubmit((input) =>
+              execute({ ...input, username, repo, draft: true }),
+            )(event)
+          }
         >
           Create draft
         </Button>

@@ -240,7 +240,9 @@ function LineCommentForm({
             variant="outline"
             size="sm"
             disabled={busy || !body.trim()}
-            onClick={() =>
+            // a button outside submit skips the form's validation, which holds back text with uploads still in it
+            onClick={(event) =>
+              event.currentTarget.form?.reportValidity() &&
               single.execute({
                 username,
                 repo,
