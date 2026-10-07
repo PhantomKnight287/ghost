@@ -29,14 +29,7 @@ func main() {
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL is not set")
 	}
-	workers := 32
-	if v := os.Getenv("WORKERS"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 {
-			log.Fatalf("WORKERS must be a positive integer, got %q", v)
-		}
-		workers = n
-	}
+	workers := envInt("WORKERS", 32)
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		log.Fatalf("unable to connect to database: %v", err)
@@ -84,14 +77,7 @@ func main() {
 	} else {
 		log.Printf("WEBHOOK_SECRET_KEY is not set: webhook jobs will fail and retry until it is")
 	}
-	hostConcurrency := 4
-	if v := os.Getenv("WEBHOOK_HOST_CONCURRENCY"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 {
-			log.Fatalf("WEBHOOK_HOST_CONCURRENCY must be a positive integer, got %q", v)
-		}
-		hostConcurrency = n
-	}
+	hostConcurrency := envInt("WEBHOOK_HOST_CONCURRENCY", 4)
 	webhook := webhookSender{
 		db:     pool,
 		client: newWebhookClient(os.Getenv("WEBHOOK_ALLOW_PRIVATE_NETWORKS") == "true"),
@@ -114,4 +100,17 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("http shutdown: %v", err)
 	}
+}
+
+// envInt reads a positive integer setting, or returns def when it is unset.
+func envInt(name string, def int) int {
+	v := os.Getenv(name)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		log.Fatalf("%s must be a positive integer, got %q", name, v)
+	}
+	return n
 }
