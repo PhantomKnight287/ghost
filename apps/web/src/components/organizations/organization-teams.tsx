@@ -25,7 +25,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
 
 import { TeamMembers } from "./team-members";
@@ -40,11 +40,11 @@ export function OrganizationTeams({ slug }: { slug: string }) {
   const { data: teams = [] } = useQuery({
     queryKey: ["organization-teams", slug],
     queryFn: async () => {
-      const { data, error } = await apiClient.GET(
-        "/api/organizations/{slug}/teams",
-        { params: { path: { slug } } },
+      const data = await unwrap(
+        apiClient.GET("/api/organizations/{slug}/teams", {
+          params: { path: { slug } },
+        }),
       );
-      if (error) throw new Error(apiErrorMessage(error));
       return data.teams;
     },
   });

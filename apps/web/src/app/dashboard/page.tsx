@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -56,8 +56,7 @@ export default function DashboardPage() {
     queryKey: ["my-organizations", "all"],
     enabled: Boolean(username),
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/organizations");
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(apiClient.GET("/api/organizations"));
       return data.organizations;
     },
   });
@@ -71,10 +70,11 @@ export default function DashboardPage() {
       const scoped = [context === ALL ? "" : `org:${context}`, search]
         .filter(Boolean)
         .join(" ");
-      const { data, error } = await apiClient.GET("/api/repositories", {
-        params: { query: { q: scoped || undefined, limit: 50 } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(
+        apiClient.GET("/api/repositories", {
+          params: { query: { q: scoped || undefined, limit: 50 } },
+        }),
+      );
       return data.repositories.map((repository) => ({
         name: repository.name,
         slug: repository.slug,

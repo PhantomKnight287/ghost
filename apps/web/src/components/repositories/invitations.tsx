@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, apiErrorMessage, unwrap } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
 import { organizationRoleOf } from "@ghost/permissions";
 
@@ -32,8 +32,7 @@ export function Invitations() {
   const { data: repositories = [] } = useQuery({
     queryKey: ["invitations", "repositories"],
     queryFn: async (): Promise<Pending[]> => {
-      const { data, error } = await apiClient.GET("/api/invitations");
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(apiClient.GET("/api/invitations"));
       return data.invitations.map((invitation) => ({
         kind: "repository",
         id: invitation.id,
@@ -47,10 +46,9 @@ export function Invitations() {
   const { data: organizations = [] } = useQuery({
     queryKey: ["invitations", "organizations"],
     queryFn: async (): Promise<Pending[]> => {
-      const { data, error } = await apiClient.GET(
-        "/api/invitations/organizations",
+      const data = await unwrap(
+        apiClient.GET("/api/invitations/organizations"),
       );
-      if (error) throw new Error(apiErrorMessage(error));
       return data.invitations.map((invitation) => ({
         kind: "organization",
         id: invitation.id,
@@ -65,8 +63,7 @@ export function Invitations() {
   const { data: transfers = [] } = useQuery({
     queryKey: ["invitations", "transfers"],
     queryFn: async (): Promise<Pending[]> => {
-      const { data, error } = await apiClient.GET("/api/transfers");
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(apiClient.GET("/api/transfers"));
       return data.transfers.map((transfer) => ({
         kind: "transfer",
         id: transfer.repositoryId,

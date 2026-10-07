@@ -5,7 +5,7 @@ import { Bell } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 
 import { UNREAD_COUNT_KEY } from "./common";
 
@@ -14,10 +14,9 @@ export function NotificationBell() {
     queryKey: UNREAD_COUNT_KEY,
     refetchInterval: 60_000,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET(
-        "/api/notifications/unread-count",
+      const data = await unwrap(
+        apiClient.GET("/api/notifications/unread-count"),
       );
-      if (error) throw new Error(apiErrorMessage(error));
       return data.count;
     },
   });

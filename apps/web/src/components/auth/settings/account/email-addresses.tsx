@@ -26,7 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 export type EmailAddressesProps = {
@@ -56,8 +56,7 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
   const { data, isPending } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/emails");
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(apiClient.GET("/api/emails"));
       return data.emails as UserEmail[];
     },
   });
@@ -67,10 +66,11 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
 
   const add = useMutation({
     mutationFn: async (value: string) => {
-      const { error } = await apiClient.POST("/api/emails", {
-        body: { email: value },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/emails", {
+          body: { email: value },
+        }),
+      );
     },
     onSuccess: async (_result, value) => {
       setEmail("");
@@ -82,10 +82,11 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
 
   const resend = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.POST("/api/emails/{id}/resend", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/emails/{id}/resend", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: () => toast.success("Verification email sent again"),
     onError: (error: Error) => toast.error(error.message),
@@ -93,10 +94,11 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
 
   const makePrimary = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.POST("/api/emails/{id}/primary", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/emails/{id}/primary", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: async () => {
       toast.success("Primary address updated");
@@ -107,10 +109,11 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.DELETE("/api/emails/{id}", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.DELETE("/api/emails/{id}", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: async () => {
       toast.success("Address removed");

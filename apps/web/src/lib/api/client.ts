@@ -8,6 +8,15 @@ export const apiClient = createFetchClient<paths>({
   credentials: "include",
 });
 
+/** Resolves an API call to its data, throwing the API's error message. */
+export async function unwrap<T>(
+  request: Promise<{ data?: T; error?: unknown }>,
+): Promise<T> {
+  const { data, error } = await request;
+  if (error !== undefined) throw new Error(apiErrorMessage(error));
+  return data as T;
+}
+
 /** The message the API's error filter returns, or a status-code fallback. */
 export function apiErrorMessage(
   error: unknown,

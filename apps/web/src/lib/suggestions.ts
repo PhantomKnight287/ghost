@@ -1,4 +1,4 @@
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 
 type RepositoryRef = { username: string; repo: string };
 
@@ -7,11 +7,11 @@ export async function suggestUsers(
   { username, repo }: RepositoryRef,
   q: string,
 ) {
-  const { data, error } = await apiClient.GET(
-    "/api/repositories/{username}/{repo}/suggestions/users",
-    { params: { path: { username, repo }, query: { q } } },
+  const data = await unwrap(
+    apiClient.GET("/api/repositories/{username}/{repo}/suggestions/users", {
+      params: { path: { username, repo }, query: { q } },
+    }),
   );
-  if (error) throw new Error(apiErrorMessage(error));
   return data.users;
 }
 
@@ -20,10 +20,10 @@ export async function suggestIssues(
   { username, repo }: RepositoryRef,
   q: string,
 ) {
-  const { data, error } = await apiClient.GET(
-    "/api/repositories/{username}/{repo}/suggestions/issues",
-    { params: { path: { username, repo }, query: { q } } },
+  const data = await unwrap(
+    apiClient.GET("/api/repositories/{username}/{repo}/suggestions/issues", {
+      params: { path: { username, repo }, query: { q } },
+    }),
   );
-  if (error) throw new Error(apiErrorMessage(error));
   return data.issues;
 }

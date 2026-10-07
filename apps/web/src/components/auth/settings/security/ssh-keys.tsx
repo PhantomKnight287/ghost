@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import { DOCS_URL } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
@@ -48,8 +48,7 @@ export function SshKeys({ className }: SshKeysProps) {
   const { data, isPending } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/ssh-keys");
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(apiClient.GET("/api/ssh-keys"));
       return data.keys as SshKey[];
     },
   });
@@ -59,13 +58,14 @@ export function SshKeys({ className }: SshKeysProps) {
 
   const add = useMutation({
     mutationFn: async () => {
-      const { error } = await apiClient.POST("/api/ssh-keys", {
-        body: {
-          publicKey: publicKey.trim(),
-          ...(title.trim() ? { title: title.trim() } : {}),
-        },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/ssh-keys", {
+          body: {
+            publicKey: publicKey.trim(),
+            ...(title.trim() ? { title: title.trim() } : {}),
+          },
+        }),
+      );
     },
     onSuccess: async () => {
       setPublicKey("");
@@ -78,10 +78,11 @@ export function SshKeys({ className }: SshKeysProps) {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.DELETE("/api/ssh-keys/{id}", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.DELETE("/api/ssh-keys/{id}", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: async () => {
       toast.success("Key removed");

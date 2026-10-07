@@ -21,7 +21,7 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { Spinner } from "@/components/ui/spinner";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import type { components } from "@/lib/api/v1";
 import { authClient } from "@/lib/auth-client";
 
@@ -113,10 +113,9 @@ function RepositoryPicker({
   } = useQuery({
     queryKey: ["github-repositories"],
     queryFn: async () => {
-      const { data, error } = await apiClient.GET(
-        "/api/imports/github/repositories",
+      const data = await unwrap(
+        apiClient.GET("/api/imports/github/repositories"),
       );
-      if (error) throw new Error(apiErrorMessage(error));
       return data.repositories;
     },
   });

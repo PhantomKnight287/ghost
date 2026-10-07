@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 
 import { createRepository, importRepository } from "./actions";
 import { newRepositorySchema, type NewRepositoryInput } from "./common";
@@ -77,8 +77,7 @@ export function NewRepositoryDialog({
   const { data: github } = useQuery({
     queryKey: ["github-import"],
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/imports/github");
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(apiClient.GET("/api/imports/github"));
       return data;
     },
   });
@@ -88,8 +87,7 @@ export function NewRepositoryDialog({
     queryKey: ["my-organizations"],
     enabled: owners.length > 0,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/organizations");
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(apiClient.GET("/api/organizations"));
       return data.organizations
         .filter((organization) => organization.canCreateRepositories)
         .map((organization) => organization.slug);

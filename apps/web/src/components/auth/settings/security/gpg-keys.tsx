@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import { DOCS_URL } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
@@ -49,8 +49,7 @@ export function GpgKeys({ className }: GpgKeysProps) {
   const { data, isPending } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/gpg-keys");
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(apiClient.GET("/api/gpg-keys"));
       return data.keys as GpgKey[];
     },
   });
@@ -60,10 +59,11 @@ export function GpgKeys({ className }: GpgKeysProps) {
 
   const add = useMutation({
     mutationFn: async (value: string) => {
-      const { error } = await apiClient.POST("/api/gpg-keys", {
-        body: { publicKey: value },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/gpg-keys", {
+          body: { publicKey: value },
+        }),
+      );
     },
     onSuccess: async () => {
       setPublicKey("");
@@ -75,10 +75,11 @@ export function GpgKeys({ className }: GpgKeysProps) {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.DELETE("/api/gpg-keys/{id}", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.DELETE("/api/gpg-keys/{id}", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: async () => {
       toast.success("Key removed");
