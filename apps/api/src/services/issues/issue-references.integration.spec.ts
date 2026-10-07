@@ -4,7 +4,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { PullRequestReopenError } from '../../resources/issues/issues.errors.js';
+import { PullRequestReopenError } from '../../lib/issues/issues.errors.js';
 import { IssuesService } from '../../resources/issues/issues.service.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
 import { UsersService } from '../users/users.service.js';

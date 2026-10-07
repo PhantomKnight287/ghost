@@ -17,7 +17,10 @@ import { CodeSearchService } from '../services/git/code-search/code-search.servi
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
-import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
+import {
+  ProtectedRefError,
+  UnsupportedGitServiceError,
+} from '../lib/git/git.errors.js';
 import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { DATABASE } from '../database/database.module.js';
 import { GitService } from './git.service.js';

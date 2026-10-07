@@ -20,7 +20,7 @@ import type {
   GetNotificationsResponseDTO,
   WatchLevel,
 } from './dto/notification.dto.js';
-import { NotificationNotFoundError } from './notifications.errors.js';
+import { NotificationNotFoundError } from '../../lib/notifications/notifications.errors.js';
 
 const DEFAULT_PAGE_SIZE = 25;
 

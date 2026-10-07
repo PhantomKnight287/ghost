@@ -17,7 +17,7 @@ import { BranchesService } from '../../services/git/branches/branches.service.js
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
-import { BranchNotFoundError } from '../repositories/repositories.errors.js';
+import { BranchNotFoundError } from '../../lib/repositories/repositories.errors.js';
 import type { BranchDTO, CreateBranchRequestDTO } from './dto/branch.dto.js';
 import {
   BranchAlreadyExistsError,
@@ -25,7 +25,7 @@ import {
   BranchSourceNotFoundError,
   DefaultBranchDeletionError,
   InvalidBranchNameError,
-} from './branches.errors.js';
+} from '../../lib/branches/branches.errors.js';
 
 type RepositoryRef = { username: string; repo: string; requesterId: string };
 

@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 
-import { RepositoryNotFoundError } from '../../../resources/repositories/repositories.errors.js';
+import { RepositoryNotFoundError } from '../repositories.errors.js';
 import {
   AuthenticationRequiredError,
   RepositoryForbiddenError,

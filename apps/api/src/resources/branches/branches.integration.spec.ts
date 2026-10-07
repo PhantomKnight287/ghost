@@ -25,14 +25,14 @@ import { RepositoryAccessService } from '../../services/git/repository-access/re
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
-import { BranchNotFoundError } from '../repositories/repositories.errors.js';
+import { BranchNotFoundError } from '../../lib/repositories/repositories.errors.js';
 import {
   BranchAlreadyExistsError,
   BranchInUseError,
   BranchSourceNotFoundError,
   DefaultBranchDeletionError,
   InvalidBranchNameError,
-} from './branches.errors.js';
+} from '../../lib/branches/branches.errors.js';
 import { RepositoryBranchesService } from './repository-branches.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;

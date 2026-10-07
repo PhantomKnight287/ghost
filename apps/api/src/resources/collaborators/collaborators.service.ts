@@ -22,7 +22,7 @@ import {
   InvitationNotFoundError,
   RepositoryNotInOrganizationError,
   TeamNotFoundError,
-} from './collaborators.errors.js';
+} from '../../lib/collaborators/collaborators.errors.js';
 import { errorMessage } from '../../lib/error-message.js';
 
 const owner = alias(schema.user, 'owner');

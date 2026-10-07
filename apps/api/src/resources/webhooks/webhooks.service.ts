@@ -23,7 +23,7 @@ import {
   InvalidWebhookUrlError,
   WebhookNotFoundError,
   WebhooksNotConfiguredError,
-} from './webhooks.errors.js';
+} from '../../lib/webhooks/webhooks.errors.js';
 
 const DELIVERY_LOG_LENGTH = 50;
 

@@ -13,7 +13,7 @@ import {
   GpgKeyEmailNotVerifiedError,
   GpgKeyNotFoundError,
   InvalidGpgKeyError,
-} from './gpg-keys.errors.js';
+} from '../../lib/gpg-keys/gpg-keys.errors.js';
 
 /**
  * OpenPGP public keys an account uploads so its signed commits read as verified.

@@ -37,7 +37,7 @@ import {
   ReleaseAlreadyExistsError,
   ReleaseNotFoundError,
   TagTargetNotFoundError,
-} from './releases.errors.js';
+} from '../../lib/releases/releases.errors.js';
 import { withTempDir } from '../../lib/temp-dir.js';
 
 const DEFAULT_PAGE_SIZE = 10;

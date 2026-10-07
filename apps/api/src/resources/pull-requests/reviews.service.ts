@@ -40,8 +40,8 @@ import {
   ReviewNotFoundError,
   SuggestionNotApplicableError,
   SuggestionOutdatedError,
-} from './pull-requests.errors.js';
-import { NotCommentAuthorError } from '../issues/issues.errors.js';
+} from '../../lib/pull-requests/pull-requests.errors.js';
+import { NotCommentAuthorError } from '../../lib/issues/issues.errors.js';
 import {
   type PullRequestRef,
   PullRequestsService,

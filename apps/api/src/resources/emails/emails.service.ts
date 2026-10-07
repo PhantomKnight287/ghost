@@ -17,7 +17,7 @@ import {
   InvalidVerificationTokenError,
   MailNotConfiguredError,
   ResendTooSoonError,
-} from './emails.errors.js';
+} from '../../lib/emails/emails.errors.js';
 
 /** Long enough that a link cannot be guessed, short enough to stay pasteable. */
 const TOKEN_TTL_MS = 60 * 60 * 1000;

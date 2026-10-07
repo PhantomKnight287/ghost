@@ -12,7 +12,7 @@ import {
   InvalidSshKeyError,
   SshKeyAlreadyExistsError,
   SshKeyNotFoundError,
-} from './ssh-keys.errors.js';
+} from '../../lib/ssh-keys/ssh-keys.errors.js';
 
 /** OpenSSH public keys an account uploads so it can push and fetch over SSH. Unlike a signing key, nothing here is checked against an address: the key proves who is connecting, not who wrote a commit. */
 @Injectable()

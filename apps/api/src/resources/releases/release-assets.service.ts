@@ -28,7 +28,7 @@ import {
   ReleaseAssetTooLargeError,
   ReleaseNotFoundError,
   UploadNotOctetStreamError,
-} from './releases.errors.js';
+} from '../../lib/releases/releases.errors.js';
 
 type RepositoryRef = { username: string; repo: string; requesterId?: string };
 

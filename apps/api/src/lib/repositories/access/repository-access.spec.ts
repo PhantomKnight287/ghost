@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { RepositoryNotFoundError } from '../../../resources/repositories/repositories.errors.js';
+import { RepositoryNotFoundError } from '../repositories.errors.js';
 import {
   AuthenticationRequiredError,
   RepositoryForbiddenError,

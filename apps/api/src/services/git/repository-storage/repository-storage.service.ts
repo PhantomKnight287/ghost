@@ -5,7 +5,7 @@ import fs, { mkdirSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 
-import { InvalidRepositoryPathError } from '../../../resources/repositories/repositories.errors.js';
+import { InvalidRepositoryPathError } from '../../../lib/repositories/repositories.errors.js';
 
 const CACHE_ROOT = path.join(os.tmpdir(), 'ghost');
 

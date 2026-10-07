@@ -48,7 +48,7 @@ import {
   ReleaseAlreadyExistsError,
   ReleaseNotFoundError,
   TagTargetNotFoundError,
-} from './releases.errors.js';
+} from '../../lib/releases/releases.errors.js';
 import { ReleasesService } from './releases.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;

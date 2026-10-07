@@ -33,7 +33,7 @@ import {
   RepositoryNameTakenError,
   TransferNotFoundError,
   TransferTargetError,
-} from './repositories.errors.js';
+} from '../../lib/repositories/repositories.errors.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
 import { ownerQualifier } from '../../lib/search/qualifiers.js';
 import { organizationToCreateIn } from '../../lib/organizations/administered-organization.js';

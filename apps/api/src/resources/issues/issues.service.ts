@@ -52,7 +52,7 @@ import {
   LabelAlreadyExistsError,
   PullRequestReopenError,
   LabelNotFoundError,
-} from './issues.errors.js';
+} from '../../lib/issues/issues.errors.js';
 import { touchIssue } from '../../lib/issues/touch-issue.js';
 
 const NO_ISSUES = {

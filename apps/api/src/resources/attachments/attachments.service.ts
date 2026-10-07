@@ -20,7 +20,7 @@ import { isValidAssetName } from '../../lib/releases/release-assets.js';
 import { formatByteSize } from '../../lib/storage/byte-size.js';
 import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
 import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
-import { InvalidAssetNameError } from '../releases/releases.errors.js';
+import { InvalidAssetNameError } from '../../lib/releases/releases.errors.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
@@ -29,7 +29,7 @@ import {
   AttachmentNotOctetStreamError,
   AttachmentTooLargeError,
   AttachmentTypeNotAllowedError,
-} from './attachments.errors.js';
+} from '../../lib/attachments/attachments.errors.js';
 import { errorMessage } from '../../lib/error-message.js';
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;

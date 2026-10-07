@@ -10,7 +10,7 @@ import type { MailService } from '../../mail/mail.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { WebhookBreakerService } from '../../services/webhooks/webhook-breaker.service.js';
 import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
-import { InvalidWebhookUrlError } from './webhooks.errors.js';
+import { InvalidWebhookUrlError } from '../../lib/webhooks/webhooks.errors.js';
 import { WebhooksService } from './webhooks.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;

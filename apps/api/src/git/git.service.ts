@@ -36,7 +36,10 @@ import {
   isGitServiceName,
   type GitServiceName,
 } from '../lib/git/protocol/git-service.js';
-import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
+import {
+  ProtectedRefError,
+  UnsupportedGitServiceError,
+} from '../lib/git/git.errors.js';
 import { DomainError } from '../domain/errors.js';
 import { rejectedPushReport } from '../lib/git/protocol/report-status.js';
 import { errorMessage } from '../lib/error-message.js';

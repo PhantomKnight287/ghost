@@ -70,7 +70,7 @@ import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
 import {
   BranchNotFoundError,
   CommitNotFoundError,
-} from '../repositories/repositories.errors.js';
+} from '../../lib/repositories/repositories.errors.js';
 import {
   CreatePullRequestRequestDTO,
   UpdatePullRequestRequestDTO,
@@ -88,7 +88,7 @@ import {
   SameBranchPullRequestError,
   UnrelatedHistoriesError,
   UnrelatedRepositoriesError,
-} from './pull-requests.errors.js';
+} from '../../lib/pull-requests/pull-requests.errors.js';
 import { withTempDir } from '../../lib/temp-dir.js';
 import { atLeast } from '@ghost/permissions';
 import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
