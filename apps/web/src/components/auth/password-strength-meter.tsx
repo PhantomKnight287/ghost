@@ -29,15 +29,13 @@ export type PasswordStrengthMeterProps = {
 /**
  * Four-segment strength hint shown while someone picks a new password.
  *
- * Renders nothing when `emailAndPassword.strengthMeter` is off or the field is empty. The score never gates submission: your server rules stay the authority on what is acceptable.
+ * Renders nothing while the field is empty. The score never gates submission: your server rules stay the authority on what is acceptable.
  */
 export function PasswordStrengthMeter({
   password,
   className,
 }: PasswordStrengthMeterProps) {
   const { emailAndPassword, localization } = useAuth();
-
-  if (!emailAndPassword?.strengthMeter) return null;
 
   const { score, level } = evaluatePasswordStrength(password, {
     minLength: emailAndPassword.minPasswordLength,

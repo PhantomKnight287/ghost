@@ -16,23 +16,17 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
 import { isAuthFormFieldInvalid, useAuthForm } from "./auth-form";
 import { RESET_LINK_SENT_STORAGE_KEY } from "./reset-link-sent";
 
-export type ForgotPasswordProps = {
-  className?: string;
-};
-
 /** Render a card-based "Forgot Password" form that sends a password-reset email. */
-export function ForgotPassword({ className }: ForgotPasswordProps) {
+export function ForgotPassword() {
   const {
     authClient,
     baseURL,
     basePaths,
     localization,
     navigate,
-    plugins,
     viewPaths,
     Link,
   } = useAuth();
@@ -66,12 +60,8 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
       }),
   });
 
-  const Captcha = plugins.find(
-    (plugin) => plugin.captchaComponent,
-  )?.captchaComponent;
-
   return (
-    <Card className={cn("w-full max-w-sm", className)}>
+    <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
           {localization.auth.forgotPassword}
@@ -119,8 +109,6 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
                   );
                 }}
               </form.AppField>
-
-              {Captcha && <div className="flex justify-center">{Captcha}</div>}
 
               <div className="flex flex-col gap-3">
                 <form.AuthFormSubmitButton disabled={isPending}>
