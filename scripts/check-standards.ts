@@ -40,6 +40,14 @@ const checks: Check[] = [
     ],
   },
   {
+    rule: "6. Error classes live under `lib/`",
+    applies: (path) =>
+      path.startsWith("apps/api/src/") &&
+      path.endsWith(".errors.ts") &&
+      !path.startsWith("apps/api/src/lib/"),
+    find: () => [1],
+  },
+  {
     rule: "7. Production quality is the default (no `any`)",
     applies: () => true,
     find: (source) =>
