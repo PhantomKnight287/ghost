@@ -232,7 +232,7 @@ function AuthFormPasswordField({
 }: AuthFormPasswordFieldProps) {
   const field = useFieldContext<string>();
   const form = useFormContext();
-  const { emailAndPassword, localization } = useAuth();
+  const { localization } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
   const isInvalid = isAuthFormFieldInvalid(field.state.meta) || Boolean(error);
   const toggleLabel = isVisible
@@ -262,8 +262,6 @@ function AuthFormPasswordField({
             }}
             placeholder={placeholder ?? localization.auth.passwordPlaceholder}
             required
-            minLength={emailAndPassword.minPasswordLength}
-            maxLength={emailAndPassword.maxPasswordLength}
             disabled={disabled}
             aria-invalid={isInvalid}
           />
