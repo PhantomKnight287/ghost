@@ -12,15 +12,10 @@ import {
   ItemSeparator,
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { LinkedAccount } from "./linked-account";
 
-export type LinkedAccountsProps = {
-  className?: string;
-};
-
 /** Render a card showing linked social accounts and available social providers to link. */
-export function LinkedAccounts({ className }: LinkedAccountsProps) {
+export function LinkedAccounts() {
   const {
     authClient,
     allowUnlinkingAllAccounts,
@@ -68,7 +63,7 @@ export function LinkedAccounts({ className }: LinkedAccountsProps) {
         {localization.settings.linkedAccounts}
       </h2>
 
-      <Card className={cn("p-0", className)}>
+      <Card className={"p-0"}>
         <CardContent className="p-0">
           <ItemGroup className="gap-0">
             {isPending

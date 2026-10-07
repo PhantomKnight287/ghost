@@ -22,25 +22,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { apiClient, unwrap } from "@/lib/api/client";
 import { DOCS_URL } from "@/lib/env";
-import { cn } from "@/lib/utils";
-
-export type SshKeysProps = {
-  className?: string;
-};
-
-type SshKey = {
-  id: string;
-  title: string;
-  type: string;
-  fingerprint: string;
-  lastUsedAt: string | null;
-  createdAt: string;
-};
 
 const QUERY_KEY = ["ssh-keys"];
 
 /** Keys that let this account fetch and push over SSH. Anyone holding the matching private key connects as this account, which is why the list shows when each one was last used. */
-export function SshKeys({ className }: SshKeysProps) {
+export function SshKeys() {
   const queryClient = useQueryClient();
   const [publicKey, setPublicKey] = useState("");
   const [title, setTitle] = useState("");
@@ -49,7 +35,7 @@ export function SshKeys({ className }: SshKeysProps) {
     queryKey: QUERY_KEY,
     queryFn: async () => {
       const data = await unwrap(apiClient.GET("/api/ssh-keys"));
-      return data.keys as SshKey[];
+      return data.keys;
     },
   });
 
@@ -98,7 +84,7 @@ export function SshKeys({ className }: SshKeysProps) {
     <div>
       <h2 className="mb-3 text-sm font-semibold">SSH keys</h2>
 
-      <Card className={cn("gap-0 p-0", className)}>
+      <Card className={"gap-0 p-0"}>
         <CardContent className="p-0">
           <ItemGroup className="gap-0!">
             {isPending ? (

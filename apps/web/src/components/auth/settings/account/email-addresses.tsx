@@ -27,18 +27,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { apiClient, unwrap } from "@/lib/api/client";
-import { cn } from "@/lib/utils";
-
-export type EmailAddressesProps = {
-  className?: string;
-};
-
-type UserEmail = {
-  id: string;
-  email: string;
-  verified: boolean;
-  primary: boolean;
-};
 
 const QUERY_KEY = ["emails"];
 
@@ -47,7 +35,7 @@ const QUERY_KEY = ["emails"];
  *
  * Adding one mails it a link; until that link is followed the address counts for nothing, which is why unverified rows say so and offer no actions.
  */
-export function EmailAddresses({ className }: EmailAddressesProps) {
+export function EmailAddresses() {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
 
@@ -57,7 +45,7 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
     queryKey: QUERY_KEY,
     queryFn: async () => {
       const data = await unwrap(apiClient.GET("/api/emails"));
-      return data.emails as UserEmail[];
+      return data.emails;
     },
   });
 
@@ -134,7 +122,7 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
       <h2 className="mb-3 text-sm font-semibold">Email addresses</h2>
 
       <TooltipProvider>
-        <Card className={cn("gap-0 p-0", className)}>
+        <Card className={"gap-0 p-0"}>
           <CardContent className="p-0">
             <ItemGroup className="gap-0!">
               {isPending ? (

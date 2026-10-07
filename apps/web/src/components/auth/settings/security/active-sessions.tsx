@@ -12,17 +12,12 @@ import {
   ItemSeparator,
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { ReauthenticationAction } from "../../reauthentication";
 import { ActiveSession } from "./active-session";
 import { SessionActions } from "./session-actions";
 
-export type ActiveSessionsProps = {
-  className?: string;
-};
-
 /** Render a card listing all active sessions for the current user with revoke controls. */
-export function ActiveSessions({ className }: ActiveSessionsProps) {
+export function ActiveSessions() {
   const { authClient, localization } = useAuth();
   const { data: session } = useSession(authClient);
 
@@ -41,7 +36,7 @@ export function ActiveSessions({ className }: ActiveSessionsProps) {
         {localization.settings.activeSessions}
       </h2>
 
-      <Card className={cn("gap-0 p-0", className)}>
+      <Card className={"gap-0 p-0"}>
         <CardContent className="p-0">
           {isReauthenticationRequiredError(error) ? (
             <ReauthenticationAction />

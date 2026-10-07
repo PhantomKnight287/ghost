@@ -21,19 +21,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { apiClient, unwrap } from "@/lib/api/client";
 import { DOCS_URL } from "@/lib/env";
-import { cn } from "@/lib/utils";
-
-export type GpgKeysProps = {
-  className?: string;
-};
-
-type GpgKey = {
-  id: string;
-  keyId: string;
-  fingerprint: string;
-  emails: string[];
-  createdAt: string;
-};
 
 const QUERY_KEY = ["gpg-keys"];
 
@@ -42,7 +29,7 @@ const QUERY_KEY = ["gpg-keys"];
  *
  * A key is only accepted once it carries an address the account has already verified, so the form points at the email settings when it is refused.
  */
-export function GpgKeys({ className }: GpgKeysProps) {
+export function GpgKeys() {
   const queryClient = useQueryClient();
   const [publicKey, setPublicKey] = useState("");
 
@@ -50,7 +37,7 @@ export function GpgKeys({ className }: GpgKeysProps) {
     queryKey: QUERY_KEY,
     queryFn: async () => {
       const data = await unwrap(apiClient.GET("/api/gpg-keys"));
-      return data.keys as GpgKey[];
+      return data.keys;
     },
   });
 
@@ -95,7 +82,7 @@ export function GpgKeys({ className }: GpgKeysProps) {
     <div>
       <h2 className="mb-3 text-sm font-semibold">GPG keys</h2>
 
-      <Card className={cn("gap-0 p-0", className)}>
+      <Card className={"gap-0 p-0"}>
         <CardContent className="p-0">
           <ItemGroup className="gap-0!">
             {isPending ? (

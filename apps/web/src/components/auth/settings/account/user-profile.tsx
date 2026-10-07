@@ -15,7 +15,6 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import {
   getAuthAdditionalFieldValidators,
   isAuthFormFieldInvalid,
@@ -23,12 +22,8 @@ import {
 } from "../../auth-form";
 import { ChangeAvatar } from "./change-avatar";
 
-export type UserProfileProps = {
-  className?: string;
-};
-
 /** Render a profile card that lets the authenticated user view and update their display name, username, and avatar. */
-export function UserProfile({ className }: UserProfileProps) {
+export function UserProfile() {
   const { additionalFields, authClient, localization } =
     useAuth<UsernameAuthClient>();
   const { data: session } = useSession(authClient);
@@ -78,7 +73,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
       <form.AppForm>
         <form.AuthFormRoot>
-          <Card className={cn(className)}>
+          <Card>
             <CardContent className="flex flex-col gap-6">
               <ChangeAvatar />
 
