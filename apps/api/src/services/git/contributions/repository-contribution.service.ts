@@ -37,11 +37,6 @@ interface PendingDay {
   commits: number;
 }
 
-/**
- * Keeps `repository_contribution` in step with a repository's default branch, so the profile contribution graph costs one indexed query instead of materializing and walking every repository the user owns.
- *
- * A cache of git, rebuilt from the object database whenever the stored position stops making sense. Only the default branch is indexed.
- */
 export interface IndexedContributor {
   authorEmail: string;
   /** Name from the author's newest indexed commit, preferring the account's. */
@@ -53,6 +48,7 @@ export interface IndexedContributor {
   lastCommittedAt: Date;
 }
 
+/** Keeps `repository_contribution` in step with a repository's default branch, so the contribution graph costs one indexed query; a cache of git, rebuilt whenever its stored position stops making sense. */
 @Injectable()
 export class RepositoryContributionService {
   private readonly logger = new Logger(RepositoryContributionService.name);

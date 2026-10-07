@@ -1,11 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { spawn, type ChildProcessByStdio } from 'node:child_process';
-import { PassThrough, Readable, type Writable } from 'node:stream';
+import { Readable, type Writable } from 'node:stream';
 import {
   protocolEnv,
   toGitBinary,
   type GitServiceName,
 } from '../../../lib/git/protocol/git-service.js';
+import { spawnPack } from '../../../lib/git/protocol/spawn-pack.js';
 
 interface StreamOptions {
   repoDirectory: string;
@@ -45,24 +46,13 @@ export class PackProcessService {
   }
 
   private spawnBinary({
-    repoDirectory,
-    input,
     service,
-    protocol,
+    ...options
   }: StreamOptions & { service: GitServiceName }): Readable {
-    const binary = toGitBinary(service);
-    const output = new PassThrough();
-    const child = spawn('git', [binary, '--stateless-rpc', repoDirectory], {
-      env: { ...process.env, ...protocolEnv(protocol) },
+    return spawnPack({
+      ...options,
+      service,
+      warn: (message) => this.logger.warn(message),
     });
-
-    input.pipe(child.stdin);
-    child.stdout.pipe(output);
-    child.stderr.on('data', (chunk: Buffer) =>
-      this.logger.warn(`${binary} stderr: ${chunk.toString()}`),
-    );
-    child.on('error', (error) => output.destroy(error));
-
-    return output;
   }
 }
