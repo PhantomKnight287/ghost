@@ -13,12 +13,8 @@ import { SignOut } from "./sign-out";
 import { SignUp } from "./sign-up";
 import { VerifyEmail } from "./verify-email";
 
-export type AuthProps = {
-  className?: string;
-};
-
 // signIn has no entry: the username plugin always supplies it.
-const AUTH_VIEWS: Partial<Record<AuthView, ComponentType<AuthProps>>> = {
+const AUTH_VIEWS: Partial<Record<AuthView, ComponentType>> = {
   callback: AuthCallback,
   error: AuthError,
   redirect: AuthRedirect,

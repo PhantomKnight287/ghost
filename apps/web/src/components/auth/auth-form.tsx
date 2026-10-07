@@ -60,7 +60,7 @@ function focusFirstInvalidAuthFormControl(form: HTMLFormElement) {
 
 function AuthFormFieldError() {
   const field = useFieldContext<unknown>();
-  const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+  const isInvalid = isAuthFormFieldInvalid(field.state.meta);
 
   if (!isInvalid) return null;
 
@@ -101,17 +101,14 @@ function clearAuthFormFieldServerError(form: AnyFormApi, fieldName: string) {
   }));
 }
 
-async function submitAuthForm(
-  form: AnyFormApi,
-  serverErrorMessage = DEFAULT_AUTH_FORM_SERVER_ERROR,
-) {
+async function submitAuthForm(form: AnyFormApi) {
   clearAuthFormServerError(form);
   try {
     await form.handleSubmit();
     return form.state.isValid;
   } catch (error) {
     if (!form.state.errorMap.onServer) {
-      setAuthFormServerError(form, error, serverErrorMessage);
+      setAuthFormServerError(form, error, DEFAULT_AUTH_FORM_SERVER_ERROR);
     }
     return false;
   }
@@ -119,14 +116,12 @@ async function submitAuthForm(
 
 type AuthFormRootProps = Omit<ComponentProps<"form">, "onSubmit"> & {
   onBeforeSubmit?: () => void;
-  serverErrorMessage?: string;
 };
 
 function AuthFormRoot({
   children,
   onBeforeSubmit,
   onInput,
-  serverErrorMessage = DEFAULT_AUTH_FORM_SERVER_ERROR,
   ...props
 }: AuthFormRootProps) {
   const form = useFormContext();
@@ -140,7 +135,7 @@ function AuthFormRoot({
     onBeforeSubmit?.();
     submittingRef.current = true;
     try {
-      const isValid = await submitAuthForm(form, serverErrorMessage);
+      const isValid = await submitAuthForm(form);
       if (!isValid) focusFirstInvalidAuthFormControl(formElement);
     } finally {
       submittingRef.current = false;
