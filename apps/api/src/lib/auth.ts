@@ -167,6 +167,7 @@ async function assertEmailAvailable(
 const RESERVED_NAMES = new Set([
   'api',
   'auth',
+  'changelog',
   'dashboard',
   'search',
   'settings',
