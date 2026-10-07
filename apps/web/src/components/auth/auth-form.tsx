@@ -172,11 +172,14 @@ type AuthFormTextFieldProps = Omit<
 > & {
   description?: ReactNode;
   label: ReactNode;
+  /** Shows a skeleton in place of the input while what the form acts on loads. */
+  isLoading?: boolean;
 };
 
 function AuthFormTextField({
   description,
   id,
+  isLoading,
   label,
   ...props
 }: AuthFormTextFieldProps) {
@@ -188,19 +191,25 @@ function AuthFormTextField({
   return (
     <Field data-invalid={isInvalid}>
       <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
-      <Input
-        {...props}
-        aria-busy={field.state.meta.isValidating || undefined}
-        aria-invalid={isInvalid}
-        id={inputId}
-        name={field.name}
-        onBlur={field.handleBlur}
-        onChange={(event) => {
-          clearAuthFormFieldServerError(form, field.name);
-          field.handleChange(event.target.value);
-        }}
-        value={field.state.value}
-      />
+      {isLoading ? (
+        <Skeleton>
+          <Input className="invisible" />
+        </Skeleton>
+      ) : (
+        <Input
+          {...props}
+          aria-busy={field.state.meta.isValidating || undefined}
+          aria-invalid={isInvalid}
+          id={inputId}
+          name={field.name}
+          onBlur={field.handleBlur}
+          onChange={(event) => {
+            clearAuthFormFieldServerError(form, field.name);
+            field.handleChange(event.target.value);
+          }}
+          value={field.state.value}
+        />
+      )}
       {description ? <FieldDescription>{description}</FieldDescription> : null}
       <AuthFormFieldError />
     </Field>

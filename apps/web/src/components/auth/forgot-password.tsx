@@ -8,15 +8,9 @@ import {
 } from "@better-auth-ui/react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { FieldDescription, FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { isAuthFormFieldInvalid, useAuthForm } from "./auth-form";
+import { useAuthForm } from "./auth-form";
 import { RESET_LINK_SENT_STORAGE_KEY } from "./reset-link-sent";
 
 /** Render a card-based "Forgot Password" form that sends a password-reset email. */
@@ -82,32 +76,16 @@ export function ForgotPassword() {
                     }),
                 }}
               >
-                {(field) => {
-                  const isInvalid = isAuthFormFieldInvalid(field.state.meta);
-                  return (
-                    <Field data-invalid={isInvalid}>
-                      <FieldLabel htmlFor="email">
-                        {localization.auth.email}
-                      </FieldLabel>
-                      <Input
-                        id="email"
-                        name={field.name}
-                        type="email"
-                        autoComplete="email"
-                        placeholder={localization.auth.emailPlaceholder}
-                        required
-                        disabled={isPending}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        aria-invalid={isInvalid}
-                      />
-                      <field.AuthFormFieldError />
-                    </Field>
-                  );
-                }}
+                {(field) => (
+                  <field.AuthFormTextField
+                    label={localization.auth.email}
+                    type="email"
+                    autoComplete="email"
+                    placeholder={localization.auth.emailPlaceholder}
+                    required
+                    disabled={isPending}
+                  />
+                )}
               </form.AppField>
 
               <div className="flex flex-col gap-3">
