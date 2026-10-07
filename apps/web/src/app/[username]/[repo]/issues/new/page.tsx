@@ -1,9 +1,5 @@
 import { CreateIssueForm } from "./create-issue-form";
-import {
-  createServerClient,
-  requireViewer,
-  notFoundIfHidden,
-} from "@/lib/api/server";
+import { createServerClient, requireViewer } from "@/lib/api/server";
 
 export default async function NewIssuePage({
   params,
@@ -15,17 +11,13 @@ export default async function NewIssuePage({
     createServerClient(),
   ]);
 
-  const [repository, labels] = await Promise.all([
-    client.GET("/api/repositories/{username}/{slug}", {
-      params: { path: { username, slug: repo } },
-    }),
-    client.GET("/api/repositories/{username}/{repo}/labels", {
+  // The repository layout already 404s a repository the viewer cannot see.
+  const labels = await client.GET(
+    "/api/repositories/{username}/{repo}/labels",
+    {
       params: { path: { username, repo } },
-    }),
-  ]);
-
-  notFoundIfHidden(repository.response);
-  if (!repository.data) throw new Error(`Failed to load ${username}/${repo}`);
+    },
+  );
 
   return (
     <div className="flex flex-col gap-4">

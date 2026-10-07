@@ -1,7 +1,11 @@
 import { atLeast } from "@ghost/permissions";
 import type { Metadata } from "next";
 
-import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
+import {
+  createServerClient,
+  getViewerRole,
+  notFoundIfHidden,
+} from "@/lib/api/server";
 
 import { BranchList } from "./branch-list";
 import { CreateBranchDialog } from "./create-branch-dialog";
@@ -25,10 +29,8 @@ export default async function BranchesPage({
   const { username, repo } = await params;
 
   const client = await createServerClient();
-  const [repository, branches] = await Promise.all([
-    client.GET("/api/repositories/{username}/{slug}", {
-      params: { path: { username, slug: repo } },
-    }),
+  const [role, branches] = await Promise.all([
+    getViewerRole(username, repo),
     client.GET("/api/repositories/{username}/{slug}/branches", {
       params: { path: { username, slug: repo } },
     }),
@@ -39,7 +41,7 @@ export default async function BranchesPage({
     throw new Error(`Failed to list branches of ${username}/${repo}`);
   }
   const { defaultBranch } = branches.data;
-  const canWrite = atLeast(repository.data?.viewerRole ?? null, "write");
+  const canWrite = atLeast(role, "write");
 
   return (
     <div className="flex flex-col gap-4">
