@@ -118,7 +118,7 @@ export class ImportsService {
     const repository = await this.access.authorize({
       username,
       repo,
-      requesterId: requesterId,
+      requesterId,
       operation: 'admin',
     });
     if (!(await githubAccountIdOf(this.db, requesterId))) {

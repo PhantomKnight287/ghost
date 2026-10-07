@@ -92,8 +92,8 @@ import {
   UnrelatedRepositoriesError,
 } from '../../lib/pull-requests/pull-requests.errors.js';
 import { withTempDir } from '../../lib/temp-dir.js';
-import { atLeast } from '@ghost/permissions';
 import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
+import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 
 // Number, title, body and author live on the issue a request is attached to.
 const pullRequestColumns = {
@@ -385,10 +385,11 @@ export class PullRequestsService {
       additions: files.reduce((total, file) => total + file.additions, 0),
       deletions: files.reduce((total, file) => total + file.deletions, 0),
       mergeable: !pullRequest.draft && merge !== null && merge.clean,
-      viewerCanEdit:
-        params.requesterId !== undefined &&
-        (params.requesterId === pullRequest.authorId ||
-          atLeast(git.base.viewerRole, 'write')),
+      viewerCanEdit: canEditThread(
+        pullRequest.authorId,
+        params.requesterId,
+        git.base.viewerRole,
+      ),
       conflicts: merge?.conflicts ?? [],
       pullRefsBlocked: pullRequest.pullRefsBlocked,
       squash: merge ? await this.squashMessage({ ...git, pullRequest }) : null,
@@ -526,7 +527,7 @@ export class PullRequestsService {
     );
     const { mergeBase } = git;
     if (!mergeBase) throw new UnrelatedHistoriesError();
-    if (git.mergeBase === git.headSha) throw new NothingToMergeError();
+    if (mergeBase === git.headSha) throw new NothingToMergeError();
 
     const method = params.method ?? 'merge';
     const merger = await this.users.getUserById(params.requesterId);
@@ -1036,7 +1037,7 @@ export class PullRequestsService {
     return this.access.authorize({
       username: owner,
       repo: related.slug,
-      requesterId: requesterId,
+      requesterId,
       operation: 'read',
     });
   }

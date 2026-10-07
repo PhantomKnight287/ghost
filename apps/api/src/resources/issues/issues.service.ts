@@ -30,7 +30,6 @@ import {
   type Repository,
   type RepositoryOperation,
 } from '../../lib/repositories/access/repository-access.js';
-import { atLeast } from '@ghost/permissions';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
@@ -54,6 +53,7 @@ import {
   LabelNotFoundError,
 } from '../../lib/issues/issues.errors.js';
 import { touchIssue } from '../../lib/issues/touch-issue.js';
+import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 
 const NO_ISSUES = {
   issues: [],
@@ -1222,7 +1222,7 @@ export class IssuesService {
       closedAt: issueRow.closedAt?.toISOString() ?? null,
       createdAt: issueRow.createdAt.toISOString(),
       updatedAt: issueRow.updatedAt.toISOString(),
-      viewerCanEdit: canEditIssue(issueRow, requesterId, viewerRole),
+      viewerCanEdit: canEditThread(issueRow.authorId, requesterId, viewerRole),
     }));
   }
 
@@ -1362,13 +1362,4 @@ function decodeCommentCursor(cursor: string) {
   } catch {
     return null;
   }
-}
-
-function canEditIssue(
-  issueRow: Issue,
-  requesterId: string | undefined,
-  viewerRole: Role | null,
-) {
-  if (!requesterId) return false;
-  return requesterId === issueRow.authorId || atLeast(viewerRole, 'write');
 }

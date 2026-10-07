@@ -66,7 +66,7 @@ export class WebhooksService {
     const repository = await this.access.authorize({
       username,
       repo,
-      requesterId: requesterId,
+      requesterId,
       operation: 'admin',
     });
     return { repositoryId: repository.id, name: `${username}/${repo}` };

@@ -244,7 +244,7 @@ export class NotificationsService {
     return this.access.authorize({
       username,
       repo,
-      requesterId: requesterId,
+      requesterId,
       operation: 'read',
     });
   }
