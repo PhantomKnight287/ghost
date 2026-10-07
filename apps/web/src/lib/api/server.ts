@@ -75,14 +75,28 @@ export const getViewerRole = cache(async (username: string, slug: string) => {
   return data?.viewerRole ?? null;
 });
 
-/** Slugs of the organizations the viewer administers, where they may create, fork and transfer repositories to. */
-export const getAdminOrganizations = cache(async () => {
+/** The organizations the viewer belongs to, fetched once per render however many components ask. */
+const getViewerOrganizations = cache(async () => {
   const client = await createServerClient();
   const { data } = await client.GET("/api/organizations");
-  return (data?.organizations ?? [])
-    .filter((organization) => administers(organization.viewerRole))
-    .map((organization) => organization.slug);
+  return data?.organizations ?? [];
 });
+
+/** Slugs of the organizations the viewer administers, where they may create, fork and transfer repositories to. */
+export const getAdminOrganizations = cache(async () =>
+  (await getViewerOrganizations())
+    .filter((organization) => administers(organization.viewerRole))
+    .map((organization) => organization.slug),
+);
+
+/** The viewer's role in an organization, or null outside it. */
+export async function getOrganizationRole(slug: string) {
+  return (
+    (await getViewerOrganizations()).find(
+      (organization) => organization.slug === slug,
+    )?.viewerRole ?? null
+  );
+}
 
 /** Branch names of a repository, fetched once per render however many components ask. */
 export const getBranchNames = cache(async (username: string, slug: string) => {
