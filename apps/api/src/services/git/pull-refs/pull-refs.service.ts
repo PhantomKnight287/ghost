@@ -1,5 +1,3 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -33,6 +31,7 @@ import {
 } from '../../../lib/storage/storage.errors.js';
 import { errorMessage } from '../../../lib/error-message.js';
 import { Coalescer } from '../../../lib/coalescer.js';
+import { withTempDir } from '../../../lib/temp-dir.js';
 
 // Each lost race re-reads the log, so this only runs out when the base is being pushed to faster than a merge-tree.
 const MAX_ATTEMPTS = 3;
@@ -204,8 +203,7 @@ export class PullRefsService {
       return;
     }
 
-    const directory = await mkdtemp(path.join(tmpdir(), 'ghost-pull-refs-'));
-    try {
+    await withTempDir('ghost-pull-refs-', async (directory) => {
       // Everything the base log names is already in it, the old pull refs included, so the entry carries only what the fork added since the last sync.
       const pack = await packRange({
         gitDir: baseDirectory,
@@ -258,9 +256,7 @@ export class PullRefsService {
             throw error;
           await this.block(pullRequestId, error.message);
         });
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
+    });
   }
 
   private pendingWrites(pullRequestId: string) {

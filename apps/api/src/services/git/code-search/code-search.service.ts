@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createReadStream } from 'node:fs';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { CodeSearchUnavailableError } from '../../../lib/git/code-search/code-search.errors.js';
@@ -18,6 +17,7 @@ import { isNotFound } from '../../../lib/s3/s3.errors.js';
 import { S3Service } from '../../s3/s3.service.js';
 import { errorMessage } from '../../../lib/error-message.js';
 import { Coalescer } from '../../../lib/coalescer.js';
+import { withTempDir } from '../../../lib/temp-dir.js';
 
 // The search node mirrors this prefix into its index directory, so nothing but shards may live under it.
 const SHARD_PREFIX = 'zoekt/';
@@ -143,8 +143,7 @@ export class CodeSearchService {
     const stamp = await this.unpublishedStamp(target);
     if (!stamp) return;
 
-    const indexDir = await mkdtemp(path.join(tmpdir(), 'ghost-zoekt-'));
-    try {
+    await withTempDir('ghost-zoekt-', async (indexDir) => {
       const shards = await indexRepository({
         indexDir,
         repoDirectory: target.repoDirectory,
@@ -172,9 +171,7 @@ export class CodeSearchService {
         Key: `${MARKER_PREFIX}${target.repositoryId}`,
         Body: stamp,
       });
-    } finally {
-      await rm(indexDir, { recursive: true, force: true });
-    }
+    });
 
     this.published.set(target.repositoryId, stamp);
     this.logger.log(

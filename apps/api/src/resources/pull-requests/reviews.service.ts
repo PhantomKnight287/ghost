@@ -1,6 +1,4 @@
 import { type Database, schema } from '@ghost/db';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm';
@@ -49,6 +47,7 @@ import {
   PullRequestsService,
 } from './pull-requests.service.js';
 import { touchIssue } from '../../lib/issues/touch-issue.js';
+import { withTempDir } from '../../lib/temp-dir.js';
 
 type Opened = Awaited<ReturnType<PullRequestsService['open']>>;
 type Loaded = Awaited<ReturnType<PullRequestsService['load']>>;
@@ -533,8 +532,7 @@ export class ReviewsService {
       sign: this.signing.signer,
     });
 
-    const directory = await mkdtemp(path.join(tmpdir(), 'ghost-suggestion-'));
-    try {
+    await withTempDir('ghost-suggestion-', async (directory) => {
       const pack = await packRange({
         gitDir: git.headDirectory,
         include: [commitSha],
@@ -564,9 +562,7 @@ export class ReviewsService {
         transitions,
         pushedBy: params.requesterId,
       });
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
+    });
 
     await this.db
       .update(schema.repository)

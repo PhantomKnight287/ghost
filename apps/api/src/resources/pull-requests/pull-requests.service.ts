@@ -1,5 +1,3 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
@@ -91,6 +89,7 @@ import {
   UnrelatedHistoriesError,
   UnrelatedRepositoriesError,
 } from './pull-requests.errors.js';
+import { withTempDir } from '../../lib/temp-dir.js';
 
 // Number, title, body and author live on the issue a request is attached to.
 const pullRequestColumns = {
@@ -511,7 +510,8 @@ export class PullRequestsService {
       base,
       pullRequest.headRepositoryId!,
     );
-    if (!git.mergeBase) throw new UnrelatedHistoriesError();
+    const { mergeBase } = git;
+    if (!mergeBase) throw new UnrelatedHistoriesError();
     if (git.mergeBase === git.headSha) throw new NothingToMergeError();
 
     const method = params.method ?? 'merge';
@@ -529,8 +529,7 @@ export class PullRequestsService {
     // A rebase drops merge commits, so a head made only of them replays to nothing.
     if (mergeCommitSha === git.baseSha) throw new NothingToMergeError();
 
-    const directory = await mkdtemp(path.join(tmpdir(), 'ghost-merge-'));
-    try {
+    return await withTempDir('ghost-merge-', async (directory) => {
       // The pull head ref is in the base log, so whatever it reaches was already written there by the last sync and only the merge itself is new.
       const pulledHead = await resolveCommit(
         git.baseDirectory,
@@ -556,7 +555,7 @@ export class PullRequestsService {
               await lfsPointersIn({
                 gitDir: git.headDirectory,
                 include: [git.headSha],
-                exclude: [git.mergeBase],
+                exclude: [mergeBase],
               }),
             );
       await this.lfs.copy(lfsObjects, git.head.id, base.id);
@@ -676,9 +675,7 @@ export class PullRequestsService {
       });
 
       return { mergeCommitSha, seq };
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
+    });
   }
 
   /** A merge commit on top of the base tip, or with `squash` the same tree as a single-parent commit credited to the request's author. */

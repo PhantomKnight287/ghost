@@ -1,8 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
 import { and, eq } from 'drizzle-orm';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { DATABASE } from '../../../database/database.module.js';
@@ -16,6 +14,7 @@ import {
 import { excluded } from '../../../utils/index.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
+import { withTempDir } from '../../../lib/temp-dir.js';
 
 const INSERT_CHUNK = 1_000;
 
@@ -393,8 +392,7 @@ async function readAttributes(
   const attributes = new Map<string, LinguistAttributes>();
   if (files.length === 0) return attributes;
 
-  const directory = await mkdtemp(path.join(tmpdir(), 'ghost-attributes-'));
-  try {
+  await withTempDir('ghost-attributes-', async (directory) => {
     const env = { GIT_INDEX_FILE: path.join(directory, 'index') };
     await runGit({ args: ['read-tree', tree], gitDir, env });
     const output = await runGit({
@@ -414,9 +412,7 @@ async function readAttributes(
         [name]: value,
       });
     }
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+  });
 
   return attributes;
 }

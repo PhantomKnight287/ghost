@@ -1,5 +1,3 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
@@ -40,6 +38,7 @@ import {
   ReleaseNotFoundError,
   TagTargetNotFoundError,
 } from './releases.errors.js';
+import { withTempDir } from '../../lib/temp-dir.js';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -301,8 +300,7 @@ export class ReleasesService {
       tagger,
     });
 
-    const scratch = await mkdtemp(path.join(tmpdir(), 'ghost-tag-'));
-    try {
+    await withTempDir('ghost-tag-', async (scratch) => {
       const pack = await packRange({
         gitDir: directory,
         include: [oid],
@@ -322,9 +320,7 @@ export class ReleasesService {
         packOffset: 0,
         pushedBy: requesterId,
       });
-    } finally {
-      await rm(scratch, { recursive: true, force: true });
-    }
+    });
   }
 
   private ownRelease(repository: AuthorizedRepository, id: string) {

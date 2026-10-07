@@ -1,6 +1,5 @@
 import { once } from 'node:events';
-import { mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
@@ -9,6 +8,7 @@ import { runGit, runGitStream } from '../exec/run-git.js';
 import { type RefTransition, ZERO_OID } from '../wal/wal.types.js';
 import { fileBody, type GitRequestBody } from './git-request-body.js';
 import { PushRejectedError } from './protocol.errors.js';
+import { withTempDir } from '../../temp-dir.js';
 
 /**
  * Proves a push can be replayed by a node holding only the log, then hands `commit` the pack the log should store (0034).
@@ -36,8 +36,7 @@ export async function withVerifiedPack<T>(
     return commit({ body, packOffset });
   }
 
-  const quarantine = await mkdtemp(path.join(tmpdir(), 'ghost-quarantine-'));
-  try {
+  return await withTempDir('ghost-quarantine-', async (quarantine) => {
     await mkdir(path.join(quarantine, 'pack'));
     // ponytail: the pack is indexed here and again by receive-pack once the log commits it. Move this index into the cache instead if large pushes show it.
     await runGit({
@@ -56,9 +55,7 @@ export async function withVerifiedPack<T>(
       body: fileBody(indexed, (await stat(indexed)).size),
       packOffset: 0,
     });
-  } finally {
-    await rm(quarantine, { recursive: true, force: true });
-  }
+  });
 }
 
 /** Every new ref names an object the repository or the push holds, a branch names a commit, and whatever the refs reach beyond the existing refs arrived in the push itself. */
