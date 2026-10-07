@@ -24,6 +24,7 @@ import { IssuesModule } from './resources/issues/issues.module.js';
 import { OrganizationsModule } from './resources/organizations/organizations.module.js';
 import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
 import { AvatarsModule } from './avatars/avatars.module.js';
+import { AttachmentsModule } from './resources/attachments/attachments.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { ReleasesModule } from './resources/releases/releases.module.js';
 import { BranchesModule } from './resources/branches/branches.module.js';
@@ -104,6 +105,7 @@ import { UsersService } from './services/users/users.service.js';
     IssuesModule,
     ImportsModule,
     ReleasesModule,
+    AttachmentsModule,
     BranchesModule,
     NotificationsModule,
     CollaboratorsModule,

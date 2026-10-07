@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/markdown-editor/markdown-editor";
 import type {
   PullRequestReview,
   ReviewThread as ReviewThreadData,
@@ -263,12 +263,12 @@ function ReplyBox({
         reply.execute({ username, repo, number, commentId, body });
       }}
     >
-      <Textarea
+      <MarkdownEditor
         value={body}
-        onChange={(event) => setBody(event.target.value)}
+        onChange={setBody}
+        repository={{ username, repo }}
         rows={3}
-        maxLength={20000}
-        placeholder="Reply. Markdown is supported."
+        placeholder="Reply"
         autoFocus
         disabled={reply.isExecuting}
       />

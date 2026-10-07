@@ -105,6 +105,7 @@ export default async function IssuePage({
           repo={repo}
           number={Number(number)}
           assignees={issue.data.assignees}
+          viewer={viewer}
           canEdit={canTriage}
         />
       </aside>

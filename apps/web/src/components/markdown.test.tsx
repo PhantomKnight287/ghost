@@ -21,6 +21,14 @@ function render(
 const REPOSITORY = { username: "me", repo: "app" };
 
 describe("Markdown", () => {
+  it("hands a fenced block with a language to the highlighter, without its trailing newline, and leaves other code as written", () => {
+    expect(render("```ts\nconst a = 1;\n```")).toBe(
+      "<pre><code>const a = 1;</code></pre>",
+    );
+    expect(render("```\nplain\n```")).toBe("<pre><code>plain\n</code></pre>");
+    expect(render("`inline`")).toBe("<p><code>inline</code></p>");
+  });
+
   it("turns GitHub emoji shortcodes into emoji, outside code", () => {
     expect(render("Ship it :ship: :+1:")).toBe("<p>Ship it 🚢 👍</p>");
     expect(render("`:ship:`")).toBe("<p><code>:ship:</code></p>");

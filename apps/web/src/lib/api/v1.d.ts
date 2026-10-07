@@ -542,7 +542,7 @@ export interface paths {
         };
         /**
          * Storage usage of an account
-         * @description Bytes the signed-in user's own account, or an organization they belong to, keeps against each of its quotas: pushed git data and merged pull requests' heads, Git LFS objects, release assets, and forks, which hold all three under one quota.
+         * @description Bytes the signed-in user's own account, or an organization they belong to, keeps against each of its quotas: pushed git data and merged pull requests' heads, Git LFS objects, release assets and the user's attachments, and forks, which hold everything but attachments under one quota.
          */
         get: operations["StorageController_getStorageUsage"];
         put?: never;
@@ -1381,6 +1381,46 @@ export interface paths {
         patch: operations["LabelsController_updateLabel"];
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/suggestions/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest people to mention or assign
+         * @description Up to eight users whose username starts with `q`, people involved in the repository first.
+         */
+        get: operations["SuggestionsController_suggestUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/suggestions/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest issues and pull requests to reference
+         * @description Up to eight, newest first, whose number starts with `q` or whose title contains it.
+         */
+        get: operations["SuggestionsController_suggestIssues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports/github": {
         parameters: {
             query?: never;
@@ -1624,6 +1664,46 @@ export interface paths {
          * @description Needs write access.
          */
         delete: operations["ReleaseAssetsController_deleteReleaseAsset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach a file
+         * @description Needs read access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`. Embed the file by linking `/api/attachments/{id}` in an issue, pull request, comment or release; one no text in the repository mentions is removed after a day. The file counts against the uploader's asset quota, when the instance sets one.
+         */
+        post: operations["AttachmentsController_uploadAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download an attachment
+         * @description Readable by anyone who can read the repository it was attached in. Images are served inline, anything else as a download.
+         */
+        get: operations["AttachmentsController_downloadAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2922,7 +3002,7 @@ export interface components {
             quotaBytes: number | null;
         };
         StorageUsageDTO: {
-            /** @description Bytes of pushed git data and merged pull requests' heads in repositories that are not forks, leaving out Git LFS objects and release assets. */
+            /** @description Bytes of pushed git data and merged pull requests' heads in repositories that are not forks, leaving out Git LFS objects, release assets and attachments. */
             usedBytes: number;
             /** @description `null` when no quota applies. */
             quotaBytes: number | null;
@@ -2932,7 +3012,7 @@ export interface components {
             fork: components["schemas"]["StorageLimitUsageDTO"];
             /** @description Git LFS objects in repositories that are not forks. */
             lfs: components["schemas"]["StorageLimitUsageDTO"];
-            /** @description Release assets in repositories that are not forks, including uploads in progress. */
+            /** @description Release assets in repositories that are not forks, and for a user, files they attached to issues, pull requests and comments anywhere. Includes uploads in progress. */
             asset: components["schemas"]["StorageLimitUsageDTO"];
         };
         /**
@@ -3597,6 +3677,23 @@ export interface components {
             /** @example d73a4a */
             color?: string;
         };
+        SuggestedUserDTO: {
+            username: string;
+            name: string;
+            image: string | null;
+        };
+        SuggestedUsersResponseDTO: {
+            users: components["schemas"]["SuggestedUserDTO"][];
+        };
+        SuggestedIssueDTO: {
+            number: number;
+            title: string;
+            state: components["schemas"]["IssueState"];
+            isPullRequest: boolean;
+        };
+        SuggestedIssuesResponseDTO: {
+            issues: components["schemas"]["SuggestedIssueDTO"][];
+        };
         GitHubImportStatusDTO: {
             /** @description Whether this instance can import from GitHub at all. */
             enabled: boolean;
@@ -3708,6 +3805,14 @@ export interface components {
             /** @description Publishing a draft stamps `publishedAt` the first time. */
             isDraft?: boolean;
             isPrerelease?: boolean;
+        };
+        AttachmentDTO: {
+            id: string;
+            /** @example screenshot.png */
+            name: string;
+            /** @example image/png */
+            contentType: string;
+            size: number;
         };
         CreateBranchRequestDTO: {
             /**
@@ -7445,6 +7550,72 @@ export interface operations {
             };
         };
     };
+    SuggestionsController_suggestUsers: {
+        parameters: {
+            query?: {
+                /** @description What has been typed so far. Empty suggests the people or issues most likely meant. */
+                q?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestedUsersResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SuggestionsController_suggestIssues: {
+        parameters: {
+            query?: {
+                /** @description What has been typed so far. Empty suggests the people or issues most likely meant. */
+                q?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestedIssuesResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     ImportsController_githubStatus: {
         parameters: {
             query?: never;
@@ -8006,6 +8177,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AttachmentsController_uploadAttachment: {
+        parameters: {
+            query: {
+                /** @description File name, whose extension decides what the file is served as. */
+                name: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentDTO"];
+                };
+            };
+            /** @description The file name is not a plain file name. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The file is over the per-file limit, or would take the uploader over their storage quota. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The body was not sent as `application/octet-stream`, or files with this extension cannot be attached. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AttachmentsController_downloadAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             404: {

@@ -19,9 +19,9 @@ import {
   updateReviewComment,
   updateReviewSummary,
 } from "@/components/pull-requests/actions";
+import { MarkdownEditor } from "@/components/markdown-editor/markdown-editor";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 
 export function CommentBox({
   username,
@@ -91,12 +91,11 @@ export function CommentBox({
         comment.execute({ username, repo, number, body });
       }}
     >
-      <Textarea
+      <MarkdownEditor
         value={body}
-        onChange={(event) => setBody(event.target.value)}
-        rows={4}
-        maxLength={20000}
-        placeholder="Leave a comment. Markdown is supported."
+        onChange={setBody}
+        repository={{ username, repo }}
+        placeholder="Leave a comment"
         disabled={comment.isExecuting}
       />
 
@@ -262,11 +261,10 @@ export function CommentItem({
               });
             }}
           >
-            <Textarea
+            <MarkdownEditor
               value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              rows={4}
-              maxLength={20000}
+              onChange={setDraft}
+              repository={{ username, repo }}
               autoFocus
               disabled={update.isExecuting}
             />

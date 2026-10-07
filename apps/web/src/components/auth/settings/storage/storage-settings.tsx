@@ -53,7 +53,7 @@ export function StorageSettings(props: {
           usedBytes: data.usedBytes,
           quotaBytes: data.quotaBytes,
           counts:
-            "Pushed git data and the heads of pull requests merged into the account's repositories. Git LFS objects, release assets and forks count separately.",
+            "Pushed git data and the heads of pull requests merged into the account's repositories. Git LFS objects, release assets, attachments and forks count separately.",
           over: "Pushes that add data are refused, and pull requests stop merging into the account's repositories. Pushes that only delete branches or tags still work.",
         },
         {
@@ -64,14 +64,24 @@ export function StorageSettings(props: {
             "Git LFS objects uploaded to repositories that are not forks.",
           over: "New LFS uploads are refused, so a push carrying new LFS files fails. Objects already stored can still be downloaded.",
         },
-        {
-          title: "Release assets",
-          usedBytes: data.asset.usedBytes,
-          quotaBytes: data.asset.quotaBytes,
-          counts:
-            "Files attached to releases in repositories that are not forks.",
-          over: "New release asset uploads are refused. Releases themselves, and assets already uploaded, are unaffected.",
-        },
+        // A person also pays for the files they attach to issues and comments, wherever they post them; an organization never uploads any.
+        props.owner
+          ? {
+              title: "Release assets",
+              usedBytes: data.asset.usedBytes,
+              quotaBytes: data.asset.quotaBytes,
+              counts:
+                "Files attached to releases in repositories that are not forks.",
+              over: "New release asset uploads are refused. Releases themselves, and assets already uploaded, are unaffected.",
+            }
+          : {
+              title: "Release assets and attachments",
+              usedBytes: data.asset.usedBytes,
+              quotaBytes: data.asset.quotaBytes,
+              counts:
+                "Files attached to releases in your repositories that are not forks, and files you attached to issues, pull requests and comments in any repository.",
+              over: "New release asset uploads and attachments are refused. Releases, comments and files already uploaded are unaffected.",
+            },
         {
           title: "Forks",
           usedBytes: data.fork.usedBytes,
@@ -129,8 +139,9 @@ export function StorageSettings(props: {
 
       <p className="mt-2 text-xs text-muted-foreground">
         Usage includes uploads still in progress. Deleting repositories or
-        release assets frees space; deleting branches does not, since pushed
-        data stays in the repository's history.
+        release assets frees space, as does removing an attachment from every
+        comment that shows it, a day later; deleting branches does not, since
+        pushed data stays in the repository&apos;s history.
       </p>
     </div>
   );

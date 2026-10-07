@@ -94,47 +94,50 @@ export default async function PullRequestLayout({
           </h1>
         </EditableField>
 
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <Badge
-            className={cn(
-              "gap-1.5 rounded-full capitalize",
-              state === "merged" && "bg-violet-600 text-white",
-              state === "closed" && "bg-red-600 text-white",
-              state === "open" && "bg-emerald-600 text-white",
-            )}
-          >
-            <Icon className="size-3.5" />
-            {state}
-          </Badge>
-          {pull.data.draft && state === "open" && (
-            <Badge variant="outline" className="rounded-full">
-              Draft
+        <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-start">
+          {/* the text wraps beside the buttons rather than pushing them onto a line of their own */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <Badge
+              className={cn(
+                "gap-1.5 rounded-full capitalize",
+                state === "merged" && "bg-violet-600 text-white",
+                state === "closed" && "bg-red-600 text-white",
+                state === "open" && "bg-emerald-600 text-white",
+              )}
+            >
+              <Icon className="size-3.5" />
+              {state}
             </Badge>
-          )}
+            {pull.data.draft && state === "open" && (
+              <Badge variant="outline" className="rounded-full">
+                Draft
+              </Badge>
+            )}
 
-          <span>
-            <UserLink
-              username={pull.data.authorUsername}
-              image={pull.data.authorImage}
-              avatar="xs"
-              className="align-middle"
-            />{" "}
-            wants to merge {pull.data.commitCount} commit
-            {pull.data.commitCount === 1 ? "" : "s"} into{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
-              {branchLabel(base, head)}
-            </code>{" "}
-            from{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
-              {branchLabel(head, base)}
-            </code>
-          </span>
+            <span>
+              <UserLink
+                username={pull.data.authorUsername}
+                image={pull.data.authorImage}
+                avatar="xs"
+                className="align-middle"
+              />{" "}
+              wants to merge {pull.data.commitCount} commit
+              {pull.data.commitCount === 1 ? "" : "s"} into{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 text-xs break-all">
+                {branchLabel(base, head)}
+              </code>{" "}
+              from{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 text-xs break-all">
+                {branchLabel(head, base)}
+              </code>
+            </span>
 
-          <span>
-            · opened <FromNowHoverCard date={pull.data.createdAt} />
-          </span>
+            <span>
+              · opened <FromNowHoverCard date={pull.data.createdAt} />
+            </span>
+          </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <CheckoutPopover
               username={username}
               repo={repo}

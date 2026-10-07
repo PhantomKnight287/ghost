@@ -2046,7 +2046,7 @@
     },
     "/api/storage/{owner}": {
       "get": {
-        "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps against each of its quotas: pushed git data and merged pull requests' heads, Git LFS objects, release assets, and forks, which hold all three under one quota.",
+        "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps against each of its quotas: pushed git data and merged pull requests' heads, Git LFS objects, release assets and the user's attachments, and forks, which hold everything but attachments under one quota.",
         "operationId": "StorageController_getStorageUsage",
         "parameters": [
           {
@@ -5921,6 +5921,124 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/suggestions/users": {
+      "get": {
+        "description": "Up to eight users whose username starts with `q`, people involved in the repository first.",
+        "operationId": "SuggestionsController_suggestUsers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "What has been typed so far. Empty suggests the people or issues most likely meant.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestedUsersResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Suggest people to mention or assign",
+        "tags": [
+          "Issues"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/suggestions/issues": {
+      "get": {
+        "description": "Up to eight, newest first, whose number starts with `q` or whose title contains it.",
+        "operationId": "SuggestionsController_suggestIssues",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "What has been typed so far. Empty suggests the people or issues most likely meant.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestedIssuesResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Suggest issues and pull requests to reference",
+        "tags": [
+          "Issues"
+        ]
+      }
+    },
     "/api/imports/github": {
       "get": {
         "description": "Whether this instance imports from GitHub, and whether the signed-in user has linked the GitHub account an import reads with.",
@@ -6841,6 +6959,150 @@
         "summary": "Delete a release asset",
         "tags": [
           "Releases"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/attachments": {
+      "post": {
+        "description": "Needs read access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`. Embed the file by linking `/api/attachments/{id}` in an issue, pull request, comment or release; one no text in the repository mentions is removed after a day. The file counts against the uploader's asset quota, when the instance sets one.",
+        "operationId": "AttachmentsController_uploadAttachment",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "query",
+            "description": "File name, whose extension decides what the file is served as.",
+            "schema": {
+              "example": "screenshot.png",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The file name is not a plain file name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is over the per-file limit, or would take the uploader over their storage quota.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The body was not sent as `application/octet-stream`, or files with this extension cannot be attached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Attach a file",
+        "tags": [
+          "Attachments"
+        ]
+      }
+    },
+    "/api/attachments/{id}": {
+      "get": {
+        "description": "Readable by anyone who can read the repository it was attached in. Images are served inline, anything else as a download.",
+        "operationId": "AttachmentsController_downloadAttachment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download an attachment",
+        "tags": [
+          "Attachments"
         ]
       }
     },
@@ -11101,7 +11363,7 @@
         "properties": {
           "usedBytes": {
             "type": "number",
-            "description": "Bytes of pushed git data and merged pull requests' heads in repositories that are not forks, leaving out Git LFS objects and release assets."
+            "description": "Bytes of pushed git data and merged pull requests' heads in repositories that are not forks, leaving out Git LFS objects, release assets and attachments."
           },
           "quotaBytes": {
             "type": "number",
@@ -11129,7 +11391,7 @@
             ]
           },
           "asset": {
-            "description": "Release assets in repositories that are not forks, including uploads in progress.",
+            "description": "Release assets in repositories that are not forks, and for a user, files they attached to issues, pull requests and comments anywhere. Includes uploads in progress.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/StorageLimitUsageDTO"
@@ -13373,6 +13635,81 @@
           }
         }
       },
+      "SuggestedUserDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "image"
+        ]
+      },
+      "SuggestedUsersResponseDTO": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuggestedUserDTO"
+            }
+          }
+        },
+        "required": [
+          "users"
+        ]
+      },
+      "SuggestedIssueDTO": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IssueState"
+              }
+            ]
+          },
+          "isPullRequest": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "state",
+          "isPullRequest"
+        ]
+      },
+      "SuggestedIssuesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuggestedIssueDTO"
+            }
+          }
+        },
+        "required": [
+          "issues"
+        ]
+      },
       "GitHubImportStatusDTO": {
         "type": "object",
         "properties": {
@@ -13693,6 +14030,31 @@
             "type": "boolean"
           }
         }
+      },
+      "AttachmentDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "screenshot.png"
+          },
+          "contentType": {
+            "type": "string",
+            "example": "image/png"
+          },
+          "size": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "contentType",
+          "size"
+        ]
       },
       "CreateBranchRequestDTO": {
         "type": "object",
