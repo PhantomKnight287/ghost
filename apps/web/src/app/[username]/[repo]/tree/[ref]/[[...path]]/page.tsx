@@ -67,41 +67,13 @@ export default async function RepositoryTreePage({
       />
       {/* the README of this directory, the way the root page shows the root one */}
       <Suspense fallback={<RepositoryReadmeSkeleton />}>
-        <Readme
-          username={username}
-          repo={repo}
+        <RepositoryReadme
+          owner={username}
+          slug={repo}
           revision={revision}
           path={dirPath}
         />
       </Suspense>
     </>
   );
-}
-
-async function Readme({
-  username,
-  repo,
-  // not `ref`: React reserves that prop name
-  revision,
-  path,
-}: {
-  username: string;
-  repo: string;
-  revision: string;
-  path: string;
-}) {
-  const client = await createServerClient();
-  const { data } = await client.GET(
-    "/api/repositories/{username}/{slug}/readme",
-    {
-      params: {
-        path: { username, slug: repo },
-        query: { ref: revision, path: path || undefined },
-      },
-    },
-  );
-
-  return data ? (
-    <RepositoryReadme readme={data} owner={username} slug={repo} />
-  ) : null;
 }

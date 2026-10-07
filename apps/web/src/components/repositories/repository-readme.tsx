@@ -1,27 +1,43 @@
 import Link from "next/link";
 import { FileText } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Markdown } from "@/components/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
+import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
-import type { components } from "@/lib/api/v1";
 import { API_URL } from "@/lib/env";
 
-type Readme = components["schemas"]["GetRepositoryReadmeResponseDTO"];
-
-export function RepositoryReadme({
-  readme,
+/** The README of a repository directory, fetched as the viewer. */
+export async function RepositoryReadme({
   owner,
   slug,
+  revision,
+  path,
   bare = false,
+  fallback = null,
 }: {
-  readme: Readme;
   owner: string;
   slug: string;
+  /** Not `ref`: React reserves that prop name. */
+  revision?: string;
+  path?: string;
   /** Drops the card and its filename bar, for a profile where neither fits. */
   bare?: boolean;
+  /** Shown when the directory has no README. */
+  fallback?: ReactNode;
 }) {
-  if (!readme.path) return null;
+  const client = await createServerClient();
+  const { data: readme } = await client.GET(
+    "/api/repositories/{username}/{slug}/readme",
+    {
+      params: {
+        path: { username: owner, slug },
+        query: { ref: revision, path: path || undefined },
+      },
+    },
+  );
+  if (!readme?.path) return fallback;
 
   const branch = readme.ref.replace(/^refs\/heads\//, "");
   // a README in a subdirectory writes paths relative to that directory

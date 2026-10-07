@@ -51,20 +51,8 @@ export default async function RepositoryPage({
         slug={repo}
       />
       <Suspense fallback={<RepositoryReadmeSkeleton />}>
-        <Readme username={username} repo={repo} />
+        <RepositoryReadme owner={username} slug={repo} />
       </Suspense>
     </>
   );
-}
-
-async function Readme({ username, repo }: { username: string; repo: string }) {
-  const client = await createServerClient();
-  const { data } = await client.GET(
-    "/api/repositories/{username}/{slug}/readme",
-    { params: { path: { username, slug: repo } } },
-  );
-
-  return data ? (
-    <RepositoryReadme readme={data} owner={username} slug={repo} />
-  ) : null;
 }
