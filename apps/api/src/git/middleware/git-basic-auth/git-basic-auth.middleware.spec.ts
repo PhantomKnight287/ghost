@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
 import { signLfsToken } from '../../../lib/git/lfs/lfs-token.js';
-import { AuthenticationRequiredError } from '../../../lib/git/repository-access/repository-access.errors.js';
+import { AuthenticationRequiredError } from '../../../lib/repositories/access/repository-access.errors.js';
 import { GitBasicAuthMiddleware } from './git-basic-auth.middleware.js';
 
 const basic = (username: string, password: string) =>

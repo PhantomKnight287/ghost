@@ -30,8 +30,8 @@ import {
   LfsObjectTooLargeError,
   LfsUploadInProgressError,
 } from '../../../lib/git/lfs/lfs.errors.js';
-import type { Repository } from '../../../lib/git/repository-access/repository-access.js';
-import type { Executor } from '../../../lib/issues/close-issue.js';
+import type { Repository } from '../../../lib/repositories/access/repository-access.js';
+import type { Executor } from '../../../lib/db/executor.js';
 import { PUT_OBJECT_MAX_BYTES } from '../../../lib/s3/s3.limits.js';
 import { RESERVATION_TTL } from '../../../lib/storage/reservation.js';
 import {

@@ -3,9 +3,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import { excluded } from '../../utils/index.js';
+import { excluded } from '../../lib/db/sql.js';
 import { attributed } from '../../lib/imports/attribution.js';
-import type { Executor } from '../../lib/issues/close-issue.js';
+import type { Executor } from '../../lib/db/executor.js';
 import type {
   ImportedCommentDTO,
   ImportedIssueDTO,

@@ -6,7 +6,7 @@ import { DATABASE } from '../../../database/database.module.js';
 import { runGit, runGitStream } from '../../../lib/git/exec/run-git.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { type LinguistAttributes, statsLanguage } from '@ghost/languages';
-import { excluded } from '../../../utils/index.js';
+import { excluded } from '../../../lib/db/sql.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
 import { splitRecords } from '../../../lib/git/exec/split-records.js';

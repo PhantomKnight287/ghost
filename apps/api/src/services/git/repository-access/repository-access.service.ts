@@ -15,7 +15,7 @@ import {
   type RepositoryOperation,
   roleOf,
   teamRoleOf,
-} from '../../../lib/git/repository-access/repository-access.js';
+} from '../../../lib/repositories/access/repository-access.js';
 
 @Injectable()
 export class RepositoryAccessService {

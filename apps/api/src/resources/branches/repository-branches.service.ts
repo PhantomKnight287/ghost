@@ -4,7 +4,7 @@ import { and, eq, or } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
-import type { AuthorizedRepository } from '../../lib/git/repository-access/repository-access.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import { isValidRefName } from '../../lib/git/refs/is-valid-ref-name.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import {

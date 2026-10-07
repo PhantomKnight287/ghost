@@ -1,3 +1,5 @@
+export const FLUSH_PACKET = '0000';
+
 /** 4 hex digits of total length, then the payload. */
 export function pktLine(payload: string | Buffer) {
   const data = typeof payload === 'string' ? Buffer.from(payload) : payload;

@@ -5,7 +5,7 @@ import {
   protocolEnv,
   toGitBinary,
   type GitServiceName,
-} from '../../../git/git.constants.js';
+} from '../../../lib/git/protocol/git-service.js';
 
 interface StreamOptions {
   repoDirectory: string;

@@ -9,12 +9,12 @@ import type {
   RepositoryEvent,
   StoredEvent,
 } from '../../lib/events/events.js';
-import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
+import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
 import { MailService, type ThreadTemplate } from '../../mail/mail.service.js';
 import type { NotificationReason } from '../../mail/components/thread.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
-import { excluded } from '../../utils/index.js';
+import { excluded } from '../../lib/db/sql.js';
 import { errorMessage } from '../../lib/error-message.js';
 
 // The rest reach webhooks only.

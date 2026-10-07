@@ -1,22 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm';
 import { toSnakeCase } from 'drizzle-orm/casing';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { customAlphabet } from 'nanoid';
-import slugify from 'slugify';
-
-const slugAlphabet = customAlphabet(
-  '_-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  10,
-);
-
-export function titleToSlug(title: string) {
-  const slugified = slugify(title, { lower: true });
-  const slugifiedWithSuffix = `${slugified}-${slugAlphabet()}`;
-  return {
-    slugified,
-    slugifiedWithSuffix,
-  };
-}
 
 // Opaque keyset cursor: a (timestamp, id) pair, base64url encoded so callers treat it as a token instead of something they can hand-build.
 export function encodeCursor({ date, id }: { date: Date; id: string }) {

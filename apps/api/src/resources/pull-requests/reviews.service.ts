@@ -23,7 +23,7 @@ import { PushTransactionService } from '../../services/git/wal/push-transaction.
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import type {
   CreateReviewRequestDTO,
   ReviewCommentRequestDTO,

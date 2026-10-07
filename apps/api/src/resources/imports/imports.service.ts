@@ -24,7 +24,7 @@ import {
 } from '../../lib/imports/github-account.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { ImportDispatcherService } from '../../services/imports/import-dispatcher.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import { RepositoriesService } from '../repositories/repositories.service.js';
 import type { StartImportRequestDTO } from './dto/import.dto.js';
 

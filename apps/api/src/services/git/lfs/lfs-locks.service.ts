@@ -8,8 +8,8 @@ import {
   LfsLockForbiddenError,
   LfsLockNotFoundError,
 } from '../../../lib/git/lfs/lfs.errors.js';
-import type { AuthorizedRepository } from '../../../lib/git/repository-access/repository-access.js';
-import { isoTimestamp } from '../../../utils/index.js';
+import type { AuthorizedRepository } from '../../../lib/repositories/access/repository-access.js';
+import { isoTimestamp } from '../../../lib/db/sql.js';
 
 const DEFAULT_PAGE = 100;
 

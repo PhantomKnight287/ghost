@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid';
 
 import { DATABASE } from '../../database/database.module.js';
 import { keyTypeOf, readPublicKey } from '../../lib/git/ssh/public-key.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import type { ListSshKeysResponseDTO, SshKeyDTO } from './dto/ssh-key.dto.js';
 import { MAX_TITLE_LENGTH } from './dto/ssh-key.dto.js';
 import {

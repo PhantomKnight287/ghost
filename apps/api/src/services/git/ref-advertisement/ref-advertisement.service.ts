@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { PassThrough, Readable } from 'node:stream';
+import { FLUSH_PACKET } from '../../../lib/git/protocol/pkt-line.js';
 import {
-  FLUSH_PACKET,
   protocolEnv,
   toGitBinary,
   type GitServiceName,
-} from '../../../git/git.constants.js';
+} from '../../../lib/git/protocol/git-service.js';
 import { pktLine } from '../../../lib/git/protocol/pkt-line.js';
 
 @Injectable()

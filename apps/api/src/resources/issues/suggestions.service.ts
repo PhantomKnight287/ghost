@@ -4,7 +4,7 @@ import { and, asc, desc, eq, ilike, isNotNull, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { escapeLike } from '../../utils/index.js';
+import { escapeLike } from '../../lib/db/sql.js';
 
 const LIMIT = 8;
 

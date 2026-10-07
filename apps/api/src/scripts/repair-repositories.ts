@@ -14,7 +14,7 @@ import { NestFactory } from '@nestjs/core';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
-import { ownerNameOf } from '../lib/git/repository-access/repository-access.js';
+import { ownerNameOf } from '../lib/repositories/access/repository-access.js';
 import {
   type RepairReport,
   RepositoryRepairService,

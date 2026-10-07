@@ -20,7 +20,8 @@ import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { assertNotImporting } from '../../lib/imports/importing.js';
-import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
+import { closeIssue } from '../../lib/issues/close-issue.js';
+import type { Executor } from '../../lib/db/executor.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
@@ -28,12 +29,12 @@ import {
   repositoryFullNameOf,
   type Repository,
   type RepositoryOperation,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { atLeast } from '@ghost/permissions';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
-import { escapeLike, isoTimestamp } from '../../utils/index.js';
+import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
 import {
   InvalidCursorError,
   decodeCursor,

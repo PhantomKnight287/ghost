@@ -24,7 +24,7 @@ import {
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 import { PushTransactionService } from '../wal/push-transaction.service.js';
 import { StorageQuotaService } from '../../storage/storage-quota.service.js';
-import type { Executor } from '../../../lib/issues/close-issue.js';
+import type { Executor } from '../../../lib/db/executor.js';
 import {
   PullRefWriteTooLargeError,
   UnmergedPullRefQuotaExceededError,

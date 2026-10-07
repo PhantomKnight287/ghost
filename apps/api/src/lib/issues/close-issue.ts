@@ -1,15 +1,11 @@
-import { type Database, schema } from '@ghost/db';
+import { schema } from '@ghost/db';
 import { and, eq } from 'drizzle-orm';
 
 import { publishEvent } from '../events/events.js';
+import type { Executor } from '../db/executor.js';
 
 // Commits a push or merge scans for closing keywords. A longer range closes only through the newest ones.
 export const MAX_CLOSING_COMMITS = 250;
-
-export type Executor = Pick<
-  Database,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
->;
 
 /** Closes an issue that is still open and records why: `closed`, naming the pull request or commit that closed it when there is one, or `merged` for a pull request's own issue. Returns null when the issue was not open, so two racing closes record one event. */
 export async function closeIssue(

@@ -26,11 +26,11 @@ import {
   type CollaboratorRole,
   organizationMembership,
   readableBy,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { administers, organizationRoleOf } from '@ghost/permissions';
 import { RepositoryNotFoundError } from '../repositories/repositories.errors.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import {
   InvitationRefusedError,
   OrganizationNotFoundError,

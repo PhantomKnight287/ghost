@@ -1,4 +1,4 @@
-import { FLUSH_PACKET } from '../../../git/git.constants.js';
+import { FLUSH_PACKET } from './pkt-line.js';
 import { pktLine } from './pkt-line.js';
 
 const SIDE_BAND_DATA = 1;

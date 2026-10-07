@@ -6,7 +6,7 @@ import {
   acceptedCollaboration,
   organizationMembership,
   readableBy,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { DATABASE } from '../../database/database.module.js';
 import { UsersService } from '../../services/users/users.service.js';
 import type {

@@ -8,7 +8,7 @@ import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
-import type { AuthorizedRepository } from '../../lib/git/repository-access/repository-access.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import { createTagObject } from '../../lib/git/tags/create-tag.js';
 import { isValidRefName } from '../../lib/git/refs/is-valid-ref-name.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
@@ -19,7 +19,7 @@ import { RepositoryMaterializerService } from '../../services/git/materializer/r
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
 import type {
   CreateReleaseRequestDTO,

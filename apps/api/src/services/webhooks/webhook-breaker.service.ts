@@ -10,7 +10,7 @@ import {
 import { and, eq, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
+import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 import { MailService } from '../../mail/mail.service.js';
 import { errorMessage } from '../../lib/error-message.js';
 

@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { and, eq, gt, isNotNull, ne, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { Executor } from '../../lib/issues/close-issue.js';
+import type { Executor } from '../../lib/db/executor.js';
 import { DEFAULT_RELEASE_ASSET_MAX_BYTES } from '../../lib/releases/release-assets.js';
 import { PUT_OBJECT_MAX_BYTES } from '../../lib/s3/s3.limits.js';
 import { parseByteSize } from '../../lib/storage/byte-size.js';

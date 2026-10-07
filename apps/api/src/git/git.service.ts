@@ -24,7 +24,7 @@ import { resolveDefaultRef } from '../lib/git/tree/resolve-ref.js';
 import { isPullRef } from '../lib/git/refs/pull-refs.js';
 import { type RefTransition, ZERO_OID } from '../lib/git/wal/wal.types.js';
 import { createUlid } from '../lib/git/wal/ulid.js';
-import type { Repository } from '../lib/git/repository-access/repository-access.js';
+import type { Repository } from '../lib/repositories/access/repository-access.js';
 import {
   storageAccountOf,
   storageKindOf,
@@ -32,7 +32,10 @@ import {
 import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
 import { MAX_PUSH_COMMITS, publishEvent } from '../lib/events/events.js';
 import { DATABASE } from '../database/database.module.js';
-import { isGitServiceName, type GitServiceName } from './git.constants.js';
+import {
+  isGitServiceName,
+  type GitServiceName,
+} from '../lib/git/protocol/git-service.js';
 import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
 import { DomainError } from '../domain/errors.js';
 import { rejectedPushReport } from '../lib/git/protocol/report-status.js';

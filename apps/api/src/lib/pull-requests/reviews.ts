@@ -2,8 +2,8 @@ import { schema } from '@ghost/db';
 import { eq, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import { isoTimestamp } from '../../utils/index.js';
-import type { Executor } from '../issues/close-issue.js';
+import { isoTimestamp } from '../db/sql.js';
+import type { Executor } from '../db/executor.js';
 
 type DiffSide = (typeof schema.diffSide.enumValues)[number];
 

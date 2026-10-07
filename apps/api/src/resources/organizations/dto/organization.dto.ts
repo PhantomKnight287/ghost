@@ -14,7 +14,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 
-import type { CollaboratorRole } from '../../../lib/git/repository-access/repository-access.js';
+import type { CollaboratorRole } from '../../../lib/repositories/access/repository-access.js';
 
 import {
   type OrganizationRole,

@@ -12,7 +12,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
-import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
+import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 import {
   dispatchToImporter,
   githubImportConfig,

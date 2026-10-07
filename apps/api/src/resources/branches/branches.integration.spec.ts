@@ -17,7 +17,7 @@ import {
 
 import { InMemoryWalStore } from '../../lib/git/materializer/wal-store.fake.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
-import { RepositoryForbiddenError } from '../../lib/git/repository-access/repository-access.errors.js';
+import { RepositoryForbiddenError } from '../../lib/repositories/access/repository-access.errors.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';

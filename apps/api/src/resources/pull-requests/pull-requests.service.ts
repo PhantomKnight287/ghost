@@ -48,7 +48,7 @@ import {
   ownerNameOf,
   type Repository,
   type RepositoryOperation,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
 import { lfsPointersIn } from '../../lib/git/lfs/lfs-pointer.js';
@@ -91,7 +91,7 @@ import {
 } from './pull-requests.errors.js';
 import { withTempDir } from '../../lib/temp-dir.js';
 import { atLeast } from '@ghost/permissions';
-import type { AuthorizedRepository } from '../../lib/git/repository-access/repository-access.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 
 // Number, title, body and author live on the issue a request is attached to.
 const pullRequestColumns = {

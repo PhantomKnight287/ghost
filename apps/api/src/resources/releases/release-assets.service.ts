@@ -5,7 +5,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, lt, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { AuthorizedRepository } from '../../lib/git/repository-access/repository-access.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import {
   isValidAssetName,
   releaseAssetKey,
@@ -20,7 +20,7 @@ import {
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import {
   InvalidAssetNameError,
   ReleaseAssetExistsError,

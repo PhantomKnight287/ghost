@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { DATABASE } from '../../database/database.module.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import { readPublicKey } from '../../lib/gpg/openpgp.js';
 import { UsersService } from '../../services/users/users.service.js';
 import type { GpgKeyDTO, ListGpgKeysResponseDTO } from './dto/gpg-key.dto.js';

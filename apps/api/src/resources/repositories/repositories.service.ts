@@ -38,7 +38,8 @@ import { closeIssue } from '../../lib/issues/close-issue.js';
 import { ownerQualifier } from '../../lib/search/qualifiers.js';
 import { organizationToCreateIn } from '../../lib/organizations/administered-organization.js';
 import { PrivateForkingDisabledError } from '../../lib/organizations/organization.errors.js';
-import { escapeLike, isoTimestamp, titleToSlug } from '../../utils/index.js';
+import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
+import { titleToSlug } from '../../lib/repositories/slug.js';
 import {
   InvalidCursorError,
   encodeCursor,
@@ -116,9 +117,9 @@ import {
   type Repository,
   roleOf,
   teamRoleOf,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { administers, atLeast, organizationRoleOf } from '@ghost/permissions';
-import { RepositoryForbiddenError } from '../../lib/git/repository-access/repository-access.errors.js';
+import { RepositoryForbiddenError } from '../../lib/repositories/access/repository-access.errors.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';

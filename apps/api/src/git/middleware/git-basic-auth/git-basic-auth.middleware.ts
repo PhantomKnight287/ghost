@@ -5,9 +5,9 @@ import type { NextFunction, Request, Response } from 'express';
 
 import type { Auth } from '../../../lib/auth.js';
 import { RepositoryNotFoundError } from '../../../resources/repositories/repositories.errors.js';
-import { AuthenticationRequiredError } from '../../../lib/git/repository-access/repository-access.errors.js';
+import { AuthenticationRequiredError } from '../../../lib/repositories/access/repository-access.errors.js';
 import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
-import { type Actor } from '../../../lib/git/repository-access/repository-access.js';
+import { type Actor } from '../../../lib/repositories/access/repository-access.js';
 import {
   type LfsTokenClaims,
   verifyLfsToken,

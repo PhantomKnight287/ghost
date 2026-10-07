@@ -10,9 +10,9 @@ import {
   organizationMembership,
   ownerNameOf,
   readableBy,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
 import { IssuesService } from '../issues/issues.service.js';
 import type {

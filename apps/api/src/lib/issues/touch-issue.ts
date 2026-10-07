@@ -1,7 +1,7 @@
 import { schema } from '@ghost/db';
 import { eq } from 'drizzle-orm';
 
-import type { Executor } from './close-issue.js';
+import type { Executor } from '../db/executor.js';
 
 /** Marks an issue or pull request as changed, for lists sorted by recent activity. */
 export function touchIssue(db: Executor, issueId: string) {

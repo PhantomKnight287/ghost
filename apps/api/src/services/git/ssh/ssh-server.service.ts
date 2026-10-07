@@ -20,7 +20,7 @@ import { DomainError } from '../../../domain/errors.js';
 import {
   type GitServiceName,
   toGitBinary,
-} from '../../../git/git.constants.js';
+} from '../../../lib/git/protocol/git-service.js';
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 import { GitService } from '../../../git/git.service.js';
 import { spoolToFile } from '../../../lib/git/protocol/spool.js';
@@ -41,7 +41,7 @@ import { RepositoryAccessService } from '../repository-access/repository-access.
 import {
   type Actor,
   type Repository,
-} from '../../../lib/git/repository-access/repository-access.js';
+} from '../../../lib/repositories/access/repository-access.js';
 
 /** 10-31. Railway already answers on 2222, and a ghost may as well keep Halloween. */
 const DEFAULT_PORT = 1031;

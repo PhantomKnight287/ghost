@@ -12,9 +12,9 @@ import { RepositoryAccessService } from '../../services/git/repository-access/re
 import {
   type CollaboratorRole,
   ownerNameOf,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import type { CollaboratorStatus } from './dto/collaborator.dto.js';
 import {
   CannotInviteOwnerError,

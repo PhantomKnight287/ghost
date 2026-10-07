@@ -2,7 +2,7 @@ import { Request } from 'express';
 import {
   Actor,
   AuthorizedRepository,
-} from '../lib/git/repository-access/repository-access.js';
+} from '../lib/repositories/access/repository-access.js';
 import { GitRequestBody } from '../lib/git/protocol/git-request-body.js';
 
 export interface GitAuthenticatedBufferedRequest extends Request {
