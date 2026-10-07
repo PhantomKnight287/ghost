@@ -1,4 +1,3 @@
-import { CircleCheck, CircleDot } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
@@ -13,6 +12,7 @@ import {
 } from "@/components/notifications/thread-subscription";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
+import { threadStateStyle } from "@/components/thread-state";
 
 export async function generateMetadata({
   params,
@@ -53,7 +53,7 @@ export default async function IssueLayout({
 
   // Server-computed: the author, or whoever can write to the repository.
   const canEdit = issue.data.viewerCanEdit;
-  const Icon = issue.data.state === "open" ? CircleDot : CircleCheck;
+  const { Icon, badge } = threadStateStyle(false, issue.data.state);
 
   return (
     <div className="flex flex-col gap-4">
@@ -76,13 +76,7 @@ export default async function IssueLayout({
         </EditableField>
 
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <Badge
-            className={cn(
-              "gap-1.5 rounded-full capitalize",
-              issue.data.state === "closed" && "bg-red-600 text-white",
-              issue.data.state === "open" && "bg-emerald-600 text-white",
-            )}
-          >
+          <Badge className={cn("gap-1.5 rounded-full capitalize", badge)}>
             <Icon className="size-3.5" />
             {issue.data.state}
           </Badge>

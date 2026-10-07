@@ -1,4 +1,4 @@
-import { GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
+import { GitPullRequest } from "lucide-react";
 import Link from "next/link";
 
 import { UserLink } from "@/components/users/user-link";
@@ -13,6 +13,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 import { CursorPagination } from "@/components/cursor-pagination";
+import { threadStateStyle } from "@/components/thread-state";
 
 const PAGE_SIZE = 20;
 
@@ -88,26 +89,14 @@ export default async function PullRequestsPage({
         ) : (
           <ul className="divide-y">
             {pulls.data.pullRequests.map((pull) => {
-              const Icon =
-                pull.state === "merged"
-                  ? GitMerge
-                  : pull.state === "closed"
-                    ? GitPullRequestClosed
-                    : GitPullRequest;
+              const { Icon, text } = threadStateStyle(true, pull.state);
 
               return (
                 <li
                   key={pull.id}
                   className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-muted/40"
                 >
-                  <Icon
-                    className={cn(
-                      "mt-0.5 size-4 shrink-0",
-                      pull.state === "merged" && "text-violet-500",
-                      pull.state === "closed" && "text-red-500",
-                      pull.state === "open" && "text-emerald-500",
-                    )}
-                  />
+                  <Icon className={cn("mt-0.5 size-4 shrink-0", text)} />
 
                   <div className="min-w-0 flex-1">
                     <Link
