@@ -9,6 +9,7 @@ import { isoTimestamp, excluded } from '../../../utils/index.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
 import { errorMessage } from '../../../lib/error-message.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
+import { ancestorsOf } from '../../../lib/git/path-index/ancestors.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -282,15 +283,4 @@ export class RepositoryPathIndexService {
         ),
       );
   }
-}
-
-/** "src/a/b.ts" -> ["src/a/b.ts", "src/a", "src", ""] */
-export function ancestorsOf(path: string) {
-  const segments = path.split('/');
-  const paths: string[] = [];
-  for (let i = segments.length; i > 0; i--) {
-    paths.push(segments.slice(0, i).join('/'));
-  }
-  paths.push('');
-  return paths;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ancestorsOf } from './repository-path-index.service.js';
+import { ancestorsOf } from './ancestors.js';
 
 describe('ancestorsOf', () => {
   it('walks a file up to the repository root', () => {

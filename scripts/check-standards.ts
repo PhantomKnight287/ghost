@@ -34,7 +34,10 @@ const checks: Check[] = [
     rule: "6. `services/` holds services",
     applies: (path) =>
       path.includes("/services/") && !/\.(spec|test)\.ts$/.test(path),
-    find: (source) => (source.includes("@Injectable(") ? [] : [1]),
+    find: (source) => [
+      ...(source.includes("@Injectable(") ? [] : [1]),
+      ...linesMatching(source, /^export (async )?function |^export const /),
+    ],
   },
   {
     rule: "7. Production quality is the default (no `any`)",

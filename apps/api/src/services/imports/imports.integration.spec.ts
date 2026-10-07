@@ -29,11 +29,9 @@ import { assertNotImporting } from '../../lib/imports/importing.js';
 import { ImportsService } from '../../resources/imports/imports.service.js';
 import type { RepositoriesService } from '../../resources/repositories/repositories.service.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
-import {
-  ImportDispatcherService,
-  MAX_IMPORT_ATTEMPTS,
-} from './import-dispatcher.service.js';
+import { ImportDispatcherService } from './import-dispatcher.service.js';
 import { ImportWriterService } from './import-writer.service.js';
+import { MAX_IMPORT_ATTEMPTS } from '../../lib/imports/importing.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
 const MIGRATIONS = path.resolve(

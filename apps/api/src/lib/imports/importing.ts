@@ -22,3 +22,5 @@ export async function assertNotImporting(
     throw new RepositoryImportingError();
   }
 }
+
+export const MAX_IMPORT_ATTEMPTS = 6;

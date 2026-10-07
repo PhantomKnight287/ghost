@@ -21,12 +21,12 @@ import {
 import { githubAccessToken } from '../../lib/imports/github-account.js';
 import { StaleImportAttemptError } from '../../lib/imports/imports.errors.js';
 import { errorMessage } from '../../lib/error-message.js';
+import { MAX_IMPORT_ATTEMPTS } from '../../lib/imports/importing.js';
 
 // The importer calls back at least every 30 seconds while it works; four missed beats means it is gone.
 const LEASE_MS = 2 * 60_000;
 const TICK_MS = 30_000;
 const CLAIM_BATCH = 10;
-export const MAX_IMPORT_ATTEMPTS = 6;
 // Covers the slowest import seen end to end; an attempt that outlives it is retried by lease long before the key matters.
 const PUSH_KEY_TTL_SECONDS = 24 * 60 * 60;
 
