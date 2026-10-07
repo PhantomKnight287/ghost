@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { TabLink } from "@/components/tab-link";
 
 export function PullRequestNav({
   base,
@@ -28,23 +27,14 @@ export function PullRequestNav({
     // the tab labels carry counts, so on a phone the row wraps instead of pushing the whole page sideways
     <nav className="flex flex-wrap items-center gap-1 border-b">
       {tabs.map((tab) => (
-        <Link
-          key={tab.href}
-          href={tab.href}
-          className={cn(
-            "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm",
-            pathname === tab.href
-              ? "border-primary font-medium"
-              : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
+        <TabLink key={tab.href} href={tab.href} active={pathname === tab.href}>
           {tab.label}
           {tab.count !== null && (
-            <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
               {tab.count}
             </span>
           )}
-        </Link>
+        </TabLink>
       ))}
       <div className="ml-auto flex flex-row items-center justify-center gap-1 text-xs">
         <span className="text-green-400">+{additions}</span>
