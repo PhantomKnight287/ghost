@@ -11,12 +11,11 @@ import {
   inArray,
   isNotNull,
   isNull,
-  lt,
   ne,
   or,
   sql,
 } from 'drizzle-orm';
-import { alias, type PgColumn } from 'drizzle-orm/pg-core';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
@@ -29,7 +28,6 @@ import {
   BranchNotFoundError,
   CannotForkOwnRepositoryError,
   CommitNotFoundError,
-  InvalidCursorError,
   RepositoryAlreadyForkedError,
   RepositoryHeadsOpenPullRequestError,
   RepositoryNameTakenError,
@@ -40,13 +38,13 @@ import { closeIssue } from '../../lib/issues/close-issue.js';
 import { ownerQualifier } from '../../lib/search/qualifiers.js';
 import { organizationToCreateIn } from '../../lib/organizations/administered-organization.js';
 import { PrivateForkingDisabledError } from '../../lib/organizations/organization.errors.js';
+import { escapeLike, isoTimestamp, titleToSlug } from '../../utils/index.js';
 import {
-  decodeCursor,
+  InvalidCursorError,
   encodeCursor,
-  escapeLike,
-  isoTimestamp,
-  titleToSlug,
-} from '../../utils/index.js';
+  keysetAfter,
+  paginate,
+} from '../../lib/db/keyset.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
@@ -143,7 +141,6 @@ import type { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-reposito
 // `/owner/settings` and `/org/teams` are pages of the owner's own, so no repository may live there.
 const RESERVED_REPOSITORY_SLUGS = new Set(['settings', 'teams']);
 const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
 const MIN_LANGUAGE_PERCENT = 0.5;
 const DEFAULT_SEARCH_LIMIT = 20;
 
@@ -208,8 +205,9 @@ export class RepositoriesService {
   ) {
     const namespace = await this.namespaceNamed(username);
 
-    const { pageSize, after } = this.page(
-      query,
+    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
+    const after = keysetAfter(
+      query.cursor,
       schema.repository.lastPushedAt,
       schema.repository.id,
     );
@@ -239,10 +237,9 @@ export class RepositoriesService {
       .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
       .limit(pageSize + 1);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.lastPushedAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
+      encodeCursor({ date: row.lastPushedAt, id: row.id }),
+    );
 
     return { repositories: page, nextCursor, hasMore };
   }
@@ -253,8 +250,9 @@ export class RepositoriesService {
     query: GetRepositoriesQueryDTO,
   ): Promise<GetViewerRepositoriesResponseDTO> {
     const search = ownerQualifier(query.q ?? '');
-    const { pageSize, after } = this.page(
-      query,
+    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
+    const after = keysetAfter(
+      query.cursor,
       schema.repository.lastPushedAt,
       schema.repository.id,
     );
@@ -306,10 +304,9 @@ export class RepositoriesService {
       .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
       .limit(pageSize + 1);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.lastPushedAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
+      encodeCursor({ date: row.lastPushedAt, id: row.id }),
+    );
 
     return {
       repositories: page.map(
@@ -341,8 +338,9 @@ export class RepositoriesService {
     query: GetRepositoriesQueryDTO,
   ): Promise<SearchRepositoriesResponseDTO> {
     const search = ownerQualifier(query.q ?? '');
-    const { pageSize, after } = this.page(
-      query,
+    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
+    const after = keysetAfter(
+      query.cursor,
       schema.repository.lastPushedAt,
       schema.repository.id,
     );
@@ -377,10 +375,9 @@ export class RepositoriesService {
       .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
       .limit(pageSize + 1);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.lastPushedAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
+      encodeCursor({ date: row.lastPushedAt, id: row.id }),
+    );
 
     return { repositories: page, nextCursor, hasMore };
   }
@@ -1753,8 +1750,9 @@ export class RepositoriesService {
       repo,
       requesterId,
     });
-    const { pageSize, after } = this.page(
-      query,
+    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
+    const after = keysetAfter(
+      query.cursor,
       schema.stars.createdAt,
       schema.stars.id,
     );
@@ -1773,10 +1771,9 @@ export class RepositoriesService {
       .orderBy(desc(schema.stars.createdAt), desc(schema.stars.id))
       .limit(pageSize + 1);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.starredAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
+      encodeCursor({ date: row.starredAt, id: row.id }),
+    );
 
     return {
       // an account without a username has nothing to link to, so it is left out
@@ -1815,8 +1812,9 @@ export class RepositoriesService {
       repo,
       requesterId,
     });
-    const { pageSize, after } = this.page(
-      query,
+    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
+    const after = keysetAfter(
+      query.cursor,
       schema.repository.lastPushedAt,
       schema.repository.id,
     );
@@ -1858,10 +1856,9 @@ export class RepositoriesService {
       .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
       .limit(pageSize + 1);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.lastPushedAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
+      encodeCursor({ date: row.lastPushedAt, id: row.id }),
+    );
 
     return {
       forks: page.flatMap((row) =>
@@ -1921,30 +1918,6 @@ export class RepositoriesService {
   }
 
   /** Page size and the keyset predicate shared by the cursor-paged lists. */
-  private page(
-    query: { cursor?: string; limit?: number },
-    dateColumn: PgColumn,
-    idColumn: PgColumn,
-  ) {
-    const requested = Number(query.limit);
-    const pageSize = Number.isFinite(requested)
-      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
-      : DEFAULT_PAGE_SIZE;
-
-    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-    if (query.cursor && !decoded) throw new InvalidCursorError();
-
-    return {
-      pageSize,
-      after: decoded
-        ? or(
-            lt(dateColumn, decoded.date),
-            and(eq(dateColumn, decoded.date), lt(idColumn, decoded.id)),
-          )
-        : undefined,
-    };
-  }
-
   private async countCommits({
     directory,
     range,
@@ -2079,18 +2052,3 @@ function matching(q: string | undefined) {
 }
 
 /** One extra row was fetched: it only tells us whether another page exists. */
-function paginate<T>(
-  rows: T[],
-  pageSize: number,
-  keyOf: (row: T) => { date: Date; id: string },
-) {
-  const hasMore = rows.length > pageSize;
-  const page = hasMore ? rows.slice(0, pageSize) : rows;
-  const last = page.at(-1);
-
-  return {
-    page,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor(keyOf(last)) : null,
-  };
-}

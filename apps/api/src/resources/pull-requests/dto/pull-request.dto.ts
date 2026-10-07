@@ -3,11 +3,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsISO8601,
   IsIn,
   IsInt,
-  IsISO8601,
   IsOptional,
   IsString,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -202,6 +204,8 @@ export class GetPullRequestsQueryDTO {
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(100)
   @IsOptional()
   limit?: number;
 }

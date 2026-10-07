@@ -32,13 +32,13 @@ import { atLeast } from '@ghost/permissions';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
+import { escapeLike, isoTimestamp } from '../../utils/index.js';
 import {
+  InvalidCursorError,
   decodeCursor,
   encodeCursor,
-  escapeLike,
-  isoTimestamp,
-} from '../../utils/index.js';
-import { InvalidCursorError } from '../repositories/repositories.errors.js';
+  paginate,
+} from '../../lib/db/keyset.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
 import type { LabelDTO } from './dto/label.dto.js';
 import type { GetIssuesQueryDTO } from './dto/issue.dto.js';
@@ -86,7 +86,6 @@ const eventSourceOrganization = alias(
 );
 
 const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
 
 type Issue = typeof schema.issue.$inferSelect;
 type IssueEventType = (typeof schema.issueEventType.enumValues)[number];
@@ -246,10 +245,7 @@ export class IssuesService {
       requesterId,
     });
 
-    const requested = Number(query.limit);
-    const pageSize = Number.isFinite(requested)
-      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
-      : DEFAULT_PAGE_SIZE;
+    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
 
     const state = query.state ?? 'open';
     const sort = query.sort ?? 'created';
@@ -406,9 +402,15 @@ export class IssuesService {
       .orderBy(...orderBy)
       .limit(pageSize + 1);
 
-    const hasMore = rows.length > pageSize;
-    const page = hasMore ? rows.slice(0, pageSize) : rows;
-    const last = page.at(-1);
+    const { page, hasMore, nextCursor } = paginate(rows, pageSize, (row) =>
+      sort === 'comments'
+        ? encodeCommentCursor({
+            count: row.commentCount,
+            date: row.createdAt,
+            id: row.id,
+          })
+        : encodeCursor({ date: sortDateOf(sort, row), id: row.id }),
+    );
 
     const [[totalRow], [openRow], [closedRow]] = await Promise.all([
       this.db
@@ -430,16 +432,7 @@ export class IssuesService {
       total: totalRow?.total ?? 0,
       openCount: openRow?.total ?? 0,
       closedCount: closedRow?.total ?? 0,
-      nextCursor:
-        hasMore && last
-          ? sort === 'comments'
-            ? encodeCommentCursor({
-                count: last.commentCount,
-                date: last.createdAt,
-                id: last.id,
-              })
-            : encodeCursor({ date: sortDateOf(sort, last), id: last.id })
-          : null,
+      nextCursor,
       hasMore,
     };
   }

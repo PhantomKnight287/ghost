@@ -61,14 +61,6 @@ export class RepositoryHeadsOpenPullRequestError extends DomainError {
   }
 }
 
-export class InvalidCursorError extends DomainError {
-  status: number = HttpStatus.BAD_REQUEST;
-
-  constructor() {
-    super(`Invalid pagination cursor`);
-  }
-}
-
 export class InvalidRepositoryPathError extends DomainError {
   status: number = HttpStatus.BAD_REQUEST;
 

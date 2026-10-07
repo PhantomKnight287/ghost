@@ -4,17 +4,7 @@ import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  lt,
-  or,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
@@ -31,8 +21,8 @@ import { RepositoryMaterializerService } from '../../services/git/materializer/r
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { decodeCursor, encodeCursor, isoTimestamp } from '../../utils/index.js';
-import { InvalidCursorError } from '../repositories/repositories.errors.js';
+import { isoTimestamp } from '../../utils/index.js';
+import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
 import type {
   CreateReleaseRequestDTO,
   GetReleasesQueryDTO,
@@ -83,33 +73,16 @@ export class ReleasesService {
       operation: 'read',
     });
 
-    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-    if (query.cursor && !decoded) throw new InvalidCursorError();
     const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
-
     const rows = await this.select(
       repository,
-      decoded
-        ? or(
-            lt(schema.release.createdAt, decoded.date),
-            and(
-              eq(schema.release.createdAt, decoded.date),
-              lt(schema.release.id, decoded.id),
-            ),
-          )
-        : undefined,
+      keysetAfter(query.cursor, schema.release.createdAt, schema.release.id),
     ).limit(pageSize + 1);
+    const { page, nextCursor } = paginate(rows, pageSize, (row) =>
+      encodeCursor({ date: new Date(row.createdAt), id: row.id }),
+    );
 
-    const page = rows.slice(0, pageSize);
-    const last = page.at(-1);
-
-    return {
-      releases: await this.expand(repository, page),
-      nextCursor:
-        rows.length > pageSize && last
-          ? encodeCursor({ date: new Date(last.createdAt), id: last.id })
-          : null,
-    };
+    return { releases: await this.expand(repository, page), nextCursor };
   }
 
   async getLatestRelease(target: RepositoryRef) {

@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, lt, ne, or, type SQL, sql } from 'drizzle-orm';
+import { and, count, desc, eq, ne, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
@@ -12,9 +12,9 @@ import {
   readableBy,
 } from '../../lib/git/repository-access/repository-access.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { decodeCursor, encodeCursor, isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../utils/index.js';
+import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
 import { IssuesService } from '../issues/issues.service.js';
-import { InvalidCursorError } from '../repositories/repositories.errors.js';
 import type {
   GetNotificationsQueryDTO,
   GetNotificationsResponseDTO,
@@ -47,23 +47,17 @@ export class NotificationsService {
     userId: string,
     query: GetNotificationsQueryDTO,
   ): Promise<GetNotificationsResponseDTO> {
-    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-    if (query.cursor && !decoded) throw new InvalidCursorError();
     const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
 
     const rows = await this.inbox(
       userId,
       and(
         query.unread ? eq(schema.notification.unread, true) : undefined,
-        decoded
-          ? or(
-              lt(schema.notification.updatedAt, decoded.date),
-              and(
-                eq(schema.notification.updatedAt, decoded.date),
-                lt(schema.notification.id, decoded.id),
-              ),
-            )
-          : undefined,
+        keysetAfter(
+          query.cursor,
+          schema.notification.updatedAt,
+          schema.notification.id,
+        ),
       ),
     )
       .orderBy(
@@ -72,15 +66,10 @@ export class NotificationsService {
       )
       .limit(pageSize + 1);
 
-    const page = rows.slice(0, pageSize);
-    const last = page.at(-1);
-    return {
-      notifications: page,
-      nextCursor:
-        rows.length > pageSize && last
-          ? encodeCursor({ date: new Date(last.updatedAt), id: last.id })
-          : null,
-    };
+    const { page, nextCursor } = paginate(rows, pageSize, (row) =>
+      encodeCursor({ date: new Date(row.updatedAt), id: row.id }),
+    );
+    return { notifications: page, nextCursor };
   }
 
   async unreadCount(userId: string) {

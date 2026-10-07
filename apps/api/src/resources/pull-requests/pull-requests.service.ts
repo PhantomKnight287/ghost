@@ -12,9 +12,7 @@ import {
   getTableColumns,
   inArray,
   isNull,
-  lt,
   ne,
-  or,
   sql,
 } from 'drizzle-orm';
 
@@ -70,11 +68,10 @@ import {
   storageAccountOf,
   storageKindOf,
 } from '../../lib/storage/storage-account.js';
-import { decodeCursor, encodeCursor } from '../../utils/index.js';
+import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
 import {
   BranchNotFoundError,
   CommitNotFoundError,
-  InvalidCursorError,
 } from '../repositories/repositories.errors.js';
 import {
   CreatePullRequestRequestDTO,
@@ -119,7 +116,6 @@ const pullRequestColumns = {
 const DEFAULT_PAGE_SIZE = 20;
 // ponytail: a squash message lists at most this many of the head's commits; older ones are left out of the body, not the tree.
 const MAX_SQUASH_MESSAGES = 250;
-const MAX_PAGE_SIZE = 100;
 
 type PullRequest = {
   [Key in keyof typeof pullRequestColumns]: GetColumnData<
@@ -304,13 +300,7 @@ export class PullRequestsService {
   }) {
     const base = await this.access.authorize({ username, repo, requesterId });
 
-    const requested = Number(query.limit);
-    const pageSize = Number.isFinite(requested)
-      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
-      : DEFAULT_PAGE_SIZE;
-
-    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-    if (query.cursor && !decoded) throw new InvalidCursorError();
+    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
 
     const state = query.state ?? 'open';
     const rows = await this.db
@@ -321,23 +311,19 @@ export class PullRequestsService {
         and(
           eq(schema.pullRequest.baseRepositoryId, base.id),
           state === 'all' ? undefined : eq(schema.pullRequest.state, state),
-          decoded
-            ? or(
-                lt(schema.issue.createdAt, decoded.date),
-                and(
-                  eq(schema.issue.createdAt, decoded.date),
-                  lt(schema.pullRequest.id, decoded.id),
-                ),
-              )
-            : undefined,
+          keysetAfter(
+            query.cursor,
+            schema.issue.createdAt,
+            schema.pullRequest.id,
+          ),
         ),
       )
       .orderBy(desc(schema.issue.createdAt), desc(schema.pullRequest.id))
       .limit(pageSize + 1);
 
-    const hasMore = rows.length > pageSize;
-    const page = hasMore ? rows.slice(0, pageSize) : rows;
-    const last = page.at(-1);
+    const { page, hasMore, nextCursor } = paginate(rows, pageSize, (row) =>
+      encodeCursor({ date: row.createdAt, id: row.id }),
+    );
 
     const [totals] = await this.db
       .select({ total: count() })
@@ -354,10 +340,7 @@ export class PullRequestsService {
         page.map((row) => this.expandPullRequest(row)),
       ),
       total: totals?.total ?? 0,
-      nextCursor:
-        hasMore && last
-          ? encodeCursor({ date: last.createdAt, id: last.id })
-          : null,
+      nextCursor,
       hasMore,
     };
   }
@@ -451,10 +434,7 @@ export class PullRequestsService {
     const git = await this.open(params);
     if (!git.mergeBase) return { commits: [], total: 0, nextCursor: null };
 
-    const limit = Math.min(
-      Math.max(params.limit ?? DEFAULT_PAGE_SIZE, 1),
-      MAX_PAGE_SIZE,
-    );
+    const limit = params.limit ?? DEFAULT_PAGE_SIZE;
     const { commits, nextCursor } = await listCommits({
       gitDir: git.baseDirectory,
       env: git.env,

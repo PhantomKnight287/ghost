@@ -35,7 +35,7 @@ import { PushTransactionService } from '../../services/git/wal/push-transaction.
 import { UsersService } from '../../services/users/users.service.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
-import { InvalidCursorError } from '../repositories/repositories.errors.js';
+import { InvalidCursorError } from '../../lib/db/keyset.js';
 import { ReleaseAssetsService } from './release-assets.service.js';
 import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
 import {
