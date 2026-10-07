@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { LoaderCircle, Search } from "lucide-react";
 
 import { CodeSearchResults } from "@/components/search/code-search-results";
@@ -13,6 +12,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { searchCode } from "@/lib/api/code-search";
+import { notFoundIfHidden } from "@/lib/api/server";
 
 export async function generateMetadata({
   params,
@@ -68,7 +68,7 @@ export default async function RepositorySearchPage({
 
   const repository = { owner: username, slug: repo };
   const { data, error, response } = await searchCode({ query, repository });
-  if (response.status === 404) notFound();
+  notFoundIfHidden(response);
 
   return (
     <div className="flex flex-col gap-4">

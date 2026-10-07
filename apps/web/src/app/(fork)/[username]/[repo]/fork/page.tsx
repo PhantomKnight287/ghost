@@ -1,6 +1,6 @@
 import { GitFork } from "lucide-react";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
 import { ForkRepositoryForm } from "@/components/repositories/fork-repository-form";
@@ -9,6 +9,7 @@ import {
   createServerClient,
   getAdminOrganizations,
   getServerSession,
+  notFoundIfHidden,
 } from "@/lib/api/server";
 
 export default async function ForkRepositoryPage({
@@ -32,7 +33,7 @@ export default async function ForkRepositoryPage({
     params: { path: { username, slug: repo } },
   });
 
-  if (repository.response.status === 404) notFound();
+  notFoundIfHidden(repository.response);
   if (repository.error || !repository.data) {
     throw new Error(`Failed to load ${username}/${repo}`);
   }

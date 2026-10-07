@@ -1,11 +1,10 @@
 import { GitCommitHorizontal } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { FileDiffs } from "@/components/diffs/file-diffs";
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import { FromNowHoverCard } from "@/components/from-now-card";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
 
 export default async function RepositoryCommitPage({
@@ -20,7 +19,7 @@ export default async function RepositoryCommitPage({
     { params: { path: { username, slug: repo, sha: hash } } },
   );
 
-  if (commit.response.status === 404) notFound();
+  notFoundIfHidden(commit.response);
   if (!commit.data) throw new Error(`Failed to read commit ${hash}`);
 
   return (

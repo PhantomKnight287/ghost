@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 
 export default async function PullRequestCommitsPage({
   params,
@@ -22,7 +21,7 @@ export default async function PullRequestCommitsPage({
     }),
   ]);
 
-  if (commits.response.status === 404) notFound();
+  notFoundIfHidden(commits.response);
   if (!commits.data || !pull.data) {
     throw new Error(`Failed to list commits of pull request #${number}`);
   }

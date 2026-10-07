@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { RepositoryContents } from "@/components/repositories/repository-contents";
@@ -7,7 +6,11 @@ import {
   RepositoryReadme,
   RepositoryReadmeSkeleton,
 } from "@/components/repositories/repository-readme";
-import { createServerClient, resolveRevisionPath } from "@/lib/api/server";
+import {
+  createServerClient,
+  notFoundIfHidden,
+  resolveRevisionPath,
+} from "@/lib/api/server";
 import { ogUrl } from "@/lib/og-url";
 
 export async function generateMetadata({
@@ -52,7 +55,7 @@ export default async function RepositoryTreePage({
     },
   );
 
-  if (contents.response.status === 404) notFound();
+  notFoundIfHidden(contents.response);
   if (!contents.data) throw new Error(`Failed to list ${username}/${repo}`);
 
   return (

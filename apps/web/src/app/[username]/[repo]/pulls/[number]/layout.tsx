@@ -1,7 +1,6 @@
 import { GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
@@ -17,6 +16,7 @@ import {
   createServerClient,
   getServerSession,
   getViewerRole,
+  notFoundIfHidden,
 } from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,7 @@ export default async function PullRequestLayout({
     { params: { path: { username, repo, number: Number(number) } } },
   );
 
-  if (pull.response.status === 404) notFound();
+  notFoundIfHidden(pull.response);
   if (!pull.data) {
     throw new Error(`Failed to load pull request #${number}`);
   }

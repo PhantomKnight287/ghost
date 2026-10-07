@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import { CursorPagination } from "@/components/cursor-pagination";
 import { ReleaseCard } from "@/components/releases/release-card";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 
 export async function generateMetadata({
   params,
@@ -26,7 +25,7 @@ export default async function ReleasesPage({
     { params: { path: { username, repo }, query: { cursor: pageCursor } } },
   );
 
-  if (releases.response.status === 404) notFound();
+  notFoundIfHidden(releases.response);
   if (!releases.data) {
     throw new Error(`Failed to list releases of ${username}/${repo}`);
   }

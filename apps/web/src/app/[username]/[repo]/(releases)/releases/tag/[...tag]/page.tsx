@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { ReleaseCard } from "@/components/releases/release-card";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 
 export async function generateMetadata({
   params,
@@ -26,7 +25,7 @@ export default async function ReleasePage({
     { params: { path: { username, repo, tag: tagName } } },
   );
 
-  if (release.response.status === 404) notFound();
+  notFoundIfHidden(release.response);
   if (!release.data) {
     throw new Error(`Failed to load release ${tagName} of ${username}/${repo}`);
   }

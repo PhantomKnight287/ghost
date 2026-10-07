@@ -1,8 +1,7 @@
 import { atLeast } from "@ghost/permissions";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 
 import { BranchList } from "./branch-list";
 import { CreateBranchDialog } from "./create-branch-dialog";
@@ -29,7 +28,7 @@ export default async function BranchesPage({
     }),
   ]);
 
-  if (branches.response.status === 404) notFound();
+  notFoundIfHidden(branches.response);
   if (!branches.data) {
     throw new Error(`Failed to list branches of ${username}/${repo}`);
   }

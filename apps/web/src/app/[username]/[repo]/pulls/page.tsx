@@ -1,6 +1,5 @@
 import { GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
@@ -11,7 +10,7 @@ import {
 } from "@/components/pull-requests/common";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -41,7 +40,7 @@ export default async function PullRequestsPage({
     },
   });
 
-  if (pulls.response.status === 404) notFound();
+  notFoundIfHidden(pulls.response);
   if (!pulls.data) {
     throw new Error(`Failed to list pull requests of ${username}/${repo}`);
   }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import {
@@ -12,7 +12,11 @@ import {
   RepositoryLanguages,
   RepositoryLanguagesSkeleton,
 } from "@/components/repositories/repository-languages";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import {
+  createServerClient,
+  getServerSession,
+  notFoundIfHidden,
+} from "@/lib/api/server";
 
 import { ImportBanner } from "./import-banner";
 
@@ -50,7 +54,7 @@ export default async function RepositoryLayout({
     params: { path: { username, slug: repo } },
   });
 
-  if (repository.response.status === 404) notFound();
+  notFoundIfHidden(repository.response);
   if (repository.error || !repository.data) {
     throw new Error(`Failed to load ${username}/${repo}`);
   }
