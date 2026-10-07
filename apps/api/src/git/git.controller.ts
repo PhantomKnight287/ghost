@@ -21,8 +21,7 @@ export class GitController {
     this.send(
       res,
       await this.gitService.advertiseRefs({
-        repositoryId: req.repository.id,
-        defaultBranch: req.repository.defaultBranch,
+        repository: req.repository,
         service,
         protocol: req.get('git-protocol'),
       }),
@@ -37,8 +36,7 @@ export class GitController {
     this.send(
       res,
       await this.gitService.uploadPack({
-        repositoryId: req.repository.id,
-        defaultBranch: req.repository.defaultBranch,
+        repository: req.repository,
         body: req.gitBody,
         protocol: req.get('git-protocol'),
       }),

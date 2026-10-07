@@ -119,8 +119,7 @@ describe('GitService', () => {
 
   it('materializes the cache before advertising refs', async () => {
     const { headers } = await service.advertiseRefs({
-      repositoryId: 'repo_ghost',
-      defaultBranch: null,
+      repository: { id: 'repo_ghost', defaultBranch: null },
       service: 'git-upload-pack',
     });
 
@@ -140,8 +139,7 @@ describe('GitService', () => {
   it('rejects the dumb protocol', async () => {
     await expect(
       service.advertiseRefs({
-        repositoryId: 'repo_ghost',
-        defaultBranch: null,
+        repository: { id: 'repo_ghost', defaultBranch: null },
         service: '',
       }),
     ).rejects.toBeInstanceOf(UnsupportedGitServiceError);

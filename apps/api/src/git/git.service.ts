@@ -50,8 +50,7 @@ export interface GitTransportResponse {
 }
 
 interface RepositoryRef {
-  repositoryId: string;
-  defaultBranch: string | null;
+  repository: { id: string; defaultBranch: string | null };
 }
 
 @Injectable()
@@ -73,8 +72,7 @@ export class GitService {
   ) {}
 
   async advertiseRefs({
-    repositoryId,
-    defaultBranch,
+    repository,
     service,
     protocol,
   }: RepositoryRef & {
@@ -83,10 +81,7 @@ export class GitService {
   }): Promise<GitTransportResponse> {
     if (!isGitServiceName(service)) throw new UnsupportedGitServiceError();
 
-    const repoDirectory = await this.materializer.open({
-      id: repositoryId,
-      defaultBranch,
-    });
+    const repoDirectory = await this.materializer.open(repository);
 
     return {
       headers: {
@@ -102,18 +97,14 @@ export class GitService {
   }
 
   async uploadPack({
-    repositoryId,
-    defaultBranch,
+    repository,
     body,
     protocol,
   }: RepositoryRef & {
     body: GitRequestBody;
     protocol?: string;
   }): Promise<GitTransportResponse> {
-    const repoDirectory = await this.materializer.open({
-      id: repositoryId,
-      defaultBranch,
-    });
+    const repoDirectory = await this.materializer.open(repository);
 
     return {
       headers: resultHeaders('git-upload-pack'),
@@ -322,7 +313,8 @@ export class GitService {
     repoDirectory,
     transitions,
     pushedBy,
-  }: Pick<RepositoryRef, 'repositoryId'> & {
+  }: {
+    repositoryId: string;
     repoDirectory: string;
     transitions: RefTransition[];
     pushedBy: string | null;
@@ -363,7 +355,8 @@ export class GitService {
     repoDirectory,
     transitions,
     pushedBy,
-  }: Pick<RepositoryRef, 'repositoryId'> & {
+  }: {
+    repositoryId: string;
     repoDirectory: string;
     transitions: RefTransition[];
     pushedBy: string | null;
