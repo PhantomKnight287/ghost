@@ -100,7 +100,7 @@ export function AssigneeEditor({
         save.execute({ username, repo, number, usernames: draft });
       }}
     >
-      <h2 className="text-xs font-medium text-muted-foreground">Assignees</h2>
+      <SidebarSectionHeader title="Assignees" />
       <AssigneePicker
         username={username}
         repo={repo}

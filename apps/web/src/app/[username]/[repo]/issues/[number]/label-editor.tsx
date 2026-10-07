@@ -108,7 +108,7 @@ export function LabelEditor({
   // Not a `<form>`: the create form below is one, and forms cannot nest.
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="text-xs font-medium text-muted-foreground">Labels</h2>
+      <SidebarSectionHeader title="Labels" />
       {available.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           No labels in this repository yet.

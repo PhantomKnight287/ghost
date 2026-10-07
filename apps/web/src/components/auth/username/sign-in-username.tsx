@@ -46,45 +46,34 @@ export function SignInUsername() {
 
   const { localization: usernameLocalization } = useAuthPlugin(usernamePlugin);
 
+  // The verify-email page prefills the address it can know: an email sign-in has one, a username sign-in does not.
+  const failed = (
+    error: { error?: { code?: string } | null },
+    email?: string,
+  ) => {
+    form.setFieldValue("password", "");
+    if (error.error?.code === "EMAIL_NOT_VERIFIED") {
+      if (email) sessionStorage.setItem("better-auth-ui.verify-email", email);
+      else sessionStorage.removeItem("better-auth-ui.verify-email");
+      navigate({ to: `${basePaths.auth}/${viewPaths.auth.verifyEmail}` });
+    }
+    resetFetchOptions();
+  };
+  const signedIn = () => {
+    sessionStorage.removeItem("better-auth-ui.verify-email");
+    continueSignIn();
+  };
+
   const { mutate: signInEmail, isPending: isSignInEmailPending } =
     useSignInEmail(authClient, {
-      onError: (error, { email }) => {
-        form.setFieldValue("password", "");
-
-        if (error.error?.code === "EMAIL_NOT_VERIFIED") {
-          sessionStorage.setItem("better-auth-ui.verify-email", email);
-          navigate({
-            to: `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
-          });
-        }
-
-        resetFetchOptions();
-      },
-      onSuccess: () => {
-        sessionStorage.removeItem("better-auth-ui.verify-email");
-        continueSignIn();
-      },
+      onError: (error, { email }) => failed(error, email),
+      onSuccess: signedIn,
     });
 
   const { mutate: signInUsername, isPending: isSignInUsernamePending } =
     useSignInUsername(authClient, {
-      onError: (error) => {
-        form.setFieldValue("password", "");
-
-        if (error.error?.code === "EMAIL_NOT_VERIFIED") {
-          sessionStorage.removeItem("better-auth-ui.verify-email");
-
-          navigate({
-            to: `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
-          });
-        }
-
-        resetFetchOptions();
-      },
-      onSuccess: () => {
-        sessionStorage.removeItem("better-auth-ui.verify-email");
-        continueSignIn();
-      },
+      onError: (error) => failed(error),
+      onSuccess: signedIn,
     });
 
   const signInMutating = useIsMutating({
