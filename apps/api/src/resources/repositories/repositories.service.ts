@@ -1918,7 +1918,6 @@ export class RepositoriesService {
     };
   }
 
-  /** Page size and the keyset predicate shared by the cursor-paged lists. */
   private async countCommits({
     directory,
     range,
