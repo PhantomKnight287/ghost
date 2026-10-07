@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { threadStateStyle } from "@/components/thread-state";
+import { ThreadStateIcon } from "@/components/thread-state";
 
 const REASONS: Record<Notification["reason"], string> = {
   assigned: "Assigned",
@@ -51,10 +51,6 @@ export function NotificationItem({
   });
 
   const { repository, thread, unread } = notification;
-  const { Icon, text: color } = threadStateStyle(
-    thread.isPullRequest,
-    thread.state,
-  );
   const href = `/${repository.owner}/${repository.slug}/${thread.isPullRequest ? "pulls" : "issues"}/${thread.number}`;
   const ToggleIcon = unread ? MailOpen : Mail;
 
@@ -72,7 +68,10 @@ export function NotificationItem({
           unread ? "bg-primary" : "bg-transparent",
         )}
       />
-      <Icon className={cn("size-4 shrink-0", color)} />
+      <ThreadStateIcon
+        isPullRequest={thread.isPullRequest}
+        state={thread.state}
+      />
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs text-muted-foreground">
           {repository.owner}/{repository.slug} #{thread.number}

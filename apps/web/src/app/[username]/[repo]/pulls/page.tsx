@@ -12,7 +12,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 import { CursorPagination } from "@/components/cursor-pagination";
-import { threadStateStyle } from "@/components/thread-state";
+import { ThreadStateIcon } from "@/components/thread-state";
 
 const PAGE_SIZE = 20;
 
@@ -84,14 +84,16 @@ export default async function PullRequestsPage({
         ) : (
           <ul className="divide-y">
             {pulls.data.pullRequests.map((pull) => {
-              const { Icon, text } = threadStateStyle(true, pull.state);
-
               return (
                 <li
                   key={pull.id}
                   className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-muted/40"
                 >
-                  <Icon className={cn("mt-0.5 size-4 shrink-0", text)} />
+                  <ThreadStateIcon
+                    isPullRequest
+                    state={pull.state}
+                    className="mt-0.5"
+                  />
 
                   <div className="min-w-0 flex-1">
                     <Link

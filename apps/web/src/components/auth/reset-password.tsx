@@ -5,7 +5,7 @@ import {
   isPasswordCompromisedError,
 } from "@better-auth-ui/core";
 import { useAuth, useResetPassword } from "@better-auth-ui/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,27 +49,25 @@ export function ResetPassword() {
 
   const [isCompromised, setIsCompromised] = useState(false);
 
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const token = searchParams.get("token") as string;
-
+  // The emailed link carries the token; without one there is nothing to reset, so the visitor goes back to sign in.
+  const readToken = useCallback(() => {
+    const token = new URLSearchParams(window.location.search).get("token");
     if (!token) {
       toast.error(localization.auth.invalidResetPasswordToken);
       navigate({ to: signInURL });
     }
+    return token;
   }, [localization.auth.invalidResetPasswordToken, navigate, signInURL]);
+
+  useEffect(() => {
+    readToken();
+  }, [readToken]);
 
   const form = useAuthForm({
     defaultValues: { password: "" },
     onSubmit: async ({ value }) => {
-      const searchParams = new URLSearchParams(window.location.search);
-      const token = searchParams.get("token") as string;
-
-      if (!token) {
-        toast.error(localization.auth.invalidResetPasswordToken);
-        navigate({ to: signInURL });
-        return;
-      }
+      const token = readToken();
+      if (!token) return;
 
       try {
         await resetPassword({ token, newPassword: value.password });
@@ -121,13 +119,7 @@ export function ResetPassword() {
         <div className="flex flex-col gap-3 items-center w-full mt-4">
           <FieldDescription className="text-center">
             {localization.auth.rememberYourPassword}{" "}
-            <Link
-              href={getAuthLinkURL(
-                `${basePaths.auth}/${viewPaths.auth.signIn}`,
-                redirectTo,
-              )}
-              className="underline underline-offset-4"
-            >
+            <Link href={signInURL} className="underline underline-offset-4">
               {localization.auth.signIn}
             </Link>
           </FieldDescription>
