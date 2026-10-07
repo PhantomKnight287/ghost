@@ -1,18 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createSafeActionClient } from "next-safe-action";
+import { actionClient } from "@/lib/action-client";
 import { z } from "zod";
 
-import { fetchClient } from "@/lib/fetch-client";
+import { callApi } from "@/lib/api/server";
 
 import { createPullRequestSchema, mergeMethods } from "./common";
-
-const actionClient = createSafeActionClient({
-  handleServerError: (error) => error.message,
-});
 
 const target = z.object({
   username: z.string(),
@@ -32,16 +27,12 @@ export const createPullRequest = actionClient
     async ({
       parsedInput: { username, repo, title, body, base, head, draft },
     }) => {
-      const { data, error } = await fetchClient.POST(
-        "/api/repositories/{username}/{repo}/pulls",
-        {
+      const data = await callApi((client) =>
+        client.POST("/api/repositories/{username}/{repo}/pulls", {
           params: { path: { username, repo } },
           body: { title, body, base, head, draft: draft ?? false },
-          headers: { cookie: (await cookies()).toString() },
-        },
+        }),
       );
-
-      if (error) throw new Error(error.message);
 
       redirect(`/${username}/${repo}/pulls/${data.number}`);
     },
@@ -59,16 +50,15 @@ export const mergePullRequest = actionClient
     async ({
       parsedInput: { username, repo, number, title, message, method },
     }) => {
-      const { data, error } = await fetchClient.POST(
-        "/api/repositories/{username}/{repo}/pulls/{number}/merge",
-        {
-          params: { path: { username, repo, number } },
-          body: { title, message, method },
-          headers: { cookie: (await cookies()).toString() },
-        },
+      const data = await callApi((client) =>
+        client.POST(
+          "/api/repositories/{username}/{repo}/pulls/{number}/merge",
+          {
+            params: { path: { username, repo, number } },
+            body: { title, message, method },
+          },
+        ),
       );
-
-      if (error) throw new Error(error.message);
 
       revalidatePath(`/${username}/${repo}/pulls/${number}`);
       return data;
@@ -78,15 +68,11 @@ export const mergePullRequest = actionClient
 export const closePullRequest = actionClient
   .inputSchema(target)
   .action(async ({ parsedInput: { username, repo, number } }) => {
-    const { error } = await fetchClient.PATCH(
-      "/api/repositories/{username}/{repo}/pulls/{number}/close",
-      {
+    await callApi((client) =>
+      client.PATCH("/api/repositories/{username}/{repo}/pulls/{number}/close", {
         params: { path: { username, repo, number } },
-        headers: { cookie: (await cookies()).toString() },
-      },
+      }),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}/pulls/${number}`);
   });
@@ -95,17 +81,16 @@ export const closePullRequest = actionClient
 export const setDraft = actionClient
   .inputSchema(target.extend({ draft: z.boolean() }))
   .action(async ({ parsedInput: { username, repo, number, draft } }) => {
-    const { error } = await fetchClient.POST(
-      draft
-        ? "/api/repositories/{username}/{repo}/pulls/{number}/draft"
-        : "/api/repositories/{username}/{repo}/pulls/{number}/ready",
-      {
-        params: { path: { username, repo, number } },
-        headers: { cookie: (await cookies()).toString() },
-      },
+    await callApi((client) =>
+      client.POST(
+        draft
+          ? "/api/repositories/{username}/{repo}/pulls/{number}/draft"
+          : "/api/repositories/{username}/{repo}/pulls/{number}/ready",
+        {
+          params: { path: { username, repo, number } },
+        },
+      ),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
   });
@@ -145,16 +130,15 @@ export const submitReview = actionClient
     async ({
       parsedInput: { username, repo, number, state, body, comments },
     }) => {
-      const { error } = await fetchClient.POST(
-        "/api/repositories/{username}/{repo}/pulls/{number}/reviews",
-        {
-          params: { path: { username, repo, number } },
-          body: { state, body, comments },
-          headers: { cookie: (await cookies()).toString() },
-        },
+      await callApi((client) =>
+        client.POST(
+          "/api/repositories/{username}/{repo}/pulls/{number}/reviews",
+          {
+            params: { path: { username, repo, number } },
+            body: { state, body, comments },
+          },
+        ),
       );
-
-      if (error) throw new Error(error.message);
 
       revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
     },
@@ -163,16 +147,15 @@ export const submitReview = actionClient
 export const addPendingComment = actionClient
   .inputSchema(target.extend({ comment: lineComment }))
   .action(async ({ parsedInput: { username, repo, number, comment } }) => {
-    const { error } = await fetchClient.POST(
-      "/api/repositories/{username}/{repo}/pulls/{number}/reviews/pending/comments",
-      {
-        params: { path: { username, repo, number } },
-        body: comment,
-        headers: { cookie: (await cookies()).toString() },
-      },
+    await callApi((client) =>
+      client.POST(
+        "/api/repositories/{username}/{repo}/pulls/{number}/reviews/pending/comments",
+        {
+          params: { path: { username, repo, number } },
+          body: comment,
+        },
+      ),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}/pulls/${number}/files`);
   });
@@ -180,15 +163,14 @@ export const addPendingComment = actionClient
 export const discardPendingReview = actionClient
   .inputSchema(target)
   .action(async ({ parsedInput: { username, repo, number } }) => {
-    const { error } = await fetchClient.DELETE(
-      "/api/repositories/{username}/{repo}/pulls/{number}/reviews/pending",
-      {
-        params: { path: { username, repo, number } },
-        headers: { cookie: (await cookies()).toString() },
-      },
+    await callApi((client) =>
+      client.DELETE(
+        "/api/repositories/{username}/{repo}/pulls/{number}/reviews/pending",
+        {
+          params: { path: { username, repo, number } },
+        },
+      ),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}/pulls/${number}/files`);
   });
@@ -206,16 +188,15 @@ export const dismissReview = actionClient
   )
   .action(
     async ({ parsedInput: { username, repo, number, reviewId, message } }) => {
-      const { error } = await fetchClient.POST(
-        "/api/repositories/{username}/{repo}/pulls/{number}/reviews/{reviewId}/dismiss",
-        {
-          params: { path: { username, repo, number, reviewId } },
-          body: { message },
-          headers: { cookie: (await cookies()).toString() },
-        },
+      await callApi((client) =>
+        client.POST(
+          "/api/repositories/{username}/{repo}/pulls/{number}/reviews/{reviewId}/dismiss",
+          {
+            params: { path: { username, repo, number, reviewId } },
+            body: { message },
+          },
+        ),
       );
-
-      if (error) throw new Error(error.message);
 
       revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
     },
@@ -224,15 +205,14 @@ export const dismissReview = actionClient
 export const applySuggestion = actionClient
   .inputSchema(target.extend({ commentId: z.string() }))
   .action(async ({ parsedInput: { username, repo, number, commentId } }) => {
-    const { error } = await fetchClient.POST(
-      "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/apply",
-      {
-        params: { path: { username, repo, number, commentId } },
-        headers: { cookie: (await cookies()).toString() },
-      },
+    await callApi((client) =>
+      client.POST(
+        "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/apply",
+        {
+          params: { path: { username, repo, number, commentId } },
+        },
+      ),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
   });
@@ -241,16 +221,15 @@ export const replyToReviewComment = actionClient
   .inputSchema(target.extend({ commentId: z.string(), body: commentBody }))
   .action(
     async ({ parsedInput: { username, repo, number, commentId, body } }) => {
-      const { error } = await fetchClient.POST(
-        "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/replies",
-        {
-          params: { path: { username, repo, number, commentId } },
-          body: { body },
-          headers: { cookie: (await cookies()).toString() },
-        },
+      await callApi((client) =>
+        client.POST(
+          "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/replies",
+          {
+            params: { path: { username, repo, number, commentId } },
+            body: { body },
+          },
+        ),
       );
-
-      if (error) throw new Error(error.message);
 
       revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
     },
@@ -260,16 +239,15 @@ export const updateReviewComment = actionClient
   .inputSchema(target.extend({ commentId: z.string(), body: commentBody }))
   .action(
     async ({ parsedInput: { username, repo, number, commentId, body } }) => {
-      const { error } = await fetchClient.PATCH(
-        "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}",
-        {
-          params: { path: { username, repo, number, commentId } },
-          body: { body },
-          headers: { cookie: (await cookies()).toString() },
-        },
+      await callApi((client) =>
+        client.PATCH(
+          "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}",
+          {
+            params: { path: { username, repo, number, commentId } },
+            body: { body },
+          },
+        ),
       );
-
-      if (error) throw new Error(error.message);
 
       revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
     },
@@ -278,15 +256,14 @@ export const updateReviewComment = actionClient
 export const deleteReviewComment = actionClient
   .inputSchema(target.extend({ commentId: z.string() }))
   .action(async ({ parsedInput: { username, repo, number, commentId } }) => {
-    const { error } = await fetchClient.DELETE(
-      "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}",
-      {
-        params: { path: { username, repo, number, commentId } },
-        headers: { cookie: (await cookies()).toString() },
-      },
+    await callApi((client) =>
+      client.DELETE(
+        "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}",
+        {
+          params: { path: { username, repo, number, commentId } },
+        },
+      ),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
   });
@@ -301,16 +278,15 @@ export const updateReviewSummary = actionClient
   )
   .action(
     async ({ parsedInput: { username, repo, number, commentId, body } }) => {
-      const { error } = await fetchClient.PATCH(
-        "/api/repositories/{username}/{repo}/pulls/{number}/reviews/{reviewId}",
-        {
-          params: { path: { username, repo, number, reviewId: commentId } },
-          body: { body: body.trim() ? body : null },
-          headers: { cookie: (await cookies()).toString() },
-        },
+      await callApi((client) =>
+        client.PATCH(
+          "/api/repositories/{username}/{repo}/pulls/{number}/reviews/{reviewId}",
+          {
+            params: { path: { username, repo, number, reviewId: commentId } },
+            body: { body: body.trim() ? body : null },
+          },
+        ),
       );
-
-      if (error) throw new Error(error.message);
 
       revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
     },
@@ -333,16 +309,12 @@ export const updatePullRequest = actionClient
     }),
   )
   .action(async ({ parsedInput: { username, repo, number, title, body } }) => {
-    const { error } = await fetchClient.PATCH(
-      "/api/repositories/{username}/{repo}/pulls/{number}",
-      {
+    await callApi((client) =>
+      client.PATCH("/api/repositories/{username}/{repo}/pulls/{number}", {
         params: { path: { username, repo, number } },
         body: { title, body },
-        headers: { cookie: (await cookies()).toString() },
-      },
+      }),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}/pulls/${number}`);
   });

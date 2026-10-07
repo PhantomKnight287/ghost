@@ -5,6 +5,7 @@ import createFetchClient from "openapi-fetch";
 
 import { authClient } from "@/lib/auth-client";
 import { administers } from "@ghost/permissions";
+import { apiErrorMessage } from "@/lib/api/client";
 import { INTERNAL_API_URL } from "@/lib/env";
 import { splitRevision } from "@/lib/revision";
 
@@ -32,6 +33,17 @@ export async function createServerClient() {
     baseUrl: INTERNAL_API_URL,
     headers: await forwardedHeaders(),
   });
+}
+
+type ServerClient = Awaited<ReturnType<typeof createServerClient>>;
+
+/** Calls the API as the viewer from a server action and returns its data, throwing the API's error message for next-safe-action to report. */
+export async function callApi<T>(
+  request: (client: ServerClient) => Promise<{ data?: T; error?: unknown }>,
+): Promise<T> {
+  const { data, error } = await request(await createServerClient());
+  if (error !== undefined) throw new Error(apiErrorMessage(error));
+  return data as T;
 }
 
 /** The signed-in session, read over INTERNAL_API_URL: in Docker the public API origin can be this container's own localhost. */
