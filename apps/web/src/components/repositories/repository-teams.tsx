@@ -6,6 +6,7 @@ import { useAction } from "next-safe-action/hooks";
 import { Fragment } from "react";
 import { toast } from "sonner";
 
+import { RoleSelect } from "@/components/role-select";
 import { Card } from "@/components/ui/card";
 import {
   Empty,
@@ -24,25 +25,18 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { components } from "@/lib/api/v1";
 import {
   type CollaboratorRole,
   collaboratorRoles,
+  roleLabels,
 } from "@/lib/repository-role";
 
 import { removeTeamAccess, setTeamRole } from "./actions";
 
 type Team = components["schemas"]["RepositoryTeamDTO"];
 
-const NO_ACCESS = "none";
+const NO_ACCESS = "none" as const;
 
 /** Every team in the organization, each with a role here or none. Choosing a role grants it to all of the team's members. */
 export function RepositoryTeams({
@@ -98,40 +92,23 @@ export function RepositoryTeams({
                     </ItemDescription>
                   </ItemContent>
                   <ItemActions>
-                    <Select
+                    <RoleSelect<CollaboratorRole | typeof NO_ACCESS>
+                      label={`Access for ${team.name}`}
+                      roles={[NO_ACCESS, ...collaboratorRoles]}
+                      labels={{ ...roleLabels, [NO_ACCESS]: "No access" }}
                       value={team.role ?? NO_ACCESS}
                       disabled={busy}
-                      onValueChange={(next) =>
+                      onChange={(next) =>
                         next === NO_ACCESS
                           ? revoke.execute({ username, slug, teamId: team.id })
                           : grant.execute({
                               username,
                               slug,
                               teamId: team.id,
-                              role: next as CollaboratorRole,
+                              role: next,
                             })
                       }
-                    >
-                      <SelectTrigger
-                        aria-label={`Access for ${team.name}`}
-                        className="w-36 capitalize"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NO_ACCESS}>No access</SelectItem>
-                        <SelectSeparator />
-                        {collaboratorRoles.map((role) => (
-                          <SelectItem
-                            key={role}
-                            value={role}
-                            className="capitalize"
-                          >
-                            {role}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </ItemActions>
                 </Item>
               </Fragment>
