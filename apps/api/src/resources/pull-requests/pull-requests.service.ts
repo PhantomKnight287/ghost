@@ -65,9 +65,8 @@ import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import {
-  lfsKindOf,
   storageAccountOf,
-  storageKindOf,
+  billedKindOf,
 } from '../../lib/storage/storage-account.js';
 import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
 import {
@@ -591,13 +590,13 @@ export class PullRequestsService {
         }
         await this.quota.assertRoomToMerge(
           storageAccountOf(base),
-          storageKindOf(base),
+          billedKindOf(base, 'repository'),
           tx,
         );
         if (lfsObjects.length > 0) {
           await this.quota.assertRoomToMerge(
             storageAccountOf(base),
-            lfsKindOf(base),
+            billedKindOf(base, 'lfs'),
             tx,
           );
           await this.lfs.record(tx, lfsObjects, base.id);

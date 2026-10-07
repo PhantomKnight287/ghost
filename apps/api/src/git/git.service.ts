@@ -27,7 +27,7 @@ import { createUlid } from '../lib/git/wal/ulid.js';
 import type { Repository } from '../lib/repositories/access/repository-access.js';
 import {
   storageAccountOf,
-  storageKindOf,
+  billedKindOf,
 } from '../lib/storage/storage-account.js';
 import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
 import { MAX_PUSH_COMMITS, publishEvent } from '../lib/events/events.js';
@@ -285,7 +285,7 @@ export class GitService {
         return this.quota
           .reserve(
             storageAccountOf(repository),
-            storageKindOf(repository),
+            billedKindOf(repository, 'repository'),
             size,
             async (tx) => {
               await this.pushTransaction.commitPush({

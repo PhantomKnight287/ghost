@@ -18,24 +18,12 @@ export type StorageKind = 'repository' | 'fork' | 'lfs' | 'asset';
 
 export type RepositoryStorageKind = Extract<StorageKind, 'repository' | 'fork'>;
 
-export function storageKindOf(repository: {
-  parentRepositoryId: string | null;
-}): RepositoryStorageKind {
-  return repository.parentRepositoryId ? 'fork' : 'repository';
-}
-
-/** LFS objects count against the fork limit in a fork, like everything else a fork holds, and against the LFS limit anywhere else. */
-export function lfsKindOf(repository: {
-  parentRepositoryId: string | null;
-}): Extract<StorageKind, 'fork' | 'lfs'> {
-  return repository.parentRepositoryId ? 'fork' : 'lfs';
-}
-
-/** Release assets count against the fork limit in a fork, like everything else a fork holds, and against the asset limit anywhere else. */
-export function assetKindOf(repository: {
-  parentRepositoryId: string | null;
-}): Extract<StorageKind, 'fork' | 'asset'> {
-  return repository.parentRepositoryId ? 'fork' : 'asset';
+/** What a repository's files are billed as: everything a fork holds counts against the fork limit, and anything else against `kind`. */
+export function billedKindOf<Kind extends StorageKind>(
+  repository: { parentRepositoryId: string | null },
+  kind: Kind,
+): Kind | 'fork' {
+  return repository.parentRepositoryId ? 'fork' : kind;
 }
 
 /** Repositories of `kind` whose files count against `account`. */
