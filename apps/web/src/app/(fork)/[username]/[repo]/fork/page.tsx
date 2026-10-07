@@ -4,13 +4,13 @@ import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
 import { ForkRepositoryForm } from "./fork-repository-form";
-import { Button } from "@/components/ui/button";
 import {
   createServerClient,
   getAdminOrganizations,
   getServerSession,
   notFoundIfHidden,
 } from "@/lib/api/server";
+import { Notice } from "./notice";
 
 export default async function ForkRepositoryPage({
   params,
@@ -99,25 +99,6 @@ export default async function ForkRepositoryPage({
           />
         )}
       </main>
-    </div>
-  );
-}
-
-function Notice({
-  message,
-  href,
-  action,
-}: {
-  message: string;
-  href: string;
-  action: string;
-}) {
-  return (
-    <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed p-6">
-      <p className="text-sm">{message}</p>
-      <Button asChild size="sm" variant="outline">
-        <Link href={href}>{action}</Link>
-      </Button>
     </div>
   );
 }

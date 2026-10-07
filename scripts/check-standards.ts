@@ -59,16 +59,6 @@ const checks: Check[] = [
   },
 ];
 
-// Violations that predate the check. Delete an entry when its file is fixed; the check fails on stale entries so this only shrinks.
-const baseline = new Set<string>([
-  "apps/web/src/app/(fork)/[username]/[repo]/fork/page.tsx 8",
-  "apps/web/src/app/[username]/[repo]/blob/[ref]/[[...path]]/page.tsx 8",
-  "apps/web/src/app/[username]/[repo]/layout.tsx 8",
-  "apps/web/src/app/dashboard/page.tsx 8",
-  "apps/web/src/app/page.tsx 8",
-  "apps/web/src/app/search/page.tsx 8",
-]);
-
 const files = Bun.spawnSync(["git", "ls-files", "*.ts", "*.tsx"])
   .stdout.toString()
   .trim()
@@ -81,27 +71,18 @@ const files = Bun.spawnSync(["git", "ls-files", "*.ts", "*.tsx"])
   );
 
 const failures: string[] = [];
-const seen = new Set<string>();
 for (const path of files) {
   if (!existsSync(path)) continue;
   const source = readFileSync(path, "utf8");
   for (const check of checks) {
     if (!check.applies(path)) continue;
-    const lines = check.find(source);
-    if (lines.length === 0) continue;
-    const key = `${path} ${check.rule.split(".")[0]}`;
-    seen.add(key);
-    if (baseline.has(key)) continue;
     failures.push(
-      ...lines.map((line) => `${path}:${line} breaks rule ${check.rule}`),
+      ...check
+        .find(source)
+        .map((line) => `${path}:${line} breaks rule ${check.rule}`),
     );
   }
 }
-for (const key of baseline)
-  if (!seen.has(key))
-    failures.push(
-      `${key}: fixed, delete it from the baseline in scripts/check-standards.ts`,
-    );
 
 if (failures.length > 0) {
   console.error(`${failures.join("\n")}\n\nSee docs/code-standards.md.`);

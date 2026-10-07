@@ -5,10 +5,7 @@ import { Suspense } from "react";
 import { LatestRelease, LatestReleaseSkeleton } from "./latest-release";
 import { RepositoryAbout } from "./repository-about";
 import { RepositoryFrame } from "./repository-frame";
-import {
-  RepositoryLanguages,
-  RepositoryLanguagesSkeleton,
-} from "./repository-languages";
+import { RepositoryLanguagesSkeleton } from "./repository-languages";
 import {
   createServerClient,
   getServerSession,
@@ -16,6 +13,7 @@ import {
 } from "@/lib/api/server";
 
 import { ImportBanner } from "./import-banner";
+import { Languages } from "./languages";
 
 export async function generateMetadata({
   params,
@@ -131,20 +129,4 @@ export default async function RepositoryLayout({
       {children}
     </RepositoryFrame>
   );
-}
-
-async function Languages({
-  username,
-  repo,
-}: {
-  username: string;
-  repo: string;
-}) {
-  const client = await createServerClient();
-  const { data } = await client.GET(
-    "/api/repositories/{username}/{slug}/languages",
-    { params: { path: { username, slug: repo } } },
-  );
-
-  return data ? <RepositoryLanguages languages={data} /> : null;
 }

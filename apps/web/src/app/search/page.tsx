@@ -1,23 +1,12 @@
 import type { Metadata } from "next";
-import { BookMarked, Code2, Search } from "lucide-react";
+import { BookMarked, Code2 } from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
-import { CursorPagination } from "@/components/cursor-pagination";
-import { RepositoryCard } from "@/components/repository-card";
 import { TabLink } from "@/components/tab-link";
-import { CodeSearchResults } from "@/components/search/code-search-results";
 import { SearchForm } from "@/components/search/search-form";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import { searchCode } from "@/lib/api/code-search";
-import { createServerClient, getServerSession } from "@/lib/api/server";
-
-const PAGE_SIZE = 20;
+import { getServerSession } from "@/lib/api/server";
+import { RepositoryResults } from "./repository-results";
+import { CodeResults } from "./code-results";
 
 type Kind = "repositories" | "code";
 
@@ -88,93 +77,5 @@ export default async function SearchPage({
         )}
       </main>
     </div>
-  );
-}
-
-async function RepositoryResults({
-  query,
-  cursor,
-}: {
-  query: string;
-  cursor?: string;
-}) {
-  const client = await createServerClient();
-  const { data } = await client.GET("/api/search/repositories", {
-    params: { query: { q: query || undefined, cursor, limit: PAGE_SIZE } },
-  });
-  if (!data) throw new Error(`Failed to search repositories for "${query}"`);
-
-  return (
-    <>
-      {data.repositories.length > 0 ? (
-        <div className="flex flex-col border-t">
-          {data.repositories.map((repository) => (
-            <RepositoryCard
-              key={repository.id}
-              showOwner
-              repository={{
-                name: repository.name,
-                slug: repository.slug,
-                owner: repository.owner,
-                description: repository.description ?? undefined,
-                visibility: "public",
-                updatedAt: repository.lastPushedAt,
-              }}
-            />
-          ))}
-        </div>
-      ) : (
-        <Empty className="border border-dashed">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <BookMarked />
-            </EmptyMedia>
-            <EmptyTitle>No repositories found</EmptyTitle>
-            <EmptyDescription>
-              {query
-                ? `No public repository has “${query}” in its name or description.`
-                : "There are no public repositories yet."}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      )}
-
-      <CursorPagination
-        pathname="/search"
-        params={{ q: query, type: "repositories" }}
-        cursor={cursor}
-        nextCursor={data.nextCursor}
-      />
-    </>
-  );
-}
-
-async function CodeResults({ query }: { query: string }) {
-  if (!query) {
-    return (
-      <Empty className="border border-dashed">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Search />
-          </EmptyMedia>
-          <EmptyTitle>Search code</EmptyTitle>
-          <EmptyDescription>
-            Type in the search bar above to search the code of public
-            repositories.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
-
-  const { data, error } = await searchCode({ query });
-
-  return (
-    <CodeSearchResults
-      query={query}
-      files={data?.files ?? []}
-      nextCursor={data?.nextCursor ?? null}
-      error={error?.message}
-    />
   );
 }
