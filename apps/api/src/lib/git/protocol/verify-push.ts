@@ -10,6 +10,7 @@ import { fileBody, type GitRequestBody } from './git-request-body.js';
 import { PushRejectedError } from './protocol.errors.js';
 import { withTempDir } from '../../temp-dir.js';
 import { splitRecords } from '../exec/split-records.js';
+import { objectTypes } from '../exec/object-types.js';
 
 /**
  * Proves a push can be replayed by a node holding only the log, then hands `commit` the pack the log should store (0034).
@@ -73,18 +74,9 @@ async function verifyRefs({
   const oids = updates.map(({ newOid }) => newOid.toString('hex'));
   const env = quarantine ? lend(gitDir, quarantine) : undefined;
 
-  const types = (
-    await runGit({
-      args: ['cat-file', '--batch-check=%(objecttype)'],
-      gitDir,
-      env,
-      input: Buffer.from(`${oids.join('\n')}\n`),
-    })
-  )
-    .trim()
-    .split('\n');
+  const types = await objectTypes({ gitDir, oids, env });
   for (const [index, { ref }] of updates.entries()) {
-    const type = types[index].split(' ').at(-1);
+    const type = types[index];
     if (type === 'missing') {
       throw new PushRejectedError(
         `${ref} points at ${oids[index]}, which neither the push nor the repository holds`,
