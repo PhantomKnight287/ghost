@@ -57,18 +57,7 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
       if (body.deleted) return say(`deleted ${kind} ${name}`);
       const url = `${repository.htmlUrl}/tree/${name}`;
       if (body.created) return say(`created ${kind} ${name}`, url);
-      const commits = body.commits ?? [];
-      const listed = commits
-        .slice(0, LISTED_COMMITS)
-        .map((commit) => `${commit.sha.slice(0, 7)} ${commit.subject}`);
-      if (commits.length > LISTED_COMMITS) {
-        listed.push(`and ${commits.length - LISTED_COMMITS} more`);
-      }
-      return say(
-        `pushed ${commits.length} ${commits.length === 1 ? 'commit' : 'commits'} to ${name}`,
-        url,
-        listed.join('\n'),
-      );
+      return say(`pushed ${commitCount(body)} to ${name}`, url, listed(body));
     }
     case 'issue.opened':
       return onThread(`opened ${about}`, thread?.body ?? null);
@@ -101,6 +90,11 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
       return onThread(`converted ${about} to a draft`);
     case 'pull_request.merged':
       return onThread(`merged ${about}`);
+    case 'pull_request.synchronized':
+      return onThread(
+        `${body.forced ? 'force-pushed' : 'pushed'} ${commitCount(body)} to ${about}`,
+        listed(body),
+      );
     case 'pull_request.reviewed':
       return onThread(
         `${REVIEW_VERBS[body.review?.state ?? 'commented']} ${about}`,
@@ -167,4 +161,19 @@ function truncate(text: string) {
   return text.length > EXCERPT_LENGTH
     ? `${text.slice(0, EXCERPT_LENGTH - 1)}…`
     : text;
+}
+
+function commitCount({ commits = [] }: WebhookBody) {
+  return `${commits.length} ${commits.length === 1 ? 'commit' : 'commits'}`;
+}
+
+/** The newest commits, one per line, and how many more there were. */
+function listed({ commits = [] }: WebhookBody) {
+  const lines = commits
+    .slice(0, LISTED_COMMITS)
+    .map((commit) => `${commit.sha.slice(0, 7)} ${commit.subject}`);
+  if (commits.length > LISTED_COMMITS) {
+    lines.push(`and ${commits.length - LISTED_COMMITS} more`);
+  }
+  return lines.join('\n');
 }

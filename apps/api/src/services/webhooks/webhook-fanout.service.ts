@@ -170,6 +170,11 @@ export class WebhookFanoutService {
         });
         break;
       }
+      case 'pull_request.synchronized': {
+        const { before, after, forced, commits } = event.payload;
+        Object.assign(body, { before, after, forced, commits });
+        break;
+      }
       case 'issue.commented':
       case 'issue.comment_edited': {
         const [comment] = await this.db

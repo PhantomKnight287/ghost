@@ -7,6 +7,10 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { type Database, schema } from '@ghost/db';
+import { and, eq } from 'drizzle-orm';
+
+import { DATABASE } from '../src/database/database.module.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 type TimelineEvent = {
@@ -25,8 +29,10 @@ describe.skipIf(!hasBackends)('commits in a pull request timeline', () => {
   let app: INestApplication;
   let origin: string;
   let owner: { cookie: string; key: string };
+  let watcher: { cookie: string; key: string };
   let work: string;
   const username = `prcommits${Date.now()}`;
+  const watcherName = `prwatch${Date.now()}`;
   let repo: string;
 
   const api = () => request(app.getHttpServer());
@@ -73,6 +79,7 @@ describe.skipIf(!hasBackends)('commits in a pull request timeline', () => {
     work = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-pr-commits-'));
     ({ app, origin } = await startApp());
     owner = await signUp(app, username);
+    watcher = await signUp(app, watcherName);
     repo = (
       await api()
         .post('/api/repositories')
@@ -101,6 +108,12 @@ describe.skipIf(!hasBackends)('commits in a pull request timeline', () => {
       .send({ title: 'Feature', base: 'main', head: 'feature' })
       .expect(201);
     expect(await pushEvents()).toEqual([`add a ${a} by Ada`]);
+    // a participant, who would hear about a comment, must not hear about pushes
+    await api()
+      .post(`/api/repositories/${username}/${repo}/issues/1/comments`)
+      .set('cookie', watcher.cookie)
+      .send({ body: 'Following along' })
+      .expect(201);
 
     const b = commit('b.txt', 'add b');
     await push('feature');
@@ -140,5 +153,58 @@ describe.skipIf(!hasBackends)('commits in a pull request timeline', () => {
         ]),
       { timeout: 15_000, interval: 200 },
     );
+
+    const db = app.get<Database>(DATABASE);
+    const { id: repositoryId } = (
+      await api()
+        .get(`/api/repositories/${username}/${repo}`)
+        .set('cookie', owner.cookie)
+        .expect(200)
+    ).body;
+    // opening the request is `issue.opened`, not a synchronize
+    await vi.waitFor(
+      async () => {
+        const events = await db
+          .select({
+            payload: schema.outboxEvent.payload,
+            processedAt: schema.outboxEvent.processedAt,
+          })
+          .from(schema.outboxEvent)
+          .where(
+            and(
+              eq(schema.outboxEvent.type, 'pull_request.synchronized'),
+              eq(schema.outboxEvent.repositoryId, repositoryId),
+            ),
+          )
+          .orderBy(schema.outboxEvent.createdAt);
+        expect(
+          events.map(({ payload }) => {
+            const { after, forced, commits } = payload as {
+              after: string;
+              forced: boolean;
+              commits: { sha: string }[];
+            };
+            return [after, forced, commits.map((commit) => commit.sha)];
+          }),
+        ).toEqual([
+          [b, false, [b]],
+          [merge, false, [merge]],
+          [amended, true, [amended]],
+        ]);
+        expect(events.every((event) => event.processedAt)).toBe(true);
+      },
+      { timeout: 15_000, interval: 200 },
+    );
+
+    const [watcherRow] = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.username, watcherName));
+    expect(
+      await db
+        .select()
+        .from(schema.notification)
+        .where(eq(schema.notification.userId, watcherRow.id)),
+    ).toEqual([]);
   }, 90_000);
 });

@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { MAX_PUSH_COMMITS, publishEvent } from '../../lib/events/events.js';
 import { isAncestor } from '../../lib/git/diff/diff.js';
 import { resolveCommit } from '../../lib/git/tree/resolve-ref.js';
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
@@ -119,11 +120,26 @@ export class PullRequestPushesService {
         tip: after,
         exclude: [baseSha, previous].filter((sha) => sha !== null),
       });
-      await recordCommitEvents(this.db, {
-        issueId: pull.issueId,
-        actorId: pushedBy,
-        commits,
-        forced: forced ? { before, after } : undefined,
+      await this.db.transaction(async (tx) => {
+        await recordCommitEvents(tx, {
+          issueId: pull.issueId,
+          actorId: pushedBy,
+          commits,
+          forced: forced ? { before, after } : undefined,
+        });
+        // webhooks only: nobody's inbox fills up with every push to a request they follow
+        await publishEvent(tx, {
+          type: 'pull_request.synchronized',
+          repositoryId: pull.baseRepositoryId,
+          actorId: pushedBy,
+          payload: {
+            issueId: pull.issueId,
+            before: before ?? ZERO_OID.toString('hex'),
+            after,
+            forced,
+            commits: commits.toReversed().slice(0, MAX_PUSH_COMMITS),
+          },
+        });
       });
     }
   }

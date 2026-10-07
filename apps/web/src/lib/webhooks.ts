@@ -21,6 +21,7 @@ export const webhookEventLabels: Record<WebhookEvent, string> = {
   "pull_request.ready_for_review":
     "A draft pull request is marked ready for review",
   "pull_request.converted_to_draft": "A pull request is converted to a draft",
+  "pull_request.synchronized": "Someone pushes commits to a pull request",
   "pull_request.reviewed": "A pull request is reviewed",
   "pull_request.review_dismissed": "A pull request review is dismissed",
   "pull_request.review_commented": "Someone comments on a pull request's code",

@@ -12,6 +12,8 @@ A push added the commits its new head reaches that neither its old head nor the 
 
 A `committed` row keeps the commit's subject and author name, so it still reads after a force push leaves the commit unreachable.
 
+The same transaction publishes `pull_request.synchronized`, carrying `before`, `after`, `forced` and up to 20 of the commits, newest first, as `push` does. Webhooks can subscribe to it. It never notifies anyone: someone following a request hears about comments, reviews and state changes, not every push. Opening a request publishes `issue.opened` alone.
+
 ## Why
 
 Reading commits from git when the timeline loads would place them by commit date, which the author's machine sets and a rebase rewrites, and a force push would erase the old commits without a trace. Rows record when each push actually happened and who made it.
