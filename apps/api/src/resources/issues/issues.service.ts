@@ -13,8 +13,9 @@ import {
   lt,
   or,
   sql,
+  type SQL,
 } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
@@ -51,6 +52,16 @@ import {
   PullRequestReopenError,
   LabelNotFoundError,
 } from './issues.errors.js';
+import { touchIssue } from '../../lib/issues/touch-issue.js';
+
+const NO_ISSUES = {
+  issues: [],
+  total: 0,
+  openCount: 0,
+  closedCount: 0,
+  nextCursor: null,
+  hasMore: false,
+};
 
 const labelColumns = {
   id: schema.label.id,
@@ -253,14 +264,12 @@ export class IssuesService {
     const orderFn = direction === 'asc' ? asc : desc;
 
     // `sort=comments` cursors carry a leading count (`count|iso|id`); every other sort uses the shared keyset cursor (`iso|id`). Decoding with the wrong one always fails, so pick by sort.
-    const decoded =
-      sort === 'comments'
-        ? query.cursor
+    const decoded: { count?: number; date: Date; id: string } | null =
+      !query.cursor
+        ? null
+        : sort === 'comments'
           ? decodeCommentCursor(query.cursor)
-          : null
-        : query.cursor
-          ? decodeCursor(query.cursor)
-          : null;
+          : decodeCursor(query.cursor);
     if (query.cursor && !decoded) throw new InvalidCursorError();
 
     const labelNames = dedupe(
@@ -274,57 +283,29 @@ export class IssuesService {
       labelNames,
     );
     if (labelNames.length > 0 && labelFilterIds === null) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
 
     const authorId = query.author
       ? await this.optionalUserId(query.author)
       : undefined;
     if (query.author && !authorId) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
     const assigneeId = query.assignee
       ? await this.optionalUserId(query.assignee)
       : undefined;
     if (query.assignee && !assigneeId) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
 
-    // Label (AND) and assignee filters resolve to id sets first so the main query stays a single indexed scan plus `inArray`. `const` (not `let`) so the `baseClause` closure below keeps the narrowed type.
+    // Label (AND) and assignee filters resolve to id sets first so the main query stays a single indexed scan plus `inArray`.
     const labelIssueIds: string[] | undefined =
       labelFilterIds && labelFilterIds.length > 0
         ? await this.issueIdsWithAllLabels(labelFilterIds)
         : undefined;
     if (labelIssueIds && labelIssueIds.length === 0) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
     const assigneeRows = assigneeId
       ? await this.db
@@ -336,14 +317,7 @@ export class IssuesService {
       ? assigneeRows.map((row) => row.issueId)
       : undefined;
     if (assigneeFilterIds && assigneeFilterIds.length === 0) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
 
     const search = query.q?.trim();
@@ -367,22 +341,30 @@ export class IssuesService {
         searchClause,
       );
 
-    const cursorClause =
-      decoded && sort !== 'comments'
-        ? or(
-            direction === 'desc'
-              ? lt(sortColumn(sort), decoded.date)
-              : gt(sortColumn(sort), decoded.date),
-            and(
-              eq(sortColumn(sort), decoded.date),
-              direction === 'desc'
-                ? lt(schema.issue.id, decoded.id)
-                : gt(schema.issue.id, decoded.id),
+    // Rows strictly past the cursor in the sort order, ties broken by the next key.
+    const before = direction === 'desc' ? lt : gt;
+    const past = (
+      column: AnyPgColumn,
+      value: Date | number | string,
+      tie: SQL | undefined,
+    ) => or(before(column, value), and(eq(column, value), tie));
+    const cursorClause = !decoded
+      ? undefined
+      : decoded.count !== undefined
+        ? past(
+            schema.issue.commentCount,
+            decoded.count,
+            past(
+              schema.issue.createdAt,
+              decoded.date,
+              before(schema.issue.id, decoded.id),
             ),
           )
-        : decoded && sort === 'comments' && isCommentsCursor(decoded)
-          ? commentsCursorClause(decoded, direction)
-          : undefined;
+        : past(
+            sortColumn(sort),
+            decoded.date,
+            before(schema.issue.id, decoded.id),
+          );
 
     const orderBy =
       sort === 'created'
@@ -679,10 +661,7 @@ export class IssuesService {
         },
         params.body,
       );
-      await tx
-        .update(schema.issue)
-        .set({ updatedAt: new Date() })
-        .where(eq(schema.issue.id, issue.id));
+      await touchIssue(tx, issue.id);
       return row;
     });
 
@@ -1055,10 +1034,7 @@ export class IssuesService {
       }
 
       if (added.length > 0 || removed.length > 0) {
-        await tx
-          .update(schema.issue)
-          .set({ updatedAt: new Date() })
-          .where(eq(schema.issue.id, issue.id));
+        await touchIssue(tx, issue.id);
       }
     });
 
@@ -1132,10 +1108,7 @@ export class IssuesService {
       }
 
       if (added.length > 0 || removed.length > 0) {
-        await tx
-          .update(schema.issue)
-          .set({ updatedAt: new Date() })
-          .where(eq(schema.issue.id, issue.id));
+        await touchIssue(tx, issue.id);
       }
     });
 
@@ -1168,40 +1141,12 @@ export class IssuesService {
     requesterId: string | undefined,
     viewerRole: Role | null,
   ) {
-    const [author, labels, assignees, closer] = await Promise.all([
-      this.users.getUserById(issueRow.authorId),
-      this.db
-        .select(labelColumns)
-        .from(schema.issueLabel)
-        .innerJoin(schema.label, eq(schema.label.id, schema.issueLabel.labelId))
-        .where(eq(schema.issueLabel.issueId, issueRow.id)),
-      this.db
-        .select({ username: schema.user.username })
-        .from(schema.issueAssignee)
-        .innerJoin(schema.user, eq(schema.user.id, schema.issueAssignee.userId))
-        .where(eq(schema.issueAssignee.issueId, issueRow.id)),
-      issueRow.closedById
-        ? this.users.getUserById(issueRow.closedById).catch(() => null)
-        : Promise.resolve(null),
-    ]);
-
-    return {
-      id: issueRow.id,
-      number: issueRow.number,
-      title: issueRow.title,
-      body: issueRow.body,
-      state: issueRow.state,
-      isPullRequest: issueRow.isPullRequest,
-      authorUsername: author.username ?? '',
-      closedByUsername: closer?.username ?? null,
-      labels,
-      assignees: assignees.map((row) => row.username ?? ''),
-      commentCount: issueRow.commentCount,
-      closedAt: issueRow.closedAt?.toISOString() ?? null,
-      createdAt: issueRow.createdAt.toISOString(),
-      updatedAt: issueRow.updatedAt.toISOString(),
-      viewerCanEdit: canEditIssue(issueRow, requesterId, viewerRole),
-    };
+    const [issue] = await this.expandIssues(
+      [issueRow],
+      requesterId,
+      viewerRole,
+    );
+    return issue;
   }
 
   private async expandIssues(
@@ -1300,9 +1245,8 @@ export class IssuesService {
     });
   }
 
-  private async resolveLabels(repositoryId: string, names: string[]) {
-    if (names.length === 0) return [];
-    const rows = await this.db
+  private labelsNamed(repositoryId: string, names: string[]) {
+    return this.db
       .select(labelColumns)
       .from(schema.label)
       .where(
@@ -1311,23 +1255,21 @@ export class IssuesService {
           inArray(schema.label.name, names),
         ),
       );
+  }
+
+  private async resolveLabels(repositoryId: string, names: string[]) {
+    if (names.length === 0) return [];
+    const rows = await this.labelsNamed(repositoryId, names);
     const found = new Set(rows.map((row) => row.name));
     const missing = names.find((name) => !found.has(name));
     if (missing) throw new LabelNotFoundError(missing);
     return rows;
   }
 
+  /** Ids of the labels named, or null when one does not exist, so the filter matches nothing. */
   private async labelIdsForFilter(repositoryId: string, names: string[]) {
     if (names.length === 0) return [];
-    const rows = await this.db
-      .select({ id: schema.label.id, name: schema.label.name })
-      .from(schema.label)
-      .where(
-        and(
-          eq(schema.label.repositoryId, repositoryId),
-          inArray(schema.label.name, names),
-        ),
-      );
+    const rows = await this.labelsNamed(repositoryId, names);
     if (rows.length !== names.length) return null;
     return rows.map((row) => row.id);
   }
@@ -1419,49 +1361,6 @@ function decodeCommentCursor(cursor: string) {
   } catch {
     return null;
   }
-}
-
-type CommentsCursor = { count: number; date: Date; id: string };
-
-function isCommentsCursor(
-  decoded: { date: Date; id: string } | CommentsCursor,
-): decoded is CommentsCursor {
-  return 'count' in decoded;
-}
-
-function commentsCursorClause(
-  decoded: CommentsCursor,
-  direction: 'asc' | 'desc',
-) {
-  const commentCountCol = sql<number>`${schema.issue.commentCount}`;
-  if (direction === 'desc') {
-    return or(
-      lt(schema.issue.commentCount, decoded.count),
-      and(
-        eq(schema.issue.commentCount, decoded.count),
-        or(
-          lt(schema.issue.createdAt, decoded.date),
-          and(
-            eq(schema.issue.createdAt, decoded.date),
-            lt(schema.issue.id, decoded.id),
-          ),
-        ),
-      ),
-    );
-  }
-  return or(
-    sql`${commentCountCol} > ${decoded.count}`,
-    and(
-      eq(schema.issue.commentCount, decoded.count),
-      or(
-        sql`${schema.issue.createdAt} > ${decoded.date}`,
-        and(
-          eq(schema.issue.createdAt, decoded.date),
-          sql`${schema.issue.id} > ${decoded.id}`,
-        ),
-      ),
-    ),
-  );
 }
 
 function canEditIssue(

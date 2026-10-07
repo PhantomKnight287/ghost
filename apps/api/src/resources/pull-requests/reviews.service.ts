@@ -12,7 +12,6 @@ import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import { replaceFile } from '../../lib/git/tree/replace-file.js';
-import type { Executor } from '../../lib/issues/close-issue.js';
 import { diffHunkFor } from '../../lib/pull-requests/diff-hunk.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import {
@@ -49,6 +48,7 @@ import {
   type PullRequestRef,
   PullRequestsService,
 } from './pull-requests.service.js';
+import { touchIssue } from '../../lib/issues/touch-issue.js';
 
 type Opened = Awaited<ReturnType<PullRequestsService['open']>>;
 type Loaded = Awaited<ReturnType<PullRequestsService['load']>>;
@@ -176,7 +176,7 @@ export class ReviewsService {
         actorId: params.requesterId,
         payload: { issueId: pullRequest.issueId, reviewId: review.id },
       });
-      await touch(tx, pullRequest.issueId);
+      await touchIssue(tx, pullRequest.issueId);
       return review.id;
     });
 
@@ -267,7 +267,7 @@ export class ReviewsService {
         },
         body,
       );
-      await touch(tx, loaded.pullRequest.issueId);
+      await touchIssue(tx, loaded.pullRequest.issueId);
     });
     return this.findReview(review.id);
   }
@@ -353,7 +353,7 @@ export class ReviewsService {
         },
         params.body,
       );
-      await touch(tx, loaded.pullRequest.issueId);
+      await touchIssue(tx, loaded.pullRequest.issueId);
       return row;
     });
 
@@ -459,7 +459,7 @@ export class ReviewsService {
             ),
           );
       }
-      await touch(tx, loaded.pullRequest.issueId);
+      await touchIssue(tx, loaded.pullRequest.issueId);
     });
     return { deleted: true };
   }
@@ -696,11 +696,4 @@ function pendingOf(pullRequestId: string, authorId: string) {
     eq(schema.pullRequestReview.authorId, authorId),
     isNull(schema.pullRequestReview.submittedAt),
   );
-}
-
-function touch(tx: Executor, issueId: string) {
-  return tx
-    .update(schema.issue)
-    .set({ updatedAt: new Date() })
-    .where(eq(schema.issue.id, issueId));
 }
