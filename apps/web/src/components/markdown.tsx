@@ -12,6 +12,7 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGemoji from "remark-gemoji";
 import remarkGfm from "remark-gfm";
 
+import { HighlightedCode } from "@/components/highlighted-code";
 import { ALERTS, remarkAlerts, remarkBreaks } from "@/lib/remark-github";
 import { remarkReferences } from "@/lib/remark-references";
 import { cn } from "@/lib/utils";
@@ -106,6 +107,20 @@ export function Markdown({
                 target={target}
                 rel={target === "_blank" ? noopener(rel) : rel}
               />
+            );
+          },
+          code({ node, className, children, ...props }) {
+            // only a fenced block names its language; inline code and unlabelled blocks stay as written
+            const language = /^language-(\S+)/.exec(className ?? "")?.[1];
+            return language && typeof children === "string" ? (
+              <HighlightedCode
+                code={children.replace(/\n$/, "")}
+                language={language}
+              />
+            ) : (
+              <code {...props} className={className}>
+                {children}
+              </code>
             );
           },
           p({ node, className, children, ...props }) {
