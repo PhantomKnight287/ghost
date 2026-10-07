@@ -16,6 +16,7 @@ import {
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { isNotFound } from '../../../lib/s3/s3.errors.js';
 import { S3Service } from '../../s3/s3.service.js';
+import { errorMessage } from '../../../lib/error-message.js';
 
 // The search node mirrors this prefix into its index directory, so nothing but shards may live under it.
 const SHARD_PREFIX = 'zoekt/';
@@ -76,7 +77,7 @@ export class CodeSearchService {
   indexInBackground(target: IndexTarget) {
     this.index(target).catch((error: unknown) =>
       this.logger.warn(
-        `Code search index failed for ${target.repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+        `Code search index failed for ${target.repositoryId}: ${errorMessage(error)}`,
       ),
     );
   }

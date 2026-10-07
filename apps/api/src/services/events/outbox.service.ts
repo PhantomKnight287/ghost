@@ -15,6 +15,7 @@ import {
 import { OUTBOX_CHANNEL, type StoredEvent } from '../../lib/events/events.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { WebhookFanoutService } from '../webhooks/webhook-fanout.service.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 const BATCH_SIZE = 20;
 // Only retries failed events: new ones arrive by NOTIFY. Longer than Railway's 10 idle minutes, so the API can sleep.
@@ -85,9 +86,7 @@ export class OutboxService
       // Events committed while nobody listened got no NOTIFY.
       this.wake();
     } catch (error) {
-      this.logger.warn(
-        `Outbox listener failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logger.warn(`Outbox listener failed: ${errorMessage(error)}`);
       this.dropListener();
       this.retryListen();
     }
@@ -116,9 +115,7 @@ export class OutboxService
     }
     this.draining = this.drain()
       .catch((error: unknown) =>
-        this.logger.error(
-          `Draining the outbox failed: ${error instanceof Error ? error.message : String(error)}`,
-        ),
+        this.logger.error(`Draining the outbox failed: ${errorMessage(error)}`),
       )
       .finally(() => {
         this.draining = undefined;
@@ -165,8 +162,7 @@ export class OutboxService
             .set({ attempts, processedAt: new Date() })
             .where(eq(schema.outboxEvent.id, event.id));
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
+          const message = errorMessage(error);
           this.logger.warn(
             `Event ${event.id} (${event.type}) failed, attempt ${attempts}: ${message}`,
           );

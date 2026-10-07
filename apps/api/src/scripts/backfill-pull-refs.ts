@@ -14,6 +14,7 @@ import { eq } from 'drizzle-orm';
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
 import { PullRefsModule } from '../pull-refs/pull-refs.module.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
+import { errorMessage } from '../lib/error-message.js';
 
 // Only what a sync needs, so the script opens no HTTP or SSH listener and starts no poller.
 @Module({
@@ -42,9 +43,7 @@ for (const { id } of open) {
     await pullRefs.sync(id);
   } catch (error) {
     failed++;
-    console.error(
-      `${id}: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    console.error(`${id}: ${errorMessage(error)}`);
   }
 }
 

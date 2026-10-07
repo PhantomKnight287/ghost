@@ -15,6 +15,7 @@ import { MailService, type ThreadTemplate } from '../../mail/mail.service.js';
 import type { NotificationReason } from '../../mail/components/thread.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
 import { excluded } from '../../utils/index.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 // The rest reach webhooks only.
 const notifyingEvents = [
@@ -451,7 +452,7 @@ export class NotifierService {
         });
       } catch (error) {
         this.logger.warn(
-          `Emailing ${person.id} about ${event.type} on ${thread.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+          `Emailing ${person.id} about ${event.type} on ${thread.id} failed: ${errorMessage(error)}`,
         );
       }
     }

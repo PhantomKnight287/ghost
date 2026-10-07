@@ -23,6 +23,7 @@ import {
   RepositoryNotInOrganizationError,
   TeamNotFoundError,
 } from './collaborators.errors.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 const owner = alias(schema.user, 'owner');
 const inviter = alias(schema.user, 'inviter');
@@ -345,7 +346,7 @@ export class CollaboratorsService {
       })
       .catch((error: unknown) =>
         this.logger.warn(
-          `Invitation email to ${user.email} failed: ${error instanceof Error ? error.message : String(error)}`,
+          `Invitation email to ${user.email} failed: ${errorMessage(error)}`,
         ),
       );
   }

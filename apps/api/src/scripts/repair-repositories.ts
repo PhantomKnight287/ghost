@@ -23,6 +23,7 @@ import { RepositoryStorageService } from '../services/git/repository-storage/rep
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
 import { S3Service } from '../services/s3/s3.service.js';
+import { errorMessage } from '../lib/error-message.js';
 
 // Only what a repair needs, so the script opens no HTTP or SSH listener and starts no poller.
 @Module({
@@ -70,7 +71,7 @@ for (const { id, slug, owner } of repositories) {
   } catch (error) {
     failed++;
     console.error(
-      `${owner}/${slug} (${id}) could not be ${apply ? 'repaired' : 'checked'}: ${error instanceof Error ? error.message : String(error)}`,
+      `${owner}/${slug} (${id}) could not be ${apply ? 'repaired' : 'checked'}: ${errorMessage(error)}`,
     );
   }
 }

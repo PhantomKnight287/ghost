@@ -31,6 +31,7 @@ import {
   PullRefWriteTooLargeError,
   UnmergedPullRefQuotaExceededError,
 } from '../../../lib/storage/storage.errors.js';
+import { errorMessage } from '../../../lib/error-message.js';
 
 // Each lost race re-reads the log, so this only runs out when the base is being pushed to faster than a merge-tree.
 const MAX_ATTEMPTS = 3;
@@ -87,7 +88,7 @@ export class PullRefsService {
       )
       .catch((error: unknown) => {
         this.logger.warn(
-          `Pull request refs were not queued for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+          `Pull request refs were not queued for ${repositoryId}: ${errorMessage(error)}`,
         );
         return [];
       });
@@ -106,7 +107,7 @@ export class PullRefsService {
         this.stale.delete(pullRequestId);
         await this.sync(pullRequestId).catch((error: unknown) =>
           this.logger.warn(
-            `Pull request refs for ${pullRequestId} were not updated: ${error instanceof Error ? error.message : String(error)}`,
+            `Pull request refs for ${pullRequestId} were not updated: ${errorMessage(error)}`,
           ),
         );
       } while (this.stale.has(pullRequestId));

@@ -36,6 +36,7 @@ import { isGitServiceName, type GitServiceName } from './git.constants.js';
 import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
 import { DomainError } from '../domain/errors.js';
 import { rejectedPushReport } from '../lib/git/protocol/report-status.js';
+import { errorMessage } from '../lib/error-message.js';
 
 export interface GitTransportResponse {
   headers: Record<string, string>;
@@ -198,7 +199,7 @@ export class GitService {
         .sync({ repositoryId, repoDirectory })
         .catch((error: unknown) =>
           this.logger.warn(
-            `Contribution index update failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+            `Contribution index update failed for ${repositoryId}: ${errorMessage(error)}`,
           ),
         );
       this.closeFromPush({
@@ -208,7 +209,7 @@ export class GitService {
         pushedBy,
       }).catch((error: unknown) =>
         this.logger.warn(
-          `Closing referenced issues failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+          `Closing referenced issues failed for ${repositoryId}: ${errorMessage(error)}`,
         ),
       );
       void this.pullRefs.syncAfterPush({ repositoryId, transitions });
@@ -226,7 +227,7 @@ export class GitService {
         pushedBy,
       }).catch((error: unknown) =>
         this.logger.warn(
-          `Publishing push events failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+          `Publishing push events failed for ${repositoryId}: ${errorMessage(error)}`,
         ),
       );
     });

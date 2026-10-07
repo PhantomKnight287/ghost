@@ -7,6 +7,7 @@ import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { walkCommits } from '../../../lib/git/path-index/commit-log.js';
 import { isoTimestamp, excluded } from '../../../utils/index.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
+import { errorMessage } from '../../../lib/error-message.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -97,7 +98,7 @@ export class RepositoryPathIndexService {
 
     this.sync({ repositoryId, repoDirectory, ref }).catch((error: unknown) =>
       this.logger.warn(
-        `Path index build failed for ${repositoryId} ${ref}: ${error instanceof Error ? error.message : String(error)}`,
+        `Path index build failed for ${repositoryId} ${ref}: ${errorMessage(error)}`,
       ),
     );
     return false;

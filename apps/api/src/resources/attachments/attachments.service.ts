@@ -30,6 +30,7 @@ import {
   AttachmentTooLargeError,
   AttachmentTypeNotAllowedError,
 } from './attachments.errors.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 const SWEEP_BATCH = 100;
@@ -59,9 +60,7 @@ export class AttachmentsService
   onApplicationBootstrap() {
     this.timer = setInterval(() => {
       this.sweep().catch((error: unknown) =>
-        this.logger.error(
-          `Attachment sweep failed: ${error instanceof Error ? error.message : String(error)}`,
-        ),
+        this.logger.error(`Attachment sweep failed: ${errorMessage(error)}`),
       );
     }, SWEEP_INTERVAL_MS);
   }

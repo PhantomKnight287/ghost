@@ -137,6 +137,7 @@ import type {
 } from './dto/search-code.dto.js';
 import type { SearchRepositoriesResponseDTO } from './dto/search-repositories.dto.js';
 import type { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 // `/owner/settings` and `/org/teams` are pages of the owner's own, so no repository may live there.
 const RESERVED_REPOSITORY_SLUGS = new Set(['settings', 'teams']);
@@ -627,7 +628,7 @@ export class RepositoriesService {
             .remove(row.id)
             .catch((cleanup: unknown) =>
               this.logger.warn(
-                `Removing LFS objects of failed fork ${row.id} failed: ${cleanup instanceof Error ? cleanup.message : String(cleanup)}`,
+                `Removing LFS objects of failed fork ${row.id} failed: ${errorMessage(cleanup)}`,
               ),
             );
           throw error;
@@ -1007,7 +1008,7 @@ export class RepositoriesService {
     if (visibility !== undefined && visibility !== repository.visibility) {
       this.reindexCodeSearch(updated).catch((error: unknown) =>
         this.logger.warn(
-          `Reindexing ${updated.id} for visibility failed: ${error instanceof Error ? error.message : String(error)}`,
+          `Reindexing ${updated.id} for visibility failed: ${errorMessage(error)}`,
         ),
       );
     }
@@ -1973,7 +1974,7 @@ export class RepositoriesService {
       .sync({ repositoryId: repository.id, repoDirectory: directory })
       .catch((error: unknown) =>
         this.logger.warn(
-          `Contribution index update failed for ${repository.id}: ${error instanceof Error ? error.message : String(error)}`,
+          `Contribution index update failed for ${repository.id}: ${errorMessage(error)}`,
         ),
       );
 

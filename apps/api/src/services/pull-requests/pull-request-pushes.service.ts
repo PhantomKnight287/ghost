@@ -12,6 +12,7 @@ import {
   recordCommitEvents,
 } from '../../lib/pull-requests/commit-events.js';
 import { RepositoryMaterializerService } from '../git/materializer/repository-materializer.service.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 const BRANCH_PREFIX = 'refs/heads/';
 
@@ -33,7 +34,7 @@ export class PullRequestPushesService {
   }) {
     await this.record(push).catch((error: unknown) =>
       this.logger.warn(
-        `Pull request commits were not recorded for ${push.repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+        `Pull request commits were not recorded for ${push.repositoryId}: ${errorMessage(error)}`,
       ),
     );
   }

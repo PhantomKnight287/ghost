@@ -20,6 +20,7 @@ import {
 } from '../../lib/imports/importer.js';
 import { githubAccessToken } from '../../lib/imports/github-account.js';
 import { StaleImportAttemptError } from '../../lib/imports/imports.errors.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 // The importer calls back at least every 30 seconds while it works; four missed beats means it is gone.
 const LEASE_MS = 2 * 60_000;
@@ -80,9 +81,7 @@ export class ImportDispatcherService
     clearTimeout(this.timer);
     this.ticking = this.tick()
       .catch((error: unknown) => {
-        this.logger.error(
-          `Dispatching imports failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        this.logger.error(`Dispatching imports failed: ${errorMessage(error)}`);
         return true;
       })
       .then((active) => {
@@ -265,7 +264,7 @@ export class ImportDispatcherService
           ? error.cause
           : error;
       this.logger.warn(
-        `Import ${row.id} attempt ${row.attempts} was not dispatched: ${reason instanceof Error ? reason.message : String(reason)}`,
+        `Import ${row.id} attempt ${row.attempts} was not dispatched: ${errorMessage(reason)}`,
       );
       await this.settle(row.id, row.claimToken, {
         succeeded: false,
