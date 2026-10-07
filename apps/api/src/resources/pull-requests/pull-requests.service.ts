@@ -16,7 +16,10 @@ import {
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
-import { listCommits } from '../../lib/git/commits/list-commits.js';
+import {
+  countCommits,
+  listCommits,
+} from '../../lib/git/commits/list-commits.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import {
@@ -24,7 +27,6 @@ import {
   mergeBase,
   streamDiffPatch,
 } from '../../lib/git/diff/diff.js';
-import { runGit } from '../../lib/git/exec/run-git.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import {
   commitTree,
@@ -374,7 +376,11 @@ export class PullRequestsService {
       headSha: git.headSha,
       mergeBase: git.mergeBase,
       commitCount: git.mergeBase
-        ? await this.countRange(git, `${git.mergeBase}..${git.headSha}`)
+        ? await countCommits({
+            gitDir: git.baseDirectory,
+            env: git.env,
+            range: `${git.mergeBase}..${git.headSha}`,
+          })
         : 0,
       changedFiles: files.length,
       additions: files.reduce((total, file) => total + file.additions, 0),
@@ -458,7 +464,11 @@ export class PullRequestsService {
         ...commit,
         verification: verdicts.get(commit.sha) ?? null,
       })),
-      total: await this.countRange(git, `${git.mergeBase}..${git.headSha}`),
+      total: await countCommits({
+        gitDir: git.baseDirectory,
+        env: git.env,
+        range: `${git.mergeBase}..${git.headSha}`,
+      }),
       nextCursor,
     };
   }
@@ -995,21 +1005,6 @@ export class PullRequestsService {
     const sha = await resolveCommit(gitDir, toBranchRef(branch));
     if (!sha) throw new BranchNotFoundError(branch);
     return sha;
-  }
-
-  private async countRange(
-    {
-      baseDirectory,
-      env,
-    }: { baseDirectory: string; env?: Record<string, string> },
-    range: string,
-  ) {
-    const raw = await runGit({
-      args: ['rev-list', '--count', '--end-of-options', range],
-      gitDir: baseDirectory,
-      env,
-    });
-    return Number(raw.trim()) || 0;
   }
 
   /** `owner:branch` names a branch on another repository in the same fork network - the base itself, a fork of it, or the repository the base was forked from. Anything else is not a pull request, it is two unrelated repos. */

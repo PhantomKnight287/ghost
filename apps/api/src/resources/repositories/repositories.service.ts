@@ -55,6 +55,7 @@ import { CommitVerificationService } from '../../services/gpg/commit-verificatio
 import { listTree } from '../../lib/git/tree/list-tree.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import {
+  countCommits,
   isSha,
   listCommits,
   readCommit,
@@ -641,10 +642,7 @@ export class RepositoriesService {
     return {
       id: fork.id,
       slug: fork.slug,
-      username:
-        organization ??
-        (await this.usersService.getUserById(requesterId)).username ??
-        '',
+      username: await this.namespaceName(namespace),
     };
   }
 
@@ -792,11 +790,7 @@ export class RepositoriesService {
 
   /** The recipient declines, or whoever asked for it withdraws it. */
   async cancelTransfer(repositoryId: string, requesterId: string) {
-    const [transfer] = await this.db
-      .select()
-      .from(schema.repositoryTransfer)
-      .where(eq(schema.repositoryTransfer.repositoryId, repositoryId));
-    if (!transfer) throw new TransferNotFoundError();
+    const transfer = await this.pendingTransfer(repositoryId);
     if (transfer.requestedById !== requesterId) {
       await this.incomingTransfer(repositoryId, requesterId);
     }
@@ -805,13 +799,18 @@ export class RepositoriesService {
       .where(eq(schema.repositoryTransfer.repositoryId, repositoryId));
   }
 
-  /** A pending transfer addressed to the requester, or to an organization they administer. */
-  private async incomingTransfer(repositoryId: string, requesterId: string) {
+  private async pendingTransfer(repositoryId: string) {
     const [transfer] = await this.db
       .select()
       .from(schema.repositoryTransfer)
       .where(eq(schema.repositoryTransfer.repositoryId, repositoryId));
     if (!transfer) throw new TransferNotFoundError();
+    return transfer;
+  }
+
+  /** A pending transfer addressed to the requester, or to an organization they administer. */
+  private async incomingTransfer(repositoryId: string, requesterId: string) {
+    const transfer = await this.pendingTransfer(repositoryId);
     const recipient = transfer.toOrganizationId
       ? await this.holds(
           { organizationId: transfer.toOrganizationId },
@@ -1260,7 +1259,7 @@ export class RepositoriesService {
 
       const [entries, commitCount] = await Promise.all([
         listTree({ gitDir: directory, ref, prefix }),
-        this.countCommits({ directory, range: ref }),
+        countCommits({ gitDir: directory, range: ref }),
       ]);
 
       return {
@@ -1275,7 +1274,7 @@ export class RepositoriesService {
 
     const [entries, commitCount] = await Promise.all([
       listTree({ gitDir: directory, ref, prefix }),
-      this.countCommits({ directory, range: ref }),
+      countCommits({ gitDir: directory, range: ref }),
     ]);
     const commits = await this.pathIndex.lookup({
       repositoryId: repository.id,
@@ -1501,11 +1500,11 @@ export class RepositoriesService {
         limit: query.limit ?? DEFAULT_PAGE_SIZE,
         cursor: query.cursor,
       }),
-      this.countCommits({ directory, range: ref, path }),
+      countCommits({ gitDir: directory, range: ref, path }),
       // commits above the cursor are the pages already behind this one
       query.cursor
-        ? this.countCommits({
-            directory,
+        ? countCommits({
+            gitDir: directory,
             range: `${query.cursor}..${ref}`,
             path,
           })
@@ -1916,29 +1915,6 @@ export class RepositoriesService {
       totalCommits,
       totalContributors,
     };
-  }
-
-  private async countCommits({
-    directory,
-    range,
-    path,
-  }: {
-    directory: string;
-    range: string;
-    path?: string;
-  }) {
-    const count = await runGit({
-      args: [
-        'rev-list',
-        '--count',
-        '--end-of-options',
-        range,
-        ...(path ? ['--', path] : []),
-      ],
-      gitDir: directory,
-    });
-
-    return Number(count.trim());
   }
 
   /** Resolves the requested branch, tag or sha to a revision. `detached` marks a tag or sha, which has no moving tip and so is never indexed. */

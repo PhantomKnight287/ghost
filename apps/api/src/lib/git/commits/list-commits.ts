@@ -148,3 +148,29 @@ export async function readCommitSummary({
     committedAt: new Date(Number(committedAt) * 1000).toISOString(),
   };
 }
+
+/** Commits in `range`, optionally only those touching `path`. */
+export async function countCommits({
+  gitDir,
+  range,
+  path,
+  env,
+}: {
+  gitDir: string;
+  range: string;
+  path?: string;
+  env?: Record<string, string>;
+}) {
+  const count = await runGit({
+    args: [
+      'rev-list',
+      '--count',
+      '--end-of-options',
+      range,
+      ...(path ? ['--', path] : []),
+    ],
+    gitDir,
+    env,
+  });
+  return Number(count.trim()) || 0;
+}
