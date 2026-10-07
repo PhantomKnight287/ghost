@@ -41,7 +41,7 @@ export class RepositoryMaterializerService {
 
   /** Resolves once a replay in flight has finished, whatever its outcome, so its writes cannot land after the cache is removed. */
   async settle(repoId: string) {
-    await this.inFlight.current(repoId)?.catch(() => undefined);
+    await this.inFlight.settle(repoId);
   }
 
   private async replay(

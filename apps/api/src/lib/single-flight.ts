@@ -11,8 +11,8 @@ export class SingleFlight<T> {
     return run;
   }
 
-  /** The run in flight for `key`, if any. */
-  current(key: string): Promise<T> | undefined {
-    return this.running.get(key);
+  /** Resolves once the run in flight for `key`, if any, has finished, whatever its outcome. */
+  async settle(key: string) {
+    await this.running.get(key)?.catch(() => undefined);
   }
 }
