@@ -20,8 +20,7 @@ export function useCustomTheme() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // hydration-safe: localStorage only exists in the browser, so the stored
-    // custom theme has to be synced after mount.
+    // localStorage only exists in the browser, so the stored custom theme is read after mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustom(loadCustomTheme());
     setHydrated(true);

@@ -91,10 +91,7 @@ for (const { id, username, slug } of rows) {
 }
 
 console.log(
-  `\n${apply ? 'migrated' : 'to migrate'}: ${moved}, skipped: ${skipped}` +
-    (apply
-      ? ''
-      : '\nre-run with --apply to write, and --prune to drop old keys'),
+  `\n${apply ? 'migrated' : 'to migrate'}: ${moved}, skipped: ${skipped}${apply ? '' : '\nre-run with --apply to write, and --prune to drop old keys'}`,
 );
 
 await pool.end();

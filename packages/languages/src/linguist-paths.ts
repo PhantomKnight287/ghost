@@ -1,5 +1,4 @@
-// Ported from github-linguist/linguist@5fbdfcb8133b: lib/linguist/vendor.yml, documentation.yml, and the path-only checks in generated.rb.
-// Update by copying those lists again; the patterns are used as written.
+// Ported from github-linguist/linguist@5fbdfcb8133b: lib/linguist/vendor.yml, documentation.yml, and the path-only checks in generated.rb. Update by copying those lists again; the patterns are used as written.
 
 /** lib/linguist/vendor.yml */
 export const VENDORED = [

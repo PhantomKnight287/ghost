@@ -87,10 +87,7 @@ export function Auth({
     return null;
   }
 
-  // 1. Plugin overrides (`views.auth[currentView]`) - first plugin wins,
-  // including over built-in views. Resolves the view key from `view`,
-  // then `authView` (built-in path match), then plugin-introduced paths
-  // (e.g. `magicLink` → `/auth/magic-link`).
+  // Plugin overrides win over built-in views; the first plugin to claim the view renders it.
   for (const plugin of plugins) {
     const pluginAuthPaths = plugin.viewPaths?.auth;
 
@@ -115,9 +112,7 @@ export function Auth({
     );
   }
 
-  // 2. Plugin fallbacks - only when the built-in `signIn` isn't viable
-  // (password auth is off). Used by `magicLinkPlugin` to render the
-  // magic-link form as the primary passwordless sign-in surface.
+  // Plugin fallbacks render only when password sign-in is off, as `magicLinkPlugin` does.
   if (authView === "signIn" && !emailAndPassword?.enabled) {
     const Fallback = plugins.find(
       (plugin) => plugin.fallbackViews?.auth?.signIn,
