@@ -1,13 +1,12 @@
 import { GitFork } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
 import { ForkRepositoryForm } from "./fork-repository-form";
 import {
   createServerClient,
   getAdminOrganizations,
-  getServerSession,
+  requireViewer,
   notFoundIfHidden,
 } from "@/lib/api/server";
 import { Notice } from "./notice";
@@ -17,17 +16,10 @@ export default async function ForkRepositoryPage({
 }: PageProps<"/[username]/[repo]/fork">) {
   const { username, repo } = await params;
 
-  const [session, client] = await Promise.all([
-    getServerSession(),
+  const [viewer, client] = await Promise.all([
+    requireViewer(`/${username}/${repo}/fork`),
     createServerClient(),
   ]);
-
-  const viewer = session?.user.username;
-  if (!viewer) {
-    redirect(
-      `/auth/sign-in?redirectTo=${encodeURIComponent(`/${username}/${repo}/fork`)}`,
-    );
-  }
 
   const repository = await client.GET("/api/repositories/{username}/{slug}", {
     params: { path: { username, slug: repo } },

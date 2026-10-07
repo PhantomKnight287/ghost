@@ -7,7 +7,7 @@ import { SettingsNav } from "@/components/repositories/settings-nav";
 import {
   createServerClient,
   getAdminOrganizations,
-  getServerSession,
+  requireViewer,
 } from "@/lib/api/server";
 
 /** An organization's settings, for its admins; everyone else has its profile at `/<slug>`. A user's settings live at `/settings`, so a username here goes there. */
@@ -16,16 +16,10 @@ export default async function OrganizationSettingsLayout({
   children,
 }: LayoutProps<"/[username]/settings">) {
   const { username: slug } = await params;
-  const [session, client] = await Promise.all([
-    getServerSession(),
+  const [viewer, client] = await Promise.all([
+    requireViewer(`/${slug}/settings`),
     createServerClient(),
   ]);
-  const viewer = session?.user.username;
-  if (!viewer) {
-    redirect(
-      `/auth/sign-in?redirectTo=${encodeURIComponent(`/${slug}/settings`)}`,
-    );
-  }
 
   const [profile, administered] = await Promise.all([
     client.GET("/api/organizations/{slug}", { params: { path: { slug } } }),

@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { CreatePullRequestForm } from "./create-pull-request-form";
 import { DiffView } from "@/components/pull-requests/diff-view";
 import {
   createServerClient,
-  getServerSession,
+  requireViewer,
   notFoundIfHidden,
 } from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
@@ -17,16 +16,10 @@ export default async function NewPullRequestPage({
   const { username, repo } = await params;
   const selected = await searchParams;
 
-  const [session, client] = await Promise.all([
-    getServerSession(),
+  const [viewer, client] = await Promise.all([
+    requireViewer(`/${username}/${repo}/pulls/new`),
     createServerClient(),
   ]);
-
-  if (!session?.user.username) {
-    redirect(
-      `/auth/sign-in?redirectTo=${encodeURIComponent(`/${username}/${repo}/pulls/new`)}`,
-    );
-  }
 
   const repository = await client.GET("/api/repositories/{username}/{slug}", {
     params: { path: { username, slug: repo } },
@@ -36,7 +29,6 @@ export default async function NewPullRequestPage({
   if (!repository.data) throw new Error(`Failed to load ${username}/${repo}`);
 
   const viewerForkSlug = repository.data.viewerForkSlug;
-  const viewer = session.user.username;
 
   // Branches of this repository, and of the viewer's fork when they have one - a fork's branch is proposed as `owner:branch`, which is what the API resolves.
   const [branches, forkBranches] = await Promise.all([

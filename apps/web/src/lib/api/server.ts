@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import createFetchClient from "openapi-fetch";
 
@@ -56,6 +56,14 @@ export async function getServerSession(): Promise<
     cache: "no-store",
   });
   return res.ok ? res.json() : null;
+}
+
+/** The signed-in viewer's username, sending anyone signed out to sign in and back to `path`. */
+export async function requireViewer(path: string) {
+  const username = (await getServerSession())?.user.username;
+  if (!username)
+    redirect(`/auth/sign-in?redirectTo=${encodeURIComponent(path)}`);
+  return username;
 }
 
 /** The viewer's role on a repository, fetched once per render however many components ask. */
