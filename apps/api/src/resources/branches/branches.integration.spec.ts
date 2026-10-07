@@ -19,7 +19,7 @@ import { InMemoryWalStore } from '../../lib/git/materializer/wal-store.fake.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
 import { RepositoryForbiddenError } from '../../lib/repositories/access/repository-access.errors.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import { BranchesService } from '../../services/git/branches/branches.service.js';
+import { listBranches } from '../../lib/git/refs/list-refs.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
@@ -58,7 +58,6 @@ describe.skipIf(!CONNECTION)('branches', () => {
   let source: string;
   let cache: string;
   let service: RepositoryBranchesService;
-  let branches: BranchesService;
   let materializer: RepositoryMaterializerService;
   let pushes: PushTransactionService;
   let repository: typeof schema.repository.$inferSelect;
@@ -97,7 +96,7 @@ describe.skipIf(!CONNECTION)('branches', () => {
   /** Branches as a fresh read of the log sees them. */
   async function listed() {
     await materializer.materialize(repository.id, cache, null);
-    return branches.getGitBranches(cache);
+    return listBranches(cache);
   }
 
   beforeAll(async () => {
@@ -119,12 +118,10 @@ describe.skipIf(!CONNECTION)('branches', () => {
       getRepoPath: async () => cache,
     } as unknown as RepositoryStorageService);
     pushes = new PushTransactionService(store);
-    branches = new BranchesService();
     service = new RepositoryBranchesService(
       db,
       new RepositoryAccessService(db),
       materializer,
-      branches,
       pushes,
     );
 

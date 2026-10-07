@@ -35,6 +35,7 @@ import {
 import { errorMessage } from '../../../lib/error-message.js';
 import { Coalescer } from '../../../lib/coalescer.js';
 import { withTempDir } from '../../../lib/temp-dir.js';
+import { listRefs } from '../../../lib/git/refs/list-refs.js';
 
 // Each lost race re-reads the log, so this only runs out when the base is being pushed to faster than a merge-tree.
 const MAX_ATTEMPTS = 3;
@@ -183,7 +184,7 @@ export class PullRefsService {
     const baseDirectory = await this.open(pullRequest.baseRepositoryId);
     const headRef = pullHeadRef(pullRequest.number);
     const mergeRef = pullMergeRef(pullRequest.number);
-    const refs = await this.listRefs(baseDirectory);
+    const refs = await listRefs(baseDirectory);
 
     const target =
       pullRequest.state === 'merged'
@@ -367,22 +368,6 @@ export class PullRefsService {
           })
         : null,
     };
-  }
-
-  private async listRefs(gitDir: string) {
-    const raw = await runGit({
-      args: ['for-each-ref', '--format=%(refname) %(objectname)'],
-      gitDir,
-    });
-    return new Map(
-      raw
-        .split('\n')
-        .filter(Boolean)
-        .map((line) => {
-          const [ref, oid] = line.split(' ');
-          return [ref, oid] as const;
-        }),
-    );
   }
 
   private async open(repositoryId: string) {

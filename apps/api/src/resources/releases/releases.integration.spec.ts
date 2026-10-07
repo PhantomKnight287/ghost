@@ -27,7 +27,6 @@ import { StorageService } from '../storage/storage.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
@@ -166,7 +165,6 @@ describe.skipIf(!CONNECTION)('releases', () => {
       new RepositoryMaterializerService(store, {
         getRepoPath: async () => cache,
       } as unknown as RepositoryStorageService),
-      new BranchesService(),
       pushes,
       new UsersService(db),
       assets,

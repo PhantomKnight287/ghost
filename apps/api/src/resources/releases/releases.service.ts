@@ -14,7 +14,6 @@ import { isValidRefName } from '../../lib/git/refs/is-valid-ref-name.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import { resolveTargetCommit } from '../../lib/git/tree/resolve-ref.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
@@ -39,6 +38,7 @@ import {
   TagTargetNotFoundError,
 } from '../../lib/releases/releases.errors.js';
 import { withTempDir } from '../../lib/temp-dir.js';
+import { listBranches } from '../../lib/git/refs/list-refs.js';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -55,7 +55,6 @@ export class ReleasesService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
     private readonly materializer: RepositoryMaterializerService,
-    private readonly branches: BranchesService,
     private readonly pushTransaction: PushTransactionService,
     private readonly users: UsersService,
     private readonly assets: ReleaseAssetsService,
@@ -340,7 +339,7 @@ export class ReleasesService {
     const sha = await resolveTargetCommit({
       gitDir: directory,
       defaultBranch: repository.defaultBranch,
-      branches: await this.branches.getGitBranches(directory),
+      branches: await listBranches(directory),
       tags,
       requested: name,
     });

@@ -104,7 +104,6 @@ import type {
   GetRepositoryCommitsQueryDTO,
   GetRepositoryCommitsResponseDTO,
 } from './dto/get-repository-commits.dto.js';
-import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
@@ -140,6 +139,7 @@ import type {
 import type { SearchRepositoriesResponseDTO } from './dto/search-repositories.dto.js';
 import type { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
 import { errorMessage } from '../../lib/error-message.js';
+import { listBranches } from '../../lib/git/refs/list-refs.js';
 
 // `/owner/settings` and `/org/teams` are pages of the owner's own, so no repository may live there.
 const RESERVED_REPOSITORY_SLUGS = new Set(['settings', 'teams']);
@@ -158,7 +158,6 @@ export class RepositoriesService {
     private readonly materializer: RepositoryMaterializerService,
     private readonly pathIndex: RepositoryPathIndexService,
     private readonly languages: RepositoryLanguageService,
-    private readonly branches: BranchesService,
     private readonly access: RepositoryAccessService,
     private readonly wal: WalStoreService,
     private readonly contributions: RepositoryContributionService,
@@ -1613,7 +1612,7 @@ export class RepositoriesService {
       requesterId,
     });
 
-    const branches = await this.branches.getGitBranches(directory);
+    const branches = await listBranches(directory);
     const defaultBranch = ref.replace(/^refs\/heads\//, '');
 
     return {
@@ -1966,7 +1965,7 @@ export class RepositoriesService {
     }
 
     const [branches, tags] = await Promise.all([
-      this.branches.getGitBranches(directory),
+      listBranches(directory),
       listTags(directory),
     ]);
     const resolved = await resolveRevision({

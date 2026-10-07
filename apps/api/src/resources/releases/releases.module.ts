@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 
-import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
@@ -20,7 +19,6 @@ import { ReleasesService } from './releases.service.js';
     ReleasesService,
     ReleaseAssetsService,
     RepositoryAccessService,
-    BranchesService,
     PushTransactionService,
     WalStoreService,
     S3Service,

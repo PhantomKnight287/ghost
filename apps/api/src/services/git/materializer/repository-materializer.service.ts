@@ -8,6 +8,7 @@ import { RepositoryStorageService } from '../repository-storage/repository-stora
 import { emptyIndex, type WalIndex } from '../../../lib/git/wal/wal.types.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
 import { headRef } from '../../../lib/git/tree/resolve-ref.js';
+import { listRefs } from '../../../lib/git/refs/list-refs.js';
 
 const SEQ_MARKER = 'ghost-wal-seq';
 const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
@@ -86,7 +87,7 @@ export class RepositoryMaterializerService {
   }
 
   private async reconcileRefs(repoDirectory: string, index: WalIndex) {
-    const existing = await this.listRefs(repoDirectory);
+    const existing = [...(await listRefs(repoDirectory)).keys()];
     const commands: string[] = [];
 
     for (const [ref, oid] of index.refs) {
@@ -103,14 +104,6 @@ export class RepositoryMaterializerService {
         input: Buffer.from(commands.join('\n') + '\n', 'utf8'),
       });
     }
-  }
-
-  private async listRefs(repoDirectory: string) {
-    const output = await runGit({
-      args: ['for-each-ref', '--format=%(refname)'],
-      gitDir: repoDirectory,
-    });
-    return output.split('\n').filter(Boolean);
   }
 
   /** HEAD follows the chosen default branch while it exists. Otherwise a HEAD naming a missing branch clones as empty, so it is pointed at a branch that actually exists. */

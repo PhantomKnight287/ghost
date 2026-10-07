@@ -1,14 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { BranchesService } from './branches.service.js';
+import { listBranches } from './list-refs.js';
 
-describe('BranchesService', () => {
-  let service: BranchesService;
+describe('listBranches', () => {
   let root: string;
   let gitDir: string;
 
@@ -23,11 +21,6 @@ describe('BranchesService', () => {
   }
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [BranchesService],
-    }).compile();
-    service = module.get(BranchesService);
-
     root = mkdtempSync(path.join(tmpdir(), 'ghost-branches-'));
     gitDir = path.join(root, '.git');
     execFileSync('git', ['init', '-q', '-b', 'main', root]);
@@ -44,7 +37,7 @@ describe('BranchesService', () => {
   }
 
   it('returns nothing for a repository with no commits', async () => {
-    expect(await service.getGitBranches(gitDir)).toEqual([]);
+    expect(await listBranches(gitDir)).toEqual([]);
   });
 
   it('returns short branch names, ordered by name', async () => {
@@ -52,7 +45,7 @@ describe('BranchesService', () => {
     git('branch', 'feat/contents');
     git('branch', 'a-branch');
 
-    expect(await service.getGitBranches(gitDir)).toEqual([
+    expect(await listBranches(gitDir)).toEqual([
       'a-branch',
       'feat/contents',
       'main',
@@ -63,7 +56,7 @@ describe('BranchesService', () => {
     commit('first');
     git('checkout', '-q', '-b', 'feat');
 
-    expect(await service.getGitBranches(gitDir)).toEqual(['feat', 'main']);
+    expect(await listBranches(gitDir)).toEqual(['feat', 'main']);
   });
 
   it('ignores tags and remote-tracking refs', async () => {
@@ -71,7 +64,7 @@ describe('BranchesService', () => {
     git('tag', 'v1.0.0');
     git('update-ref', 'refs/remotes/origin/main', 'HEAD');
 
-    expect(await service.getGitBranches(gitDir)).toEqual(['main']);
+    expect(await listBranches(gitDir)).toEqual(['main']);
   });
 
   it('names a branch in full when a tag shares its name', async () => {
@@ -79,6 +72,6 @@ describe('BranchesService', () => {
     git('branch', 'v1');
     git('tag', 'v1');
 
-    expect(await service.getGitBranches(gitDir)).toEqual(['main', 'v1']);
+    expect(await listBranches(gitDir)).toEqual(['main', 'v1']);
   });
 });

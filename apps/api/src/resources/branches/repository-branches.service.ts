@@ -13,7 +13,6 @@ import {
   resolveTargetCommit,
 } from '../../lib/git/tree/resolve-ref.js';
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
@@ -26,6 +25,7 @@ import {
   DefaultBranchDeletionError,
   InvalidBranchNameError,
 } from '../../lib/branches/branches.errors.js';
+import { listBranches } from '../../lib/git/refs/list-refs.js';
 
 type RepositoryRef = { username: string; repo: string; requesterId: string };
 
@@ -36,7 +36,6 @@ export class RepositoryBranchesService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
     private readonly materializer: RepositoryMaterializerService,
-    private readonly branches: BranchesService,
     private readonly pushTransaction: PushTransactionService,
   ) {}
 
@@ -54,7 +53,7 @@ export class RepositoryBranchesService {
 
     const directory = await this.materializer.open(repository);
     const [branches, tags] = await Promise.all([
-      this.branches.getGitBranches(directory),
+      listBranches(directory),
       listTags(directory),
     ]);
     if (branches.includes(body.name)) {
@@ -95,7 +94,7 @@ export class RepositoryBranchesService {
     });
     const directory = await this.materializer.open(repository);
 
-    if (!(await this.branches.getGitBranches(directory)).includes(branch)) {
+    if (!(await listBranches(directory)).includes(branch)) {
       throw new BranchNotFoundError(branch);
     }
     const ref = `refs/heads/${branch}`;
