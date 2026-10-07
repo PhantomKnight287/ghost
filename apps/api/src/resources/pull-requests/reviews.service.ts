@@ -21,6 +21,7 @@ import {
 } from '../../lib/pull-requests/suggestion.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
+import { PullRequestPushesService } from '../../services/pull-requests/pull-request-pushes.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
@@ -70,6 +71,7 @@ export class ReviewsService {
     private readonly users: UsersService,
     private readonly pushTransaction: PushTransactionService,
     private readonly pullRefs: PullRefsService,
+    private readonly pullRequestPushes: PullRequestPushesService,
     private readonly signing: CommitSigningService,
   ) {}
 
@@ -556,6 +558,11 @@ export class ReviewsService {
       await this.pullRefs.syncAfterPush({
         repositoryId: headRepositoryId,
         transitions,
+      });
+      await this.pullRequestPushes.recordPush({
+        repositoryId: headRepositoryId,
+        transitions,
+        pushedBy: params.requesterId,
       });
     } finally {
       await rm(directory, { recursive: true, force: true });

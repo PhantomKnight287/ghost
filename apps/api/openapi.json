@@ -13309,7 +13309,9 @@
           "unassigned",
           "merged",
           "ready_for_review",
-          "converted_to_draft"
+          "converted_to_draft",
+          "committed",
+          "head_force_pushed"
         ]
       },
       "IssueTimelineEventDTO": {
@@ -13352,7 +13354,22 @@
           "commitSha": {
             "type": "string",
             "nullable": true,
-            "description": "The commit that closed the issue, or the merge commit of a `merged` event."
+            "description": "The commit that closed the issue, the merge commit of a `merged` event, the commit a `committed` event added, or the head a `head_force_pushed` event left."
+          },
+          "beforeSha": {
+            "type": "string",
+            "nullable": true,
+            "description": "The head a `head_force_pushed` event replaced."
+          },
+          "commitMessage": {
+            "type": "string",
+            "nullable": true,
+            "description": "A `committed` event's commit subject, kept in case a force push leaves the commit unreachable."
+          },
+          "commitAuthorName": {
+            "type": "string",
+            "nullable": true,
+            "description": "A `committed` event's commit author, as git recorded the name."
           },
           "sourceRepository": {
             "type": "string",
@@ -13378,6 +13395,9 @@
           "oldTitle",
           "newTitle",
           "commitSha",
+          "beforeSha",
+          "commitMessage",
+          "commitAuthorName",
           "sourceRepository",
           "sourceNumber",
           "createdAt"
@@ -14489,6 +14509,7 @@
           "issue.comment_deleted",
           "pull_request.ready_for_review",
           "pull_request.converted_to_draft",
+          "pull_request.synchronized",
           "pull_request.merged",
           "pull_request.reviewed",
           "pull_request.review_dismissed",

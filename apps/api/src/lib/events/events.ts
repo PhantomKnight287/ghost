@@ -23,6 +23,17 @@ export type EventPayloads = {
   'pull_request.ready_for_review': { issueId: string };
   'pull_request.converted_to_draft': { issueId: string };
   'pull_request.merged': { issueId: string };
+  /** A push moved an open request's head. Carries its commits, like `push`, since they are not rows to read back. */
+  'pull_request.synchronized': {
+    issueId: string;
+    /** 40 zeros when the head branch was recreated. */
+    before: string;
+    after: string;
+    /** The push rewrote the branch rather than adding to it. */
+    forced: boolean;
+    /** What the push added to the request, newest first, at most `MAX_PUSH_COMMITS`. */
+    commits: Commit[];
+  };
   'pull_request.reviewed': { issueId: string; reviewId: string };
   'pull_request.review_dismissed': { issueId: string; reviewId: string };
   'pull_request.review_commented': { issueId: string; commentId: string };

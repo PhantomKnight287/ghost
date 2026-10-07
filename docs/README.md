@@ -50,6 +50,7 @@ rejected, and the consequences — including the bad ones.
 - [0036 — Git LFS objects are stored per repository and served through the API](0036-lfs-objects-are-stored-per-repository.md)
 - [0037 — Release assets count against a quota of their own](0037-release-assets-count-against-their-own-quota.md)
 - [0038 — Attachments are billed to whoever uploads them, and swept once nothing mentions them](0038-attachments-are-billed-to-their-uploader.md)
+- [0039 — A pull request's commits are recorded in its timeline as each push lands](0039-pull-request-commits-are-recorded-per-push.md)
 
 ## Open
 

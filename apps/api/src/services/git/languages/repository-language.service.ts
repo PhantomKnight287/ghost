@@ -14,6 +14,7 @@ import {
   statsLanguage,
 } from '@ghost/languages';
 import { excluded } from '../../../utils/index.js';
+import { isAncestor } from '../../../lib/git/diff/diff.js';
 
 const INSERT_CHUNK = 1_000;
 
@@ -82,7 +83,7 @@ export class RepositoryLanguageService {
     // Only a fast-forward can be topped up: a force push or a pruned object makes the stored totals unrelated to the three, so count it again
     const incremental =
       state !== undefined &&
-      (await this.isAncestor(repoDirectory, state.indexedCommitSha, tip));
+      (await isAncestor(repoDirectory, state.indexedCommitSha, tip));
 
     const delta = incremental
       ? await this.applyDiff({
@@ -296,20 +297,6 @@ export class RepositoryLanguageService {
           eq(schema.repositoryLanguageIndex.ref, ref),
         ),
       );
-  }
-
-  private async isAncestor(
-    repoDirectory: string,
-    ancestor: string,
-    descendant: string,
-  ) {
-    return runGit({
-      args: ['merge-base', '--is-ancestor', ancestor, descendant],
-      gitDir: repoDirectory,
-    }).then(
-      () => true,
-      () => false,
-    );
   }
 }
 

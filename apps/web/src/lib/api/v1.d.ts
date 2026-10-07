@@ -3575,7 +3575,7 @@ export interface components {
             updatedAt: string;
         };
         /** @enum {string} */
-        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft";
+        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft" | "committed" | "head_force_pushed";
         IssueTimelineEventDTO: {
             id: string;
             type: components["schemas"]["IssueEventType"];
@@ -3586,8 +3586,14 @@ export interface components {
             assigneeUsername: string | null;
             oldTitle: string | null;
             newTitle: string | null;
-            /** @description The commit that closed the issue, or the merge commit of a `merged` event. */
+            /** @description The commit that closed the issue, the merge commit of a `merged` event, the commit a `committed` event added, or the head a `head_force_pushed` event left. */
             commitSha: string | null;
+            /** @description The head a `head_force_pushed` event replaced. */
+            beforeSha: string | null;
+            /** @description A `committed` event's commit subject, kept in case a force push leaves the commit unreachable. */
+            commitMessage: string | null;
+            /** @description A `committed` event's commit author, as git recorded the name. */
+            commitAuthorName: string | null;
             /**
              * @description Repository of the pull request that closed the issue.
              * @example octocat/ghost
@@ -3939,7 +3945,7 @@ export interface components {
             role: components["schemas"]["RepositoryRole"];
         };
         /** @enum {string} */
-        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
+        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
         WebhookDTO: {
             id: string;
             url: string;

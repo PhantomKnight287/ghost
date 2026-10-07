@@ -3,10 +3,10 @@ import { type Database, schema } from '@ghost/db';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { runGit } from '../../../lib/git/exec/run-git.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { walkCommits } from '../../../lib/git/path-index/commit-log.js';
 import { isoTimestamp, excluded } from '../../../utils/index.js';
+import { isAncestor } from '../../../lib/git/diff/diff.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -89,7 +89,7 @@ export class RepositoryPathIndexService {
 
     if (
       state &&
-      (await this.isAncestor(repoDirectory, state.indexedCommitSha, tip))
+      (await isAncestor(repoDirectory, state.indexedCommitSha, tip))
     ) {
       // A walk already in flight may have started before the ref moved to this tip.
       return (await this.sync({ repositoryId, repoDirectory, ref })) === tip;
@@ -164,7 +164,7 @@ export class RepositoryPathIndexService {
     // Only a fast-forward can be topped up. A force push or a pruned object makes the stored rows unrelated to the ref, so start over.
     const incremental =
       state !== undefined &&
-      (await this.isAncestor(repoDirectory, state.indexedCommitSha, tip));
+      (await isAncestor(repoDirectory, state.indexedCommitSha, tip));
 
     if (!incremental) await this.forget(repositoryId, ref);
 
@@ -284,21 +284,6 @@ export class RepositoryPathIndexService {
           eq(schema.repositoryRefIndex.ref, ref),
         ),
       );
-  }
-
-  private async isAncestor(
-    repoDirectory: string,
-    ancestor: string,
-    descendant: string,
-  ) {
-    // Exits non-zero both for "not an ancestor" and for an object that is gone; either way the stored position is unusable.
-    return runGit({
-      args: ['merge-base', '--is-ancestor', ancestor, descendant],
-      gitDir: repoDirectory,
-    }).then(
-      () => true,
-      () => false,
-    );
   }
 }
 

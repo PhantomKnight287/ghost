@@ -23,6 +23,7 @@ export const webhookEvents = [
   'issue.comment_deleted',
   'pull_request.ready_for_review',
   'pull_request.converted_to_draft',
+  'pull_request.synchronized',
   'pull_request.merged',
   'pull_request.reviewed',
   'pull_request.review_dismissed',
@@ -197,6 +198,8 @@ export type WebhookBody = {
   after?: string;
   created?: boolean;
   deleted?: boolean;
+  /** A synchronized request's push rewrote its branch. */
+  forced?: boolean;
   commits?: Commit[];
 };
 

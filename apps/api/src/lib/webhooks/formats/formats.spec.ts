@@ -283,6 +283,17 @@ describe('messageOf', () => {
       null,
     ],
     [
+      {
+        event: 'pull_request.synchronized',
+        pullRequest: pull,
+        forced: true,
+        commits: [commit(3)],
+      },
+      'ada force-pushed 1 commit to pull request #7: Bell count',
+      pull.htmlUrl,
+      '3333333 Commit 3',
+    ],
+    [
       { event: 'pull_request.merged', pullRequest: pull },
       'ada merged pull request #7: Bell count',
       pull.htmlUrl,

@@ -29,6 +29,9 @@ export const issueEventType = pgEnum("issue_event_type", [
   "merged",
   "ready_for_review",
   "converted_to_draft",
+  // a commit a push added to a pull request's head, and a push that rewrote it
+  "committed",
+  "head_force_pushed",
 ]);
 
 export const issueReferenceSource = pgEnum("issue_reference_source", [
@@ -170,7 +173,7 @@ export const issueAssignee = pgTable(
   (t) => [primaryKey({ columns: [t.issueId, t.userId] })],
 );
 
-/** Audit timeline for an issue — what GitHub renders between comments. Only the columns relevant to `type` are set; a `closed` event carries `sourceIssueId` or `commitSha` when a pull request or commit closed it. */
+/** Audit timeline for an issue — what GitHub renders between comments. Only the columns relevant to `type` are set; a `closed` event carries `sourceIssueId` or `commitSha` when a pull request or commit closed it. A `committed` event keeps its commit's subject and author, since a later force push can leave the commit unreachable; `head_force_pushed` goes from `beforeSha` to `commitSha`. */
 export const issueEvent = pgTable(
   "issue_event",
   {
@@ -191,6 +194,9 @@ export const issueEvent = pgTable(
     newTitle: text(),
     sourceIssueId: text().references(() => issue.id, { onDelete: "set null" }),
     commitSha: text(),
+    beforeSha: text(),
+    commitMessage: text(),
+    commitAuthorName: text(),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
