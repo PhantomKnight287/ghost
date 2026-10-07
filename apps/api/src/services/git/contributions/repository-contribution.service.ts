@@ -19,6 +19,7 @@ import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { excluded } from '../../../utils/index.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
+import { splitRecords } from '../../../lib/git/exec/split-records.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -221,21 +222,11 @@ export class RepositoryContributionService {
       gitDir: repoDirectory,
     });
 
-    let carry = '';
-    for await (const chunk of stream) {
-      carry += chunk;
-      const records = carry.split(RECORD);
-      carry = records.pop() ?? '';
-      for (const record of records) {
-        this.accumulate(pending, record);
-        if (pending.size >= FLUSH_THRESHOLD) {
-          written += await this.flush(repositoryId, pending);
-        }
+    for await (const record of splitRecords(stream, RECORD)) {
+      this.accumulate(pending, record);
+      if (pending.size >= FLUSH_THRESHOLD) {
+        written += await this.flush(repositoryId, pending);
       }
-    }
-    const trailing = this.accumulate(pending, carry);
-    if (trailing && pending.size >= FLUSH_THRESHOLD) {
-      written += await this.flush(repositoryId, pending);
     }
 
     written += await this.flush(repositoryId, pending);

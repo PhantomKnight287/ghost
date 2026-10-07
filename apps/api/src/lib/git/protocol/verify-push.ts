@@ -9,6 +9,7 @@ import { type RefTransition, ZERO_OID } from '../wal/wal.types.js';
 import { fileBody, type GitRequestBody } from './git-request-body.js';
 import { PushRejectedError } from './protocol.errors.js';
 import { withTempDir } from '../../temp-dir.js';
+import { splitRecords } from '../exec/split-records.js';
 
 /**
  * Proves a push can be replayed by a node holding only the log, then hands `commit` the pack the log should store (0034).
@@ -154,21 +155,22 @@ async function firstMissing(
   feeding.catch(() => {});
 
   let missing: string | null = null;
-  let carry = '';
-  for await (const chunk of runGitStream({
-    args: ['cat-file', '--batch-check=%(objectname) %(objecttype)'],
-    gitDir,
-    env: {
-      GIT_OBJECT_DIRECTORY: quarantine,
-      GIT_ALTERNATE_OBJECT_DIRECTORIES: '',
-    },
-    input: names,
-  })) {
-    if (missing) continue;
-    const lines = (carry + chunk).split('\n');
-    carry = lines.pop() ?? '';
-    missing =
-      lines.find((line) => line.endsWith(' missing'))?.split(' ')[0] ?? null;
+  const lines = splitRecords(
+    runGitStream({
+      args: ['cat-file', '--batch-check=%(objectname) %(objecttype)'],
+      gitDir,
+      env: {
+        GIT_OBJECT_DIRECTORY: quarantine,
+        GIT_ALTERNATE_OBJECT_DIRECTORIES: '',
+      },
+      input: names,
+    }),
+    '\n',
+  );
+  // Read to the end even after a hit, so cat-file is never left blocked on a full pipe.
+  for await (const line of lines) {
+    if (!missing && line.endsWith(' missing'))
+      missing = line.split(' ')[0] ?? null;
   }
   await feeding;
   return missing;

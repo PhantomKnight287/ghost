@@ -15,6 +15,7 @@ import { excluded } from '../../../utils/index.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
 import { withTempDir } from '../../../lib/temp-dir.js';
+import { splitRecords } from '../../../lib/git/exec/split-records.js';
 
 const INSERT_CHUNK = 1_000;
 
@@ -111,6 +112,7 @@ export class RepositoryLanguageService {
         args: ['ls-tree', '-r', '-l', '-z', '--end-of-options', tip],
         gitDir: repoDirectory,
       }),
+      '\0',
     );
 
     for await (const record of records) {
@@ -362,19 +364,6 @@ function isCounted(mode: string, oid: string) {
 }
 
 /** NUL-terminated records, parsed as git streams them. */
-async function* splitRecords(chunks: AsyncIterable<string>) {
-  let carry = '';
-
-  for await (const chunk of chunks) {
-    carry += chunk;
-    const records = carry.split('\0');
-    carry = records.pop() ?? '';
-    for (const record of records) if (record) yield record;
-  }
-
-  if (carry) yield carry;
-}
-
 function isGitAttributes(file: string) {
   return file === '.gitattributes' || file.endsWith('/.gitattributes');
 }

@@ -1,4 +1,5 @@
 import { runGitStream } from '../exec/run-git.js';
+import { splitRecords } from '../exec/split-records.js';
 
 /** Record and field separators for the `git log` format below. `-z` already NUL-terminates the changed paths and NUL-separates the commits themselves, which is ambiguous, so a leading \x01 marks where each commit starts. */
 const RECORD = '\x01';
@@ -49,21 +50,10 @@ export async function* walkCommits({
 export async function* readCommitRecords(
   chunks: AsyncIterable<string>,
 ): AsyncGenerator<CommitRecord> {
-  let carry = '';
-
-  for await (const chunk of chunks) {
-    carry += chunk;
-    const records = carry.split(RECORD);
-    // the trailing piece may be a partial record, so hold it for the next chunk
-    carry = records.pop() ?? '';
-    for (const record of records) {
-      const parsed = parseRecord(record);
-      if (parsed) yield parsed;
-    }
+  for await (const record of splitRecords(chunks, RECORD)) {
+    const parsed = parseRecord(record);
+    if (parsed) yield parsed;
   }
-
-  const parsed = parseRecord(carry);
-  if (parsed) yield parsed;
 }
 
 /** `<sha>\x1f<epoch>\x1f<subject>\0\n<path>\0<path>\0` */
