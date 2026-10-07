@@ -6,7 +6,6 @@ import { PushTransactionService } from '../../services/git/wal/push-transaction.
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
-import { S3Service } from '../../services/s3/s3.service.js';
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { IssuesModule } from '../issues/issues.module.js';
@@ -27,7 +26,6 @@ import { ReviewsService } from './reviews.service.js';
     RepositoryAccessService,
     PushTransactionService,
     WalStoreService,
-    S3Service,
     LfsService,
     CommitSigningService,
     CommitVerificationService,

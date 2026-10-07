@@ -7,7 +7,6 @@ import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-a
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
-import { S3Service } from '../services/s3/s3.service.js';
 import { RepositoryAccessService } from '../services/git/repository-access/repository-access.service.js';
 import { SshServerService } from '../services/git/ssh/ssh-server.service.js';
 import { SshKeysModule } from '../resources/ssh-keys/ssh-keys.module.js';
@@ -47,7 +46,6 @@ import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-au
     CodeSearchService,
     PushTransactionService,
     WalStoreService,
-    S3Service,
     RepositoryAccessService,
     GitBasicAuthMiddleware,
     SshServerService,

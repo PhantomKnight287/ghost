@@ -16,7 +16,6 @@ import { RepositoryPathIndexService } from '../../services/git/path-index/reposi
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { StorageModule } from '../storage/storage.module.js';
-import { S3Service } from '../../services/s3/s3.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
@@ -50,7 +49,6 @@ import { LfsService } from '../../services/git/lfs/lfs.service.js';
     RepositoryPathIndexService,
     RepositoryLanguageService,
     WalStoreService,
-    S3Service,
     RepositoryAccessService,
     RepositoryContributionService,
     CommitSigningService,

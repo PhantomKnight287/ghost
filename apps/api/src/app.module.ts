@@ -32,9 +32,11 @@ import { RepositoriesModule } from './resources/repositories/repositories.module
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
 import { AppStatsService } from './services/stats/app-stats.service.js';
+import { S3Module } from './s3/s3.module.js';
 
 @Module({
   imports: [
+    S3Module,
     ConfigModule.forRoot({
       isGlobal: true,
       // `.env` interpolates values (e.g. BETTER_AUTH_URL=http://localhost:${API_PORT}), which dotenv does not expand on its own.
