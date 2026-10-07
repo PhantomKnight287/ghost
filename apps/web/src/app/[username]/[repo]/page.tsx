@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { RepositoryContents } from "@/components/repositories/repository-contents";
-import { RepositoryEmptyState } from "@/components/repositories/repository-empty-state";
+import { RepositoryEmptyState } from "./repository-empty-state";
 import {
   RepositoryReadme,
   RepositoryReadmeSkeleton,

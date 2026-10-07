@@ -32,7 +32,10 @@ import {
   roleLabels,
 } from "@/lib/repository-role";
 
-import { removeTeamAccess, setTeamRole } from "./actions";
+import {
+  removeTeamAccess,
+  setTeamRole,
+} from "@/components/repositories/actions";
 
 type Team = components["schemas"]["RepositoryTeamDTO"];
 

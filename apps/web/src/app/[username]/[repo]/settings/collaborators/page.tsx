@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { RepositoryCollaborators } from "@/components/repositories/repository-collaborators";
-import { RepositoryTeams } from "@/components/repositories/repository-teams";
+import { RepositoryCollaborators } from "./repository-collaborators";
+import { RepositoryTeams } from "./repository-teams";
 import { createServerClient } from "@/lib/api/server";
 
 export default async function RepositoryCollaboratorsPage({

@@ -43,9 +43,12 @@ import {
   deleteRepository,
   transferRepository,
   updateRepository,
-} from "./actions";
-import { type UpdateRepositoryInput, updateRepositorySchema } from "./common";
-import { SettingCard } from "./setting-card";
+} from "@/components/repositories/actions";
+import {
+  type UpdateRepositoryInput,
+  updateRepositorySchema,
+} from "@/components/repositories/common";
+import { SettingCard } from "@/components/repositories/setting-card";
 
 type Visibility = "public" | "private";
 

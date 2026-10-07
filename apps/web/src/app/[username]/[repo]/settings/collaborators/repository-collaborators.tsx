@@ -38,8 +38,11 @@ import {
   roleDescriptions,
 } from "@/lib/repository-role";
 
-import { inviteCollaborator, removeCollaborator } from "./actions";
-import { SettingCard } from "./setting-card";
+import {
+  inviteCollaborator,
+  removeCollaborator,
+} from "@/components/repositories/actions";
+import { SettingCard } from "@/components/repositories/setting-card";
 
 type Collaborator = components["schemas"]["CollaboratorDTO"];
 

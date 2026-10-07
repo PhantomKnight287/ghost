@@ -15,7 +15,7 @@ import {
 
 import { AppHeader } from "@/components/app-header";
 import { CreateOrganizationDialog } from "@/components/auth/organization/create-organization-dialog";
-import { Invitations } from "@/components/repositories/invitations";
+import { Invitations } from "./invitations";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
 import type { Repository } from "@/components/repository-card";
 import { FromNowHoverCard } from "@/components/from-now-card";

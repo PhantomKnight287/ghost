@@ -19,8 +19,11 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import type { IssueLabel } from "@/types/issue";
 import { cn } from "@/lib/utils";
-import { createIssue } from "./actions";
-import { type CreateIssueInput, createIssueSchema } from "./common";
+import { createIssue } from "@/components/issues/actions";
+import {
+  type CreateIssueInput,
+  createIssueSchema,
+} from "@/components/issues/common";
 
 export function CreateIssueForm({
   username,

@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { EditableField } from "@/components/issues/editable-field";
-import { CheckoutPopover } from "@/components/pull-requests/checkout-popover";
+import { CheckoutPopover } from "./checkout-popover";
 import { branchLabel } from "@/components/pull-requests/common";
 import {
   ThreadSubscription,

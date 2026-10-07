@@ -24,9 +24,12 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 
-import { forkRepository } from "./actions";
-import { type ForkRepositoryInput, forkRepositorySchema } from "./common";
-import { VisibilityField } from "./visibility-field";
+import { forkRepository } from "@/components/repositories/actions";
+import {
+  type ForkRepositoryInput,
+  forkRepositorySchema,
+} from "@/components/repositories/common";
+import { VisibilityField } from "@/components/repositories/visibility-field";
 
 export function ForkRepositoryForm({
   parentUsername,

@@ -2,16 +2,13 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import {
-  LatestRelease,
-  LatestReleaseSkeleton,
-} from "@/components/releases/latest-release";
-import { RepositoryAbout } from "@/components/repositories/repository-about";
-import { RepositoryFrame } from "@/components/repositories/repository-frame";
+import { LatestRelease, LatestReleaseSkeleton } from "./latest-release";
+import { RepositoryAbout } from "./repository-about";
+import { RepositoryFrame } from "./repository-frame";
 import {
   RepositoryLanguages,
   RepositoryLanguagesSkeleton,
-} from "@/components/repositories/repository-languages";
+} from "./repository-languages";
 import {
   createServerClient,
   getServerSession,

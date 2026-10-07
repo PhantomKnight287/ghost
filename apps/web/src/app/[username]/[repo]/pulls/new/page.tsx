@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { CreatePullRequestForm } from "@/components/pull-requests/create-pull-request-form";
+import { CreatePullRequestForm } from "./create-pull-request-form";
 import { DiffView } from "@/components/pull-requests/diff-view";
 import {
   createServerClient,

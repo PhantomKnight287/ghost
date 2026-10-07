@@ -7,7 +7,7 @@ import { Suspense } from "react";
 import { AppHeader } from "@/components/app-header";
 import { CursorPagination } from "@/components/cursor-pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MembershipActions } from "@/components/organizations/membership-actions";
+import { MembershipActions } from "./membership-actions";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -18,7 +18,7 @@ import {
 import {
   ContributionGraph,
   ContributionGraphSkeleton,
-} from "@/components/profile/contribution-graph";
+} from "./contribution-graph";
 import {
   createServerClient,
   getAdminOrganizations,

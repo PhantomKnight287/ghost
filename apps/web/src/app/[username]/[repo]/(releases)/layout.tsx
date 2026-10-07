@@ -1,6 +1,6 @@
 import { atLeast } from "@ghost/permissions";
 
-import { ReleasesNav } from "@/components/releases/releases-nav";
+import { ReleasesNav } from "./releases-nav";
 import { createServerClient } from "@/lib/api/server";
 
 /** Keeps the releases and tags tabs mounted while switching between them. */

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
-import { ForkRepositoryForm } from "@/components/repositories/fork-repository-form";
+import { ForkRepositoryForm } from "./fork-repository-form";
 import { Button } from "@/components/ui/button";
 import {
   createServerClient,

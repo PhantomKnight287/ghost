@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createServerClient } from "@/lib/api/server";
 
-import { releasePath } from "./common";
+import { releasePath } from "@/components/releases/common";
 
 /** The repository sidebar's releases section: the latest release, and the way to every release and tag. */
 export async function LatestRelease({

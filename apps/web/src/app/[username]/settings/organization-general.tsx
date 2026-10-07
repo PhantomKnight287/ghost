@@ -41,8 +41,8 @@ import {
   OrganizationPrivileges,
   OrganizationProfileSettings,
   PinnedRepositoriesSetting,
-} from "./organization-policies";
-import { useOrganization } from "./use-organization";
+} from "@/components/organizations/organization-policies";
+import { useOrganization } from "@/components/organizations/use-organization";
 
 type OrganizationSettings = components["schemas"]["OrganizationSettingsDTO"];
 

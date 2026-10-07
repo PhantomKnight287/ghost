@@ -18,12 +18,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import type { CreatePullRequestFormProps } from "@/types/pull-request";
-import { createPullRequest } from "./actions";
+import { createPullRequest } from "@/components/pull-requests/actions";
 import {
   type CreatePullRequestInput,
   createPullRequestSchema,
   titleFromBranch,
-} from "./common";
+} from "@/components/pull-requests/common";
 
 export function CreatePullRequestForm({
   username,

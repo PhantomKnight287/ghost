@@ -19,9 +19,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { IssueLabel } from "@/types/issue";
-import { createLabel, deleteLabel, updateLabel } from "./actions";
-import { LabelBadge } from "./label-badge";
-import { LabelForm } from "./label-form";
+import {
+  createLabel,
+  deleteLabel,
+  updateLabel,
+} from "@/components/issues/actions";
+import { LabelBadge } from "@/components/issues/label-badge";
+import { LabelForm } from "@/components/issues/label-form";
 
 export function LabelManager({
   username,

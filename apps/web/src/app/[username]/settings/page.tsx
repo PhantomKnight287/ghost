@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { OrganizationGeneral } from "@/components/organizations/organization-general";
+import { OrganizationGeneral } from "./organization-general";
 import { createServerClient } from "@/lib/api/server";
 
 export default async function OrganizationGeneralPage({

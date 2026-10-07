@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { CreateIssueForm } from "@/components/issues/create-issue-form";
+import { CreateIssueForm } from "./create-issue-form";
 import {
   createServerClient,
   getServerSession,

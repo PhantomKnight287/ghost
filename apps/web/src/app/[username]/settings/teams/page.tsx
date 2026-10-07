@@ -1,4 +1,4 @@
-import { OrganizationTeams } from "@/components/organizations/organization-teams";
+import { OrganizationTeams } from "./organization-teams";
 
 export default async function OrganizationTeamsPage({
   params,

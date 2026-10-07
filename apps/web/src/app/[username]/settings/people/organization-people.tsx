@@ -30,7 +30,7 @@ import { apiClient } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
 import { organizationRoleLabels } from "@/lib/organization-role";
 
-import { useOrganization } from "./use-organization";
+import { useOrganization } from "@/components/organizations/use-organization";
 
 export function OrganizationPeople({
   slug,

@@ -28,8 +28,8 @@ import {
 import { apiClient, unwrap } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
 
-import { TeamMembers } from "./team-members";
-import { useOrganization } from "./use-organization";
+import { TeamMembers } from "@/components/organizations/team-members";
+import { useOrganization } from "@/components/organizations/use-organization";
 
 /** Teams in the organization's settings: create and delete them, and manage who is on each. */
 export function OrganizationTeams({ slug }: { slug: string }) {

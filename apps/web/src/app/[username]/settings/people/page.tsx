@@ -1,4 +1,4 @@
-import { OrganizationPeople } from "@/components/organizations/organization-people";
+import { OrganizationPeople } from "./organization-people";
 import { createServerClient } from "@/lib/api/server";
 
 export default async function OrganizationPeoplePage({
