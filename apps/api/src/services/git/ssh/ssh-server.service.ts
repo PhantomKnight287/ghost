@@ -42,6 +42,7 @@ import {
   type Actor,
   type Repository,
 } from '../../../lib/repositories/access/repository-access.js';
+import { errorMessage } from '../../../lib/error-message.js';
 
 /** 10-31. Railway already answers on 2222, and a ghost may as well keep Halloween. */
 const DEFAULT_PORT = 1031;
@@ -265,13 +266,13 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
       await this.fetch(channel, repoDirectory, parsed.service, protocol);
     } catch (error) {
       // SSH has no status line to carry this, so the reason goes where git prints remote errors.
-      const message =
-        error instanceof DomainError
-          ? error.message
-          : 'the server could not complete that request';
-      if (!(error instanceof DomainError)) {
-        this.logger.error(`SSH ${command} failed: ${(error as Error).message}`);
+      const known = error instanceof DomainError;
+      if (!known) {
+        this.logger.error(`SSH ${command} failed: ${errorMessage(error)}`);
       }
+      const message = known
+        ? error.message
+        : 'the server could not complete that request';
       channel.stderr.write(`ghost: ${message}\n`);
       end(channel, GIT_FATAL_EXIT);
     }
