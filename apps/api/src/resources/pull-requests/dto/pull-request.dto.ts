@@ -184,6 +184,13 @@ export class PullRequestDetailDTO extends PullRequestDTO {
   @ValidateNested({ each: true })
   @Type(() => ReviewerDTO)
   reviewers: ReviewerDTO[];
+
+  @ApiProperty({
+    description:
+      'True when the requesting user is the author or can write to the base repository.',
+  })
+  @IsBoolean()
+  viewerCanEdit: boolean;
 }
 
 export class GetPullRequestsQueryDTO {

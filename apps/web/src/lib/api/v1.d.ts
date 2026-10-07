@@ -3299,6 +3299,8 @@ export interface components {
             /** @description What a squash merge commits unless the merger rewrites it. Null when there is nothing to merge. */
             squash: components["schemas"]["SquashMessageDTO"] | null;
             reviewers: components["schemas"]["ReviewerDTO"][];
+            /** @description True when the requesting user is the author or can write to the base repository. */
+            viewerCanEdit: boolean;
         };
         GetPullRequestCommitsResponseDTO: {
             /** @description Newest first. */

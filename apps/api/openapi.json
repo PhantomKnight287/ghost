@@ -12403,6 +12403,10 @@
             "items": {
               "$ref": "#/components/schemas/ReviewerDTO"
             }
+          },
+          "viewerCanEdit": {
+            "type": "boolean",
+            "description": "True when the requesting user is the author or can write to the base repository."
           }
         },
         "required": [
@@ -12429,7 +12433,8 @@
           "conflicts",
           "pullRefsBlocked",
           "squash",
-          "reviewers"
+          "reviewers",
+          "viewerCanEdit"
         ]
       },
       "GetPullRequestCommitsResponseDTO": {

@@ -11,13 +11,7 @@ import {
   ThreadSubscriptionSkeleton,
 } from "@/components/notifications/thread-subscription";
 import { Badge } from "@/components/ui/badge";
-import {
-  createServerClient,
-  getServerSession,
-  getViewerRole,
-  notFoundIfHidden,
-} from "@/lib/api/server";
-import { atLeast } from "@ghost/permissions";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 
 import { PullRequestNav } from "./pull-request-nav";
@@ -46,11 +40,7 @@ export default async function PullRequestLayout({
 }: LayoutProps<"/[username]/[repo]/pulls/[number]">) {
   const { username, repo, number } = await params;
 
-  const [session, client, role] = await Promise.all([
-    getServerSession(),
-    createServerClient(),
-    getViewerRole(username, repo),
-  ]);
+  const client = await createServerClient();
   const pull = await client.GET(
     "/api/repositories/{username}/{repo}/pulls/{number}",
     { params: { path: { username, repo, number: Number(number) } } },
@@ -62,11 +52,8 @@ export default async function PullRequestLayout({
   }
 
   const { state, base, head } = pull.data;
-  const viewer = session?.user.username;
-  // the author, or whoever can write to the base repository
-  const canEdit =
-    Boolean(viewer) &&
-    (viewer === pull.data.authorUsername || atLeast(role, "write"));
+  // Server-computed: the author, or whoever can write to the base repository.
+  const canEdit = pull.data.viewerCanEdit;
   const { Icon, badge } = threadStateStyle(true, state);
 
   return (

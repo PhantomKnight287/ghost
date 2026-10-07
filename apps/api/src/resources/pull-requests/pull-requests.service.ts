@@ -90,6 +90,8 @@ import {
   UnrelatedRepositoriesError,
 } from './pull-requests.errors.js';
 import { withTempDir } from '../../lib/temp-dir.js';
+import { atLeast } from '@ghost/permissions';
+import type { AuthorizedRepository } from '../../lib/git/repository-access/repository-access.js';
 
 // Number, title, body and author live on the issue a request is attached to.
 const pullRequestColumns = {
@@ -335,9 +337,7 @@ export class PullRequestsService {
       );
 
     return {
-      pullRequests: await Promise.all(
-        page.map((row) => this.expandPullRequest(row)),
-      ),
+      pullRequests: await this.expandPullRequests(page),
       total: totals?.total ?? 0,
       nextCursor,
       hasMore,
@@ -379,6 +379,10 @@ export class PullRequestsService {
       additions: files.reduce((total, file) => total + file.additions, 0),
       deletions: files.reduce((total, file) => total + file.deletions, 0),
       mergeable: !pullRequest.draft && merge !== null && merge.clean,
+      viewerCanEdit:
+        params.requesterId !== undefined &&
+        (params.requesterId === pullRequest.authorId ||
+          atLeast(git.base.viewerRole, 'write')),
       conflicts: merge?.conflicts ?? [],
       pullRefsBlocked: pullRequest.pullRefsBlocked,
       squash: merge ? await this.squashMessage({ ...git, pullRequest }) : null,
@@ -873,7 +877,7 @@ export class PullRequestsService {
 
   private async openMerged(
     pullRequest: PullRequest,
-    base: Repository,
+    base: AuthorizedRepository,
     mergeCommitSha: string,
   ) {
     const baseDirectory = await this.materializer.open(base);
@@ -901,7 +905,7 @@ export class PullRequestsService {
   /** Materializes both sides and resolves the branches as they stand now. */
   async openLive(
     pullRequest: PullRequest,
-    base: Repository,
+    base: AuthorizedRepository,
     headRepositoryId: string,
   ) {
     const [head] = await this.db
@@ -1052,48 +1056,72 @@ export class PullRequestsService {
   }
 
   private async expandPullRequest(pullRequest: PullRequest) {
-    const sides = await this.db
-      .select({
-        repositoryId: schema.repository.id,
-        slug: schema.repository.slug,
-        username: ownerNameOf(schema.user, schema.organization),
-      })
-      .from(schema.repository)
-      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
-      .leftJoin(
-        schema.organization,
-        eq(schema.organization.id, schema.repository.organizationId),
-      )
-      .where(
-        inArray(schema.repository.id, [
-          pullRequest.baseRepositoryId,
-          pullRequest.headRepositoryId ?? pullRequest.baseRepositoryId,
-        ]),
-      );
+    const [expanded] = await this.expandPullRequests([pullRequest]);
+    return expanded;
+  }
 
-    const author = await this.users.getUserById(pullRequest.authorId);
+  private async expandPullRequests(pullRequests: PullRequest[]) {
+    if (pullRequests.length === 0) return [];
+    const repositoryIds = pullRequests.flatMap((pullRequest) =>
+      pullRequest.headRepositoryId
+        ? [pullRequest.baseRepositoryId, pullRequest.headRepositoryId]
+        : [pullRequest.baseRepositoryId],
+    );
+    const [sides, authors] = await Promise.all([
+      this.db
+        .select({
+          repositoryId: schema.repository.id,
+          slug: schema.repository.slug,
+          username: ownerNameOf(schema.user, schema.organization),
+        })
+        .from(schema.repository)
+        .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+        .leftJoin(
+          schema.organization,
+          eq(schema.organization.id, schema.repository.organizationId),
+        )
+        .where(inArray(schema.repository.id, [...new Set(repositoryIds)])),
+      this.db
+        .select({
+          id: schema.user.id,
+          username: schema.user.username,
+          image: schema.user.image,
+        })
+        .from(schema.user)
+        .where(
+          inArray(schema.user.id, [
+            ...new Set(pullRequests.map((pullRequest) => pullRequest.authorId)),
+          ]),
+        ),
+    ]);
+
+    const sideById = new Map(sides.map((side) => [side.repositoryId, side]));
+    const authorById = new Map(authors.map((author) => [author.id, author]));
     // A deleted head repository has no row, and reads as null rather than as some other repository.
     const sideOf = (repositoryId: string | null, ref: string) => {
-      const row = sides.find((side) => side.repositoryId === repositoryId);
+      const row = repositoryId ? sideById.get(repositoryId) : undefined;
       return { username: row?.username ?? null, slug: row?.slug ?? null, ref };
     };
 
-    return {
-      id: pullRequest.id,
-      number: pullRequest.number,
-      title: pullRequest.title,
-      body: pullRequest.body,
-      state: pullRequest.state,
-      draft: pullRequest.draft,
-      base: sideOf(pullRequest.baseRepositoryId, pullRequest.baseRef),
-      head: sideOf(pullRequest.headRepositoryId, pullRequest.headRef),
-      headSha: pullRequest.headSha,
-      mergeCommitSha: pullRequest.mergeCommitSha,
-      authorUsername: author.username ?? '',
-      authorImage: author.image ?? null,
-      createdAt: pullRequest.createdAt.toISOString(),
-      updatedAt: pullRequest.updatedAt.toISOString(),
-    };
+    return pullRequests.map((pullRequest) => {
+      const author = authorById.get(pullRequest.authorId);
+      return {
+        id: pullRequest.id,
+        number: pullRequest.number,
+        title: pullRequest.title,
+        body: pullRequest.body,
+        state: pullRequest.state,
+        draft: pullRequest.draft,
+        base: sideOf(pullRequest.baseRepositoryId, pullRequest.baseRef),
+        head: sideOf(pullRequest.headRepositoryId, pullRequest.headRef),
+        headSha: pullRequest.headSha,
+        mergeCommitSha: pullRequest.mergeCommitSha,
+        authorUsername: author?.username ?? '',
+        authorImage: author?.image ?? null,
+        createdAt: pullRequest.createdAt.toISOString(),
+        updatedAt: pullRequest.updatedAt.toISOString(),
+      };
+    });
   }
 }
 
