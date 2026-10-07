@@ -15,6 +15,7 @@ import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-a
 import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
+import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
@@ -59,6 +60,7 @@ export class GitService {
     private readonly codeSearch: CodeSearchService,
     private readonly references: IssueReferencesService,
     private readonly pullRefs: PullRefsService,
+    private readonly pullRequestPushes: PullRequestPushesService,
     private readonly quota: StorageQuotaService,
     @Inject(DATABASE) private readonly db: Database,
   ) {}
@@ -212,6 +214,11 @@ export class GitService {
       void this.pullRefs.syncAfterPush({ repositoryId, transitions });
       // An import is history, not activity: its push names every branch and tag the repository ever had.
       if (importing) return;
+      void this.pullRequestPushes.recordPush({
+        repositoryId,
+        transitions,
+        pushedBy,
+      });
       this.publishPushes({
         repositoryId,
         repoDirectory,

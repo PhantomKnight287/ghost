@@ -3575,7 +3575,7 @@ export interface components {
             updatedAt: string;
         };
         /** @enum {string} */
-        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft";
+        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft" | "committed" | "head_force_pushed";
         IssueTimelineEventDTO: {
             id: string;
             type: components["schemas"]["IssueEventType"];
@@ -3586,8 +3586,14 @@ export interface components {
             assigneeUsername: string | null;
             oldTitle: string | null;
             newTitle: string | null;
-            /** @description The commit that closed the issue, or the merge commit of a `merged` event. */
+            /** @description The commit that closed the issue, the merge commit of a `merged` event, the commit a `committed` event added, or the head a `head_force_pushed` event left. */
             commitSha: string | null;
+            /** @description The head a `head_force_pushed` event replaced. */
+            beforeSha: string | null;
+            /** @description A `committed` event's commit subject, kept in case a force push leaves the commit unreachable. */
+            commitMessage: string | null;
+            /** @description A `committed` event's commit author, as git recorded the name. */
+            commitAuthorName: string | null;
             /**
              * @description Repository of the pull request that closed the issue.
              * @example octocat/ghost

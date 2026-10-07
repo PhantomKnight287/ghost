@@ -234,11 +234,40 @@ export class IssueTimelineEventDTO {
     type: String,
     nullable: true,
     description:
-      'The commit that closed the issue, or the merge commit of a `merged` event.',
+      'The commit that closed the issue, the merge commit of a `merged` event, the commit a `committed` event added, or the head a `head_force_pushed` event left.',
   })
   @IsString()
   @IsOptional()
   commitSha: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'The head a `head_force_pushed` event replaced.',
+  })
+  @IsString()
+  @IsOptional()
+  beforeSha: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      "A `committed` event's commit subject, kept in case a force push leaves the commit unreachable.",
+  })
+  @IsString()
+  @IsOptional()
+  commitMessage: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      "A `committed` event's commit author, as git recorded the name.",
+  })
+  @IsString()
+  @IsOptional()
+  commitAuthorName: string | null;
 
   @ApiProperty({
     type: String,

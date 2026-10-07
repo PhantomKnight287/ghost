@@ -16,6 +16,7 @@ import { RepositoryContributionService } from '../services/git/contributions/rep
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
+import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
 import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
 import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { DATABASE } from '../database/database.module.js';
@@ -50,6 +51,9 @@ describe('GitService', () => {
 
   const codeSearch = { indexInBackground: vi.fn() };
   const pullRefs = { syncAfterPush: vi.fn().mockResolvedValue(undefined) };
+  const pullRequestPushes = {
+    recordPush: vi.fn().mockResolvedValue(undefined),
+  };
   const references = { closeFromCommits: vi.fn().mockResolvedValue(undefined) };
   const published = vi.fn().mockResolvedValue(undefined);
   const runningImports = vi.fn().mockResolvedValue([]);
@@ -97,6 +101,7 @@ describe('GitService', () => {
         { provide: CodeSearchService, useValue: codeSearch },
         { provide: IssueReferencesService, useValue: references },
         { provide: PullRefsService, useValue: pullRefs },
+        { provide: PullRequestPushesService, useValue: pullRequestPushes },
         { provide: StorageQuotaService, useValue: quota },
         { provide: DATABASE, useValue: db },
       ],
@@ -333,6 +338,12 @@ describe('GitService', () => {
       repositoryId: 'repo_ghost',
       transitions: [expect.objectContaining({ ref: 'refs/heads/main' })],
     });
+    expect(pullRequestPushes.recordPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repositoryId: 'repo_ghost',
+        transitions: [expect.objectContaining({ ref: 'refs/heads/main' })],
+      }),
+    );
     // creating a branch closes nothing
     expect(references.closeFromCommits).not.toHaveBeenCalled();
   });

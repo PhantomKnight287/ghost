@@ -397,6 +397,7 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
       .map((item: { event: { type: string } }) => item.event.type);
     expect(events).toEqual([
       'opened',
+      'committed',
       'ready_for_review',
       'converted_to_draft',
       'ready_for_review',

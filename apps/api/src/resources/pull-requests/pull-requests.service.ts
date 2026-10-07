@@ -57,6 +57,11 @@ import { PushTransactionService } from '../../services/git/wal/push-transaction.
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
 import { lfsPointersIn } from '../../lib/git/lfs/lfs-pointer.js';
 import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
+import { PullRequestPushesService } from '../../services/pull-requests/pull-request-pushes.service.js';
+import {
+  commitsAdded,
+  recordCommitEvents,
+} from '../../lib/pull-requests/commit-events.js';
 import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
@@ -135,6 +140,7 @@ export class PullRequestsService {
     private readonly issues: IssuesService,
     private readonly references: IssueReferencesService,
     private readonly pullRefs: PullRefsService,
+    private readonly pullRequestPushes: PullRequestPushesService,
     private readonly quota: StorageQuotaService,
     private readonly lfs: LfsService,
   ) {}
@@ -194,6 +200,13 @@ export class PullRequestsService {
       );
     if (existing) throw new PullRequestAlreadyOpenError(existing.number);
 
+    const commits = await commitsAdded({
+      gitDir: baseDirectory,
+      alternates,
+      tip: headSha,
+      exclude: [baseSha],
+    });
+
     const issue = await this.issues.open(
       {
         repository: base,
@@ -211,6 +224,11 @@ export class PullRequestsService {
           headRef,
           headSha,
           draft: body.draft ?? false,
+        });
+        await recordCommitEvents(tx, {
+          issueId: row.id,
+          actorId: requesterId,
+          commits,
         });
       },
     );
@@ -662,15 +680,19 @@ export class PullRequestsService {
 
       // The base moved, so every other request into it needs a new test merge; this one only needs its head pinned to what merged.
       this.pullRefs.syncInBackground(pullRequest.id);
-      await this.pullRefs.syncAfterPush({
+      const transitions = [
+        {
+          ref: `refs/heads/${pullRequest.baseRef}`,
+          oldOid: Buffer.from(git.baseSha, 'hex'),
+          newOid: Buffer.from(mergeCommitSha, 'hex'),
+        },
+      ];
+      await this.pullRefs.syncAfterPush({ repositoryId: base.id, transitions });
+      // a request from the branch this one merged into just gained its commits
+      await this.pullRequestPushes.recordPush({
         repositoryId: base.id,
-        transitions: [
-          {
-            ref: `refs/heads/${pullRequest.baseRef}`,
-            oldOid: Buffer.from(git.baseSha, 'hex'),
-            newOid: Buffer.from(mergeCommitSha, 'hex'),
-          },
-        ],
+        transitions,
+        pushedBy: params.requesterId,
       });
 
       return { mergeCommitSha, seq };

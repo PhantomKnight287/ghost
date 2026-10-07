@@ -59,7 +59,8 @@ export async function listCommits({
 }: {
   gitDir: string;
   env?: Record<string, string>;
-  ref: string;
+  /** A revision, or several such as `[tip, '^excluded']`. */
+  ref: string | string[];
   path?: string;
   limit: number;
   cursor?: string;
@@ -71,7 +72,7 @@ export async function listCommits({
     '-n',
     String(limit + 1),
     '--end-of-options',
-    cursor ?? ref,
+    ...(cursor ? [cursor] : [ref].flat()),
   ];
   if (path) args.push('--', path);
 
