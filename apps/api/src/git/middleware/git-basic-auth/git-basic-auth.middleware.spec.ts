@@ -67,7 +67,7 @@ describe('GitBasicAuthMiddleware', () => {
     await run({});
 
     expect(authorize).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: null, operation: 'read' }),
+      expect.objectContaining({ requesterId: undefined, operation: 'read' }),
     );
     expect(next).toHaveBeenCalledWith();
   });
@@ -128,7 +128,7 @@ describe('GitBasicAuthMiddleware', () => {
     await run({ headers: { authorization: basic('git', 'revoked') } });
 
     expect(authorize).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: null }),
+      expect.objectContaining({ requesterId: undefined }),
     );
   });
 
@@ -200,7 +200,7 @@ describe('GitBasicAuthMiddleware', () => {
       const { run, authorize } = harness();
       await run({ path: LFS_BATCH, headers: { authorization } });
       expect(authorize).toHaveBeenCalledWith(
-        expect.objectContaining({ actor: null }),
+        expect.objectContaining({ requesterId: undefined }),
       );
     }
   });

@@ -156,7 +156,7 @@ export class PullRequestsService {
     requesterId: string;
     body: CreatePullRequestRequestDTO;
   }) {
-    const base = await this.authorize({ username, repo, requesterId });
+    const base = await this.access.authorize({ username, repo, requesterId });
     const head = await this.resolveHead(base, body.head, requesterId);
     const headRef = body.head.includes(':')
       ? body.head.slice(body.head.indexOf(':') + 1)
@@ -262,7 +262,7 @@ export class PullRequestsService {
     base: baseRef,
     head: headSpec,
   }: CompareParams) {
-    const base = await this.authorize({ username, repo, requesterId });
+    const base = await this.access.authorize({ username, repo, requesterId });
     const head = await this.resolveHead(base, headSpec, requesterId);
     const headRef = headSpec.includes(':')
       ? headSpec.slice(headSpec.indexOf(':') + 1)
@@ -302,7 +302,7 @@ export class PullRequestsService {
     requesterId?: string;
     query: GetPullRequestsQueryDTO;
   }) {
-    const base = await this.authorize({ username, repo, requesterId });
+    const base = await this.access.authorize({ username, repo, requesterId });
 
     const requested = Number(query.limit);
     const pageSize = Number.isFinite(requested)
@@ -835,7 +835,7 @@ export class PullRequestsService {
   ) {
     const { pullRequest, base } = await this.load(params);
     if (pullRequest.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.access.authorize({ ...params, operation: 'write' });
     }
     if (pullRequest.state !== 'open') {
       throw new PullRequestNotOpenError(pullRequest.state);
@@ -988,7 +988,7 @@ export class PullRequestsService {
     requesterId,
     operation,
   }: PullRequestRef) {
-    const base = await this.authorize({
+    const base = await this.access.authorize({
       username,
       repo,
       requesterId,
@@ -1007,25 +1007,6 @@ export class PullRequestsService {
     if (!pullRequest) throw new PullRequestNotFoundError();
 
     return { pullRequest, base };
-  }
-
-  private authorize({
-    username,
-    repo,
-    requesterId,
-    operation = 'read',
-  }: {
-    username: string;
-    repo: string;
-    requesterId?: string;
-    operation?: RepositoryOperation;
-  }) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation,
-    });
   }
 
   private async resolveBranch(gitDir: string, branch: string) {
@@ -1088,7 +1069,7 @@ export class PullRequestsService {
     return this.access.authorize({
       username: owner,
       repo: related.slug,
-      actor: { userId: requesterId },
+      requesterId: requesterId,
       operation: 'read',
     });
   }

@@ -25,7 +25,7 @@ export class SuggestionsService {
 
   /** People whose username starts with `q`, those involved in the repository first. With nothing typed, only the involved: its owner, collaborators, organization members and everyone who opened or commented on an issue in it. */
   async users({ q, ...target }: SuggestionRef) {
-    const repository = await this.authorize(target);
+    const repository = await this.access.authorize(target);
     const involved = sql<boolean>`${schema.user.id} in (
       select ${repository.ownerId}::text
       union select user_id from repository_collaborator where repository_id = ${repository.id} and accepted_at is not null
@@ -57,7 +57,7 @@ export class SuggestionsService {
 
   /** Issues and pull requests whose number starts with `q`, or whose title contains it; newest first. */
   async issues({ q, ...target }: SuggestionRef) {
-    const repository = await this.authorize(target);
+    const repository = await this.access.authorize(target);
     const query = q?.trim();
 
     const issues = await this.db
@@ -81,14 +81,5 @@ export class SuggestionsService {
       .orderBy(desc(schema.issue.number))
       .limit(LIMIT);
     return { issues };
-  }
-
-  private authorize({ username, repo, requesterId }: SuggestionRef) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation: 'read',
-    });
   }
 }

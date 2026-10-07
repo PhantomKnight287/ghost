@@ -241,7 +241,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
       const repository = await this.access.authorize({
         username: parsed.username,
         repo: parsed.repo,
-        actor,
+        requesterId: actor?.userId,
         operation: (
           'service' in parsed
             ? parsed.service === 'git-receive-pack'

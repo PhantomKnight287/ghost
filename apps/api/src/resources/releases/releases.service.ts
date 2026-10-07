@@ -20,10 +20,7 @@ import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
-import type {
-  AuthorizedRepository,
-  RepositoryOperation,
-} from '../../lib/git/repository-access/repository-access.js';
+import type { AuthorizedRepository } from '../../lib/git/repository-access/repository-access.js';
 import { createTagObject } from '../../lib/git/tags/create-tag.js';
 import { isValidRefName } from '../../lib/git/refs/is-valid-ref-name.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
@@ -81,7 +78,10 @@ export class ReleasesService {
   }: RepositoryRef & {
     query: GetReleasesQueryDTO;
   }): Promise<GetReleasesResponseDTO> {
-    const repository = await this.authorize(target, 'read');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
 
     const decoded = query.cursor ? decodeCursor(query.cursor) : null;
     if (query.cursor && !decoded) throw new InvalidCursorError();
@@ -113,7 +113,10 @@ export class ReleasesService {
   }
 
   async getLatestRelease(target: RepositoryRef) {
-    const repository = await this.authorize(target, 'read');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
     return this.readOne(
       repository,
       eq(schema.release.id, latestReleaseId(repository.id)),
@@ -124,7 +127,10 @@ export class ReleasesService {
     tagName,
     ...target
   }: RepositoryRef & { tagName: string }) {
-    const repository = await this.authorize(target, 'read');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
     return this.readOne(repository, eq(schema.release.tagName, tagName));
   }
 
@@ -136,7 +142,10 @@ export class ReleasesService {
     requesterId: string;
     body: CreateReleaseRequestDTO;
   }): Promise<ReleaseDTO> {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
     if (!isValidRefName('tags', body.tagName)) {
       throw new InvalidTagNameError(body.tagName);
     }
@@ -214,7 +223,10 @@ export class ReleasesService {
     requesterId: string;
     body: UpdateReleaseRequestDTO;
   }): Promise<ReleaseDTO> {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
 
     const updated = await this.db.transaction(async (tx) => {
       const [before] = await tx
@@ -263,7 +275,10 @@ export class ReleasesService {
     id,
     ...target
   }: RepositoryRef & { id: string; requesterId: string }) {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
 
     const [release] = await this.db
       .select({
@@ -440,17 +455,5 @@ export class ReleasesService {
         .map(({ releaseId: _, ...asset }) => asset),
       viewerCanEdit,
     }));
-  }
-
-  private authorize(
-    { username, repo, requesterId }: RepositoryRef,
-    operation: RepositoryOperation,
-  ) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation,
-    });
   }
 }

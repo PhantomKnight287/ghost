@@ -111,7 +111,11 @@ export class IssuesService {
     requesterId: string;
     body: CreateIssueRequestDTO;
   }) {
-    const repository = await this.authorize({ username, repo, requesterId });
+    const repository = await this.access.authorize({
+      username,
+      repo,
+      requesterId,
+    });
 
     const labels = await this.resolveLabels(
       repository.id,
@@ -236,7 +240,11 @@ export class IssuesService {
     requesterId?: string;
     query: GetIssuesQueryDTO;
   }) {
-    const repository = await this.authorize({ username, repo, requesterId });
+    const repository = await this.access.authorize({
+      username,
+      repo,
+      requesterId,
+    });
 
     const requested = Number(query.limit);
     const pageSize = Number.isFinite(requested)
@@ -450,7 +458,7 @@ export class IssuesService {
   ) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.access.authorize({ ...params, operation: 'write' });
     }
 
     const { title, body } = params.body;
@@ -510,7 +518,7 @@ export class IssuesService {
   async closeIssue(params: IssueRef & { requesterId: string }) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'triage' });
+      await this.access.authorize({ ...params, operation: 'triage' });
     }
     if (issue.state !== 'open') throw new IssueNotOpenError(issue.state);
 
@@ -539,7 +547,7 @@ export class IssuesService {
   async reopenIssue(params: IssueRef & { requesterId: string }) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'triage' });
+      await this.access.authorize({ ...params, operation: 'triage' });
     }
     if (issue.state !== 'closed') throw new IssueNotOpenError(issue.state);
     if (issue.isPullRequest) throw new PullRequestReopenError();
@@ -704,7 +712,7 @@ export class IssuesService {
       );
     if (!comment) throw new IssueCommentNotFoundError();
     if (comment.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.access.authorize({ ...params, operation: 'write' });
     }
 
     await this.db.transaction(async (tx) => {
@@ -830,7 +838,7 @@ export class IssuesService {
     repo: string;
     requesterId?: string;
   }) {
-    const repository = await this.authorize(params);
+    const repository = await this.access.authorize(params);
     const labels = await this.db
       .select(labelColumns)
       .from(schema.label)
@@ -845,7 +853,10 @@ export class IssuesService {
     requesterId: string;
     body: { name: string; description?: string; color: string };
   }) {
-    const repository = await this.authorize({ ...params, operation: 'write' });
+    const repository = await this.access.authorize({
+      ...params,
+      operation: 'write',
+    });
     const name = params.body.name.trim();
     const [existing] = await this.db
       .select({ id: schema.label.id })
@@ -885,7 +896,10 @@ export class IssuesService {
     labelId: string;
     body: { name?: string; description?: string | null; color?: string };
   }) {
-    const repository = await this.authorize({ ...params, operation: 'write' });
+    const repository = await this.access.authorize({
+      ...params,
+      operation: 'write',
+    });
     const [label] = await this.db
       .select()
       .from(schema.label)
@@ -948,7 +962,10 @@ export class IssuesService {
     requesterId: string;
     labelId: string;
   }) {
-    const repository = await this.authorize({ ...params, operation: 'write' });
+    const repository = await this.access.authorize({
+      ...params,
+      operation: 'write',
+    });
     const [label] = await this.db
       .select()
       .from(schema.label)
@@ -984,7 +1001,7 @@ export class IssuesService {
   ) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'triage' });
+      await this.access.authorize({ ...params, operation: 'triage' });
     }
 
     const names = dedupe(
@@ -1061,7 +1078,7 @@ export class IssuesService {
   ) {
     const { issue } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'triage' });
+      await this.access.authorize({ ...params, operation: 'triage' });
     }
 
     const usernames = dedupe(
@@ -1133,7 +1150,7 @@ export class IssuesService {
   }
 
   async load({ username, repo, number, requesterId, operation }: IssueRef) {
-    const base = await this.authorize({
+    const base = await this.access.authorize({
       username,
       repo,
       requesterId,
@@ -1151,25 +1168,6 @@ export class IssuesService {
     if (!issue) throw new IssueNotFoundError();
 
     return { issue, base };
-  }
-
-  private authorize({
-    username,
-    repo,
-    requesterId,
-    operation = 'read',
-  }: {
-    username: string;
-    repo: string;
-    requesterId?: string;
-    operation?: RepositoryOperation;
-  }) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation,
-    });
   }
 
   private async expandIssue(

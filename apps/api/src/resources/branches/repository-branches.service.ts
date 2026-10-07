@@ -44,7 +44,10 @@ export class RepositoryBranchesService {
     body,
     ...target
   }: RepositoryRef & { body: CreateBranchRequestDTO }): Promise<BranchDTO> {
-    const repository = await this.authorize(target);
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
     if (!isValidRefName('heads', body.name)) {
       throw new InvalidBranchNameError(body.name);
     }
@@ -86,7 +89,10 @@ export class RepositoryBranchesService {
     branch,
     ...target
   }: RepositoryRef & { branch: string }) {
-    const repository = await this.authorize(target);
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
     const directory = await this.materializer.open(repository);
 
     if (!(await this.branches.getGitBranches(directory)).includes(branch)) {
@@ -143,15 +149,6 @@ export class RepositoryBranchesService {
       body: bufferBody(Buffer.alloc(0)),
       packOffset: 0,
       pushedBy: requesterId,
-    });
-  }
-
-  private authorize({ username, repo, requesterId }: RepositoryRef) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: { userId: requesterId },
-      operation: 'write',
     });
   }
 }

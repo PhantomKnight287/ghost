@@ -92,7 +92,7 @@ export class AttachmentsService
     const repository = await this.access.authorize({
       username,
       repo,
-      actor: { userId: requesterId },
+      requesterId: requesterId,
       operation: 'read',
     });
     // JSON and form bodies are parsed before any handler runs, so their bytes are gone by the time they could be streamed
@@ -183,7 +183,7 @@ export class AttachmentsService
 
     await this.access.authorizeById({
       repositoryId: attachment.repositoryId,
-      actor: requesterId ? { userId: requesterId } : null,
+      requesterId,
       operation: 'read',
     });
 

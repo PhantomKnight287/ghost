@@ -5,10 +5,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, lt, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type {
-  AuthorizedRepository,
-  RepositoryOperation,
-} from '../../lib/git/repository-access/repository-access.js';
+import type { AuthorizedRepository } from '../../lib/git/repository-access/repository-access.js';
 import {
   isValidAssetName,
   releaseAssetKey,
@@ -74,7 +71,10 @@ export class ReleaseAssetsService {
     contentLength: string | undefined;
     body: Readable;
   }) {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
     // JSON and form bodies are parsed before any handler runs, so their bytes are gone by the time they could be streamed
     if (bodyType?.split(';')[0]?.trim() !== 'application/octet-stream') {
       throw new UploadNotOctetStreamError();
@@ -174,7 +174,10 @@ export class ReleaseAssetsService {
     name,
     ...target
   }: RepositoryRef & { tagName: string; name: string }) {
-    const repository = await this.authorize(target, 'read');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
 
     const [asset] = await this.db
       .update(schema.releaseAsset)
@@ -214,7 +217,10 @@ export class ReleaseAssetsService {
     assetId,
     ...target
   }: RepositoryRef & { requesterId: string; assetId: string }) {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
 
     const [asset] = await this.db
       .select({
@@ -243,17 +249,5 @@ export class ReleaseAssetsService {
   /** Every asset of a release, removed from storage before the release row takes the rows with it. */
   removeAll(repository: AuthorizedRepository, releaseId: string) {
     return this.s3.deleteUnder(releaseAssetKey(repository.id, releaseId));
-  }
-
-  private authorize(
-    { username, repo, requesterId }: RepositoryRef,
-    operation: RepositoryOperation,
-  ) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation,
-    });
   }
 }

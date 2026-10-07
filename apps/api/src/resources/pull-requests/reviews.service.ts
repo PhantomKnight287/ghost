@@ -422,7 +422,7 @@ export class ReviewsService {
     const loaded = await this.pullRequests.load(params);
     const comment = await this.visibleComment(loaded, params);
     if (comment.authorId !== params.requesterId) {
-      await this.authorizeWrite(params);
+      await this.access.authorize({ ...params, operation: 'write' });
     }
 
     await this.db.transaction(async (tx) => {
@@ -493,7 +493,7 @@ export class ReviewsService {
     const headRepositoryId = pullRequest.headRepositoryId!;
     await this.access.authorizeById({
       repositoryId: headRepositoryId,
-      actor: { userId: params.requesterId },
+      requesterId: params.requesterId,
       operation: 'write',
     });
     const git = await this.pullRequests.openLive(
@@ -687,23 +687,6 @@ export class ReviewsService {
       throw new ReviewCommentNotFoundError();
     }
     return comment;
-  }
-
-  private authorizeWrite({
-    username,
-    repo,
-    requesterId,
-  }: {
-    username: string;
-    repo: string;
-    requesterId: string;
-  }) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: { userId: requesterId },
-      operation: 'write',
-    });
   }
 }
 

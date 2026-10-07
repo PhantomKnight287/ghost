@@ -52,10 +52,7 @@ import { RepositoryMaterializerService } from '../../services/git/materializer/r
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { runGit, runGitBuffer } from '../../lib/git/exec/run-git.js';
-import {
-  type CommitVerification,
-  CommitVerificationService,
-} from '../../services/gpg/commit-verification.service.js';
+import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { listTree } from '../../lib/git/tree/list-tree.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import {
@@ -81,11 +78,7 @@ import {
   resolveDefaultRef,
   resolveRevision,
 } from '../../lib/git/tree/resolve-ref.js';
-import type { PathCommit } from '../../services/git/path-index/repository-path-index.service.js';
-import type {
-  CommitSummaryDTO,
-  GetRepositoryContentsResponseDTO,
-} from './dto/get-repository-contents.dto.js';
+import type { GetRepositoryContentsResponseDTO } from './dto/get-repository-contents.dto.js';
 import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
 import type {
   GetRepositoryTagsQueryDTO,
@@ -107,7 +100,6 @@ import type {
 import type { GetRepositoryBlobResponseDTO } from './dto/get-repository-blob.dto.js';
 import type { GetRepositoryReadmeResponseDTO } from './dto/get-repository-readme.dto.js';
 import type {
-  CommitDTO,
   GetRepositoryCommitResponseDTO,
   GetRepositoryCommitsQueryDTO,
   GetRepositoryCommitsResponseDTO,
@@ -124,7 +116,6 @@ import {
   ownerNameOf,
   readableBy,
   type Repository,
-  type RepositoryOperation,
   roleOf,
   teamRoleOf,
 } from '../../lib/git/repository-access/repository-access.js';
@@ -479,9 +470,9 @@ export class RepositoriesService {
     slug: string;
     requesterId?: string;
   }) {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
     const [stars, forks, parent] = await Promise.all([
@@ -550,7 +541,11 @@ export class RepositoriesService {
     visibility: 'public' | 'private';
     organization?: string;
   }) {
-    const parent = await this.authorizeRead({ username, slug, requesterId });
+    const parent = await this.access.authorize({
+      username,
+      repo: slug,
+      requesterId,
+    });
     if (parent.organizationId && parent.visibility === 'private') {
       const [policy] = await this.db
         .select({ allowed: schema.organizationSettings.allowPrivateForks })
@@ -666,9 +661,10 @@ export class RepositoriesService {
     requesterId: string;
     owner: string;
   }) {
-    const repository = await this.authorizeAs('admin', {
+    const repository = await this.access.authorize({
+      operation: 'admin',
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
     if (!atLeast(repository.viewerRole, 'owner')) {
@@ -954,9 +950,10 @@ export class RepositoriesService {
     requesterId: string;
     changes: UpdateRepositoryRequestDTO;
   }) {
-    const repository = await this.authorizeAs('maintain', {
+    const repository = await this.access.authorize({
+      operation: 'maintain',
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
     // Visibility decides who can see the code at all, which is an admin's call.
@@ -1040,9 +1037,10 @@ export class RepositoriesService {
     slug: string;
     requesterId: string;
   }) {
-    const repository = await this.authorizeAs('admin', {
+    const repository = await this.access.authorize({
+      operation: 'admin',
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
 
@@ -1144,9 +1142,9 @@ export class RepositoriesService {
     slug: string;
     requesterId: string;
   }) {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
 
@@ -1177,9 +1175,9 @@ export class RepositoriesService {
     slug: string;
     requesterId: string;
   }) {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
 
@@ -1203,34 +1201,6 @@ export class RepositoriesService {
     });
 
     return this.readStars(repository.id, requesterId);
-  }
-
-  private authorizeRead({
-    username,
-    slug,
-    requesterId,
-  }: {
-    username: string;
-    slug: string;
-    requesterId?: string;
-  }) {
-    return this.authorizeAs('read', { username, slug, requesterId });
-  }
-
-  private authorizeAs(
-    operation: RepositoryOperation,
-    {
-      username,
-      slug,
-      requesterId,
-    }: { username: string; slug: string; requesterId?: string },
-  ) {
-    return this.access.authorize({
-      username,
-      repo: slug,
-      actor: actorOf(requesterId),
-      operation,
-    });
   }
 
   private async readStars(repositoryId: string, requesterId?: string) {
@@ -1778,9 +1748,9 @@ export class RepositoriesService {
     requesterId?: string;
     query?: GetRepositoryStargazersQueryDTO;
   }): Promise<GetRepositoryStargazersResponseDTO> {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug: repo,
+      repo,
       requesterId,
     });
     const { pageSize, after } = this.page(
@@ -1840,9 +1810,9 @@ export class RepositoriesService {
     requesterId?: string;
     query?: GetRepositoryForksQueryDTO;
   }): Promise<GetRepositoryForksResponseDTO> {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug: repo,
+      repo,
       requesterId,
     });
     const { pageSize, after } = this.page(
@@ -1924,9 +1894,9 @@ export class RepositoriesService {
     requesterId?: string;
     query?: GetRepositoryContributorsQueryDTO;
   }): Promise<GetRepositoryContributorsResponseDTO> {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug: repo,
+      repo,
       requesterId,
     });
 
@@ -2010,9 +1980,9 @@ export class RepositoriesService {
     requesterId?: string;
     ref?: string;
   }) {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug: repo,
+      repo,
       requesterId,
     });
 

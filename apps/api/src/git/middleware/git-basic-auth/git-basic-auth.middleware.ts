@@ -49,7 +49,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
       req.repository = await this.access.authorize({
         username,
         repo: repo.replace(/\.git$/, ''),
-        actor,
+        requesterId: actor?.userId,
         operation: isPush ? 'write' : 'read',
       });
       // A token from `git-lfs-authenticate` is good for the LFS API of one repository, and for writes only if it was asked for an upload.

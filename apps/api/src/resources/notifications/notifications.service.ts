@@ -255,7 +255,7 @@ export class NotificationsService {
     return this.access.authorize({
       username,
       repo,
-      actor: { userId: requesterId },
+      requesterId: requesterId,
       operation: 'read',
     });
   }

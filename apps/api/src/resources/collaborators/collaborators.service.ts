@@ -53,7 +53,10 @@ export class CollaboratorsService {
 
   /** Accepted collaborators and pending invitations, oldest first. */
   async list(ref: RepositoryRef) {
-    const repository = await this.authorizeAdmin(ref);
+    const repository = await this.access.authorize({
+      ...ref,
+      operation: 'admin',
+    });
     return { collaborators: await this.rows(repository.id) };
   }
 
@@ -61,7 +64,10 @@ export class CollaboratorsService {
   async invite(
     ref: RepositoryRef & { collaborator: string; role: CollaboratorRole },
   ) {
-    const repository = await this.authorizeAdmin(ref);
+    const repository = await this.access.authorize({
+      ...ref,
+      operation: 'admin',
+    });
     const user = await this.users.getUserByUsername(ref.collaborator);
     if (!repository.organizationId && user.id === repository.ownerId) {
       throw new CannotInviteOwnerError();
@@ -116,7 +122,7 @@ export class CollaboratorsService {
     const repository = await this.access.authorize({
       username: ref.username,
       repo: ref.repo,
-      actor: { userId: ref.requesterId },
+      requesterId: ref.requesterId,
       operation: user.id === ref.requesterId ? 'read' : 'admin',
     });
 
@@ -312,20 +318,14 @@ export class CollaboratorsService {
   }
 
   private async authorizeTeams(ref: RepositoryRef) {
-    const repository = await this.authorizeAdmin(ref);
+    const repository = await this.access.authorize({
+      ...ref,
+      operation: 'admin',
+    });
     if (!repository.organizationId) {
       throw new RepositoryNotInOrganizationError();
     }
     return { ...repository, organizationId: repository.organizationId };
-  }
-
-  private authorizeAdmin({ username, repo, requesterId }: RepositoryRef) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: { userId: requesterId },
-      operation: 'admin',
-    });
   }
 
   /** The invitation stands whether or not the email goes out: the invitee also finds it on their dashboard. */

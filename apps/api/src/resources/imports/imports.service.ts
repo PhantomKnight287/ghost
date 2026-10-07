@@ -88,7 +88,7 @@ export class ImportsService {
     const repository = await this.access.authorize({
       username,
       repo,
-      actor: requesterId ? { userId: requesterId } : null,
+      requesterId,
       operation: 'read',
     });
     const [row] = await this.db
@@ -118,7 +118,7 @@ export class ImportsService {
     const repository = await this.access.authorize({
       username,
       repo,
-      actor: { userId: requesterId },
+      requesterId: requesterId,
       operation: 'admin',
     });
     if (!(await githubAccountIdOf(this.db, requesterId))) {
