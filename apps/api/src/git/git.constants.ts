@@ -1,23 +1,8 @@
 import { RequestMethod } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
 
 export const GIT_SERVICES = ['git-upload-pack', 'git-receive-pack'] as const;
 
 export type GitServiceName = (typeof GIT_SERVICES)[number];
-
-// this is not written by AI - This is handcrafted slop
-export type RouteInfo = Exclude<
-  Exclude<
-    Exclude<
-      Parameters<
-        Awaited<ReturnType<typeof NestFactory.create>>['setGlobalPrefix']
-      >[1],
-      undefined
-    >['exclude'],
-    undefined
-  >[number],
-  string
->;
 
 export function isGitServiceName(value: unknown): value is GitServiceName {
   return GIT_SERVICES.includes(value as GitServiceName);
