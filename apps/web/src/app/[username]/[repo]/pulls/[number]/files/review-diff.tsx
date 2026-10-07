@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/markdown-editor/markdown-editor";
 import type { LineAnnotations, LineCommentHandler } from "@/types/diffs";
 import type {
   PullRequestFile,
@@ -209,12 +209,12 @@ function LineCommentForm({
           Commenting on lines {first}–{target.line}
         </p>
       )}
-      <Textarea
+      <MarkdownEditor
         value={body}
-        onChange={(event) => setBody(event.target.value)}
+        onChange={setBody}
+        repository={{ username, repo }}
         rows={3}
-        maxLength={20000}
-        placeholder="Leave a comment. Markdown is supported."
+        placeholder="Leave a comment"
         autoFocus
         disabled={busy}
       />
@@ -304,12 +304,12 @@ function SubmitReviewForm({
         });
       }}
     >
-      <Textarea
+      <MarkdownEditor
         value={summary}
-        onChange={(event) => setSummary(event.target.value)}
+        onChange={setSummary}
+        repository={{ username, repo }}
         rows={3}
-        maxLength={20000}
-        placeholder="Summarize your review. Markdown is supported."
+        placeholder="Summarize your review"
         disabled={submit.isExecuting}
       />
       <RadioGroup

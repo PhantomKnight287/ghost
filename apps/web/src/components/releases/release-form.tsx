@@ -19,9 +19,9 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { MarkdownEditor } from "@/components/markdown-editor/markdown-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import type { Release, StorageUsage } from "@/types/release";
 
 import { createRelease, updateRelease } from "./actions";
@@ -185,12 +185,22 @@ export function ReleaseForm({
 
         <Field>
           <FieldLabel htmlFor="release-body">Notes</FieldLabel>
-          <Textarea
-            id="release-body"
-            rows={12}
-            placeholder="What changed in this release? Markdown is supported."
-            aria-invalid={Boolean(errors.body)}
-            {...register("body")}
+          <Controller
+            control={control}
+            name="body"
+            render={({ field }) => (
+              <MarkdownEditor
+                id="release-body"
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                repository={{ username, repo }}
+                rows={12}
+                maxLength={100000}
+                placeholder="What changed in this release?"
+                invalid={Boolean(errors.body)}
+                disabled={isExecuting}
+              />
+            )}
           />
           <FieldError errors={[errors.body]} />
         </Field>

@@ -11,7 +11,7 @@ import { updatePullRequest } from "@/components/pull-requests/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/markdown-editor/markdown-editor";
 
 /** Read view until Edit is clicked, then a single field editing the title or description of an issue or pull request. With a `header`, the field renders as a card and Edit sits in its top bar. */
 export function EditableField({
@@ -88,12 +88,12 @@ export function EditableField({
           disabled={update.isExecuting}
         />
       ) : (
-        <Textarea
+        <MarkdownEditor
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={setDraft}
+          repository={{ username, repo }}
           rows={6}
-          maxLength={20000}
-          placeholder={`Describe this ${noun}. Markdown is supported.`}
+          placeholder={`Describe this ${noun}`}
           autoFocus
           disabled={update.isExecuting}
         />
