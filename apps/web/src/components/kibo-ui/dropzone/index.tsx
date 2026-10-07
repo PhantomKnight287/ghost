@@ -109,46 +109,6 @@ const useDropzoneContext = () => {
   return context;
 };
 
-export type DropzoneContentProps = {
-  children?: ReactNode;
-  className?: string;
-};
-
-const maxLabelItems = 3;
-
-export const DropzoneContent = ({
-  children,
-  className,
-}: DropzoneContentProps) => {
-  const { src } = useDropzoneContext();
-
-  if (!src) {
-    return null;
-  }
-
-  if (children) {
-    return children;
-  }
-
-  return (
-    <div className={cn("flex flex-col items-center justify-center", className)}>
-      <div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        <UploadIcon size={16} />
-      </div>
-      <p className="my-2 w-full truncate font-medium text-sm">
-        {src.length > maxLabelItems
-          ? `${new Intl.ListFormat("en").format(
-              src.slice(0, maxLabelItems).map((file) => file.name),
-            )} and ${src.length - maxLabelItems} more`
-          : new Intl.ListFormat("en").format(src.map((file) => file.name))}
-      </p>
-      <p className="w-full text-wrap text-muted-foreground text-xs">
-        Drag and drop or click to replace
-      </p>
-    </div>
-  );
-};
-
 export type DropzoneEmptyStateProps = {
   children?: ReactNode;
   className?: string;

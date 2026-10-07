@@ -2,7 +2,7 @@
 
 import { Check, Monitor, Moon, Palette, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +37,7 @@ import {
   saveCustomTheme,
   type CustomThemeVars,
 } from "@/lib/themes";
+import { useIsHydrated } from "@/components/auth/use-is-hydrated";
 import { cn } from "@/lib/utils";
 
 function Swatch({ colors }: { colors: [string, string, string] }) {
@@ -53,20 +54,8 @@ function Swatch({ colors }: { colors: [string, string, string] }) {
   );
 }
 
-function useMounted() {
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
-}
-
-export function ThemePicker({
-  align = "end",
-}: {
-  align?: "start" | "end" | "center";
-}) {
-  const mounted = useMounted();
+export function ThemePicker() {
+  const mounted = useIsHydrated();
   const { theme } = useTheme();
   const [customOpen, setCustomOpen] = useState(false);
 
@@ -87,7 +76,7 @@ export function ThemePicker({
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align={align} className="w-64">
+        <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel>Theme</DropdownMenuLabel>
           <ThemeMenuItems onCustomize={() => setCustomOpen(true)} />
         </DropdownMenuContent>
@@ -114,7 +103,7 @@ export function ThemeSubmenu({ onCustomize }: { onCustomize: () => void }) {
 
 function ThemeMenuItems({ onCustomize }: { onCustomize: () => void }) {
   const { theme, setTheme } = useTheme();
-  const mounted = useMounted();
+  const mounted = useIsHydrated();
   const { custom } = useCustomTheme();
 
   const active = mounted ? (theme ?? "system") : "system";
