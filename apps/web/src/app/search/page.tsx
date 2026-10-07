@@ -7,6 +7,8 @@ import { SearchForm } from "@/components/search/search-form";
 import { getServerSession } from "@/lib/api/server";
 import { RepositoryResults } from "./repository-results";
 import { CodeResults } from "./code-results";
+import { Suspense } from "react";
+import { ListSkeleton } from "@/components/list-skeleton";
 
 type Kind = "repositories" | "code";
 
@@ -70,11 +72,16 @@ export default async function SearchPage({
           ))}
         </nav>
 
-        {kind === "code" ? (
-          <CodeResults query={query} />
-        ) : (
-          <RepositoryResults query={query} cursor={pageCursor} />
-        )}
+        <Suspense
+          key={`${kind}:${query}:${pageCursor}`}
+          fallback={<ListSkeleton title={false} detail />}
+        >
+          {kind === "code" ? (
+            <CodeResults query={query} />
+          ) : (
+            <RepositoryResults query={query} cursor={pageCursor} />
+          )}
+        </Suspense>
       </main>
     </div>
   );

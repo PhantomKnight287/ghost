@@ -29,7 +29,7 @@ import { Separator } from "@/components/ui/separator";
 import { apiClient, unwrap } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
 import { StartCard } from "./start-card";
-import { RepositoryRow } from "./repository-row";
+import { RepositoryRow, RepositoryRowSkeleton } from "./repository-row";
 
 const ALL = "all";
 
@@ -125,13 +125,19 @@ export default function DashboardPage() {
                 </li>
               ))}
             </ul>
+          ) : isPending ? (
+            <ul className="-mx-2 flex flex-col">
+              {[0, 1, 2, 3].map((row) => (
+                <li key={row}>
+                  <RepositoryRowSkeleton />
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {isPending
-                ? "Loading repositories…"
-                : search
-                  ? "No repositories match."
-                  : "You don't have any repositories yet."}
+              {search
+                ? "No repositories match."
+                : "You don't have any repositories yet."}
             </p>
           )}
 
