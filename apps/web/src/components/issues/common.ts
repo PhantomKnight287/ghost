@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { IssueTimelineItem } from "@/types/issue";
+
 export const issueStates = ["open", "closed"] as const;
 export const issueFilters = [...issueStates, "all"] as const;
 
@@ -90,4 +92,29 @@ export function eventDescription(
     default:
       return `updated this ${noun}`;
   }
+}
+
+type TimelineEvent = Extract<IssueTimelineItem, { kind: "event" }>["event"];
+
+const isCommitBy = (item: IssueTimelineItem | undefined, actor: string) =>
+  item?.kind === "event" &&
+  item.event.type === "committed" &&
+  item.event.actorUsername === actor;
+
+/** The commits one person added in a row, starting at `index`, which read as one block; null for a commit that continues the block before it. */
+export function commitRunAt(
+  items: IssueTimelineItem[],
+  index: number,
+): TimelineEvent[] | null {
+  const item = items[index];
+  if (item?.kind !== "event") return null;
+  const actor = item.event.actorUsername;
+  if (isCommitBy(items[index - 1], actor)) return null;
+
+  const run: TimelineEvent[] = [];
+  for (let at = index; isCommitBy(items[at], actor); at++) {
+    const next = items[at];
+    if (next.kind === "event") run.push(next.event);
+  }
+  return run;
 }
