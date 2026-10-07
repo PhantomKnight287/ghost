@@ -155,34 +155,24 @@ export class PullRequestsService {
     requesterId: string;
     body: CreatePullRequestRequestDTO;
   }) {
-    const base = await this.access.authorize({ username, repo, requesterId });
-    const head = await this.resolveHead(base, body.head, requesterId);
-    const headRef = body.head.includes(':')
-      ? body.head.slice(body.head.indexOf(':') + 1)
-      : body.head;
-
+    const {
+      base,
+      head,
+      headRef,
+      baseSha,
+      to: headSha,
+      range,
+    } = await this.openComparison({
+      username,
+      repo,
+      requesterId,
+      base: body.base,
+      head: body.head,
+    });
     if (head.id === base.id && headRef === body.base) {
       throw new SameBranchPullRequestError();
     }
-
-    const [baseDirectory, headDirectory] = await Promise.all([
-      this.materializer.open(base),
-      this.materializer.open(head),
-    ]);
-    const baseSha = await this.resolveBranch(baseDirectory, body.base);
-    const headSha = await this.resolveBranch(headDirectory, headRef);
-
-    const alternates = head.id === base.id ? [] : [headDirectory];
-    if (
-      !(await mergeBase({
-        gitDir: baseDirectory,
-        alternates,
-        a: baseSha,
-        b: headSha,
-      }))
-    ) {
-      throw new UnrelatedHistoriesError();
-    }
+    const { gitDir: baseDirectory, alternates } = range;
 
     const [existing] = await this.db
       .select({ number: schema.issue.number })
@@ -284,6 +274,10 @@ export class PullRequestsService {
     if (!from) throw new UnrelatedHistoriesError();
 
     return {
+      base,
+      head,
+      headRef,
+      baseSha,
       from,
       to: headSha,
       range: { gitDir: baseDirectory, alternates, from, to: headSha },
