@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
+import { CursorPagination } from "@/components/cursor-pagination";
 
 const PAGE_SIZE = 20;
 
@@ -21,6 +22,7 @@ export default async function PullRequestsPage({
 }: PageProps<"/[username]/[repo]/pulls">) {
   const { username, repo } = await params;
   const { state, cursor } = await searchParams;
+  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
   const filter: PullRequestFilter = pullRequestFilters.includes(
     state as PullRequestFilter,
@@ -35,7 +37,7 @@ export default async function PullRequestsPage({
       query: {
         state: filter,
         limit: PAGE_SIZE,
-        cursor: typeof cursor === "string" ? cursor : undefined,
+        cursor: pageCursor,
       },
     },
   });
@@ -141,16 +143,12 @@ export default async function PullRequestsPage({
         )}
       </div>
 
-      {pulls.data.nextCursor && (
-        <div className="flex justify-end">
-          <Link
-            href={`${base}?state=${filter}&cursor=${encodeURIComponent(pulls.data.nextCursor)}`}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Older
-          </Link>
-        </div>
-      )}
+      <CursorPagination
+        pathname={base}
+        params={{ state: filter }}
+        cursor={pageCursor}
+        nextCursor={pulls.data.nextCursor}
+      />
     </div>
   );
 }

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
+import { CursorPagination } from "@/components/cursor-pagination";
 
 const PAGE_SIZE = 20;
 
@@ -80,17 +81,18 @@ export default async function IssuesPage({
 
   const base = `/${username}/${repo}/issues`;
 
+  const current: Record<string, string | undefined> = {
+    state: filter === "open" ? undefined : filter,
+    q,
+    labels,
+    assignee,
+    author,
+    sort: sort === "created" ? undefined : sort,
+    direction: direction === "desc" ? undefined : direction,
+  };
+
   function href(next: Record<string, string | undefined>) {
     const merged: Record<string, string> = {};
-    const current: Record<string, string | undefined> = {
-      state: filter === "open" ? undefined : filter,
-      q,
-      labels,
-      assignee,
-      author,
-      sort: sort === "created" ? undefined : sort,
-      direction: direction === "desc" ? undefined : direction,
-    };
     for (const [key, value] of Object.entries({ ...current, ...next })) {
       if (value !== undefined) merged[key] = value;
     }
@@ -289,16 +291,12 @@ export default async function IssuesPage({
         )}
       </div>
 
-      {issues.data.nextCursor && (
-        <div className="flex justify-end">
-          <Link
-            href={href({ cursor: issues.data.nextCursor })}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Older
-          </Link>
-        </div>
-      )}
+      <CursorPagination
+        pathname={base}
+        params={current}
+        cursor={cursor}
+        nextCursor={issues.data.nextCursor}
+      />
     </div>
   );
 }

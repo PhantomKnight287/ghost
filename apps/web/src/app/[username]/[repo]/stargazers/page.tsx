@@ -4,9 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
-import { buttonVariants } from "@/components/ui/button";
 import { createServerClient } from "@/lib/api/server";
-import { cn } from "@/lib/utils";
+import { CursorPagination } from "@/components/cursor-pagination";
 
 export default async function StargazersPage({
   params,
@@ -14,6 +13,7 @@ export default async function StargazersPage({
 }: PageProps<"/[username]/[repo]/stargazers">) {
   const { username, repo } = await params;
   const { cursor } = await searchParams;
+  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
   const client = await createServerClient();
   const { data } = await client.GET(
@@ -21,7 +21,7 @@ export default async function StargazersPage({
     {
       params: {
         path: { username, slug: repo },
-        query: { cursor: typeof cursor === "string" ? cursor : undefined },
+        query: { cursor: pageCursor },
       },
     },
   );
@@ -72,14 +72,11 @@ export default async function StargazersPage({
         </ul>
       )}
 
-      {data.nextCursor && (
-        <Link
-          href={`/${username}/${repo}/stargazers?cursor=${encodeURIComponent(data.nextCursor)}`}
-          className={cn(buttonVariants({ variant: "outline" }), "self-center")}
-        >
-          Next page
-        </Link>
-      )}
+      <CursorPagination
+        pathname={`/${username}/${repo}/stargazers`}
+        cursor={pageCursor}
+        nextCursor={data.nextCursor}
+      />
     </div>
   );
 }

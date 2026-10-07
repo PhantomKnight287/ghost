@@ -6,6 +6,7 @@ import { FromNowHoverCard } from "@/components/from-now-card";
 import { buttonVariants } from "@/components/ui/button";
 import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
+import { CursorPagination } from "@/components/cursor-pagination";
 
 export default async function ForksPage({
   params,
@@ -13,6 +14,7 @@ export default async function ForksPage({
 }: PageProps<"/[username]/[repo]/forks">) {
   const { username, repo } = await params;
   const { cursor } = await searchParams;
+  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
   const client = await createServerClient();
   const { data } = await client.GET(
@@ -20,7 +22,7 @@ export default async function ForksPage({
     {
       params: {
         path: { username, slug: repo },
-        query: { cursor: typeof cursor === "string" ? cursor : undefined },
+        query: { cursor: pageCursor },
       },
     },
   );
@@ -73,14 +75,11 @@ export default async function ForksPage({
         </ul>
       )}
 
-      {data.nextCursor && (
-        <Link
-          href={`/${username}/${repo}/forks?cursor=${encodeURIComponent(data.nextCursor)}`}
-          className={cn(buttonVariants({ variant: "outline" }), "self-center")}
-        >
-          Next page
-        </Link>
-      )}
+      <CursorPagination
+        pathname={`/${username}/${repo}/forks`}
+        cursor={pageCursor}
+        nextCursor={data.nextCursor}
+      />
     </div>
   );
 }
