@@ -5,6 +5,12 @@ import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 
 import { BranchList } from "./branch-list";
 import { CreateBranchDialog } from "./create-branch-dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export async function generateMetadata({
   params,
@@ -50,12 +56,14 @@ export default async function BranchesPage({
       </div>
 
       {branches.data.branches.length === 0 ? (
-        <div className="rounded-lg border py-16 text-center">
-          <p className="font-medium">There aren&apos;t any branches here</p>
-          <p className="text-sm text-muted-foreground">
-            Push one with <code>git push origin main</code>.
-          </p>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>There aren&apos;t any branches here</EmptyTitle>
+            <EmptyDescription>
+              Push one with <code>git push origin main</code>.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <BranchList
           username={username}

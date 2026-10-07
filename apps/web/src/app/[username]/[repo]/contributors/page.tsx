@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { createServerClient } from "@/lib/api/server";
+import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 
 export default async function ContributorsPage({
   params,
@@ -38,9 +39,13 @@ export default async function ContributorsPage({
       </h1>
 
       {data.contributors.length === 0 ? (
-        <p className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
-          No commits on this repository yet.
-        </p>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyDescription>
+              No commits on this repository yet.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <TooltipProvider>
           <ul className="divide-y rounded-lg border">

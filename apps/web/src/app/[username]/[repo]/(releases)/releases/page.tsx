@@ -3,6 +3,12 @@ import type { Metadata } from "next";
 import { CursorPagination } from "@/components/cursor-pagination";
 import { ReleaseCard } from "@/components/releases/release-card";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export async function generateMetadata({
   params,
@@ -33,12 +39,14 @@ export default async function ReleasesPage({
   return (
     <div className="flex flex-col gap-4">
       {releases.data.releases.length === 0 ? (
-        <div className="rounded-lg border py-16 text-center">
-          <p className="font-medium">There aren&apos;t any releases here</p>
-          <p className="text-sm text-muted-foreground">
-            Releases package a tag with notes about what changed.
-          </p>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>There aren&apos;t any releases here</EmptyTitle>
+            <EmptyDescription>
+              Releases package a tag with notes about what changed.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         releases.data.releases.map((release) => (
           <ReleaseCard

@@ -15,6 +15,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { components } from "@/lib/api/v1";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export type RepositoryEntity = components["schemas"]["RepositoryEntity"];
 
@@ -122,18 +128,20 @@ export function ProfileTabs({
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
-            <p className="text-sm font-medium">
-              {query ? "No matching repositories" : "No repositories yet"}
-            </p>
-            <p className="max-w-xs text-sm text-muted-foreground">
-              {query
-                ? "Try a different search term."
-                : isViewer
-                  ? "Create your first repository to start tracking a project."
-                  : `${username} hasn't published any repositories.`}
-            </p>
-          </div>
+          <Empty className="border border-dashed">
+            <EmptyHeader>
+              <EmptyTitle>
+                {query ? "No matching repositories" : "No repositories yet"}
+              </EmptyTitle>
+              <EmptyDescription>
+                {query
+                  ? "Try a different search term."
+                  : isViewer
+                    ? "Create your first repository to start tracking a project."
+                    : `${username} hasn't published any repositories.`}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
 
         {pagination}

@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { createServerClient } from "@/lib/api/server";
 import { CursorPagination } from "@/components/cursor-pagination";
+import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 
 export default async function StargazersPage({
   params,
@@ -36,9 +37,13 @@ export default async function StargazersPage({
       </h1>
 
       {data.stargazers.length === 0 ? (
-        <p className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
-          No one has starred this repository yet.
-        </p>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyDescription>
+              No one has starred this repository yet.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ul className="divide-y rounded-lg border">
           {data.stargazers.map((stargazer) => (

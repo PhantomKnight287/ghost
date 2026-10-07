@@ -7,6 +7,12 @@ import { buttonVariants } from "@/components/ui/button";
 import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 import { CursorPagination } from "@/components/cursor-pagination";
+import {
+  Empty,
+  EmptyContent,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export default async function ForksPage({
   params,
@@ -37,15 +43,19 @@ export default async function ForksPage({
       </h1>
 
       {data.forks.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
-          <p className="text-sm font-medium">No one has forked this yet</p>
-          <Link
-            href={`/${username}/${repo}/fork`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            Fork this repository
-          </Link>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>No one has forked this yet</EmptyTitle>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link
+              href={`/${username}/${repo}/fork`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Fork this repository
+            </Link>
+          </EmptyContent>
+        </Empty>
       ) : (
         <ul className="divide-y rounded-lg border">
           {data.forks.map((fork) => (

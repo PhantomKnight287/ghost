@@ -7,6 +7,12 @@ import {
 } from "@/components/repositories/repository-readme";
 import { createServerClient } from "@/lib/api/server";
 import { API_URL, sshCloneUrlFor } from "@/lib/env";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export default async function RepositoryPage({
   params,
@@ -21,12 +27,12 @@ export default async function RepositoryPage({
 
   if (!contents.data) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
-        <p className="text-sm font-medium">Could not load repository files</p>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Try refreshing the page.
-        </p>
-      </div>
+      <Empty className="border border-dashed">
+        <EmptyHeader>
+          <EmptyTitle>Could not load repository files</EmptyTitle>
+          <EmptyDescription>Try refreshing the page.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

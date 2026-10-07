@@ -6,6 +6,7 @@ import { CommitVerificationBadge } from "@/components/repositories/commit-verifi
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
+import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 
 export default async function RepositoryCommitPage({
   params,
@@ -53,9 +54,13 @@ export default async function RepositoryCommitPage({
       </div>
 
       {commit.data.files.length === 0 ? (
-        <p className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
-          This commit has no textual changes.
-        </p>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyDescription>
+              This commit has no textual changes.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <FileDiffs
           patchUrl={`${API_URL}/api/repositories/${username}/${repo}/commits/${hash}/patch`}
