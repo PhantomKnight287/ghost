@@ -33,14 +33,7 @@ export async function RepositoryResults({
             <RepositoryCard
               key={repository.id}
               showOwner
-              repository={{
-                name: repository.name,
-                slug: repository.slug,
-                owner: repository.owner,
-                description: repository.description ?? undefined,
-                visibility: "public",
-                updatedAt: repository.lastPushedAt,
-              }}
+              repository={{ ...repository, visibility: "public" }}
             />
           ))}
         </div>

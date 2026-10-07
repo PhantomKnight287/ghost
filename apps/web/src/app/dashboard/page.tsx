@@ -67,14 +67,7 @@ export default function DashboardPage() {
           params: { query: { q: scoped || undefined, limit: 50 } },
         }),
       );
-      return data.repositories.map((repository) => ({
-        name: repository.name,
-        slug: repository.slug,
-        owner: repository.owner,
-        description: repository.description ?? undefined,
-        visibility: repository.visibility,
-        updatedAt: repository.lastPushedAt,
-      }));
+      return data.repositories;
     },
   });
 

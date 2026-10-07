@@ -25,7 +25,7 @@ export function RepositoryRow({ repository }: { repository: Repository }) {
         <span className="font-medium">{repository.name}</span>
       </span>
       <FromNowHoverCard
-        date={repository.updatedAt}
+        date={repository.lastPushedAt}
         className="shrink-0 text-xs text-muted-foreground"
       />
     </Link>
