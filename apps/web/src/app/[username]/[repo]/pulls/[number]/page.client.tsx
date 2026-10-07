@@ -81,7 +81,7 @@ export function MergePanel({
   username: string;
   repo: string;
   number: number;
-  state: string;
+  state: "open" | "closed" | "merged";
   mergeable: boolean;
   /** Paths that conflict with the base right now. */
   conflicts: string[];

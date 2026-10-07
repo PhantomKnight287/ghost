@@ -32,7 +32,6 @@ import { plural } from "@/lib/og";
 import { cn } from "@/lib/utils";
 
 import { ProfileTabs } from "./page.client";
-import { REPOSITORIES_PAGE_SIZE } from "./constants";
 import Link from "next/link";
 
 export async function generateMetadata({
@@ -96,7 +95,7 @@ export default async function ProfilePage({
       params: {
         path: { username },
         query: {
-          limit: REPOSITORIES_PAGE_SIZE,
+          limit: 20,
           q: query || undefined,
           cursor: pageCursor,
         },

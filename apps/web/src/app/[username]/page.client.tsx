@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
+import { useDebouncer } from "@tanstack/react-pacer";
 import Form from "next/form";
 import { Plus, Search } from "lucide-react";
 
@@ -22,9 +23,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 
-export type RepositoryEntity = components["schemas"]["RepositoryEntity"];
-
-const FILTER_DEBOUNCE_MS = 300;
+type RepositoryEntity = components["schemas"]["RepositoryEntity"];
 
 export function ProfileTabs({
   username,
@@ -51,7 +50,9 @@ export function ProfileTabs({
   extraTabs?: { value: string; label: string; content: ReactNode }[];
 }) {
   const filter = useRef<HTMLFormElement>(null);
-  const pending = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const submitFilter = useDebouncer(() => filter.current?.requestSubmit(), {
+    wait: 300,
+  });
 
   return (
     <Tabs defaultValue={defaultTab}>
@@ -90,13 +91,7 @@ export function ProfileTabs({
                 placeholder="Find a repository"
                 aria-label="Find a repository"
                 defaultValue={query}
-                onChange={() => {
-                  clearTimeout(pending.current);
-                  pending.current = setTimeout(
-                    () => filter.current?.requestSubmit(),
-                    FILTER_DEBOUNCE_MS,
-                  );
-                }}
+                onChange={() => submitFilter.maybeExecute()}
               />
             </InputGroup>
           </Form>

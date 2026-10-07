@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
-import type { PullRequestFilter } from "@/components/pull-requests/common";
 import {
   branchLabel,
   pullRequestFilters,
@@ -25,11 +24,7 @@ export default async function PullRequestsPage({
   const { state, cursor } = await searchParams;
   const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
-  const filter: PullRequestFilter = pullRequestFilters.includes(
-    state as PullRequestFilter,
-  )
-    ? (state as PullRequestFilter)
-    : "open";
+  const filter = pullRequestFilters.find((value) => value === state) ?? "open";
 
   const client = await createServerClient();
   const pulls = await client.GET("/api/repositories/{username}/{repo}/pulls", {

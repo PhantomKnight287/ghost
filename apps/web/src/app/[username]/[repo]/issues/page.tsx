@@ -9,7 +9,6 @@ import Link from "next/link";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
-import type { IssueFilter, IssueSort } from "@/components/issues/common";
 import { issueFilters, issueSorts } from "@/components/issues/common";
 import { LabelBadge } from "@/components/issues/label-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -39,12 +38,8 @@ export default async function IssuesPage({
   const { username, repo } = await params;
   const query = await searchParams;
 
-  const filter: IssueFilter = issueFilters.includes(query.state as IssueFilter)
-    ? (query.state as IssueFilter)
-    : "open";
-  const sort: IssueSort = issueSorts.includes(query.sort as IssueSort)
-    ? (query.sort as IssueSort)
-    : "created";
+  const filter = issueFilters.find((value) => value === query.state) ?? "open";
+  const sort = issueSorts.find((value) => value === query.sort) ?? "created";
   const direction = query.direction === "asc" ? "asc" : "desc";
   const q = stringParam(query.q);
   const labels = stringParam(query.labels);
