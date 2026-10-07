@@ -1,7 +1,7 @@
 import { CircleCheck, CircleDot } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
@@ -11,7 +11,7 @@ import {
   ThreadSubscription,
   ThreadSubscriptionSkeleton,
 } from "@/components/notifications/thread-subscription";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata({
@@ -43,7 +43,7 @@ export default async function IssueLayout({
     { params: { path: { username, repo, number: Number(number) } } },
   );
 
-  if (issue.response.status === 404) notFound();
+  notFoundIfHidden(issue.response);
   if (!issue.data) {
     throw new Error(`Failed to load issue #${number}`);
   }

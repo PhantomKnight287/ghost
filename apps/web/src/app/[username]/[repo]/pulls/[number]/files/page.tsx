@@ -1,9 +1,8 @@
-import { notFound } from "next/navigation";
-
 import {
   createServerClient,
   getServerSession,
   getViewerRole,
+  notFoundIfHidden,
 } from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
 import type { PullRequestReview } from "@/types/pull-request";
@@ -40,7 +39,7 @@ export default async function PullRequestFilesPage({
       : null,
   ]);
 
-  if (summary.response.status === 404) notFound();
+  notFoundIfHidden(summary.response);
   if (!summary.data || !pull.data) {
     throw new Error(`Failed to read the diff of pull request #${number}`);
   }

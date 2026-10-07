@@ -1,11 +1,10 @@
 import { GitCommitHorizontal, Tag } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { CursorPagination } from "@/components/cursor-pagination";
 import { FromNowHoverCard } from "@/components/from-now-card";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 
 export async function generateMetadata({
   params,
@@ -27,7 +26,7 @@ export default async function TagsPage({
     params: { path: { username, slug: repo }, query: { cursor: pageCursor } },
   });
 
-  if (tags.response.status === 404) notFound();
+  notFoundIfHidden(tags.response);
   if (!tags.data) throw new Error(`Failed to list tags of ${username}/${repo}`);
 
   return (

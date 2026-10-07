@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { codeSearchStats, ogCard } from "@/lib/og";
 
 /** The card for a repository's code search, which needs the query an `opengraph-image` never sees. */
@@ -31,7 +31,7 @@ export async function GET(
     "/api/repositories/{username}/{slug}/search",
     { params: { path: { username, slug: repo }, query: { q: query } } },
   );
-  if (response.status === 404) notFound();
+  notFoundIfHidden(response);
 
   return ogCard({
     eyebrow: `${username}/${repo}`,

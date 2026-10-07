@@ -1,7 +1,11 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { CreateIssueForm } from "@/components/issues/create-issue-form";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import {
+  createServerClient,
+  getServerSession,
+  notFoundIfHidden,
+} from "@/lib/api/server";
 
 export default async function NewIssuePage({
   params,
@@ -28,7 +32,7 @@ export default async function NewIssuePage({
     }),
   ]);
 
-  if (repository.response.status === 404) notFound();
+  notFoundIfHidden(repository.response);
   if (!repository.data) throw new Error(`Failed to load ${username}/${repo}`);
 
   return (

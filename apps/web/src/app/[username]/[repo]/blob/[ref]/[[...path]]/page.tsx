@@ -4,7 +4,11 @@ import { formatDistanceToNow } from "date-fns";
 import { Download, GitCommitHorizontal } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { createServerClient, resolveRevisionPath } from "@/lib/api/server";
+import {
+  createServerClient,
+  notFoundIfHidden,
+  resolveRevisionPath,
+} from "@/lib/api/server";
 import { highlightLines } from "@/lib/highlight";
 import { ogUrl } from "@/lib/og-url";
 import { cn, formatBytes } from "@/lib/utils";
@@ -60,7 +64,7 @@ export default async function RepositoryBlobPage({
     },
   });
 
-  if (blob.response.status === 404) notFound();
+  notFoundIfHidden(blob.response);
   if (!blob.data) throw new Error(`Failed to read ${filePath}`);
 
   const filename = segments.at(-1) ?? "";

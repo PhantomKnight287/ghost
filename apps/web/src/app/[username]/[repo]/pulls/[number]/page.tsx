@@ -1,5 +1,3 @@
-import { notFound } from "next/navigation";
-
 import { UserLink } from "@/components/users/user-link";
 import { DiffsProvider } from "@/components/diffs/diffs-provider";
 import { CommentBox } from "@/components/issues/comments";
@@ -10,6 +8,7 @@ import {
   createServerClient,
   getServerSession,
   getViewerRole,
+  notFoundIfHidden,
 } from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 
@@ -36,7 +35,7 @@ export default async function PullRequestPage({
     }),
   ]);
 
-  if (pull.response.status === 404) notFound();
+  notFoundIfHidden(pull.response);
   if (!pull.data) throw new Error(`Failed to load pull request #${number}`);
 
   const viewer = session?.user.username;

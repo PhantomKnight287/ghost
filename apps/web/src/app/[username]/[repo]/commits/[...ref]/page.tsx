@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { GitCommitHorizontal } from "lucide-react";
 
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import { CursorPagination } from "@/components/cursor-pagination";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { FromNowHoverCard } from "@/components/from-now-card";
 
 const PAGE_SIZE = 20;
@@ -35,7 +34,7 @@ export default async function RepositoryCommitsPage({
     },
   );
 
-  if (commits.response.status === 404) notFound();
+  notFoundIfHidden(commits.response);
   if (!commits.data) {
     throw new Error(`Failed to list commits of ${username}/${repo}`);
   }

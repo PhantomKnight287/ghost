@@ -1,5 +1,3 @@
-import { notFound } from "next/navigation";
-
 import { UserLink } from "@/components/users/user-link";
 import { CommentBox } from "@/components/issues/comments";
 import { EditableField } from "@/components/issues/editable-field";
@@ -9,6 +7,7 @@ import {
   createServerClient,
   getServerSession,
   getViewerRole,
+  notFoundIfHidden,
 } from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 
@@ -38,9 +37,9 @@ export default async function IssuePage({
     }),
   ]);
 
-  if (issue.response.status === 404) notFound();
+  notFoundIfHidden(issue.response);
   if (!issue.data) throw new Error(`Failed to load issue #${number}`);
-  if (timeline.response.status === 404) notFound();
+  notFoundIfHidden(timeline.response);
 
   const viewer = session?.user.username;
   // Server-computed: the author, or whoever can write to the repository.

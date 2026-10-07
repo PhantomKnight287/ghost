@@ -1,9 +1,13 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { CreatePullRequestForm } from "@/components/pull-requests/create-pull-request-form";
 import { DiffView } from "@/components/pull-requests/diff-view";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import {
+  createServerClient,
+  getServerSession,
+  notFoundIfHidden,
+} from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
 
 export default async function NewPullRequestPage({
@@ -28,7 +32,7 @@ export default async function NewPullRequestPage({
     params: { path: { username, slug: repo } },
   });
 
-  if (repository.response.status === 404) notFound();
+  notFoundIfHidden(repository.response);
   if (!repository.data) throw new Error(`Failed to load ${username}/${repo}`);
 
   const viewerForkSlug = repository.data.viewerForkSlug;

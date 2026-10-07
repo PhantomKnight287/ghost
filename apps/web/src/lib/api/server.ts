@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 import { cache } from "react";
 import createFetchClient from "openapi-fetch";
 
@@ -18,6 +19,11 @@ async function forwardedHeaders(): Promise<Record<string, string>> {
     if (value) forwarded[name] = value;
   }
   return forwarded;
+}
+
+/** 404s when the API says the resource is absent, or that it is not public and nobody is signed in: a page must not tell an anonymous visitor which private repositories exist. */
+export function notFoundIfHidden(response: Response) {
+  if (response.status === 404 || response.status === 401) notFound();
 }
 
 /** Typed API client for server components. `credentials: "include"` is a browser concept, so the incoming request's cookies are forwarded explicitly. */

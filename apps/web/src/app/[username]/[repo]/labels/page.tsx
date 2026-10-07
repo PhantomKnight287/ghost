@@ -1,7 +1,9 @@
-import { notFound } from "next/navigation";
-
 import { LabelManager } from "@/components/issues/label-manager";
-import { createServerClient, getViewerRole } from "@/lib/api/server";
+import {
+  createServerClient,
+  getViewerRole,
+  notFoundIfHidden,
+} from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 
 export default async function LabelsPage({
@@ -19,7 +21,7 @@ export default async function LabelsPage({
     { params: { path: { username, repo } } },
   );
 
-  if (labels.response.status === 404) notFound();
+  notFoundIfHidden(labels.response);
   if (!labels.data) {
     throw new Error(`Failed to list labels of ${username}/${repo}`);
   }

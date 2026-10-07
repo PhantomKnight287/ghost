@@ -6,7 +6,6 @@ import {
   TagsIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
@@ -22,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createServerClient } from "@/lib/api/server";
+import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -74,7 +73,7 @@ export default async function IssuesPage({
     }),
   ]);
 
-  if (issues.response.status === 404) notFound();
+  notFoundIfHidden(issues.response);
   if (!issues.data) {
     throw new Error(`Failed to list issues of ${username}/${repo}`);
   }
