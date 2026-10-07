@@ -20,7 +20,7 @@ import {
 import { atLeast } from "@ghost/permissions";
 import { cn } from "@/lib/utils";
 
-import { PullRequestNav } from "./page.client";
+import { PullRequestNav } from "./pull-request-nav";
 import { threadStateStyle } from "@/components/thread-state";
 
 export async function generateMetadata({

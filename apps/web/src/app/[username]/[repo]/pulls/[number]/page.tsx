@@ -12,7 +12,7 @@ import {
 } from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 
-import { MergePanel } from "./page.client";
+import { MergePanel } from "./merge-panel";
 
 export default async function PullRequestPage({
   params,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -10,16 +10,14 @@ import { toast } from "sonner";
 import {
   createLabel,
   deleteLabel,
-  setIssueAssignees,
   setIssueLabels,
 } from "@/components/issues/actions";
-import { AssigneePicker } from "@/components/issues/assignee-picker";
 import { LabelBadge } from "@/components/issues/label-badge";
 import { LabelForm } from "@/components/issues/label-form";
-import { UserLink } from "@/components/users/user-link";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { IssueLabel } from "@/types/issue";
+import { SidebarSectionHeader } from "./sidebar-section-header";
 
 export function LabelEditor({
   username,
@@ -83,23 +81,17 @@ export function LabelEditor({
   if (!editing) {
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-medium text-muted-foreground">Labels</h2>
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={() => {
-                setSelected(attached.map((label) => label.name));
-                setEditing(true);
-              }}
-            >
-              <Pencil data-icon="inline-start" />
-              Edit
-            </Button>
-          )}
-        </div>
+        <SidebarSectionHeader
+          title="Labels"
+          onEdit={
+            canEdit
+              ? () => {
+                  setSelected(attached.map((label) => label.name));
+                  setEditing(true);
+                }
+              : undefined
+          }
+        />
         {attached.length === 0 ? (
           <p className="text-xs text-muted-foreground">None yet.</p>
         ) : (
@@ -214,129 +206,5 @@ export function LabelEditor({
         </div>
       </div>
     </div>
-  );
-}
-
-export function AssigneeEditor({
-  username,
-  repo,
-  number,
-  assignees,
-  viewer,
-  canEdit,
-}: {
-  username: string;
-  repo: string;
-  number: number;
-  assignees: string[];
-  viewer?: string | null;
-  canEdit: boolean;
-}) {
-  const router = useRouter();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(assignees);
-
-  const save = useAction(setIssueAssignees, {
-    onSuccess: () => {
-      setEditing(false);
-      router.refresh();
-    },
-    onError: ({ error }) =>
-      toast.error(error.serverError ?? "Could not save assignees."),
-  });
-
-  if (!editing) {
-    return (
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-medium text-muted-foreground">
-            Assignees
-          </h2>
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={() => {
-                setDraft(assignees);
-                setEditing(true);
-              }}
-            >
-              <Pencil data-icon="inline-start" />
-              Edit
-            </Button>
-          )}
-        </div>
-        {assignees.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No one assigned
-            {canEdit && viewer && (
-              <>
-                {" "}
-                &middot;{" "}
-                <button
-                  type="button"
-                  className="hover:text-primary hover:underline disabled:opacity-50"
-                  disabled={save.isExecuting}
-                  onClick={() =>
-                    save.execute({
-                      username,
-                      repo,
-                      number,
-                      usernames: [viewer],
-                    })
-                  }
-                >
-                  assign yourself
-                </button>
-              </>
-            )}
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {assignees.map((name) => (
-              <li key={name} className="text-xs">
-                <UserLink username={name} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <form
-      className="flex flex-col gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        save.execute({ username, repo, number, usernames: draft });
-      }}
-    >
-      <h2 className="text-xs font-medium text-muted-foreground">Assignees</h2>
-      <AssigneePicker
-        username={username}
-        repo={repo}
-        value={draft}
-        onChange={setDraft}
-        viewer={viewer}
-        disabled={save.isExecuting}
-      />
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={save.isExecuting}
-          onClick={() => setEditing(false)}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" size="sm" disabled={save.isExecuting}>
-          {save.isExecuting && <Spinner />}
-          Save
-        </Button>
-      </div>
-    </form>
   );
 }
