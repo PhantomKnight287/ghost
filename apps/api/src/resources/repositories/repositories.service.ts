@@ -139,6 +139,7 @@ import {
   LFS_POINTER_MAX_BYTES,
   parseLfsPointer,
 } from '../../lib/git/lfs/lfs-pointer.js';
+import { attachmentKey } from '../../lib/attachments/attachments.js';
 import { releaseAssetKey } from '../../lib/releases/release-assets.js';
 import type {
   SearchCodeRepositoryDTO,
@@ -1078,6 +1079,7 @@ export class RepositoriesService {
         .then(() => this.storage.remove(repository.id)),
       this.codeSearch.remove(repository.id),
       this.s3.deleteUnder(releaseAssetKey(repository.id)),
+      this.s3.deleteUnder(attachmentKey(repository.id)),
       this.lfs.remove(repository.id),
     ]);
 

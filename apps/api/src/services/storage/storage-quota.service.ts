@@ -161,6 +161,25 @@ export class StorageQuotaService {
       used += Number(assets?.used ?? 0);
     }
 
+    // Attachments bill whoever uploaded them, wherever they are posted, so commenting on someone else's repository never fills the owner's quota.
+    if (kind === 'asset' && 'userId' in account) {
+      const [attachments] = await executor
+        .select({
+          used: sql<string>`coalesce(sum(${schema.attachment.size}), 0)`,
+        })
+        .from(schema.attachment)
+        .where(
+          and(
+            eq(schema.attachment.uploaderId, account.userId),
+            or(
+              isNotNull(schema.attachment.uploadedAt),
+              gt(schema.attachment.createdAt, sql`now() - ${RESERVATION_TTL}`),
+            ),
+          ),
+        );
+      used += Number(attachments?.used ?? 0);
+    }
+
     if (counts('repository')) {
       const [logs] = await executor
         .select({

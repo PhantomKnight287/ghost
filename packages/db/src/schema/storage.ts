@@ -2,6 +2,7 @@ import { createId } from "@paralleldrive/cuid2";
 import {
   bigint,
   check,
+  index,
   primaryKey,
   uniqueIndex,
   pgTable,
@@ -90,5 +91,30 @@ export const lfsLock = pgTable(
       .notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("lfs_lock_repository_path_idx").on(t.repositoryId, t.path)],
+  (t) => [
+    uniqueIndex("lfs_lock_repository_path_idx").on(t.repositoryId, t.path),
+  ],
+);
+
+/** A file attached to an issue, pull request, comment or release notes, stored at `attachments/<repositoryId>/<id>`. A null `uploadedAt` is a reservation for an upload still in flight. Nothing links it to the text that embeds it: rows no text in the repository mentions are swept away. */
+export const attachment = pgTable(
+  "attachment",
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => `attachment_${createId()}`),
+    repositoryId: text()
+      .references(() => repository.id, { onDelete: "cascade" })
+      .notNull(),
+    name: text().notNull(),
+    contentType: text().notNull(),
+    size: bigint({ mode: "number" }).notNull(),
+    uploaderId: text().references(() => user.id, { onDelete: "set null" }),
+    uploadedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("attachment_repository_idx").on(t.repositoryId),
+    index("attachment_created_idx").on(t.createdAt),
+  ],
 );
