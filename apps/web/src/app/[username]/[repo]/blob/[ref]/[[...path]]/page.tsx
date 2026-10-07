@@ -1,7 +1,7 @@
+import { Download, GitCommitHorizontal } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { formatDistanceToNow } from "date-fns";
-import { Download, GitCommitHorizontal } from "lucide-react";
+import { FromNowHoverCard } from "@/components/from-now-card";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -97,11 +97,10 @@ export default async function RepositoryBlobPage({
             <code className="shrink-0 text-xs text-muted-foreground">
               {commit.sha.slice(0, 7)}
             </code>
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(commit.committedAt), {
-                addSuffix: true,
-              })}
-            </span>
+            <FromNowHoverCard
+              date={commit.committedAt}
+              className="shrink-0 text-xs text-muted-foreground"
+            />
           </>
         )}
         {lfs && (

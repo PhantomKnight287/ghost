@@ -5,6 +5,7 @@ import type { Session } from "better-auth";
 import Bowser from "bowser";
 import { LogOut, Monitor, Smartphone, X } from "lucide-react";
 import { toast } from "sonner";
+import { FromNowHoverCard } from "@/components/from-now-card";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,29 +18,6 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
-
-function timeAgo(date: Date) {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-
-  const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["year", 31536000],
-    ["month", 2592000],
-    ["week", 604800],
-    ["day", 86400],
-    ["hour", 3600],
-    ["minute", 60],
-    ["second", 1],
-  ];
-
-  for (const [unit, threshold] of UNITS) {
-    if (seconds >= threshold) {
-      return rtf.format(-Math.floor(seconds / threshold), unit);
-    }
-  }
-
-  return rtf.format(0, "second");
-}
 
 export type ActiveSessionProps = {
   activeSession: Session;
@@ -80,8 +58,8 @@ export function ActiveSession({ activeSession }: ActiveSessionProps) {
           </Badge>
         ) : (
           activeSession.createdAt && (
-            <ItemDescription className="capitalize">
-              {timeAgo(activeSession.createdAt)}
+            <ItemDescription>
+              <FromNowHoverCard date={activeSession.createdAt} />
             </ItemDescription>
           )
         )}
