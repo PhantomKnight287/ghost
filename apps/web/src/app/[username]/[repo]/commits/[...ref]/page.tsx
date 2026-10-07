@@ -1,10 +1,8 @@
-import Link from "next/link";
 import { GitCommitHorizontal } from "lucide-react";
 
-import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
+import { CommitList } from "@/components/repositories/commit-list";
 import { CursorPagination } from "@/components/cursor-pagination";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
-import { FromNowHoverCard } from "@/components/from-now-card";
 
 const PAGE_SIZE = 20;
 
@@ -14,6 +12,7 @@ export default async function RepositoryCommitsPage({
 }: PageProps<"/[username]/[repo]/commits/[...ref]">) {
   const { username, repo, ref } = await params;
   const { cursor } = await searchParams;
+  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
   const client = await createServerClient();
 
@@ -28,7 +27,7 @@ export default async function RepositoryCommitsPage({
         query: {
           ref: revision,
           limit: PAGE_SIZE,
-          cursor: typeof cursor === "string" ? cursor : undefined,
+          cursor: pageCursor,
         },
       },
     },
@@ -53,47 +52,16 @@ export default async function RepositoryCommitsPage({
           </span>
         </div>
 
-        {commits.data.commits.length === 0 ? (
-          <p className="py-16 text-center text-sm text-muted-foreground">
-            Nothing has been pushed to {revision} yet.
-          </p>
-        ) : (
-          <ul className="divide-y">
-            {commits.data.commits.map((commit) => (
-              <li
-                key={commit.sha}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/40"
-              >
-                <div className="min-w-0 flex-1">
-                  <Link
-                    href={`/${username}/${repo}/commit/${commit.sha}`}
-                    className="truncate font-medium hover:underline"
-                  >
-                    {commit.subject}
-                  </Link>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {commit.authorName} committed{" "}
-                    <FromNowHoverCard date={commit.committedAt} />
-                  </p>
-                </div>
-                <CommitVerificationBadge verification={commit.verification} />
-                <Link
-                  className="hover:underline"
-                  href={`/${username}/${repo}/commit/${commit.sha}`}
-                >
-                  <code className="shrink-0 text-xs text-muted-foreground">
-                    {commit.sha.slice(0, 7)}
-                  </code>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <CommitList
+          commits={commits.data.commits}
+          commitBase={`/${username}/${repo}`}
+          empty={`Nothing has been pushed to ${revision} yet.`}
+        />
       </div>
 
       <CursorPagination
         pathname={base}
-        cursor={typeof cursor === "string" ? cursor : undefined}
+        cursor={pageCursor}
         nextCursor={nextCursor}
       />
     </>
