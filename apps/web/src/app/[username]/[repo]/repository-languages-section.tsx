@@ -1,7 +1,7 @@
 import { RepositoryLanguages } from "./repository-languages";
 import { createServerClient } from "@/lib/api/server";
 
-export async function Languages({
+export async function RepositoryLanguagesSection({
   username,
   repo,
 }: {

@@ -13,7 +13,7 @@ import {
 } from "@/lib/api/server";
 
 import { ImportBanner } from "./import-banner";
-import { Languages } from "./languages";
+import { RepositoryLanguagesSection } from "./repository-languages-section";
 
 export async function generateMetadata({
   params,
@@ -112,7 +112,7 @@ export default async function RepositoryLayout({
 
           {/* Its own fetch: a first-ever language count of a big repository must not hold up the file listing. */}
           <Suspense fallback={<RepositoryLanguagesSkeleton />}>
-            <Languages username={username} repo={repo} />
+            <RepositoryLanguagesSection username={username} repo={repo} />
           </Suspense>
         </>
       }
