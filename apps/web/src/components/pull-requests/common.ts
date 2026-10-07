@@ -13,6 +13,13 @@ export function branchLabel(side: PullRequestSide, other: PullRequestSide) {
     : `${side.username}:${side.ref}`;
 }
 
+/** `alice:feat/add-rate_limiter` → `Add rate limiter`: the title a request from that branch starts with. */
+export function titleFromBranch(head: string) {
+  const name = (head.split(":").at(-1) ?? "").split("/").at(-1) ?? "";
+  const words = name.replace(/[-_]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export const mergeMethods = ["merge", "squash", "rebase"] as const;
 export type MergeMethod = (typeof mergeMethods)[number];
 

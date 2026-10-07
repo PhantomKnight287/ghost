@@ -44,6 +44,7 @@ export default async function NewIssuePage({
         username={username}
         repo={repo}
         labels={labels.data?.labels ?? []}
+        viewer={session.user.username}
       />
     </div>
   );

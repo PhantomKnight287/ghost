@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { Controller, useForm } from "react-hook-form";
 
+import { MarkdownEditor } from "@/components/markdown-editor/markdown-editor";
 import { BranchSelect } from "@/components/repositories/branch-select";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,10 +17,13 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import type { CreatePullRequestFormProps } from "@/types/pull-request";
 import { createPullRequest } from "./actions";
-import { type CreatePullRequestInput, createPullRequestSchema } from "./common";
+import {
+  type CreatePullRequestInput,
+  createPullRequestSchema,
+  titleFromBranch,
+} from "./common";
 
 export function CreatePullRequestForm({
   username,
@@ -34,12 +38,13 @@ export function CreatePullRequestForm({
     control,
     register,
     handleSubmit,
+    setValue,
     watch,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<CreatePullRequestInput>({
     resolver: zodResolver(createPullRequestSchema),
     defaultValues: {
-      title: "",
+      title: titleFromBranch(defaultHead),
       body: "",
       base: defaultBase,
       head: defaultHead,
@@ -98,6 +103,9 @@ export function CreatePullRequestForm({
                   value={field.value}
                   onValueChange={(value) => {
                     field.onChange(value);
+                    // the title follows the branch until someone writes their own
+                    if (!dirtyFields.title)
+                      setValue("title", titleFromBranch(value));
                     preview({ head: value });
                   }}
                   className="w-full"
@@ -127,11 +135,21 @@ export function CreatePullRequestForm({
               (optional)
             </span>
           </FieldLabel>
-          <Textarea
-            id="pull-body"
-            rows={6}
-            aria-invalid={Boolean(errors.body)}
-            {...register("body")}
+          <Controller
+            control={control}
+            name="body"
+            render={({ field }) => (
+              <MarkdownEditor
+                id="pull-body"
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                repository={{ username, repo }}
+                rows={8}
+                placeholder="What does this change, and why? Link the issues it closes with “Fixes #123”."
+                invalid={Boolean(errors.body)}
+                disabled={isExecuting}
+              />
+            )}
           />
           <FieldError errors={[errors.body]} />
         </Field>

@@ -13,13 +13,13 @@ import {
   setIssueAssignees,
   setIssueLabels,
 } from "@/components/issues/actions";
+import { AssigneePicker } from "@/components/issues/assignee-picker";
 import { LabelBadge } from "@/components/issues/label-badge";
 import { LabelForm } from "@/components/issues/label-form";
+import { UserLink } from "@/components/users/user-link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import type { IssueLabel } from "@/types/issue";
-import { cn } from "@/lib/utils";
 
 export function LabelEditor({
   username,
@@ -222,17 +222,19 @@ export function AssigneeEditor({
   repo,
   number,
   assignees,
+  viewer,
   canEdit,
 }: {
   username: string;
   repo: string;
   number: number;
   assignees: string[];
+  viewer?: string | null;
   canEdit: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(assignees.join(", "));
+  const [draft, setDraft] = useState(assignees);
 
   const save = useAction(setIssueAssignees, {
     onSuccess: () => {
@@ -240,9 +242,7 @@ export function AssigneeEditor({
       router.refresh();
     },
     onError: ({ error }) =>
-      toast.error(
-        error.serverError ?? "Could not save assignees. Check the usernames.",
-      ),
+      toast.error(error.serverError ?? "Could not save assignees."),
   });
 
   if (!editing) {
@@ -258,7 +258,7 @@ export function AssigneeEditor({
               size="sm"
               className="h-6 px-2 text-xs"
               onClick={() => {
-                setDraft(assignees.join(", "));
+                setDraft(assignees);
                 setEditing(true);
               }}
             >
@@ -268,17 +268,35 @@ export function AssigneeEditor({
           )}
         </div>
         {assignees.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No one assigned.</p>
+          <p className="text-xs text-muted-foreground">
+            No one assigned
+            {canEdit && viewer && (
+              <>
+                {" "}
+                &middot;{" "}
+                <button
+                  type="button"
+                  className="hover:text-primary hover:underline disabled:opacity-50"
+                  disabled={save.isExecuting}
+                  onClick={() =>
+                    save.execute({
+                      username,
+                      repo,
+                      number,
+                      usernames: [viewer],
+                    })
+                  }
+                >
+                  assign yourself
+                </button>
+              </>
+            )}
+          </p>
         ) : (
           <ul className="flex flex-col gap-1">
             {assignees.map((name) => (
               <li key={name} className="text-xs">
-                <Link
-                  href={`/${name}`}
-                  className="text-primary hover:underline"
-                >
-                  {name}
-                </Link>
+                <UserLink username={name} />
               </li>
             ))}
           </ul>
@@ -289,27 +307,19 @@ export function AssigneeEditor({
 
   return (
     <form
-      className={cn("flex flex-col gap-2")}
+      className="flex flex-col gap-2"
       onSubmit={(event) => {
         event.preventDefault();
-        save.execute({
-          username,
-          repo,
-          number,
-          usernames: draft
-            .split(",")
-            .map((name) => name.trim())
-            .filter(Boolean),
-        });
+        save.execute({ username, repo, number, usernames: draft });
       }}
     >
       <h2 className="text-xs font-medium text-muted-foreground">Assignees</h2>
-      <Input
+      <AssigneePicker
+        username={username}
+        repo={repo}
         value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        placeholder="octocat, hubot"
-        autoComplete="off"
-        autoFocus
+        onChange={setDraft}
+        viewer={viewer}
         disabled={save.isExecuting}
       />
       <div className="flex justify-end gap-2">
