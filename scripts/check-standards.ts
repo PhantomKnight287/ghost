@@ -1,5 +1,7 @@
 // Enforces the mechanical rules of docs/code-standards.md. Each error names the rule to read.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+
+process.chdir(`${import.meta.dir}/..`);
 
 type Check = {
   rule: string;
@@ -85,6 +87,7 @@ const files = Bun.spawnSync(["git", "ls-files", "*.ts", "*.tsx"])
 const failures: string[] = [];
 const seen = new Set<string>();
 for (const path of files) {
+  if (!existsSync(path)) continue;
   const source = readFileSync(path, "utf8");
   for (const check of checks) {
     if (!check.applies(path)) continue;
