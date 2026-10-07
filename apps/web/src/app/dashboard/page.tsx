@@ -80,7 +80,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader username={username} owners={owners} />
+      <AppHeader username={username} />
 
       <main className="mx-auto grid w-full max-w-6xl flex-1 gap-8 px-4 py-8 md:px-6 lg:grid-cols-[300px_1fr]">
         <aside className="flex flex-col gap-4">

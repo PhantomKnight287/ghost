@@ -24,9 +24,10 @@ const checks: Check[] = [
     find: (source) =>
       source.split("\n").flatMap((line, i, lines) => {
         const comment = /^\s*\/\/(?!\s*(biome|eslint|oxlint|@ts-))/;
-        return i > 0 && comment.test(line) && comment.test(lines[i - 1])
-          ? [i + 1]
-          : [];
+        const wrappedLineComment =
+          i > 0 && comment.test(line) && comment.test(lines[i - 1]);
+        const wrappedJsxComment = line.includes("{/*") && !line.includes("*/}");
+        return wrappedLineComment || wrappedJsxComment ? [i + 1] : [];
       }),
   },
   {

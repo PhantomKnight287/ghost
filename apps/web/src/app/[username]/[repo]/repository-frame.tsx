@@ -105,17 +105,11 @@ export function RepositoryFrame({
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader
-        username={viewer}
-        owners={viewer ? [viewer] : []}
-        repository={{ owner: username, slug }}
-      />
+      <AppHeader username={viewer} repository={{ owner: username, slug }} />
 
       <div className="border-b bg-muted/30">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-6 md:px-6">
-          {/* on a phone this is one column: the icon stays beside the name
-              rather than stranded on a line of its own, and the actions get a
-              full-width row under the description */}
+          {/* On a phone this is one column: the icon stays beside the name, and the actions get a full-width row under the description. */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
             <div className="flex min-w-0 flex-1 gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">

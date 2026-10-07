@@ -110,8 +110,7 @@ export default async function RepositoryLayout({
             <LatestRelease username={username} repo={repository.data.slug} />
           </Suspense>
 
-          {/* its own fetch: a first-ever language count of a big repository
-              must not hold up the file listing */}
+          {/* Its own fetch: a first-ever language count of a big repository must not hold up the file listing. */}
           <Suspense fallback={<RepositoryLanguagesSkeleton />}>
             <Languages username={username} repo={repo} />
           </Suspense>

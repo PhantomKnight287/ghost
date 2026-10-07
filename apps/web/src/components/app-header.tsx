@@ -16,11 +16,9 @@ const HEADER_SEARCH_CLASS = "hidden w-56 sm:block";
 
 export function AppHeader({
   username,
-  owners,
   repository,
 }: {
   username: string;
-  owners: string[];
   /** Set on a repository's pages, where the search bar searches that repository's code. */
   repository?: { owner: string; slug: string };
 }) {
@@ -62,7 +60,10 @@ export function AppHeader({
             </Link>
           </Button>
 
-          <NewRepositoryDialog owners={owners} defaultOwner={username}>
+          <NewRepositoryDialog
+            owners={username ? [username] : []}
+            defaultOwner={username}
+          >
             {/* square on a phone, where the label is hidden and the Button's inline-start padding (which outranks a plain override) would push the icon off centre */}
             <Button
               size="sm"

@@ -44,7 +44,7 @@ export default async function ForkRepositoryPage({
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader username={viewer} owners={[viewer]} />
+      <AppHeader username={viewer} />
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8 md:px-6 md:py-12">
         <div className="flex flex-col gap-2">

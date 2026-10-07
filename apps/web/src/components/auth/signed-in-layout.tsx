@@ -13,7 +13,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader username={username} owners={username ? [username] : []} />
+      <AppHeader username={username} />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 md:px-6">
         {children}

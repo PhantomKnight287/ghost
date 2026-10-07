@@ -34,7 +34,7 @@ export default async function OrganizationSettingsLayout({
   const base = `/${slug}/settings`;
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader username={viewer} owners={[viewer]} />
+      <AppHeader username={viewer} />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 md:px-6">
         <div className="flex items-center gap-3">
           <ProfileAvatar

@@ -46,7 +46,7 @@ export default async function SearchPage({
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader username={viewer} owners={viewer ? [viewer] : []} />
+      <AppHeader username={viewer} />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 md:px-6">
         <SearchForm
