@@ -9,7 +9,10 @@ import { runGit } from '../../../lib/git/exec/run-git.js';
 import { packRange, testMergeCommit } from '../../../lib/git/merge/merge.js';
 import { fileBody } from '../../../lib/git/protocol/git-request-body.js';
 import { pullHeadRef, pullMergeRef } from '../../../lib/git/refs/pull-refs.js';
-import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
+import {
+  BRANCH_PREFIX,
+  resolveCommit,
+} from '../../../lib/git/tree/resolve-ref.js';
 import {
   NonFastForwardError,
   RepositoryDeletedError,
@@ -35,7 +38,6 @@ import { withTempDir } from '../../../lib/temp-dir.js';
 
 // Each lost race re-reads the log, so this only runs out when the base is being pushed to faster than a merge-tree.
 const MAX_ATTEMPTS = 3;
-const BRANCH_PREFIX = 'refs/heads/';
 // A commitPush settles in seconds, so an intent this old that the index does not name never committed.
 const PENDING_GRACE_MS = 60 * 60 * 1000;
 

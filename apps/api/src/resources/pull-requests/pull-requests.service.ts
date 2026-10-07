@@ -35,6 +35,7 @@ import {
 import {
   resolveCommit,
   resolveDefaultRef,
+  toBranchRef,
 } from '../../lib/git/tree/resolve-ref.js';
 import {
   closeIssue,
@@ -991,18 +992,9 @@ export class PullRequestsService {
   }
 
   private async resolveBranch(gitDir: string, branch: string) {
-    const sha = await runGit({
-      args: [
-        'rev-parse',
-        '--verify',
-        '--end-of-options',
-        `refs/heads/${branch}`,
-      ],
-      gitDir,
-    }).catch(() => '');
-
-    if (!sha.trim()) throw new BranchNotFoundError(branch);
-    return sha.trim();
+    const sha = await resolveCommit(gitDir, toBranchRef(branch));
+    if (!sha) throw new BranchNotFoundError(branch);
+    return sha;
   }
 
   private async countRange(

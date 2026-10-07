@@ -3,8 +3,10 @@ import { runGit } from '../exec/run-git.js';
 const FALLBACK_REF = 'refs/heads/main';
 
 /** Accepts "main" or "refs/heads/main" and always returns the full ref. */
+export const BRANCH_PREFIX = 'refs/heads/';
+
 export function toBranchRef(branch: string) {
-  return branch.startsWith('refs/') ? branch : `refs/heads/${branch}`;
+  return branch.startsWith('refs/') ? branch : `${BRANCH_PREFIX}${branch}`;
 }
 
 /** The ref a repository page shows: the recorded `defaultBranch`, else the HEAD the materializer picked. */
