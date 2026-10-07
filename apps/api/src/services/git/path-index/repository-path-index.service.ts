@@ -8,6 +8,7 @@ import { walkCommits } from '../../../lib/git/path-index/commit-log.js';
 import { isoTimestamp, excluded } from '../../../utils/index.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
 import { errorMessage } from '../../../lib/error-message.js';
+import { SingleFlight } from '../../../lib/single-flight.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -39,7 +40,7 @@ export interface PathCommit {
 @Injectable()
 export class RepositoryPathIndexService {
   private readonly logger = new Logger(RepositoryPathIndexService.name);
-  private readonly inFlight = new Map<string, Promise<string | null>>();
+  private readonly inFlight = new SingleFlight<string | null>();
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
@@ -54,14 +55,9 @@ export class RepositoryPathIndexService {
     ref: string;
   }): Promise<string | null> {
     const key = `${repositoryId}:${ref}`;
-    const pending = this.inFlight.get(key);
-    if (pending) return pending;
-
-    const run = this.reindex({ repositoryId, repoDirectory, ref }).finally(() =>
-      this.inFlight.delete(key),
+    return this.inFlight.run(key, () =>
+      this.reindex({ repositoryId, repoDirectory, ref }),
     );
-    this.inFlight.set(key, run);
-    return run;
   }
 
   /** Whether `lookup` answers for the ref's tip now. A fast-forward top-up is waited for; a first build or a rebuild walks the whole history, so it runs in the background and this returns false until it lands. False too when the ref does not exist. */

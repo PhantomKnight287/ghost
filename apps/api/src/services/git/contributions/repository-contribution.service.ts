@@ -18,6 +18,7 @@ import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { excluded } from '../../../utils/index.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
+import { SingleFlight } from '../../../lib/single-flight.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -54,7 +55,7 @@ export interface IndexedContributor {
 @Injectable()
 export class RepositoryContributionService {
   private readonly logger = new Logger(RepositoryContributionService.name);
-  private readonly inFlight = new Map<string, Promise<string | null>>();
+  private readonly inFlight = new SingleFlight<string | null>();
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
@@ -66,14 +67,9 @@ export class RepositoryContributionService {
     repositoryId: string;
     repoDirectory: string;
   }): Promise<string | null> {
-    const pending = this.inFlight.get(repositoryId);
-    if (pending) return pending;
-
-    const run = this.reindex({ repositoryId, repoDirectory }).finally(() =>
-      this.inFlight.delete(repositoryId),
+    return this.inFlight.run(repositoryId, () =>
+      this.reindex({ repositoryId, repoDirectory }),
     );
-    this.inFlight.set(repositoryId, run);
-    return run;
   }
 
   /** The contributors list, straight from the index: per-author totals with the linked account resolved over the `author_id` foreign key. No git, no materialization - callers only need read access to the repository row. */

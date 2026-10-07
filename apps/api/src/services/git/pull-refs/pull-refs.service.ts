@@ -32,6 +32,7 @@ import {
   UnmergedPullRefQuotaExceededError,
 } from '../../../lib/storage/storage.errors.js';
 import { errorMessage } from '../../../lib/error-message.js';
+import { Coalescer } from '../../../lib/coalescer.js';
 
 // Each lost race re-reads the log, so this only runs out when the base is being pushed to faster than a merge-tree.
 const MAX_ATTEMPTS = 3;
@@ -43,8 +44,7 @@ const PENDING_GRACE_MS = 60 * 60 * 1000;
 @Injectable()
 export class PullRefsService {
   private readonly logger = new Logger(PullRefsService.name);
-  private readonly running = new Map<string, Promise<void>>();
-  private readonly stale = new Set<string>();
+  private readonly syncing = new Coalescer();
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -97,22 +97,13 @@ export class PullRefsService {
 
   /** Coalesces per request: a sync asked for while one runs becomes a single rerun once it ends, which reads whatever the branches hold by then. */
   syncInBackground(pullRequestId: string) {
-    if (this.running.has(pullRequestId)) {
-      this.stale.add(pullRequestId);
-      return;
-    }
-
-    const run = (async () => {
-      do {
-        this.stale.delete(pullRequestId);
-        await this.sync(pullRequestId).catch((error: unknown) =>
-          this.logger.warn(
-            `Pull request refs for ${pullRequestId} were not updated: ${errorMessage(error)}`,
-          ),
-        );
-      } while (this.stale.has(pullRequestId));
-    })().finally(() => this.running.delete(pullRequestId));
-    this.running.set(pullRequestId, run);
+    void this.syncing.run(pullRequestId, async () => {
+      await this.sync(pullRequestId).catch((error: unknown) =>
+        this.logger.warn(
+          `Pull request refs for ${pullRequestId} were not updated: ${errorMessage(error)}`,
+        ),
+      );
+    });
   }
 
   /** Called with the tips a reader just resolved, so a sync lost to a crash is redone on the next read rather than the next push. */
@@ -129,7 +120,7 @@ export class PullRefsService {
     baseSha: string;
     headSha: string;
   }) {
-    if (this.running.has(pullRequestId)) return;
+    if (this.syncing.isRunning(pullRequestId)) return;
     const mergeRef = pullMergeRef(number);
     // ponytail: a request that conflicts has no merge ref, so every read of it reruns a merge-tree that writes nothing. Remember the conflicting pair if that shows up in profiles.
     runGit({

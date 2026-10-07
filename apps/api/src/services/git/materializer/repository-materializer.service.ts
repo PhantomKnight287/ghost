@@ -6,6 +6,7 @@ import { runGit } from '../../../lib/git/exec/run-git.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
 import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { emptyIndex, type WalIndex } from '../../../lib/git/wal/wal.types.js';
+import { SingleFlight } from '../../../lib/single-flight.js';
 
 const SEQ_MARKER = 'ghost-wal-seq';
 const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
@@ -18,7 +19,7 @@ const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
 @Injectable()
 export class RepositoryMaterializerService {
   private readonly logger = new Logger(RepositoryMaterializerService.name);
-  private readonly inFlight = new Map<string, Promise<WalIndex>>();
+  private readonly inFlight = new SingleFlight<WalIndex>();
 
   constructor(
     private readonly store: WalStoreService,
@@ -37,19 +38,14 @@ export class RepositoryMaterializerService {
     repoDirectory: string,
     defaultBranch: string | null,
   ): Promise<WalIndex> {
-    const pending = this.inFlight.get(repoId);
-    if (pending) return pending;
-
-    const run = this.replay(repoId, repoDirectory, defaultBranch).finally(() =>
-      this.inFlight.delete(repoId),
+    return this.inFlight.run(repoId, () =>
+      this.replay(repoId, repoDirectory, defaultBranch),
     );
-    this.inFlight.set(repoId, run);
-    return run;
   }
 
   /** Resolves once a replay in flight has finished, whatever its outcome, so its writes cannot land after the cache is removed. */
   async settle(repoId: string) {
-    await this.inFlight.get(repoId)?.catch(() => undefined);
+    await this.inFlight.current(repoId)?.catch(() => undefined);
   }
 
   private async replay(

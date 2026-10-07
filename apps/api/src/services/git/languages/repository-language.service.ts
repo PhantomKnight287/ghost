@@ -15,6 +15,7 @@ import {
 } from '@ghost/languages';
 import { excluded } from '../../../utils/index.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
+import { SingleFlight } from '../../../lib/single-flight.js';
 
 const INSERT_CHUNK = 1_000;
 
@@ -29,7 +30,7 @@ export interface LanguageBytes {
 @Injectable()
 export class RepositoryLanguageService {
   private readonly logger = new Logger(RepositoryLanguageService.name);
-  private readonly inFlight = new Map<string, Promise<LanguageBytes[]>>();
+  private readonly inFlight = new SingleFlight<LanguageBytes[]>();
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
@@ -43,14 +44,9 @@ export class RepositoryLanguageService {
     ref: string;
   }): Promise<LanguageBytes[]> {
     const key = `${repositoryId}:${ref}`;
-    const pending = this.inFlight.get(key);
-    if (pending) return pending;
-
-    const run = this.sync({ repositoryId, repoDirectory, ref }).finally(() =>
-      this.inFlight.delete(key),
+    return this.inFlight.run(key, () =>
+      this.sync({ repositoryId, repoDirectory, ref }),
     );
-    this.inFlight.set(key, run);
-    return run;
   }
 
   private async sync({

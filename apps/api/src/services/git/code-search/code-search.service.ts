@@ -17,6 +17,7 @@ import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { isNotFound } from '../../../lib/s3/s3.errors.js';
 import { S3Service } from '../../s3/s3.service.js';
 import { errorMessage } from '../../../lib/error-message.js';
+import { Coalescer } from '../../../lib/coalescer.js';
 
 // The search node mirrors this prefix into its index directory, so nothing but shards may live under it.
 const SHARD_PREFIX = 'zoekt/';
@@ -27,8 +28,7 @@ const MARKER_PREFIX = 'zoekt-state/';
 export class CodeSearchService {
   private readonly logger = new Logger(CodeSearchService.name);
   private readonly url?: string;
-  private readonly running = new Map<string, Promise<void>>();
-  private readonly dirty = new Set<string>();
+  private readonly indexing = new Coalescer();
   // Every repository page opens the repository, so the heads this process knows are published spare S3 a marker read per view.
   private readonly published = new Map<string, string>();
 
@@ -43,27 +43,12 @@ export class CodeSearchService {
   index(target: IndexTarget): Promise<void> {
     if (!this.url) return Promise.resolve();
 
-    const running = this.running.get(target.repositoryId);
-    if (running) {
-      this.dirty.add(target.repositoryId);
-      return running;
-    }
-
-    const run = (async () => {
-      do {
-        this.dirty.delete(target.repositoryId);
-        await this.publish(target);
-      } while (this.dirty.has(target.repositoryId));
-    })().finally(() => this.running.delete(target.repositoryId));
-
-    this.running.set(target.repositoryId, run);
-    return run;
+    return this.indexing.run(target.repositoryId, () => this.publish(target));
   }
 
   /** Waits out an index run in flight first, so it cannot publish shards after they are removed. */
   async remove(repositoryId: string) {
-    this.dirty.delete(repositoryId);
-    await this.running.get(repositoryId)?.catch(() => undefined);
+    await this.indexing.settle(repositoryId);
     this.published.delete(repositoryId);
 
     await this.s3.deleteUnder(`${SHARD_PREFIX}${repositoryId}_v`);
@@ -89,7 +74,7 @@ export class CodeSearchService {
     ...target
   }: IndexTarget & { query: string; cursor?: string; limit: number }) {
     const indexing =
-      this.running.has(target.repositoryId) ||
+      this.indexing.isRunning(target.repositoryId) ||
       (await this.unpublishedStamp(target)) !== null;
     if (indexing) this.indexInBackground(target);
 
