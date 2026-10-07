@@ -6,11 +6,14 @@ import { UsersService } from '../../services/users/users.service.js';
 import { IssuesController } from './issues.controller.js';
 import { IssuesService } from './issues.service.js';
 import { LabelsController } from './labels.controller.js';
+import { SuggestionsController } from './suggestions.controller.js';
+import { SuggestionsService } from './suggestions.service.js';
 
 @Module({
-  controllers: [IssuesController, LabelsController],
+  controllers: [IssuesController, LabelsController, SuggestionsController],
   providers: [
     IssuesService,
+    SuggestionsService,
     IssueReferencesService,
     UsersService,
     RepositoryAccessService,
