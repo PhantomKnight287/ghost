@@ -7,6 +7,7 @@ import { WalStoreService } from '../wal/wal-store.service.js';
 import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { emptyIndex, type WalIndex } from '../../../lib/git/wal/wal.types.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
+import { headRef } from '../../../lib/git/tree/resolve-ref.js';
 
 const SEQ_MARKER = 'ghost-wal-seq';
 const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
@@ -120,12 +121,7 @@ export class RepositoryMaterializerService {
   ) {
     if (index.refs.size === 0) return;
 
-    const current = (
-      await runGit({
-        args: ['symbolic-ref', '--quiet', 'HEAD'],
-        gitDir: repoDirectory,
-      }).catch(() => '')
-    ).trim();
+    const current = await headRef(repoDirectory);
 
     const chosen = defaultBranch && `refs/heads/${defaultBranch}`;
     const target =

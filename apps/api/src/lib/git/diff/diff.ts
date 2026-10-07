@@ -113,6 +113,18 @@ export async function listDiffFiles({
   return files;
 }
 
+/** `git diff` of `from..to` as a patch, limited to one literal path when given. */
+function patchArgs(from: string, to: string, path?: string) {
+  return [
+    'diff',
+    '--no-renames',
+    '--end-of-options',
+    from,
+    to,
+    ...(path ? ['--', `:(literal)${path}`] : []),
+  ];
+}
+
 /** The patch text itself, streamed - a large review diff should not be buffered. */
 export function streamDiffPatch({
   gitDir,
@@ -122,14 +134,7 @@ export function streamDiffPatch({
   path: only,
 }: DiffRange & { path?: string }): Readable {
   return runGitReadable({
-    args: [
-      'diff',
-      '--no-renames',
-      '--end-of-options',
-      from,
-      to,
-      ...(only ? ['--', `:(literal)${only}`] : []),
-    ],
+    args: patchArgs(from, to, only),
     gitDir,
     env: alternatesEnv(alternates),
   });
@@ -160,15 +165,7 @@ export async function fileHunks({
   path: only,
 }: DiffRange & { path: string }): Promise<Hunk[]> {
   const patch = await runGit({
-    args: [
-      'diff',
-      '--no-renames',
-      '--end-of-options',
-      from,
-      to,
-      '--',
-      `:(literal)${only}`,
-    ],
+    args: patchArgs(from, to, only),
     gitDir,
     env: alternatesEnv(alternates),
   });

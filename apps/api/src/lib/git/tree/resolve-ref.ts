@@ -19,12 +19,7 @@ export async function resolveDefaultRef({
 }) {
   if (defaultBranch) return toBranchRef(defaultBranch);
 
-  const head = await runGit({
-    args: ['symbolic-ref', '--quiet', 'HEAD'],
-    gitDir,
-  }).catch(() => '');
-
-  return head.trim() || FALLBACK_REF;
+  return (await headRef(gitDir)) ?? FALLBACK_REF;
 }
 
 /**
@@ -103,4 +98,13 @@ export async function resolveTargetCommit({
     ? (await resolveRevision({ gitDir, branches, tags, requested }))?.ref
     : await resolveDefaultRef({ gitDir, defaultBranch });
   return ref ? resolveCommit(gitDir, ref) : null;
+}
+
+/** The branch HEAD points at, or null when HEAD is detached or unset. */
+export async function headRef(gitDir: string) {
+  const head = await runGit({
+    args: ['symbolic-ref', '--quiet', 'HEAD'],
+    gitDir,
+  }).catch(() => '');
+  return head.trim() || null;
 }
