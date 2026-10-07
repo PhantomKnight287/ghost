@@ -29,6 +29,21 @@ export function alternatesEnv(alternates: string[] = []) {
   };
 }
 
+/** Whether `descendant` contains `ancestor`. False as well when either object is gone, since a caller cannot build on a commit it cannot read. */
+export function isAncestor(
+  gitDir: string,
+  ancestor: string,
+  descendant: string,
+) {
+  return runGit({
+    args: ['merge-base', '--is-ancestor', ancestor, descendant],
+    gitDir,
+  }).then(
+    () => true,
+    () => false,
+  );
+}
+
 /** The commit both refs descend from, or null when their histories are unrelated. */
 export async function mergeBase({
   gitDir,

@@ -13,10 +13,11 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { runGit, runGitStream } from '../../../lib/git/exec/run-git.js';
+import { runGitStream } from '../../../lib/git/exec/run-git.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { excluded } from '../../../utils/index.js';
+import { isAncestor } from '../../../lib/git/diff/diff.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -174,7 +175,7 @@ export class RepositoryContributionService {
     // Only a fast-forward can be topped up. A force push or a pruned object makes the stored rows unrelated to the ref, so start over.
     const incremental =
       state !== undefined &&
-      (await this.isAncestor(repoDirectory, state.indexedCommitSha, tip));
+      (await isAncestor(repoDirectory, state.indexedCommitSha, tip));
 
     if (!incremental) await this.forget(repositoryId);
 
@@ -375,20 +376,5 @@ export class RepositoryContributionService {
     await this.db
       .delete(schema.repositoryContributionIndex)
       .where(eq(schema.repositoryContributionIndex.repositoryId, repositoryId));
-  }
-
-  private async isAncestor(
-    repoDirectory: string,
-    ancestor: string,
-    descendant: string,
-  ) {
-    // Exits non-zero both for "not an ancestor" and for an object that is gone; either way the stored position is unusable.
-    return runGit({
-      args: ['merge-base', '--is-ancestor', ancestor, descendant],
-      gitDir: repoDirectory,
-    }).then(
-      () => true,
-      () => false,
-    );
   }
 }
