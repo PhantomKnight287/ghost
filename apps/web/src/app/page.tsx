@@ -320,6 +320,9 @@ export default async function LandingPage() {
             <a href={DOCS_URL} className="hover:text-foreground">
               Self-hosting
             </a>
+            <Link href="/changelog" className="hover:text-foreground">
+              Changelog
+            </Link>
           </div>
         </div>
       </footer>
