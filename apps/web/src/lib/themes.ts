@@ -7,7 +7,6 @@ export type AppTheme = {
   blurb: string;
   /** [background, foreground, primary] swatch for the picker */
   swatches: [string, string, string];
-  /** shiki theme name used for code highlighting (pierre for the defaults) */
   shiki: string;
 };
 
@@ -134,8 +133,6 @@ export function themeKind(
   if (id === "custom") return customBase ?? "dark";
   return getAppTheme(id).kind;
 }
-
-/* ---------- custom theme persistence ---------- */
 
 export type CustomThemeVars = {
   base: ThemeKind;

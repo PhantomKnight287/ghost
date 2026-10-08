@@ -43,7 +43,6 @@ export type LinkedAccountProps = {
   provider: AuthSocialProvider | string;
 };
 
-/** Render a single linked social account row with provider info and link/unlink control. */
 export function LinkedAccount({
   account,
   canUnlink = true,

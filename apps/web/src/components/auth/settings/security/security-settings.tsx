@@ -7,7 +7,6 @@ import { GpgKeys } from "./gpg-keys";
 import { LinkedAccounts } from "./linked-accounts";
 import { SshKeys } from "./ssh-keys";
 
-/** Renders the security settings layout including password management, linked accounts, and active sessions. */
 export function SecuritySettings() {
   const { plugins, socialProviders } = useAuth();
 

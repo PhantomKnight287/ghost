@@ -16,11 +16,6 @@ import {
   type LandingBug,
 } from "@/lib/bug-invasion";
 
-/**
- * A minute into the landing page, bugs crawl out: one more every 2 seconds,
- * each at a random spot and tilt, up to MAX_BUGS. Hovering one tells you
- * what it is.
- */
 export function BugInvasion() {
   const [bugs, setBugs] = useState<LandingBug[]>([]);
   const nextId = useRef(0);

@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton comments have no id */
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** Comments down the main column and a sidebar, the shape of an issue or pull request conversation while it loads. */

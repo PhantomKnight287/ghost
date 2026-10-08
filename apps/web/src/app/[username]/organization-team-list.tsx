@@ -34,7 +34,6 @@ export async function OrganizationTeamList({ slug }: { slug: string }) {
   );
 }
 
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton rows have no id */
 export function OrganizationTeamListSkeleton() {
   return (
     <ul className="grid gap-2 sm:grid-cols-2">

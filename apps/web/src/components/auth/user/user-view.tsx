@@ -11,19 +11,13 @@ import { UserAvatar } from "./user-avatar";
 export type UserViewProps = {
   className?: string;
   isPending?: boolean;
-  /**
-   * When true, the subtitle line (email when name/username is shown) is hidden.
-   * @default false
-   */
   hideSubtitle?: boolean;
-  /** @remarks `User` */
   user?: Partial<User> & {
     username?: string | null;
     displayUsername?: string | null;
   };
 };
 
-/** Render a compact user item with an avatar, a primary label (display username, name, or email), and an optional subtitle (email). */
 export function UserView({
   className,
   isPending,

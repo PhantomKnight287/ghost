@@ -22,7 +22,6 @@ import {
 } from "../../auth-form";
 import { ChangeAvatar } from "./change-avatar";
 
-/** Render a profile card that lets the authenticated user view and update their display name, username, and avatar. */
 export function UserProfile() {
   const { additionalFields, authClient, localization } =
     useAuth<UsernameAuthClient>();

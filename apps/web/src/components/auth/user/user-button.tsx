@@ -26,26 +26,16 @@ import { cn } from "@/lib/utils";
 import { UserAvatar } from "./user-avatar";
 import { UserView } from "./user-view";
 
-/** Auth states a `UserButton` link can be visible in. */
 export type UserButtonLinkVisibility =
   | "authenticated"
   | "unauthenticated"
   | "always";
 
-/** A simple link entry rendered as a `DropdownMenuItem` in the `UserButton` menu. */
 export type UserButtonLink = {
-  /** Visible label. */
   label: ReactNode;
-  /** Destination URL. */
   href: string;
-  /** Optional leading icon. Sized/coloured to match built-in items. */
   icon?: ReactNode;
-  /** Forwarded to the underlying `DropdownMenuItem`. */
   variant?: "default" | "destructive";
-  /**
-   * When this link is visible based on auth state.
-   * @default "always"
-   */
   visibility?: UserButtonLinkVisibility;
 };
 
@@ -62,9 +52,7 @@ export type UserButtonProps = {
     | "link"
     | "outline"
     | "secondary";
-  /** Additional menu entries rendered above the built-in items. */
   links?: (UserButtonLink | ReactElement)[];
-  /** Hide the built-in "Settings" link. Useful when replacing it via `links`. */
   hideSettings?: boolean;
 };
 
@@ -88,7 +76,6 @@ function renderUserLink(
   );
 }
 
-/** Render a user dropdown button that shows user info, settings, theme controls, and authentication actions. */
 export function UserButton({
   className,
   align,

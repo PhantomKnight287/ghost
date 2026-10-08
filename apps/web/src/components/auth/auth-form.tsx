@@ -292,7 +292,6 @@ function AuthFormPasswordField({
   );
 }
 
-/** Validates a password against the configured length limits. */
 export function usePasswordValidator() {
   const { emailAndPassword, localization } = useAuth();
   const { minPasswordLength, maxPasswordLength } = emailAndPassword;

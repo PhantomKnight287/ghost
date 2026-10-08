@@ -16,7 +16,6 @@ import { ReauthenticationAction } from "../../reauthentication";
 import { ActiveSession } from "./active-session";
 import { SessionActions } from "./session-actions";
 
-/** Render a card listing all active sessions for the current user with revoke controls. */
 export function ActiveSessions() {
   const { authClient, localization } = useAuth();
   const { data: session } = useSession(authClient);

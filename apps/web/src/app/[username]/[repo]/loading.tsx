@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton rows have no id */
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** Only the listing: the frame keeps the branch row and the sidebar mounted. */

@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton rows have no id */
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** A page title over a bordered list, the shape of every list page while it loads. `avatar` rows lead with a picture, `detail` rows carry a second line. */

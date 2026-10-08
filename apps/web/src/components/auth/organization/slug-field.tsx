@@ -16,7 +16,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { organizationPlugin } from "@/lib/auth/organization-plugin";
 
-/** Props for the `SlugField` component. */
 export type SlugFieldProps = {
   value: string;
   onChange: (value: string) => void;
@@ -30,7 +29,6 @@ export function sanitizeSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
-/** Organization slug field with debounced availability checking. */
 export function SlugField({
   value,
   onChange,

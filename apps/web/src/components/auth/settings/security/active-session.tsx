@@ -23,7 +23,6 @@ export type ActiveSessionProps = {
   activeSession: Session;
 };
 
-/** Render a single active session row with device info and revoke control. */
 export function ActiveSession({ activeSession }: ActiveSessionProps) {
   const { authClient, basePaths, localization, viewPaths, navigate } =
     useAuth();

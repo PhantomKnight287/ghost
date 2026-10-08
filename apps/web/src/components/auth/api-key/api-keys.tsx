@@ -55,11 +55,8 @@ export type ApiKeysProps = {
   organizationId?: string;
   /** Force the loading skeleton and disable the list query. */
   isPending?: boolean;
-  /** Hide the "Create API key" button (header + empty state). */
   hideCreate?: boolean;
-  /** Hide the per-row delete button on listed keys. */
   hideDelete?: boolean;
-  /** Hide the per-row edit button on listed keys. */
   hideUpdate?: boolean;
 };
 

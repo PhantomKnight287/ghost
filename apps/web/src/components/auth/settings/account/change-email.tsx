@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useAuthForm } from "../../auth-form";
 
-/** Render a card containing a form to view and update the authenticated user's email. */
 export function ChangeEmail() {
   const { authClient, basePaths, baseURL, localization, viewPaths } = useAuth();
   const { data: session } = useSession(authClient);

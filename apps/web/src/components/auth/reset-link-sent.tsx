@@ -15,7 +15,6 @@ export type ResetLinkSentProps = {
   className?: string;
 };
 
-/** Render a card confirming that a password-reset email was sent, with a button to open the user's email provider. */
 export function ResetLinkSent({ className }: ResetLinkSentProps) {
   const { basePaths, localization, redirectTo, viewPaths, Link } = useAuth();
 

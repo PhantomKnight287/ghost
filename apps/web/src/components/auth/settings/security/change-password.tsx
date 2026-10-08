@@ -22,7 +22,6 @@ import { useAuthForm, usePasswordValidator } from "../../auth-form";
 import { OpenEmailButton } from "../../open-email-button";
 import { PasswordStrengthMeter } from "../../password-strength-meter";
 
-/** Render a card form for changing the authenticated user's password. */
 export function ChangePassword() {
   const { authClient } = useAuth();
   const { data: session } = useSession(authClient);

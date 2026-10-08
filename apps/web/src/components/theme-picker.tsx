@@ -247,7 +247,6 @@ export function CustomThemeDialog({
             ))}
           </div>
 
-          {/* live preview */}
           <div
             className="overflow-hidden rounded-lg border"
             style={{

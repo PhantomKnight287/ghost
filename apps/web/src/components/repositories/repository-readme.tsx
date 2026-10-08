@@ -90,11 +90,7 @@ function splitHash(url: string): [string, string] {
   return hash === -1 ? [url, ""] : [url.slice(0, hash), url.slice(hash + 1)];
 }
 
-/**
- * A repository-relative path, resolved against the directory the README sits in: `./` drops, `../` pops, and a leading `/` is root-relative rather than a host path.
- *
- * `..` past the root is dropped rather than escaping the repository.
- */
+/** A repository-relative path, resolved against the directory the README sits in: `./` drops, `../` pops, and a leading `/` is root-relative rather than a host path. `..` past the root is dropped rather than escaping the repository. */
 export function resolve(url: string, directory = "") {
   // a root-relative link ignores where the README is
   const base = url.startsWith("/") || !directory ? "" : `${directory}/`;
@@ -109,7 +105,6 @@ export function resolve(url: string, directory = "") {
   return segments.join("/");
 }
 
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton rows have no id */
 export function RepositoryReadmeSkeleton({ bare = false }: { bare?: boolean }) {
   const lines = (
     <div className={cn("flex flex-col gap-3", !bare && "px-4 py-4 md:px-6")}>

@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/empty";
 import { organizationPlugin } from "@/lib/auth/organization-plugin";
 
-/** Empty state for `UserInvitations`. */
 export function UserInvitationsEmpty({
   verificationRequired = false,
 }: {

@@ -16,12 +16,10 @@ import { StorageSettings } from "./storage/storage-settings";
 export type SettingsProps = {
   className?: string;
   path?: string;
-  /** @remarks `SettingsView` */
   view?: SettingsView;
   hideNav?: boolean;
 };
 
-/** Renders the settings UI and activates the appropriate settings view based on `view` or `path`. */
 export function Settings({ className, view, path, hideNav }: SettingsProps) {
   const { authClient, basePaths, localization, viewPaths, plugins, navigate } =
     useAuth();

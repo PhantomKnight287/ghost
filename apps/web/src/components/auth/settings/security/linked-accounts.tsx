@@ -14,7 +14,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { LinkedAccount } from "./linked-account";
 
-/** Render a card showing linked social accounts and available social providers to link. */
 export function LinkedAccounts() {
   const {
     authClient,

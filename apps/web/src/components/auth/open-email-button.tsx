@@ -25,7 +25,6 @@ export type OpenEmailButtonProps = {
   variant?: VariantProps<typeof buttonVariants>["variant"];
 };
 
-/** Render a button that opens the user's email provider login page in a new tab. Hovering or focusing the button reveals a QR code for opening the same provider on another device. */
 export function OpenEmailButton({
   email,
   className,

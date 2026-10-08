@@ -15,7 +15,6 @@ export type OrganizationViewSkeletonProps = {
   size?: OrganizationLogoSize;
 };
 
-/** Placeholder matching `OrganizationView` while organization data loads. */
 export function OrganizationViewSkeleton({
   className,
   hideSlug,

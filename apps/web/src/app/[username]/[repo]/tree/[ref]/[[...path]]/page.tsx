@@ -65,7 +65,6 @@ export default async function RepositoryTreePage({
         owner={username}
         slug={repo}
       />
-      {/* the README of this directory, the way the root page shows the root one */}
       <Suspense fallback={<RepositoryReadmeSkeleton />}>
         <RepositoryReadme
           owner={username}

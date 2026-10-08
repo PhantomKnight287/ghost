@@ -30,11 +30,7 @@ import { apiClient, unwrap } from "@/lib/api/client";
 
 const QUERY_KEY = ["emails"];
 
-/**
- * Manage the addresses an account owns beyond the one it signs in with.
- *
- * Adding one mails it a link; until that link is followed the address counts for nothing, which is why unverified rows say so and offer no actions.
- */
+/** Manage the addresses an account owns beyond the one it signs in with. Adding one mails it a link; until that link is followed the address counts for nothing, which is why unverified rows say so and offer no actions. */
 export function EmailAddresses() {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");

@@ -11,7 +11,6 @@ const token = (content: string, offset: number, color: string) =>
     htmlStyle: { "--shiki-light": color },
   }) as unknown as ThemedToken;
 
-// const findMe = 1;
 const tokens = [
   token("const", 0, "red"),
   token(" ", 5, "grey"),

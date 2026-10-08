@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton lines have no id */
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** Bordered files of code lines, the shape of a file view or a diff while it loads. */

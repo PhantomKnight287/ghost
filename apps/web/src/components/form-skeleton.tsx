@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton fields have no id */
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** A heading over a card of labelled fields, the shape of a form page while it loads. */

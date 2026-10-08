@@ -1,4 +1,3 @@
-/** Link to the in-repository card route for a tree or blob path. */
 export function ogUrl({
   username,
   repo,

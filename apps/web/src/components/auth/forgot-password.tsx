@@ -13,7 +13,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { useAuthForm } from "./auth-form";
 import { RESET_LINK_SENT_STORAGE_KEY } from "./reset-link-sent";
 
-/** Render a card-based "Forgot Password" form that sends a password-reset email. */
 export function ForgotPassword() {
   const {
     authClient,

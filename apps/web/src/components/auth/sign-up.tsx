@@ -31,7 +31,6 @@ import {
 import { PasswordStrengthMeter } from "./password-strength-meter";
 import { ProviderButtons } from "./provider-buttons";
 
-/** Renders a sign-up form with name, email, and password fields, optional social provider buttons, and submission handling. */
 export function SignUp() {
   const {
     additionalFields,

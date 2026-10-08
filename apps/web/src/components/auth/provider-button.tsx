@@ -28,7 +28,6 @@ export type ProviderButtonProps = {
   view?: AuthView;
 } & Omit<ComponentProps<typeof Button>, "onClick" | "children" | "disabled">;
 
-/** Social provider sign-in button. */
 export function ProviderButton({
   provider,
   view = "signIn",

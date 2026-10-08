@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton rows have no id */
 import { Plus, Webhook } from "lucide-react";
 import Link from "next/link";
 import { Fragment } from "react";

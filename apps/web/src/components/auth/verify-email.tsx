@@ -19,7 +19,6 @@ export type VerifyEmailProps = {
 /** Seconds the resend button stays disabled to prevent spamming the endpoint. */
 const RESEND_COOLDOWN_SECONDS = 60;
 
-/** Render a card prompting the user to verify their email, with a resend button that is rate-limited by a cooldown timer. */
 export function VerifyEmail({ className }: VerifyEmailProps) {
   const {
     authClient,

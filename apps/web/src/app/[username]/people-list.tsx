@@ -53,7 +53,6 @@ export function PersonCard({
   );
 }
 
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton rows have no id */
 export function PeopleListSkeleton() {
   return (
     <ul className="grid gap-2 sm:grid-cols-2">

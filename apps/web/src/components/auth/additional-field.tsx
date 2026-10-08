@@ -15,7 +15,6 @@ export type AdditionalFieldProps = {
   isInvalid?: boolean;
   errors?: unknown[];
   isPending?: boolean;
-  /** Complete suffix appended to labels for fields that are not required. */
   optionalLabel?: string;
 };
 

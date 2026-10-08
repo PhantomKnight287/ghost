@@ -120,7 +120,6 @@ export function MarkdownEditor({
     enabled: Boolean(mention) && Boolean(typed),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
-    // `@…` lists people, `#…` issues and pull requests
     queryFn: (): Promise<Suggestion[]> =>
       typed.startsWith("@")
         ? suggestUsers(repository, typed.slice(1))

@@ -13,7 +13,6 @@ import { FieldDescription, FieldGroup } from "@/components/ui/field";
 import { useAuthForm, usePasswordValidator } from "./auth-form";
 import { PasswordStrengthMeter } from "./password-strength-meter";
 
-/** Render a password reset form that validates the reset token from the URL, accepts a new password and submits it to the auth client. */
 export function ResetPassword() {
   const {
     authClient,

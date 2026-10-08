@@ -18,7 +18,6 @@ export type SettingsViewProps = {
   className?: string;
 };
 
-/** Shadcn plugin type. Plugin authors import this from `@/lib/auth/auth-plugin`. */
 export type AuthPlugin = AuthPluginPrimitive<
   AuthPluginComponents,
   AuthViewProps,
