@@ -1401,7 +1401,6 @@ export class RepositoriesService {
     };
   }
 
-  /** The raw bytes of a file, for the browser to render or download. */
   async getRawBlob({
     username,
     repo,
@@ -1558,7 +1557,6 @@ export class RepositoriesService {
     return { ...commit, verification: verdicts.get(commit.sha) ?? null };
   }
 
-  /** The commit as a patch file, straight from git. */
   async getCommitPatch({
     username,
     repo,

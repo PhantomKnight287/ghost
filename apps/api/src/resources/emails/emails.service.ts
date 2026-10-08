@@ -24,11 +24,7 @@ const TOKEN_TTL_MS = 60 * 60 * 1000;
 /** A fresh link is useless twice over, so resends wait this long. */
 const RESEND_INTERVAL_MS = 60 * 1000;
 
-/**
- * Addresses an account owns beyond the one Better Auth signs it in with.
- *
- * Better Auth keys identity on `user.email` and always will; these rows sit beside it and are resolved to it before its endpoints run. Nothing here touches its internals - the table, the tokens and the mail are ours.
- */
+/** Addresses beyond `user.email`, which Better Auth keys identity on; they resolve to it before its endpoints run, and nothing here touches its internals. */
 @Injectable()
 export class EmailsService {
   private readonly apiUrl: string;
@@ -195,7 +191,6 @@ export class EmailsService {
       .where(eq(schema.userEmail.id, row.id));
   }
 
-  /** Where a verification link sends the browser once it has been followed. */
   settingsUrl(status: 'verified' | 'invalid'): string {
     return `${this.webAppUrl}/settings/account?email=${status}`;
   }

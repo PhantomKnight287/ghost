@@ -804,8 +804,6 @@ export class IssuesService {
     return { timeline };
   }
 
-  // Labels — repository scoped, like GitHub.
-
   async listLabels(params: {
     username: string;
     repo: string;

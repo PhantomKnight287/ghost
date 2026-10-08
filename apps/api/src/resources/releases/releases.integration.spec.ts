@@ -114,7 +114,6 @@ describe.skipIf(!CONNECTION)('releases', () => {
     });
   }
 
-  /** Commits in the source repository and pushes the commit through the log. */
   async function commitAndLog(message: string, before: string) {
     writeFileSync(path.join(source, 'README.md'), `${message}\n`);
     git(source, 'add', '-A');

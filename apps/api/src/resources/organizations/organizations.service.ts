@@ -353,7 +353,6 @@ export class OrganizationsService {
     };
   }
 
-  /** Shows or hides the requester's own membership to people outside the organization. */
   async setMembershipPublic(slug: string, requesterId: string, show: boolean) {
     const [membership] = await this.db
       .select({ organizationId: schema.member.organizationId })
@@ -502,7 +501,6 @@ export class OrganizationsService {
     return { collaborators: [...people.values()] };
   }
 
-  /** Takes an outside collaborator off every repository of the organization at once. */
   async removeOutsideCollaborator(
     slug: string,
     requesterId: string,
@@ -530,7 +528,6 @@ export class OrganizationsService {
       );
   }
 
-  /** The requester's organizations, their role in each, and whether its policy lets them create repositories there. */
   async listMine(userId: string) {
     const rows = await this.db
       .select({
