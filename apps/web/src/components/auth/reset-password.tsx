@@ -98,9 +98,7 @@ export function ResetPassword() {
                     autoComplete="new-password"
                     placeholder={localization.auth.newPasswordPlaceholder}
                     disabled={isPending}
-                    error={
-                      isCompromised && localization.auth.passwordCompromised
-                    }
+                    isCompromised={isCompromised}
                     onValueChange={() => setIsCompromised(false)}
                   >
                     <PasswordStrengthMeter password={field.state.value} />

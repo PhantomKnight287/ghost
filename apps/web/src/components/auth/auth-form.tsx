@@ -223,8 +223,8 @@ type AuthFormPasswordFieldProps = {
   disabled?: boolean;
   /** Shows a skeleton in place of the input while what the form acts on loads. */
   isLoading?: boolean;
-  /** Replaces the field's own errors, for a server verdict on the password such as a breach. */
-  error?: ReactNode;
+  /** Replaces the field's own errors with the breach verdict the haveIBeenPwned plugin returns. */
+  isCompromised?: boolean;
   onValueChange?: () => void;
   children?: ReactNode;
 };
@@ -235,7 +235,7 @@ function AuthFormPasswordField({
   placeholder,
   disabled,
   isLoading,
-  error,
+  isCompromised,
   onValueChange,
   children,
 }: AuthFormPasswordFieldProps) {
@@ -243,7 +243,7 @@ function AuthFormPasswordField({
   const form = useFormContext();
   const { localization } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
-  const isInvalid = isAuthFormFieldInvalid(field.state.meta) || Boolean(error);
+  const isInvalid = isAuthFormFieldInvalid(field.state.meta) || isCompromised;
   const toggleLabel = isVisible
     ? localization.auth.hidePassword
     : localization.auth.showPassword;
@@ -286,7 +286,11 @@ function AuthFormPasswordField({
           </InputGroupAddon>
         </InputGroup>
       )}
-      {error ? <FieldError>{error}</FieldError> : <AuthFormFieldError />}
+      {isCompromised ? (
+        <FieldError>{localization.auth.passwordCompromised}</FieldError>
+      ) : (
+        <AuthFormFieldError />
+      )}
       {children}
     </Field>
   );

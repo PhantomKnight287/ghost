@@ -184,9 +184,7 @@ export function SignUp() {
                       label={localization.auth.password}
                       autoComplete="new-password"
                       disabled={isPending}
-                      error={
-                        isCompromised && localization.auth.passwordCompromised
-                      }
+                      isCompromised={isCompromised}
                       onValueChange={() => setIsCompromised(false)}
                     >
                       <PasswordStrengthMeter password={field.state.value} />

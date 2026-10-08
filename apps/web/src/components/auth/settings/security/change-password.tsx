@@ -205,9 +205,7 @@ function ChangePasswordForm({
                     placeholder={localization.auth.newPasswordPlaceholder}
                     disabled={isPending}
                     isLoading={!session}
-                    error={
-                      isCompromised && localization.auth.passwordCompromised
-                    }
+                    isCompromised={isCompromised}
                     onValueChange={() => setIsCompromised(false)}
                   >
                     <PasswordStrengthMeter password={field.state.value} />
