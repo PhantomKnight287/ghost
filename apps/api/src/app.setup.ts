@@ -9,7 +9,7 @@ export function configureApp(app: INestApplication) {
   // Caddy and the web server reach the API over the private network, so only their X-Forwarded-For sets req.ip; a request straight to the published port keeps its own address.
   const server: Express = app.getHttpAdapter().getInstance();
   server.set('trust proxy', 'loopback, linklocal, uniquelocal');
-  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new DomainErrorFilter());
   // offset all CRUD apis to /api prefix so it does not conflict with git's rest stuff
   app.setGlobalPrefix('/api', { exclude: GIT_TRANSPORT_ROUTES });
