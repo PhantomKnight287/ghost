@@ -396,6 +396,8 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/paths')
+  @UseGuards(ThrottlerGuard)
+  @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
   @OptionalAuth()
   @ApiOperation({
     summary: 'List every file path',
