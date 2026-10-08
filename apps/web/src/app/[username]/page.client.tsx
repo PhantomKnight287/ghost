@@ -109,7 +109,11 @@ export function ProfileTabs({
         {repositories.length > 0 ? (
           <div className="flex flex-col border-t">
             {repositories.map((repository) => (
-              <RepositoryCard key={repository.id} repository={repository} />
+              <RepositoryCard
+                key={repository.id}
+                repository={repository}
+                owner={username}
+              />
             ))}
           </div>
         ) : (

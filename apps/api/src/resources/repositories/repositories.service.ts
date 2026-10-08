@@ -1924,7 +1924,6 @@ export class RepositoriesService {
     });
 
     const directory = await this.materializer.open(repository);
-
     // Pushes index too; this catches repositories that predate code search, while the objects are already on disk.
     this.codeSearch.indexInBackground({
       repositoryId: repository.id,
