@@ -21,7 +21,8 @@
     "email:dev": "dotenv -e .env -- bun run --filter @ghost/api email:dev",
     "format": "turbo run format",
     "format:check": "biome format .",
-    "check:standards": "bun scripts/check-standards.ts"
+    "check:standards": "bun scripts/check-standards.ts",
+    "version:bump": "bun scripts/bump-version.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
