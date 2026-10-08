@@ -65,11 +65,7 @@ export async function mergeBase({
   return raw.trim() || null;
 }
 
-/**
- * Paths changed between two commits, with line counts.
- *
- * `--no-renames` keeps both records two fields wide, so a rename reads as a delete and an add rather than needing a third parse shape.
- */
+/** `--no-renames` keeps both records two fields wide, so a rename reads as a delete and an add rather than needing a third parse shape. */
 export async function listDiffFiles({
   gitDir,
   alternates,

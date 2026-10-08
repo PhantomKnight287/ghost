@@ -32,7 +32,6 @@ function feed(
   else input.pipe(child.stdin);
 }
 
-/** Same as {@link runGit}, for output that is not text. */
 export async function runGitBuffer({
   args,
   gitDir,

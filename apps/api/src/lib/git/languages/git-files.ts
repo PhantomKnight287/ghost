@@ -18,11 +18,7 @@ export interface RawChange {
   after?: Side;
 }
 
-/**
- * `git diff --raw -r -z` as sides to subtract and add.
- *
- * Each entry is ":<srcmode> <dstmode> <srcoid> <dstoid> <status>" followed by one path, or two for a rename or copy. Symlinks and submodules are dropped per side, so a file becoming a symlink still subtracts its old bytes.
- */
+/** Each entry is ":<srcmode> <dstmode> <srcoid> <dstoid> <status>" followed by one path, or two for a rename or copy. Symlinks and submodules are dropped per side, so a file becoming a symlink still subtracts its old bytes. */
 export async function readRawDiff(
   gitDir: string,
   from: string,
@@ -34,7 +30,7 @@ export async function readRawDiff(
       '--raw',
       '-r',
       '-z',
-      '--no-abbrev', // --no-abbrev keeps the oids full, which is what cat-file echoes back
+      '--no-abbrev', // full oids are what cat-file echoes back
       '--end-of-options',
       from,
       to,
@@ -78,11 +74,7 @@ export function isGitAttributes(file: string) {
   return file === '.gitattributes' || file.endsWith('/.gitattributes');
 }
 
-/**
- * Each path's linguist attributes as the `.gitattributes` files in `tree` assign them; paths with none are left out.
- *
- * Read through a throwaway index, which works in a bare repository and on git older than 2.40's `check-attr --source`.
- */
+/** Paths with no linguist attributes are left out. Read through a throwaway index, which works in a bare repository and on git older than 2.40's `check-attr --source`. */
 export async function readAttributes(
   gitDir: string,
   tree: string,

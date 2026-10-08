@@ -47,7 +47,6 @@ describe('withVerifiedPack', () => {
       ['pack-objects', '--stdout', '--revs', '--thin'],
       `${tip}\n${excluded.map((sha) => `^${sha}`).join('\n')}\n`,
     );
-  /** Runs the verification and returns the pack it hands the log. */
   const verified = async (transitions: RefTransition[], pack: Buffer) => {
     let stored = Buffer.alloc(0);
     await withVerifiedPack(

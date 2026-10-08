@@ -57,11 +57,7 @@ export async function readReceivePackHeader(
   };
 }
 
-/**
- * Splits a receive-pack body into its command section and packfile.
- *
- * <pkt-line> "<old-oid> <new-oid> <ref>\0<capabilities>" <pkt-line> "<old-oid> <new-oid> <ref>" 0000 PACK...
- */
+/** <pkt-line> "<old-oid> <new-oid> <ref>\0<capabilities>" <pkt-line> "<old-oid> <new-oid> <ref>" 0000 PACK... */
 export function parseReceivePackRequest(body: Buffer): ReceivePackRequest {
   const { transitions, capabilities, packOffset } = parseCommandSection(body);
   const pack = body.subarray(packOffset);

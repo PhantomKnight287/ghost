@@ -12,11 +12,7 @@ import { withTempDir } from '../../temp-dir.js';
 import { splitRecords } from '../exec/split-records.js';
 import { objectTypes } from '../exec/object-types.js';
 
-/**
- * Proves a push can be replayed by a node holding only the log, then hands `commit` the pack the log should store (0034).
- *
- * The pack is indexed into a quarantine with the cache lent as an alternate, the way git quarantines a push, and the log stores that indexed pack rather than the thin one received: a thin pack's delta bases come from the cache, which holds objects the log does not.
- */
+/** Proves a push can be replayed by a node holding only the log (0034). The pack is indexed into a quarantine with the cache lent as an alternate, the way git quarantines a push; the log stores that indexed pack, not the thin one received: a thin pack's delta bases come from the cache, which holds objects the log does not. */
 export async function withVerifiedPack<T>(
   {
     gitDir,

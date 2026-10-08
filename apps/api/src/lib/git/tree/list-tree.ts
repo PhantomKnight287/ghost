@@ -12,11 +12,7 @@ export interface TreeEntry {
   path: string;
 }
 
-/**
- * One level of a tree, in one git process. Non-recursive on purpose: a listing wants a row per child, not per descendant.
- *
- * `prefix` is the trailing-slash form produced by `normalizeTreePath`, which is the only thing that should ever reach this.
- */
+/** Non-recursive on purpose: a listing wants a row per child. `prefix` must come from `normalizeTreePath`. */
 export async function listTree({
   gitDir,
   ref,

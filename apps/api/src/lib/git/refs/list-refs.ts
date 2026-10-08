@@ -1,6 +1,5 @@
 import { runGit } from '../exec/run-git.js';
 
-/** Every ref and the object it points at. */
 export async function listRefs(gitDir: string) {
   const raw = await runGit({
     args: ['for-each-ref', '--format=%(refname) %(objectname)'],

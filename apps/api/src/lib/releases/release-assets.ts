@@ -1,4 +1,3 @@
-/** Bucket prefix every release asset lives under. */
 export const RELEASE_ASSET_PREFIX = 'release-assets';
 
 export const DEFAULT_RELEASE_ASSET_MAX_BYTES = 2 * 1024 ** 3;

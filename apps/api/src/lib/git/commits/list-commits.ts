@@ -149,7 +149,6 @@ export async function readCommitSummary({
   };
 }
 
-/** Commits in `range`, optionally only those touching `path`. */
 export async function countCommits({
   gitDir,
   range,

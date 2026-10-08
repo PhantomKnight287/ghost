@@ -22,11 +22,7 @@ export async function resolveDefaultRef({
   return (await headRef(gitDir)) ?? FALLBACK_REF;
 }
 
-/**
- * What the caller asked to look at, resolved to something git accepts as a revision. A branch wins over a tag and a tag over a sha, since either could in principle be named like the next; `detached` marks a commit, which has no moving tip.
- *
- * Returns null when the revision names nothing in the repository.
- */
+/** A branch wins over a tag and a tag over a sha, since either could in principle be named like the next; `detached` marks a commit, which has no moving tip. */
 export async function resolveRevision({
   gitDir,
   branches,
@@ -65,7 +61,6 @@ export async function resolveRevision({
   return sha.trim() ? { ref: sha.trim(), detached: true } : null;
 }
 
-/** The commit a ref points at, or null when it names nothing. */
 export async function resolveCommit(gitDir: string, ref: string) {
   const oid = await runGit({
     args: [
