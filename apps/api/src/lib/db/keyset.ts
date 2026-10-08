@@ -1,6 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
-import { and, eq, lt, or, type SQL } from 'drizzle-orm';
-import type { PgColumn } from 'drizzle-orm/pg-core';
+import { and, asc, desc, eq, gt, lt, or, type SQL } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import { DomainError } from '../../domain/errors.js';
 
@@ -12,44 +12,76 @@ export class InvalidCursorError extends DomainError {
   }
 }
 
-// Opaque keyset cursor: a (timestamp, id) pair, base64url encoded so callers treat it as a token instead of something they can hand-build.
-export function encodeCursor({ date, id }: { date: Date; id: string }) {
-  return Buffer.from(`${date.toISOString()}|${id}`).toString('base64url');
+type KeyValue = Date | number | string;
+
+/** Keyset pagination over `keys`, compared left to right; each key is named for the row field its value is read from. The cursor is base64url so callers treat it as a token, not something to hand-build. */
+export function keyset<Keys extends Record<string, AnyPgColumn>>({
+  cursor,
+  limit,
+  keys,
+  direction = 'desc',
+}: {
+  cursor: string | undefined;
+  limit: number;
+  keys: Keys;
+  direction?: 'asc' | 'desc';
+}) {
+  const names = Object.keys(keys);
+  const columns = Object.values(keys);
+  const order = direction === 'asc' ? asc : desc;
+  const past = direction === 'asc' ? gt : lt;
+  const values = cursor ? decode(cursor, columns) : undefined;
+
+  return {
+    where: values
+      ? columns.reduceRight<SQL | undefined>(
+          (tie, column, i) =>
+            tie
+              ? or(past(column, values[i]), and(eq(column, values[i]), tie))
+              : past(column, values[i]),
+          undefined,
+        )
+      : undefined,
+    orderBy: columns.map((column) => order(column)),
+    // One row past the page says whether another page follows.
+    limit: limit + 1,
+    page<Row extends Record<keyof Keys, unknown>>(rows: Row[]) {
+      const hasMore = rows.length > limit;
+      const page = hasMore ? rows.slice(0, limit) : rows;
+      const last = page.at(-1);
+      return {
+        page,
+        hasMore,
+        nextCursor:
+          hasMore && last ? encode(names.map((name) => last[name])) : null,
+      };
+    },
+  };
 }
 
-export function decodeCursor(cursor: string) {
-  const [timestamp, id] = Buffer.from(cursor, 'base64url')
-    .toString('utf8')
-    .split('|');
-  if (!timestamp || !id) return null;
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return null;
-  return { date, id };
+function encode(values: unknown[]) {
+  return Buffer.from(
+    values
+      .map((value) =>
+        value instanceof Date ? value.toISOString() : String(value),
+      )
+      .join('|'),
+  ).toString('base64url');
 }
 
-/** The rows after `cursor` in a list ordered by (date, id) descending; nothing to filter on the first page. */
-export function keysetAfter(
-  cursor: string | undefined,
-  dateColumn: PgColumn,
-  idColumn: PgColumn,
-): SQL | undefined {
-  if (!cursor) return undefined;
-  const decoded = decodeCursor(cursor);
-  if (!decoded) throw new InvalidCursorError();
-  return or(
-    lt(dateColumn, decoded.date),
-    and(eq(dateColumn, decoded.date), lt(idColumn, decoded.id)),
-  );
-}
-
-/** Splits `pageSize + 1` fetched rows into the page and the cursor that continues after it. */
-export function paginate<T>(
-  rows: T[],
-  pageSize: number,
-  cursorOf: (row: T) => string,
-) {
-  const hasMore = rows.length > pageSize;
-  const page = hasMore ? rows.slice(0, pageSize) : rows;
-  const last = page.at(-1);
-  return { page, hasMore, nextCursor: hasMore && last ? cursorOf(last) : null };
+function decode(cursor: string, columns: AnyPgColumn[]): KeyValue[] {
+  const parts = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
+  if (parts.length !== columns.length) throw new InvalidCursorError();
+  return parts.map((part, i) => {
+    const type = columns[i]!.dataType;
+    const value =
+      type === 'date'
+        ? new Date(part)
+        : type === 'number'
+          ? Number(part)
+          : part;
+    if (!part || (typeof value !== 'string' && !Number.isFinite(+value)))
+      throw new InvalidCursorError();
+    return value;
+  });
 }

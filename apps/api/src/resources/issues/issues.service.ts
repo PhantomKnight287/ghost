@@ -4,18 +4,14 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
-  gt,
   ilike,
   inArray,
   isNotNull,
-  lt,
   or,
   sql,
-  type SQL,
 } from 'drizzle-orm';
-import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
@@ -34,12 +30,7 @@ import { IssueReferencesService } from '../../services/issues/issue-references.s
 import { UsersService } from '../../services/users/users.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
-import {
-  InvalidCursorError,
-  decodeCursor,
-  encodeCursor,
-  paginate,
-} from '../../lib/db/keyset.js';
+import { keyset } from '../../lib/db/keyset.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
 import type { LabelDTO } from './dto/label.dto.js';
 import type { GetIssuesQueryDTO } from './dto/issue.dto.js';
@@ -257,21 +248,23 @@ export class IssuesService {
       requesterId,
     });
 
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
-
     const state = query.state ?? 'open';
     const sort = query.sort ?? 'created';
-    const direction = query.direction ?? 'desc';
-    const orderFn = direction === 'asc' ? asc : desc;
-
-    // `sort=comments` cursors carry a leading count (`count|iso|id`); every other sort uses the shared keyset cursor (`iso|id`). Decoding with the wrong one always fails, so pick by sort.
-    const decoded: { count?: number; date: Date; id: string } | null =
-      !query.cursor
-        ? null
-        : sort === 'comments'
-          ? decodeCommentCursor(query.cursor)
-          : decodeCursor(query.cursor);
-    if (query.cursor && !decoded) throw new InvalidCursorError();
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      direction: query.direction,
+      keys:
+        sort === 'comments'
+          ? {
+              commentCount: schema.issue.commentCount,
+              createdAt: schema.issue.createdAt,
+              id: schema.issue.id,
+            }
+          : sort === 'updated'
+            ? { updatedAt: schema.issue.updatedAt, id: schema.issue.id }
+            : { createdAt: schema.issue.createdAt, id: schema.issue.id },
+    });
 
     const labelNames = dedupe(
       (query.labels ?? '')
@@ -342,58 +335,14 @@ export class IssuesService {
         searchClause,
       );
 
-    // Rows strictly past the cursor in the sort order, ties broken by the next key.
-    const before = direction === 'desc' ? lt : gt;
-    const past = (
-      column: AnyPgColumn,
-      value: Date | number | string,
-      tie: SQL | undefined,
-    ) => or(before(column, value), and(eq(column, value), tie));
-    const cursorClause = !decoded
-      ? undefined
-      : decoded.count !== undefined
-        ? past(
-            schema.issue.commentCount,
-            decoded.count,
-            past(
-              schema.issue.createdAt,
-              decoded.date,
-              before(schema.issue.id, decoded.id),
-            ),
-          )
-        : past(
-            sortColumn(sort),
-            decoded.date,
-            before(schema.issue.id, decoded.id),
-          );
-
-    const orderBy =
-      sort === 'created'
-        ? [orderFn(schema.issue.createdAt), orderFn(schema.issue.id)]
-        : sort === 'updated'
-          ? [orderFn(schema.issue.updatedAt), orderFn(schema.issue.id)]
-          : [
-              orderFn(schema.issue.commentCount),
-              orderFn(schema.issue.createdAt),
-              orderFn(schema.issue.id),
-            ];
-
     const rows = await this.db
       .select()
       .from(schema.issue)
-      .where(and(baseClause(state === 'all' ? 'all' : state), cursorClause))
-      .orderBy(...orderBy)
-      .limit(pageSize + 1);
+      .where(and(baseClause(state === 'all' ? 'all' : state), list.where))
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, hasMore, nextCursor } = paginate(rows, pageSize, (row) =>
-      sort === 'comments'
-        ? encodeCommentCursor({
-            count: row.commentCount,
-            date: row.createdAt,
-            id: row.id,
-          })
-        : encodeCursor({ date: sortDateOf(sort, row), id: row.id }),
-    );
+    const { page, hasMore, nextCursor } = list.page(rows);
 
     const [[totalRow], [openRow], [closedRow]] = await Promise.all([
       this.db
@@ -1323,41 +1272,4 @@ function isNumberCollision(error: unknown): boolean {
 
 function dedupe(names: string[]) {
   return [...new Set(names)];
-}
-
-function sortColumn(sort: 'created' | 'updated' | 'comments') {
-  return sort === 'updated' ? schema.issue.updatedAt : schema.issue.createdAt;
-}
-
-function sortDateOf(sort: 'created' | 'updated' | 'comments', row: Issue) {
-  return sort === 'updated' ? row.updatedAt : row.createdAt;
-}
-
-function encodeCommentCursor({
-  count,
-  date,
-  id,
-}: {
-  count: number;
-  date: Date;
-  id: string;
-}) {
-  return Buffer.from(`${count}|${date.toISOString()}|${id}`).toString(
-    'base64url',
-  );
-}
-
-function decodeCommentCursor(cursor: string) {
-  try {
-    const [countRaw, timestamp, id] = Buffer.from(cursor, 'base64url')
-      .toString('utf8')
-      .split('|');
-    if (!countRaw || !timestamp || !id) return null;
-    const count = Number(countRaw);
-    const date = new Date(timestamp);
-    if (!Number.isFinite(count) || Number.isNaN(date.getTime())) return null;
-    return { count, date, id };
-  } catch {
-    return null;
-  }
 }

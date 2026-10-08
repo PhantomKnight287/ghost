@@ -68,7 +68,7 @@ import {
   storageAccountOf,
   billedKindOf,
 } from '../../lib/storage/storage-account.js';
-import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
+import { keyset } from '../../lib/db/keyset.js';
 import {
   BranchNotFoundError,
   CommitNotFoundError,
@@ -297,7 +297,11 @@ export class PullRequestsService {
   }) {
     const base = await this.access.authorize({ username, repo, requesterId });
 
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: { createdAt: schema.issue.createdAt, id: schema.pullRequest.id },
+    });
 
     const state = query.state ?? 'open';
     const rows = await this.db
@@ -308,19 +312,13 @@ export class PullRequestsService {
         and(
           eq(schema.pullRequest.baseRepositoryId, base.id),
           state === 'all' ? undefined : eq(schema.pullRequest.state, state),
-          keysetAfter(
-            query.cursor,
-            schema.issue.createdAt,
-            schema.pullRequest.id,
-          ),
+          list.where,
         ),
       )
-      .orderBy(desc(schema.issue.createdAt), desc(schema.pullRequest.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, hasMore, nextCursor } = paginate(rows, pageSize, (row) =>
-      encodeCursor({ date: row.createdAt, id: row.id }),
-    );
+    const { page, hasMore, nextCursor } = list.page(rows);
 
     const [totals] = await this.db
       .select({ total: count() })

@@ -4,6 +4,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { InvalidCursorError } from '../../lib/db/keyset.js';
 import { PullRequestReopenError } from '../../lib/issues/issues.errors.js';
 import { IssuesService } from '../../resources/issues/issues.service.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
@@ -92,6 +93,38 @@ describe.skipIf(!CONNECTION)('issue references', () => {
     const pull = await open('a pull request', null, true);
 
     expect([issue.number, pull.number]).toEqual([1, 2]);
+  });
+
+  it('pages issues by comment count, oldest first on a tie, and rejects a cursor from another sort', async () => {
+    for (const [i, commentCount] of [2, 0, 2, 1].entries()) {
+      const issue = await open(`issue ${i + 1}`, null);
+      await db
+        .update(schema.issue)
+        .set({ commentCount, createdAt: new Date(Date.UTC(2026, 0, 1, i)) })
+        .where(eq(schema.issue.id, issue.id));
+    }
+    const list = (query: object) =>
+      issues.getIssues({
+        username: 'refspec-owner',
+        repo: 'app',
+        requesterId: OWNER,
+        query: { sort: 'comments', direction: 'asc', limit: 2, ...query },
+      });
+
+    const first = await list({});
+    const second = await list({ cursor: first.nextCursor! });
+    expect(
+      [first, second].map((page) => page.issues.map((issue) => issue.number)),
+    ).toEqual([
+      [2, 4],
+      [1, 3],
+    ]);
+    expect(second.nextCursor).toBeNull();
+
+    const created = await list({ sort: 'created' });
+    await expect(list({ cursor: created.nextCursor! })).rejects.toBeInstanceOf(
+      InvalidCursorError,
+    );
   });
 
   it('records same-repository and cross-repository references, skipping itself and unknown numbers', async () => {

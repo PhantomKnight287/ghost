@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, ne, type SQL, sql } from 'drizzle-orm';
+import { and, count, eq, ne, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
@@ -13,7 +13,7 @@ import {
 } from '../../lib/repositories/access/repository-access.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
-import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
+import { keyset } from '../../lib/db/keyset.js';
 import { IssuesService } from '../issues/issues.service.js';
 import type {
   GetNotificationsQueryDTO,
@@ -47,27 +47,25 @@ export class NotificationsService {
     userId: string,
     query: GetNotificationsQueryDTO,
   ): Promise<GetNotificationsResponseDTO> {
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        updatedAt: schema.notification.updatedAt,
+        id: schema.notification.id,
+      },
+    });
 
-    const rows = await this.inbox(
-      userId,
-      and(
-        query.unread ? eq(schema.notification.unread, true) : undefined,
-        keysetAfter(
-          query.cursor,
-          schema.notification.updatedAt,
-          schema.notification.id,
+    const { page, nextCursor } = list.page(
+      await this.inbox(
+        userId,
+        and(
+          query.unread ? eq(schema.notification.unread, true) : undefined,
+          list.where,
         ),
-      ),
-    )
-      .orderBy(
-        desc(schema.notification.updatedAt),
-        desc(schema.notification.id),
       )
-      .limit(pageSize + 1);
-
-    const { page, nextCursor } = paginate(rows, pageSize, (row) =>
-      encodeCursor({ date: new Date(row.updatedAt), id: row.id }),
+        .orderBy(...list.orderBy)
+        .limit(list.limit),
     );
     return { notifications: page, nextCursor };
   }

@@ -19,7 +19,7 @@ import { RepositoryAccessService } from '../../services/git/repository-access/re
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
-import { encodeCursor, keysetAfter, paginate } from '../../lib/db/keyset.js';
+import { keyset } from '../../lib/db/keyset.js';
 import type {
   CreateReleaseRequestDTO,
   GetReleasesQueryDTO,
@@ -71,13 +71,13 @@ export class ReleasesService {
       operation: 'read',
     });
 
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
-    const rows = await this.select(
-      repository,
-      keysetAfter(query.cursor, schema.release.createdAt, schema.release.id),
-    ).limit(pageSize + 1);
-    const { page, nextCursor } = paginate(rows, pageSize, (row) =>
-      encodeCursor({ date: new Date(row.createdAt), id: row.id }),
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: { createdAt: schema.release.createdAt, id: schema.release.id },
+    });
+    const { page, nextCursor } = list.page(
+      await this.select(repository, list.where).limit(list.limit),
     );
 
     return { releases: await this.expand(repository, page), nextCursor };

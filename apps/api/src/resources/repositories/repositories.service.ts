@@ -4,7 +4,6 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   getTableColumns,
   ilike,
@@ -40,12 +39,7 @@ import { organizationToCreateIn } from '../../lib/organizations/administered-org
 import { PrivateForkingDisabledError } from '../../lib/organizations/organization.errors.js';
 import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
 import { titleToSlug } from '../../lib/repositories/slug.js';
-import {
-  InvalidCursorError,
-  encodeCursor,
-  keysetAfter,
-  paginate,
-} from '../../lib/db/keyset.js';
+import { InvalidCursorError, keyset } from '../../lib/db/keyset.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
@@ -207,12 +201,14 @@ export class RepositoriesService {
   ) {
     const namespace = await this.namespaceNamed(username);
 
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
-    const after = keysetAfter(
-      query.cursor,
-      schema.repository.lastPushedAt,
-      schema.repository.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        lastPushedAt: schema.repository.lastPushedAt,
+        id: schema.repository.id,
+      },
+    });
 
     const rows = await this.db
       .select(getTableColumns(schema.repository))
@@ -233,15 +229,13 @@ export class RepositoriesService {
           inNamespace(namespace),
           readableBy(actorOf(requesterId)),
           matching(query.q),
-          after,
+          list.where,
         ),
       )
-      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
-      encodeCursor({ date: row.lastPushedAt, id: row.id }),
-    );
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return { repositories: page, nextCursor, hasMore };
   }
@@ -252,12 +246,14 @@ export class RepositoriesService {
     query: GetRepositoriesQueryDTO,
   ): Promise<GetViewerRepositoriesResponseDTO> {
     const search = ownerQualifier(query.q ?? '');
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
-    const after = keysetAfter(
-      query.cursor,
-      schema.repository.lastPushedAt,
-      schema.repository.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        lastPushedAt: schema.repository.lastPushedAt,
+        id: schema.repository.id,
+      },
+    });
 
     const rows = await this.db
       .select({
@@ -300,15 +296,13 @@ export class RepositoriesService {
           search.owner
             ? eq(ownerNameOf(schema.user, schema.organization), search.owner)
             : undefined,
-          after,
+          list.where,
         ),
       )
-      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
-      encodeCursor({ date: row.lastPushedAt, id: row.id }),
-    );
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return {
       repositories: page.map(
@@ -340,12 +334,14 @@ export class RepositoriesService {
     query: GetRepositoriesQueryDTO,
   ): Promise<SearchRepositoriesResponseDTO> {
     const search = ownerQualifier(query.q ?? '');
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
-    const after = keysetAfter(
-      query.cursor,
-      schema.repository.lastPushedAt,
-      schema.repository.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        lastPushedAt: schema.repository.lastPushedAt,
+        id: schema.repository.id,
+      },
+    });
 
     const rows = await this.db
       .select({
@@ -371,15 +367,13 @@ export class RepositoriesService {
           search.owner
             ? eq(ownerNameOf(schema.user, schema.organization), search.owner)
             : undefined,
-          after,
+          list.where,
         ),
       )
-      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
-      encodeCursor({ date: row.lastPushedAt, id: row.id }),
-    );
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return { repositories: page, nextCursor, hasMore };
   }
@@ -1747,12 +1741,11 @@ export class RepositoriesService {
       repo,
       requesterId,
     });
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
-    const after = keysetAfter(
-      query.cursor,
-      schema.stars.createdAt,
-      schema.stars.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: { starredAt: schema.stars.createdAt, id: schema.stars.id },
+    });
 
     const rows = await this.db
       .select({
@@ -1764,13 +1757,11 @@ export class RepositoriesService {
       })
       .from(schema.stars)
       .innerJoin(schema.user, eq(schema.user.id, schema.stars.userId))
-      .where(and(eq(schema.stars.repositoryId, repository.id), after))
-      .orderBy(desc(schema.stars.createdAt), desc(schema.stars.id))
-      .limit(pageSize + 1);
+      .where(and(eq(schema.stars.repositoryId, repository.id), list.where))
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
-      encodeCursor({ date: row.starredAt, id: row.id }),
-    );
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return {
       // an account without a username has nothing to link to, so it is left out
@@ -1809,12 +1800,14 @@ export class RepositoriesService {
       repo,
       requesterId,
     });
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
-    const after = keysetAfter(
-      query.cursor,
-      schema.repository.lastPushedAt,
-      schema.repository.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        lastPushedAt: schema.repository.lastPushedAt,
+        id: schema.repository.id,
+      },
+    });
 
     const rows = await this.db
       .select({
@@ -1847,15 +1840,13 @@ export class RepositoriesService {
           eq(schema.repository.parentRepositoryId, repository.id),
           // a private fork is the forker's business, not the parent's
           readableBy(actorOf(requesterId)),
-          after,
+          list.where,
         ),
       )
-      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) =>
-      encodeCursor({ date: row.lastPushedAt, id: row.id }),
-    );
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return {
       forks: page.flatMap((row) =>
