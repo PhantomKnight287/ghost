@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { existsSync } from 'node:fs';
-import { rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -16,6 +16,8 @@ export class RepositoryStorageService {
     const dir = this.pathFor(repositoryId);
     // A directory left without HEAD by a failed or interrupted init is initialised again rather than trusted.
     if (!existsSync(path.join(dir, 'HEAD'))) {
+      // git init makes the repository's own directory but not the cache root above it.
+      await mkdir(dir, { recursive: true });
       await runGit({ args: ['init', '--quiet', '--bare'], gitDir: dir });
     }
     return dir;

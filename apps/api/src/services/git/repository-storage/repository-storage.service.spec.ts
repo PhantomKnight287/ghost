@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -22,6 +22,23 @@ describe('RepositoryStorageService', () => {
     await mkdir(dir, { recursive: true });
     await service.getRepoPath(id);
     expect(existsSync(path.join(dir, 'HEAD'))).toBe(true);
+  });
+
+  it('creates the cache root when it does not exist yet', async () => {
+    const tmp = await mkdtemp(path.join(os.tmpdir(), 'ghost-root-'));
+    vi.stubEnv('TMPDIR', tmp);
+    vi.resetModules();
+    const { RepositoryStorageService: Fresh } = await import(
+      './repository-storage.service.js'
+    );
+    try {
+      const fresh = await new Fresh().getRepoPath(id);
+      expect(fresh).toBe(path.join(tmp, 'ghost', `${id}.git`));
+      expect(existsSync(path.join(fresh, 'HEAD'))).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(tmp, { recursive: true, force: true });
+    }
   });
 
   it('refuses an id that could escape the cache root', async () => {
