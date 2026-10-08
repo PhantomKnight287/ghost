@@ -10,6 +10,11 @@ export const CHANGELOG: {
 }[] = [
   {
     date: "2026-10-08",
+    title: "Link previews for releases",
+    body: "Sharing a repository's releases, or a single release, now shows a preview card with its name, notes, author and assets. Every preview card has a new look to match the rest of Ghost.",
+  },
+  {
+    date: "2026-10-08",
     title: "Find files and browse the tree",
     body: "Press `t` or choose Go to file on a repository's code view to fuzzy-find any file at the current branch, tag or commit; a match in the file name ranks above one in its directories. A file page shows the repository's files in a sidebar, opened down to the file you are reading, and remembers whether you collapsed it.",
   },
