@@ -1,10 +1,6 @@
 /**
- * Checks every repository's log for damage no node could replay, which makes every clone of the repository fail, and repairs it with --apply (0034).
- *
- * Run it on the API host: the local caches there are the only place objects missing from a log can still be recovered from. Elsewhere the script still finds every problem, but can only drop what it cannot rescue.
- *
- * Without --apply it only reports. Safe beside a running API: a repair commits through the same compare-and-swap a push does, and starts over if a push lands first.
- *
+ * Finds log damage no node could replay, which breaks every clone, and repairs it with --apply (0034). Run on the API host: its local caches are the only place missing objects can be recovered from; elsewhere it can only drop them.
+ * Safe beside a running API: a repair commits through the same compare-and-swap as a push, and starts over if a push lands first.
  * node dist/scripts/repair-repositories.js [--apply], after `nest build`
  */
 import { type Database, schema } from '@ghost/db';

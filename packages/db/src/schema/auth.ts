@@ -246,11 +246,7 @@ export const apikey = pgTable(
   ],
 );
 
-/**
- * Additional addresses an account owns, so one person can be reached - and recognised as a commit author - under every address they push with.
- *
- * Better Auth only ever knows `user.email`; these rows are resolved to it before its endpoints run. Only a verified row counts, otherwise adding an address would be enough to claim someone else's commits or sign-in.
- */
+/** Extra addresses an account owns, so one person is reached and recognised as a commit author under each. Better Auth only knows `user.email`, so these resolve to it before its endpoints run; only verified rows count, or adding an address would claim someone else's commits or sign-in. */
 export const userEmail = pgTable(
   "user_email",
   {

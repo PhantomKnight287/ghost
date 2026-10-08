@@ -1,8 +1,5 @@
 /**
- * Writes `refs/pull/<n>/head` and `refs/pull/<n>/merge` for every open pull request opened before Ghost kept them. A request that is read or pushed to catches up on its own; this covers the ones nobody touches.
- *
- * Safe beside a running API: every write is a compare-and-swap on the log, and a sync that finds its refs current writes nothing.
- *
+ * Writes `refs/pull/<n>/head` and `refs/pull/<n>/merge` for open pull requests opened before Ghost kept them that nobody has read or pushed to since. Safe beside a running API: every write is a compare-and-swap on the log.
  * node dist/scripts/backfill-pull-refs.js, after `nest build`
  */
 import { schema, type Database } from '@ghost/db';

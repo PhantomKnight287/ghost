@@ -22,11 +22,7 @@ export const repositoryImportStatus = pgEnum("repository_import_status", [
   "failed",
 ]);
 
-/**
- * One GitHub import per repository, driven by the API and run by `apps/importer`.
- *
- * `claimToken` changes on every attempt and every importer callback must carry it, so an attempt the API gave up on cannot write after its retry started. `leaseUntil` is pushed forward by each callback; a running row past it is an importer that went silent.
- */
+/** One GitHub import per repository, run by `apps/importer`. Every callback must carry the per-attempt `claimToken`, so an abandoned attempt cannot write after its retry starts; each callback pushes `leaseUntil` forward, and a running row past it is an importer that went silent. */
 export const repositoryImport = pgTable(
   "repository_import",
   {

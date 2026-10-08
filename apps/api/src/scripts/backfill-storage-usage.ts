@@ -1,8 +1,5 @@
 /**
- * Bills every repository for the log entries pushed before pushes were recorded (0035). Until it runs, those bytes count for nothing against any quota.
- *
- * Without --apply it only reports. Safe beside a running API and safe to run again: rows are keyed by entry, so a push recorded meanwhile is skipped.
- *
+ * Bills every repository for log entries pushed before pushes were recorded (0035). Without --apply it only reports. Safe beside a running API and safe to rerun: rows are keyed by entry.
  * node dist/scripts/backfill-storage-usage.js [--apply], after `nest build`
  */
 import { type Database, schema } from '@ghost/db';

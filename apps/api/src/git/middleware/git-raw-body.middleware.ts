@@ -5,11 +5,7 @@ import { createGunzip, createInflate } from 'node:zlib';
 import { spoolToFile } from '../../lib/git/protocol/spool.js';
 import { GitAuthenticatedBufferedRequest } from '../types.js';
 
-/**
- * Spools the request to a temp file before guards, pipes or handlers get a chance to await anything.
- *
- * Middleware, not a handler: an unattended stream drops whatever arrives while the handler is busy, and git sends its command section in its own socket write. A push can also be gigabytes, so it is never buffered.
- */
+/** Spools the request to a temp file before anything awaits: an unattended stream drops whatever arrives meanwhile, and git sends its command section in its own socket write. Never buffered, since a push can be gigabytes. */
 @Injectable()
 export class GitRawBodyMiddleware implements NestMiddleware {
   private readonly logger = new Logger(GitRawBodyMiddleware.name);

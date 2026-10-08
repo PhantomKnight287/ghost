@@ -16,11 +16,7 @@ import { user } from "./auth.js";
 import { issue } from "./issues.js";
 import { repository } from "./repository.js";
 
-/**
- * Something that happened in a repository, written in the same transaction as the change itself and handed to every consumer once it commits.
- *
- * `type` is text rather than an enum so a new kind of event needs no migration; the API types what each one carries in `payload`.
- */
+/** A repository event, written in the same transaction as the change and handed to every consumer once it commits. `type` is text, not an enum, so a new kind needs no migration. */
 export const outboxEvent = pgTable(
   "outbox_event",
   {

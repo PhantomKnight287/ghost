@@ -345,7 +345,6 @@ describe('GitService', () => {
         transitions: [expect.objectContaining({ ref: 'refs/heads/main' })],
       }),
     );
-    // creating a branch closes nothing
     expect(references.closeFromCommits).not.toHaveBeenCalled();
   });
 

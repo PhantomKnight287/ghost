@@ -35,7 +35,6 @@ export function sendmailPath(
     });
 }
 
-/** True once any delivery route (HTTP relay, SMTP, or a local sendmail) is available. */
 export function mailConfigured(config: ConfigService): boolean {
   return Boolean(
     config.get<string>('EMAIL_PROXY') ||
