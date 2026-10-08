@@ -29,6 +29,8 @@ export type RepositoryFrameProps = {
   /** Open issues only, shown on the Issues tab. */
   openIssueCount?: number;
   parent?: RepositoryParent | null;
+  /** Whether the file tree beside a file starts collapsed, from the viewer's cookie. */
+  fileTreeCollapsed: boolean;
   /** Second column on the repository root, under the listing on a phone. */
   sidebar?: ReactNode;
   children: ReactNode;

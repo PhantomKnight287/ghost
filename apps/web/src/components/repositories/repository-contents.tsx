@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { components } from "@/lib/api/v1";
+import { revisionHref } from "@/lib/revision";
 import { cn } from "@/lib/utils";
 import { FromNowHoverCard } from "../from-now-card";
 
@@ -86,10 +87,12 @@ export function RepositoryContents({
               <EntryIcon type={entry.type} />
 
               <Link
-                href={`/${owner}/${slug}/${entry.type === "tree" ? "tree" : "blob"}/${encodeURIComponent(branch)}/${entry.path
-                  .split("/")
-                  .map(encodeURIComponent)
-                  .join("/")}`}
+                href={revisionHref(
+                  `/${owner}/${slug}`,
+                  entry.type === "tree" ? "tree" : "blob",
+                  branch,
+                  entry.path,
+                )}
                 className="min-w-0 truncate hover:text-primary hover:underline"
               >
                 {entry.name}

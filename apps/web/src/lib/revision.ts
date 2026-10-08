@@ -8,3 +8,13 @@ export function splitRevision(segments: string[], branches: string[]) {
   const revision = branch ?? segments[0] ?? "";
   return { revision, path: full.slice(revision.length + 1) };
 }
+
+/** Link to a directory (`tree`) or file (`blob`) at a revision. The revision is one encoded segment, so a branch with slashes cannot read as part of the path. */
+export function revisionHref(
+  base: string,
+  view: "tree" | "blob",
+  revision: string,
+  path: string,
+) {
+  return `${base}/${view}/${encodeURIComponent(revision)}/${path.split("/").map(encodeURIComponent).join("/")}`;
+}

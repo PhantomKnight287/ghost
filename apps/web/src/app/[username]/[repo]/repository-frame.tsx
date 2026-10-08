@@ -8,10 +8,13 @@ import {
   GitBranch,
   GitFork,
   GitPullRequest,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { AppHeader } from "@/components/app-header";
 import { WatchButton } from "@/components/notifications/watch-button";
@@ -24,8 +27,13 @@ import { Button } from "@/components/ui/button";
 
 import { API_URL, sshCloneUrlFor } from "@/lib/env";
 import { splitRevision } from "@/lib/revision";
+import { cn } from "@/lib/utils";
 import { atLeast } from "@ghost/permissions";
 import type { RepositoryFrameProps } from "@/types/repository";
+
+import { FileFinder } from "./file-finder";
+import { FileTree } from "./file-tree";
+import { FILE_TREE_COLLAPSED_COOKIE } from "./file-tree-cookie";
 
 // pages under the code tab that are not a view of the tree, and so have no branch to pick
 const OWN_HEADER_VIEWS = new Set(["search", "releases", "tags", "branches"]);
@@ -47,6 +55,7 @@ export function RepositoryFrame({
   openPullRequestCount,
   openIssueCount,
   parent,
+  fileTreeCollapsed,
   sidebar,
   children,
 }: RepositoryFrameProps) {
@@ -102,6 +111,10 @@ export function RepositoryFrame({
       : "code";
   // the root of the repository only: a file or a subdirectory has nothing to say about the repository as a whole
   const showSidebar = activeTab === "code" && view === undefined;
+  const showTree = view === "blob" && rev != null;
+  const [treeCollapsed, setTreeCollapsed] = useState(fileTreeCollapsed);
+  // a narrow screen has no room beside the file, so there the tree waits behind its toggle
+  const [treeShown, setTreeShown] = useState(false);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -234,6 +247,12 @@ export function RepositoryFrame({
                   </span>
                 </Link>
                 <div className="ml-auto flex items-center gap-2">
+                  <FileFinder
+                    base={base}
+                    username={username}
+                    slug={slug}
+                    revision={rev}
+                  />
                   <ClonePopover
                     cloneUrl={`${API_URL}/${username}/${slug}.git`}
                     sshCloneUrl={sshCloneUrlFor(username, slug)}
@@ -243,6 +262,33 @@ export function RepositoryFrame({
             )}
             {segments.length > 0 && (
               <nav className="flex flex-wrap items-center gap-1 text-sm">
+                {showTree && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={treeShown ? "Hide files" : "Show files"}
+                      aria-expanded={treeShown}
+                      onClick={() => setTreeShown(!treeShown)}
+                      className="lg:hidden"
+                    >
+                      {treeShown ? <PanelLeftClose /> : <PanelLeftOpen />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={treeCollapsed ? "Show files" : "Hide files"}
+                      aria-expanded={!treeCollapsed}
+                      onClick={() => {
+                        setTreeCollapsed(!treeCollapsed);
+                        document.cookie = `${FILE_TREE_COLLAPSED_COOKIE}=${treeCollapsed ? 0 : 1}; path=/; max-age=31536000; samesite=lax`;
+                      }}
+                      className="max-lg:hidden"
+                    >
+                      {treeCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+                    </Button>
+                  </>
+                )}
                 <Link href={treeBase} className="text-primary hover:underline">
                   {name}
                 </Link>
@@ -272,7 +318,28 @@ export function RepositoryFrame({
               </nav>
             )}
 
-            {children}
+            {showTree ? (
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                <aside
+                  className={cn(
+                    "max-h-96 shrink-0 overflow-y-auto rounded-lg border [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:var(--border)_transparent] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-64",
+                    !treeShown && "max-lg:hidden",
+                    treeCollapsed && "lg:hidden",
+                  )}
+                >
+                  <FileTree
+                    base={base}
+                    username={username}
+                    slug={slug}
+                    revision={rev}
+                    current={path}
+                  />
+                </aside>
+                <div className="min-w-0 flex-1">{children}</div>
+              </div>
+            ) : (
+              children
+            )}
           </div>
 
           {sidebar && showSidebar ? (
