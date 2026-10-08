@@ -111,8 +111,7 @@ export function ProfileTabs({
             {repositories.map((repository) => (
               <RepositoryCard
                 key={repository.id}
-                repository={repository}
-                owner={username}
+                repository={{ ...repository, owner: username }}
               />
             ))}
           </div>

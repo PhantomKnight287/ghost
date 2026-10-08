@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 export type Repository = {
   name: string;
   slug: string;
+  owner: string;
   description?: string | null;
   visibility: "public" | "private";
   lastPushedAt: string;
@@ -17,14 +18,13 @@ export function RepositoryCard({
   repository,
   showOwner = false,
   className,
-  owner,
 }: {
   repository: Repository;
   showOwner?: boolean;
   className?: string;
-  owner: string;
 }) {
-  const { name, slug, description, visibility, lastPushedAt } = repository;
+  const { name, owner, slug, description, visibility, lastPushedAt } =
+    repository;
 
   return (
     <article
