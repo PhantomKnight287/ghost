@@ -17,8 +17,6 @@ import {
   extractSuggestion,
 } from '../../lib/pull-requests/suggestion.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
-import { PullRequestPushesService } from '../../services/pull-requests/pull-request-pushes.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
@@ -69,8 +67,6 @@ export class ReviewsService {
     private readonly pullRequests: PullRequestsService,
     private readonly users: UsersService,
     private readonly pushTransaction: PushTransactionService,
-    private readonly pullRefs: PullRefsService,
-    private readonly pullRequestPushes: PullRequestPushesService,
     private readonly signing: CommitSigningService,
   ) {}
 
@@ -532,6 +528,13 @@ export class ReviewsService {
       sign: this.signing.signer,
     });
 
+    const transitions = [
+      {
+        ref: `refs/heads/${pullRequest.headRef}`,
+        oldOid: Buffer.from(git.headSha, 'hex'),
+        newOid: Buffer.from(commitSha, 'hex'),
+      },
+    ];
     await withTempDir('ghost-suggestion-', async (directory) => {
       const pack = await packRange({
         gitDir: git.headDirectory,
@@ -539,13 +542,6 @@ export class ReviewsService {
         exclude: [git.headSha],
         prefix: path.join(directory, 'suggestion'),
       });
-      const transitions = [
-        {
-          ref: `refs/heads/${pullRequest.headRef}`,
-          oldOid: Buffer.from(git.headSha, 'hex'),
-          newOid: Buffer.from(commitSha, 'hex'),
-        },
-      ];
       await this.pushTransaction.commitPush({
         repoId: headRepositoryId,
         transitions,
@@ -553,21 +549,13 @@ export class ReviewsService {
         packOffset: 0,
         pushedBy: params.requesterId,
       });
-      await this.pullRefs.syncAfterPush({
-        repositoryId: headRepositoryId,
-        transitions,
-      });
-      await this.pullRequestPushes.recordPush({
-        repositoryId: headRepositoryId,
-        transitions,
-        pushedBy: params.requesterId,
-      });
     });
 
-    await this.db
-      .update(schema.repository)
-      .set({ lastPushedAt: new Date() })
-      .where(eq(schema.repository.id, headRepositoryId));
+    await this.pullRequests.afterPush({
+      repositoryId: headRepositoryId,
+      transitions,
+      pushedBy: params.requesterId,
+    });
     return { commitSha };
   }
 

@@ -62,6 +62,7 @@ import {
   recordCommitEvents,
 } from '../../lib/pull-requests/commit-events.js';
 import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
+import type { RefTransition } from '../../lib/git/wal/wal.types.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import {
@@ -535,6 +536,13 @@ export class PullRequestsService {
           });
     // A rebase drops merge commits, so a head made only of them replays to nothing.
     if (mergeCommitSha === git.baseSha) throw new NothingToMergeError();
+    const transitions = [
+      {
+        ref: `refs/heads/${pullRequest.baseRef}`,
+        oldOid: Buffer.from(git.baseSha, 'hex'),
+        newOid: Buffer.from(mergeCommitSha, 'hex'),
+      },
+    ];
 
     return await withTempDir('ghost-merge-', async (directory) => {
       // The pull head ref is in the base log, so whatever it reaches was already written there by the last sync and only the merge itself is new.
@@ -597,13 +605,7 @@ export class PullRequestsService {
 
         const { seq } = await this.pushTransaction.commitPush({
           repoId: base.id,
-          transitions: [
-            {
-              ref: `refs/heads/${pullRequest.baseRef}`,
-              oldOid: Buffer.from(git.baseSha, 'hex'),
-              newOid: Buffer.from(mergeCommitSha, 'hex'),
-            },
-          ],
+          transitions,
           body: fileBody(pack.path, pack.size),
           packOffset: 0,
           pushedBy: params.requesterId,
@@ -659,23 +661,9 @@ export class PullRequestsService {
         });
       }
 
-      await this.db
-        .update(schema.repository)
-        .set({ lastPushedAt: new Date() })
-        .where(eq(schema.repository.id, base.id));
-
-      // The base moved, so every other request into it needs a new test merge; this one only needs its head pinned to what merged.
+      // The base moved, so every other request into it needs a new test merge, and a request from the base branch just gained its commits; this one only needs its head pinned to what merged.
       this.pullRefs.syncInBackground(pullRequest.id);
-      const transitions = [
-        {
-          ref: `refs/heads/${pullRequest.baseRef}`,
-          oldOid: Buffer.from(git.baseSha, 'hex'),
-          newOid: Buffer.from(mergeCommitSha, 'hex'),
-        },
-      ];
-      await this.pullRefs.syncAfterPush({ repositoryId: base.id, transitions });
-      // a request from the branch this one merged into just gained its commits
-      await this.pullRequestPushes.recordPush({
+      await this.afterPush({
         repositoryId: base.id,
         transitions,
         pushedBy: params.requesterId,
@@ -683,6 +671,20 @@ export class PullRequestsService {
 
       return { mergeCommitSha, seq };
     });
+  }
+
+  /** The bookkeeping after the API itself pushed to a branch: merges and applied suggestions. */
+  async afterPush(push: {
+    repositoryId: string;
+    transitions: RefTransition[];
+    pushedBy: string;
+  }) {
+    await this.pullRefs.syncAfterPush(push);
+    await this.pullRequestPushes.recordPush(push);
+    await this.db
+      .update(schema.repository)
+      .set({ lastPushedAt: new Date() })
+      .where(eq(schema.repository.id, push.repositoryId));
   }
 
   /** A merge commit on top of the base tip, or with `squash` the same tree as a single-parent commit credited to the request's author. */
