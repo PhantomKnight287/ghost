@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { listTree, orderTreeEntries, type TreeEntry } from './list-tree.js';
+import {
+  listPaths,
+  listTree,
+  orderTreeEntries,
+  type TreeEntry,
+} from './list-tree.js';
 
 describe('listTree', () => {
   let root: string;
@@ -93,6 +98,51 @@ describe('listTree', () => {
     await expect(
       listTree({ gitDir, ref: '--output=/tmp/pwned', prefix: '' }),
     ).rejects.toThrow(/not a valid object name/i);
+  });
+});
+
+describe('listPaths', () => {
+  let root: string;
+  let gitDir: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(path.join(tmpdir(), 'ghost-paths-'));
+    gitDir = path.join(root, '.git');
+    const env = { ...process.env };
+    delete env.GIT_DIR;
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, encoding: 'utf8', env });
+
+    execFileSync('git', ['init', '-q', '-b', 'main', root]);
+    git('config', 'user.email', 'test@example.com');
+    git('config', 'user.name', 'Test');
+    mkdirSync(path.join(root, 'src/deep'), { recursive: true });
+    writeFileSync(path.join(root, 'README.md'), 'hello\n');
+    writeFileSync(path.join(root, 'src/deep/x y.ts'), 'x\n');
+    git('add', '-A');
+    // a gitlink without a .gitmodules entry is enough for ls-tree to report a submodule
+    git(
+      'update-index',
+      '--add',
+      '--cacheinfo',
+      `160000,${'a'.repeat(40)},vendor`,
+    );
+    git('commit', '-q', '-m', 'first commit');
+  });
+
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('lists every file recursively and leaves submodules out', async () => {
+    expect(await listPaths({ gitDir, ref: 'main' })).toEqual([
+      'README.md',
+      'src/deep/x y.ts',
+    ]);
+  });
+
+  it('rejects a ref that does not exist', async () => {
+    await expect(
+      listPaths({ gitDir, ref: 'refs/heads/nope' }),
+    ).rejects.toThrow();
   });
 });
 

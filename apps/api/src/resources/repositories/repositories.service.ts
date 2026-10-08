@@ -46,7 +46,7 @@ import { RepositoryPathIndexService } from '../../services/git/path-index/reposi
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { runGit, runGitBuffer } from '../../lib/git/exec/run-git.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
-import { listTree } from '../../lib/git/tree/list-tree.js';
+import { listPaths, listTree } from '../../lib/git/tree/list-tree.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import {
   countCommits,
@@ -73,6 +73,7 @@ import {
   resolveRevision,
 } from '../../lib/git/tree/resolve-ref.js';
 import type { GetRepositoryContentsResponseDTO } from './dto/get-repository-contents.dto.js';
+import type { GetRepositoryPathsResponseDTO } from './dto/get-repository-paths.dto.js';
 import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
 import type {
   GetRepositoryTagsQueryDTO,
@@ -1286,6 +1287,32 @@ export class RepositoriesService {
         lastCommit: commits.get(entry.path) ?? null,
       })),
     };
+  }
+
+  async getRepositoryPaths({
+    username,
+    repo,
+    requesterId,
+    ref: requestedRef,
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    ref?: string;
+  }): Promise<GetRepositoryPathsResponseDTO> {
+    const { directory, ref } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: requestedRef,
+    });
+
+    // an unborn ref has no tree for ls-tree to read
+    if (!(await readCommitSummary({ gitDir: directory, ref }))) {
+      return { ref, paths: [] };
+    }
+
+    return { ref, paths: await listPaths({ gitDir: directory, ref }) };
   }
 
   async getRepositoryBlob({

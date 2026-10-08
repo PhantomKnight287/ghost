@@ -16,7 +16,7 @@
     },
     "apps/api": {
       "name": "@ghost/api",
-      "version": "0.0.1",
+      "version": "0.2.0",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.1125.0",
         "@aws-sdk/s3-request-presigner": "^3.1125.0",
@@ -84,11 +84,11 @@
     },
     "apps/delivery": {
       "name": "@ghost/delivery",
-      "version": "0.0.1",
+      "version": "0.2.0",
     },
     "apps/docs": {
       "name": "@ghost/docs",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "fumadocs-core": "^16.15.12",
         "fumadocs-mdx": "^15.4.3",
@@ -109,7 +109,7 @@
     },
     "apps/importer": {
       "name": "@ghost/importer",
-      "version": "0.0.1",
+      "version": "0.2.0",
       "dependencies": {
         "hono": "^4.13.12",
         "zod": "4.5.4",
@@ -120,7 +120,7 @@
     },
     "apps/web": {
       "name": "@ghost/web",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@base-ui/react": "^1.7.0",
         "@better-auth-ui/core": "^1.7.23",
@@ -173,6 +173,7 @@
         "react-dom": "19.2.8",
         "react-dropzone": "^20.1.2",
         "react-hook-form": "^7.87.0",
+        "react-hotkeys-hook": "^5.3.3",
         "react-markdown": "^10.1.0",
         "rehype-raw": "^7.0.0",
         "rehype-sanitize": "^6.0.0",
@@ -3130,6 +3131,8 @@
     "react-grab": ["react-grab@0.2.0", "", { "dependencies": { "@react-grab/cli": "0.2.0", "bippy": "^0.6.1" }, "peerDependencies": { "react": ">=17.0.0" }, "optionalPeers": ["react"], "bin": { "react-grab": "bin/cli.js" } }, "sha512-ohhsfXD4qN0j6cMQd56aaVJBPDF3kUdviF/Od1Eak/rEIXQ3svQ4gjkwTfuTZwTBnxHRL16p9JqdlVQO5nUHqA=="],
 
     "react-hook-form": ["react-hook-form@7.87.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17 || ^18 || ^19" } }, "sha512-zhFzWvLxNHH+8839OnZcUxgMZw88ah2jZWDWvKWgF3Tpbnd0vKL+dlcuU3nZVWESZQjd81EW8K+wU+cYfYAc0w=="],
+
+    "react-hotkeys-hook": ["react-hotkeys-hook@5.3.3", "", { "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-aswgyWUnE25hmhzHTfKDmKzsaSE5DJ4LKaU/o6rQSXkDd/1Bh9TfAFQbHkf6fLy11HvlYkp+cDDarGdhmCDhoQ=="],
 
     "react-is": ["react-is@16.13.1", "", {}, "sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ=="],
 

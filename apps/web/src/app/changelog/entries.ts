@@ -9,6 +9,16 @@ export const CHANGELOG: {
   body: string;
 }[] = [
   {
+    date: "2026-10-08",
+    title: "Find files and browse the tree",
+    body: "Press `t` or choose Go to file on a repository's code view to fuzzy-find any file at the current branch, tag or commit; a match in the file name ranks above one in its directories. A file page shows the repository's files in a sidebar, opened down to the file you are reading, and remembers whether you collapsed it.",
+  },
+  {
+    date: "2026-10-08",
+    title: "Several lines in one link",
+    body: "A file link highlights several lines with `#L10,L11,L59`, a range with `#L10-L59`, or both at once, and scrolls to the first.",
+  },
+  {
     date: "2026-10-07",
     title: "Pull request commits in the timeline",
     body: `A pull request's timeline now lists the commits each push added, and marks force pushes with the head they replaced. A push that moves a request's head sends a \`pull_request.synchronized\` [webhook](${DOCS_URL}/webhooks).`,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -12,6 +13,7 @@ import {
   notFoundIfHidden,
 } from "@/lib/api/server";
 
+import { FILE_TREE_COLLAPSED_COOKIE } from "./file-tree-cookie";
 import { ImportBanner } from "./import-banner";
 import { RepositoryLanguagesSection } from "./repository-languages-section";
 
@@ -40,9 +42,10 @@ export default async function RepositoryLayout({
 }: LayoutProps<"/[username]/[repo]">) {
   const { username, repo } = await params;
 
-  const [session, client] = await Promise.all([
+  const [session, client, cookieStore] = await Promise.all([
     getServerSession(),
     createServerClient(),
+    cookies(),
   ]);
 
   const repository = await client.GET("/api/repositories/{username}/{slug}", {
@@ -96,6 +99,9 @@ export default async function RepositoryLayout({
       openPullRequestCount={pulls.data?.total}
       openIssueCount={issues.data?.openCount}
       parent={repository.data.parent}
+      fileTreeCollapsed={
+        cookieStore.get(FILE_TREE_COLLAPSED_COOKIE)?.value === "1"
+      }
       sidebar={
         <>
           <RepositoryAbout
