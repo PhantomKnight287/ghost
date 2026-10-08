@@ -208,6 +208,15 @@ export class GitService {
       void this.pullRefs.syncAfterPush({ repositoryId, transitions });
       // An import is history, not activity: its push names every branch and tag the repository ever had.
       if (importing) return;
+      this.db
+        .update(schema.repository)
+        .set({ lastPushedAt: new Date() })
+        .where(eq(schema.repository.id, repositoryId))
+        .catch((error: unknown) =>
+          this.logger.warn(
+            `Recording the push time failed for ${repositoryId}: ${errorMessage(error)}`,
+          ),
+        );
       void this.pullRequestPushes.recordPush({
         repositoryId,
         transitions,

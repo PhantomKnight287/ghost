@@ -60,8 +60,10 @@ describe('GitService', () => {
   const references = { closeFromCommits: vi.fn().mockResolvedValue(undefined) };
   const published = vi.fn().mockResolvedValue(undefined);
   const runningImports = vi.fn().mockResolvedValue([]);
+  const pushedAt = vi.fn().mockResolvedValue(undefined);
   const db = {
     insert: () => ({ values: published }),
+    update: () => ({ set: (row: unknown) => ({ where: () => pushedAt(row) }) }),
     select: () => ({ from: () => ({ where: runningImports }) }),
   };
   const logged = vi.fn().mockResolvedValue(undefined);
@@ -345,6 +347,7 @@ describe('GitService', () => {
         transitions: [expect.objectContaining({ ref: 'refs/heads/main' })],
       }),
     );
+    expect(pushedAt).toHaveBeenCalledWith({ lastPushedAt: expect.any(Date) });
     expect(references.closeFromCommits).not.toHaveBeenCalled();
   });
 
