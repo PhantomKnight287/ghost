@@ -33,7 +33,7 @@ export const repository = pgTable(
     organizationId: text().references(() => organization.id, {
       onDelete: "cascade",
     }),
-    // a repo will always have an owner. will also allow them to transfer the ownership incase they wanna preserve the repo but delete the account
+    // Deleting the owner's account deletes the repository with it; transfer it first to keep it.
     ownerId: text()
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
