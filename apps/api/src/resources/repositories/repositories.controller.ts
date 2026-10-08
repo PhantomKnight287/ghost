@@ -270,8 +270,9 @@ export class RepositoriesController {
     return this.repositoriesService.forkRepository({
       username,
       slug,
-      requesterId: session.user.id,
       ...body,
+      // Last, so a body that names a requesterId cannot fork as someone else.
+      requesterId: session.user.id,
     });
   }
 
