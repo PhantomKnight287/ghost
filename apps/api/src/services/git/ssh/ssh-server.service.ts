@@ -327,11 +327,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     });
   }
 
-  /**
-   * A push is spooled, committed to the log, and only then replayed into git - the same order the HTTP transport uses, so both share one commit point.
-   *
-   * The spool starts before the advertisement is written: the client may answer the moment it reads the refs, and an unattended channel drops whatever arrives first.
-   */
+  /** A push is spooled, committed to the log, and only then replayed into git - the same order the HTTP transport uses, so both share one commit point. The spool starts before the advertisement is written: the client may answer the moment it reads the refs, and an unattended channel drops whatever arrives first. */
   private async push(
     channel: ServerChannel,
     repository: Repository,

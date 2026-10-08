@@ -253,7 +253,6 @@ export class LfsService {
     if (!uploaded) throw new LfsUploadInProgressError(oid);
   }
 
-  /** The size of an object the repository holds, or null. */
   async find(repositoryId: string, oid: string) {
     const [object] = await this.db
       .select({ size: schema.lfsObject.size })
@@ -343,7 +342,6 @@ export class LfsService {
       .onConflictDoNothing();
   }
 
-  /** An object's bytes, for a page that renders the file. */
   async read(repositoryId: string, oid: string) {
     const { Body } = await this.s3.getObject({
       Bucket: this.s3.bucket,

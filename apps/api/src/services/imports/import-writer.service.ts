@@ -14,11 +14,7 @@ import type {
 
 const IMPORTER = schema.IMPORTER_USER_ID;
 
-/**
- * Writes what the importer read from GitHub. Every write is an upsert keyed the way GitHub keys it (tag name, issue number), so a retried attempt overwrites the previous one instead of duplicating it.
- *
- * Nothing here publishes events: an import is history, not activity, and thousands of `issue.opened` webhooks for it would be noise.
- */
+/** Writes what the importer read from GitHub. Every write is an upsert keyed the way GitHub keys it (tag name, issue number), so a retried attempt overwrites the previous one instead of duplicating it. Nothing here publishes events: an import is history, not activity, and thousands of `issue.opened` webhooks for it would be noise. */
 @Injectable()
 export class ImportWriterService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}

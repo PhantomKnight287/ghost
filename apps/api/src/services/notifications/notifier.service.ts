@@ -52,7 +52,6 @@ const STATES = {
 
 type Thread = NonNullable<Awaited<ReturnType<NotifierService['loadThread']>>>;
 
-/** What an event says, as far as notifications care. */
 type Activity = {
   /** Text whose `@user` and `@org/team` mentions notify, and subscribe, whoever they name. */
   text: string | null;
@@ -63,7 +62,6 @@ type Activity = {
   context: Record<string, unknown>;
 };
 
-/** Turns repository events into inbox rows and emails. */
 @Injectable()
 export class NotifierService {
   private readonly logger = new Logger(NotifierService.name);

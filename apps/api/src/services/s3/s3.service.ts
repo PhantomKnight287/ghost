@@ -22,9 +22,7 @@ export class S3Service extends S3 {
     this.bucket = configService.getOrThrow('S3_BUCKET');
   }
 
-  /**
-   * Uploads a stream that may fail midway, such as a request body whose client disconnects. The SDK neither settles nor handles an error from a destroyed body, which leaves the upload hanging and the error unhandled; here the source's failure aborts the upload and is the one error thrown.
-   */
+  /** Uploads a stream that may fail midway, such as a request body whose client disconnects. The SDK neither settles nor handles an error from a destroyed body, which leaves the upload hanging and the error unhandled; here the source's failure aborts the upload and is the one error thrown. */
   async putStream(
     input: Omit<PutObjectCommandInput, 'Bucket' | 'Body'> & { Body: Readable },
   ) {

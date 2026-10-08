@@ -21,7 +21,6 @@ export interface CommitVerification {
   keyId: string;
 }
 
-/** Commit identity a verification is judged against. */
 export interface VerifiableCommit {
   sha: string;
   authorEmail: string;
@@ -37,11 +36,7 @@ export class CommitVerificationService {
     private readonly signing: CommitSigningService,
   ) {}
 
-  /**
-   * The signature status of each commit that carries one, keyed by sha. Unsigned commits are absent.
-   *
-   * Signatures are checked on read rather than stamped at push time: keys are added and removed after the fact, and the cache a commit is read from is rebuilt from the log, so a stored verdict would go stale either way.
-   */
+  /** The signature status of each commit that carries one, keyed by sha; unsigned commits are absent. Checked on read, not stamped at push: keys change after the fact and the cache is rebuilt from the log, so a stored verdict would go stale. */
   async verifyCommits({
     gitDir,
     env,

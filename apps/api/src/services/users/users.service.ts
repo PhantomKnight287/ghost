@@ -26,7 +26,6 @@ export class UsersService {
     );
   }
 
-  /** The addresses of several accounts at once, keyed by user id. */
   async verifiedEmailsByUser(
     userIds: string[],
   ): Promise<Map<string, string[]>> {

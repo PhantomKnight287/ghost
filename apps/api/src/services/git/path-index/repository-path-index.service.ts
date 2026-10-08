@@ -33,11 +33,7 @@ export interface PathCommit {
   committedAt: string;
 }
 
-/**
- * Keeps `repository_path_commit` in step with a ref, so listing a directory never has to walk history per entry.
- *
- * The index is a cache of git, not a second source of truth: it is rebuilt from the object database whenever the stored position stops making sense.
- */
+/** Keeps `repository_path_commit` in step with a ref, so listing a directory never has to walk history per entry. A cache of git, rebuilt whenever its stored position stops making sense. */
 @Injectable()
 export class RepositoryPathIndexService {
   private readonly logger = new Logger(RepositoryPathIndexService.name);

@@ -52,11 +52,7 @@ interface Diagnosis extends RepairReport {
   rescuePack: string | null;
 }
 
-/**
- * Finds repositories whose log no node can replay, which makes every clone and push of them fail, and repairs them (0034).
- *
- * The log is replayed into an empty scratch repository rather than checked against the cache: the cache can hold objects the log does not, and so hide exactly the damage being looked for. The cache is only ever a source of objects to put back.
- */
+/** Finds repositories whose log no node can replay, which makes every clone and push of them fail, and repairs them (0034). The log is replayed into an empty scratch repository, not checked against the cache: the cache can hold objects the log lacks and so hide the damage. The cache is only a source of objects to put back. */
 @Injectable()
 export class RepositoryRepairService {
   constructor(
