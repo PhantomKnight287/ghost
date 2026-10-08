@@ -4,7 +4,7 @@ import { and, eq, or } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
-import type { AuthorizedRepository } from '../../lib/git/repository-access/repository-access.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import { isValidRefName } from '../../lib/git/refs/is-valid-ref-name.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import {
@@ -13,11 +13,10 @@ import {
   resolveTargetCommit,
 } from '../../lib/git/tree/resolve-ref.js';
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
-import { BranchNotFoundError } from '../repositories/repositories.errors.js';
+import { BranchNotFoundError } from '../../lib/repositories/repositories.errors.js';
 import type { BranchDTO, CreateBranchRequestDTO } from './dto/branch.dto.js';
 import {
   BranchAlreadyExistsError,
@@ -25,7 +24,8 @@ import {
   BranchSourceNotFoundError,
   DefaultBranchDeletionError,
   InvalidBranchNameError,
-} from './branches.errors.js';
+} from '../../lib/branches/branches.errors.js';
+import { listBranches } from '../../lib/git/refs/list-refs.js';
 
 type RepositoryRef = { username: string; repo: string; requesterId: string };
 
@@ -36,7 +36,6 @@ export class RepositoryBranchesService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
     private readonly materializer: RepositoryMaterializerService,
-    private readonly branches: BranchesService,
     private readonly pushTransaction: PushTransactionService,
   ) {}
 
@@ -44,14 +43,17 @@ export class RepositoryBranchesService {
     body,
     ...target
   }: RepositoryRef & { body: CreateBranchRequestDTO }): Promise<BranchDTO> {
-    const repository = await this.authorize(target);
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
     if (!isValidRefName('heads', body.name)) {
       throw new InvalidBranchNameError(body.name);
     }
 
     const directory = await this.materializer.open(repository);
     const [branches, tags] = await Promise.all([
-      this.branches.getGitBranches(directory),
+      listBranches(directory),
       listTags(directory),
     ]);
     if (branches.includes(body.name)) {
@@ -86,10 +88,13 @@ export class RepositoryBranchesService {
     branch,
     ...target
   }: RepositoryRef & { branch: string }) {
-    const repository = await this.authorize(target);
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
     const directory = await this.materializer.open(repository);
 
-    if (!(await this.branches.getGitBranches(directory)).includes(branch)) {
+    if (!(await listBranches(directory)).includes(branch)) {
       throw new BranchNotFoundError(branch);
     }
     const ref = `refs/heads/${branch}`;
@@ -143,15 +148,6 @@ export class RepositoryBranchesService {
       body: bufferBody(Buffer.alloc(0)),
       packOffset: 0,
       pushedBy: requesterId,
-    });
-  }
-
-  private authorize({ username, repo, requesterId }: RepositoryRef) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: { userId: requesterId },
-      operation: 'write',
     });
   }
 }

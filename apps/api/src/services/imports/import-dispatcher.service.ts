@@ -12,7 +12,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
-import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
+import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 import {
   dispatchToImporter,
   githubImportConfig,
@@ -20,12 +20,13 @@ import {
 } from '../../lib/imports/importer.js';
 import { githubAccessToken } from '../../lib/imports/github-account.js';
 import { StaleImportAttemptError } from '../../lib/imports/imports.errors.js';
+import { errorMessage } from '../../lib/error-message.js';
+import { MAX_IMPORT_ATTEMPTS } from '../../lib/imports/importing.js';
 
 // The importer calls back at least every 30 seconds while it works; four missed beats means it is gone.
 const LEASE_MS = 2 * 60_000;
 const TICK_MS = 30_000;
 const CLAIM_BATCH = 10;
-export const MAX_IMPORT_ATTEMPTS = 6;
 // Covers the slowest import seen end to end; an attempt that outlives it is retried by lease long before the key matters.
 const PUSH_KEY_TTL_SECONDS = 24 * 60 * 60;
 
@@ -80,9 +81,7 @@ export class ImportDispatcherService
     clearTimeout(this.timer);
     this.ticking = this.tick()
       .catch((error: unknown) => {
-        this.logger.error(
-          `Dispatching imports failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        this.logger.error(`Dispatching imports failed: ${errorMessage(error)}`);
         return true;
       })
       .then((active) => {
@@ -265,7 +264,7 @@ export class ImportDispatcherService
           ? error.cause
           : error;
       this.logger.warn(
-        `Import ${row.id} attempt ${row.attempts} was not dispatched: ${reason instanceof Error ? reason.message : String(reason)}`,
+        `Import ${row.id} attempt ${row.attempts} was not dispatched: ${errorMessage(reason)}`,
       );
       await this.settle(row.id, row.claimToken, {
         succeeded: false,

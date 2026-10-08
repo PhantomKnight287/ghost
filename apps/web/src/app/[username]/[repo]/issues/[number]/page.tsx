@@ -11,7 +11,8 @@ import {
 } from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 
-import { AssigneeEditor, LabelEditor } from "./page.client";
+import { AssigneeEditor } from "./assignee-editor";
+import { LabelEditor } from "./label-editor";
 
 export default async function IssuePage({
   params,

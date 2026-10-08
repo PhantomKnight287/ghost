@@ -4,7 +4,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 
 import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { DATABASE, DatabaseModule } from './database/database.module.js';
 import { GitModule } from './git/git.module.js';
 import { createAuth } from './lib/auth.js';
@@ -32,15 +31,12 @@ import { NotificationsModule } from './resources/notifications/notifications.mod
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
-import { BranchesService } from './services/git/branches/branches.service.js';
-import { RepositoryAccessService } from './services/git/repository-access/repository-access.service.js';
-import { WalService } from './services/git/wal/wal.service.js';
-import { S3Service } from './services/s3/s3.service.js';
 import { AppStatsService } from './services/stats/app-stats.service.js';
-import { UsersService } from './services/users/users.service.js';
+import { S3Module } from './s3/s3.module.js';
 
 @Module({
   imports: [
+    S3Module,
     ConfigModule.forRoot({
       isGlobal: true,
       // `.env` interpolates values (e.g. BETTER_AUTH_URL=http://localhost:${API_PORT}), which dotenv does not expand on its own.
@@ -117,14 +113,6 @@ import { UsersService } from './services/users/users.service.js';
     UserModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    AppStatsService,
-    UsersService,
-    S3Service,
-    WalService,
-    BranchesService,
-    RepositoryAccessService,
-  ],
+  providers: [AppStatsService],
 })
 export class AppModule {}

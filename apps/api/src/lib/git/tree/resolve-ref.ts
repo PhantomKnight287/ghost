@@ -3,8 +3,10 @@ import { runGit } from '../exec/run-git.js';
 const FALLBACK_REF = 'refs/heads/main';
 
 /** Accepts "main" or "refs/heads/main" and always returns the full ref. */
+export const BRANCH_PREFIX = 'refs/heads/';
+
 export function toBranchRef(branch: string) {
-  return branch.startsWith('refs/') ? branch : `refs/heads/${branch}`;
+  return branch.startsWith('refs/') ? branch : `${BRANCH_PREFIX}${branch}`;
 }
 
 /** The ref a repository page shows: the recorded `defaultBranch`, else the HEAD the materializer picked. */
@@ -17,19 +19,10 @@ export async function resolveDefaultRef({
 }) {
   if (defaultBranch) return toBranchRef(defaultBranch);
 
-  const head = await runGit({
-    args: ['symbolic-ref', '--quiet', 'HEAD'],
-    gitDir,
-  }).catch(() => '');
-
-  return head.trim() || FALLBACK_REF;
+  return (await headRef(gitDir)) ?? FALLBACK_REF;
 }
 
-/**
- * What the caller asked to look at, resolved to something git accepts as a revision. A branch wins over a tag and a tag over a sha, since either could in principle be named like the next; `detached` marks a commit, which has no moving tip.
- *
- * Returns null when the revision names nothing in the repository.
- */
+/** A branch wins over a tag and a tag over a sha, since either could in principle be named like the next; `detached` marks a commit, which has no moving tip. */
 export async function resolveRevision({
   gitDir,
   branches,
@@ -68,7 +61,6 @@ export async function resolveRevision({
   return sha.trim() ? { ref: sha.trim(), detached: true } : null;
 }
 
-/** The commit a ref points at, or null when it names nothing. */
 export async function resolveCommit(gitDir: string, ref: string) {
   const oid = await runGit({
     args: [
@@ -101,4 +93,13 @@ export async function resolveTargetCommit({
     ? (await resolveRevision({ gitDir, branches, tags, requested }))?.ref
     : await resolveDefaultRef({ gitDir, defaultBranch });
   return ref ? resolveCommit(gitDir, ref) : null;
+}
+
+/** The branch HEAD points at, or null when HEAD is detached or unset. */
+export async function headRef(gitDir: string) {
+  const head = await runGit({
+    args: ['symbolic-ref', '--quiet', 'HEAD'],
+    gitDir,
+  }).catch(() => '');
+  return head.trim() || null;
 }

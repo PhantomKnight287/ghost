@@ -24,7 +24,7 @@ import {
 } from '../../lib/imports/github-account.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { ImportDispatcherService } from '../../services/imports/import-dispatcher.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import { RepositoriesService } from '../repositories/repositories.service.js';
 import type { StartImportRequestDTO } from './dto/import.dto.js';
 
@@ -88,7 +88,7 @@ export class ImportsService {
     const repository = await this.access.authorize({
       username,
       repo,
-      actor: requesterId ? { userId: requesterId } : null,
+      requesterId,
       operation: 'read',
     });
     const [row] = await this.db
@@ -118,7 +118,7 @@ export class ImportsService {
     const repository = await this.access.authorize({
       username,
       repo,
-      actor: { userId: requesterId },
+      requesterId,
       operation: 'admin',
     });
     if (!(await githubAccountIdOf(this.db, requesterId))) {

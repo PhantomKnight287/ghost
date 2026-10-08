@@ -19,39 +19,21 @@ import {
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import { DOCS_URL } from "@/lib/env";
-import { cn } from "@/lib/utils";
-
-export type GpgKeysProps = {
-  className?: string;
-};
-
-type GpgKey = {
-  id: string;
-  keyId: string;
-  fingerprint: string;
-  emails: string[];
-  createdAt: string;
-};
 
 const QUERY_KEY = ["gpg-keys"];
 
-/**
- * Public keys that make this account's signed commits read as verified.
- *
- * A key is only accepted once it carries an address the account has already verified, so the form points at the email settings when it is refused.
- */
-export function GpgKeys({ className }: GpgKeysProps) {
+/** Public keys that make this account's signed commits read as verified. A key is only accepted once it carries an address the account has already verified, so the form points at the email settings when it is refused. */
+export function GpgKeys() {
   const queryClient = useQueryClient();
   const [publicKey, setPublicKey] = useState("");
 
   const { data, isPending } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/gpg-keys");
-      if (error) throw new Error(apiErrorMessage(error));
-      return data.keys as GpgKey[];
+      const data = await unwrap(apiClient.GET("/api/gpg-keys"));
+      return data.keys;
     },
   });
 
@@ -60,10 +42,11 @@ export function GpgKeys({ className }: GpgKeysProps) {
 
   const add = useMutation({
     mutationFn: async (value: string) => {
-      const { error } = await apiClient.POST("/api/gpg-keys", {
-        body: { publicKey: value },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/gpg-keys", {
+          body: { publicKey: value },
+        }),
+      );
     },
     onSuccess: async () => {
       setPublicKey("");
@@ -75,10 +58,11 @@ export function GpgKeys({ className }: GpgKeysProps) {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.DELETE("/api/gpg-keys/{id}", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.DELETE("/api/gpg-keys/{id}", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: async () => {
       toast.success("Key removed");
@@ -94,7 +78,7 @@ export function GpgKeys({ className }: GpgKeysProps) {
     <div>
       <h2 className="mb-3 text-sm font-semibold">GPG keys</h2>
 
-      <Card className={cn("gap-0 p-0", className)}>
+      <Card className={"gap-0 p-0"}>
         <CardContent className="p-0">
           <ItemGroup className="gap-0!">
             {isPending ? (

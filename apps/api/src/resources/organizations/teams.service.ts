@@ -46,7 +46,6 @@ export class TeamsService {
     };
   }
 
-  /** One team, named by its slug: its members, which of them maintain it, and the repositories it reaches. */
   async get(slug: string, team: string, requesterId: string) {
     const { found, role } = await this.find(slug, team, requesterId);
     const [members, repositories, [maintainer]] = await Promise.all([

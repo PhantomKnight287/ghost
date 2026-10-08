@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
 import { signLfsToken } from '../../../lib/git/lfs/lfs-token.js';
-import { AuthenticationRequiredError } from '../../../lib/git/repository-access/repository-access.errors.js';
+import { AuthenticationRequiredError } from '../../../lib/repositories/access/repository-access.errors.js';
 import { GitBasicAuthMiddleware } from './git-basic-auth.middleware.js';
 
 const basic = (username: string, password: string) =>
@@ -67,7 +67,7 @@ describe('GitBasicAuthMiddleware', () => {
     await run({});
 
     expect(authorize).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: null, operation: 'read' }),
+      expect.objectContaining({ requesterId: undefined, operation: 'read' }),
     );
     expect(next).toHaveBeenCalledWith();
   });
@@ -128,7 +128,7 @@ describe('GitBasicAuthMiddleware', () => {
     await run({ headers: { authorization: basic('git', 'revoked') } });
 
     expect(authorize).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: null }),
+      expect.objectContaining({ requesterId: undefined }),
     );
   });
 
@@ -200,7 +200,7 @@ describe('GitBasicAuthMiddleware', () => {
       const { run, authorize } = harness();
       await run({ path: LFS_BATCH, headers: { authorization } });
       expect(authorize).toHaveBeenCalledWith(
-        expect.objectContaining({ actor: null }),
+        expect.objectContaining({ requesterId: undefined }),
       );
     }
   });

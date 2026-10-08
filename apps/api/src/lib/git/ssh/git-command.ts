@@ -1,7 +1,7 @@
 import {
   type GitServiceName,
   isGitServiceName,
-} from '../../../git/git.constants.js';
+} from '../protocol/git-service.js';
 
 export interface GitSshCommand {
   service: GitServiceName;

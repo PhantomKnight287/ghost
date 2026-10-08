@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { OutsideCollaborators } from "@/components/organizations/outside-collaborators";
+import { OutsideCollaborators } from "./outside-collaborators";
 import { createServerClient } from "@/lib/api/server";
 
 export default async function OutsideCollaboratorsPage({

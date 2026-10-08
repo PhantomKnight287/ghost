@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
 import { eq } from 'drizzle-orm';
 
-import { organizationMembership } from '../git/repository-access/repository-access.js';
+import { organizationMembership } from '../repositories/access/repository-access.js';
 import { administers, organizationRoleOf } from '@ghost/permissions';
 import {
   OrganizationForbiddenError,

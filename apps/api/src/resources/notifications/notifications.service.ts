@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, lt, ne, or, type SQL, sql } from 'drizzle-orm';
+import { and, count, eq, ne, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
@@ -10,17 +10,17 @@ import {
   organizationMembership,
   ownerNameOf,
   readableBy,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { decodeCursor, encodeCursor, isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
+import { keyset } from '../../lib/db/keyset.js';
 import { IssuesService } from '../issues/issues.service.js';
-import { InvalidCursorError } from '../repositories/repositories.errors.js';
 import type {
   GetNotificationsQueryDTO,
   GetNotificationsResponseDTO,
   WatchLevel,
 } from './dto/notification.dto.js';
-import { NotificationNotFoundError } from './notifications.errors.js';
+import { NotificationNotFoundError } from '../../lib/notifications/notifications.errors.js';
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -47,40 +47,27 @@ export class NotificationsService {
     userId: string,
     query: GetNotificationsQueryDTO,
   ): Promise<GetNotificationsResponseDTO> {
-    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-    if (query.cursor && !decoded) throw new InvalidCursorError();
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        updatedAt: schema.notification.updatedAt,
+        id: schema.notification.id,
+      },
+    });
 
-    const rows = await this.inbox(
-      userId,
-      and(
-        query.unread ? eq(schema.notification.unread, true) : undefined,
-        decoded
-          ? or(
-              lt(schema.notification.updatedAt, decoded.date),
-              and(
-                eq(schema.notification.updatedAt, decoded.date),
-                lt(schema.notification.id, decoded.id),
-              ),
-            )
-          : undefined,
-      ),
-    )
-      .orderBy(
-        desc(schema.notification.updatedAt),
-        desc(schema.notification.id),
+    const { page, nextCursor } = list.page(
+      await this.inbox(
+        userId,
+        and(
+          query.unread ? eq(schema.notification.unread, true) : undefined,
+          list.where,
+        ),
       )
-      .limit(pageSize + 1);
-
-    const page = rows.slice(0, pageSize);
-    const last = page.at(-1);
-    return {
-      notifications: page,
-      nextCursor:
-        rows.length > pageSize && last
-          ? encodeCursor({ date: new Date(last.updatedAt), id: last.id })
-          : null,
-    };
+        .orderBy(...list.orderBy)
+        .limit(list.limit),
+    );
+    return { notifications: page, nextCursor };
   }
 
   async unreadCount(userId: string) {
@@ -255,7 +242,7 @@ export class NotificationsService {
     return this.access.authorize({
       username,
       repo,
-      actor: { userId: requesterId },
+      requesterId,
       operation: 'read',
     });
   }

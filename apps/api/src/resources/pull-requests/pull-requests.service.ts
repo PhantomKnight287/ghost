@@ -1,5 +1,3 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
@@ -12,15 +10,16 @@ import {
   getTableColumns,
   inArray,
   isNull,
-  lt,
   ne,
-  or,
   sql,
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
-import { listCommits } from '../../lib/git/commits/list-commits.js';
+import {
+  countCommits,
+  listCommits,
+} from '../../lib/git/commits/list-commits.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import {
@@ -28,7 +27,6 @@ import {
   mergeBase,
   streamDiffPatch,
 } from '../../lib/git/diff/diff.js';
-import { runGit } from '../../lib/git/exec/run-git.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import {
   commitTree,
@@ -39,6 +37,7 @@ import {
 import {
   resolveCommit,
   resolveDefaultRef,
+  toBranchRef,
 } from '../../lib/git/tree/resolve-ref.js';
 import {
   closeIssue,
@@ -52,7 +51,7 @@ import {
   ownerNameOf,
   type Repository,
   type RepositoryOperation,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
 import { lfsPointersIn } from '../../lib/git/lfs/lfs-pointer.js';
@@ -63,19 +62,18 @@ import {
   recordCommitEvents,
 } from '../../lib/pull-requests/commit-events.js';
 import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
+import type { RefTransition } from '../../lib/git/wal/wal.types.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import {
-  lfsKindOf,
   storageAccountOf,
-  storageKindOf,
+  billedKindOf,
 } from '../../lib/storage/storage-account.js';
-import { decodeCursor, encodeCursor } from '../../utils/index.js';
+import { keyset } from '../../lib/db/keyset.js';
 import {
   BranchNotFoundError,
   CommitNotFoundError,
-  InvalidCursorError,
-} from '../repositories/repositories.errors.js';
+} from '../../lib/repositories/repositories.errors.js';
 import {
   CreatePullRequestRequestDTO,
   UpdatePullRequestRequestDTO,
@@ -93,7 +91,10 @@ import {
   SameBranchPullRequestError,
   UnrelatedHistoriesError,
   UnrelatedRepositoriesError,
-} from './pull-requests.errors.js';
+} from '../../lib/pull-requests/pull-requests.errors.js';
+import { withTempDir } from '../../lib/temp-dir.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
+import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 
 // Number, title, body and author live on the issue a request is attached to.
 const pullRequestColumns = {
@@ -119,7 +120,6 @@ const pullRequestColumns = {
 const DEFAULT_PAGE_SIZE = 20;
 // ponytail: a squash message lists at most this many of the head's commits; older ones are left out of the body, not the tree.
 const MAX_SQUASH_MESSAGES = 250;
-const MAX_PAGE_SIZE = 100;
 
 type PullRequest = {
   [Key in keyof typeof pullRequestColumns]: GetColumnData<
@@ -156,34 +156,24 @@ export class PullRequestsService {
     requesterId: string;
     body: CreatePullRequestRequestDTO;
   }) {
-    const base = await this.authorize({ username, repo, requesterId });
-    const head = await this.resolveHead(base, body.head, requesterId);
-    const headRef = body.head.includes(':')
-      ? body.head.slice(body.head.indexOf(':') + 1)
-      : body.head;
-
+    const {
+      base,
+      head,
+      headRef,
+      baseSha,
+      to: headSha,
+      range,
+    } = await this.openComparison({
+      username,
+      repo,
+      requesterId,
+      base: body.base,
+      head: body.head,
+    });
     if (head.id === base.id && headRef === body.base) {
       throw new SameBranchPullRequestError();
     }
-
-    const [baseDirectory, headDirectory] = await Promise.all([
-      this.materializer.open(base),
-      this.materializer.open(head),
-    ]);
-    const baseSha = await this.resolveBranch(baseDirectory, body.base);
-    const headSha = await this.resolveBranch(headDirectory, headRef);
-
-    const alternates = head.id === base.id ? [] : [headDirectory];
-    if (
-      !(await mergeBase({
-        gitDir: baseDirectory,
-        alternates,
-        a: baseSha,
-        b: headSha,
-      }))
-    ) {
-      throw new UnrelatedHistoriesError();
-    }
+    const { gitDir: baseDirectory, alternates } = range;
 
     const [existing] = await this.db
       .select({ number: schema.issue.number })
@@ -262,7 +252,7 @@ export class PullRequestsService {
     base: baseRef,
     head: headSpec,
   }: CompareParams) {
-    const base = await this.authorize({ username, repo, requesterId });
+    const base = await this.access.authorize({ username, repo, requesterId });
     const head = await this.resolveHead(base, headSpec, requesterId);
     const headRef = headSpec.includes(':')
       ? headSpec.slice(headSpec.indexOf(':') + 1)
@@ -285,6 +275,10 @@ export class PullRequestsService {
     if (!from) throw new UnrelatedHistoriesError();
 
     return {
+      base,
+      head,
+      headRef,
+      baseSha,
       from,
       to: headSha,
       range: { gitDir: baseDirectory, alternates, from, to: headSha },
@@ -302,15 +296,13 @@ export class PullRequestsService {
     requesterId?: string;
     query: GetPullRequestsQueryDTO;
   }) {
-    const base = await this.authorize({ username, repo, requesterId });
+    const base = await this.access.authorize({ username, repo, requesterId });
 
-    const requested = Number(query.limit);
-    const pageSize = Number.isFinite(requested)
-      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
-      : DEFAULT_PAGE_SIZE;
-
-    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-    if (query.cursor && !decoded) throw new InvalidCursorError();
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: { createdAt: schema.issue.createdAt, id: schema.pullRequest.id },
+    });
 
     const state = query.state ?? 'open';
     const rows = await this.db
@@ -321,23 +313,13 @@ export class PullRequestsService {
         and(
           eq(schema.pullRequest.baseRepositoryId, base.id),
           state === 'all' ? undefined : eq(schema.pullRequest.state, state),
-          decoded
-            ? or(
-                lt(schema.issue.createdAt, decoded.date),
-                and(
-                  eq(schema.issue.createdAt, decoded.date),
-                  lt(schema.pullRequest.id, decoded.id),
-                ),
-              )
-            : undefined,
+          list.where,
         ),
       )
-      .orderBy(desc(schema.issue.createdAt), desc(schema.pullRequest.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const hasMore = rows.length > pageSize;
-    const page = hasMore ? rows.slice(0, pageSize) : rows;
-    const last = page.at(-1);
+    const { page, hasMore, nextCursor } = list.page(rows);
 
     const [totals] = await this.db
       .select({ total: count() })
@@ -350,14 +332,9 @@ export class PullRequestsService {
       );
 
     return {
-      pullRequests: await Promise.all(
-        page.map((row) => this.expandPullRequest(row)),
-      ),
+      pullRequests: await this.expandPullRequests(page),
       total: totals?.total ?? 0,
-      nextCursor:
-        hasMore && last
-          ? encodeCursor({ date: last.createdAt, id: last.id })
-          : null,
+      nextCursor,
       hasMore,
     };
   }
@@ -391,12 +368,21 @@ export class PullRequestsService {
       headSha: git.headSha,
       mergeBase: git.mergeBase,
       commitCount: git.mergeBase
-        ? await this.countRange(git, `${git.mergeBase}..${git.headSha}`)
+        ? await countCommits({
+            gitDir: git.baseDirectory,
+            env: git.env,
+            range: `${git.mergeBase}..${git.headSha}`,
+          })
         : 0,
       changedFiles: files.length,
       additions: files.reduce((total, file) => total + file.additions, 0),
       deletions: files.reduce((total, file) => total + file.deletions, 0),
       mergeable: !pullRequest.draft && merge !== null && merge.clean,
+      viewerCanEdit: canEditThread(
+        pullRequest.authorId,
+        params.requesterId,
+        git.base.viewerRole,
+      ),
       conflicts: merge?.conflicts ?? [],
       pullRefsBlocked: pullRequest.pullRefsBlocked,
       squash: merge ? await this.squashMessage({ ...git, pullRequest }) : null,
@@ -451,10 +437,7 @@ export class PullRequestsService {
     const git = await this.open(params);
     if (!git.mergeBase) return { commits: [], total: 0, nextCursor: null };
 
-    const limit = Math.min(
-      Math.max(params.limit ?? DEFAULT_PAGE_SIZE, 1),
-      MAX_PAGE_SIZE,
-    );
+    const limit = params.limit ?? DEFAULT_PAGE_SIZE;
     const { commits, nextCursor } = await listCommits({
       gitDir: git.baseDirectory,
       env: git.env,
@@ -474,7 +457,11 @@ export class PullRequestsService {
         ...commit,
         verification: verdicts.get(commit.sha) ?? null,
       })),
-      total: await this.countRange(git, `${git.mergeBase}..${git.headSha}`),
+      total: await countCommits({
+        gitDir: git.baseDirectory,
+        env: git.env,
+        range: `${git.mergeBase}..${git.headSha}`,
+      }),
       nextCursor,
     };
   }
@@ -531,8 +518,9 @@ export class PullRequestsService {
       base,
       pullRequest.headRepositoryId!,
     );
-    if (!git.mergeBase) throw new UnrelatedHistoriesError();
-    if (git.mergeBase === git.headSha) throw new NothingToMergeError();
+    const { mergeBase } = git;
+    if (!mergeBase) throw new UnrelatedHistoriesError();
+    if (mergeBase === git.headSha) throw new NothingToMergeError();
 
     const method = params.method ?? 'merge';
     const merger = await this.users.getUserById(params.requesterId);
@@ -548,9 +536,15 @@ export class PullRequestsService {
           });
     // A rebase drops merge commits, so a head made only of them replays to nothing.
     if (mergeCommitSha === git.baseSha) throw new NothingToMergeError();
+    const transitions = [
+      {
+        ref: `refs/heads/${pullRequest.baseRef}`,
+        oldOid: Buffer.from(git.baseSha, 'hex'),
+        newOid: Buffer.from(mergeCommitSha, 'hex'),
+      },
+    ];
 
-    const directory = await mkdtemp(path.join(tmpdir(), 'ghost-merge-'));
-    try {
+    return await withTempDir('ghost-merge-', async (directory) => {
       // The pull head ref is in the base log, so whatever it reaches was already written there by the last sync and only the merge itself is new.
       const pulledHead = await resolveCommit(
         git.baseDirectory,
@@ -576,7 +570,7 @@ export class PullRequestsService {
               await lfsPointersIn({
                 gitDir: git.headDirectory,
                 include: [git.headSha],
-                exclude: [git.mergeBase],
+                exclude: [mergeBase],
               }),
             );
       await this.lfs.copy(lfsObjects, git.head.id, base.id);
@@ -597,13 +591,13 @@ export class PullRequestsService {
         }
         await this.quota.assertRoomToMerge(
           storageAccountOf(base),
-          storageKindOf(base),
+          billedKindOf(base, 'repository'),
           tx,
         );
         if (lfsObjects.length > 0) {
           await this.quota.assertRoomToMerge(
             storageAccountOf(base),
-            lfsKindOf(base),
+            billedKindOf(base, 'lfs'),
             tx,
           );
           await this.lfs.record(tx, lfsObjects, base.id);
@@ -611,13 +605,7 @@ export class PullRequestsService {
 
         const { seq } = await this.pushTransaction.commitPush({
           repoId: base.id,
-          transitions: [
-            {
-              ref: `refs/heads/${pullRequest.baseRef}`,
-              oldOid: Buffer.from(git.baseSha, 'hex'),
-              newOid: Buffer.from(mergeCommitSha, 'hex'),
-            },
-          ],
+          transitions,
           body: fileBody(pack.path, pack.size),
           packOffset: 0,
           pushedBy: params.requesterId,
@@ -673,32 +661,30 @@ export class PullRequestsService {
         });
       }
 
-      await this.db
-        .update(schema.repository)
-        .set({ lastPushedAt: new Date() })
-        .where(eq(schema.repository.id, base.id));
-
-      // The base moved, so every other request into it needs a new test merge; this one only needs its head pinned to what merged.
+      // The base moved, so every other request into it needs a new test merge, and a request from the base branch just gained its commits; this one only needs its head pinned to what merged.
       this.pullRefs.syncInBackground(pullRequest.id);
-      const transitions = [
-        {
-          ref: `refs/heads/${pullRequest.baseRef}`,
-          oldOid: Buffer.from(git.baseSha, 'hex'),
-          newOid: Buffer.from(mergeCommitSha, 'hex'),
-        },
-      ];
-      await this.pullRefs.syncAfterPush({ repositoryId: base.id, transitions });
-      // a request from the branch this one merged into just gained its commits
-      await this.pullRequestPushes.recordPush({
+      await this.afterPush({
         repositoryId: base.id,
         transitions,
         pushedBy: params.requesterId,
       });
 
       return { mergeCommitSha, seq };
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
+    });
+  }
+
+  /** The bookkeeping after the API itself pushed to a branch: merges and applied suggestions. */
+  async afterPush(push: {
+    repositoryId: string;
+    transitions: RefTransition[];
+    pushedBy: string;
+  }) {
+    await this.pullRefs.syncAfterPush(push);
+    await this.pullRequestPushes.recordPush(push);
+    await this.db
+      .update(schema.repository)
+      .set({ lastPushedAt: new Date() })
+      .where(eq(schema.repository.id, push.repositoryId));
   }
 
   /** A merge commit on top of the base tip, or with `squash` the same tree as a single-parent commit credited to the request's author. */
@@ -835,7 +821,7 @@ export class PullRequestsService {
   ) {
     const { pullRequest, base } = await this.load(params);
     if (pullRequest.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.access.authorize({ ...params, operation: 'write' });
     }
     if (pullRequest.state !== 'open') {
       throw new PullRequestNotOpenError(pullRequest.state);
@@ -896,7 +882,7 @@ export class PullRequestsService {
 
   private async openMerged(
     pullRequest: PullRequest,
-    base: Repository,
+    base: AuthorizedRepository,
     mergeCommitSha: string,
   ) {
     const baseDirectory = await this.materializer.open(base);
@@ -924,7 +910,7 @@ export class PullRequestsService {
   /** Materializes both sides and resolves the branches as they stand now. */
   async openLive(
     pullRequest: PullRequest,
-    base: Repository,
+    base: AuthorizedRepository,
     headRepositoryId: string,
   ) {
     const [head] = await this.db
@@ -988,7 +974,7 @@ export class PullRequestsService {
     requesterId,
     operation,
   }: PullRequestRef) {
-    const base = await this.authorize({
+    const base = await this.access.authorize({
       username,
       repo,
       requesterId,
@@ -1009,53 +995,10 @@ export class PullRequestsService {
     return { pullRequest, base };
   }
 
-  private authorize({
-    username,
-    repo,
-    requesterId,
-    operation = 'read',
-  }: {
-    username: string;
-    repo: string;
-    requesterId?: string;
-    operation?: RepositoryOperation;
-  }) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation,
-    });
-  }
-
   private async resolveBranch(gitDir: string, branch: string) {
-    const sha = await runGit({
-      args: [
-        'rev-parse',
-        '--verify',
-        '--end-of-options',
-        `refs/heads/${branch}`,
-      ],
-      gitDir,
-    }).catch(() => '');
-
-    if (!sha.trim()) throw new BranchNotFoundError(branch);
-    return sha.trim();
-  }
-
-  private async countRange(
-    {
-      baseDirectory,
-      env,
-    }: { baseDirectory: string; env?: Record<string, string> },
-    range: string,
-  ) {
-    const raw = await runGit({
-      args: ['rev-list', '--count', '--end-of-options', range],
-      gitDir: baseDirectory,
-      env,
-    });
-    return Number(raw.trim()) || 0;
+    const sha = await resolveCommit(gitDir, toBranchRef(branch));
+    if (!sha) throw new BranchNotFoundError(branch);
+    return sha;
   }
 
   /** `owner:branch` names a branch on another repository in the same fork network - the base itself, a fork of it, or the repository the base was forked from. Anything else is not a pull request, it is two unrelated repos. */
@@ -1088,54 +1031,78 @@ export class PullRequestsService {
     return this.access.authorize({
       username: owner,
       repo: related.slug,
-      actor: { userId: requesterId },
+      requesterId,
       operation: 'read',
     });
   }
 
   private async expandPullRequest(pullRequest: PullRequest) {
-    const sides = await this.db
-      .select({
-        repositoryId: schema.repository.id,
-        slug: schema.repository.slug,
-        username: ownerNameOf(schema.user, schema.organization),
-      })
-      .from(schema.repository)
-      .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
-      .leftJoin(
-        schema.organization,
-        eq(schema.organization.id, schema.repository.organizationId),
-      )
-      .where(
-        inArray(schema.repository.id, [
-          pullRequest.baseRepositoryId,
-          pullRequest.headRepositoryId ?? pullRequest.baseRepositoryId,
-        ]),
-      );
+    const [expanded] = await this.expandPullRequests([pullRequest]);
+    return expanded;
+  }
 
-    const author = await this.users.getUserById(pullRequest.authorId);
+  private async expandPullRequests(pullRequests: PullRequest[]) {
+    if (pullRequests.length === 0) return [];
+    const repositoryIds = pullRequests.flatMap((pullRequest) =>
+      pullRequest.headRepositoryId
+        ? [pullRequest.baseRepositoryId, pullRequest.headRepositoryId]
+        : [pullRequest.baseRepositoryId],
+    );
+    const [sides, authors] = await Promise.all([
+      this.db
+        .select({
+          repositoryId: schema.repository.id,
+          slug: schema.repository.slug,
+          username: ownerNameOf(schema.user, schema.organization),
+        })
+        .from(schema.repository)
+        .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))
+        .leftJoin(
+          schema.organization,
+          eq(schema.organization.id, schema.repository.organizationId),
+        )
+        .where(inArray(schema.repository.id, [...new Set(repositoryIds)])),
+      this.db
+        .select({
+          id: schema.user.id,
+          username: schema.user.username,
+          image: schema.user.image,
+        })
+        .from(schema.user)
+        .where(
+          inArray(schema.user.id, [
+            ...new Set(pullRequests.map((pullRequest) => pullRequest.authorId)),
+          ]),
+        ),
+    ]);
+
+    const sideById = new Map(sides.map((side) => [side.repositoryId, side]));
+    const authorById = new Map(authors.map((author) => [author.id, author]));
     // A deleted head repository has no row, and reads as null rather than as some other repository.
     const sideOf = (repositoryId: string | null, ref: string) => {
-      const row = sides.find((side) => side.repositoryId === repositoryId);
+      const row = repositoryId ? sideById.get(repositoryId) : undefined;
       return { username: row?.username ?? null, slug: row?.slug ?? null, ref };
     };
 
-    return {
-      id: pullRequest.id,
-      number: pullRequest.number,
-      title: pullRequest.title,
-      body: pullRequest.body,
-      state: pullRequest.state,
-      draft: pullRequest.draft,
-      base: sideOf(pullRequest.baseRepositoryId, pullRequest.baseRef),
-      head: sideOf(pullRequest.headRepositoryId, pullRequest.headRef),
-      headSha: pullRequest.headSha,
-      mergeCommitSha: pullRequest.mergeCommitSha,
-      authorUsername: author.username ?? '',
-      authorImage: author.image ?? null,
-      createdAt: pullRequest.createdAt.toISOString(),
-      updatedAt: pullRequest.updatedAt.toISOString(),
-    };
+    return pullRequests.map((pullRequest) => {
+      const author = authorById.get(pullRequest.authorId);
+      return {
+        id: pullRequest.id,
+        number: pullRequest.number,
+        title: pullRequest.title,
+        body: pullRequest.body,
+        state: pullRequest.state,
+        draft: pullRequest.draft,
+        base: sideOf(pullRequest.baseRepositoryId, pullRequest.baseRef),
+        head: sideOf(pullRequest.headRepositoryId, pullRequest.headRef),
+        headSha: pullRequest.headSha,
+        mergeCommitSha: pullRequest.mergeCommitSha,
+        authorUsername: author?.username ?? '',
+        authorImage: author?.image ?? null,
+        createdAt: pullRequest.createdAt.toISOString(),
+        updatedAt: pullRequest.updatedAt.toISOString(),
+      };
+    });
   }
 }
 

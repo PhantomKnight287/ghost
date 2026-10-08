@@ -10,8 +10,9 @@ import {
 import { and, eq, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
+import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 import { MailService } from '../../mail/mail.service.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -31,9 +32,7 @@ export class WebhookBreakerService
   onApplicationBootstrap() {
     this.timer = setInterval(() => {
       this.sweep().catch((error: unknown) =>
-        this.logger.error(
-          `Webhook upkeep failed: ${error instanceof Error ? error.message : String(error)}`,
-        ),
+        this.logger.error(`Webhook upkeep failed: ${errorMessage(error)}`),
       );
     }, SWEEP_INTERVAL_MS);
   }
@@ -165,7 +164,7 @@ export class WebhookBreakerService
           })
           .catch((error: unknown) =>
             this.logger.warn(
-              `Emailing ${recipient.email} about webhook ${endpoint.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+              `Emailing ${recipient.email} about webhook ${endpoint.id} failed: ${errorMessage(error)}`,
             ),
           );
       }

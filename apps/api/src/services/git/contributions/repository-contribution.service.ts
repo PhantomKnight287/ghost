@@ -16,8 +16,10 @@ import { DATABASE } from '../../../database/database.module.js';
 import { runGitStream } from '../../../lib/git/exec/run-git.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
-import { excluded } from '../../../utils/index.js';
+import { excluded } from '../../../lib/db/sql.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
+import { SingleFlight } from '../../../lib/single-flight.js';
+import { splitRecords } from '../../../lib/git/exec/split-records.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -35,11 +37,6 @@ interface PendingDay {
   commits: number;
 }
 
-/**
- * Keeps `repository_contribution` in step with a repository's default branch, so the profile contribution graph costs one indexed query instead of materializing and walking every repository the user owns.
- *
- * A cache of git, rebuilt from the object database whenever the stored position stops making sense. Only the default branch is indexed.
- */
 export interface IndexedContributor {
   authorEmail: string;
   /** Name from the author's newest indexed commit, preferring the account's. */
@@ -51,10 +48,11 @@ export interface IndexedContributor {
   lastCommittedAt: Date;
 }
 
+/** Keeps `repository_contribution` in step with a repository's default branch, so the contribution graph costs one indexed query; a cache of git, rebuilt whenever its stored position stops making sense. */
 @Injectable()
 export class RepositoryContributionService {
   private readonly logger = new Logger(RepositoryContributionService.name);
-  private readonly inFlight = new Map<string, Promise<string | null>>();
+  private readonly inFlight = new SingleFlight<string | null>();
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
@@ -66,14 +64,9 @@ export class RepositoryContributionService {
     repositoryId: string;
     repoDirectory: string;
   }): Promise<string | null> {
-    const pending = this.inFlight.get(repositoryId);
-    if (pending) return pending;
-
-    const run = this.reindex({ repositoryId, repoDirectory }).finally(() =>
-      this.inFlight.delete(repositoryId),
+    return this.inFlight.run(repositoryId, () =>
+      this.reindex({ repositoryId, repoDirectory }),
     );
-    this.inFlight.set(repositoryId, run);
-    return run;
   }
 
   /** The contributors list, straight from the index: per-author totals with the linked account resolved over the `author_id` foreign key. No git, no materialization - callers only need read access to the repository row. */
@@ -225,21 +218,11 @@ export class RepositoryContributionService {
       gitDir: repoDirectory,
     });
 
-    let carry = '';
-    for await (const chunk of stream) {
-      carry += chunk;
-      const records = carry.split(RECORD);
-      carry = records.pop() ?? '';
-      for (const record of records) {
-        this.accumulate(pending, record);
-        if (pending.size >= FLUSH_THRESHOLD) {
-          written += await this.flush(repositoryId, pending);
-        }
+    for await (const record of splitRecords(stream, RECORD)) {
+      this.accumulate(pending, record);
+      if (pending.size >= FLUSH_THRESHOLD) {
+        written += await this.flush(repositoryId, pending);
       }
-    }
-    const trailing = this.accumulate(pending, carry);
-    if (trailing && pending.size >= FLUSH_THRESHOLD) {
-      written += await this.flush(repositoryId, pending);
     }
 
     written += await this.flush(repositoryId, pending);

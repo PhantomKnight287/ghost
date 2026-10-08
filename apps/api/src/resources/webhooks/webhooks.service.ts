@@ -16,14 +16,14 @@ import {
 } from '../../lib/webhooks/webhooks.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import type { DeliveryAttemptDTO } from './dto/webhook.dto.js';
 import {
   DeliveryNotFoundError,
   InvalidWebhookUrlError,
   WebhookNotFoundError,
   WebhooksNotConfiguredError,
-} from './webhooks.errors.js';
+} from '../../lib/webhooks/webhooks.errors.js';
 
 const DELIVERY_LOG_LENGTH = 50;
 
@@ -66,7 +66,7 @@ export class WebhooksService {
     const repository = await this.access.authorize({
       username,
       repo,
-      actor: { userId: requesterId },
+      requesterId,
       operation: 'admin',
     });
     return { repositoryId: repository.id, name: `${username}/${repo}` };

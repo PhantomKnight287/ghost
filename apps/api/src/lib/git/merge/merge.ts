@@ -149,11 +149,7 @@ export async function testMergeCommit({
   });
 }
 
-/**
- * Replays every non-merge commit in `from..to` onto `onto`, oldest first, keeping each one's author and message; merge commits are dropped, the way `git rebase` linearizes a branch.
- *
- * Stops at the first commit that conflicts and names its paths. Nothing is written but objects, so a conflict leaves no trace a caller has to undo.
- */
+/** Merge commits are dropped, the way `git rebase` linearizes a branch. Stops at the first conflict; nothing is written but objects, so a conflict leaves no trace a caller has to undo. */
 export async function rebaseCommits({
   gitDir,
   alternates,
@@ -216,11 +212,7 @@ export async function rebaseCommits({
   return { clean: true, tip };
 }
 
-/**
- * A packfile holding everything reachable from `include` that `exclude` does not already cover.
- *
- * `exclude` must be what the *target* log already holds, never the head commit: a fork's commits live in another repository's log, so excluding them would write an entry whose merge commit no node could ever replay.
- */
+/** `exclude` must be what the *target* log already holds, never the head commit: a fork's commits live in another repository's log, so excluding them would write an entry whose merge commit no node could ever replay. */
 export async function packRange({
   gitDir,
   alternates,

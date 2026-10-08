@@ -1,10 +1,10 @@
 "use client";
 
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Combobox,
   ComboboxChip,
@@ -88,17 +88,12 @@ export function AssigneePicker({
           <ComboboxList>
             {(name: string) => (
               <ComboboxItem key={name} value={name}>
-                <Avatar className="size-5">
-                  {byName.get(name)?.image && (
-                    <AvatarImage
-                      src={byName.get(name)?.image ?? undefined}
-                      alt=""
-                    />
-                  )}
-                  <AvatarFallback className="text-[10px]">
-                    {name.slice(0, 1).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <ProfileAvatar
+                  name={name}
+                  image={byName.get(name)?.image}
+                  className="size-5"
+                  fallbackClassName="text-[10px]"
+                />
                 <span className="font-medium">{name}</span>
                 <span className="truncate text-muted-foreground">
                   {byName.get(name)?.name}

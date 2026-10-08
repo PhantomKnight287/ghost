@@ -1,13 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { spawn } from 'node:child_process';
 import { PassThrough, Readable } from 'node:stream';
-import {
-  FLUSH_PACKET,
-  protocolEnv,
-  toGitBinary,
-  type GitServiceName,
-} from '../../../git/git.constants.js';
+import { FLUSH_PACKET } from '../../../lib/git/protocol/pkt-line.js';
+import { type GitServiceName } from '../../../lib/git/protocol/git-service.js';
 import { pktLine } from '../../../lib/git/protocol/pkt-line.js';
+import { spawnPack } from '../../../lib/git/protocol/spawn-pack.js';
 
 @Injectable()
 export class RefAdvertisementService {
@@ -42,20 +38,12 @@ export class RefAdvertisementService {
     service: GitServiceName;
     protocol?: string;
   }): Readable {
-    const binary = toGitBinary(service);
-    const output = new PassThrough();
-
-    const child = spawn(
-      'git',
-      [binary, '--stateless-rpc', '--advertise-refs', repoDirectory],
-      { env: { ...process.env, ...protocolEnv(protocol) } },
-    );
-    child.stdout.pipe(output);
-    child.stderr.on('data', (chunk: Buffer) =>
-      this.logger.warn(`${binary} stderr: ${chunk.toString()}`),
-    );
-    child.on('error', (error) => output.destroy(error));
-
-    return output;
+    return spawnPack({
+      service,
+      repoDirectory,
+      protocol,
+      flags: ['--advertise-refs'],
+      warn: (message) => this.logger.warn(message),
+    });
   }
 }

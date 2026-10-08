@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import type { components } from "@/lib/api/v1";
 import type { ViewerRole } from "@/lib/repository-role";
 
@@ -35,11 +35,9 @@ export function ImportBanner({
     queryKey: ["repository-import", username, repo],
     initialData: initial,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET(
-        "/api/repositories/{username}/{repo}/import",
-        path,
+      const data = await unwrap(
+        apiClient.GET("/api/repositories/{username}/{repo}/import", path),
       );
-      if (error) throw new Error(apiErrorMessage(error));
       return data;
     },
     refetchInterval: (query) =>
@@ -52,11 +50,12 @@ export function ImportBanner({
 
   const retry = useMutation({
     mutationFn: async () => {
-      const { error } = await apiClient.POST(
-        "/api/repositories/{username}/{repo}/import/retry",
-        path,
+      await unwrap(
+        apiClient.POST(
+          "/api/repositories/{username}/{repo}/import/retry",
+          path,
+        ),
       );
-      if (error) throw new Error(apiErrorMessage(error));
     },
     onSuccess: () => refetch(),
   });

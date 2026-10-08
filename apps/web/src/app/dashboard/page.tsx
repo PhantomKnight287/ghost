@@ -4,24 +4,15 @@ import { useDebouncedValue } from "@tanstack/react-pacer";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import {
-  BookLock,
-  BookMarked,
-  GitBranch,
-  Plus,
-  Search,
-  Users,
-} from "lucide-react";
+import { BookMarked, GitBranch, Plus, Search, Users } from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
 import { CreateOrganizationDialog } from "@/components/auth/organization/create-organization-dialog";
-import { Invitations } from "@/components/repositories/invitations";
+import { Invitations } from "./invitations";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
 import type { Repository } from "@/components/repository-card";
-import { FromNowHoverCard } from "@/components/from-now-card";
 import { useAuthenticate } from "@/lib/auth/use-authenticate";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   InputGroup,
   InputGroupAddon,
@@ -35,9 +26,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import { authClient } from "@/lib/auth-client";
-import { cn } from "@/lib/utils";
+import { StartCard } from "./start-card";
+import { RepositoryRow, RepositoryRowSkeleton } from "./repository-row";
 
 const ALL = "all";
 
@@ -56,8 +48,7 @@ export default function DashboardPage() {
     queryKey: ["my-organizations", "all"],
     enabled: Boolean(username),
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/organizations");
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(apiClient.GET("/api/organizations"));
       return data.organizations;
     },
   });
@@ -71,24 +62,18 @@ export default function DashboardPage() {
       const scoped = [context === ALL ? "" : `org:${context}`, search]
         .filter(Boolean)
         .join(" ");
-      const { data, error } = await apiClient.GET("/api/repositories", {
-        params: { query: { q: scoped || undefined, limit: 50 } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
-      return data.repositories.map((repository) => ({
-        name: repository.name,
-        slug: repository.slug,
-        owner: repository.owner,
-        description: repository.description ?? undefined,
-        visibility: repository.visibility,
-        updatedAt: repository.lastPushedAt,
-      }));
+      const data = await unwrap(
+        apiClient.GET("/api/repositories", {
+          params: { query: { q: scoped || undefined, limit: 50 } },
+        }),
+      );
+      return data.repositories;
     },
   });
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader username={username} owners={owners} />
+      <AppHeader username={username} />
 
       <main className="mx-auto grid w-full max-w-6xl flex-1 gap-8 px-4 py-8 md:px-6 lg:grid-cols-[300px_1fr]">
         <aside className="flex flex-col gap-4">
@@ -140,13 +125,19 @@ export default function DashboardPage() {
                 </li>
               ))}
             </ul>
+          ) : isPending ? (
+            <ul className="-mx-2 flex flex-col">
+              {[0, 1, 2, 3].map((row) => (
+                <li key={row}>
+                  <RepositoryRowSkeleton />
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {isPending
-                ? "Loading repositories…"
-                : search
-                  ? "No repositories match."
-                  : "You don't have any repositories yet."}
+              {search
+                ? "No repositories match."
+                : "You don't have any repositories yet."}
             </p>
           )}
 
@@ -180,11 +171,13 @@ export default function DashboardPage() {
                 description="Host code, track changes, and collaborate."
               />
             </NewRepositoryDialog>
-            <StartCard
-              icon={<GitBranch className="size-5" />}
-              title="Import a repository"
-              description="Bring an existing project over with its history."
-            />
+            <NewRepositoryDialog owners={owners} defaultOwner={username}>
+              <StartCard
+                icon={<GitBranch className="size-5" />}
+                title="Import a repository"
+                description="Bring an existing project over with its history."
+              />
+            </NewRepositoryDialog>
             <StartCard
               icon={<Users className="size-5" />}
               title="Start an organization"
@@ -196,85 +189,8 @@ export default function DashboardPage() {
               onOpenChange={setCreatingOrganization}
             />
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Recent activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Activity from repositories you own or watch will show up here.
-              </p>
-            </CardContent>
-          </Card>
         </section>
       </main>
     </div>
-  );
-}
-
-/** Clickable when it opens something: as a dialog trigger, the dialog passes its click handler in through `props`. */
-function StartCard({
-  icon,
-  title,
-  description,
-  ...props
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-} & React.ComponentProps<typeof Card>) {
-  const interactive = Boolean(props.onClick);
-  return (
-    <Card
-      {...props}
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      onKeyDown={(event) => {
-        if (interactive && (event.key === "Enter" || event.key === " ")) {
-          event.preventDefault();
-          event.currentTarget.click();
-        }
-      }}
-      className={cn(
-        "gap-3",
-        interactive && "cursor-pointer transition-colors hover:bg-muted/50",
-      )}
-    >
-      <CardHeader>
-        <span className="text-muted-foreground">{icon}</span>
-        <CardTitle className="text-sm">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/** One line per repository: the sidebar is too narrow for a card. */
-function RepositoryRow({ repository }: { repository: Repository }) {
-  const fullName = `${repository.owner}/${repository.name}`;
-  const Icon = repository.visibility === "private" ? BookLock : BookMarked;
-
-  return (
-    <Link
-      href={`/${repository.owner}/${repository.slug}`}
-      title={fullName}
-      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-    >
-      <Icon
-        className="size-4 shrink-0 text-muted-foreground"
-        aria-label={repository.visibility}
-      />
-      <span className="min-w-0 flex-1 truncate">
-        <span className="text-muted-foreground">{repository.owner}/</span>
-        <span className="font-medium">{repository.name}</span>
-      </span>
-      <FromNowHoverCard
-        date={repository.updatedAt}
-        className="shrink-0 text-xs text-muted-foreground"
-      />
-    </Link>
   );
 }

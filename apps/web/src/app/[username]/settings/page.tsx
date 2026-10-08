@@ -1,16 +1,16 @@
 import { notFound } from "next/navigation";
 
-import { OrganizationGeneral } from "@/components/organizations/organization-general";
-import { createServerClient } from "@/lib/api/server";
+import { OrganizationGeneral } from "./organization-general";
+import { createServerClient, getOrganizationRole } from "@/lib/api/server";
 
 export default async function OrganizationGeneralPage({
   params,
 }: PageProps<"/[username]/settings">) {
   const { username: slug } = await params;
   const client = await createServerClient();
-  const [profile, mine, settings, repositories] = await Promise.all([
+  const [profile, role, settings, repositories] = await Promise.all([
     client.GET("/api/organizations/{slug}", { params: { path: { slug } } }),
-    client.GET("/api/organizations"),
+    getOrganizationRole(slug),
     client.GET("/api/organizations/{slug}/settings", {
       params: { path: { slug } },
     }),
@@ -20,9 +20,6 @@ export default async function OrganizationGeneralPage({
     }),
   ]);
   if (!profile.data || !settings.data) notFound();
-  const role = mine.data?.organizations.find(
-    (org) => org.slug === slug,
-  )?.viewerRole;
 
   return (
     <OrganizationGeneral

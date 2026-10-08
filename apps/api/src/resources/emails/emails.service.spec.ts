@@ -23,7 +23,7 @@ import {
   EmailNotVerifiedError,
   InvalidVerificationTokenError,
   ResendTooSoonError,
-} from './emails.errors.js';
+} from '../../lib/emails/emails.errors.js';
 import { EmailsService } from './emails.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;

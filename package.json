@@ -10,7 +10,7 @@
   "scripts": {
     "build": "dotenv -e .env turbo run build",
     "dev": "dotenv -e .env turbo run dev",
-    "lint": "dotenv -e .env turbo run lint",
+    "lint": "bun scripts/check-standards.ts && dotenv -e .env turbo run lint",
     "test": "dotenv -e .env turbo run test",
     "check-types": "dotenv -e .env turbo run check-types",
     "db:generate": "dotenv -e .env turbo run db:generate",
@@ -20,7 +20,8 @@
     "openapi": "dotenv -e .env -- bun run --filter @ghost/api openapi && bun run --filter @ghost/web generate",
     "email:dev": "dotenv -e .env -- bun run --filter @ghost/api email:dev",
     "format": "turbo run format",
-    "format:check": "biome format ."
+    "format:check": "biome format .",
+    "check:standards": "bun scripts/check-standards.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",

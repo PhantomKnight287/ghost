@@ -8,31 +8,18 @@ import {
 } from "@better-auth-ui/react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { FieldDescription, FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
-import { isAuthFormFieldInvalid, useAuthForm } from "./auth-form";
+import { useAuthForm } from "./auth-form";
 import { RESET_LINK_SENT_STORAGE_KEY } from "./reset-link-sent";
 
-export type ForgotPasswordProps = {
-  className?: string;
-};
-
-/** Render a card-based "Forgot Password" form that sends a password-reset email. */
-export function ForgotPassword({ className }: ForgotPasswordProps) {
+export function ForgotPassword() {
   const {
     authClient,
     baseURL,
     basePaths,
     localization,
     navigate,
-    plugins,
     viewPaths,
     Link,
   } = useAuth();
@@ -66,12 +53,8 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
       }),
   });
 
-  const Captcha = plugins.find(
-    (plugin) => plugin.captchaComponent,
-  )?.captchaComponent;
-
   return (
-    <Card className={cn("w-full max-w-sm", className)}>
+    <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle className="text-xl font-semibold">
           {localization.auth.forgotPassword}
@@ -92,35 +75,17 @@ export function ForgotPassword({ className }: ForgotPasswordProps) {
                     }),
                 }}
               >
-                {(field) => {
-                  const isInvalid = isAuthFormFieldInvalid(field.state.meta);
-                  return (
-                    <Field data-invalid={isInvalid}>
-                      <FieldLabel htmlFor="email">
-                        {localization.auth.email}
-                      </FieldLabel>
-                      <Input
-                        id="email"
-                        name={field.name}
-                        type="email"
-                        autoComplete="email"
-                        placeholder={localization.auth.emailPlaceholder}
-                        required
-                        disabled={isPending}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        aria-invalid={isInvalid}
-                      />
-                      <field.AuthFormFieldError />
-                    </Field>
-                  );
-                }}
+                {(field) => (
+                  <field.AuthFormTextField
+                    label={localization.auth.email}
+                    type="email"
+                    autoComplete="email"
+                    placeholder={localization.auth.emailPlaceholder}
+                    required
+                    disabled={isPending}
+                  />
+                )}
               </form.AppField>
-
-              {Captcha && <div className="flex justify-center">{Captcha}</div>}
 
               <div className="flex flex-col gap-3">
                 <form.AuthFormSubmitButton disabled={isPending}>

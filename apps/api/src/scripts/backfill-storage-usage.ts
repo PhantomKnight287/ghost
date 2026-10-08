@@ -1,8 +1,5 @@
 /**
- * Bills every repository for the log entries pushed before pushes were recorded (0035). Until it runs, those bytes count for nothing against any quota.
- *
- * Without --apply it only reports. Safe beside a running API and safe to run again: rows are keyed by entry, so a push recorded meanwhile is skipped.
- *
+ * Bills every repository for log entries pushed before pushes were recorded (0035). Without --apply it only reports. Safe beside a running API and safe to rerun: rows are keyed by entry.
  * node dist/scripts/backfill-storage-usage.js [--apply], after `nest build`
  */
 import { type Database, schema } from '@ghost/db';
@@ -15,6 +12,7 @@ import { formatByteSize } from '../lib/storage/byte-size.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
 import { S3Service } from '../services/s3/s3.service.js';
 import { RepositoryLogBackfillService } from '../services/storage/repository-log-backfill.service.js';
+import { errorMessage } from '../lib/error-message.js';
 
 // Only what a backfill needs, so the script opens no HTTP or SSH listener and starts no poller.
 @Module({
@@ -48,9 +46,7 @@ for (const { id } of repositories) {
     console.log(`${id}: ${rows.length} entries, ${formatByteSize(bytes)}`);
   } catch (error) {
     failed++;
-    console.error(
-      `${id}: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    console.error(`${id}: ${errorMessage(error)}`);
   }
 }
 

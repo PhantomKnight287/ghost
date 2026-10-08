@@ -2,7 +2,7 @@ import { schema } from '@ghost/db';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn } from 'class-validator';
 
-import type { CollaboratorRole } from '../../../lib/git/repository-access/repository-access.js';
+import type { CollaboratorRole } from '../../../lib/repositories/access/repository-access.js';
 
 const roleProperty = {
   enumName: 'RepositoryRole',

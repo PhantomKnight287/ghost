@@ -19,19 +19,13 @@ export class UsersService {
 
   /** Every address that resolves to an account: the one Better Auth signs it in with, plus the verified extras. Unverified rows are left out - they are claims, not proof. */
   async listVerifiedEmails(user: { id: string; email: string }) {
-    const rows = await this.database
-      .select({ email: schema.userEmail.email })
-      .from(schema.userEmail)
-      .where(
-        and(
-          eq(schema.userEmail.userId, user.id),
-          eq(schema.userEmail.verified, true),
-        ),
-      );
-    return [user.email.toLowerCase(), ...rows.map((row) => row.email)];
+    return (
+      (await this.verifiedEmailsByUser([user.id])).get(user.id) ?? [
+        user.email.toLowerCase(),
+      ]
+    );
   }
 
-  /** {@link listVerifiedEmails} for several accounts at once, keyed by user id. */
   async verifiedEmailsByUser(
     userIds: string[],
   ): Promise<Map<string, string[]>> {

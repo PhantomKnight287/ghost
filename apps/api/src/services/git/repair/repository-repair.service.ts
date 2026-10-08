@@ -31,6 +31,7 @@ import { isNotFound } from '../../../lib/s3/s3.errors.js';
 import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../wal/push-transaction.service.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
+import { objectTypes } from '../../../lib/git/exec/object-types.js';
 
 // A repair that loses the index to a push starts over; a repository still being pushed to this often was never broken.
 const MAX_ATTEMPTS = 3;
@@ -51,11 +52,7 @@ interface Diagnosis extends RepairReport {
   rescuePack: string | null;
 }
 
-/**
- * Finds repositories whose log no node can replay, which makes every clone and push of them fail, and repairs them (0034).
- *
- * The log is replayed into an empty scratch repository rather than checked against the cache: the cache can hold objects the log does not, and so hide exactly the damage being looked for. The cache is only ever a source of objects to put back.
- */
+/** Finds repositories whose log no node can replay, which makes every clone and push of them fail, and repairs them (0034). The log is replayed into an empty scratch repository, not checked against the cache: the cache can hold objects the log lacks and so hide the damage. The cache is only a source of objects to put back. */
 @Injectable()
 export class RepositoryRepairService {
   constructor(
@@ -231,14 +228,11 @@ export class RepositoryRepairService {
 
     if (live.size > 0) {
       const refs = [...live.keys()];
-      const types = await runGit({
-        args: ['cat-file', '--batch-check=%(objecttype)'],
+      const types = await objectTypes({
         gitDir: scratch,
-        input: Buffer.from(
-          `${refs.map((ref) => live.get(ref)!.toString('hex')).join('\n')}\n`,
-        ),
+        oids: refs.map((ref) => live.get(ref)!.toString('hex')),
       });
-      for (const [i, type] of types.trim().split('\n').entries()) {
+      for (const [i, type] of types.entries()) {
         if (refs[i].startsWith('refs/heads/') && type !== 'commit') {
           drop(refs[i], `a branch must point at a commit, not a ${type}`);
         }

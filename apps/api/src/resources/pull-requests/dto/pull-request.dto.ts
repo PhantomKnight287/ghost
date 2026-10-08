@@ -3,11 +3,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsISO8601,
   IsIn,
   IsInt,
-  IsISO8601,
   IsOptional,
   IsString,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -182,6 +184,13 @@ export class PullRequestDetailDTO extends PullRequestDTO {
   @ValidateNested({ each: true })
   @Type(() => ReviewerDTO)
   reviewers: ReviewerDTO[];
+
+  @ApiProperty({
+    description:
+      'True when the requesting user is the author or can write to the base repository.',
+  })
+  @IsBoolean()
+  viewerCanEdit: boolean;
 }
 
 export class GetPullRequestsQueryDTO {
@@ -202,6 +211,8 @@ export class GetPullRequestsQueryDTO {
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(100)
   @IsOptional()
   limit?: number;
 }

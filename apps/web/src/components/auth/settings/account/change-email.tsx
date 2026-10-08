@@ -6,18 +6,9 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { isAuthFormFieldInvalid, useAuthForm } from "../../auth-form";
+import { useAuthForm } from "../../auth-form";
 
-export type ChangeEmailProps = {
-  className?: string;
-};
-
-/** Render a card containing a form to view and update the authenticated user's email. */
-export function ChangeEmail({ className }: ChangeEmailProps) {
+export function ChangeEmail() {
   const { authClient, basePaths, baseURL, localization, viewPaths } = useAuth();
   const { data: session } = useSession(authClient);
 
@@ -50,7 +41,7 @@ export function ChangeEmail({ className }: ChangeEmailProps) {
 
       <form.AppForm>
         <form.AuthFormRoot>
-          <Card className={cn(className)}>
+          <Card>
             <CardContent className="flex flex-col gap-6">
               <form.AppField
                 name="email"
@@ -62,38 +53,17 @@ export function ChangeEmail({ className }: ChangeEmailProps) {
                     }),
                 }}
               >
-                {(field) => {
-                  const isInvalid = isAuthFormFieldInvalid(field.state.meta);
-                  return (
-                    <Field data-invalid={isInvalid}>
-                      <FieldLabel htmlFor="email">
-                        {localization.auth.email}
-                      </FieldLabel>
-                      {session ? (
-                        <Input
-                          id="email"
-                          name={field.name}
-                          type="email"
-                          autoComplete="email"
-                          value={field.state.value}
-                          onBlur={field.handleBlur}
-                          onChange={(event) =>
-                            field.handleChange(event.target.value)
-                          }
-                          placeholder={localization.auth.emailPlaceholder}
-                          disabled={isPending}
-                          required
-                          aria-invalid={isInvalid}
-                        />
-                      ) : (
-                        <Skeleton>
-                          <Input className="invisible" />
-                        </Skeleton>
-                      )}
-                      <field.AuthFormFieldError />
-                    </Field>
-                  );
-                }}
+                {(field) => (
+                  <field.AuthFormTextField
+                    label={localization.auth.email}
+                    type="email"
+                    autoComplete="email"
+                    placeholder={localization.auth.emailPlaceholder}
+                    required
+                    disabled={isPending}
+                    isLoading={!session}
+                  />
+                )}
               </form.AppField>
             </CardContent>
 

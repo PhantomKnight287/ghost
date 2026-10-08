@@ -14,7 +14,6 @@ export type OrganizationRowProps = {
   organization: Organization;
 };
 
-/** Single organization row: logo and labels via `OrganizationView`, plus a Manage action. */
 export function OrganizationRow({ organization }: OrganizationRowProps) {
   const { localization } = useAuthPlugin(organizationPlugin);
 

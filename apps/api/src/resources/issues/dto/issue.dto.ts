@@ -9,12 +9,14 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsISO8601,
   IsIn,
   IsInt,
-  IsISO8601,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { PullRequestReviewDTO } from '../../pull-requests/dto/pull-request-review.dto.js';
@@ -157,6 +159,8 @@ export class GetIssuesQueryDTO {
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(100)
   @IsOptional()
   limit?: number;
 }

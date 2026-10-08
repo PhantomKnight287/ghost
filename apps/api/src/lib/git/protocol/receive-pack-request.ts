@@ -1,9 +1,9 @@
 import { OID_LENGTH, type RefTransition } from '../wal/wal.types.js';
 import { readHead, type GitRequestBody } from './git-request-body.js';
 import { InvalidReceivePackRequestError } from './protocol.errors.js';
+import { FLUSH_PACKET } from './pkt-line.js';
 
 const PKT_LENGTH_CHARS = 4;
-const FLUSH_PACKET = '0000';
 const OID_HEX_LENGTH = OID_LENGTH * 2;
 const PACK_SIGNATURE = 'PACK';
 
@@ -57,11 +57,7 @@ export async function readReceivePackHeader(
   };
 }
 
-/**
- * Splits a receive-pack body into its command section and packfile.
- *
- * <pkt-line> "<old-oid> <new-oid> <ref>\0<capabilities>" <pkt-line> "<old-oid> <new-oid> <ref>" 0000 PACK...
- */
+/** <pkt-line> "<old-oid> <new-oid> <ref>\0<capabilities>" <pkt-line> "<old-oid> <new-oid> <ref>" 0000 PACK... */
 export function parseReceivePackRequest(body: Buffer): ReceivePackRequest {
   const { transitions, capabilities, packOffset } = parseCommandSection(body);
   const pack = body.subarray(packOffset);

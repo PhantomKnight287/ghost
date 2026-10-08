@@ -1,15 +1,12 @@
-import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
 import {
   File,
   Folder,
   GitCommitHorizontal,
   RotateCcwClock,
 } from "lucide-react";
-
-import { cn } from "@/lib/utils";
-
+import Link from "next/link";
 import type { components } from "@/lib/api/v1";
+import { cn } from "@/lib/utils";
 import { FromNowHoverCard } from "../from-now-card";
 
 type Contents = components["schemas"]["GetRepositoryContentsResponseDTO"];
@@ -65,11 +62,10 @@ export function RepositoryContents({
           <code className="ml-auto shrink-0 text-xs text-muted-foreground">
             {contents.commit.sha.slice(0, 7)}
           </code>
-          <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(contents.commit.committedAt), {
-              addSuffix: true,
-            })}
-          </span>
+          <FromNowHoverCard
+            date={contents.commit.committedAt}
+            className="shrink-0 whitespace-nowrap text-xs text-muted-foreground"
+          />
           <Link
             href={`/${owner}/${slug}/commits/${encodeURIComponent(branch)}`}
             className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground hover:text-foreground"

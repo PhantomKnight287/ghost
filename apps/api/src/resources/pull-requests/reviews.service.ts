@@ -1,6 +1,4 @@
 import { type Database, schema } from '@ghost/db';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm';
@@ -12,7 +10,6 @@ import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import { replaceFile } from '../../lib/git/tree/replace-file.js';
-import type { Executor } from '../../lib/issues/close-issue.js';
 import { diffHunkFor } from '../../lib/pull-requests/diff-hunk.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import {
@@ -20,13 +17,11 @@ import {
   extractSuggestion,
 } from '../../lib/pull-requests/suggestion.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
-import { PullRequestPushesService } from '../../services/pull-requests/pull-request-pushes.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import type {
   CreateReviewRequestDTO,
   ReviewCommentRequestDTO,
@@ -43,12 +38,14 @@ import {
   ReviewNotFoundError,
   SuggestionNotApplicableError,
   SuggestionOutdatedError,
-} from './pull-requests.errors.js';
-import { NotCommentAuthorError } from '../issues/issues.errors.js';
+} from '../../lib/pull-requests/pull-requests.errors.js';
+import { NotCommentAuthorError } from '../../lib/issues/issues.errors.js';
 import {
   type PullRequestRef,
   PullRequestsService,
 } from './pull-requests.service.js';
+import { touchIssue } from '../../lib/issues/touch-issue.js';
+import { withTempDir } from '../../lib/temp-dir.js';
 
 type Opened = Awaited<ReturnType<PullRequestsService['open']>>;
 type Loaded = Awaited<ReturnType<PullRequestsService['load']>>;
@@ -70,8 +67,6 @@ export class ReviewsService {
     private readonly pullRequests: PullRequestsService,
     private readonly users: UsersService,
     private readonly pushTransaction: PushTransactionService,
-    private readonly pullRefs: PullRefsService,
-    private readonly pullRequestPushes: PullRequestPushesService,
     private readonly signing: CommitSigningService,
   ) {}
 
@@ -176,7 +171,7 @@ export class ReviewsService {
         actorId: params.requesterId,
         payload: { issueId: pullRequest.issueId, reviewId: review.id },
       });
-      await touch(tx, pullRequest.issueId);
+      await touchIssue(tx, pullRequest.issueId);
       return review.id;
     });
 
@@ -267,7 +262,7 @@ export class ReviewsService {
         },
         body,
       );
-      await touch(tx, loaded.pullRequest.issueId);
+      await touchIssue(tx, loaded.pullRequest.issueId);
     });
     return this.findReview(review.id);
   }
@@ -353,7 +348,7 @@ export class ReviewsService {
         },
         params.body,
       );
-      await touch(tx, loaded.pullRequest.issueId);
+      await touchIssue(tx, loaded.pullRequest.issueId);
       return row;
     });
 
@@ -422,7 +417,7 @@ export class ReviewsService {
     const loaded = await this.pullRequests.load(params);
     const comment = await this.visibleComment(loaded, params);
     if (comment.authorId !== params.requesterId) {
-      await this.authorizeWrite(params);
+      await this.access.authorize({ ...params, operation: 'write' });
     }
 
     await this.db.transaction(async (tx) => {
@@ -444,7 +439,7 @@ export class ReviewsService {
             and(
               eq(schema.pullRequestReview.id, comment.reviewId),
               eq(schema.pullRequestReview.state, 'commented'),
-              sql`${schema.pullRequestReview.body} is null`,
+              isNull(schema.pullRequestReview.body),
               notExists(
                 tx
                   .select({ id: schema.pullRequestReviewComment.id })
@@ -459,7 +454,7 @@ export class ReviewsService {
             ),
           );
       }
-      await touch(tx, loaded.pullRequest.issueId);
+      await touchIssue(tx, loaded.pullRequest.issueId);
     });
     return { deleted: true };
   }
@@ -493,7 +488,7 @@ export class ReviewsService {
     const headRepositoryId = pullRequest.headRepositoryId!;
     await this.access.authorizeById({
       repositoryId: headRepositoryId,
-      actor: { userId: params.requesterId },
+      requesterId: params.requesterId,
       operation: 'write',
     });
     const git = await this.pullRequests.openLive(
@@ -533,21 +528,20 @@ export class ReviewsService {
       sign: this.signing.signer,
     });
 
-    const directory = await mkdtemp(path.join(tmpdir(), 'ghost-suggestion-'));
-    try {
+    const transitions = [
+      {
+        ref: `refs/heads/${pullRequest.headRef}`,
+        oldOid: Buffer.from(git.headSha, 'hex'),
+        newOid: Buffer.from(commitSha, 'hex'),
+      },
+    ];
+    await withTempDir('ghost-suggestion-', async (directory) => {
       const pack = await packRange({
         gitDir: git.headDirectory,
         include: [commitSha],
         exclude: [git.headSha],
         prefix: path.join(directory, 'suggestion'),
       });
-      const transitions = [
-        {
-          ref: `refs/heads/${pullRequest.headRef}`,
-          oldOid: Buffer.from(git.headSha, 'hex'),
-          newOid: Buffer.from(commitSha, 'hex'),
-        },
-      ];
       await this.pushTransaction.commitPush({
         repoId: headRepositoryId,
         transitions,
@@ -555,23 +549,13 @@ export class ReviewsService {
         packOffset: 0,
         pushedBy: params.requesterId,
       });
-      await this.pullRefs.syncAfterPush({
-        repositoryId: headRepositoryId,
-        transitions,
-      });
-      await this.pullRequestPushes.recordPush({
-        repositoryId: headRepositoryId,
-        transitions,
-        pushedBy: params.requesterId,
-      });
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
+    });
 
-    await this.db
-      .update(schema.repository)
-      .set({ lastPushedAt: new Date() })
-      .where(eq(schema.repository.id, headRepositoryId));
+    await this.pullRequests.afterPush({
+      repositoryId: headRepositoryId,
+      transitions,
+      pushedBy: params.requesterId,
+    });
     return { commitSha };
   }
 
@@ -688,23 +672,6 @@ export class ReviewsService {
     }
     return comment;
   }
-
-  private authorizeWrite({
-    username,
-    repo,
-    requesterId,
-  }: {
-    username: string;
-    repo: string;
-    requesterId: string;
-  }) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: { userId: requesterId },
-      operation: 'write',
-    });
-  }
 }
 
 function pendingOf(pullRequestId: string, authorId: string) {
@@ -713,11 +680,4 @@ function pendingOf(pullRequestId: string, authorId: string) {
     eq(schema.pullRequestReview.authorId, authorId),
     isNull(schema.pullRequestReview.submittedAt),
   );
-}
-
-function touch(tx: Executor, issueId: string) {
-  return tx
-    .update(schema.issue)
-    .set({ updatedAt: new Date() })
-    .where(eq(schema.issue.id, issueId));
 }

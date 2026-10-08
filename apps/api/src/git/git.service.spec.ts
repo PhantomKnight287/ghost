@@ -17,7 +17,10 @@ import { CodeSearchService } from '../services/git/code-search/code-search.servi
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
-import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
+import {
+  ProtectedRefError,
+  UnsupportedGitServiceError,
+} from '../lib/git/git.errors.js';
 import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { DATABASE } from '../database/database.module.js';
 import { GitService } from './git.service.js';
@@ -57,8 +60,10 @@ describe('GitService', () => {
   const references = { closeFromCommits: vi.fn().mockResolvedValue(undefined) };
   const published = vi.fn().mockResolvedValue(undefined);
   const runningImports = vi.fn().mockResolvedValue([]);
+  const pushedAt = vi.fn().mockResolvedValue(undefined);
   const db = {
     insert: () => ({ values: published }),
+    update: () => ({ set: (row: unknown) => ({ where: () => pushedAt(row) }) }),
     select: () => ({ from: () => ({ where: runningImports }) }),
   };
   const logged = vi.fn().mockResolvedValue(undefined);
@@ -116,8 +121,7 @@ describe('GitService', () => {
 
   it('materializes the cache before advertising refs', async () => {
     const { headers } = await service.advertiseRefs({
-      repositoryId: 'repo_ghost',
-      defaultBranch: null,
+      repository: { id: 'repo_ghost', defaultBranch: null },
       service: 'git-upload-pack',
     });
 
@@ -137,8 +141,7 @@ describe('GitService', () => {
   it('rejects the dumb protocol', async () => {
     await expect(
       service.advertiseRefs({
-        repositoryId: 'repo_ghost',
-        defaultBranch: null,
+        repository: { id: 'repo_ghost', defaultBranch: null },
         service: '',
       }),
     ).rejects.toBeInstanceOf(UnsupportedGitServiceError);
@@ -344,7 +347,7 @@ describe('GitService', () => {
         transitions: [expect.objectContaining({ ref: 'refs/heads/main' })],
       }),
     );
-    // creating a branch closes nothing
+    expect(pushedAt).toHaveBeenCalledWith({ lastPushedAt: expect.any(Date) });
     expect(references.closeFromCommits).not.toHaveBeenCalled();
   });
 

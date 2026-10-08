@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { RepositoryGeneralSettings } from "@/components/repositories/repository-settings";
+import { RepositoryGeneralSettings } from "./repository-settings";
 import {
   createServerClient,
   getAdminOrganizations,

@@ -2,16 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import {
-  LatestRelease,
-  LatestReleaseSkeleton,
-} from "@/components/releases/latest-release";
-import { RepositoryAbout } from "@/components/repositories/repository-about";
-import { RepositoryFrame } from "@/components/repositories/repository-frame";
-import {
-  RepositoryLanguages,
-  RepositoryLanguagesSkeleton,
-} from "@/components/repositories/repository-languages";
+import { LatestRelease, LatestReleaseSkeleton } from "./latest-release";
+import { RepositoryAbout } from "./repository-about";
+import { RepositoryFrame } from "./repository-frame";
+import { RepositoryLanguagesSkeleton } from "./repository-languages";
 import {
   createServerClient,
   getServerSession,
@@ -19,6 +13,7 @@ import {
 } from "@/lib/api/server";
 
 import { ImportBanner } from "./import-banner";
+import { RepositoryLanguagesSection } from "./repository-languages-section";
 
 export async function generateMetadata({
   params,
@@ -115,10 +110,9 @@ export default async function RepositoryLayout({
             <LatestRelease username={username} repo={repository.data.slug} />
           </Suspense>
 
-          {/* its own fetch: a first-ever language count of a big repository
-              must not hold up the file listing */}
+          {/* Its own fetch: a first-ever language count of a big repository must not hold up the file listing. */}
           <Suspense fallback={<RepositoryLanguagesSkeleton />}>
-            <Languages username={username} repo={repo} />
+            <RepositoryLanguagesSection username={username} repo={repo} />
           </Suspense>
         </>
       }
@@ -134,20 +128,4 @@ export default async function RepositoryLayout({
       {children}
     </RepositoryFrame>
   );
-}
-
-async function Languages({
-  username,
-  repo,
-}: {
-  username: string;
-  repo: string;
-}) {
-  const client = await createServerClient();
-  const { data } = await client.GET(
-    "/api/repositories/{username}/{slug}/languages",
-    { params: { path: { username, slug: repo } } },
-  );
-
-  return data ? <RepositoryLanguages languages={data} /> : null;
 }

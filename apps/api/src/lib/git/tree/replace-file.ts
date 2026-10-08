@@ -1,10 +1,9 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import type { CommitSigner } from '../commits/commit-signature.js';
 import { runGit } from '../exec/run-git.js';
 import { commitTree } from '../merge/merge.js';
+import { withTempDir } from '../../temp-dir.js';
 
 /** A commit on top of `parent` that changes one existing file's content and keeps its mode. Built with a throwaway index, so nothing in `gitDir` but new objects changes. */
 export async function replaceFile({
@@ -37,8 +36,7 @@ export async function replaceFile({
     })
   ).trim();
 
-  const directory = await mkdtemp(path.join(tmpdir(), 'ghost-index-'));
-  try {
+  return await withTempDir('ghost-index-', async (directory) => {
     const env = { GIT_INDEX_FILE: path.join(directory, 'index') };
     await runGit({ args: ['read-tree', parent], gitDir, env });
     await runGit({
@@ -55,7 +53,5 @@ export async function replaceFile({
       author,
       sign,
     });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+  });
 }

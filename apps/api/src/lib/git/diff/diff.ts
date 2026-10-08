@@ -65,11 +65,7 @@ export async function mergeBase({
   return raw.trim() || null;
 }
 
-/**
- * Paths changed between two commits, with line counts.
- *
- * `--no-renames` keeps both records two fields wide, so a rename reads as a delete and an add rather than needing a third parse shape.
- */
+/** `--no-renames` keeps both records two fields wide, so a rename reads as a delete and an add rather than needing a third parse shape. */
 export async function listDiffFiles({
   gitDir,
   alternates,
@@ -113,6 +109,18 @@ export async function listDiffFiles({
   return files;
 }
 
+/** `git diff` of `from..to` as a patch, limited to one literal path when given. */
+function patchArgs(from: string, to: string, path?: string) {
+  return [
+    'diff',
+    '--no-renames',
+    '--end-of-options',
+    from,
+    to,
+    ...(path ? ['--', `:(literal)${path}`] : []),
+  ];
+}
+
 /** The patch text itself, streamed - a large review diff should not be buffered. */
 export function streamDiffPatch({
   gitDir,
@@ -122,14 +130,7 @@ export function streamDiffPatch({
   path: only,
 }: DiffRange & { path?: string }): Readable {
   return runGitReadable({
-    args: [
-      'diff',
-      '--no-renames',
-      '--end-of-options',
-      from,
-      to,
-      ...(only ? ['--', `:(literal)${only}`] : []),
-    ],
+    args: patchArgs(from, to, only),
     gitDir,
     env: alternatesEnv(alternates),
   });
@@ -160,15 +161,7 @@ export async function fileHunks({
   path: only,
 }: DiffRange & { path: string }): Promise<Hunk[]> {
   const patch = await runGit({
-    args: [
-      'diff',
-      '--no-renames',
-      '--end-of-options',
-      from,
-      to,
-      '--',
-      `:(literal)${only}`,
-    ],
+    args: patchArgs(from, to, only),
     gitDir,
     env: alternatesEnv(alternates),
   });

@@ -1,22 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createSafeActionClient } from "next-safe-action";
+import { actionClient } from "@/lib/action-client";
 import { z } from "zod";
 
-import { fetchClient } from "@/lib/fetch-client";
+import { callApi } from "@/lib/api/server";
 
 import {
   createIssueSchema,
   createLabelSchema,
   updateLabelSchema,
 } from "./common";
-
-const actionClient = createSafeActionClient({
-  handleServerError: (error) => error.message,
-});
 
 const target = z.object({
   username: z.string(),
@@ -38,16 +33,12 @@ export const createIssue = actionClient
     async ({
       parsedInput: { username, repo, title, body, labels, assignees },
     }) => {
-      const { data, error } = await fetchClient.POST(
-        "/api/repositories/{username}/{repo}/issues",
-        {
+      const data = await callApi((client) =>
+        client.POST("/api/repositories/{username}/{repo}/issues", {
           params: { path: { username, repo } },
           body: { title, body, labels, assignees },
-          headers: { cookie: (await cookies()).toString() },
-        },
+        }),
       );
-
-      if (error) throw new Error(error.message);
 
       redirect(`/${username}/${repo}/issues/${data.number}`);
     },
@@ -70,16 +61,12 @@ export const updateIssue = actionClient
     }),
   )
   .action(async ({ parsedInput: { username, repo, number, title, body } }) => {
-    const { error } = await fetchClient.PATCH(
-      "/api/repositories/{username}/{repo}/issues/{number}",
-      {
+    await callApi((client) =>
+      client.PATCH("/api/repositories/{username}/{repo}/issues/{number}", {
         params: { path: { username, repo, number } },
         body: { title, body },
-        headers: { cookie: (await cookies()).toString() },
-      },
+      }),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(issuePath(username, repo, number));
   });
@@ -87,15 +74,11 @@ export const updateIssue = actionClient
 export const closeIssue = actionClient
   .inputSchema(target)
   .action(async ({ parsedInput: { username, repo, number } }) => {
-    const { error } = await fetchClient.POST(
-      "/api/repositories/{username}/{repo}/issues/{number}/close",
-      {
+    await callApi((client) =>
+      client.POST("/api/repositories/{username}/{repo}/issues/{number}/close", {
         params: { path: { username, repo, number } },
-        headers: { cookie: (await cookies()).toString() },
-      },
+      }),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(issuePath(username, repo, number));
     revalidatePath(issuePath(username, repo));
@@ -104,15 +87,14 @@ export const closeIssue = actionClient
 export const reopenIssue = actionClient
   .inputSchema(target)
   .action(async ({ parsedInput: { username, repo, number } }) => {
-    const { error } = await fetchClient.POST(
-      "/api/repositories/{username}/{repo}/issues/{number}/reopen",
-      {
-        params: { path: { username, repo, number } },
-        headers: { cookie: (await cookies()).toString() },
-      },
+    await callApi((client) =>
+      client.POST(
+        "/api/repositories/{username}/{repo}/issues/{number}/reopen",
+        {
+          params: { path: { username, repo, number } },
+        },
+      ),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(issuePath(username, repo, number));
     revalidatePath(issuePath(username, repo));
@@ -129,16 +111,15 @@ export const commentOnIssue = actionClient
     }),
   )
   .action(async ({ parsedInput: { username, repo, number, body } }) => {
-    const { data, error } = await fetchClient.POST(
-      "/api/repositories/{username}/{repo}/issues/{number}/comments",
-      {
-        params: { path: { username, repo, number } },
-        body: { body },
-        headers: { cookie: (await cookies()).toString() },
-      },
+    const data = await callApi((client) =>
+      client.POST(
+        "/api/repositories/{username}/{repo}/issues/{number}/comments",
+        {
+          params: { path: { username, repo, number } },
+          body: { body },
+        },
+      ),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(issuePath(username, repo, number));
     return data;
@@ -157,16 +138,15 @@ export const updateIssueComment = actionClient
   )
   .action(
     async ({ parsedInput: { username, repo, number, commentId, body } }) => {
-      const { error } = await fetchClient.PATCH(
-        "/api/repositories/{username}/{repo}/issues/{number}/comments/{commentId}",
-        {
-          params: { path: { username, repo, number, commentId } },
-          body: { body },
-          headers: { cookie: (await cookies()).toString() },
-        },
+      await callApi((client) =>
+        client.PATCH(
+          "/api/repositories/{username}/{repo}/issues/{number}/comments/{commentId}",
+          {
+            params: { path: { username, repo, number, commentId } },
+            body: { body },
+          },
+        ),
       );
-
-      if (error) throw new Error(error.message);
 
       revalidatePath(issuePath(username, repo, number));
     },
@@ -175,15 +155,14 @@ export const updateIssueComment = actionClient
 export const deleteIssueComment = actionClient
   .inputSchema(target.extend({ commentId: z.string() }))
   .action(async ({ parsedInput: { username, repo, number, commentId } }) => {
-    const { error } = await fetchClient.DELETE(
-      "/api/repositories/{username}/{repo}/issues/{number}/comments/{commentId}",
-      {
-        params: { path: { username, repo, number, commentId } },
-        headers: { cookie: (await cookies()).toString() },
-      },
+    await callApi((client) =>
+      client.DELETE(
+        "/api/repositories/{username}/{repo}/issues/{number}/comments/{commentId}",
+        {
+          params: { path: { username, repo, number, commentId } },
+        },
+      ),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(issuePath(username, repo, number));
   });
@@ -191,16 +170,12 @@ export const deleteIssueComment = actionClient
 export const setIssueLabels = actionClient
   .inputSchema(target.extend({ names: z.array(z.string()) }))
   .action(async ({ parsedInput: { username, repo, number, names } }) => {
-    const { data, error } = await fetchClient.PUT(
-      "/api/repositories/{username}/{repo}/issues/{number}/labels",
-      {
+    const data = await callApi((client) =>
+      client.PUT("/api/repositories/{username}/{repo}/issues/{number}/labels", {
         params: { path: { username, repo, number } },
         body: { names },
-        headers: { cookie: (await cookies()).toString() },
-      },
+      }),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(issuePath(username, repo, number));
     return data;
@@ -209,16 +184,15 @@ export const setIssueLabels = actionClient
 export const setIssueAssignees = actionClient
   .inputSchema(target.extend({ usernames: z.array(z.string()) }))
   .action(async ({ parsedInput: { username, repo, number, usernames } }) => {
-    const { data, error } = await fetchClient.PUT(
-      "/api/repositories/{username}/{repo}/issues/{number}/assignees",
-      {
-        params: { path: { username, repo, number } },
-        body: { usernames },
-        headers: { cookie: (await cookies()).toString() },
-      },
+    const data = await callApi((client) =>
+      client.PUT(
+        "/api/repositories/{username}/{repo}/issues/{number}/assignees",
+        {
+          params: { path: { username, repo, number } },
+          body: { usernames },
+        },
+      ),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(issuePath(username, repo, number));
     return data;
@@ -230,16 +204,12 @@ export const createLabel = actionClient
   )
   .action(
     async ({ parsedInput: { username, repo, name, description, color } }) => {
-      const { data, error } = await fetchClient.POST(
-        "/api/repositories/{username}/{repo}/labels",
-        {
+      const data = await callApi((client) =>
+        client.POST("/api/repositories/{username}/{repo}/labels", {
           params: { path: { username, repo } },
           body: { name, description, color },
-          headers: { cookie: (await cookies()).toString() },
-        },
+        }),
       );
-
-      if (error) throw new Error(error.message);
 
       revalidatePath(`/${username}/${repo}/labels`);
       // A label change can surface on any issue in the repository.
@@ -260,16 +230,12 @@ export const updateLabel = actionClient
     async ({
       parsedInput: { username, repo, labelId, name, description, color },
     }) => {
-      const { data, error } = await fetchClient.PATCH(
-        "/api/repositories/{username}/{repo}/labels/{labelId}",
-        {
+      const data = await callApi((client) =>
+        client.PATCH("/api/repositories/{username}/{repo}/labels/{labelId}", {
           params: { path: { username, repo, labelId } },
           body: { name, description, color },
-          headers: { cookie: (await cookies()).toString() },
-        },
+        }),
       );
-
-      if (error) throw new Error(error.message);
 
       revalidatePath(`/${username}/${repo}/labels`);
       // A label change can surface on any issue in the repository.
@@ -283,15 +249,11 @@ export const deleteLabel = actionClient
     z.object({ username: z.string(), repo: z.string(), labelId: z.string() }),
   )
   .action(async ({ parsedInput: { username, repo, labelId } }) => {
-    const { error } = await fetchClient.DELETE(
-      "/api/repositories/{username}/{repo}/labels/{labelId}",
-      {
+    await callApi((client) =>
+      client.DELETE("/api/repositories/{username}/{repo}/labels/{labelId}", {
         params: { path: { username, repo, labelId } },
-        headers: { cookie: (await cookies()).toString() },
-      },
+      }),
     );
-
-    if (error) throw new Error(error.message);
 
     revalidatePath(`/${username}/${repo}/labels`);
     // A label change can surface on any issue in the repository.

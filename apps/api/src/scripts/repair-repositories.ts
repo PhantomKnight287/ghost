@@ -1,10 +1,6 @@
 /**
- * Checks every repository's log for damage no node could replay, which makes every clone of the repository fail, and repairs it with --apply (0034).
- *
- * Run it on the API host: the local caches there are the only place objects missing from a log can still be recovered from. Elsewhere the script still finds every problem, but can only drop what it cannot rescue.
- *
- * Without --apply it only reports. Safe beside a running API: a repair commits through the same compare-and-swap a push does, and starts over if a push lands first.
- *
+ * Finds log damage no node could replay, which breaks every clone, and repairs it with --apply (0034). Run on the API host: its local caches are the only place missing objects can be recovered from; elsewhere it can only drop them.
+ * Safe beside a running API: a repair commits through the same compare-and-swap as a push, and starts over if a push lands first.
  * node dist/scripts/repair-repositories.js [--apply], after `nest build`
  */
 import { type Database, schema } from '@ghost/db';
@@ -14,7 +10,7 @@ import { NestFactory } from '@nestjs/core';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
-import { ownerNameOf } from '../lib/git/repository-access/repository-access.js';
+import { ownerNameOf } from '../lib/repositories/access/repository-access.js';
 import {
   type RepairReport,
   RepositoryRepairService,
@@ -23,6 +19,7 @@ import { RepositoryStorageService } from '../services/git/repository-storage/rep
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
 import { S3Service } from '../services/s3/s3.service.js';
+import { errorMessage } from '../lib/error-message.js';
 
 // Only what a repair needs, so the script opens no HTTP or SSH listener and starts no poller.
 @Module({
@@ -70,7 +67,7 @@ for (const { id, slug, owner } of repositories) {
   } catch (error) {
     failed++;
     console.error(
-      `${owner}/${slug} (${id}) could not be ${apply ? 'repaired' : 'checked'}: ${error instanceof Error ? error.message : String(error)}`,
+      `${owner}/${slug} (${id}) could not be ${apply ? 'repaired' : 'checked'}: ${errorMessage(error)}`,
     );
   }
 }

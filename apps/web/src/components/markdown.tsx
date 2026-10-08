@@ -17,7 +17,6 @@ import { ALERTS, remarkAlerts, remarkBreaks } from "@/lib/remark-github";
 import { remarkReferences } from "@/lib/remark-references";
 import { cn } from "@/lib/utils";
 
-// we override some default tagNames to offer some flexibility
 const SCHEMA = {
   ...defaultSchema,
   attributes: {

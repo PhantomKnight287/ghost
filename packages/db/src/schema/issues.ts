@@ -40,11 +40,7 @@ export const issueReferenceSource = pgEnum("issue_reference_source", [
   "commit",
 ]);
 
-/**
- * GitHub-style issue. `number` is per repository, 1-based, and what the URL carries. A pull request is an issue with a `pull_request` row attached, so the two share one number sequence, one comment thread and one timeline.
- *
- * `commentCount` is denormalized so `sort=comments` is one indexed query instead of a join + group-by on every list call. Writers must bump it on comment create/delete.
- */
+/** `number` is per repository, 1-based, and what the URL carries; a pull request is an issue with a `pull_request` row, sharing its number sequence, comment thread and timeline. `commentCount` is denormalized for `sort=comments`; writers must bump it on comment create/delete. */
 export const issue = pgTable(
   "issue",
   {
@@ -56,7 +52,6 @@ export const issue = pgTable(
     repositoryId: text()
       .references(() => repository.id, { onDelete: "cascade" })
       .notNull(),
-    // per repository, 1-based, and what the URL carries
     number: integer().notNull(),
     title: text().notNull(),
     body: text(),
@@ -88,7 +83,6 @@ export const issue = pgTable(
   ],
 );
 
-/** Timeline comments on an issue, oldest first. */
 export const issueComment = pgTable(
   "issue_comment",
   {
@@ -118,7 +112,6 @@ export const issueComment = pgTable(
   ],
 );
 
-/** Repository-scoped labels, exactly like GitHub: a name, an optional description, and a 6-char hex color (stored without `#`). */
 export const label = pgTable(
   "label",
   {
@@ -203,11 +196,7 @@ export const issueEvent = pgTable(
   (t) => [index("issue_event_issue_idx").on(t.issueId, t.createdAt)],
 );
 
-/**
- * One row per `#N` written somewhere, resolved when the text is saved so a timeline read is one indexed lookup on `targetIssueId`.
- *
- * `sourceId` is the issue id, comment id or commit sha the text lives in; an edit replaces every row with that `sourceId`. `sourceIssueId` is the issue or pull request the text belongs to, null for a commit.
- */
+/** One row per `#N` written somewhere, resolved on save so a timeline read is one indexed lookup on `targetIssueId`. `sourceId` is the issue id, comment id or commit sha holding the text, and an edit replaces all its rows; `sourceIssueId` is the issue or pull request it belongs to, null for a commit. */
 export const issueReference = pgTable(
   "issue_reference",
   {

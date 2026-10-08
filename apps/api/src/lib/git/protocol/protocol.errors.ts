@@ -6,10 +6,7 @@ export class InvalidReceivePackRequestError extends DomainError {
 
   constructor(detail: string, body?: Buffer) {
     super(
-      `Malformed receive-pack request: ${detail}` +
-        (body
-          ? ` (${body.length} bytes, head=${body.subarray(0, 48).toString('hex')})`
-          : ''),
+      `Malformed receive-pack request: ${detail}${body ? ` (${body.length} bytes, head=${body.subarray(0, 48).toString('hex')})` : ''}`,
     );
   }
 }

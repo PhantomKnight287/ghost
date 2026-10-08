@@ -18,11 +18,7 @@ export type OrganizationApiKeysProps = {
   organizationSlug: string;
 };
 
-/**
- * {@link ApiKeys} scoped to an explicit organization.
- *
- * Access is resolved per API-key action. The configured organization creator role receives Better Auth's creator override.
- */
+/** {@link ApiKeys} scoped to an explicit organization. Access is resolved per API-key action. The configured organization creator role receives Better Auth's creator override. */
 export function OrganizationApiKeys({
   className,
   organizationId,

@@ -1,27 +1,43 @@
 import Link from "next/link";
 import { FileText } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Markdown } from "@/components/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
+import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
-import type { components } from "@/lib/api/v1";
 import { API_URL } from "@/lib/env";
 
-type Readme = components["schemas"]["GetRepositoryReadmeResponseDTO"];
-
-export function RepositoryReadme({
-  readme,
+/** The README of a repository directory, fetched as the viewer. */
+export async function RepositoryReadme({
   owner,
   slug,
+  revision,
+  path,
   bare = false,
+  fallback = null,
 }: {
-  readme: Readme;
   owner: string;
   slug: string;
+  /** Not `ref`: React reserves that prop name. */
+  revision?: string;
+  path?: string;
   /** Drops the card and its filename bar, for a profile where neither fits. */
   bare?: boolean;
+  /** Shown when the directory has no README. */
+  fallback?: ReactNode;
 }) {
-  if (!readme.path) return null;
+  const client = await createServerClient();
+  const { data: readme } = await client.GET(
+    "/api/repositories/{username}/{slug}/readme",
+    {
+      params: {
+        path: { username: owner, slug },
+        query: { ref: revision, path: path || undefined },
+      },
+    },
+  );
+  if (!readme?.path) return fallback;
 
   const branch = readme.ref.replace(/^refs\/heads\//, "");
   // a README in a subdirectory writes paths relative to that directory
@@ -74,11 +90,7 @@ function splitHash(url: string): [string, string] {
   return hash === -1 ? [url, ""] : [url.slice(0, hash), url.slice(hash + 1)];
 }
 
-/**
- * A repository-relative path, resolved against the directory the README sits in: `./` drops, `../` pops, and a leading `/` is root-relative rather than a host path.
- *
- * `..` past the root is dropped rather than escaping the repository.
- */
+/** A repository-relative path, resolved against the directory the README sits in: `./` drops, `../` pops, and a leading `/` is root-relative rather than a host path. `..` past the root is dropped rather than escaping the repository. */
 export function resolve(url: string, directory = "") {
   // a root-relative link ignores where the README is
   const base = url.startsWith("/") || !directory ? "" : `${directory}/`;
@@ -93,7 +105,6 @@ export function resolve(url: string, directory = "") {
   return segments.join("/");
 }
 
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton rows have no id */
 export function RepositoryReadmeSkeleton({ bare = false }: { bare?: boolean }) {
   const lines = (
     <div className={cn("flex flex-col gap-3", !bare && "px-4 py-4 md:px-6")}>

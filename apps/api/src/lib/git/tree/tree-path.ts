@@ -18,11 +18,7 @@ export class UnsafeTreePathError extends DomainError {
   }
 }
 
-/**
- * Whether a browser-supplied path is a plain repository-relative directory.
- *
- * Express has already percent-decoded the query value once, so this runs on the real characters - decoding again here would turn `%252e%252e` into `..` and hand back the traversal this is meant to reject.
- */
+/** Express has already percent-decoded the query value once; decoding again here would turn `%252e%252e` into `..` and hand back the traversal this is meant to reject. */
 export function isSafeTreePath(input: unknown): input is string {
   if (typeof input !== 'string') return false;
   try {
@@ -33,11 +29,7 @@ export function isSafeTreePath(input: unknown): input is string {
   }
 }
 
-/**
- * Normalizes a path to the trailing-slash prefix form a listing uses ("" at the repository root), rejecting anything that is not a literal subdirectory.
- *
- * The path becomes a git pathspec and never touches the filesystem, but a traversal deserves a 400 rather than an escaping `fatal:` from git.
- */
+/** Trailing-slash prefix form ("" at the root). The path is only ever a git pathspec, but a traversal deserves a 400 rather than an escaping `fatal:` from git. */
 export function normalizeTreePath(input: string): string {
   if (input.length > MAX_TREE_PATH_LENGTH) {
     throw new UnsafeTreePathError('too long');

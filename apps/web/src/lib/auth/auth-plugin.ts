@@ -11,18 +11,13 @@ declare module "@better-auth-ui/core" {
 }
 
 /** Props the shadcn `<Auth>` router spreads onto plugin-contributed auth views. */
-export type AuthViewProps = {
-  className?: string;
-  socialLayout?: "auto" | "horizontal" | "vertical" | "grid";
-  socialPosition?: "top" | "bottom";
-};
+export type AuthViewProps = Record<string, never>;
 
 /** Props the shadcn `<Settings>` router spreads onto plugin-contributed settings views. */
 export type SettingsViewProps = {
   className?: string;
 };
 
-/** Shadcn plugin type. Plugin authors import this from `@/lib/auth/auth-plugin`. */
 export type AuthPlugin = AuthPluginPrimitive<
   AuthPluginComponents,
   AuthViewProps,

@@ -20,27 +20,13 @@ import {
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import { DOCS_URL } from "@/lib/env";
-import { cn } from "@/lib/utils";
-
-export type SshKeysProps = {
-  className?: string;
-};
-
-type SshKey = {
-  id: string;
-  title: string;
-  type: string;
-  fingerprint: string;
-  lastUsedAt: string | null;
-  createdAt: string;
-};
 
 const QUERY_KEY = ["ssh-keys"];
 
 /** Keys that let this account fetch and push over SSH. Anyone holding the matching private key connects as this account, which is why the list shows when each one was last used. */
-export function SshKeys({ className }: SshKeysProps) {
+export function SshKeys() {
   const queryClient = useQueryClient();
   const [publicKey, setPublicKey] = useState("");
   const [title, setTitle] = useState("");
@@ -48,9 +34,8 @@ export function SshKeys({ className }: SshKeysProps) {
   const { data, isPending } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/ssh-keys");
-      if (error) throw new Error(apiErrorMessage(error));
-      return data.keys as SshKey[];
+      const data = await unwrap(apiClient.GET("/api/ssh-keys"));
+      return data.keys;
     },
   });
 
@@ -59,13 +44,14 @@ export function SshKeys({ className }: SshKeysProps) {
 
   const add = useMutation({
     mutationFn: async () => {
-      const { error } = await apiClient.POST("/api/ssh-keys", {
-        body: {
-          publicKey: publicKey.trim(),
-          ...(title.trim() ? { title: title.trim() } : {}),
-        },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/ssh-keys", {
+          body: {
+            publicKey: publicKey.trim(),
+            ...(title.trim() ? { title: title.trim() } : {}),
+          },
+        }),
+      );
     },
     onSuccess: async () => {
       setPublicKey("");
@@ -78,10 +64,11 @@ export function SshKeys({ className }: SshKeysProps) {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.DELETE("/api/ssh-keys/{id}", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.DELETE("/api/ssh-keys/{id}", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: async () => {
       toast.success("Key removed");
@@ -97,7 +84,7 @@ export function SshKeys({ className }: SshKeysProps) {
     <div>
       <h2 className="mb-3 text-sm font-semibold">SSH keys</h2>
 
-      <Card className={cn("gap-0 p-0", className)}>
+      <Card className={"gap-0 p-0"}>
         <CardContent className="p-0">
           <ItemGroup className="gap-0!">
             {isPending ? (

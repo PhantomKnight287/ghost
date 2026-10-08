@@ -6,7 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { fetchClient } from "@/lib/fetch-client";
+import { apiClient } from "@/lib/api/client";
 
 export function StarButton({
   username,
@@ -43,7 +43,7 @@ export function StarButton({
       viewerHasStarred: starred,
     });
 
-    const request = starred ? fetchClient.POST : fetchClient.DELETE;
+    const request = starred ? apiClient.POST : apiClient.DELETE;
     const { data, error } = await request(
       "/api/repositories/{username}/{slug}/star",
       { params: { path: { username, slug } } },

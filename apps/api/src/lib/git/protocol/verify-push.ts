@@ -1,6 +1,5 @@
 import { once } from 'node:events';
-import { mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
@@ -9,12 +8,11 @@ import { runGit, runGitStream } from '../exec/run-git.js';
 import { type RefTransition, ZERO_OID } from '../wal/wal.types.js';
 import { fileBody, type GitRequestBody } from './git-request-body.js';
 import { PushRejectedError } from './protocol.errors.js';
+import { withTempDir } from '../../temp-dir.js';
+import { splitRecords } from '../exec/split-records.js';
+import { objectTypes } from '../exec/object-types.js';
 
-/**
- * Proves a push can be replayed by a node holding only the log, then hands `commit` the pack the log should store (0034).
- *
- * The pack is indexed into a quarantine with the cache lent as an alternate, the way git quarantines a push, and the log stores that indexed pack rather than the thin one received: a thin pack's delta bases come from the cache, which holds objects the log does not.
- */
+/** Proves a push can be replayed by a node holding only the log (0034). The pack is indexed into a quarantine with the cache lent as an alternate, the way git quarantines a push; the log stores that indexed pack, not the thin one received: a thin pack's delta bases come from the cache, which holds objects the log does not. */
 export async function withVerifiedPack<T>(
   {
     gitDir,
@@ -36,8 +34,7 @@ export async function withVerifiedPack<T>(
     return commit({ body, packOffset });
   }
 
-  const quarantine = await mkdtemp(path.join(tmpdir(), 'ghost-quarantine-'));
-  try {
+  return await withTempDir('ghost-quarantine-', async (quarantine) => {
     await mkdir(path.join(quarantine, 'pack'));
     // ponytail: the pack is indexed here and again by receive-pack once the log commits it. Move this index into the cache instead if large pushes show it.
     await runGit({
@@ -56,9 +53,7 @@ export async function withVerifiedPack<T>(
       body: fileBody(indexed, (await stat(indexed)).size),
       packOffset: 0,
     });
-  } finally {
-    await rm(quarantine, { recursive: true, force: true });
-  }
+  });
 }
 
 /** Every new ref names an object the repository or the push holds, a branch names a commit, and whatever the refs reach beyond the existing refs arrived in the push itself. */
@@ -75,18 +70,9 @@ async function verifyRefs({
   const oids = updates.map(({ newOid }) => newOid.toString('hex'));
   const env = quarantine ? lend(gitDir, quarantine) : undefined;
 
-  const types = (
-    await runGit({
-      args: ['cat-file', '--batch-check=%(objecttype)'],
-      gitDir,
-      env,
-      input: Buffer.from(`${oids.join('\n')}\n`),
-    })
-  )
-    .trim()
-    .split('\n');
+  const types = await objectTypes({ gitDir, oids, env });
   for (const [index, { ref }] of updates.entries()) {
-    const type = types[index].split(' ').at(-1);
+    const type = types[index];
     if (type === 'missing') {
       throw new PushRejectedError(
         `${ref} points at ${oids[index]}, which neither the push nor the repository holds`,
@@ -157,21 +143,22 @@ async function firstMissing(
   feeding.catch(() => {});
 
   let missing: string | null = null;
-  let carry = '';
-  for await (const chunk of runGitStream({
-    args: ['cat-file', '--batch-check=%(objectname) %(objecttype)'],
-    gitDir,
-    env: {
-      GIT_OBJECT_DIRECTORY: quarantine,
-      GIT_ALTERNATE_OBJECT_DIRECTORIES: '',
-    },
-    input: names,
-  })) {
-    if (missing) continue;
-    const lines = (carry + chunk).split('\n');
-    carry = lines.pop() ?? '';
-    missing =
-      lines.find((line) => line.endsWith(' missing'))?.split(' ')[0] ?? null;
+  const lines = splitRecords(
+    runGitStream({
+      args: ['cat-file', '--batch-check=%(objectname) %(objecttype)'],
+      gitDir,
+      env: {
+        GIT_OBJECT_DIRECTORY: quarantine,
+        GIT_ALTERNATE_OBJECT_DIRECTORIES: '',
+      },
+      input: names,
+    }),
+    '\n',
+  );
+  // Read to the end even after a hit, so cat-file is never left blocked on a full pipe.
+  for await (const line of lines) {
+    if (!missing && line.endsWith(' missing'))
+      missing = line.split(' ')[0] ?? null;
   }
   await feeding;
   return missing;

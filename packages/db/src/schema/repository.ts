@@ -30,11 +30,10 @@ export const repository = pgTable(
     name: text().notNull(),
     slug: text().notNull(),
     description: text(),
-    // nullable cus a repo can also belong to just a user
     organizationId: text().references(() => organization.id, {
       onDelete: "cascade",
     }),
-    // a repo will always have an owner. will also allow them to transfer the ownership incase they wanna preserve the repo but delete the account
+    // Deleting the owner's account deletes the repository with it; transfer it first to keep it.
     ownerId: text()
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
@@ -65,11 +64,7 @@ export const repository = pgTable(
   ],
 );
 
-/**
- * Denormalized "which commit last touched this path" for a single ref, so a directory listing costs one indexed query instead of one `git log` per entry.
- *
- * Keyed by path, with a row for every ancestor directory, so `src` carries the newest commit under `src/`. Deleted paths keep their row and are hidden by the join against `ls-tree`.
- */
+/** Which commit last touched each path of a ref, so a directory listing is one indexed query instead of a `git log` per entry. Every ancestor directory has a row; deleted paths keep theirs and are hidden by the join against `ls-tree`. */
 export const repositoryPathCommit = pgTable(
   "repository_path_commit",
   {
@@ -133,11 +128,7 @@ export const repositoryLanguageIndex = pgTable(
   (t) => [primaryKey({ columns: [t.repositoryId, t.ref] })],
 );
 
-/**
- * Daily commit counts per author on a repository's default branch, so the profile contribution graph costs one indexed query instead of materializing and walking every repository the user owns.
- *
- * One row per author email, lowercased. `authorId` is resolved at sync time and stays nullable, and readers match on both, so adding an email to an account never needs a reindex.
- */
+/** Daily commit counts per lowercased author email on a repository's default branch, so the profile contribution graph is one indexed query. `authorId` is resolved at sync time and readers match on both, so adding an email never needs a reindex. */
 export const repositoryContribution = pgTable(
   "repository_contribution",
   {

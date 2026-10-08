@@ -5,8 +5,11 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { DATABASE } from '../../../database/database.module.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { walkCommits } from '../../../lib/git/path-index/commit-log.js';
-import { isoTimestamp, excluded } from '../../../utils/index.js';
+import { isoTimestamp, excluded } from '../../../lib/db/sql.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
+import { errorMessage } from '../../../lib/error-message.js';
+import { SingleFlight } from '../../../lib/single-flight.js';
+import { ancestorsOf } from '../../../lib/git/path-index/ancestors.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -30,15 +33,11 @@ export interface PathCommit {
   committedAt: string;
 }
 
-/**
- * Keeps `repository_path_commit` in step with a ref, so listing a directory never has to walk history per entry.
- *
- * The index is a cache of git, not a second source of truth: it is rebuilt from the object database whenever the stored position stops making sense.
- */
+/** Keeps `repository_path_commit` in step with a ref, so listing a directory never has to walk history per entry. A cache of git, rebuilt whenever its stored position stops making sense. */
 @Injectable()
 export class RepositoryPathIndexService {
   private readonly logger = new Logger(RepositoryPathIndexService.name);
-  private readonly inFlight = new Map<string, Promise<string | null>>();
+  private readonly inFlight = new SingleFlight<string | null>();
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
@@ -53,14 +52,9 @@ export class RepositoryPathIndexService {
     ref: string;
   }): Promise<string | null> {
     const key = `${repositoryId}:${ref}`;
-    const pending = this.inFlight.get(key);
-    if (pending) return pending;
-
-    const run = this.reindex({ repositoryId, repoDirectory, ref }).finally(() =>
-      this.inFlight.delete(key),
+    return this.inFlight.run(key, () =>
+      this.reindex({ repositoryId, repoDirectory, ref }),
     );
-    this.inFlight.set(key, run);
-    return run;
   }
 
   /** Whether `lookup` answers for the ref's tip now. A fast-forward top-up is waited for; a first build or a rebuild walks the whole history, so it runs in the background and this returns false until it lands. False too when the ref does not exist. */
@@ -97,7 +91,7 @@ export class RepositoryPathIndexService {
 
     this.sync({ repositoryId, repoDirectory, ref }).catch((error: unknown) =>
       this.logger.warn(
-        `Path index build failed for ${repositoryId} ${ref}: ${error instanceof Error ? error.message : String(error)}`,
+        `Path index build failed for ${repositoryId} ${ref}: ${errorMessage(error)}`,
       ),
     );
     return false;
@@ -285,15 +279,4 @@ export class RepositoryPathIndexService {
         ),
       );
   }
-}
-
-/** "src/a/b.ts" -> ["src/a/b.ts", "src/a", "src", ""] */
-export function ancestorsOf(path: string) {
-  const segments = path.split('/');
-  const paths: string[] = [];
-  for (let i = segments.length; i > 0; i--) {
-    paths.push(segments.slice(0, i).join('/'));
-  }
-  paths.push('');
-  return paths;
 }

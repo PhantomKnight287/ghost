@@ -1,4 +1,4 @@
-import { LabelManager } from "@/components/issues/label-manager";
+import { LabelManager } from "./label-manager";
 import {
   createServerClient,
   getViewerRole,

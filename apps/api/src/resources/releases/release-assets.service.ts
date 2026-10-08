@@ -5,10 +5,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, lt, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type {
-  AuthorizedRepository,
-  RepositoryOperation,
-} from '../../lib/git/repository-access/repository-access.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import {
   isValidAssetName,
   releaseAssetKey,
@@ -17,13 +14,13 @@ import { formatByteSize } from '../../lib/storage/byte-size.js';
 import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
 import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
 import {
-  assetKindOf,
   storageAccountOf,
+  billedKindOf,
 } from '../../lib/storage/storage-account.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import {
   InvalidAssetNameError,
   ReleaseAssetExistsError,
@@ -31,7 +28,7 @@ import {
   ReleaseAssetTooLargeError,
   ReleaseNotFoundError,
   UploadNotOctetStreamError,
-} from './releases.errors.js';
+} from '../../lib/releases/releases.errors.js';
 
 type RepositoryRef = { username: string; repo: string; requesterId?: string };
 
@@ -74,7 +71,10 @@ export class ReleaseAssetsService {
     contentLength: string | undefined;
     body: Readable;
   }) {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
     // JSON and form bodies are parsed before any handler runs, so their bytes are gone by the time they could be streamed
     if (bodyType?.split(';')[0]?.trim() !== 'application/octet-stream') {
       throw new UploadNotOctetStreamError();
@@ -105,7 +105,7 @@ export class ReleaseAssetsService {
 
     const asset = await this.quota.reserve(
       storageAccountOf(repository),
-      assetKindOf(repository),
+      billedKindOf(repository, 'asset'),
       size,
       async (tx) => {
         // An upload that died with its process leaves a reservation behind; once it has lapsed it must not hold the name forever.
@@ -174,7 +174,10 @@ export class ReleaseAssetsService {
     name,
     ...target
   }: RepositoryRef & { tagName: string; name: string }) {
-    const repository = await this.authorize(target, 'read');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
 
     const [asset] = await this.db
       .update(schema.releaseAsset)
@@ -214,7 +217,10 @@ export class ReleaseAssetsService {
     assetId,
     ...target
   }: RepositoryRef & { requesterId: string; assetId: string }) {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
 
     const [asset] = await this.db
       .select({
@@ -243,17 +249,5 @@ export class ReleaseAssetsService {
   /** Every asset of a release, removed from storage before the release row takes the rows with it. */
   removeAll(repository: AuthorizedRepository, releaseId: string) {
     return this.s3.deleteUnder(releaseAssetKey(repository.id, releaseId));
-  }
-
-  private authorize(
-    { username, repo, requesterId }: RepositoryRef,
-    operation: RepositoryOperation,
-  ) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation,
-    });
   }
 }

@@ -6,6 +6,12 @@ import { createServerClient } from "@/lib/api/server";
 
 import { MarkAllReadButton } from "./mark-all-read-button";
 import { NotificationItem } from "./notification-item";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export const metadata: Metadata = { title: "Notifications" };
 
@@ -41,15 +47,17 @@ export default async function NotificationsPage({
       </div>
 
       {data.notifications.length === 0 ? (
-        <div className="rounded-lg border py-16 text-center">
-          <p className="font-medium">
-            {all ? "No notifications yet" : "You are all caught up"}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Mentions, assignments and activity on threads you follow show up
-            here.
-          </p>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>
+              {all ? "No notifications yet" : "You are all caught up"}
+            </EmptyTitle>
+            <EmptyDescription>
+              Mentions, assignments and activity on threads you follow show up
+              here.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ul className="divide-y rounded-lg border">
           {data.notifications.map((notification) => (

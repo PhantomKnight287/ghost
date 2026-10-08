@@ -9,7 +9,6 @@ import Link from "next/link";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
-import type { IssueFilter, IssueSort } from "@/components/issues/common";
 import { issueFilters, issueSorts } from "@/components/issues/common";
 import { LabelBadge } from "@/components/issues/label-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -23,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
+import { CursorPagination } from "@/components/cursor-pagination";
+import { ThreadStateIcon } from "@/components/thread-state";
 
 const PAGE_SIZE = 20;
 
@@ -37,12 +38,8 @@ export default async function IssuesPage({
   const { username, repo } = await params;
   const query = await searchParams;
 
-  const filter: IssueFilter = issueFilters.includes(query.state as IssueFilter)
-    ? (query.state as IssueFilter)
-    : "open";
-  const sort: IssueSort = issueSorts.includes(query.sort as IssueSort)
-    ? (query.sort as IssueSort)
-    : "created";
+  const filter = issueFilters.find((value) => value === query.state) ?? "open";
+  const sort = issueSorts.find((value) => value === query.sort) ?? "created";
   const direction = query.direction === "asc" ? "asc" : "desc";
   const q = stringParam(query.q);
   const labels = stringParam(query.labels);
@@ -80,17 +77,18 @@ export default async function IssuesPage({
 
   const base = `/${username}/${repo}/issues`;
 
+  const current: Record<string, string | undefined> = {
+    state: filter === "open" ? undefined : filter,
+    q,
+    labels,
+    assignee,
+    author,
+    sort: sort === "created" ? undefined : sort,
+    direction: direction === "desc" ? undefined : direction,
+  };
+
   function href(next: Record<string, string | undefined>) {
     const merged: Record<string, string> = {};
-    const current: Record<string, string | undefined> = {
-      state: filter === "open" ? undefined : filter,
-      q,
-      labels,
-      assignee,
-      author,
-      sort: sort === "created" ? undefined : sort,
-      direction: direction === "desc" ? undefined : direction,
-    };
     for (const [key, value] of Object.entries({ ...current, ...next })) {
       if (value !== undefined) merged[key] = value;
     }
@@ -245,11 +243,11 @@ export default async function IssuesPage({
                 key={issue.id}
                 className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-muted/40"
               >
-                {issue.state === "open" ? (
-                  <CircleDot className="mt-0.5 size-4 shrink-0 text-emerald-500" />
-                ) : (
-                  <CircleCheck className="mt-0.5 size-4 shrink-0 text-red-500" />
-                )}
+                <ThreadStateIcon
+                  isPullRequest={false}
+                  state={issue.state}
+                  className="mt-0.5"
+                />
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -289,16 +287,12 @@ export default async function IssuesPage({
         )}
       </div>
 
-      {issues.data.nextCursor && (
-        <div className="flex justify-end">
-          <Link
-            href={href({ cursor: issues.data.nextCursor })}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Older
-          </Link>
-        </div>
-      )}
+      <CursorPagination
+        pathname={base}
+        params={current}
+        cursor={cursor}
+        nextCursor={issues.data.nextCursor}
+      />
     </div>
   );
 }

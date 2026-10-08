@@ -1,5 +1,6 @@
 "use client";
 
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
@@ -21,7 +22,6 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Markdown } from "@/components/markdown";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiErrorMessage } from "@/lib/api/client";
@@ -120,7 +120,6 @@ export function MarkdownEditor({
     enabled: Boolean(mention) && Boolean(typed),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
-    // `@…` lists people, `#…` issues and pull requests
     queryFn: (): Promise<Suggestion[]> =>
       typed.startsWith("@")
         ? suggestUsers(repository, typed.slice(1))
@@ -396,14 +395,12 @@ export function MarkdownEditor({
               >
                 {"username" in suggestion ? (
                   <>
-                    <Avatar className="size-5">
-                      {suggestion.image && (
-                        <AvatarImage src={suggestion.image} alt="" />
-                      )}
-                      <AvatarFallback className="text-[10px]">
-                        {suggestion.username.slice(0, 1).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <ProfileAvatar
+                      name={suggestion.username}
+                      image={suggestion.image}
+                      className="size-5"
+                      fallbackClassName="text-[10px]"
+                    />
                     <span className="font-medium">{suggestion.username}</span>
                     <span className="truncate text-muted-foreground">
                       {suggestion.name}

@@ -1,33 +1,25 @@
 import { GitFork } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
-import { ForkRepositoryForm } from "@/components/repositories/fork-repository-form";
-import { Button } from "@/components/ui/button";
+import { ForkRepositoryForm } from "./fork-repository-form";
 import {
   createServerClient,
   getAdminOrganizations,
-  getServerSession,
+  requireViewer,
   notFoundIfHidden,
 } from "@/lib/api/server";
+import { Notice } from "./notice";
 
 export default async function ForkRepositoryPage({
   params,
 }: PageProps<"/[username]/[repo]/fork">) {
   const { username, repo } = await params;
 
-  const [session, client] = await Promise.all([
-    getServerSession(),
+  const [viewer, client] = await Promise.all([
+    requireViewer(`/${username}/${repo}/fork`),
     createServerClient(),
   ]);
-
-  const viewer = session?.user.username;
-  if (!viewer) {
-    redirect(
-      `/auth/sign-in?redirectTo=${encodeURIComponent(`/${username}/${repo}/fork`)}`,
-    );
-  }
 
   const repository = await client.GET("/api/repositories/{username}/{slug}", {
     params: { path: { username, slug: repo } },
@@ -52,7 +44,7 @@ export default async function ForkRepositoryPage({
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader username={viewer} owners={[viewer]} />
+      <AppHeader username={viewer} />
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8 md:px-6 md:py-12">
         <div className="flex flex-col gap-2">
@@ -99,25 +91,6 @@ export default async function ForkRepositoryPage({
           />
         )}
       </main>
-    </div>
-  );
-}
-
-function Notice({
-  message,
-  href,
-  action,
-}: {
-  message: string;
-  href: string;
-  action: string;
-}) {
-  return (
-    <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed p-6">
-      <p className="text-sm">{message}</p>
-      <Button asChild size="sm" variant="outline">
-        <Link href={href}>{action}</Link>
-      </Button>
     </div>
   );
 }

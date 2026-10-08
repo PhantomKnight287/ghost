@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { and, eq, gt, isNotNull, ne, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { Executor } from '../../lib/issues/close-issue.js';
+import type { Executor } from '../../lib/db/executor.js';
 import { DEFAULT_RELEASE_ASSET_MAX_BYTES } from '../../lib/releases/release-assets.js';
 import { PUT_OBJECT_MAX_BYTES } from '../../lib/s3/s3.limits.js';
 import { parseByteSize } from '../../lib/storage/byte-size.js';
@@ -24,11 +24,7 @@ import {
 
 type PullRequestState = (typeof schema.pullRequestState.enumValues)[number];
 
-/**
- * Bytes an account may keep in object storage, per {@link StorageKind}. `STORAGE_QUOTA_BYTES`, `FORK_STORAGE_QUOTA_BYTES`, `LFS_STORAGE_QUOTA_BYTES` and `ASSET_STORAGE_QUOTA_BYTES` set the instance's limits, which a `storage_limit` row overrides for one account; unset, nothing is limited, which is what a self-hosted instance gets by default.
- *
- * Usage is summed from the rows that hold the files, never kept as a counter, so it cannot drift from what is stored and follows a repository when it is transferred.
- */
+/** Bytes an account may keep in object storage, per {@link StorageKind}. `STORAGE_QUOTA_BYTES`, `FORK_STORAGE_QUOTA_BYTES`, `LFS_STORAGE_QUOTA_BYTES` and `ASSET_STORAGE_QUOTA_BYTES` set the instance's limits, which a `storage_limit` row overrides for one account; unset, nothing is limited. Usage is summed from the rows that hold the files, never a counter, so it cannot drift and follows a transferred repository. */
 @Injectable()
 export class StorageQuotaService {
   private readonly defaults: Record<StorageKind, number | null>;
@@ -79,7 +75,6 @@ export class StorageQuotaService {
     );
   }
 
-  /** The limit for `account`, or null for none. */
   async quotaOf(
     account: StorageAccount,
     kind: StorageKind,

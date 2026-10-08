@@ -17,7 +17,21 @@ export async function runGit(options: RunGitOptions): Promise<string> {
   return (await runGitBuffer(options)).toString('utf8');
 }
 
-/** Same as {@link runGit}, for output that is not text. */
+function spawnGit({ args, gitDir, env }: RunGitOptions) {
+  return spawn('git', args, {
+    env: { ...process.env, GIT_DIR: gitDir, ...env },
+  });
+}
+
+function feed(
+  child: ReturnType<typeof spawnGit>,
+  input: RunGitOptions['input'],
+) {
+  if (input === undefined) child.stdin.end();
+  else if (Buffer.isBuffer(input)) child.stdin.end(input);
+  else input.pipe(child.stdin);
+}
+
 export async function runGitBuffer({
   args,
   gitDir,
@@ -25,9 +39,7 @@ export async function runGitBuffer({
   env,
 }: RunGitOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const child = spawn('git', args, {
-      env: { ...process.env, GIT_DIR: gitDir, ...env },
-    });
+    const child = spawnGit({ args, gitDir, env });
 
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
@@ -50,37 +62,27 @@ export async function runGitBuffer({
       );
     });
 
-    if (input === undefined) child.stdin.end();
-    else if (Buffer.isBuffer(input)) child.stdin.end(input);
-    else input.pipe(child.stdin);
+    feed(child, input);
   });
 }
 
 /** git's stdout as a stream, for output too large to hold in memory. */
 export function runGitReadable({ args, gitDir, env }: RunGitOptions): Readable {
-  const child = spawn('git', args, {
-    env: { ...process.env, GIT_DIR: gitDir, ...env },
-  });
+  const child = spawnGit({ args, gitDir, env });
   child.stdin.end();
   child.on('error', (error) => child.stdout.destroy(error));
 
   return child.stdout;
 }
 
-/**
- * Same as {@link runGit}, but hands stdout back in chunks as git produces it.
- *
- * A consumer that stops iterating kills git rather than paying for output nobody reads, so the exit status is only checked once the stream drains.
- */
+/** {@link runGit} that yields stdout as git produces it. A consumer that stops iterating kills git, so the exit status is only checked once the stream drains. */
 export async function* runGitStream({
   args,
   gitDir,
   input,
   env,
 }: RunGitOptions): AsyncGenerator<string> {
-  const child = spawn('git', args, {
-    env: { ...process.env, GIT_DIR: gitDir, ...env },
-  });
+  const child = spawnGit({ args, gitDir, env });
 
   const stderr: Buffer[] = [];
   const failures: Error[] = [];
@@ -88,9 +90,7 @@ export async function* runGitStream({
     if (!isUnreadInput(error)) failures.push(error);
   });
 
-  if (input === undefined) child.stdin.end();
-  else if (Buffer.isBuffer(input)) child.stdin.end(input);
-  else input.pipe(child.stdin);
+  feed(child, input);
 
   child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
   child.on('error', (error) => failures.push(error));

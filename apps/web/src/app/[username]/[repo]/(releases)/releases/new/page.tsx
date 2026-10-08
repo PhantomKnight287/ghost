@@ -1,24 +1,18 @@
 import { atLeast } from "@ghost/permissions";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { ReleaseForm } from "@/components/releases/release-form";
-import { createServerClient, getServerSession } from "@/lib/api/server";
+import { createServerClient, requireViewer } from "@/lib/api/server";
 
 export default async function NewReleasePage({
   params,
 }: PageProps<"/[username]/[repo]/releases/new">) {
   const { username, repo } = await params;
 
-  const [session, client] = await Promise.all([
-    getServerSession(),
+  const [, client] = await Promise.all([
+    requireViewer(`/${username}/${repo}/releases/new`),
     createServerClient(),
   ]);
-
-  if (!session?.user.username) {
-    redirect(
-      `/auth/sign-in?redirectTo=${encodeURIComponent(`/${username}/${repo}/releases/new`)}`,
-    );
-  }
 
   const [repository, branches, storage] = await Promise.all([
     client.GET("/api/repositories/{username}/{slug}", {

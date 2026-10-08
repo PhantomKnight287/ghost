@@ -1,13 +1,9 @@
 "use server";
 
-import { createSafeActionClient } from "next-safe-action";
+import { actionClient } from "@/lib/action-client";
 import { z } from "zod";
 
 import { searchCode } from "@/lib/api/code-search";
-
-const actionClient = createSafeActionClient({
-  handleServerError: (error) => error.message,
-});
 
 export const loadCodeSearchPage = actionClient
   .inputSchema(

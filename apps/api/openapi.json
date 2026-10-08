@@ -50,16 +50,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
           }
         },
         "summary": "Create Repository",
@@ -196,16 +186,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
           }
         },
         "summary": "Get repositories for username",
@@ -248,16 +228,6 @@
             }
           },
           "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "500": {
             "description": "",
             "content": {
               "application/json": {
@@ -465,16 +435,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
           }
         },
         "summary": "Fork repository",
@@ -615,16 +575,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
           }
         },
         "summary": "Star repository",
@@ -665,16 +615,6 @@
             }
           },
           "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "500": {
             "description": "",
             "content": {
               "application/json": {
@@ -764,16 +704,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
           }
         },
         "summary": "List repository contents",
@@ -836,16 +766,6 @@
             }
           },
           "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "500": {
             "description": "",
             "content": {
               "application/json": {
@@ -927,16 +847,6 @@
             }
           },
           "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "500": {
             "description": "",
             "content": {
               "application/json": {
@@ -1291,16 +1201,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
           }
         },
         "summary": "List repository branches",
@@ -1424,16 +1324,6 @@
             }
           },
           "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "500": {
             "description": "",
             "content": {
               "application/json": {
@@ -12403,6 +12293,10 @@
             "items": {
               "$ref": "#/components/schemas/ReviewerDTO"
             }
+          },
+          "viewerCanEdit": {
+            "type": "boolean",
+            "description": "True when the requesting user is the author or can write to the base repository."
           }
         },
         "required": [
@@ -12429,7 +12323,8 @@
           "conflicts",
           "pullRefsBlocked",
           "squash",
-          "reviewers"
+          "reviewers",
+          "viewerCanEdit"
         ]
       },
       "GetPullRequestCommitsResponseDTO": {

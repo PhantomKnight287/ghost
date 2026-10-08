@@ -35,7 +35,7 @@ export default async function TeamPage({
 
   return (
     <div className="flex min-h-full flex-col">
-      <AppHeader username={viewer} owners={[viewer]} />
+      <AppHeader username={viewer} />
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-8 md:px-6">
         <div className="flex items-center gap-3">
           <span className="flex size-10 items-center justify-center rounded-lg border bg-muted text-muted-foreground">

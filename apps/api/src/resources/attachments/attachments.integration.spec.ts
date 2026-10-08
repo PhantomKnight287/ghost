@@ -15,14 +15,14 @@ import {
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
-import { RepositoryNotFoundError } from '../repositories/repositories.errors.js';
-import { InvalidAssetNameError } from '../releases/releases.errors.js';
+import { RepositoryNotFoundError } from '../../lib/repositories/repositories.errors.js';
+import { InvalidAssetNameError } from '../../lib/releases/releases.errors.js';
 import {
   AttachmentNotFoundError,
   AttachmentNotOctetStreamError,
   AttachmentTooLargeError,
   AttachmentTypeNotAllowedError,
-} from './attachments.errors.js';
+} from '../../lib/attachments/attachments.errors.js';
 import { AttachmentsService } from './attachments.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;

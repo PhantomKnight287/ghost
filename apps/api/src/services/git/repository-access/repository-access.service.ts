@@ -15,7 +15,7 @@ import {
   type RepositoryOperation,
   roleOf,
   teamRoleOf,
-} from '../../../lib/git/repository-access/repository-access.js';
+} from '../../../lib/repositories/access/repository-access.js';
 
 @Injectable()
 export class RepositoryAccessService {
@@ -24,14 +24,16 @@ export class RepositoryAccessService {
   async authorize({
     username,
     repo,
-    actor,
-    operation,
+    requesterId,
+    operation = 'read',
   }: {
     username: string;
     repo: string;
-    actor: Actor;
-    operation: RepositoryOperation;
+    /** Unset for an anonymous visitor. */
+    requesterId?: string;
+    operation?: RepositoryOperation;
   }): Promise<AuthorizedRepository> {
+    const actor: Actor = requesterId ? { userId: requesterId } : null;
     let [row] = await this.lookup(
       actor,
       and(
@@ -66,13 +68,14 @@ export class RepositoryAccessService {
   /** For a repository known by row id, such as the other side of a pull request. */
   async authorizeById({
     repositoryId,
-    actor,
-    operation,
+    requesterId,
+    operation = 'read',
   }: {
     repositoryId: string;
-    actor: Actor;
-    operation: RepositoryOperation;
+    requesterId?: string;
+    operation?: RepositoryOperation;
   }): Promise<AuthorizedRepository> {
+    const actor: Actor = requesterId ? { userId: requesterId } : null;
     const [row] = await this.lookup(
       actor,
       eq(schema.repository.id, repositoryId),

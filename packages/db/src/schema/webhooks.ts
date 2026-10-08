@@ -41,7 +41,6 @@ export const webhookEndpoint = pgTable(
       .$onUpdateFn(() => new Date()),
   },
   (t) => [
-    // enforce this endpoint has only 1 owner. Either a repo or an org
     check(
       "webhook_endpoint_owner",
       sql`num_nonnulls(repository_id, organization_id) = 1`,

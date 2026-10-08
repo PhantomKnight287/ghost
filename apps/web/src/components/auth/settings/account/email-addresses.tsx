@@ -26,28 +26,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
-import { cn } from "@/lib/utils";
-
-export type EmailAddressesProps = {
-  className?: string;
-};
-
-type UserEmail = {
-  id: string;
-  email: string;
-  verified: boolean;
-  primary: boolean;
-};
+import { apiClient, unwrap } from "@/lib/api/client";
 
 const QUERY_KEY = ["emails"];
 
-/**
- * Manage the addresses an account owns beyond the one it signs in with.
- *
- * Adding one mails it a link; until that link is followed the address counts for nothing, which is why unverified rows say so and offer no actions.
- */
-export function EmailAddresses({ className }: EmailAddressesProps) {
+/** Manage the addresses an account owns beyond the one it signs in with. Adding one mails it a link; until that link is followed the address counts for nothing, which is why unverified rows say so and offer no actions. */
+export function EmailAddresses() {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
 
@@ -56,9 +40,8 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
   const { data, isPending } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/emails");
-      if (error) throw new Error(apiErrorMessage(error));
-      return data.emails as UserEmail[];
+      const data = await unwrap(apiClient.GET("/api/emails"));
+      return data.emails;
     },
   });
 
@@ -67,10 +50,11 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
 
   const add = useMutation({
     mutationFn: async (value: string) => {
-      const { error } = await apiClient.POST("/api/emails", {
-        body: { email: value },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/emails", {
+          body: { email: value },
+        }),
+      );
     },
     onSuccess: async (_result, value) => {
       setEmail("");
@@ -82,10 +66,11 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
 
   const resend = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.POST("/api/emails/{id}/resend", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/emails/{id}/resend", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: () => toast.success("Verification email sent again"),
     onError: (error: Error) => toast.error(error.message),
@@ -93,10 +78,11 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
 
   const makePrimary = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.POST("/api/emails/{id}/primary", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.POST("/api/emails/{id}/primary", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: async () => {
       toast.success("Primary address updated");
@@ -107,10 +93,11 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await apiClient.DELETE("/api/emails/{id}", {
-        params: { path: { id } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      await unwrap(
+        apiClient.DELETE("/api/emails/{id}", {
+          params: { path: { id } },
+        }),
+      );
     },
     onSuccess: async () => {
       toast.success("Address removed");
@@ -131,7 +118,7 @@ export function EmailAddresses({ className }: EmailAddressesProps) {
       <h2 className="mb-3 text-sm font-semibold">Email addresses</h2>
 
       <TooltipProvider>
-        <Card className={cn("gap-0 p-0", className)}>
+        <Card className={"gap-0 p-0"}>
           <CardContent className="p-0">
             <ItemGroup className="gap-0!">
               {isPending ? (

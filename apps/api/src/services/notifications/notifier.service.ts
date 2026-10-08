@@ -9,12 +9,13 @@ import type {
   RepositoryEvent,
   StoredEvent,
 } from '../../lib/events/events.js';
-import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
+import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
 import { MailService, type ThreadTemplate } from '../../mail/mail.service.js';
 import type { NotificationReason } from '../../mail/components/thread.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
-import { excluded } from '../../utils/index.js';
+import { excluded } from '../../lib/db/sql.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 // The rest reach webhooks only.
 const notifyingEvents = [
@@ -51,7 +52,6 @@ const STATES = {
 
 type Thread = NonNullable<Awaited<ReturnType<NotifierService['loadThread']>>>;
 
-/** What an event says, as far as notifications care. */
 type Activity = {
   /** Text whose `@user` and `@org/team` mentions notify, and subscribe, whoever they name. */
   text: string | null;
@@ -62,7 +62,6 @@ type Activity = {
   context: Record<string, unknown>;
 };
 
-/** Turns repository events into inbox rows and emails. */
 @Injectable()
 export class NotifierService {
   private readonly logger = new Logger(NotifierService.name);
@@ -451,7 +450,7 @@ export class NotifierService {
         });
       } catch (error) {
         this.logger.warn(
-          `Emailing ${person.id} about ${event.type} on ${thread.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+          `Emailing ${person.id} about ${event.type} on ${thread.id} failed: ${errorMessage(error)}`,
         );
       }
     }

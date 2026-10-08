@@ -4,13 +4,10 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
-  gt,
   ilike,
   inArray,
   isNotNull,
-  lt,
   or,
   sql,
 } from 'drizzle-orm';
@@ -19,7 +16,8 @@ import { alias } from 'drizzle-orm/pg-core';
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { assertNotImporting } from '../../lib/imports/importing.js';
-import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
+import { closeIssue } from '../../lib/issues/close-issue.js';
+import type { Executor } from '../../lib/db/executor.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
@@ -27,18 +25,12 @@ import {
   repositoryFullNameOf,
   type Repository,
   type RepositoryOperation,
-} from '../../lib/git/repository-access/repository-access.js';
-import { atLeast } from '@ghost/permissions';
+} from '../../lib/repositories/access/repository-access.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
-import {
-  decodeCursor,
-  encodeCursor,
-  escapeLike,
-  isoTimestamp,
-} from '../../utils/index.js';
-import { InvalidCursorError } from '../repositories/repositories.errors.js';
+import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
+import { keyset } from '../../lib/db/keyset.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
 import type { LabelDTO } from './dto/label.dto.js';
 import type { GetIssuesQueryDTO } from './dto/issue.dto.js';
@@ -50,7 +42,18 @@ import {
   LabelAlreadyExistsError,
   PullRequestReopenError,
   LabelNotFoundError,
-} from './issues.errors.js';
+} from '../../lib/issues/issues.errors.js';
+import { touchIssue } from '../../lib/issues/touch-issue.js';
+import { canEditThread } from '../../lib/issues/can-edit-thread.js';
+
+const NO_ISSUES = {
+  issues: [],
+  total: 0,
+  openCount: 0,
+  closedCount: 0,
+  nextCursor: null,
+  hasMore: false,
+};
 
 const labelColumns = {
   id: schema.label.id,
@@ -86,7 +89,6 @@ const eventSourceOrganization = alias(
 );
 
 const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
 
 type Issue = typeof schema.issue.$inferSelect;
 type IssueEventType = (typeof schema.issueEventType.enumValues)[number];
@@ -111,7 +113,11 @@ export class IssuesService {
     requesterId: string;
     body: CreateIssueRequestDTO;
   }) {
-    const repository = await this.authorize({ username, repo, requesterId });
+    const repository = await this.access.authorize({
+      username,
+      repo,
+      requesterId,
+    });
 
     const labels = await this.resolveLabels(
       repository.id,
@@ -236,28 +242,29 @@ export class IssuesService {
     requesterId?: string;
     query: GetIssuesQueryDTO;
   }) {
-    const repository = await this.authorize({ username, repo, requesterId });
-
-    const requested = Number(query.limit);
-    const pageSize = Number.isFinite(requested)
-      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
-      : DEFAULT_PAGE_SIZE;
+    const repository = await this.access.authorize({
+      username,
+      repo,
+      requesterId,
+    });
 
     const state = query.state ?? 'open';
     const sort = query.sort ?? 'created';
-    const direction = query.direction ?? 'desc';
-    const orderFn = direction === 'asc' ? asc : desc;
-
-    // `sort=comments` cursors carry a leading count (`count|iso|id`); every other sort uses the shared keyset cursor (`iso|id`). Decoding with the wrong one always fails, so pick by sort.
-    const decoded =
-      sort === 'comments'
-        ? query.cursor
-          ? decodeCommentCursor(query.cursor)
-          : null
-        : query.cursor
-          ? decodeCursor(query.cursor)
-          : null;
-    if (query.cursor && !decoded) throw new InvalidCursorError();
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      direction: query.direction,
+      keys:
+        sort === 'comments'
+          ? {
+              commentCount: schema.issue.commentCount,
+              createdAt: schema.issue.createdAt,
+              id: schema.issue.id,
+            }
+          : sort === 'updated'
+            ? { updatedAt: schema.issue.updatedAt, id: schema.issue.id }
+            : { createdAt: schema.issue.createdAt, id: schema.issue.id },
+    });
 
     const labelNames = dedupe(
       (query.labels ?? '')
@@ -270,57 +277,29 @@ export class IssuesService {
       labelNames,
     );
     if (labelNames.length > 0 && labelFilterIds === null) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
 
     const authorId = query.author
       ? await this.optionalUserId(query.author)
       : undefined;
     if (query.author && !authorId) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
     const assigneeId = query.assignee
       ? await this.optionalUserId(query.assignee)
       : undefined;
     if (query.assignee && !assigneeId) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
 
-    // Label (AND) and assignee filters resolve to id sets first so the main query stays a single indexed scan plus `inArray`. `const` (not `let`) so the `baseClause` closure below keeps the narrowed type.
+    // Label (AND) and assignee filters resolve to id sets first so the main query stays a single indexed scan plus `inArray`.
     const labelIssueIds: string[] | undefined =
       labelFilterIds && labelFilterIds.length > 0
         ? await this.issueIdsWithAllLabels(labelFilterIds)
         : undefined;
     if (labelIssueIds && labelIssueIds.length === 0) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
     const assigneeRows = assigneeId
       ? await this.db
@@ -332,14 +311,7 @@ export class IssuesService {
       ? assigneeRows.map((row) => row.issueId)
       : undefined;
     if (assigneeFilterIds && assigneeFilterIds.length === 0) {
-      return {
-        issues: [],
-        total: 0,
-        openCount: 0,
-        closedCount: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
+      return NO_ISSUES;
     }
 
     const search = query.q?.trim();
@@ -363,44 +335,14 @@ export class IssuesService {
         searchClause,
       );
 
-    const cursorClause =
-      decoded && sort !== 'comments'
-        ? or(
-            direction === 'desc'
-              ? lt(sortColumn(sort), decoded.date)
-              : gt(sortColumn(sort), decoded.date),
-            and(
-              eq(sortColumn(sort), decoded.date),
-              direction === 'desc'
-                ? lt(schema.issue.id, decoded.id)
-                : gt(schema.issue.id, decoded.id),
-            ),
-          )
-        : decoded && sort === 'comments' && isCommentsCursor(decoded)
-          ? commentsCursorClause(decoded, direction)
-          : undefined;
-
-    const orderBy =
-      sort === 'created'
-        ? [orderFn(schema.issue.createdAt), orderFn(schema.issue.id)]
-        : sort === 'updated'
-          ? [orderFn(schema.issue.updatedAt), orderFn(schema.issue.id)]
-          : [
-              orderFn(schema.issue.commentCount),
-              orderFn(schema.issue.createdAt),
-              orderFn(schema.issue.id),
-            ];
-
     const rows = await this.db
       .select()
       .from(schema.issue)
-      .where(and(baseClause(state === 'all' ? 'all' : state), cursorClause))
-      .orderBy(...orderBy)
-      .limit(pageSize + 1);
+      .where(and(baseClause(state === 'all' ? 'all' : state), list.where))
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const hasMore = rows.length > pageSize;
-    const page = hasMore ? rows.slice(0, pageSize) : rows;
-    const last = page.at(-1);
+    const { page, hasMore, nextCursor } = list.page(rows);
 
     const [[totalRow], [openRow], [closedRow]] = await Promise.all([
       this.db
@@ -422,16 +364,7 @@ export class IssuesService {
       total: totalRow?.total ?? 0,
       openCount: openRow?.total ?? 0,
       closedCount: closedRow?.total ?? 0,
-      nextCursor:
-        hasMore && last
-          ? sort === 'comments'
-            ? encodeCommentCursor({
-                count: last.commentCount,
-                date: last.createdAt,
-                id: last.id,
-              })
-            : encodeCursor({ date: sortDateOf(sort, last), id: last.id })
-          : null,
+      nextCursor,
       hasMore,
     };
   }
@@ -450,7 +383,7 @@ export class IssuesService {
   ) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.access.authorize({ ...params, operation: 'write' });
     }
 
     const { title, body } = params.body;
@@ -510,7 +443,7 @@ export class IssuesService {
   async closeIssue(params: IssueRef & { requesterId: string }) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'triage' });
+      await this.access.authorize({ ...params, operation: 'triage' });
     }
     if (issue.state !== 'open') throw new IssueNotOpenError(issue.state);
 
@@ -539,7 +472,7 @@ export class IssuesService {
   async reopenIssue(params: IssueRef & { requesterId: string }) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'triage' });
+      await this.access.authorize({ ...params, operation: 'triage' });
     }
     if (issue.state !== 'closed') throw new IssueNotOpenError(issue.state);
     if (issue.isPullRequest) throw new PullRequestReopenError();
@@ -678,10 +611,7 @@ export class IssuesService {
         },
         params.body,
       );
-      await tx
-        .update(schema.issue)
-        .set({ updatedAt: new Date() })
-        .where(eq(schema.issue.id, issue.id));
+      await touchIssue(tx, issue.id);
       return row;
     });
 
@@ -704,7 +634,7 @@ export class IssuesService {
       );
     if (!comment) throw new IssueCommentNotFoundError();
     if (comment.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'write' });
+      await this.access.authorize({ ...params, operation: 'write' });
     }
 
     await this.db.transaction(async (tx) => {
@@ -823,14 +753,12 @@ export class IssuesService {
     return { timeline };
   }
 
-  // Labels — repository scoped, like GitHub.
-
   async listLabels(params: {
     username: string;
     repo: string;
     requesterId?: string;
   }) {
-    const repository = await this.authorize(params);
+    const repository = await this.access.authorize(params);
     const labels = await this.db
       .select(labelColumns)
       .from(schema.label)
@@ -845,7 +773,10 @@ export class IssuesService {
     requesterId: string;
     body: { name: string; description?: string; color: string };
   }) {
-    const repository = await this.authorize({ ...params, operation: 'write' });
+    const repository = await this.access.authorize({
+      ...params,
+      operation: 'write',
+    });
     const name = params.body.name.trim();
     const [existing] = await this.db
       .select({ id: schema.label.id })
@@ -885,7 +816,10 @@ export class IssuesService {
     labelId: string;
     body: { name?: string; description?: string | null; color?: string };
   }) {
-    const repository = await this.authorize({ ...params, operation: 'write' });
+    const repository = await this.access.authorize({
+      ...params,
+      operation: 'write',
+    });
     const [label] = await this.db
       .select()
       .from(schema.label)
@@ -948,7 +882,10 @@ export class IssuesService {
     requesterId: string;
     labelId: string;
   }) {
-    const repository = await this.authorize({ ...params, operation: 'write' });
+    const repository = await this.access.authorize({
+      ...params,
+      operation: 'write',
+    });
     const [label] = await this.db
       .select()
       .from(schema.label)
@@ -984,7 +921,7 @@ export class IssuesService {
   ) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'triage' });
+      await this.access.authorize({ ...params, operation: 'triage' });
     }
 
     const names = dedupe(
@@ -1045,10 +982,7 @@ export class IssuesService {
       }
 
       if (added.length > 0 || removed.length > 0) {
-        await tx
-          .update(schema.issue)
-          .set({ updatedAt: new Date() })
-          .where(eq(schema.issue.id, issue.id));
+        await touchIssue(tx, issue.id);
       }
     });
 
@@ -1061,7 +995,7 @@ export class IssuesService {
   ) {
     const { issue } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
-      await this.authorize({ ...params, operation: 'triage' });
+      await this.access.authorize({ ...params, operation: 'triage' });
     }
 
     const usernames = dedupe(
@@ -1122,10 +1056,7 @@ export class IssuesService {
       }
 
       if (added.length > 0 || removed.length > 0) {
-        await tx
-          .update(schema.issue)
-          .set({ updatedAt: new Date() })
-          .where(eq(schema.issue.id, issue.id));
+        await touchIssue(tx, issue.id);
       }
     });
 
@@ -1133,7 +1064,7 @@ export class IssuesService {
   }
 
   async load({ username, repo, number, requesterId, operation }: IssueRef) {
-    const base = await this.authorize({
+    const base = await this.access.authorize({
       username,
       repo,
       requesterId,
@@ -1153,64 +1084,17 @@ export class IssuesService {
     return { issue, base };
   }
 
-  private authorize({
-    username,
-    repo,
-    requesterId,
-    operation = 'read',
-  }: {
-    username: string;
-    repo: string;
-    requesterId?: string;
-    operation?: RepositoryOperation;
-  }) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation,
-    });
-  }
-
   private async expandIssue(
     issueRow: Issue,
     requesterId: string | undefined,
     viewerRole: Role | null,
   ) {
-    const [author, labels, assignees, closer] = await Promise.all([
-      this.users.getUserById(issueRow.authorId),
-      this.db
-        .select(labelColumns)
-        .from(schema.issueLabel)
-        .innerJoin(schema.label, eq(schema.label.id, schema.issueLabel.labelId))
-        .where(eq(schema.issueLabel.issueId, issueRow.id)),
-      this.db
-        .select({ username: schema.user.username })
-        .from(schema.issueAssignee)
-        .innerJoin(schema.user, eq(schema.user.id, schema.issueAssignee.userId))
-        .where(eq(schema.issueAssignee.issueId, issueRow.id)),
-      issueRow.closedById
-        ? this.users.getUserById(issueRow.closedById).catch(() => null)
-        : Promise.resolve(null),
-    ]);
-
-    return {
-      id: issueRow.id,
-      number: issueRow.number,
-      title: issueRow.title,
-      body: issueRow.body,
-      state: issueRow.state,
-      isPullRequest: issueRow.isPullRequest,
-      authorUsername: author.username ?? '',
-      closedByUsername: closer?.username ?? null,
-      labels,
-      assignees: assignees.map((row) => row.username ?? ''),
-      commentCount: issueRow.commentCount,
-      closedAt: issueRow.closedAt?.toISOString() ?? null,
-      createdAt: issueRow.createdAt.toISOString(),
-      updatedAt: issueRow.updatedAt.toISOString(),
-      viewerCanEdit: canEditIssue(issueRow, requesterId, viewerRole),
-    };
+    const [issue] = await this.expandIssues(
+      [issueRow],
+      requesterId,
+      viewerRole,
+    );
+    return issue;
   }
 
   private async expandIssues(
@@ -1285,7 +1169,7 @@ export class IssuesService {
       closedAt: issueRow.closedAt?.toISOString() ?? null,
       createdAt: issueRow.createdAt.toISOString(),
       updatedAt: issueRow.updatedAt.toISOString(),
-      viewerCanEdit: canEditIssue(issueRow, requesterId, viewerRole),
+      viewerCanEdit: canEditThread(issueRow.authorId, requesterId, viewerRole),
     }));
   }
 
@@ -1309,9 +1193,8 @@ export class IssuesService {
     });
   }
 
-  private async resolveLabels(repositoryId: string, names: string[]) {
-    if (names.length === 0) return [];
-    const rows = await this.db
+  private labelsNamed(repositoryId: string, names: string[]) {
+    return this.db
       .select(labelColumns)
       .from(schema.label)
       .where(
@@ -1320,23 +1203,21 @@ export class IssuesService {
           inArray(schema.label.name, names),
         ),
       );
+  }
+
+  private async resolveLabels(repositoryId: string, names: string[]) {
+    if (names.length === 0) return [];
+    const rows = await this.labelsNamed(repositoryId, names);
     const found = new Set(rows.map((row) => row.name));
     const missing = names.find((name) => !found.has(name));
     if (missing) throw new LabelNotFoundError(missing);
     return rows;
   }
 
+  /** Ids of the labels named, or null when one does not exist, so the filter matches nothing. */
   private async labelIdsForFilter(repositoryId: string, names: string[]) {
     if (names.length === 0) return [];
-    const rows = await this.db
-      .select({ id: schema.label.id, name: schema.label.name })
-      .from(schema.label)
-      .where(
-        and(
-          eq(schema.label.repositoryId, repositoryId),
-          inArray(schema.label.name, names),
-        ),
-      );
+    const rows = await this.labelsNamed(repositoryId, names);
     if (rows.length !== names.length) return null;
     return rows.map((row) => row.id);
   }
@@ -1391,93 +1272,4 @@ function isNumberCollision(error: unknown): boolean {
 
 function dedupe(names: string[]) {
   return [...new Set(names)];
-}
-
-function sortColumn(sort: 'created' | 'updated' | 'comments') {
-  return sort === 'updated' ? schema.issue.updatedAt : schema.issue.createdAt;
-}
-
-function sortDateOf(sort: 'created' | 'updated' | 'comments', row: Issue) {
-  return sort === 'updated' ? row.updatedAt : row.createdAt;
-}
-
-function encodeCommentCursor({
-  count,
-  date,
-  id,
-}: {
-  count: number;
-  date: Date;
-  id: string;
-}) {
-  return Buffer.from(`${count}|${date.toISOString()}|${id}`).toString(
-    'base64url',
-  );
-}
-
-function decodeCommentCursor(cursor: string) {
-  try {
-    const [countRaw, timestamp, id] = Buffer.from(cursor, 'base64url')
-      .toString('utf8')
-      .split('|');
-    if (!countRaw || !timestamp || !id) return null;
-    const count = Number(countRaw);
-    const date = new Date(timestamp);
-    if (!Number.isFinite(count) || Number.isNaN(date.getTime())) return null;
-    return { count, date, id };
-  } catch {
-    return null;
-  }
-}
-
-type CommentsCursor = { count: number; date: Date; id: string };
-
-function isCommentsCursor(
-  decoded: { date: Date; id: string } | CommentsCursor,
-): decoded is CommentsCursor {
-  return 'count' in decoded;
-}
-
-function commentsCursorClause(
-  decoded: CommentsCursor,
-  direction: 'asc' | 'desc',
-) {
-  const commentCountCol = sql<number>`${schema.issue.commentCount}`;
-  if (direction === 'desc') {
-    return or(
-      lt(schema.issue.commentCount, decoded.count),
-      and(
-        eq(schema.issue.commentCount, decoded.count),
-        or(
-          lt(schema.issue.createdAt, decoded.date),
-          and(
-            eq(schema.issue.createdAt, decoded.date),
-            lt(schema.issue.id, decoded.id),
-          ),
-        ),
-      ),
-    );
-  }
-  return or(
-    sql`${commentCountCol} > ${decoded.count}`,
-    and(
-      eq(schema.issue.commentCount, decoded.count),
-      or(
-        sql`${schema.issue.createdAt} > ${decoded.date}`,
-        and(
-          eq(schema.issue.createdAt, decoded.date),
-          sql`${schema.issue.id} > ${decoded.id}`,
-        ),
-      ),
-    ),
-  );
-}
-
-function canEditIssue(
-  issueRow: Issue,
-  requesterId: string | undefined,
-  viewerRole: Role | null,
-) {
-  if (!requesterId) return false;
-  return requesterId === issueRow.authorId || atLeast(viewerRole, 'write');
 }

@@ -1,7 +1,7 @@
 import { atLeast } from "@ghost/permissions";
 
-import { ReleasesNav } from "@/components/releases/releases-nav";
-import { createServerClient } from "@/lib/api/server";
+import { ReleasesNav } from "./releases-nav";
+import { getViewerRole } from "@/lib/api/server";
 
 /** Keeps the releases and tags tabs mounted while switching between them. */
 export default async function ReleasesLayout({
@@ -10,17 +10,14 @@ export default async function ReleasesLayout({
 }: LayoutProps<"/[username]/[repo]">) {
   const { username, repo } = await params;
 
-  const client = await createServerClient();
-  const repository = await client.GET("/api/repositories/{username}/{slug}", {
-    params: { path: { username, slug: repo } },
-  });
+  const role = await getViewerRole(username, repo);
 
   return (
     <div className="flex flex-col gap-4">
       <ReleasesNav
         username={username}
         repo={repo}
-        canWrite={atLeast(repository.data?.viewerRole ?? null, "write")}
+        canWrite={atLeast(role, "write")}
       />
       {children}
     </div>

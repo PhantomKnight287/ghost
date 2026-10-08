@@ -14,11 +14,9 @@ export type UserAvatarProps = {
   className?: string;
   fallback?: ReactNode;
   isPending?: boolean;
-  /** @remarks `User` */
   user?: User & { username?: string | null; displayUsername?: string | null };
 };
 
-/** Display a user's avatar using session information or an explicit user prop. */
 export function UserAvatar({
   className,
   user,

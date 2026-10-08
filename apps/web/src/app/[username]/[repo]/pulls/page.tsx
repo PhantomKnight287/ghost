@@ -1,9 +1,8 @@
-import { GitMerge, GitPullRequest, GitPullRequestClosed } from "lucide-react";
+import { GitPullRequest } from "lucide-react";
 import Link from "next/link";
 
 import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
-import type { PullRequestFilter } from "@/components/pull-requests/common";
 import {
   branchLabel,
   pullRequestFilters,
@@ -12,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
+import { CursorPagination } from "@/components/cursor-pagination";
+import { ThreadStateIcon } from "@/components/thread-state";
 
 const PAGE_SIZE = 20;
 
@@ -21,12 +22,9 @@ export default async function PullRequestsPage({
 }: PageProps<"/[username]/[repo]/pulls">) {
   const { username, repo } = await params;
   const { state, cursor } = await searchParams;
+  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
-  const filter: PullRequestFilter = pullRequestFilters.includes(
-    state as PullRequestFilter,
-  )
-    ? (state as PullRequestFilter)
-    : "open";
+  const filter = pullRequestFilters.find((value) => value === state) ?? "open";
 
   const client = await createServerClient();
   const pulls = await client.GET("/api/repositories/{username}/{repo}/pulls", {
@@ -35,7 +33,7 @@ export default async function PullRequestsPage({
       query: {
         state: filter,
         limit: PAGE_SIZE,
-        cursor: typeof cursor === "string" ? cursor : undefined,
+        cursor: pageCursor,
       },
     },
   });
@@ -86,25 +84,15 @@ export default async function PullRequestsPage({
         ) : (
           <ul className="divide-y">
             {pulls.data.pullRequests.map((pull) => {
-              const Icon =
-                pull.state === "merged"
-                  ? GitMerge
-                  : pull.state === "closed"
-                    ? GitPullRequestClosed
-                    : GitPullRequest;
-
               return (
                 <li
                   key={pull.id}
                   className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-muted/40"
                 >
-                  <Icon
-                    className={cn(
-                      "mt-0.5 size-4 shrink-0",
-                      pull.state === "merged" && "text-violet-500",
-                      pull.state === "closed" && "text-red-500",
-                      pull.state === "open" && "text-emerald-500",
-                    )}
+                  <ThreadStateIcon
+                    isPullRequest
+                    state={pull.state}
+                    className="mt-0.5"
                   />
 
                   <div className="min-w-0 flex-1">
@@ -141,16 +129,12 @@ export default async function PullRequestsPage({
         )}
       </div>
 
-      {pulls.data.nextCursor && (
-        <div className="flex justify-end">
-          <Link
-            href={`${base}?state=${filter}&cursor=${encodeURIComponent(pulls.data.nextCursor)}`}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Older
-          </Link>
-        </div>
-      )}
+      <CursorPagination
+        pathname={base}
+        params={{ state: filter }}
+        cursor={pageCursor}
+        nextCursor={pulls.data.nextCursor}
+      />
     </div>
   );
 }

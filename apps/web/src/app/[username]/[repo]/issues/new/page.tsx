@@ -1,39 +1,23 @@
-import { redirect } from "next/navigation";
-
-import { CreateIssueForm } from "@/components/issues/create-issue-form";
-import {
-  createServerClient,
-  getServerSession,
-  notFoundIfHidden,
-} from "@/lib/api/server";
+import { CreateIssueForm } from "./create-issue-form";
+import { createServerClient, requireViewer } from "@/lib/api/server";
 
 export default async function NewIssuePage({
   params,
 }: PageProps<"/[username]/[repo]/issues/new">) {
   const { username, repo } = await params;
 
-  const [session, client] = await Promise.all([
-    getServerSession(),
+  const [viewer, client] = await Promise.all([
+    requireViewer(`/${username}/${repo}/issues/new`),
     createServerClient(),
   ]);
 
-  if (!session?.user.username) {
-    redirect(
-      `/auth/sign-in?redirectTo=${encodeURIComponent(`/${username}/${repo}/issues/new`)}`,
-    );
-  }
-
-  const [repository, labels] = await Promise.all([
-    client.GET("/api/repositories/{username}/{slug}", {
-      params: { path: { username, slug: repo } },
-    }),
-    client.GET("/api/repositories/{username}/{repo}/labels", {
+  // The repository layout already 404s a repository the viewer cannot see.
+  const labels = await client.GET(
+    "/api/repositories/{username}/{repo}/labels",
+    {
       params: { path: { username, repo } },
-    }),
-  ]);
-
-  notFoundIfHidden(repository.response);
-  if (!repository.data) throw new Error(`Failed to load ${username}/${repo}`);
+    },
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,7 +32,7 @@ export default async function NewIssuePage({
         username={username}
         repo={repo}
         labels={labels.data?.labels ?? []}
-        viewer={session.user.username}
+        viewer={viewer}
       />
     </div>
   );

@@ -3,9 +3,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import { excluded } from '../../utils/index.js';
+import { excluded } from '../../lib/db/sql.js';
 import { attributed } from '../../lib/imports/attribution.js';
-import type { Executor } from '../../lib/issues/close-issue.js';
+import type { Executor } from '../../lib/db/executor.js';
 import type {
   ImportedCommentDTO,
   ImportedIssueDTO,
@@ -14,11 +14,7 @@ import type {
 
 const IMPORTER = schema.IMPORTER_USER_ID;
 
-/**
- * Writes what the importer read from GitHub. Every write is an upsert keyed the way GitHub keys it (tag name, issue number), so a retried attempt overwrites the previous one instead of duplicating it.
- *
- * Nothing here publishes events: an import is history, not activity, and thousands of `issue.opened` webhooks for it would be noise.
- */
+/** Writes what the importer read from GitHub. Every write is an upsert keyed the way GitHub keys it (tag name, issue number), so a retried attempt overwrites the previous one instead of duplicating it. Nothing here publishes events: an import is history, not activity, and thousands of `issue.opened` webhooks for it would be noise. */
 @Injectable()
 export class ImportWriterService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}

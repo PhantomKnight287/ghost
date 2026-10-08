@@ -17,14 +17,11 @@ export const CUSTOM_THEME_UPDATED_EVENT = "ghost-custom-theme-changed";
 
 export function useCustomTheme() {
   const [custom, setCustom] = useState<CustomThemeVars>(DEFAULT_CUSTOM_THEME);
-  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // hydration-safe: localStorage only exists in the browser, so the stored
-    // custom theme has to be synced after mount.
+    // localStorage only exists in the browser, so the stored custom theme is read after mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustom(loadCustomTheme());
-    setHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -40,7 +37,7 @@ export function useCustomTheme() {
     };
   }, []);
 
-  return { custom, hydrated };
+  return { custom };
 }
 
 /** Keeps Tailwind `dark:` utilities working for every dark-kind theme by mirroring the `dark` class, and applies user custom-theme variables. */
@@ -67,11 +64,4 @@ export function ThemeEffects() {
   }, [theme, resolvedTheme, custom]);
 
   return null;
-}
-
-export function useActiveThemeKind() {
-  const { theme, resolvedTheme } = useTheme();
-  const { custom } = useCustomTheme();
-  const active = theme === "system" ? resolvedTheme : theme;
-  return themeKind(active, custom.base);
 }

@@ -3,11 +3,7 @@ import { eq } from 'drizzle-orm';
 
 import { RepositoryImportingError } from './imports.errors.js';
 
-/**
- * An import writes issue numbers GitHub chose, so nothing else may take one until it is done.
- *
- * Call it inside the transaction that inserts the issue. The shared lock on the import row makes a concurrent retry, which locks the row for update, wait for that insert to commit and see it, or makes this wait for the retry and see the import running again.
- */
+/** An import writes GitHub's issue numbers, so nothing else may take one until it is done. Call inside the issue-inserting transaction: the shared lock on the import row serializes it against a retry's `FOR UPDATE`, so each sees the other's write. */
 export async function assertNotImporting(
   tx: Pick<Database, 'select'>,
   repositoryId: string,
@@ -22,3 +18,5 @@ export async function assertNotImporting(
     throw new RepositoryImportingError();
   }
 }
+
+export const MAX_IMPORT_ATTEMPTS = 6;

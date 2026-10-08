@@ -11,9 +11,6 @@ export type IssueFilter = (typeof issueFilters)[number];
 export const issueSorts = ["created", "updated", "comments"] as const;
 export type IssueSort = (typeof issueSorts)[number];
 
-export const issueDirections = ["asc", "desc"] as const;
-export type IssueDirection = (typeof issueDirections)[number];
-
 export const createIssueSchema = z.object({
   title: z
     .string()
@@ -50,8 +47,6 @@ export type CreateLabelInput = z.infer<typeof createLabelSchema>;
 export const updateLabelSchema = createLabelSchema.extend({
   description: createLabelSchema.shape.description.unwrap().nullable(),
 });
-
-export type UpdateLabelInput = z.infer<typeof updateLabelSchema>;
 
 /** What happened, without who did it: the timeline links the actor in front of it. */
 export function eventDescription(

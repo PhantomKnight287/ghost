@@ -24,18 +24,25 @@ import { resolveDefaultRef } from '../lib/git/tree/resolve-ref.js';
 import { isPullRef } from '../lib/git/refs/pull-refs.js';
 import { type RefTransition, ZERO_OID } from '../lib/git/wal/wal.types.js';
 import { createUlid } from '../lib/git/wal/ulid.js';
-import type { Repository } from '../lib/git/repository-access/repository-access.js';
+import type { Repository } from '../lib/repositories/access/repository-access.js';
 import {
   storageAccountOf,
-  storageKindOf,
+  billedKindOf,
 } from '../lib/storage/storage-account.js';
 import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
 import { MAX_PUSH_COMMITS, publishEvent } from '../lib/events/events.js';
 import { DATABASE } from '../database/database.module.js';
-import { isGitServiceName, type GitServiceName } from './git.constants.js';
-import { ProtectedRefError, UnsupportedGitServiceError } from './git.errors.js';
+import {
+  isGitServiceName,
+  type GitServiceName,
+} from '../lib/git/protocol/git-service.js';
+import {
+  ProtectedRefError,
+  UnsupportedGitServiceError,
+} from '../lib/git/git.errors.js';
 import { DomainError } from '../domain/errors.js';
 import { rejectedPushReport } from '../lib/git/protocol/report-status.js';
+import { errorMessage } from '../lib/error-message.js';
 
 export interface GitTransportResponse {
   headers: Record<string, string>;
@@ -43,8 +50,7 @@ export interface GitTransportResponse {
 }
 
 interface RepositoryRef {
-  repositoryId: string;
-  defaultBranch: string | null;
+  repository: { id: string; defaultBranch: string | null };
 }
 
 @Injectable()
@@ -66,8 +72,7 @@ export class GitService {
   ) {}
 
   async advertiseRefs({
-    repositoryId,
-    defaultBranch,
+    repository,
     service,
     protocol,
   }: RepositoryRef & {
@@ -76,10 +81,7 @@ export class GitService {
   }): Promise<GitTransportResponse> {
     if (!isGitServiceName(service)) throw new UnsupportedGitServiceError();
 
-    const repoDirectory = await this.materializer.open({
-      id: repositoryId,
-      defaultBranch,
-    });
+    const repoDirectory = await this.materializer.open(repository);
 
     return {
       headers: {
@@ -95,18 +97,14 @@ export class GitService {
   }
 
   async uploadPack({
-    repositoryId,
-    defaultBranch,
+    repository,
     body,
     protocol,
   }: RepositoryRef & {
     body: GitRequestBody;
     protocol?: string;
   }): Promise<GitTransportResponse> {
-    const repoDirectory = await this.materializer.open({
-      id: repositoryId,
-      defaultBranch,
-    });
+    const repoDirectory = await this.materializer.open(repository);
 
     return {
       headers: resultHeaders('git-upload-pack'),
@@ -118,11 +116,7 @@ export class GitService {
     };
   }
 
-  /**
-   * `POST /:username/:repo/git-receive-pack` - a push.
-   *
-   * Materialize before the ref checks so they see what the log holds. The cache keeps its pre-push sequence marker; the next materialize reconciles whatever git wrote locally.
-   */
+  /** A push. Materializes before the ref checks so they see what the log holds; the next materialize reconciles whatever git wrote locally. */
   async receivePack({
     repository,
     body,
@@ -198,7 +192,7 @@ export class GitService {
         .sync({ repositoryId, repoDirectory })
         .catch((error: unknown) =>
           this.logger.warn(
-            `Contribution index update failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+            `Contribution index update failed for ${repositoryId}: ${errorMessage(error)}`,
           ),
         );
       this.closeFromPush({
@@ -208,12 +202,21 @@ export class GitService {
         pushedBy,
       }).catch((error: unknown) =>
         this.logger.warn(
-          `Closing referenced issues failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+          `Closing referenced issues failed for ${repositoryId}: ${errorMessage(error)}`,
         ),
       );
       void this.pullRefs.syncAfterPush({ repositoryId, transitions });
       // An import is history, not activity: its push names every branch and tag the repository ever had.
       if (importing) return;
+      this.db
+        .update(schema.repository)
+        .set({ lastPushedAt: new Date() })
+        .where(eq(schema.repository.id, repositoryId))
+        .catch((error: unknown) =>
+          this.logger.warn(
+            `Recording the push time failed for ${repositoryId}: ${errorMessage(error)}`,
+          ),
+        );
       void this.pullRequestPushes.recordPush({
         repositoryId,
         transitions,
@@ -226,7 +229,7 @@ export class GitService {
         pushedBy,
       }).catch((error: unknown) =>
         this.logger.warn(
-          `Publishing push events failed for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+          `Publishing push events failed for ${repositoryId}: ${errorMessage(error)}`,
         ),
       );
     });
@@ -282,7 +285,7 @@ export class GitService {
         return this.quota
           .reserve(
             storageAccountOf(repository),
-            storageKindOf(repository),
+            billedKindOf(repository, 'repository'),
             size,
             async (tx) => {
               await this.pushTransaction.commitPush({
@@ -319,7 +322,8 @@ export class GitService {
     repoDirectory,
     transitions,
     pushedBy,
-  }: Pick<RepositoryRef, 'repositoryId'> & {
+  }: {
+    repositoryId: string;
     repoDirectory: string;
     transitions: RefTransition[];
     pushedBy: string | null;
@@ -360,7 +364,8 @@ export class GitService {
     repoDirectory,
     transitions,
     pushedBy,
-  }: Pick<RepositoryRef, 'repositoryId'> & {
+  }: {
+    repositoryId: string;
     repoDirectory: string;
     transitions: RefTransition[];
     pushedBy: string | null;

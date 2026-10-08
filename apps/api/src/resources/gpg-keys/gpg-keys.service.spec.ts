@@ -16,7 +16,7 @@ import {
   GpgKeyEmailNotVerifiedError,
   GpgKeyNotFoundError,
   InvalidGpgKeyError,
-} from './gpg-keys.errors.js';
+} from '../../lib/gpg-keys/gpg-keys.errors.js';
 import { GpgKeysService } from './gpg-keys.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;

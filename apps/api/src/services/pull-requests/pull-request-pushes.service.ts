@@ -5,15 +5,17 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module.js';
 import { MAX_PUSH_COMMITS, publishEvent } from '../../lib/events/events.js';
 import { isAncestor } from '../../lib/git/diff/diff.js';
-import { resolveCommit } from '../../lib/git/tree/resolve-ref.js';
+import {
+  BRANCH_PREFIX,
+  resolveCommit,
+} from '../../lib/git/tree/resolve-ref.js';
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import {
   commitsAdded,
   recordCommitEvents,
 } from '../../lib/pull-requests/commit-events.js';
 import { RepositoryMaterializerService } from '../git/materializer/repository-materializer.service.js';
-
-const BRANCH_PREFIX = 'refs/heads/';
+import { errorMessage } from '../../lib/error-message.js';
 
 /** Puts what a push did to an open pull request's head into its timeline. Every writer of a branch calls it once the push has landed: git pushes, applied suggestions, and merges into a branch another request is from. */
 @Injectable()
@@ -33,7 +35,7 @@ export class PullRequestPushesService {
   }) {
     await this.record(push).catch((error: unknown) =>
       this.logger.warn(
-        `Pull request commits were not recorded for ${push.repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+        `Pull request commits were not recorded for ${push.repositoryId}: ${errorMessage(error)}`,
       ),
     );
   }

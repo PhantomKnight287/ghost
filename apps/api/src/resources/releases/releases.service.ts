@@ -1,41 +1,25 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  lt,
-  or,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
-import type {
-  AuthorizedRepository,
-  RepositoryOperation,
-} from '../../lib/git/repository-access/repository-access.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import { createTagObject } from '../../lib/git/tags/create-tag.js';
 import { isValidRefName } from '../../lib/git/refs/is-valid-ref-name.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import { resolveTargetCommit } from '../../lib/git/tree/resolve-ref.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { decodeCursor, encodeCursor, isoTimestamp } from '../../utils/index.js';
-import { InvalidCursorError } from '../repositories/repositories.errors.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
+import { keyset } from '../../lib/db/keyset.js';
 import type {
   CreateReleaseRequestDTO,
   GetReleasesQueryDTO,
@@ -52,7 +36,9 @@ import {
   ReleaseAlreadyExistsError,
   ReleaseNotFoundError,
   TagTargetNotFoundError,
-} from './releases.errors.js';
+} from '../../lib/releases/releases.errors.js';
+import { withTempDir } from '../../lib/temp-dir.js';
+import { listBranches } from '../../lib/git/refs/list-refs.js';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -69,7 +55,6 @@ export class ReleasesService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
     private readonly materializer: RepositoryMaterializerService,
-    private readonly branches: BranchesService,
     private readonly pushTransaction: PushTransactionService,
     private readonly users: UsersService,
     private readonly assets: ReleaseAssetsService,
@@ -81,39 +66,28 @@ export class ReleasesService {
   }: RepositoryRef & {
     query: GetReleasesQueryDTO;
   }): Promise<GetReleasesResponseDTO> {
-    const repository = await this.authorize(target, 'read');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
 
-    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-    if (query.cursor && !decoded) throw new InvalidCursorError();
-    const pageSize = query.limit ?? DEFAULT_PAGE_SIZE;
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: { createdAt: schema.release.createdAt, id: schema.release.id },
+    });
+    const { page, nextCursor } = list.page(
+      await this.select(repository, list.where).limit(list.limit),
+    );
 
-    const rows = await this.select(
-      repository,
-      decoded
-        ? or(
-            lt(schema.release.createdAt, decoded.date),
-            and(
-              eq(schema.release.createdAt, decoded.date),
-              lt(schema.release.id, decoded.id),
-            ),
-          )
-        : undefined,
-    ).limit(pageSize + 1);
-
-    const page = rows.slice(0, pageSize);
-    const last = page.at(-1);
-
-    return {
-      releases: await this.expand(repository, page),
-      nextCursor:
-        rows.length > pageSize && last
-          ? encodeCursor({ date: new Date(last.createdAt), id: last.id })
-          : null,
-    };
+    return { releases: await this.expand(repository, page), nextCursor };
   }
 
   async getLatestRelease(target: RepositoryRef) {
-    const repository = await this.authorize(target, 'read');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
     return this.readOne(
       repository,
       eq(schema.release.id, latestReleaseId(repository.id)),
@@ -124,7 +98,10 @@ export class ReleasesService {
     tagName,
     ...target
   }: RepositoryRef & { tagName: string }) {
-    const repository = await this.authorize(target, 'read');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
     return this.readOne(repository, eq(schema.release.tagName, tagName));
   }
 
@@ -136,7 +113,10 @@ export class ReleasesService {
     requesterId: string;
     body: CreateReleaseRequestDTO;
   }): Promise<ReleaseDTO> {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
     if (!isValidRefName('tags', body.tagName)) {
       throw new InvalidTagNameError(body.tagName);
     }
@@ -214,7 +194,10 @@ export class ReleasesService {
     requesterId: string;
     body: UpdateReleaseRequestDTO;
   }): Promise<ReleaseDTO> {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
 
     const updated = await this.db.transaction(async (tx) => {
       const [before] = await tx
@@ -263,7 +246,10 @@ export class ReleasesService {
     id,
     ...target
   }: RepositoryRef & { id: string; requesterId: string }) {
-    const repository = await this.authorize(target, 'write');
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
 
     const [release] = await this.db
       .select({
@@ -313,8 +299,7 @@ export class ReleasesService {
       tagger,
     });
 
-    const scratch = await mkdtemp(path.join(tmpdir(), 'ghost-tag-'));
-    try {
+    await withTempDir('ghost-tag-', async (scratch) => {
       const pack = await packRange({
         gitDir: directory,
         include: [oid],
@@ -334,9 +319,7 @@ export class ReleasesService {
         packOffset: 0,
         pushedBy: requesterId,
       });
-    } finally {
-      await rm(scratch, { recursive: true, force: true });
-    }
+    });
   }
 
   private ownRelease(repository: AuthorizedRepository, id: string) {
@@ -356,7 +339,7 @@ export class ReleasesService {
     const sha = await resolveTargetCommit({
       gitDir: directory,
       defaultBranch: repository.defaultBranch,
-      branches: await this.branches.getGitBranches(directory),
+      branches: await listBranches(directory),
       tags,
       requested: name,
     });
@@ -440,17 +423,5 @@ export class ReleasesService {
         .map(({ releaseId: _, ...asset }) => asset),
       viewerCanEdit,
     }));
-  }
-
-  private authorize(
-    { username, repo, requesterId }: RepositoryRef,
-    operation: RepositoryOperation,
-  ) {
-    return this.access.authorize({
-      username,
-      repo,
-      actor: requesterId ? { userId: requesterId } : null,
-      operation,
-    });
   }
 }

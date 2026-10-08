@@ -13,7 +13,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 import { useAuthenticate } from "@/lib/auth/use-authenticate";
 import { authClient } from "@/lib/auth-client";
 import { cn, formatBytes } from "@/lib/utils";
@@ -38,10 +38,11 @@ export function StorageSettings(props: {
     queryKey: ["storage", owner],
     enabled: Boolean(owner),
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/storage/{owner}", {
-        params: { path: { owner } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(
+        apiClient.GET("/api/storage/{owner}", {
+          params: { path: { owner } },
+        }),
+      );
       return data;
     },
   });

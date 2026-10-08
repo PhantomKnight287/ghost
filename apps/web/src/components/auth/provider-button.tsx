@@ -25,14 +25,11 @@ import { LastUsedBadge } from "./last-login-method/last-used-badge";
 
 export type ProviderButtonProps = {
   provider: AuthSocialProvider;
-  display?: "full" | "name" | "icon";
   view?: AuthView;
 } & Omit<ComponentProps<typeof Button>, "onClick" | "children" | "disabled">;
 
-/** Social provider sign-in button. */
 export function ProviderButton({
   provider,
-  display = "full",
   view = "signIn",
   variant = "outline",
   className,
@@ -95,17 +92,9 @@ export function ProviderButton({
     >
       {signInSocialPending || signInPopupPending ? <Spinner /> : providerIcon}
 
-      {display === "full"
-        ? localization.auth.continueWith.replace(
-            "{{provider}}",
-            getProviderName(provider),
-          )
-        : display === "name"
-          ? getProviderName(provider)
-          : null}
-
-      {display === "icon" && (
-        <span className="sr-only">{getProviderName(provider)}</span>
+      {localization.auth.continueWith.replace(
+        "{{provider}}",
+        getProviderName(provider),
       )}
 
       {view !== "signUp" && <LastUsedBadge method={providerId} floating />}

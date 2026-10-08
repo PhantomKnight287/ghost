@@ -6,19 +6,18 @@ import { runGit } from '../../../lib/git/exec/run-git.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
 import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { emptyIndex, type WalIndex } from '../../../lib/git/wal/wal.types.js';
+import { SingleFlight } from '../../../lib/single-flight.js';
+import { headRef } from '../../../lib/git/tree/resolve-ref.js';
+import { listRefs } from '../../../lib/git/refs/list-refs.js';
 
 const SEQ_MARKER = 'ghost-wal-seq';
 const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
 
-/**
- * Brings a cached bare repository up to the state the log describes.
- *
- * The cache is only ever behind the log, never ahead of it, so replay is always forward-only: apply the packfiles of every layer past the cached sequence, then reconcile refs to the index snapshot.
- */
+/** Brings a cached bare repository up to the log. The cache is only ever behind it, so replay is forward-only: apply the packs past the cached sequence, then reconcile refs to the index snapshot. */
 @Injectable()
 export class RepositoryMaterializerService {
   private readonly logger = new Logger(RepositoryMaterializerService.name);
-  private readonly inFlight = new Map<string, Promise<WalIndex>>();
+  private readonly inFlight = new SingleFlight<WalIndex>();
 
   constructor(
     private readonly store: WalStoreService,
@@ -37,19 +36,14 @@ export class RepositoryMaterializerService {
     repoDirectory: string,
     defaultBranch: string | null,
   ): Promise<WalIndex> {
-    const pending = this.inFlight.get(repoId);
-    if (pending) return pending;
-
-    const run = this.replay(repoId, repoDirectory, defaultBranch).finally(() =>
-      this.inFlight.delete(repoId),
+    return this.inFlight.run(repoId, () =>
+      this.replay(repoId, repoDirectory, defaultBranch),
     );
-    this.inFlight.set(repoId, run);
-    return run;
   }
 
   /** Resolves once a replay in flight has finished, whatever its outcome, so its writes cannot land after the cache is removed. */
   async settle(repoId: string) {
-    await this.inFlight.get(repoId)?.catch(() => undefined);
+    await this.inFlight.settle(repoId);
   }
 
   private async replay(
@@ -93,7 +87,7 @@ export class RepositoryMaterializerService {
   }
 
   private async reconcileRefs(repoDirectory: string, index: WalIndex) {
-    const existing = await this.listRefs(repoDirectory);
+    const existing = [...(await listRefs(repoDirectory)).keys()];
     const commands: string[] = [];
 
     for (const [ref, oid] of index.refs) {
@@ -112,14 +106,6 @@ export class RepositoryMaterializerService {
     }
   }
 
-  private async listRefs(repoDirectory: string) {
-    const output = await runGit({
-      args: ['for-each-ref', '--format=%(refname)'],
-      gitDir: repoDirectory,
-    });
-    return output.split('\n').filter(Boolean);
-  }
-
   /** HEAD follows the chosen default branch while it exists. Otherwise a HEAD naming a missing branch clones as empty, so it is pointed at a branch that actually exists. */
   private async ensureHead(
     repoDirectory: string,
@@ -128,12 +114,7 @@ export class RepositoryMaterializerService {
   ) {
     if (index.refs.size === 0) return;
 
-    const current = (
-      await runGit({
-        args: ['symbolic-ref', '--quiet', 'HEAD'],
-        gitDir: repoDirectory,
-      }).catch(() => '')
-    ).trim();
+    const current = await headRef(repoDirectory);
 
     const chosen = defaultBranch && `refs/heads/${defaultBranch}`;
     const target =

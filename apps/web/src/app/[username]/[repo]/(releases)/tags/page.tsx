@@ -5,6 +5,12 @@ import Link from "next/link";
 import { CursorPagination } from "@/components/cursor-pagination";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export async function generateMetadata({
   params,
@@ -32,13 +38,15 @@ export default async function TagsPage({
   return (
     <div className="flex flex-col gap-4">
       {tags.data.tags.length === 0 ? (
-        <div className="rounded-lg border py-16 text-center">
-          <p className="font-medium">There aren&apos;t any tags here</p>
-          <p className="text-sm text-muted-foreground">
-            Push one with <code>git push origin v1.0.0</code>, or create one
-            with a release.
-          </p>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>There aren&apos;t any tags here</EmptyTitle>
+            <EmptyDescription>
+              Push one with <code>git push origin v1.0.0</code>, or create one
+              with a release.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ul className="divide-y rounded-lg border">
           {tags.data.tags.map((tag) => (

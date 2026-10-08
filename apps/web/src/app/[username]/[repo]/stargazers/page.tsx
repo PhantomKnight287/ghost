@@ -1,12 +1,12 @@
 import { Star } from "lucide-react";
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { buttonVariants } from "@/components/ui/button";
 import { createServerClient } from "@/lib/api/server";
-import { cn } from "@/lib/utils";
+import { CursorPagination } from "@/components/cursor-pagination";
+import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 
 export default async function StargazersPage({
   params,
@@ -14,6 +14,7 @@ export default async function StargazersPage({
 }: PageProps<"/[username]/[repo]/stargazers">) {
   const { username, repo } = await params;
   const { cursor } = await searchParams;
+  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
   const client = await createServerClient();
   const { data } = await client.GET(
@@ -21,7 +22,7 @@ export default async function StargazersPage({
     {
       params: {
         path: { username, slug: repo },
-        query: { cursor: typeof cursor === "string" ? cursor : undefined },
+        query: { cursor: pageCursor },
       },
     },
   );
@@ -36,9 +37,13 @@ export default async function StargazersPage({
       </h1>
 
       {data.stargazers.length === 0 ? (
-        <p className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
-          No one has starred this repository yet.
-        </p>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyDescription>
+              No one has starred this repository yet.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <ul className="divide-y rounded-lg border">
           {data.stargazers.map((stargazer) => (
@@ -46,12 +51,11 @@ export default async function StargazersPage({
               key={stargazer.username}
               className="flex items-center gap-3 px-4 py-3"
             >
-              <Avatar className="size-9">
-                <AvatarImage src={stargazer.image ?? undefined} alt="" />
-                <AvatarFallback>
-                  {stargazer.name.slice(0, 1).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <ProfileAvatar
+                name={stargazer.name}
+                image={stargazer.image}
+                className="size-9"
+              />
 
               <div className="flex min-w-0 flex-col">
                 <Link
@@ -73,14 +77,11 @@ export default async function StargazersPage({
         </ul>
       )}
 
-      {data.nextCursor && (
-        <Link
-          href={`/${username}/${repo}/stargazers?cursor=${encodeURIComponent(data.nextCursor)}`}
-          className={cn(buttonVariants({ variant: "outline" }), "self-center")}
-        >
-          Next page
-        </Link>
-      )}
+      <CursorPagination
+        pathname={`/${username}/${repo}/stargazers`}
+        cursor={pageCursor}
+        nextCursor={data.nextCursor}
+      />
     </div>
   );
 }

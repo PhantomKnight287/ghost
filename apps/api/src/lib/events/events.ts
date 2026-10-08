@@ -2,7 +2,7 @@ import { schema } from '@ghost/db';
 import { sql } from 'drizzle-orm';
 
 import type { Commit } from '../git/commits/list-commits.js';
-import type { Executor } from '../issues/close-issue.js';
+import type { Executor } from '../db/executor.js';
 
 /** What each event carries. Ids only: a consumer reads the rows as they are when it runs, and skips an event whose rows are gone. A deletion carries what it deleted, since there is no row left to read. Issue events cover pull requests too, since a pull request is an issue. */
 export type EventPayloads = {

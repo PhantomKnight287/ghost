@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { DATABASE } from '../../database/database.module.js';
-import { isoTimestamp } from '../../utils/index.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import { readPublicKey } from '../../lib/gpg/openpgp.js';
 import { UsersService } from '../../services/users/users.service.js';
 import type { GpgKeyDTO, ListGpgKeysResponseDTO } from './dto/gpg-key.dto.js';
@@ -13,13 +13,9 @@ import {
   GpgKeyEmailNotVerifiedError,
   GpgKeyNotFoundError,
   InvalidGpgKeyError,
-} from './gpg-keys.errors.js';
+} from '../../lib/gpg-keys/gpg-keys.errors.js';
 
-/**
- * OpenPGP public keys an account uploads so its signed commits read as verified.
- *
- * A key is only accepted once one of its user ids is an address the account has already verified: the badge claims the commit's author signed it, and without that check anyone could upload a key naming someone else's address.
- */
+/** A key is only accepted once one of its user ids is an address the account has verified; otherwise anyone could upload a key naming someone else's address. */
 const keyColumns = {
   id: schema.userGpgKey.id,
   keyId: schema.userGpgKey.keyId,

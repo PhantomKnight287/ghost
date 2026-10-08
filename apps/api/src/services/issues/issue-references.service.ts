@@ -6,8 +6,9 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Commit } from '../../lib/git/commits/list-commits.js';
-import { closeIssue, type Executor } from '../../lib/issues/close-issue.js';
-import { isoTimestamp, excluded } from '../../utils/index.js';
+import { closeIssue } from '../../lib/issues/close-issue.js';
+import type { Executor } from '../../lib/db/executor.js';
+import { isoTimestamp, excluded } from '../../lib/db/sql.js';
 import {
   acceptedCollaboration,
   type Actor,
@@ -19,7 +20,7 @@ import {
   basePermissionOf,
   roleOf,
   teamRoleOf,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 
 type SourceType = (typeof schema.issueReferenceSource.enumValues)[number];
 

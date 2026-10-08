@@ -11,7 +11,7 @@ import {
   type WebhookSender,
 } from '../../lib/webhooks/formats/index.js';
 import type { WebhookBody, WebhookOwner } from '../../lib/webhooks/webhooks.js';
-import { repositoryFullNameOf } from '../../lib/git/repository-access/repository-access.js';
+import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 
 type WebhookJob = {
   endpointId: string;

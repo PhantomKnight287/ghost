@@ -1,7 +1,4 @@
-import Link from "next/link";
-
-import { FromNowHoverCard } from "@/components/from-now-card";
-import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
+import { CommitList } from "@/components/repositories/commit-list";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 
 export default async function PullRequestCommitsPage({
@@ -34,40 +31,11 @@ export default async function PullRequestCommitsPage({
 
   return (
     <div className="overflow-hidden rounded-lg border">
-      {commits.data.commits.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted-foreground">
-          This branch adds no commits to the base.
-        </p>
-      ) : (
-        <ul className="divide-y">
-          {commits.data.commits.map((commit) => (
-            <li
-              key={commit.sha}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted/40"
-            >
-              <div className="min-w-0 flex-1">
-                <Link
-                  href={`${commitBase}/commit/${commit.sha}`}
-                  className="truncate font-medium hover:underline"
-                >
-                  {commit.subject}
-                </Link>
-                <p className="truncate text-xs text-muted-foreground">
-                  {commit.authorName} committed{" "}
-                  <FromNowHoverCard date={commit.committedAt} />
-                </p>
-              </div>
-              <CommitVerificationBadge verification={commit.verification} />
-              <Link
-                href={`${commitBase}/commit/${commit.sha}`}
-                className="shrink-0 font-mono text-xs text-muted-foreground hover:underline"
-              >
-                {commit.sha.slice(0, 7)}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <CommitList
+        commits={commits.data.commits}
+        commitBase={commitBase}
+        empty="This branch adds no commits to the base."
+      />
     </div>
   );
 }

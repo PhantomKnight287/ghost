@@ -1,5 +1,4 @@
 "use client";
-/** biome-ignore-all lint/suspicious/noArrayIndexKey: skeleton rows have no id */
 
 import { ChevronRight, RotateCw, Send } from "lucide-react";
 import { useRouter } from "next/navigation";

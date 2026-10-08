@@ -18,7 +18,6 @@ export type OrganizationsProps = {
   className?: string;
 };
 
-/** Lists organizations the user belongs to (via `useListOrganizations`): loading skeleton, empty state with create, or a card of rows with a Manage control per organization. Owns `CreateOrganizationDialog` open state and the create actions. */
 export function Organizations({ className }: OrganizationsProps) {
   const { authClient } = useAuth<OrganizationAuthClient>();
   const {

@@ -3,7 +3,6 @@
 import { Item, ItemContent, ItemMedia } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** Placeholder row matching `UserInvitationRow` while invitations load. */
 export function UserInvitationRowSkeleton() {
   return (
     <Item>

@@ -9,11 +9,7 @@ export interface SignedCommit {
 
 const PGP_SIGNATURE_HEADER = '-----BEGIN PGP SIGNATURE-----';
 
-/**
- * The signature of every named commit, keyed by sha. Commits that carry none - and signatures in a format other than OpenPGP, such as the SSH ones git can also write - are simply absent from the map.
- *
- * One `cat-file --batch` answers a whole page: `git log` cannot hand back the signature header, and a spawn per commit would be a spawn per row.
- */
+/** Commits without an OpenPGP signature (SSH ones included) are absent from the map. One `cat-file --batch` answers a whole page: `git log` cannot hand back the signature header. */
 export async function readSignedCommits({
   gitDir,
   env,
@@ -61,11 +57,7 @@ export async function readSignedCommits({
   return found;
 }
 
-/**
- * Splits a raw commit into what was signed and the signature over it.
- *
- * git signs the commit object as it would read without the `gpgsig` header, so exactly that header and its continuation lines come out - every other byte is payload.
- */
+/** git signs the commit object as it would read without the `gpgsig` header, so exactly that header and its continuation lines come out - every other byte is payload. */
 export function splitSignature(commit: string): SignedCommit | null {
   const lines = commit.split('\n');
   const payload: string[] = [];
@@ -104,7 +96,6 @@ export function splitSignature(commit: string): SignedCommit | null {
   return { payload: payload.join('\n'), signature: armored };
 }
 
-/** Signs a commit object's bytes, returning the armored detached signature. */
 export type CommitSigner = (payload: string) => Promise<string>;
 
 /** Puts `signature` into `payload` as its `gpgsig` header, the inverse of {@link splitSignature}. */

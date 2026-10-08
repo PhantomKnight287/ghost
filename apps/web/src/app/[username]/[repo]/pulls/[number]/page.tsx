@@ -12,7 +12,7 @@ import {
 } from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 
-import { MergePanel } from "./page.client";
+import { MergePanel } from "./merge-panel";
 
 export default async function PullRequestPage({
   params,
@@ -39,9 +39,8 @@ export default async function PullRequestPage({
   if (!pull.data) throw new Error(`Failed to load pull request #${number}`);
 
   const viewer = session?.user.username;
-  const canEdit =
-    Boolean(viewer) &&
-    (viewer === pull.data.authorUsername || atLeast(role, "write"));
+  // Server-computed: the author, or whoever can write to the base repository.
+  const canEdit = pull.data.viewerCanEdit;
 
   return (
     <div className="flex flex-col gap-4">

@@ -9,7 +9,6 @@ export type SignOutProps = {
   className?: string;
 };
 
-/** Signs the current user out on mount and renders a centered spinner while the operation completes. */
 export function SignOut({ className }: SignOutProps) {
   const { authClient, basePaths, navigate, viewPaths } = useAuth();
 

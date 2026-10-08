@@ -118,11 +118,7 @@ function beforeAuthHooks(db: Database) {
   });
 }
 
-/**
- * Claims an address for an account before it is written to `user.email`.
- *
- * Better Auth checks uniqueness against `user.email` alone, so without this a change-email could take an address another account verified as an extra. Claiming the account's own extra drops that row instead.
- */
+/** Better Auth checks uniqueness against `user.email` alone, so without this a change-email could take an address another account verified as an extra. Claiming the account's own extra drops that row instead. */
 async function assertEmailAvailable(
   db: Database,
   email: string,
@@ -474,7 +470,7 @@ export function createAuth(db: Database, config: AuthConfig) {
         rateLimit: {
           enabled: true,
           maxRequests: 120,
-          timeWindow: 60000, // 120 reqs in 1 min
+          timeWindow: 60000,
         },
       }),
     ],

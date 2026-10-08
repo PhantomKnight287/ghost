@@ -6,6 +6,13 @@ import { FromNowHoverCard } from "@/components/from-now-card";
 import { buttonVariants } from "@/components/ui/button";
 import { createServerClient } from "@/lib/api/server";
 import { cn } from "@/lib/utils";
+import { CursorPagination } from "@/components/cursor-pagination";
+import {
+  Empty,
+  EmptyContent,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export default async function ForksPage({
   params,
@@ -13,6 +20,7 @@ export default async function ForksPage({
 }: PageProps<"/[username]/[repo]/forks">) {
   const { username, repo } = await params;
   const { cursor } = await searchParams;
+  const pageCursor = typeof cursor === "string" ? cursor : undefined;
 
   const client = await createServerClient();
   const { data } = await client.GET(
@@ -20,7 +28,7 @@ export default async function ForksPage({
     {
       params: {
         path: { username, slug: repo },
-        query: { cursor: typeof cursor === "string" ? cursor : undefined },
+        query: { cursor: pageCursor },
       },
     },
   );
@@ -35,15 +43,19 @@ export default async function ForksPage({
       </h1>
 
       {data.forks.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
-          <p className="text-sm font-medium">No one has forked this yet</p>
-          <Link
-            href={`/${username}/${repo}/fork`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            Fork this repository
-          </Link>
-        </div>
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>No one has forked this yet</EmptyTitle>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link
+              href={`/${username}/${repo}/fork`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Fork this repository
+            </Link>
+          </EmptyContent>
+        </Empty>
       ) : (
         <ul className="divide-y rounded-lg border">
           {data.forks.map((fork) => (
@@ -73,14 +85,11 @@ export default async function ForksPage({
         </ul>
       )}
 
-      {data.nextCursor && (
-        <Link
-          href={`/${username}/${repo}/forks?cursor=${encodeURIComponent(data.nextCursor)}`}
-          className={cn(buttonVariants({ variant: "outline" }), "self-center")}
-        >
-          Next page
-        </Link>
-      )}
+      <CursorPagination
+        pathname={`/${username}/${repo}/forks`}
+        cursor={pageCursor}
+        nextCursor={data.nextCursor}
+      />
     </div>
   );
 }

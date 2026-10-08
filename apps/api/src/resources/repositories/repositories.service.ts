@@ -4,19 +4,17 @@ import {
   and,
   asc,
   count,
-  desc,
   eq,
   getTableColumns,
   ilike,
   inArray,
   isNotNull,
   isNull,
-  lt,
   ne,
   or,
   sql,
 } from 'drizzle-orm';
-import { alias, type PgColumn } from 'drizzle-orm/pg-core';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
@@ -29,36 +27,29 @@ import {
   BranchNotFoundError,
   CannotForkOwnRepositoryError,
   CommitNotFoundError,
-  InvalidCursorError,
   RepositoryAlreadyForkedError,
   RepositoryHeadsOpenPullRequestError,
   RepositoryNameTakenError,
   TransferNotFoundError,
   TransferTargetError,
-} from './repositories.errors.js';
+} from '../../lib/repositories/repositories.errors.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
 import { ownerQualifier } from '../../lib/search/qualifiers.js';
 import { organizationToCreateIn } from '../../lib/organizations/administered-organization.js';
 import { PrivateForkingDisabledError } from '../../lib/organizations/organization.errors.js';
-import {
-  decodeCursor,
-  encodeCursor,
-  escapeLike,
-  isoTimestamp,
-  titleToSlug,
-} from '../../utils/index.js';
+import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
+import { titleToSlug } from '../../lib/repositories/slug.js';
+import { InvalidCursorError, keyset } from '../../lib/db/keyset.js';
 import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { runGit, runGitBuffer } from '../../lib/git/exec/run-git.js';
-import {
-  type CommitVerification,
-  CommitVerificationService,
-} from '../../services/gpg/commit-verification.service.js';
+import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { listTree } from '../../lib/git/tree/list-tree.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import {
+  countCommits,
   isSha,
   listCommits,
   readCommit,
@@ -81,11 +72,7 @@ import {
   resolveDefaultRef,
   resolveRevision,
 } from '../../lib/git/tree/resolve-ref.js';
-import type { PathCommit } from '../../services/git/path-index/repository-path-index.service.js';
-import type {
-  CommitSummaryDTO,
-  GetRepositoryContentsResponseDTO,
-} from './dto/get-repository-contents.dto.js';
+import type { GetRepositoryContentsResponseDTO } from './dto/get-repository-contents.dto.js';
 import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
 import type {
   GetRepositoryTagsQueryDTO,
@@ -107,12 +94,10 @@ import type {
 import type { GetRepositoryBlobResponseDTO } from './dto/get-repository-blob.dto.js';
 import type { GetRepositoryReadmeResponseDTO } from './dto/get-repository-readme.dto.js';
 import type {
-  CommitDTO,
   GetRepositoryCommitResponseDTO,
   GetRepositoryCommitsQueryDTO,
   GetRepositoryCommitsResponseDTO,
 } from './dto/get-repository-commits.dto.js';
-import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
@@ -124,12 +109,11 @@ import {
   ownerNameOf,
   readableBy,
   type Repository,
-  type RepositoryOperation,
   roleOf,
   teamRoleOf,
-} from '../../lib/git/repository-access/repository-access.js';
+} from '../../lib/repositories/access/repository-access.js';
 import { administers, atLeast, organizationRoleOf } from '@ghost/permissions';
-import { RepositoryForbiddenError } from '../../lib/git/repository-access/repository-access.errors.js';
+import { RepositoryForbiddenError } from '../../lib/repositories/access/repository-access.errors.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
@@ -148,11 +132,12 @@ import type {
 } from './dto/search-code.dto.js';
 import type { SearchRepositoriesResponseDTO } from './dto/search-repositories.dto.js';
 import type { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
+import { errorMessage } from '../../lib/error-message.js';
+import { listBranches } from '../../lib/git/refs/list-refs.js';
 
 // `/owner/settings` and `/org/teams` are pages of the owner's own, so no repository may live there.
 const RESERVED_REPOSITORY_SLUGS = new Set(['settings', 'teams']);
 const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
 const MIN_LANGUAGE_PERCENT = 0.5;
 const DEFAULT_SEARCH_LIMIT = 20;
 
@@ -167,7 +152,6 @@ export class RepositoriesService {
     private readonly materializer: RepositoryMaterializerService,
     private readonly pathIndex: RepositoryPathIndexService,
     private readonly languages: RepositoryLanguageService,
-    private readonly branches: BranchesService,
     private readonly access: RepositoryAccessService,
     private readonly wal: WalStoreService,
     private readonly contributions: RepositoryContributionService,
@@ -217,11 +201,14 @@ export class RepositoriesService {
   ) {
     const namespace = await this.namespaceNamed(username);
 
-    const { pageSize, after } = this.page(
-      query,
-      schema.repository.lastPushedAt,
-      schema.repository.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        lastPushedAt: schema.repository.lastPushedAt,
+        id: schema.repository.id,
+      },
+    });
 
     const rows = await this.db
       .select(getTableColumns(schema.repository))
@@ -242,16 +229,13 @@ export class RepositoriesService {
           inNamespace(namespace),
           readableBy(actorOf(requesterId)),
           matching(query.q),
-          after,
+          list.where,
         ),
       )
-      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.lastPushedAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return { repositories: page, nextCursor, hasMore };
   }
@@ -262,11 +246,14 @@ export class RepositoriesService {
     query: GetRepositoriesQueryDTO,
   ): Promise<GetViewerRepositoriesResponseDTO> {
     const search = ownerQualifier(query.q ?? '');
-    const { pageSize, after } = this.page(
-      query,
-      schema.repository.lastPushedAt,
-      schema.repository.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        lastPushedAt: schema.repository.lastPushedAt,
+        id: schema.repository.id,
+      },
+    });
 
     const rows = await this.db
       .select({
@@ -309,16 +296,13 @@ export class RepositoriesService {
           search.owner
             ? eq(ownerNameOf(schema.user, schema.organization), search.owner)
             : undefined,
-          after,
+          list.where,
         ),
       )
-      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.lastPushedAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return {
       repositories: page.map(
@@ -350,11 +334,14 @@ export class RepositoriesService {
     query: GetRepositoriesQueryDTO,
   ): Promise<SearchRepositoriesResponseDTO> {
     const search = ownerQualifier(query.q ?? '');
-    const { pageSize, after } = this.page(
-      query,
-      schema.repository.lastPushedAt,
-      schema.repository.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        lastPushedAt: schema.repository.lastPushedAt,
+        id: schema.repository.id,
+      },
+    });
 
     const rows = await this.db
       .select({
@@ -380,16 +367,13 @@ export class RepositoriesService {
           search.owner
             ? eq(ownerNameOf(schema.user, schema.organization), search.owner)
             : undefined,
-          after,
+          list.where,
         ),
       )
-      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.lastPushedAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return { repositories: page, nextCursor, hasMore };
   }
@@ -479,9 +463,9 @@ export class RepositoriesService {
     slug: string;
     requesterId?: string;
   }) {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
     const [stars, forks, parent] = await Promise.all([
@@ -550,7 +534,11 @@ export class RepositoriesService {
     visibility: 'public' | 'private';
     organization?: string;
   }) {
-    const parent = await this.authorizeRead({ username, slug, requesterId });
+    const parent = await this.access.authorize({
+      username,
+      repo: slug,
+      requesterId,
+    });
     if (parent.organizationId && parent.visibility === 'private') {
       const [policy] = await this.db
         .select({ allowed: schema.organizationSettings.allowPrivateForks })
@@ -635,7 +623,7 @@ export class RepositoriesService {
             .remove(row.id)
             .catch((cleanup: unknown) =>
               this.logger.warn(
-                `Removing LFS objects of failed fork ${row.id} failed: ${cleanup instanceof Error ? cleanup.message : String(cleanup)}`,
+                `Removing LFS objects of failed fork ${row.id} failed: ${errorMessage(cleanup)}`,
               ),
             );
           throw error;
@@ -647,10 +635,7 @@ export class RepositoriesService {
     return {
       id: fork.id,
       slug: fork.slug,
-      username:
-        organization ??
-        (await this.usersService.getUserById(requesterId)).username ??
-        '',
+      username: await this.namespaceName(namespace),
     };
   }
 
@@ -666,9 +651,10 @@ export class RepositoriesService {
     requesterId: string;
     owner: string;
   }) {
-    const repository = await this.authorizeAs('admin', {
+    const repository = await this.access.authorize({
+      operation: 'admin',
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
     if (!atLeast(repository.viewerRole, 'owner')) {
@@ -797,11 +783,7 @@ export class RepositoriesService {
 
   /** The recipient declines, or whoever asked for it withdraws it. */
   async cancelTransfer(repositoryId: string, requesterId: string) {
-    const [transfer] = await this.db
-      .select()
-      .from(schema.repositoryTransfer)
-      .where(eq(schema.repositoryTransfer.repositoryId, repositoryId));
-    if (!transfer) throw new TransferNotFoundError();
+    const transfer = await this.pendingTransfer(repositoryId);
     if (transfer.requestedById !== requesterId) {
       await this.incomingTransfer(repositoryId, requesterId);
     }
@@ -810,13 +792,18 @@ export class RepositoriesService {
       .where(eq(schema.repositoryTransfer.repositoryId, repositoryId));
   }
 
-  /** A pending transfer addressed to the requester, or to an organization they administer. */
-  private async incomingTransfer(repositoryId: string, requesterId: string) {
+  private async pendingTransfer(repositoryId: string) {
     const [transfer] = await this.db
       .select()
       .from(schema.repositoryTransfer)
       .where(eq(schema.repositoryTransfer.repositoryId, repositoryId));
     if (!transfer) throw new TransferNotFoundError();
+    return transfer;
+  }
+
+  /** A pending transfer addressed to the requester, or to an organization they administer. */
+  private async incomingTransfer(repositoryId: string, requesterId: string) {
+    const transfer = await this.pendingTransfer(repositoryId);
     const recipient = transfer.toOrganizationId
       ? await this.holds(
           { organizationId: transfer.toOrganizationId },
@@ -954,9 +941,10 @@ export class RepositoriesService {
     requesterId: string;
     changes: UpdateRepositoryRequestDTO;
   }) {
-    const repository = await this.authorizeAs('maintain', {
+    const repository = await this.access.authorize({
+      operation: 'maintain',
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
     // Visibility decides who can see the code at all, which is an admin's call.
@@ -1013,7 +1001,7 @@ export class RepositoriesService {
     if (visibility !== undefined && visibility !== repository.visibility) {
       this.reindexCodeSearch(updated).catch((error: unknown) =>
         this.logger.warn(
-          `Reindexing ${updated.id} for visibility failed: ${error instanceof Error ? error.message : String(error)}`,
+          `Reindexing ${updated.id} for visibility failed: ${errorMessage(error)}`,
         ),
       );
     }
@@ -1040,9 +1028,10 @@ export class RepositoriesService {
     slug: string;
     requesterId: string;
   }) {
-    const repository = await this.authorizeAs('admin', {
+    const repository = await this.access.authorize({
+      operation: 'admin',
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
 
@@ -1144,9 +1133,9 @@ export class RepositoriesService {
     slug: string;
     requesterId: string;
   }) {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
 
@@ -1177,9 +1166,9 @@ export class RepositoriesService {
     slug: string;
     requesterId: string;
   }) {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug,
+      repo: slug,
       requesterId,
     });
 
@@ -1203,34 +1192,6 @@ export class RepositoriesService {
     });
 
     return this.readStars(repository.id, requesterId);
-  }
-
-  private authorizeRead({
-    username,
-    slug,
-    requesterId,
-  }: {
-    username: string;
-    slug: string;
-    requesterId?: string;
-  }) {
-    return this.authorizeAs('read', { username, slug, requesterId });
-  }
-
-  private authorizeAs(
-    operation: RepositoryOperation,
-    {
-      username,
-      slug,
-      requesterId,
-    }: { username: string; slug: string; requesterId?: string },
-  ) {
-    return this.access.authorize({
-      username,
-      repo: slug,
-      actor: actorOf(requesterId),
-      operation,
-    });
   }
 
   private async readStars(repositoryId: string, requesterId?: string) {
@@ -1291,7 +1252,7 @@ export class RepositoriesService {
 
       const [entries, commitCount] = await Promise.all([
         listTree({ gitDir: directory, ref, prefix }),
-        this.countCommits({ directory, range: ref }),
+        countCommits({ gitDir: directory, range: ref }),
       ]);
 
       return {
@@ -1306,7 +1267,7 @@ export class RepositoriesService {
 
     const [entries, commitCount] = await Promise.all([
       listTree({ gitDir: directory, ref, prefix }),
-      this.countCommits({ directory, range: ref }),
+      countCommits({ gitDir: directory, range: ref }),
     ]);
     const commits = await this.pathIndex.lookup({
       repositoryId: repository.id,
@@ -1434,7 +1395,6 @@ export class RepositoriesService {
     };
   }
 
-  /** The raw bytes of a file, for the browser to render or download. */
   async getRawBlob({
     username,
     repo,
@@ -1532,11 +1492,11 @@ export class RepositoriesService {
         limit: query.limit ?? DEFAULT_PAGE_SIZE,
         cursor: query.cursor,
       }),
-      this.countCommits({ directory, range: ref, path }),
+      countCommits({ gitDir: directory, range: ref, path }),
       // commits above the cursor are the pages already behind this one
       query.cursor
-        ? this.countCommits({
-            directory,
+        ? countCommits({
+            gitDir: directory,
             range: `${query.cursor}..${ref}`,
             path,
           })
@@ -1591,7 +1551,6 @@ export class RepositoriesService {
     return { ...commit, verification: verdicts.get(commit.sha) ?? null };
   }
 
-  /** The commit as a patch file, straight from git. */
   async getCommitPatch({
     username,
     repo,
@@ -1645,7 +1604,7 @@ export class RepositoriesService {
       requesterId,
     });
 
-    const branches = await this.branches.getGitBranches(directory);
+    const branches = await listBranches(directory);
     const defaultBranch = ref.replace(/^refs\/heads\//, '');
 
     return {
@@ -1711,7 +1670,6 @@ export class RepositoriesService {
 
     const total = languages.reduce((sum, { bytes }) => sum + bytes, 0);
 
-    // pool anything which is less than half a percentage
     const rows = languages.map(({ language, bytes }) => ({
       language,
       bytes,
@@ -1778,16 +1736,16 @@ export class RepositoriesService {
     requesterId?: string;
     query?: GetRepositoryStargazersQueryDTO;
   }): Promise<GetRepositoryStargazersResponseDTO> {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug: repo,
+      repo,
       requesterId,
     });
-    const { pageSize, after } = this.page(
-      query,
-      schema.stars.createdAt,
-      schema.stars.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: { starredAt: schema.stars.createdAt, id: schema.stars.id },
+    });
 
     const rows = await this.db
       .select({
@@ -1799,14 +1757,11 @@ export class RepositoriesService {
       })
       .from(schema.stars)
       .innerJoin(schema.user, eq(schema.user.id, schema.stars.userId))
-      .where(and(eq(schema.stars.repositoryId, repository.id), after))
-      .orderBy(desc(schema.stars.createdAt), desc(schema.stars.id))
-      .limit(pageSize + 1);
+      .where(and(eq(schema.stars.repositoryId, repository.id), list.where))
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.starredAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return {
       // an account without a username has nothing to link to, so it is left out
@@ -1840,16 +1795,19 @@ export class RepositoriesService {
     requesterId?: string;
     query?: GetRepositoryForksQueryDTO;
   }): Promise<GetRepositoryForksResponseDTO> {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug: repo,
+      repo,
       requesterId,
     });
-    const { pageSize, after } = this.page(
-      query,
-      schema.repository.lastPushedAt,
-      schema.repository.id,
-    );
+    const list = keyset({
+      cursor: query.cursor,
+      limit: query.limit ?? DEFAULT_PAGE_SIZE,
+      keys: {
+        lastPushedAt: schema.repository.lastPushedAt,
+        id: schema.repository.id,
+      },
+    });
 
     const rows = await this.db
       .select({
@@ -1882,16 +1840,13 @@ export class RepositoriesService {
           eq(schema.repository.parentRepositoryId, repository.id),
           // a private fork is the forker's business, not the parent's
           readableBy(actorOf(requesterId)),
-          after,
+          list.where,
         ),
       )
-      .orderBy(desc(schema.repository.lastPushedAt), desc(schema.repository.id))
-      .limit(pageSize + 1);
+      .orderBy(...list.orderBy)
+      .limit(list.limit);
 
-    const { page, nextCursor, hasMore } = paginate(rows, pageSize, (row) => ({
-      date: row.lastPushedAt,
-      id: row.id,
-    }));
+    const { page, nextCursor, hasMore } = list.page(rows);
 
     return {
       forks: page.flatMap((row) =>
@@ -1924,9 +1879,9 @@ export class RepositoriesService {
     requesterId?: string;
     query?: GetRepositoryContributorsQueryDTO;
   }): Promise<GetRepositoryContributorsResponseDTO> {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug: repo,
+      repo,
       requesterId,
     });
 
@@ -1950,54 +1905,6 @@ export class RepositoriesService {
     };
   }
 
-  /** Page size and the keyset predicate shared by the cursor-paged lists. */
-  private page(
-    query: { cursor?: string; limit?: number },
-    dateColumn: PgColumn,
-    idColumn: PgColumn,
-  ) {
-    const requested = Number(query.limit);
-    const pageSize = Number.isFinite(requested)
-      ? Math.min(Math.max(Math.trunc(requested), 1), MAX_PAGE_SIZE)
-      : DEFAULT_PAGE_SIZE;
-
-    const decoded = query.cursor ? decodeCursor(query.cursor) : null;
-    if (query.cursor && !decoded) throw new InvalidCursorError();
-
-    return {
-      pageSize,
-      after: decoded
-        ? or(
-            lt(dateColumn, decoded.date),
-            and(eq(dateColumn, decoded.date), lt(idColumn, decoded.id)),
-          )
-        : undefined,
-    };
-  }
-
-  private async countCommits({
-    directory,
-    range,
-    path,
-  }: {
-    directory: string;
-    range: string;
-    path?: string;
-  }) {
-    const count = await runGit({
-      args: [
-        'rev-list',
-        '--count',
-        '--end-of-options',
-        range,
-        ...(path ? ['--', path] : []),
-      ],
-      gitDir: directory,
-    });
-
-    return Number(count.trim());
-  }
-
   /** Resolves the requested branch, tag or sha to a revision. `detached` marks a tag or sha, which has no moving tip and so is never indexed. */
   private async openRepository({
     username,
@@ -2010,14 +1917,13 @@ export class RepositoriesService {
     requesterId?: string;
     ref?: string;
   }) {
-    const repository = await this.authorizeRead({
+    const repository = await this.access.authorize({
       username,
-      slug: repo,
+      repo,
       requesterId,
     });
 
     const directory = await this.materializer.open(repository);
-
     // Pushes index too; this catches repositories that predate code search, while the objects are already on disk.
     this.codeSearch.indexInBackground({
       repositoryId: repository.id,
@@ -2025,12 +1931,12 @@ export class RepositoriesService {
       repoDirectory: directory,
     });
 
-    // Keep the contribution index warm while the objects are hot. The profile graph reads the index only, so rendering it never materializes anything itself. Not awaited: a first build walks the whole history, and the contributors list may show what is indexed so far until it lands.
+    // Indexed while the objects are hot, so the profile graph never materializes. Not awaited: a first build walks the whole history.
     this.contributions
       .sync({ repositoryId: repository.id, repoDirectory: directory })
       .catch((error: unknown) =>
         this.logger.warn(
-          `Contribution index update failed for ${repository.id}: ${error instanceof Error ? error.message : String(error)}`,
+          `Contribution index update failed for ${repository.id}: ${errorMessage(error)}`,
         ),
       );
 
@@ -2047,7 +1953,7 @@ export class RepositoriesService {
     }
 
     const [branches, tags] = await Promise.all([
-      this.branches.getGitBranches(directory),
+      listBranches(directory),
       listTags(directory),
     ]);
     const resolved = await resolveRevision({
@@ -2109,18 +2015,3 @@ function matching(q: string | undefined) {
 }
 
 /** One extra row was fetched: it only tells us whether another page exists. */
-function paginate<T>(
-  rows: T[],
-  pageSize: number,
-  keyOf: (row: T) => { date: Date; id: string },
-) {
-  const hasMore = rows.length > pageSize;
-  const page = hasMore ? rows.slice(0, pageSize) : rows;
-  const last = page.at(-1);
-
-  return {
-    page,
-    hasMore,
-    nextCursor: hasMore && last ? encodeCursor(keyOf(last)) : null,
-  };
-}

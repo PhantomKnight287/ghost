@@ -20,7 +20,7 @@ import { DomainError } from '../../../domain/errors.js';
 import {
   type GitServiceName,
   toGitBinary,
-} from '../../../git/git.constants.js';
+} from '../../../lib/git/protocol/git-service.js';
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 import { GitService } from '../../../git/git.service.js';
 import { spoolToFile } from '../../../lib/git/protocol/spool.js';
@@ -41,7 +41,8 @@ import { RepositoryAccessService } from '../repository-access/repository-access.
 import {
   type Actor,
   type Repository,
-} from '../../../lib/git/repository-access/repository-access.js';
+} from '../../../lib/repositories/access/repository-access.js';
+import { errorMessage } from '../../../lib/error-message.js';
 
 /** 10-31. Railway already answers on 2222, and a ghost may as well keep Halloween. */
 const DEFAULT_PORT = 1031;
@@ -59,11 +60,7 @@ interface SessionActor {
   username: string;
 }
 
-/**
- * The SSH transport. It authenticates the connection, then runs exactly one of two git binaries on it, or hands git-lfs credentials for HTTPS.
- *
- * Nothing here is a shell: a command is matched against a regex, the repository comes from the database, and git is spawned with an argv array. A session that asks for anything else gets text and a non-zero exit.
- */
+/** The SSH transport: authenticates, then runs one of two git binaries or hands out git-lfs credentials. Nothing here is a shell: commands match a regex and git gets an argv array. */
 @Injectable()
 export class SshServerService implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(SshServerService.name);
@@ -241,7 +238,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
       const repository = await this.access.authorize({
         username: parsed.username,
         repo: parsed.repo,
-        actor,
+        requesterId: actor?.userId,
         operation: (
           'service' in parsed
             ? parsed.service === 'git-receive-pack'
@@ -269,13 +266,13 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
       await this.fetch(channel, repoDirectory, parsed.service, protocol);
     } catch (error) {
       // SSH has no status line to carry this, so the reason goes where git prints remote errors.
-      const message =
-        error instanceof DomainError
-          ? error.message
-          : 'the server could not complete that request';
-      if (!(error instanceof DomainError)) {
-        this.logger.error(`SSH ${command} failed: ${(error as Error).message}`);
+      const known = error instanceof DomainError;
+      if (!known) {
+        this.logger.error(`SSH ${command} failed: ${errorMessage(error)}`);
       }
+      const message = known
+        ? error.message
+        : 'the server could not complete that request';
       channel.stderr.write(`ghost: ${message}\n`);
       end(channel, GIT_FATAL_EXIT);
     }
@@ -330,11 +327,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     });
   }
 
-  /**
-   * A push is spooled, committed to the log, and only then replayed into git - the same order the HTTP transport uses, so both share one commit point.
-   *
-   * The spool starts before the advertisement is written: the client may answer the moment it reads the refs, and an unattended channel drops whatever arrives first.
-   */
+  /** A push is spooled, committed to the log, and only then replayed into git - the same order the HTTP transport uses, so both share one commit point. The spool starts before the advertisement is written: the client may answer the moment it reads the refs, and an unattended channel drops whatever arrives first. */
   private async push(
     channel: ServerChannel,
     repository: Repository,

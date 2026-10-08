@@ -8,11 +8,7 @@ import {
 } from "@better-auth-ui/react";
 import { useEffect } from "react";
 
-/**
- * Whether an unauthenticated visitor should be bounced to sign-in.
- *
- * `useSession` serves the stale `null` from a signed-out visit while the refetch is in flight, and redirecting on it loops straight back to sign-in. An in-flight fetch is undecided.
- */
+/** Whether an unauthenticated visitor should be bounced to sign-in. `useSession` serves the stale `null` from a signed-out visit while the refetch is in flight, and redirecting on it loops straight back to sign-in. An in-flight fetch is undecided. */
 export function shouldRedirectToSignIn(session: {
   data: unknown;
   isPending: boolean;
@@ -21,11 +17,7 @@ export function shouldRedirectToSignIn(session: {
   return !session.data && !session.isPending && !session.isFetching;
 }
 
-/**
- * `useSession` plus a redirect to sign-in for unauthenticated visitors, with the current URL preserved as `redirectTo`.
- *
- * Drop-in replacement for `@better-auth-ui/react`'s `useAuthenticate`, which redirects on a stale session value.
- */
+/** `useSession` plus a redirect to sign-in for unauthenticated visitors, with the current URL preserved as `redirectTo`. Drop-in replacement for `@better-auth-ui/react`'s `useAuthenticate`, which redirects on a stale session value. */
 export function useAuthenticate<TAuthClient extends AuthClient>(
   authClient: TAuthClient,
   options?: UseSessionOptions<TAuthClient>,

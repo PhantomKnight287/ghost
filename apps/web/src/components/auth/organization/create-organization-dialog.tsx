@@ -30,7 +30,6 @@ import {
 } from "../auth-form";
 import { SlugField, sanitizeSlug } from "./slug-field";
 
-/** Props for the `CreateOrganizationDialog` component. */
 export type CreateOrganizationDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;

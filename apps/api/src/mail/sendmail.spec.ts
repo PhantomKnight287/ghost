@@ -5,7 +5,6 @@ import type { ConfigService } from '@nestjs/config';
 
 import { mailConfigured, sendmailPath } from './mail.module.js';
 
-/** Build a ConfigService stub whose getter reads the supplied settings. */
 const config = (values: Record<string, string>) =>
   ({ get: (key: string) => values[key] }) as unknown as ConfigService;
 

@@ -27,7 +27,6 @@ import { StorageService } from '../storage/storage.service.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import { BranchesService } from '../../services/git/branches/branches.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
@@ -35,7 +34,7 @@ import { PushTransactionService } from '../../services/git/wal/push-transaction.
 import { UsersService } from '../../services/users/users.service.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
-import { InvalidCursorError } from '../repositories/repositories.errors.js';
+import { InvalidCursorError } from '../../lib/db/keyset.js';
 import { ReleaseAssetsService } from './release-assets.service.js';
 import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
 import {
@@ -48,7 +47,7 @@ import {
   ReleaseAlreadyExistsError,
   ReleaseNotFoundError,
   TagTargetNotFoundError,
-} from './releases.errors.js';
+} from '../../lib/releases/releases.errors.js';
 import { ReleasesService } from './releases.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
@@ -115,7 +114,6 @@ describe.skipIf(!CONNECTION)('releases', () => {
     });
   }
 
-  /** Commits in the source repository and pushes the commit through the log. */
   async function commitAndLog(message: string, before: string) {
     writeFileSync(path.join(source, 'README.md'), `${message}\n`);
     git(source, 'add', '-A');
@@ -166,7 +164,6 @@ describe.skipIf(!CONNECTION)('releases', () => {
       new RepositoryMaterializerService(store, {
         getRepoPath: async () => cache,
       } as unknown as RepositoryStorageService),
-      new BranchesService(),
       pushes,
       new UsersService(db),
       assets,

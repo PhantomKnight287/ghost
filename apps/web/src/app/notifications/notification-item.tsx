@@ -1,15 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  CircleCheck,
-  CircleDot,
-  GitMerge,
-  GitPullRequest,
-  GitPullRequestClosed,
-  Mail,
-  MailOpen,
-} from "lucide-react";
+import { Mail, MailOpen } from "lucide-react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
@@ -23,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ThreadStateIcon } from "@/components/thread-state";
 
 const REASONS: Record<Notification["reason"], string> = {
   assigned: "Assigned",
@@ -44,18 +37,6 @@ const VERBS: Record<string, string> = {
   "pull_request.review_commented": "replied to a review",
 };
 
-function iconOf({ isPullRequest, state }: Notification["thread"]) {
-  if (!isPullRequest) {
-    return state === "open"
-      ? { Icon: CircleDot, color: "text-emerald-600" }
-      : { Icon: CircleCheck, color: "text-violet-600" };
-  }
-  if (state === "merged") return { Icon: GitMerge, color: "text-violet-600" };
-  return state === "open"
-    ? { Icon: GitPullRequest, color: "text-emerald-600" }
-    : { Icon: GitPullRequestClosed, color: "text-red-600" };
-}
-
 export function NotificationItem({
   notification,
 }: {
@@ -70,7 +51,6 @@ export function NotificationItem({
   });
 
   const { repository, thread, unread } = notification;
-  const { Icon, color } = iconOf(thread);
   const href = `/${repository.owner}/${repository.slug}/${thread.isPullRequest ? "pulls" : "issues"}/${thread.number}`;
   const ToggleIcon = unread ? MailOpen : Mail;
 
@@ -88,7 +68,10 @@ export function NotificationItem({
           unread ? "bg-primary" : "bg-transparent",
         )}
       />
-      <Icon className={cn("size-4 shrink-0", color)} />
+      <ThreadStateIcon
+        isPullRequest={thread.isPullRequest}
+        state={thread.state}
+      />
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs text-muted-foreground">
           {repository.owner}/{repository.slug} #{thread.number}

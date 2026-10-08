@@ -1,11 +1,11 @@
 "use client";
 
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,18 +24,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiClient, apiErrorMessage } from "@/lib/api/client";
+import { apiClient, unwrap } from "@/lib/api/client";
 
 /** One team's details, shared by the team page and the organization's team settings. */
 export function useTeam(organization: string, team: string) {
   return useQuery({
     queryKey: ["organization-team", organization, team],
     queryFn: async () => {
-      const { data, error } = await apiClient.GET(
-        "/api/organizations/{slug}/teams/{team}",
-        { params: { path: { slug: organization, team } } },
+      const data = await unwrap(
+        apiClient.GET("/api/organizations/{slug}/teams/{team}", {
+          params: { path: { slug: organization, team } },
+        }),
       );
-      if (error) throw new Error(apiErrorMessage(error));
       return data;
     },
   });
@@ -46,10 +46,11 @@ function useOrganizationMembers(organization: string) {
   return useQuery({
     queryKey: ["organization-members", organization],
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/organizations/{slug}", {
-        params: { path: { slug: organization } },
-      });
-      if (error) throw new Error(apiErrorMessage(error));
+      const data = await unwrap(
+        apiClient.GET("/api/organizations/{slug}", {
+          params: { path: { slug: organization } },
+        }),
+      );
       return data.members;
     },
   });
@@ -83,27 +84,27 @@ export function TeamMembers({
       done: string;
     }) => {
       const params = { path: { slug: organization, team, username } };
-      const { error } =
+      await unwrap(
         kind === "members"
           ? remove
-            ? await apiClient.DELETE(
+            ? apiClient.DELETE(
                 "/api/organizations/{slug}/teams/{team}/members/{username}",
                 { params },
               )
-            : await apiClient.PUT(
+            : apiClient.PUT(
                 "/api/organizations/{slug}/teams/{team}/members/{username}",
                 { params },
               )
           : remove
-            ? await apiClient.DELETE(
+            ? apiClient.DELETE(
                 "/api/organizations/{slug}/teams/{team}/maintainers/{username}",
                 { params },
               )
-            : await apiClient.PUT(
+            : apiClient.PUT(
                 "/api/organizations/{slug}/teams/{team}/maintainers/{username}",
                 { params },
-              );
-      if (error) throw new Error(apiErrorMessage(error));
+              ),
+      );
     },
     onSuccess: async (_, { done }) => {
       toast.success(done);
@@ -135,12 +136,11 @@ export function TeamMembers({
               {index > 0 && <ItemSeparator className="my-0!" />}
               <Item size="sm">
                 <ItemMedia>
-                  <Avatar className="size-7">
-                    <AvatarImage src={member.image ?? undefined} alt="" />
-                    <AvatarFallback>
-                      {member.username.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <ProfileAvatar
+                    name={member.username}
+                    image={member.image}
+                    className="size-7"
+                  />
                 </ItemMedia>
                 <ItemContent className="min-w-0">
                   <ItemTitle>

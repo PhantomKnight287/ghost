@@ -30,13 +30,13 @@ import {
   LfsObjectTooLargeError,
   LfsUploadInProgressError,
 } from '../../../lib/git/lfs/lfs.errors.js';
-import type { Repository } from '../../../lib/git/repository-access/repository-access.js';
-import type { Executor } from '../../../lib/issues/close-issue.js';
+import type { Repository } from '../../../lib/repositories/access/repository-access.js';
+import type { Executor } from '../../../lib/db/executor.js';
 import { PUT_OBJECT_MAX_BYTES } from '../../../lib/s3/s3.limits.js';
 import { RESERVATION_TTL } from '../../../lib/storage/reservation.js';
 import {
-  lfsKindOf,
   storageAccountOf,
+  billedKindOf,
 } from '../../../lib/storage/storage-account.js';
 import { ContentLengthRequiredError } from '../../../lib/storage/storage.errors.js';
 import { S3Service } from '../../s3/s3.service.js';
@@ -45,6 +45,14 @@ import { StorageQuotaService } from '../../storage/storage-quota.service.js';
 type LfsObject = { oid: string; size: number };
 
 /** Git LFS objects, one copy per repository under `lfs/<repositoryId>/`. Bytes stream through the API both ways, never straight to the bucket (0025). */
+/** LFS objects whose upload into the repository finished. */
+function uploadedIn(repositoryId: string) {
+  return and(
+    eq(schema.lfsObject.repositoryId, repositoryId),
+    isNotNull(schema.lfsObject.uploadedAt),
+  );
+}
+
 @Injectable()
 export class LfsService {
   private readonly baseUrl: string;
@@ -111,12 +119,11 @@ export class LfsService {
           .from(schema.lfsObject)
           .where(
             and(
-              eq(schema.lfsObject.repositoryId, repositoryId),
+              uploadedIn(repositoryId),
               inArray(
                 schema.lfsObject.oid,
                 objects.map(({ oid }) => oid),
               ),
-              isNotNull(schema.lfsObject.uploadedAt),
             ),
           )
       ).map(({ oid, size }) => [oid, size]),
@@ -188,7 +195,7 @@ export class LfsService {
     const mine = and(row, eq(schema.lfsObject.uploadId, uploadId));
     await this.quota.reserve(
       storageAccountOf(repository),
-      lfsKindOf(repository),
+      billedKindOf(repository, 'lfs'),
       size,
       async (tx) => {
         // An upload that died with its process leaves a reservation behind; once it has lapsed it must not hold the oid forever.
@@ -246,18 +253,11 @@ export class LfsService {
     if (!uploaded) throw new LfsUploadInProgressError(oid);
   }
 
-  /** The size of an object the repository holds, or null. */
   async find(repositoryId: string, oid: string) {
     const [object] = await this.db
       .select({ size: schema.lfsObject.size })
       .from(schema.lfsObject)
-      .where(
-        and(
-          eq(schema.lfsObject.repositoryId, repositoryId),
-          eq(schema.lfsObject.oid, oid),
-          isNotNull(schema.lfsObject.uploadedAt),
-        ),
-      );
+      .where(and(uploadedIn(repositoryId), eq(schema.lfsObject.oid, oid)));
     return object ?? null;
   }
 
@@ -278,12 +278,7 @@ export class LfsService {
     return this.db
       .select({ oid: schema.lfsObject.oid, size: schema.lfsObject.size })
       .from(schema.lfsObject)
-      .where(
-        and(
-          eq(schema.lfsObject.repositoryId, repositoryId),
-          isNotNull(schema.lfsObject.uploadedAt),
-        ),
-      );
+      .where(uploadedIn(repositoryId));
   }
 
   /** Of `oids`, the objects `fromRepositoryId` holds and `toRepositoryId` does not. */
@@ -299,9 +294,9 @@ export class LfsService {
       .from(schema.lfsObject)
       .where(
         and(
-          eq(schema.lfsObject.repositoryId, fromRepositoryId),
+          uploadedIn(fromRepositoryId),
           inArray(schema.lfsObject.oid, oids),
-          isNotNull(schema.lfsObject.uploadedAt),
+
           notExists(
             this.db
               .select({ oid: target.oid })
@@ -347,7 +342,6 @@ export class LfsService {
       .onConflictDoNothing();
   }
 
-  /** An object's bytes, for a page that renders the file. */
   async read(repositoryId: string, oid: string) {
     const { Body } = await this.s3.getObject({
       Bucket: this.s3.bucket,

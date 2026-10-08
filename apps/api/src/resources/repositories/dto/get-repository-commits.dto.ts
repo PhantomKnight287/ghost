@@ -54,8 +54,7 @@ export class GetRepositoryCommitsQueryDTO {
 export class CommitVerificationDTO {
   @ApiProperty({
     description:
-      'True only when the signature checks out *and* the signing key belongs ' +
-      "to an account that has verified the commit's author address.",
+      "True only when the signature checks out *and* the signing key belongs to an account that has verified the commit's author address.",
   })
   verified: boolean;
 

@@ -10,7 +10,6 @@ export interface PublicKeyDetails {
   revoked: boolean;
 }
 
-/** Reads an armored public key, or throws when the armor is not one. */
 export async function readPublicKey(
   armoredKey: string,
 ): Promise<PublicKeyDetails> {
@@ -91,11 +90,7 @@ export async function signPayload({
   });
 }
 
-/**
- * Whether a key in `armoredKey` made this signature over this payload.
- *
- * The payload is verified as binary: git detach-signs the commit object with no canonicalisation, so anything that rewrote line endings would verify a different set of bytes than the ones git hashed.
- */
+/** Verified as binary: git detach-signs the commit object with no canonicalisation, so rewritten line endings would verify different bytes than git hashed. */
 export async function verifySignature({
   payload,
   armoredSignature,

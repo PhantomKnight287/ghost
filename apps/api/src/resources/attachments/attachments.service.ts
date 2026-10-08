@@ -20,7 +20,7 @@ import { isValidAssetName } from '../../lib/releases/release-assets.js';
 import { formatByteSize } from '../../lib/storage/byte-size.js';
 import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
 import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
-import { InvalidAssetNameError } from '../releases/releases.errors.js';
+import { InvalidAssetNameError } from '../../lib/releases/releases.errors.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
@@ -29,7 +29,8 @@ import {
   AttachmentNotOctetStreamError,
   AttachmentTooLargeError,
   AttachmentTypeNotAllowedError,
-} from './attachments.errors.js';
+} from '../../lib/attachments/attachments.errors.js';
+import { errorMessage } from '../../lib/error-message.js';
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 const SWEEP_BATCH = 100;
@@ -59,9 +60,7 @@ export class AttachmentsService
   onApplicationBootstrap() {
     this.timer = setInterval(() => {
       this.sweep().catch((error: unknown) =>
-        this.logger.error(
-          `Attachment sweep failed: ${error instanceof Error ? error.message : String(error)}`,
-        ),
+        this.logger.error(`Attachment sweep failed: ${errorMessage(error)}`),
       );
     }, SWEEP_INTERVAL_MS);
   }
@@ -92,7 +91,7 @@ export class AttachmentsService
     const repository = await this.access.authorize({
       username,
       repo,
-      actor: { userId: requesterId },
+      requesterId,
       operation: 'read',
     });
     // JSON and form bodies are parsed before any handler runs, so their bytes are gone by the time they could be streamed
@@ -183,7 +182,7 @@ export class AttachmentsService
 
     await this.access.authorizeById({
       repositoryId: attachment.repositoryId,
-      actor: requesterId ? { userId: requesterId } : null,
+      requesterId,
       operation: 'read',
     });
 

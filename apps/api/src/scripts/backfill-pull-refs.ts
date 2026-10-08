@@ -1,8 +1,5 @@
 /**
- * Writes `refs/pull/<n>/head` and `refs/pull/<n>/merge` for every open pull request opened before Ghost kept them. A request that is read or pushed to catches up on its own; this covers the ones nobody touches.
- *
- * Safe beside a running API: every write is a compare-and-swap on the log, and a sync that finds its refs current writes nothing.
- *
+ * Writes `refs/pull/<n>/head` and `refs/pull/<n>/merge` for open pull requests opened before Ghost kept them that nobody has read or pushed to since. Safe beside a running API: every write is a compare-and-swap on the log.
  * node dist/scripts/backfill-pull-refs.js, after `nest build`
  */
 import { schema, type Database } from '@ghost/db';
@@ -13,13 +10,16 @@ import { eq } from 'drizzle-orm';
 
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
 import { PullRefsModule } from '../pull-refs/pull-refs.module.js';
+import { S3Module } from '../s3/s3.module.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
+import { errorMessage } from '../lib/error-message.js';
 
 // Only what a sync needs, so the script opens no HTTP or SSH listener and starts no poller.
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
+    S3Module,
     PullRefsModule,
   ],
 })
@@ -42,9 +42,7 @@ for (const { id } of open) {
     await pullRefs.sync(id);
   } catch (error) {
     failed++;
-    console.error(
-      `${id}: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    console.error(`${id}: ${errorMessage(error)}`);
   }
 }
 

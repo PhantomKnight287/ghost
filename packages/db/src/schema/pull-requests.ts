@@ -22,13 +22,8 @@ export const pullRequestState = pgEnum("pull_request_state", [
   "merged",
 ]);
 
-/**
- * Base and head are stored as separate repository ids because they are only the same row for a branch-to-branch request; a fork request spans two write-ahead logs that never learn about each other.
- *
- * `headSha` is the tip as of the last time the request was refreshed, so the diff a reviewer read stays addressable after the branch moves on.
- *
- * Number, title, body, author and comments live on the `issue` row; this row holds only what a git comparison needs. `state` keeps `merged`, which an issue has no word for, and is kept in step with `issue.state`.
- */
+/** Base and head repository ids differ for a fork request, which spans two logs; `headSha` is the tip at the last refresh, so the reviewed diff stays addressable.
+ * Number, title, body, author and comments live on `issue`; `state` adds `merged` and is kept in step with `issue.state`. */
 export const pullRequest = pgTable(
   "pull_request",
   {
@@ -80,11 +75,7 @@ export const pullRequestReviewState = pgEnum("pull_request_review_state", [
 
 export const diffSide = pgEnum("diff_side", ["deletions", "additions"]);
 
-/**
- * A review with no `submittedAt` is pending: the reviewer's unsent batch of line comments, visible to nobody else and with no verdict yet. One per reviewer and request.
- *
- * A dismissed review keeps its verdict for the record but stops counting; `dismissalMessage` is what marks it, since `dismissedById` goes null with the account.
- */
+/** No `submittedAt` means pending: the reviewer's unsent line comments, visible to nobody else, one per reviewer and request. A dismissed review keeps its verdict but stops counting; `dismissalMessage` marks it, since `dismissedById` goes null with the account. */
 export const pullRequestReview = pgTable(
   "pull_request_review",
   {
@@ -117,11 +108,7 @@ export const pullRequestReview = pgTable(
   ],
 );
 
-/**
- * A comment on one line of one side of the diff at `commitSha`, or on the lines from `startLine` on `startSide` down to `line` on `side`; once the head moves on it is outdated rather than wrong.
- *
- * A thread's first comment belongs to a review. Replies belong to no review: they carry `inReplyToId` and copy the thread's path, line and commit, but not its `diffHunk`.
- */
+/** A comment on a line, or on the range from `startLine` on `startSide` to `line` on `side`, of the diff at `commitSha`; outdated, not wrong, once the head moves on. A thread's first comment belongs to a review; replies carry `inReplyToId` and copy the thread's path, line and commit but not its `diffHunk`. */
 export const pullRequestReviewComment = pgTable(
   "pull_request_review_comment",
   {

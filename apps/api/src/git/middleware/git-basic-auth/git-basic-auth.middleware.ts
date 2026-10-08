@@ -4,10 +4,10 @@ import { AuthService } from '@thallesp/nestjs-better-auth';
 import type { NextFunction, Request, Response } from 'express';
 
 import type { Auth } from '../../../lib/auth.js';
-import { RepositoryNotFoundError } from '../../../resources/repositories/repositories.errors.js';
-import { AuthenticationRequiredError } from '../../../lib/git/repository-access/repository-access.errors.js';
+import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
+import { AuthenticationRequiredError } from '../../../lib/repositories/access/repository-access.errors.js';
 import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
-import { type Actor } from '../../../lib/git/repository-access/repository-access.js';
+import { type Actor } from '../../../lib/repositories/access/repository-access.js';
 import {
   type LfsTokenClaims,
   verifyLfsToken,
@@ -49,7 +49,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
       req.repository = await this.access.authorize({
         username,
         repo: repo.replace(/\.git$/, ''),
-        actor,
+        requesterId: actor?.userId,
         operation: isPush ? 'write' : 'read',
       });
       // A token from `git-lfs-authenticate` is good for the LFS API of one repository, and for writes only if it was asked for an upload.

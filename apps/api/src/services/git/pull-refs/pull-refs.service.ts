@@ -1,5 +1,3 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -11,7 +9,10 @@ import { runGit } from '../../../lib/git/exec/run-git.js';
 import { packRange, testMergeCommit } from '../../../lib/git/merge/merge.js';
 import { fileBody } from '../../../lib/git/protocol/git-request-body.js';
 import { pullHeadRef, pullMergeRef } from '../../../lib/git/refs/pull-refs.js';
-import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
+import {
+  BRANCH_PREFIX,
+  resolveCommit,
+} from '../../../lib/git/tree/resolve-ref.js';
 import {
   NonFastForwardError,
   RepositoryDeletedError,
@@ -26,15 +27,18 @@ import {
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 import { PushTransactionService } from '../wal/push-transaction.service.js';
 import { StorageQuotaService } from '../../storage/storage-quota.service.js';
-import type { Executor } from '../../../lib/issues/close-issue.js';
+import type { Executor } from '../../../lib/db/executor.js';
 import {
   PullRefWriteTooLargeError,
   UnmergedPullRefQuotaExceededError,
 } from '../../../lib/storage/storage.errors.js';
+import { errorMessage } from '../../../lib/error-message.js';
+import { Coalescer } from '../../../lib/coalescer.js';
+import { withTempDir } from '../../../lib/temp-dir.js';
+import { listRefs } from '../../../lib/git/refs/list-refs.js';
 
 // Each lost race re-reads the log, so this only runs out when the base is being pushed to faster than a merge-tree.
 const MAX_ATTEMPTS = 3;
-const BRANCH_PREFIX = 'refs/heads/';
 // A commitPush settles in seconds, so an intent this old that the index does not name never committed.
 const PENDING_GRACE_MS = 60 * 60 * 1000;
 
@@ -42,8 +46,7 @@ const PENDING_GRACE_MS = 60 * 60 * 1000;
 @Injectable()
 export class PullRefsService {
   private readonly logger = new Logger(PullRefsService.name);
-  private readonly running = new Map<string, Promise<void>>();
-  private readonly stale = new Set<string>();
+  private readonly syncing = new Coalescer();
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -87,7 +90,7 @@ export class PullRefsService {
       )
       .catch((error: unknown) => {
         this.logger.warn(
-          `Pull request refs were not queued for ${repositoryId}: ${error instanceof Error ? error.message : String(error)}`,
+          `Pull request refs were not queued for ${repositoryId}: ${errorMessage(error)}`,
         );
         return [];
       });
@@ -96,22 +99,13 @@ export class PullRefsService {
 
   /** Coalesces per request: a sync asked for while one runs becomes a single rerun once it ends, which reads whatever the branches hold by then. */
   syncInBackground(pullRequestId: string) {
-    if (this.running.has(pullRequestId)) {
-      this.stale.add(pullRequestId);
-      return;
-    }
-
-    const run = (async () => {
-      do {
-        this.stale.delete(pullRequestId);
-        await this.sync(pullRequestId).catch((error: unknown) =>
-          this.logger.warn(
-            `Pull request refs for ${pullRequestId} were not updated: ${error instanceof Error ? error.message : String(error)}`,
-          ),
-        );
-      } while (this.stale.has(pullRequestId));
-    })().finally(() => this.running.delete(pullRequestId));
-    this.running.set(pullRequestId, run);
+    void this.syncing.run(pullRequestId, async () => {
+      await this.sync(pullRequestId).catch((error: unknown) =>
+        this.logger.warn(
+          `Pull request refs for ${pullRequestId} were not updated: ${errorMessage(error)}`,
+        ),
+      );
+    });
   }
 
   /** Called with the tips a reader just resolved, so a sync lost to a crash is redone on the next read rather than the next push. */
@@ -128,7 +122,7 @@ export class PullRefsService {
     baseSha: string;
     headSha: string;
   }) {
-    if (this.running.has(pullRequestId)) return;
+    if (this.syncing.isRunning(pullRequestId)) return;
     const mergeRef = pullMergeRef(number);
     // ponytail: a request that conflicts has no merge ref, so every read of it reruns a merge-tree that writes nothing. Remember the conflicting pair if that shows up in profiles.
     runGit({
@@ -190,7 +184,7 @@ export class PullRefsService {
     const baseDirectory = await this.open(pullRequest.baseRepositoryId);
     const headRef = pullHeadRef(pullRequest.number);
     const mergeRef = pullMergeRef(pullRequest.number);
-    const refs = await this.listRefs(baseDirectory);
+    const refs = await listRefs(baseDirectory);
 
     const target =
       pullRequest.state === 'merged'
@@ -212,8 +206,7 @@ export class PullRefsService {
       return;
     }
 
-    const directory = await mkdtemp(path.join(tmpdir(), 'ghost-pull-refs-'));
-    try {
+    await withTempDir('ghost-pull-refs-', async (directory) => {
       // Everything the base log names is already in it, the old pull refs included, so the entry carries only what the fork added since the last sync.
       const pack = await packRange({
         gitDir: baseDirectory,
@@ -266,9 +259,7 @@ export class PullRefsService {
             throw error;
           await this.block(pullRequestId, error.message);
         });
-    } finally {
-      await rm(directory, { recursive: true, force: true });
-    }
+    });
   }
 
   private pendingWrites(pullRequestId: string) {
@@ -377,22 +368,6 @@ export class PullRefsService {
           })
         : null,
     };
-  }
-
-  private async listRefs(gitDir: string) {
-    const raw = await runGit({
-      args: ['for-each-ref', '--format=%(refname) %(objectname)'],
-      gitDir,
-    });
-    return new Map(
-      raw
-        .split('\n')
-        .filter(Boolean)
-        .map((line) => {
-          const [ref, oid] = line.split(' ');
-          return [ref, oid] as const;
-        }),
-    );
   }
 
   private async open(repositoryId: string) {
