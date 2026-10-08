@@ -74,7 +74,7 @@ export function FileFinder({
         (i) => (i + step + matches.length) % Math.max(matches.length, 1),
       );
     },
-    { enableOnFormTags: ["input"], preventDefault: true },
+    { enabled: open, enableOnFormTags: ["input"], preventDefault: true },
     [matches, active],
   );
 

@@ -41,7 +41,7 @@ export function FileTree({
   };
 
   return (
-    <ul role="tree" aria-label="Files" className="p-1 text-sm">
+    <ul aria-label="Files" className="p-1 text-sm">
       <TreeDirectory tree={tree} dir="" depth={0} />
     </ul>
   );
@@ -74,18 +74,14 @@ function TreeDirectory({
 
   if (isPending) {
     return Array.from({ length: 3 }).map((_, i) => (
-      <li key={i} role="none" className="py-1.5 pr-2" style={indent}>
+      <li key={i} className="py-1.5 pr-2" style={indent}>
         <Skeleton className="h-4" style={{ width: `${45 + i * 15}%` }} />
       </li>
     ));
   }
   if (error) {
     return (
-      <li
-        role="none"
-        className="py-1.5 pr-2 text-xs text-destructive"
-        style={indent}
-      >
+      <li className="py-1.5 pr-2 text-xs text-destructive" style={indent}>
         {error.message}
       </li>
     );
@@ -99,8 +95,6 @@ function TreeDirectory({
       return (
         <li
           key={entry.path}
-          role="treeitem"
-          aria-selected={false}
           title="Submodule"
           className={cn(row, "text-muted-foreground")}
           style={indent}
@@ -115,7 +109,7 @@ function TreeDirectory({
     if (entry.type === "blob") {
       const active = entry.path === tree.current;
       return (
-        <li key={entry.path} role="treeitem" aria-selected={active}>
+        <li key={entry.path}>
           <Link
             href={revisionHref(tree.base, "blob", revision, entry.path)}
             aria-current={active ? "page" : undefined}
@@ -142,14 +136,10 @@ function TreeDirectory({
     const open =
       tree.toggled[entry.path] ?? tree.current.startsWith(`${entry.path}/`);
     return (
-      <li
-        key={entry.path}
-        role="treeitem"
-        aria-selected={false}
-        aria-expanded={open}
-      >
+      <li key={entry.path}>
         <button
           type="button"
+          aria-expanded={open}
           onClick={() => tree.toggle(entry.path, !open)}
           className={cn(row, "hover:bg-muted/60")}
           style={indent}
@@ -164,7 +154,7 @@ function TreeDirectory({
           <span className="truncate">{entry.name}</span>
         </button>
         {open && (
-          <ul role="group">
+          <ul>
             <TreeDirectory tree={tree} dir={entry.path} depth={depth + 1} />
           </ul>
         )}
