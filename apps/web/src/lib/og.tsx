@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { createElement } from "react";
+import { type ReactNode, createElement } from "react";
 
 import { type IconName, icons } from "./og-icons";
 import { languageColor } from "@ghost/languages";
@@ -8,17 +8,19 @@ import { languageColor } from "@ghost/languages";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// Satori resolves no CSS variables, so the palette is spelled out.
-const INK = "#0b0b0c";
-const FOREGROUND = "#f4f4f5";
-const MUTED = "#8b8b93";
-const HAIRLINE = "#26262b";
-const ACCENT = "#a78bfa";
+// Satori resolves no CSS variables, so the dark lavender theme in globals.css is spelled out.
+const ACCENT = "#221f2d";
+const CARD = "#131215";
+const FOREGROUND = "#f2f1f4";
+const MUTED = "#9e9da6";
+const HAIRLINE = "rgba(255, 255, 255, 0.1)";
+const PRIMARY = "#c2b1f8";
 
 export type OgStat = { icon: IconName; label: string };
 export type OgLanguage = { language: string; percent: number };
 export type OgBadge = { label: string; color?: string };
 
+/** The landing page's hero: a card rising out of a lavender panel. */
 export function ogCard({
   eyebrow,
   icon,
@@ -30,7 +32,7 @@ export function ogCard({
   languages,
 }: {
   eyebrow: string;
-  /** Sits before the eyebrow. */
+  /** Sits before the eyebrow, in place of its dot. */
   icon?: IconName;
   /** Drawn large beside the title, with the description under it. */
   avatar?: string | null;
@@ -47,114 +49,97 @@ export function ogCard({
         width: "100%",
         height: "100%",
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        background: INK,
-        color: FOREGROUND,
-        padding: 72,
+        background: ACCENT,
+        padding: "56px 56px 0",
         fontFamily: "sans-serif",
       }}
     >
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          flex: 1,
+          flexDirection: "column",
           justifyContent: "space-between",
+          padding: "52px 60px 56px",
+          background: CARD,
+          color: FOREGROUND,
+          border: `1px solid ${HAIRLINE}`,
+          borderBottom: "none",
+          borderRadius: "24px 24px 0 0",
+          boxShadow: "0 30px 60px -30px rgba(0, 0, 0, 0.6)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {icon ? <Icon name={icon} size={30} color={MUTED} /> : null}
-          <div style={{ display: "flex", fontSize: 30, color: MUTED }}>
-            {truncate(eyebrow, 58)}
-          </div>
-        </div>
-
-        {badge ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              fontSize: 24,
+              gap: 14,
+              fontSize: 22,
               letterSpacing: 2,
               textTransform: "uppercase",
-              color: badge.color ?? MUTED,
+              color: PRIMARY,
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                width: 12,
-                height: 12,
-                borderRadius: 12,
-                background: badge.color ?? MUTED,
-              }}
-            />
-            {badge.label}
+            {icon ? (
+              <Icon name={icon} size={24} color={PRIMARY} />
+            ) : (
+              <Dot color={PRIMARY} />
+            )}
+            {truncate(eyebrow, 56)}
           </div>
-        ) : null}
-      </div>
+          {badge ? <Badge badge={badge} /> : null}
+        </div>
 
-      {usable(avatar) ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
-          <img
-            src={avatar}
-            width={200}
-            height={200}
-            alt=""
-            style={{ borderRadius: 200, border: `1px solid ${HAIRLINE}` }}
-          />
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div
-              style={{
-                display: "flex",
-                fontSize: titleSize(title, 60),
-                fontWeight: 600,
-                letterSpacing: -1,
-                lineHeight: 1.15,
-                wordBreak: "break-word",
-              }}
-            >
-              {truncate(title, 60)}
+        {usable(avatar) ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
+            <img
+              src={avatar}
+              width={170}
+              height={170}
+              alt=""
+              style={{ borderRadius: 170, border: `1px solid ${HAIRLINE}` }}
+            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <Title text={title} max={60} />
+              {description ? (
+                <div style={{ display: "flex", fontSize: 32, color: MUTED }}>
+                  {truncate(plain(description), 48)}
+                </div>
+              ) : null}
             </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <Title text={title} />
             {description ? (
-              <div style={{ display: "flex", fontSize: 34, color: MUTED }}>
-                {truncate(description, 52)}
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: 28,
+                  lineHeight: 1.4,
+                  color: MUTED,
+                }}
+              >
+                {truncate(plain(description), 100)}
               </div>
             ) : null}
           </div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {description ? (
-            <div style={{ display: "flex", fontSize: 28, color: MUTED }}>
-              {truncate(description, 96)}
-            </div>
-          ) : null}
-          <div
-            style={{
-              display: "flex",
-              fontSize: titleSize(title),
-              fontWeight: 600,
-              letterSpacing: -1,
-              lineHeight: 1.15,
-              // long identifiers and file names have no spaces to break on
-              wordBreak: "break-word",
-            }}
-          >
-            {truncate(title, 110)}
-          </div>
-        </div>
-      )}
+        )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
-        {languages?.length ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          {languages?.length ? (
             <div
               style={{
                 display: "flex",
-                height: 10,
-                borderRadius: 10,
+                height: 8,
+                borderRadius: 8,
                 overflow: "hidden",
                 background: HAIRLINE,
               }}
@@ -170,75 +155,134 @@ export function ogCard({
                 />
               ))}
             </div>
-
-            {/* a card is read at a glance: the long tail would not be legible */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 28,
-                fontSize: 22,
-                color: MUTED,
-              }}
-            >
-              {languages.slice(0, 4).map(({ language, percent }) => (
-                <div
-                  key={language}
-                  style={{ display: "flex", alignItems: "center", gap: 10 }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      width: 12,
-                      height: 12,
-                      borderRadius: 12,
-                      background: languageColor(language),
-                    }}
-                  />
-                  {language} {percent.toFixed(1)}%
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        <div style={{ display: "flex", height: 1, background: HAIRLINE }} />
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            fontSize: 26,
-            color: MUTED,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-            {stats?.map((stat) => (
-              <div
-                key={stat.label}
-                style={{ display: "flex", alignItems: "center", gap: 12 }}
-              >
-                <Icon name={stat.icon} size={24} color={MUTED} />
-                {stat.label}
-              </div>
-            ))}
-          </div>
+          ) : null}
 
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              color: FOREGROUND,
+              justifyContent: "space-between",
+              gap: 24,
             }}
           >
-            <Icon name="ghost" size={26} color={ACCENT} />
-            Ghost
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                minWidth: 0,
+                overflow: "hidden",
+              }}
+            >
+              {stats?.map((stat) => (
+                <Chip key={stat.label}>
+                  <Icon name={stat.icon} size={20} color={MUTED} />
+                  {truncate(stat.label, 32)}
+                </Chip>
+              ))}
+              {/* a card is read at a glance: the long tail would not be legible */}
+              {languages?.slice(0, 2).map(({ language, percent }) => (
+                <Chip key={language}>
+                  <Dot color={languageColor(language)} />
+                  {language} {percent.toFixed(0)}%
+                </Chip>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                fontSize: 28,
+                fontWeight: 600,
+                letterSpacing: -0.5,
+                flexShrink: 0,
+              }}
+            >
+              <Icon name="ghost" size={28} color={FOREGROUND} />
+              Ghost
+            </div>
           </div>
         </div>
       </div>
     </div>,
     size,
+  );
+}
+
+function Badge({ badge }: { badge: OgBadge }) {
+  const color = badge.color ?? MUTED;
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 18px",
+        borderRadius: 999,
+        border: `1px solid ${HAIRLINE}`,
+        fontSize: 20,
+        fontWeight: 600,
+        letterSpacing: 1.5,
+        textTransform: "uppercase",
+        color,
+      }}
+    >
+      <Dot color={color} />
+      {truncate(badge.label, 32)}
+    </div>
+  );
+}
+
+function Title({ text, max }: { text: string; max?: number }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        fontSize: titleSize(text, max),
+        fontWeight: 600,
+        letterSpacing: "-0.045em",
+        lineHeight: 1.05,
+        // long identifiers and file names have no spaces to break on
+        wordBreak: "break-word",
+      }}
+    >
+      {truncate(text, max ?? 110)}
+    </div>
+  );
+}
+
+/** The rounded-full chips from the landing page's feature list. */
+function Chip({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 18px",
+        borderRadius: 999,
+        border: `1px solid ${HAIRLINE}`,
+        fontSize: 22,
+        color: MUTED,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Dot({ color }: { color: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        width: 12,
+        height: 12,
+        borderRadius: 12,
+        background: color,
+      }}
+    />
   );
 }
 
@@ -254,6 +298,16 @@ function titleSize(title: string, max = 82) {
           : 38;
 
   return Math.min(size, max);
+}
+
+/** Issue and release bodies are markdown; a card shows the words, not the syntax. */
+export function plain(markdown: string) {
+  return markdown
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
+    .replace(/[*_~`]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function truncate(value: string, max: number) {
