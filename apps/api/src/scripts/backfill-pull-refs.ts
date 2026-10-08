@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
 import { PullRefsModule } from '../pull-refs/pull-refs.module.js';
+import { S3Module } from '../s3/s3.module.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { errorMessage } from '../lib/error-message.js';
 
@@ -18,6 +19,7 @@ import { errorMessage } from '../lib/error-message.js';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
+    S3Module,
     PullRefsModule,
   ],
 })
