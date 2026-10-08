@@ -104,7 +104,7 @@ API routes, DB schema, web pages and auth plugins.
     login (GitHub/Google).
 12. [ ] **Push errors over sideband.** Failures render as JSON, so the git CLI
     shows an unhelpful error (see [0011](0011-deferred.md)).
-13. [ ] **Anonymous push note.** [0011](0011-deferred.md) says
+13. [x] **Anonymous push note.** [0011](0011-deferred.md) says
     `receive-pack` accepts anonymous pushes, but `GitBasicAuthMiddleware` now
     rejects read-only actors. Verify and update the doc.
 

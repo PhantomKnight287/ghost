@@ -5,7 +5,9 @@
 Things deliberately not built yet, with the reasoning that will be needed when
 they are.
 
-## Authentication
+## Authentication - Resolved 
+
+> The `GitController` is now behind `GitBasicAuthMiddleware` which refuses anonymous pushes and authorizes every write. The `@OptionalAuth` was just to get a PoC from the ground up. 
 
 `@OptionalAuth()` is currently blanket on `GitController`, so
 `git-receive-pack` accepts anonymous pushes. Git CLI sends HTTP Basic, not the
