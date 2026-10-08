@@ -8,8 +8,14 @@ export async function generateMetadata({
   params,
 }: PageProps<"/[username]/[repo]/releases/tag/[...tag]">): Promise<Metadata> {
   const { username, repo, tag } = await params;
+  const tagName = tag.map(decodeURIComponent).join("/");
+  const title = `${tagName} · ${username}/${repo}`;
+  const image = `/${username}/${repo}/releases/og?${new URLSearchParams({ tag: tagName })}`;
+
   return {
-    title: `${tag.map(decodeURIComponent).join("/")} · ${username}/${repo}`,
+    title,
+    openGraph: { title, images: [image] },
+    twitter: { images: [image] },
   };
 }
 
