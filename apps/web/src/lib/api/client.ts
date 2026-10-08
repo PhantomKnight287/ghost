@@ -23,5 +23,8 @@ export function apiErrorMessage(
   fallback = "Something went wrong",
 ) {
   const message = (error as { message?: unknown } | undefined)?.message;
-  return typeof message === "string" ? message : fallback;
+  if (typeof message === "string") return message;
+  // ValidationPipe answers with one message per failed constraint.
+  if (Array.isArray(message) && message.length > 0) return message.join(", ");
+  return fallback;
 }
