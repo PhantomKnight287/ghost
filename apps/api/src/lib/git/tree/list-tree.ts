@@ -63,6 +63,28 @@ export async function listTree({
   return orderTreeEntries(entries);
 }
 
+/** Every file at `ref`, recursively, in git's byte order. Submodules are left out: a finder can only open a file. */
+export async function listPaths({
+  gitDir,
+  ref,
+}: {
+  gitDir: string;
+  ref: string;
+}): Promise<string[]> {
+  const raw = await runGit({
+    args: ['ls-tree', '-r', '-z', '--full-tree', '--end-of-options', ref],
+    gitDir,
+  });
+
+  return raw.split('\0').flatMap((record) => {
+    // "<mode> <type> <oid>\t<path>"
+    const tab = record.indexOf('\t');
+    return tab !== -1 && record.slice(0, tab).split(' ')[1] === 'blob'
+      ? [record.slice(tab + 1)]
+      : [];
+  });
+}
+
 /** Pinned locale so ordering is identical wherever the API runs. `numeric` puts `file2.ts` ahead of `file10.ts`, and the default sensitivity keeps `readme.md` next to `README.md`. */
 const COLLATOR = new Intl.Collator('en', { numeric: true });
 

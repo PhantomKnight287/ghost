@@ -72,6 +72,10 @@ import {
   GetRepositoryContentsResponseDTO,
 } from './dto/get-repository-contents.dto.js';
 import {
+  GetRepositoryPathsQueryDTO,
+  GetRepositoryPathsResponseDTO,
+} from './dto/get-repository-paths.dto.js';
+import {
   GetRepositoryReadmeQueryDTO,
   GetRepositoryReadmeResponseDTO,
 } from './dto/get-repository-readme.dto.js';
@@ -386,6 +390,33 @@ export class RepositoriesController {
       username,
       repo: slug,
       path: query.path,
+      ref: query.ref,
+      requesterId: session?.user?.id,
+    });
+  }
+
+  @Get(':username/:slug/paths')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'List every file path',
+    description:
+      'Every file in the repository at the requested ref - a branch, tag or commit sha - or the default branch when none is given, for finding a file by name. Unlike code search, it reads the ref directly, so it needs no index.',
+  })
+  @ApiOkResponse({
+    type: GetRepositoryPathsResponseDTO,
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDTO,
+  })
+  getRepositoryPaths(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryPathsQueryDTO,
+  ): Promise<GetRepositoryPathsResponseDTO> {
+    return this.repositoriesService.getRepositoryPaths({
+      username,
+      repo: slug,
       ref: query.ref,
       requesterId: session?.user?.id,
     });

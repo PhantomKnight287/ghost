@@ -176,6 +176,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every file path
+         * @description Every file in the repository at the requested ref - a branch, tag or commit sha - or the default branch when none is given, for finding a file by name. Unlike code search, it reads the ref directly, so it needs no index.
+         */
+        get: operations["RepositoriesController_getRepositoryPaths"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{slug}/readme": {
         parameters: {
             query?: never;
@@ -2671,6 +2691,21 @@ export interface components {
             /** @description One level of the directory: directories first (submodules among them), then files, each group alphabetical. Case is a minor difference, so `readme.md` and `README.md` sit together rather than in separate blocks, and embedded numbers order naturally (`file2` before `file10`). Empty for an unborn ref or a path that is not a directory. */
             entries: components["schemas"]["TreeEntryDTO"][];
         };
+        GetRepositoryPathsResponseDTO: {
+            /**
+             * @description Ref that was listed, always fully qualified.
+             * @example refs/heads/main
+             */
+            ref: string;
+            /**
+             * @description Every file at the ref, from the repository root, in byte order. Submodules are left out. Empty for an unborn ref.
+             * @example [
+             *       "README.md",
+             *       "src/main.ts"
+             *     ]
+             */
+            paths: string[];
+        };
         GetRepositoryReadmeResponseDTO: {
             /**
              * @description Ref that was read, always fully qualified.
@@ -4551,6 +4586,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoriesController_getRepositoryPaths: {
+        parameters: {
+            query?: {
+                /** @description Branch, tag or commit sha to list. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch. */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryPathsResponseDTO"];
                 };
             };
             404: {

@@ -712,6 +712,66 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/paths": {
+      "get": {
+        "description": "Every file in the repository at the requested ref - a branch, tag or commit sha - or the default branch when none is given, for finding a file by name. Unlike code search, it reads the ref directly, so it needs no index.",
+        "operationId": "RepositoriesController_getRepositoryPaths",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch, tag or commit sha to list. Accepts `main`, `refs/heads/main` or a commit sha. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryPathsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List every file path",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
     "/api/repositories/{username}/{slug}/readme": {
       "get": {
         "description": "The README of a directory - the root of the repository when no `path` is given - at the requested ref.",
@@ -10346,6 +10406,31 @@
           "commitCount",
           "commit",
           "entries"
+        ]
+      },
+      "GetRepositoryPathsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Ref that was listed, always fully qualified.",
+            "example": "refs/heads/main"
+          },
+          "paths": {
+            "description": "Every file at the ref, from the repository root, in byte order. Submodules are left out. Empty for an unborn ref.",
+            "example": [
+              "README.md",
+              "src/main.ts"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ref",
+          "paths"
         ]
       },
       "GetRepositoryReadmeResponseDTO": {
