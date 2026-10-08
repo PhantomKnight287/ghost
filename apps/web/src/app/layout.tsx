@@ -17,7 +17,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const DESCRIPTION = "Host your git repositories, issues and pull requests.";
+const DESCRIPTION =
+  "Git hosting with code review, issues, releases, code search across every repository, teams and verified commits. Use Ghost Cloud or run it on your own server.";
 
 export const metadata: Metadata = {
   // Makes the file-based opengraph-image routes resolve to absolute URLs.

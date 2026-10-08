@@ -5,9 +5,15 @@ export const alt = "Ghost";
 
 export default function Image() {
   return ogCard({
-    eyebrow: "git hosting",
-    icon: "ghost",
-    title: "Ghost",
-    description: "Host your git repositories, issues and pull requests.",
+    eyebrow: "Git hosting · Code review · Self-hostable",
+    title: "Hosted by us. Or by you.",
+    description:
+      "Pull requests, issues, releases and code search on a host you can also run yourself.",
+    stats: [
+      { icon: "gitPullRequest", label: "Code review" },
+      { icon: "search", label: "Code search" },
+      { icon: "tag", label: "Releases" },
+      { icon: "user", label: "Teams" },
+    ],
   });
 }
