@@ -236,7 +236,6 @@ git commit -m "api: publish release.edited only when the edit changed something"
 
 **Files:**
 - Create: `.github/workflows/api.yml`
-- Modify: `docker/compose.yaml` (api service: pass `SSH_CLONE_HOST`)
 
 **Interfaces:** Produces the `GH_E2E_HOST=ghost.test` environment that Task 3's harness reads.
 
@@ -297,9 +296,8 @@ jobs:
 
       - run: gh --version
 
-      - run: bun run --filter @ghost/db build
-
-      - run: bun run --filter @ghost/api check-types
+      # Builds the workspace packages the API imports from dist, then type-checks it.
+      - run: bunx turbo run check-types --filter=@ghost/api
 
       - name: Unit tests
         working-directory: apps/api
@@ -313,20 +311,16 @@ jobs:
         run: git diff --exit-code apps/api/github.schema.gql
 ```
 
-Check the filter names first: `grep -n '"name"\|"check-types"\|"build"' apps/api/package.json packages/db/package.json`. If `@ghost/api` has no `check-types` script, use `bunx tsc --noEmit -p apps/api`. If `@ghost/db` needs no build for tests (vitest resolves the workspace source), drop that step.
+`@ghost/db` is imported from `dist`, so turbo's `^build` dependency builds it before the type check; the unit and e2e steps reuse that build.
 
-- [ ] **Step 2: Pass SSH_CLONE_HOST to the api service**
+- [ ] **Step 2: No compose change**
 
-In `docker/compose.yaml`, under the `api` service's `environment:`, add next to the existing entries:
-
-```yaml
-      SSH_CLONE_HOST: ${SSH_CLONE_HOST}
-```
+The api service loads `env_file: .env`, and `docker/setup.sh` already writes `SSH_CLONE_HOST` there, so `docker/compose.yaml` needs nothing. (Corrected in layer 2; the step originally added an `environment:` entry.)
 
 - [ ] **Step 3: Push the branch and confirm the workflow runs**
 
 ```bash
-git add .github/workflows/api.yml docker/compose.yaml
+git add .github/workflows/api.yml
 git commit -m "ci: type-check and test the API on every pull request and push to main"
 gh stack submit --remote origin
 gh run list --workflow api.yml --branch gh-compat/ci --limit 1
