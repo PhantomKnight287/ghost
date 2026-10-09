@@ -1,8 +1,17 @@
-import { type INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  type INestApplication,
+  RequestMethod,
+  ValidationPipe,
+} from '@nestjs/common';
 import type { Express } from 'express';
 
 import { DomainErrorFilter } from './filters/domain-error/domain-error.filter.js';
 import { GIT_TRANSPORT_ROUTES } from './git/git.constants.js';
+
+export const OAUTH_ROUTES = [
+  { path: 'login/device/code', method: RequestMethod.POST },
+  { path: 'login/oauth/access_token', method: RequestMethod.POST },
+];
 
 /** What every running instance needs, shared by `main.ts` and the end-to-end suite so the two cannot drift. The app must be created with `bodyParser: false`. */
 export function configureApp(app: INestApplication) {
@@ -12,5 +21,5 @@ export function configureApp(app: INestApplication) {
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new DomainErrorFilter());
   // offset all CRUD apis to /api prefix so it does not conflict with git's rest stuff
-  app.setGlobalPrefix('/api', { exclude: GIT_TRANSPORT_ROUTES });
+  app.setGlobalPrefix('/api', { exclude: [...GIT_TRANSPORT_ROUTES,...OAUTH_ROUTES] });
 }

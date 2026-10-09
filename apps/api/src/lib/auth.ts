@@ -1,6 +1,7 @@
 import { apiKey } from '@better-auth/api-key';
 import { tryGetCurrentAuthEndpointContext } from '@better-auth/core/context';
 import { type Database, schema } from '@ghost/db';
+import { ac, roles } from '@ghost/permissions';
 import {
   type BetterAuthOptions,
   betterAuth,
@@ -12,10 +13,14 @@ import {
   createAuthMiddleware,
   getSessionFromCtx,
 } from 'better-auth/api';
-import { organization, username } from 'better-auth/plugins';
+import {
+  deviceAuthorization,
+  organization,
+  username,
+} from 'better-auth/plugins';
 import { and, eq, sql } from 'drizzle-orm';
 
-import { ac, roles } from '@ghost/permissions';
+import { oauthAppOf } from './github/oauth-apps.js';
 
 export type AuthConfig = {
   secret: string;
@@ -472,6 +477,10 @@ export function createAuth(db: Database, config: AuthConfig) {
           maxRequests: 120,
           timeWindow: 60000,
         },
+      }),
+      deviceAuthorization({
+        verificationUri: `${config.webAppUrl ?? ''}/device`,
+        validateClient: (clientId) => oauthAppOf(clientId) !== null,
       }),
     ],
   });
