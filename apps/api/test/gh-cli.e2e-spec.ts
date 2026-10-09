@@ -315,11 +315,10 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       .expect(200);
     const result = await login.done;
     expect(result, result.stderr).toMatchObject({ code: 0 });
-    const status = await runGh(['auth', 'status', '--hostname', GH_E2E_HOST!], {
-      configDir: dir,
-    });
-    expect(status.stdout + status.stderr).toMatch(
-      /Token scopes: 'repo', 'read:org', 'gist'/,
+    // gh auth status lists scopes only for ghp_ and gho_ tokens, so read the header gh got them from.
+    const root = await runGh(['api', '--include', '/'], { configDir: dir });
+    expect(root.stdout, root.stderr).toMatch(
+      /^X-Oauth-Scopes: repo, read:org, gist\r?$/im,
     );
     rmSync(dir, { recursive: true, force: true });
   }, 60_000);
@@ -353,10 +352,10 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       .send({ userCode: userCode.replace('-', '') })
       .expect(200);
     expect((await refresh.done).code).toBe(0);
-    const status = await runGh(['auth', 'status', '--hostname', GH_E2E_HOST!], {
-      configDir: dir,
-    });
-    expect(status.stdout + status.stderr).toContain("'admin:public_key'");
+    const root = await runGh(['api', '--include', '/'], { configDir: dir });
+    expect(root.stdout, root.stderr).toMatch(
+      /^X-Oauth-Scopes: .*\badmin:public_key\b/im,
+    );
     rmSync(dir, { recursive: true, force: true });
   }, 60_000);
 });
