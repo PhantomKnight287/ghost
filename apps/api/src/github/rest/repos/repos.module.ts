@@ -5,7 +5,8 @@ import {
   RepositoryOwnerResolver,
   RepositoryResolver,
 } from '../../graphql/resolvers/repository/repository.resolver.js';
-import { IssueResolver } from '../../graphql/resolvers/issue/issue.resolver.js';
+import { IssueResolver, ProjectV2ItemResolver } from '../../graphql/resolvers/issue/issue.resolver.js';
+import { PullRequestResolver } from '../../graphql/resolvers/pull-request/pull-request.resolver.js';
 import { MaterializerModule } from '../../../materializer/materializer.module.js';
 import { IssuesModule } from '../../../resources/issues/issues.module.js';
 import { RepositoriesModule } from '../../../resources/repositories/repositories.module.js';
@@ -19,6 +20,8 @@ import { RepositoryAccessService } from '../../../services/git/repository-access
     RepositoryResolver,
     RepositoryOwnerResolver,
     IssueResolver,
+    PullRequestResolver,
+    ProjectV2ItemResolver,
     RepositoryAccessService,
   ],
   exports: [RepositoryResolver, IssueResolver],

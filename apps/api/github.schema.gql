@@ -125,11 +125,13 @@ type Issue implements Assignable & Labelable & Node & UniformResourceLocatable {
   id: ID!
   includesCreatedEdit: Boolean!
   isPinned: Boolean!
+  issueType: IssueType
   labels(first: Int): LabelConnection
   locked: Boolean!
   milestone: Milestone
   number: Int!
   parent: Issue
+  projectItems(first: Int): ProjectV2ItemConnection!
   reactionGroups: [ReactionGroup!]
   repository: Repository!
   resourcePath: URI!
@@ -215,6 +217,24 @@ enum IssueStateReason {
   REOPENED
 }
 
+type IssueType implements Node {
+  color: IssueTypeColor!
+  description: String
+  id: ID!
+  name: String!
+}
+
+enum IssueTypeColor {
+  BLUE
+  GRAY
+  GREEN
+  ORANGE
+  PINK
+  PURPLE
+  RED
+  YELLOW
+}
+
 type Label implements Node {
   color: String!
   createdAt: DateTime
@@ -231,6 +251,16 @@ type LabelConnection {
   nodes: [Label]
   pageInfo: PageInfo!
   totalCount: Int!
+}
+
+input LabelOrder {
+  direction: OrderDirection!
+  field: LabelOrderField!
+}
+
+enum LabelOrderField {
+  CREATED_AT
+  NAME
 }
 
 interface Labelable {
@@ -285,13 +315,57 @@ type PageInfo {
   startCursor: String
 }
 
-type PullRequest implements Node & UniformResourceLocatable {
+type ProjectV2 {
   id: ID!
+  title: String!
+}
+
+type ProjectV2Item {
+  fieldValueByName(name: String!): ProjectV2ItemFieldValue
+  id: ID!
+  project: ProjectV2!
+}
+
+type ProjectV2ItemConnection {
+  nodes: [ProjectV2Item]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ProjectV2ItemFieldSingleSelectValue {
+  id: ID!
+  name: String
+  optionId: String
+}
+
+union ProjectV2ItemFieldValue = ProjectV2ItemFieldSingleSelectValue
+
+type PullRequest implements Assignable & Labelable & Node & UniformResourceLocatable {
+  assignees(first: Int): UserConnection!
+  author: Actor
+  body: String!
+  bodyHTML: HTML!
+  bodyText: String!
+  closed: Boolean!
+  closedAt: DateTime
+  comments(first: Int, last: Int): IssueCommentConnection!
+  createdAt: DateTime!
+  databaseId: Int
+  id: ID!
+  includesCreatedEdit: Boolean!
+  labels(first: Int): LabelConnection
+  locked: Boolean!
+  milestone: Milestone
   number: Int!
+  projectItems(first: Int): ProjectV2ItemConnection!
+  reactionGroups: [ReactionGroup!]
+  repository: Repository!
   resourcePath: URI!
   state: PullRequestState!
   title: String!
+  updatedAt: DateTime!
   url: URI!
+  viewerCanUpdate: Boolean!
 }
 
 enum PullRequestState {
@@ -372,7 +446,7 @@ type ReopenIssuePayload {
 }
 
 type Repository implements Node & UniformResourceLocatable {
-  assignableUsers(first: Int, query: String): UserConnection!
+  assignableUsers(after: String, first: Int, query: String): UserConnection!
   createdAt: DateTime!
   databaseId: Int
   defaultBranchRef: Ref
@@ -389,7 +463,7 @@ type Repository implements Node & UniformResourceLocatable {
   issueOrPullRequest(number: Int!): IssueOrPullRequest
   issues(after: String, filterBy: IssueFilters, first: Int, labels: [String!], orderBy: IssueOrder, states: [IssueState!]): IssueConnection!
   label(name: String!): Label
-  labels(first: Int, query: String): LabelConnection
+  labels(after: String, first: Int, orderBy: LabelOrder, query: String): LabelConnection
   mergeCommitAllowed: Boolean!
   name: String!
   nameWithOwner: String!

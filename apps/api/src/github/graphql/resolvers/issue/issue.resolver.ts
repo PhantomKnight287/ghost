@@ -14,9 +14,10 @@ import { Viewer } from '../../../auth/viewer.decorator.js';
 import { sliceConnection } from '../../connection.js';
 import { IssueCommentConnection } from '../../types/issue-comment.type.js';
 import { IssueConnection, IssueNode } from '../../types/issue.type.js';
+import type { IssueOrPullRequestFields } from '../../types/issue-or-pull-request.type.js';
 import { LabelConnection } from '../../types/label.type.js';
 import { Actor } from '../../types/node.interface.js';
-import { MilestoneNode, ReactionGroup, SubIssuesSummary } from '../../types/placeholders.type.js';
+import { IssueTypeNode, MilestoneNode, ProjectV2ItemConnection, ProjectV2ItemFieldValue, ProjectV2ItemNode, ReactionGroup, SubIssuesSummary } from '../../types/placeholders.type.js';
 import { RepositoryNode } from '../../types/repository.type.js';
 import { UserConnection } from '../../types/user.type.js';
 // The two resolvers inject each other: the namespace import is read lazily by forwardRef, and the type-only import keeps decorator metadata from touching the class mid-cycle.
@@ -44,26 +45,26 @@ export class IssueResolver {
   }
 
   @ResolveField(() => Actor, { nullable: true })
-  async author(@Parent() issue: IssueNode, @Context() { loaders }: GraphqlContext) {
+  async author(@Parent() issue: IssueOrPullRequestFields, @Context() { loaders }: GraphqlContext) {
     const row = await loaders.usersByLogin.load(issue.authorLogin);
     return row ? toUserNode(row, githubOrigins(this.config)) : null;
   }
 
   @ResolveField(() => UserConnection)
-  async assignees(@Parent() issue: IssueNode, @Context() { loaders }: GraphqlContext, @Args('first', { type: () => Int, nullable: true }) first?: number) {
+  async assignees(@Parent() issue: IssueOrPullRequestFields, @Context() { loaders }: GraphqlContext, @Args('first', { type: () => Int, nullable: true }) first?: number) {
     const rows = (await loaders.usersByLogin.loadMany(issue.assigneeLogins)).filter((row): row is UserRow => !!row && !(row instanceof Error));
     return sliceConnection(rows.map((row) => toUserNode(row, githubOrigins(this.config))), { first });
   }
 
   @ResolveField(() => LabelConnection, { nullable: true })
-  labels(@Parent() issue: IssueNode, @Args('first', { type: () => Int, nullable: true }) first?: number) {
+  labels(@Parent() issue: IssueOrPullRequestFields, @Args('first', { type: () => Int, nullable: true }) first?: number) {
     const repository = { url: issue.repositoryUrl, resourcePath: issue.repositoryResourcePath };
     return sliceConnection(issue.labelDtos.map((label) => toLabelNode(label, repository)), { first });
   }
 
   @ResolveField(() => IssueCommentConnection)
   async comments(
-    @Parent() issue: IssueNode,
+    @Parent() issue: IssueOrPullRequestFields,
     @Viewer() viewer: GithubViewer | null,
     @Context() { loaders }: GraphqlContext,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
@@ -75,7 +76,7 @@ export class IssueResolver {
   }
 
   @ResolveField(() => RepositoryNode)
-  repository(@Parent() issue: IssueNode, @Viewer() viewer: GithubViewer | null) {
+  repository(@Parent() issue: IssueOrPullRequestFields, @Viewer() viewer: GithubViewer | null) {
     return this.repositories.load(issue.repositoryGhostId, viewer?.userId);
   }
 
@@ -87,6 +88,16 @@ export class IssueResolver {
   @ResolveField(() => [ReactionGroup], { nullable: true })
   reactionGroups() {
     return [];
+  }
+
+  @ResolveField(() => ProjectV2ItemConnection)
+  projectItems(@Args('first', { type: () => Int, nullable: true }) _first?: number) {
+    return sliceConnection([], {});
+  }
+
+  @ResolveField(() => IssueTypeNode, { nullable: true })
+  issueType() {
+    return null;
   }
 
   @ResolveField(() => IssueNode, { nullable: true })
@@ -102,5 +113,15 @@ export class IssueResolver {
   @ResolveField(() => SubIssuesSummary)
   subIssuesSummary() {
     return { total: 0, completed: 0, percentCompleted: 0 };
+  }
+}
+
+/** ProjectV2Item.fieldValueByName exists so gh's issue view validates; Ghost has no projects, so no item is ever returned. */
+@Resolver(() => ProjectV2ItemNode)
+@AllowAnonymous()
+export class ProjectV2ItemResolver {
+  @ResolveField(() => ProjectV2ItemFieldValue, { nullable: true })
+  fieldValueByName(@Args('name') _name: string) {
+    return null;
   }
 }

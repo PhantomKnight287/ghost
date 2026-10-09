@@ -19,6 +19,7 @@ import { GraphQLFormattedError } from 'graphql';
 import { GraphQLError } from 'graphql/error';
 import { DomainError } from '../domain/errors.js';
 import { graphqlErrorType } from '../lib/github/error-type.js';
+import { githubValidationPlugin } from '../lib/github/validation.js';
 import { ReposModule } from './rest/repos/repos.module.js';
 import { IssuesModule } from '../resources/issues/issues.module.js';
 import { RepositoriesModule } from '../resources/repositories/repositories.module.js';
@@ -46,6 +47,9 @@ import { RepositoryMutationsResolver } from './graphql/resolvers/repository-muta
           numberScalarMode: 'integer',
         },
         introspection: true,
+        // GitHub's validation lets fragments on different types share a field name with different types, which gh relies on; githubValidationPlugin validates instead.
+        dangerouslyDisableValidation: true,
+        plugins: [githubValidationPlugin],
         graphiql: {
           url: '/api/graphql',
         },

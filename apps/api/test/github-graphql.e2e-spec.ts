@@ -358,4 +358,42 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
       .expect(200);
     expect(response.body.data.viewer.login).toBe(username);
   });
+
+  it('pages labels as gh issue create asks for them', async () => {
+    const response = await graphql('query RepositoryLabelList($owner: String!, $name: String!, $endCursor: String) { repository(owner: $owner, name: $name) { labels(first: 100, orderBy: {field: NAME, direction: ASC}, after: $endCursor) { nodes { id name color description } pageInfo { hasNextPage endCursor } } } }', { owner: username, name: 'public-repo', endCursor: null }, owner.key).expect(200);
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.repository.labels.nodes.map((label: { name: string }) => label.name)).toContain('bug');
+    expect(response.body.data.repository.labels.pageInfo.hasNextPage).toBe(false);
+  });
+
+  it('pages assignable users as gh issue create asks for them', async () => {
+    const response = await graphql('query RepositoryAssignableUsers($owner: String!, $name: String!, $endCursor: String) { repository(owner: $owner, name: $name) { assignableUsers(first: 100, after: $endCursor) { nodes { id login name } pageInfo { hasNextPage endCursor } } } }', { owner: username, name: 'public-repo', endCursor: null }, owner.key).expect(200);
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.repository.assignableUsers.nodes.map((user: { login: string }) => user.login)).toContain(username);
+  });
+
+  // gh's IssueByNumber query (pkg/cmd/issue/shared/lookup.go): one field list on both fragments, issue-only fields dropped from the pull request one.
+  const SHARED = 'number,url,state,createdAt,title,body,author{login,...on User{id,name}},milestone{number,title,description,dueOn},assignees(first:100){nodes{id,login,name,databaseId},totalCount},labels(first:100){nodes{id,name,description,color},totalCount},reactionGroups{content,users{totalCount}},projectItems(first:100){nodes{id, project{id,title}, status:fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue{optionId,name}}},totalCount},id';
+  const LAST_COMMENT = 'comments(last: 1){nodes{author{login,...on User{id,name}},authorAssociation,body,createdAt,includesCreatedEdit,isMinimized,minimizedReason,reactionGroups{content,users{totalCount}}},totalCount}';
+  const ALL_COMMENTS = 'comments(first: 100){nodes{id,author{login,...on User{id,name}},authorAssociation,body,createdAt,includesCreatedEdit,isMinimized,minimizedReason,reactionGroups{content,users{totalCount}},url,viewerDidAuthor},pageInfo{hasNextPage,endCursor},totalCount}';
+  const ISSUE_ONLY = 'stateReason,isPinned,issueType{id,name,description,color},parent{id,number,title,url,state,repository{nameWithOwner}},subIssues(first:100){nodes{id,number,title,url,state,repository{nameWithOwner}},totalCount},subIssuesSummary{total,completed,percentCompleted}';
+  const lookup = (comments: string) => `query IssueByNumber($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { hasIssuesEnabled issue: issueOrPullRequest(number: $number) { __typename ...on Issue{${SHARED},${comments},${ISSUE_ONLY}} ...on PullRequest{${SHARED},${comments}} } } }`;
+
+  it("answers gh's issue lookup, which selects the same fields on Issue and PullRequest", async () => {
+    const issues = await graphql('query($o: String!) { repository(owner: $o, name: "public-repo") { issues(first: 1) { nodes { number } } } }', { o: username }, owner.key).expect(200);
+    const issueNumber = issues.body.data.repository.issues.nodes[0].number;
+    for (const comments of [LAST_COMMENT, ALL_COMMENTS]) {
+      const issue = await graphql(lookup(comments), { owner: username, repo: 'public-repo', number: issueNumber }, owner.key).expect(200);
+      expect(issue.body.errors).toBeUndefined();
+      expect(issue.body.data.repository.issue).toMatchObject({ __typename: 'Issue', number: issueNumber, state: 'OPEN', issueType: null, projectItems: { nodes: [], totalCount: 0 } });
+      const pull = await graphql(lookup(comments), { owner: username, repo: 'public-repo', number: pullRequestNumber }, owner.key).expect(200);
+      expect(pull.body.errors).toBeUndefined();
+      expect(pull.body.data.repository.issue).toMatchObject({ __typename: 'PullRequest', number: pullRequestNumber, state: 'OPEN', title: 'Feature', body: '', author: { login: username }, labels: { totalCount: 0 }, comments: { totalCount: 0 } });
+    }
+  });
+
+  it('still refuses two different fields under one name on the same type', async () => {
+    const response = await graphql('{ viewer { a: login a: name } }', {}, owner.key).expect(400);
+    expect(response.body.errors[0].message).toContain('"a" conflict');
+  });
 });

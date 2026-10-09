@@ -37,8 +37,8 @@ import { sliceConnection } from '../../connection.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
 import { IssueConnection, IssueNode, IssueOrPullRequest } from '../../types/issue.type.js';
 import { PullRequestNode } from '../../types/pull-request.type.js';
-import { IssueOrderField, IssueState, OrderDirection } from '../../enums.js';
-import { IssueFilters, IssueOrder } from '../../inputs.js';
+import { IssueOrderField, IssueState, LabelOrderField, OrderDirection } from '../../enums.js';
+import { IssueFilters, IssueOrder, LabelOrder } from '../../inputs.js';
 import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
 // The two resolvers inject each other: the namespace import is read lazily by forwardRef, and the type-only import keeps decorator metadata from touching the class mid-cycle.
 import * as issueResolver from '../issue/issue.resolver.js';
@@ -140,11 +140,16 @@ export class RepositoryResolver {
     @Parent() repository: RepositoryNode,
     @Viewer() viewer: GithubViewer | null,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
     @Args('query', { nullable: true }) query?: string,
+    @Args('orderBy', { type: () => LabelOrder, nullable: true }) orderBy?: LabelOrder,
   ) {
+    // listLabels answers by name, ascending.
     const { labels } = await this.issuesService.listLabels({ username: repository.ownerLogin, repo: repository.slug, requesterId: viewer?.userId });
     const matching = query ? labels.filter((label) => label.name.toLowerCase().includes(query.toLowerCase())) : labels;
-    return sliceConnection(matching.map((label) => toLabelNode(label, repository)), { first });
+    const ordered = orderBy?.field === LabelOrderField.CREATED_AT ? matching.toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)) : matching;
+    const directed = orderBy?.direction === OrderDirection.DESC ? ordered.toReversed() : ordered;
+    return sliceConnection(directed.map((label) => toLabelNode(label, repository)), { first, after });
   }
 
   @ResolveField(() => LabelNode, { nullable: true })
@@ -159,12 +164,15 @@ export class RepositoryResolver {
     @Parent() repository: RepositoryNode,
     @Context() { loaders }: GraphqlContext,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
     @Args('query', { nullable: true }) query?: string,
   ) {
     const ids = await this.assignableUserIds(repository.ghostId);
     const rows = (await loaders.usersById.loadMany(ids)).filter((row): row is UserRow => !!row && !(row instanceof Error));
     const matching = query ? rows.filter((row) => `${row.username} ${row.name}`.toLowerCase().includes(query.toLowerCase())) : rows;
-    return sliceConnection(matching.map((row) => toUserNode(row, githubOrigins(this.config))), { first });
+    // Sorted so the offset cursors sliceConnection hands out name the same users on every page.
+    const sorted = matching.toSorted((a, b) => (a.username ?? '').localeCompare(b.username ?? ''));
+    return sliceConnection(sorted.map((row) => toUserNode(row, githubOrigins(this.config))), { first, after });
   }
 
   @ResolveField(() => IssueConnection)

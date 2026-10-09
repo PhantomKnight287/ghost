@@ -64,7 +64,7 @@ GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
 ## Known differences
 
 - `databaseId` and the REST `id` are always `null`.
-- Milestones, reactions and sub-issues are always empty.
+- Milestones, reactions, issue types, projects and sub-issues are always empty.
 - A closed issue's `stateReason` is always `COMPLETED`. Ghost does not record why an issue was closed.
 - A comment's `authorAssociation` is `OWNER` or `NONE`, never `MEMBER` or `COLLABORATOR`.
 - `auto_init`, `gitignore_template` and `license_template` are accepted and ignored when creating a repository over REST. The repository starts empty.

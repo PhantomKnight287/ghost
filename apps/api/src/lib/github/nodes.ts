@@ -21,6 +21,7 @@ import { LabelNode } from '../../github/graphql/types/label.type.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import { IssueNode } from '../../github/graphql/types/issue.type.js';
 import { PullRequestNode } from '../../github/graphql/types/pull-request.type.js';
+import type { IssueOrPullRequestFields } from '../../github/graphql/types/issue-or-pull-request.type.js';
 import { IssueCommentNode } from '../../github/graphql/types/issue-comment.type.js';
 
 export type UserRow = typeof schema.user.$inferSelect;
@@ -124,10 +125,9 @@ export function toLabelNode(label: LabelDTO, repository: { url: string; resource
 
 type RepositoryRefs = Pick<RepositoryNode, 'ghostId' | 'ownerLogin' | 'slug' | 'url' | 'resourcePath'>;
 
-// Mapper: IssuesService.getIssues/getIssue already expand authors, labels and assignees for Ghost's API; the GitHub shape renames and re-cases those fields.
-export function toIssueNode(issue: IssueDTO, repository: RepositoryRefs) {
-  const closed = issue.state === 'closed';
-  return Object.assign(new IssueNode(), {
+/** What toIssueNode and toPullRequestNode share; `path` is `issues` or `pull`, as GitHub's URLs have it. */
+function issueOrPullRequestFields(issue: IssueDTO, repository: RepositoryRefs, path: 'issues' | 'pull') {
+  return {
     ghostId: issue.id,
     ownerLogin: repository.ownerLogin,
     repoSlug: repository.slug,
@@ -137,46 +137,49 @@ export function toIssueNode(issue: IssueDTO, repository: RepositoryRefs) {
     labelDtos: issue.labels,
     repositoryUrl: repository.url,
     repositoryResourcePath: repository.resourcePath,
-    id: encodeNodeId('Issue', issue.id),
     databaseId: null,
     number: issue.number,
     title: issue.title,
     body: issue.body ?? '',
     bodyHTML: '',
     bodyText: issue.body ?? '',
-    state: closed ? IssueState.CLOSED : IssueState.OPEN,
-    // ponytail: Ghost records no close reason; every close reads as COMPLETED until it does.
-    stateReason: closed ? IssueStateReason.COMPLETED : null,
-    closed,
+    closed: issue.state === 'closed',
     closedAt: issue.closedAt ? new Date(issue.closedAt) : null,
     createdAt: new Date(issue.createdAt),
     updatedAt: new Date(issue.updatedAt),
-    isPinned: false,
     locked: false,
     includesCreatedEdit: issue.updatedAt !== issue.createdAt,
     viewerCanUpdate: issue.viewerCanEdit,
-    url: `${repository.url}/issues/${issue.number}`,
-    resourcePath: `${repository.resourcePath}/issues/${issue.number}`,
+    url: `${repository.url}/${path}/${issue.number}`,
+    resourcePath: `${repository.resourcePath}/${path}/${issue.number}`,
+  };
+}
+
+// Mapper: IssuesService.getIssues/getIssue already expand authors, labels and assignees for Ghost's API; the GitHub shape renames and re-cases those fields.
+export function toIssueNode(issue: IssueDTO, repository: RepositoryRefs) {
+  const closed = issue.state === 'closed';
+  return Object.assign(new IssueNode(), issueOrPullRequestFields(issue, repository, 'issues'), {
+    id: encodeNodeId('Issue', issue.id),
+    state: closed ? IssueState.CLOSED : IssueState.OPEN,
+    // ponytail: Ghost records no close reason; every close reads as COMPLETED until it does.
+    stateReason: closed ? IssueStateReason.COMPLETED : null,
+    isPinned: false,
   });
 }
 
 // Mapper: same source as toIssueNode; a number that belongs to a pull request answers as one.
 export function toPullRequestNode(issue: IssueDTO, repository: RepositoryRefs) {
-  return Object.assign(new PullRequestNode(), {
+  return Object.assign(new PullRequestNode(), issueOrPullRequestFields(issue, repository, 'pull'), {
     id: encodeNodeId('PullRequest', issue.id),
-    number: issue.number,
-    title: issue.title,
     // ponytail: merged requests read as CLOSED until milestone 3 reads pull_request.state.
     state: issue.state === 'closed' ? PullRequestState.CLOSED : PullRequestState.OPEN,
-    url: `${repository.url}/pull/${issue.number}`,
-    resourcePath: `${repository.resourcePath}/pull/${issue.number}`,
   });
 }
 
 export type CommentRow = { id: string; body: string; createdAt: string; updatedAt: string; authorUsername: string };
 
 // Mapper: IssuesService.getComments selects Ghost's comment columns for its own API.
-export function toIssueCommentNode(comment: CommentRow, issue: IssueNode, viewerLogin: string | null) {
+export function toIssueCommentNode(comment: CommentRow, issue: Pick<IssueOrPullRequestFields, 'ownerLogin' | 'url' | 'resourcePath'>, viewerLogin: string | null) {
   return Object.assign(new IssueCommentNode(), {
     ghostId: comment.id,
     authorLogin: comment.authorUsername,

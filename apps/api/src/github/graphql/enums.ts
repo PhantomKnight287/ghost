@@ -35,3 +35,9 @@ registerEnumType(SearchType, { name: 'SearchType' });
 
 export enum IssueClosedStateReason { COMPLETED = 'COMPLETED', NOT_PLANNED = 'NOT_PLANNED', DUPLICATE = 'DUPLICATE' }
 registerEnumType(IssueClosedStateReason, { name: 'IssueClosedStateReason' });
+
+export enum LabelOrderField { CREATED_AT = 'CREATED_AT', NAME = 'NAME' }
+registerEnumType(LabelOrderField, { name: 'LabelOrderField' });
+
+export enum IssueTypeColor { BLUE = 'BLUE', GRAY = 'GRAY', GREEN = 'GREEN', ORANGE = 'ORANGE', PINK = 'PINK', PURPLE = 'PURPLE', RED = 'RED', YELLOW = 'YELLOW' }
+registerEnumType(IssueTypeColor, { name: 'IssueTypeColor' });

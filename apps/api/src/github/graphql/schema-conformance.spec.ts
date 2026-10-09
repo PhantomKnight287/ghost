@@ -3,6 +3,7 @@ import path from 'node:path';
 import { schema as github } from '@octokit/graphql-schema';
 import {
   buildSchema,
+  extendSchema,
   type GraphQLNamedType,
   type GraphQLType,
   isEnumType,
@@ -12,6 +13,7 @@ import {
   isNonNullType,
   isObjectType,
   isUnionType,
+  parse,
 } from 'graphql';
 import { describe, expect, it } from 'vitest';
 
@@ -21,7 +23,14 @@ const ours = buildSchema(
     'utf8',
   ),
 );
-const theirs = buildSchema(github.idl, { assumeValidSDL: true });
+/** Fields github.com serves, and gh 2.102 asks for, that @octokit/graphql-schema 15.26.1 (the latest release) predates. Each is copied from GitHub's API reference. */
+const NEWER_THAN_PACKAGE = `
+  enum IssueTypeColor { BLUE GRAY GREEN ORANGE PINK PURPLE RED YELLOW }
+  type IssueType implements Node { color: IssueTypeColor! description: String id: ID! isEnabled: Boolean! name: String! }
+  extend type Issue { issueType: IssueType }
+`;
+
+const theirs = extendSchema(buildSchema(github.idl, { assumeValidSDL: true }), parse(NEWER_THAN_PACKAGE), { assumeValidSDL: true });
 
 /** `[User!]!` -> `L!(N!(User))`: shape and name, so two types compare as strings. */
 function shape(type: GraphQLType): string {

@@ -31,7 +31,7 @@ Rejected:
 ## Consequences
 
 - `databaseId` and the REST `id` are null. Ghost ids are text, and GitHub declares both nullable.
-- Milestones, reactions and sub-issues answer empty. They exist only so `gh`'s fixed queries validate.
+- Milestones, reactions, issue types, projects and sub-issues answer empty. They exist only so `gh`'s fixed queries validate.
 - Ghost features without a GitHub equivalent are not exposed.
 - `apps/docs/content/docs/github-compatibility.mdx` lists every known difference.
 - Plan 2 adds OAuth apps, the device flow and real scopes. Until then every token and session is granted every scope `gh` checks for.
