@@ -36,4 +36,10 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     );
     expect(response.body.data.__type.name).toBe('Query');
   });
+
+  it('refuses a wrong token with 401 Bad credentials', async () => {
+    const response = await graphql('{ __typename }', {}, 'ghost_pat_nope').expect(401);
+    expect(response.body.message).toBe('Bad credentials');
+  });
+
 });

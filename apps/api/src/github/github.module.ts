@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
@@ -7,6 +7,9 @@ import path from 'node:path';
 import type { Request, Response } from 'express';
 import { createLoaders } from '../lib/github/loaders.js';
 import { ViewerResolver } from './graphql/resolvers/viewer/viewer.resolver.js';
+import { MetaModule } from './rest/meta/meta.module.js';
+import { UsersModule } from './rest/users/users.module.js';
+import { GithubAuthMiddleware } from './auth/github-auth.middleware.js';
 
 @Module({
   imports: [
@@ -36,7 +39,19 @@ import { ViewerResolver } from './graphql/resolvers/viewer/viewer.resolver.js';
         }),
       }),
     }),
+    MetaModule,
+    UsersModule,
   ],
   providers: [ViewerResolver],
 })
-export class GithubModule {}
+export class GithubModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(GithubAuthMiddleware)
+      .forRoutes(
+        { path: 'graphql', method: RequestMethod.ALL },
+        { path: 'v3', method: RequestMethod.ALL },
+        { path: 'v3/*path', method: RequestMethod.ALL },
+      );
+  }
+}
