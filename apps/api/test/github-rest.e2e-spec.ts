@@ -16,6 +16,17 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
   beforeAll(async () => {
     ({ app } = await startApp());
     owner = await signUp(app, username);
+    const api = request(app.getHttpServer());
+    await api
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'public-repo', visibility: 'public' })
+      .expect(201);
+    await api
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'secret-repo', visibility: 'private' })
+      .expect(201);
   });
 
   afterAll(async () => {
@@ -54,4 +65,14 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
     const response = await v3('/meta').expect(200);
     expect(response.body.installed_version).toBe('3.17.0');
   });
+  it('answers GET /repos/:owner/:repo in REST shape and 404 for a private one anonymously', async () => {
+     const response = await v3(`/repos/${username}/public-repo`, owner.key).expect(200);
+     expect(response.body).toMatchObject({ name: 'public-repo', full_name: `${username}/public-repo`, private: false, visibility: 'public', owner: { login: username } });
+     expect(response.body.clone_url).toMatch(new RegExp(`/${username}/public-repo\\.git$`));
+     await v3(`/repos/${username}/secret-repo`).expect(404, { message: 'Not Found', documentation_url: 'https://docs.github.com/rest' });
+   });
+
+   it('answers the readme as base64 content, and 404 when there is none', async () => {
+     await v3(`/repos/${username}/public-repo/readme`, owner.key).expect(404);
+   });
 });

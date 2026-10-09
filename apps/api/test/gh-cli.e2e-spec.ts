@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
@@ -6,6 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { GH_E2E_HOST, runGh, tlsFiles } from './gh.js';
 import { hasBackends, signUp, startApp } from './harness.js';
+import request from 'supertest';
+import { promisify } from 'node:util';
+import { execFile } from 'node:child_process';
 
 describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   let app: INestApplication;
@@ -32,6 +35,38 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     ));
     owner = await signUp(app, username);
     configDir = mkdtempSync(path.join(tmpdir(), 'gh-e2e-'));
+    await request(app.getHttpServer())
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'tools', visibility: 'public' })
+      .expect(201);
+    const work = mkdtempSync(path.join(tmpdir(), 'gh-e2e-work-'));
+    const git = (...args: string[]) =>
+      promisify(execFile)('git', args, {
+        cwd: work,
+        env: { ...process.env, GIT_SSL_CAINFO: tlsFiles().certPath },
+      });
+    await git('init', '-q', '-b', 'main');
+    writeFileSync(
+      path.join(work, 'README.md'),
+      '# Tools\n\nHello from Ghost.\n',
+    );
+    await git('add', '.');
+    await git(
+      '-c',
+      'user.name=E2E',
+      '-c',
+      'user.email=e2e@example.com',
+      'commit',
+      '-qm',
+      'readme',
+    );
+    await git(
+      'push',
+      '-q',
+      `https://${username}:${owner.key}@${GH_E2E_HOST}/${username}/tools.git`,
+      'main',
+    );
   });
 
   afterAll(async () => {
@@ -44,16 +79,51 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     expect(JSON.parse(out)).toEqual({ data: { __typename: 'Query' } });
   });
   it('logs in with a pasted token and reports it in auth status', async () => {
-    const login = await runGh(['auth', 'login', '--hostname', GH_E2E_HOST!, '--with-token'], { configDir, input: owner.key });
+    const login = await runGh(
+      ['auth', 'login', '--hostname', GH_E2E_HOST!, '--with-token'],
+      { configDir, input: owner.key },
+    );
     expect(login, login.stderr).toMatchObject({ code: 0 });
-    const status = await runGh(['auth', 'status', '--hostname', GH_E2E_HOST!], { configDir });
+    const status = await runGh(['auth', 'status', '--hostname', GH_E2E_HOST!], {
+      configDir,
+    });
     expect(status, status.stderr).toMatchObject({ code: 0 });
     expect(status.stdout + status.stderr).toContain(username);
   });
 
   it('answers gh api user', async () => {
-    expect(JSON.parse(await ok(['api', 'user']))).toMatchObject({ login: username });
+    expect(JSON.parse(await ok(['api', 'user']))).toMatchObject({
+      login: username,
+    });
   });
 
+  it('views a repository with its README', async () => {
+    const out = await ok(['repo', 'view', `${GH_E2E_HOST}/${username}/tools`]);
+    expect(out).toContain(`${username}/tools`);
+    expect(out).toContain('Hello from Ghost.');
+  });
 
+  it('views a repository as JSON', async () => {
+    const out = await ok([
+      'repo',
+      'view',
+      `${GH_E2E_HOST}/${username}/tools`,
+      '--json',
+      'name,owner,visibility,defaultBranchRef',
+    ]);
+    expect(JSON.parse(out)).toMatchObject({
+      name: 'tools',
+      owner: { login: username },
+      visibility: 'PUBLIC',
+      defaultBranchRef: { name: 'main' },
+    });
+  });
+
+  it('clones a repository', async () => {
+    const target = path.join(configDir, 'clone');
+    await ok(['repo', 'clone', `${GH_E2E_HOST}/${username}/tools`, target]);
+    expect(readFileSync(path.join(target, 'README.md'), 'utf8')).toContain(
+      'Hello from Ghost.',
+    );
+  });
 });
