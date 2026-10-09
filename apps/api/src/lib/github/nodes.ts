@@ -12,6 +12,8 @@ import {
   RepositoryVisibility,
 } from '../../github/graphql/enums.js';
 import { repositoryPermissionOf } from './permission.js';
+import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
+import { LabelNode } from '../../github/graphql/types/label.type.js';
 
 export type UserRow = typeof schema.user.$inferSelect;
 export type OrganizationRow = typeof schema.organization.$inferSelect;
@@ -92,5 +94,22 @@ export function toRepositoryNode(
     updatedAt: row.updatedAt,
     pushedAt: row.lastPushedAt,
     viewerPermission: permission ? RepositoryPermission[permission] : null,
+  });
+}
+
+// Mapper: labels arrive from IssuesService already selected for Ghost's API; selecting them again in GitHub's shape would double the query.
+export function toLabelNode(label: LabelDTO, repository: { url: string; resourcePath: string }) {
+  const path = `/labels/${encodeURIComponent(label.name)}`;
+  return Object.assign(new LabelNode(), {
+    ghostId: label.id,
+    id: encodeNodeId('Label', label.id),
+    name: label.name,
+    color: label.color,
+    description: label.description,
+    isDefault: false,
+    url: `${repository.url}${path}`,
+    resourcePath: `${repository.resourcePath}${path}`,
+    createdAt: label.createdAt,
+    updatedAt: label.updatedAt,
   });
 }

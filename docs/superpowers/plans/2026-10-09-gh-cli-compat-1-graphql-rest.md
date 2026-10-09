@@ -2336,7 +2336,7 @@ If `gh repo view --json visibility` asks for a field the conformance test does n
 Run: `$E2E test/github-graphql.e2e-spec.ts test/github-rest.e2e-spec.ts`, then `bunx vitest run src/lib/github src/github`.
 Expected: PASS. (The `gh` cases run in CI.)
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add apps/api/src apps/api/test apps/api/github.schema.gql
@@ -2357,7 +2357,7 @@ git commit -m "api: GitHub Repository type and REST repository and readme routes
 - Produces `toLabelNode(label: LabelDTO, repository: { ghostId: string; nameWithOwner: string; url: string }): LabelNode` (`LabelDTO` from `resources/issues/dto/label.dto.ts`).
 - Produces `UserConnection` (`Connection(UserNode, 'User')`).
 
-- [ ] **Step 1: Failing e2e case**
+- [x] **Step 1: Failing e2e case**
 
 ```ts
   it('lists labels and assignable users, which gh issue create resolves names against', async () => {
@@ -2379,7 +2379,7 @@ git commit -m "api: GitHub Repository type and REST repository and readme routes
 
 Check the label-create route and body in `resources/issues/labels.controller.ts` first and adjust the path if it differs. Run; Expected: FAIL.
 
-- [ ] **Step 2: Label type and mapper**
+- [x] **Step 2: Label type and mapper**
 
 `apps/api/src/github/graphql/types/label.type.ts`:
 
@@ -2450,7 +2450,7 @@ export function toLabelNode(label: LabelDTO, repository: { url: string; resource
 }
 ```
 
-- [ ] **Step 3: Repository field resolvers**
+- [x] **Step 3: Repository field resolvers**
 
 In `RepositoryResolver` (inject `IssuesService` from `IssuesModule`, which exports it; add `IssuesModule` to `GithubModule.imports`):
 
@@ -2492,11 +2492,11 @@ Check `listLabels`'s exact parameters and return shape at `issues.service.ts:756
 
 `UserConnection` is `Connection(UserNode, 'User')`; export it from `user.type.ts`.
 
-- [ ] **Step 4: `node(id:)` for labels**
+- [x] **Step 4: `node(id:)` for labels**
 
 In `ViewerResolver.lookup`, a `Label` id loads `select label, repository where label.id = …`, authorizes the repository for the viewer, and maps with `toLabelNode`. Unreadable means `null`.
 
-- [ ] **Step 5: Run, then commit**
+- [x] **Step 5: Run, then commit**
 
 Run: `$E2E test/github-graphql.e2e-spec.ts` and the conformance test. Expected: PASS.
 

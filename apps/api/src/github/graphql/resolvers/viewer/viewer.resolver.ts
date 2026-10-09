@@ -13,9 +13,12 @@ import {
   GithubForbiddenError,
 } from '../../../../lib/github/github.errors.js';
 import {
+  toLabelNode,
   toOrganizationNode,
   toUserNode,
 } from '../../../../lib/github/nodes.js';
+import { isoTimestamp } from '../../../../lib/db/sql.js';
+import { RepositoryResolver } from '../repository/repository.resolver.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import { OrganizationNode } from '../../types/organization.type.js';
 import { eq } from 'drizzle-orm';
@@ -28,6 +31,7 @@ export class ViewerResolver {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly config: ConfigService,
+    private readonly repositories: RepositoryResolver,
   ) {}
 
   @Query(() => UserNode, { description: 'The currently authenticated user.' })
@@ -109,8 +113,8 @@ export class ViewerResolver {
     return Promise.all(ids.map((id) => this.lookup(id, context)));
   }
 
-  /** Later tasks add Repository, Issue, IssueComment and Label here. */
-  private async lookup(id: string, { loaders }: GraphqlContext) {
+  /** Later tasks add Issue and IssueComment here. A node the viewer cannot read resolves to null, as on GitHub. */
+  private async lookup(id: string, { loaders, req }: GraphqlContext) {
     const decoded = decodeNodeId(id);
     if (decoded?.type === 'User') {
       const row = await loaders.usersById.load(decoded.id);
@@ -122,6 +126,27 @@ export class ViewerResolver {
         .from(schema.organization)
         .where(eq(schema.organization.id, decoded.id));
       return row ? toOrganizationNode(row, githubOrigins(this.config)) : null;
+    }
+    const requesterId = req.githubViewer?.userId;
+    if (decoded?.type === 'Repository') {
+      return this.repositories.load(decoded.id, requesterId).catch(() => null);
+    }
+    if (decoded?.type === 'Label') {
+      const [label] = await this.db
+        .select({
+          id: schema.label.id,
+          name: schema.label.name,
+          description: schema.label.description,
+          color: schema.label.color,
+          createdAt: isoTimestamp(schema.label.createdAt),
+          updatedAt: isoTimestamp(schema.label.updatedAt),
+          repositoryId: schema.label.repositoryId,
+        })
+        .from(schema.label)
+        .where(eq(schema.label.id, decoded.id));
+      if (!label) return null;
+      const repository = await this.repositories.load(label.repositoryId, requesterId).catch(() => null);
+      return repository ? toLabelNode(label, repository) : null;
     }
     return null;
   }

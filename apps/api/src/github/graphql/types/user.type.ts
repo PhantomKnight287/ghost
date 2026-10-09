@@ -1,5 +1,6 @@
 import { Field, GraphQLISODateTime, ID, Int, ObjectType } from '@nestjs/graphql';
 
+import { Connection } from '../connection.js';
 import { URI } from '../scalars.js';
 import { Actor, Node, RepositoryOwner, UniformResourceLocatable } from './node.interface.js';
 
@@ -33,3 +34,5 @@ export class UserNode {
   @Field(() => GraphQLISODateTime)
   createdAt: Date;
 }
+
+export const UserConnection = Connection(UserNode, 'User');
