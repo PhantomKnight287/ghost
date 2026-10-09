@@ -273,6 +273,7 @@ type Organization implements Actor & Node & RepositoryOwner & UniformResourceLoc
   id: ID!
   login: String!
   name: String
+  repository(name: String!): Repository
   resourcePath: URI!
   url: URI!
 }
@@ -409,6 +410,7 @@ interface RepositoryOwner {
   avatarUrl: URI!
   id: ID!
   login: String!
+  repository(name: String!): Repository
   resourcePath: URI!
   url: URI!
 }
@@ -477,6 +479,7 @@ type User implements Actor & Node & RepositoryOwner & UniformResourceLocatable {
   id: ID!
   login: String!
   name: String
+  repository(name: String!): Repository
   resourcePath: URI!
   url: URI!
 }

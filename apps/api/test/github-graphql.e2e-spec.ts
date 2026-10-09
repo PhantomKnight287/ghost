@@ -321,4 +321,31 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     const response = await graphql('{ viewer { login notAField } }', {}, owner.key).expect(400);
     expect(response.body.errors[0].message).toContain('notAField');
   });
+
+  it('refuses a label or assignee id that does not resolve, instead of dropping it', async () => {
+    const repo = await graphql('query($o: String!, $n: String!) { repository(owner: $o, name: $n) { id } }', { o: username, n: 'public-repo' }, owner.key).expect(200);
+    const repositoryId = repo.body.data.repository.id;
+    const secretLabel = await request(app.getHttpServer()).post(`/api/repositories/${username}/secret-repo/labels`).set('cookie', owner.cookie).send({ name: 'elsewhere', color: '000000' }).expect(201);
+    const foreignLabelId = (await graphql('query($o: String!) { repository(owner: $o, name: "secret-repo") { label(name: "elsewhere") { id } } }', { o: username }, owner.key).expect(200)).body.data.repository.label.id;
+    expect(secretLabel.body.name).toBe('elsewhere');
+    const create = (input: object) => graphql('mutation($input: CreateIssueInput!) { createIssue(input: $input) { issue { id } } }', { input: { repositoryId, title: 'Bad ids', ...input } }, owner.key).expect(200);
+    const foreign = await create({ labelIds: [foreignLabelId] });
+    expect(foreign.body.errors[0]).toMatchObject({ type: 'NOT_FOUND', message: `Could not resolve to a node with the global id of '${foreignLabelId}'` });
+    const missingUser = Buffer.from('nobody').toString('base64url');
+    const unknown = await create({ assigneeIds: [`U_${missingUser}`] });
+    expect(unknown.body.errors[0]).toMatchObject({ type: 'NOT_FOUND', message: `Could not resolve to a node with the global id of 'U_${missingUser}'` });
+  });
+
+  it('resolves a comment by node id, and a repository through its owner', async () => {
+    const issues = await graphql('query($o: String!) { repository(owner: $o, name: "public-repo") { issues(first: 50, states: [OPEN, CLOSED]) { nodes { title comments(first: 1) { nodes { id body } } } } } }', { o: username }, owner.key).expect(200);
+    const comment = issues.body.data.repository.issues.nodes.flatMap((issue: { comments: { nodes: { id: string; body: string }[] } }) => issue.comments.nodes)[0];
+    const lookup = await graphql('query($id: ID!) { node(id: $id) { ... on IssueComment { body author { login } } } }', { id: comment.id }, owner.key).expect(200);
+    expect(lookup.body.data.node).toEqual({ body: comment.body, author: { login: username } });
+    const visible = await graphql('query($id: ID!) { nodes(ids: [$id]) { id } }', { id: comment.id }, stranger.key).expect(200);
+    expect(visible.body.data.nodes).toEqual([{ id: comment.id }]);
+
+    const owned = await graphql('query($o: String!) { repositoryOwner(login: $o) { repository(name: "public-repo") { name } } user(login: $o) { repository(name: "secret-repo") { name } } }', { o: username }, stranger.key).expect(200);
+    expect(owned.body.errors).toBeUndefined();
+    expect(owned.body.data).toEqual({ repositoryOwner: { repository: { name: 'public-repo' } }, user: { repository: null } });
+  });
 });

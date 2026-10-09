@@ -13,6 +13,7 @@ import {
   GithubForbiddenError,
 } from '../../../../lib/github/github.errors.js';
 import {
+  toIssueCommentNode,
   toLabelNode,
   toOrganizationNode,
   toUserNode,
@@ -21,7 +22,7 @@ import { isoTimestamp } from '../../../../lib/db/sql.js';
 import { RepositoryResolver } from '../repository/repository.resolver.js';
 import { IssueResolver } from '../issue/issue.resolver.js';
 import { IssueNode } from '../../types/issue.type.js';
-import { commentIssueOf, issueRefOf } from '../../../../lib/github/node-lookup.js';
+import { commentOf, issueRefOf } from '../../../../lib/github/node-lookup.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import { OrganizationNode } from '../../types/organization.type.js';
 import { eq } from 'drizzle-orm';
@@ -118,8 +119,7 @@ export class ViewerResolver {
   }
 
   /** A node the viewer cannot read resolves to null, as on GitHub. */
-  private async lookup(id: string, context: GraphqlContext) {
-    const { loaders, req } = context;
+  private async lookup(id: string, { loaders, req }: GraphqlContext) {
     const decoded = decodeNodeId(id);
     if (decoded?.type === 'User') {
       const row = await loaders.usersById.load(decoded.id);
@@ -158,11 +158,12 @@ export class ViewerResolver {
       return found?.kind === decoded.type ? found : null;
     }
     if (decoded?.type === 'IssueComment') {
-      const ref = await commentIssueOf(this.db, decoded.id);
-      const issue = ref && (await this.issueById(ref.issueId, requesterId));
+      const comment = await commentOf(this.db, decoded.id);
+      // Loading the issue is what checks the viewer may read the comment.
+      const issue = comment && (await this.issueById(comment.issueId, requesterId));
       if (!(issue instanceof IssueNode)) return null;
-      const { nodes } = await this.issueNodes.comments(issue, req.githubViewer, context);
-      return nodes.find((comment) => comment.ghostId === decoded.id) ?? null;
+      const viewerLogin = requesterId ? ((await loaders.usersById.load(requesterId))?.username ?? null) : null;
+      return toIssueCommentNode(comment, issue, viewerLogin);
     }
     return null;
   }
