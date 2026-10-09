@@ -67,6 +67,11 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       `https://${username}:${owner.key}@${GH_E2E_HOST}/${username}/tools.git`,
       'main',
     );
+    const api = request(app.getHttpServer());
+    for (const title of ['Broken build', 'Docs typo']) {
+      await api.post(`/api/repositories/${username}/tools/issues`).set('cookie', owner.cookie).send({ title }).expect(201);
+    }
+    await api.post(`/api/repositories/${username}/tools/issues/1/comments`).set('cookie', owner.cookie).send({ body: 'Seen it too' }).expect(201);
   });
 
   afterAll(async () => {
@@ -125,5 +130,23 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     expect(readFileSync(path.join(target, 'README.md'), 'utf8')).toContain(
       'Hello from Ghost.',
     );
+  });
+
+  it('lists issues', async () => {
+    const out = await ok(['issue', 'list', '-R', `${GH_E2E_HOST}/${username}/tools`, '--json', 'number,title,state,labels,author,url']);
+    const issues = JSON.parse(out);
+    expect(issues.map((issue: { title: string }) => issue.title)).toEqual(expect.arrayContaining(['Broken build', 'Docs typo']));
+    expect(issues[0].state).toBe('OPEN');
+  });
+
+  it('views an issue with comments', async () => {
+    const out = await ok(['issue', 'view', '1', '-R', `${GH_E2E_HOST}/${username}/tools`, '--comments']);
+    expect(out).toContain('Broken build');
+    expect(out).toContain('Seen it too');
+  });
+
+  it('filters issues by state, label, author and assignee', async () => {
+    const out = await ok(['issue', 'list', '-R', `${GH_E2E_HOST}/${username}/tools`, '--state', 'all', '--author', username, '--json', 'number']);
+    expect(JSON.parse(out).length).toBeGreaterThanOrEqual(2);
   });
 });

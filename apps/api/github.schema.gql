@@ -9,6 +9,17 @@ interface Actor {
   url: URI!
 }
 
+enum CommentAuthorAssociation {
+  COLLABORATOR
+  CONTRIBUTOR
+  FIRST_TIMER
+  FIRST_TIME_CONTRIBUTOR
+  MANNEQUIN
+  MEMBER
+  NONE
+  OWNER
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -16,6 +27,102 @@ scalar DateTime
 
 """Git SSH string"""
 scalar GitSSHRemote
+
+"""A string containing HTML code."""
+scalar HTML
+
+type Issue implements Node & UniformResourceLocatable {
+  assignees(first: Int): UserConnection!
+  author: Actor
+  body: String!
+  bodyHTML: HTML!
+  bodyText: String!
+  closed: Boolean!
+  closedAt: DateTime
+  comments(first: Int, last: Int): IssueCommentConnection!
+  createdAt: DateTime!
+  databaseId: Int
+  id: ID!
+  includesCreatedEdit: Boolean!
+  isPinned: Boolean!
+  labels(first: Int): LabelConnection
+  locked: Boolean!
+  milestone: Milestone
+  number: Int!
+  parent: Issue
+  reactionGroups: [ReactionGroup!]
+  repository: Repository!
+  resourcePath: URI!
+  state: IssueState!
+  stateReason: IssueStateReason
+  subIssues(first: Int): IssueConnection!
+  subIssuesSummary: SubIssuesSummary!
+  title: String!
+  updatedAt: DateTime!
+  url: URI!
+  viewerCanUpdate: Boolean!
+}
+
+type IssueComment implements Node {
+  author: Actor
+  authorAssociation: CommentAuthorAssociation!
+  body: String!
+  createdAt: DateTime!
+  id: ID!
+  includesCreatedEdit: Boolean!
+  isMinimized: Boolean!
+  minimizedReason: String
+  reactionGroups: [ReactionGroup!]
+  resourcePath: URI!
+  updatedAt: DateTime!
+  url: URI!
+  viewerDidAuthor: Boolean!
+}
+
+type IssueCommentConnection {
+  nodes: [IssueComment]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type IssueConnection {
+  nodes: [Issue]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+input IssueFilters {
+  assignee: String
+  createdBy: String
+  labels: [String!]
+  mentioned: String
+  states: [IssueState!]
+}
+
+union IssueOrPullRequest = Issue | PullRequest
+
+input IssueOrder {
+  direction: OrderDirection!
+  field: IssueOrderField!
+}
+
+enum IssueOrderField {
+  COMMENTS
+  CREATED_AT
+  UPDATED_AT
+}
+
+enum IssueState {
+  CLOSED
+  OPEN
+}
+
+enum IssueStateReason {
+  COMPLETED
+  DUPLICATE
+  NOT_PLANNED
+  REOPENED
+}
 
 type Label implements Node {
   color: String!
@@ -35,8 +142,21 @@ type LabelConnection {
   totalCount: Int!
 }
 
+type Milestone {
+  description: String
+  dueOn: DateTime
+  id: ID!
+  number: Int!
+  title: String!
+}
+
 interface Node {
   id: ID!
+}
+
+enum OrderDirection {
+  ASC
+  DESC
 }
 
 type Organization implements Actor & Node & RepositoryOwner & UniformResourceLocatable {
@@ -56,6 +176,21 @@ type PageInfo {
   startCursor: String
 }
 
+type PullRequest implements Node & UniformResourceLocatable {
+  id: ID!
+  number: Int!
+  resourcePath: URI!
+  state: PullRequestState!
+  title: String!
+  url: URI!
+}
+
+enum PullRequestState {
+  CLOSED
+  MERGED
+  OPEN
+}
+
 type Query {
   node(id: ID!): Node
   nodes(ids: [ID!]!): [Node]!
@@ -66,6 +201,26 @@ type Query {
 
   """The currently authenticated user."""
   viewer: User!
+}
+
+type ReactingUserConnection {
+  totalCount: Int!
+}
+
+enum ReactionContent {
+  CONFUSED
+  EYES
+  HEART
+  HOORAY
+  LAUGH
+  ROCKET
+  THUMBS_DOWN
+  THUMBS_UP
+}
+
+type ReactionGroup {
+  content: ReactionContent!
+  users: ReactingUserConnection!
 }
 
 type Ref implements Node {
@@ -88,6 +243,9 @@ type Repository implements Node & UniformResourceLocatable {
   isEmpty: Boolean!
   isFork: Boolean!
   isPrivate: Boolean!
+  issue(number: Int!): Issue
+  issueOrPullRequest(number: Int!): IssueOrPullRequest
+  issues(after: String, filterBy: IssueFilters, first: Int, labels: [String!], orderBy: IssueOrder, states: [IssueState!]): IssueConnection!
   label(name: String!): Label
   labels(first: Int, query: String): LabelConnection
   mergeCommitAllowed: Boolean!
@@ -125,6 +283,12 @@ enum RepositoryPermission {
 enum RepositoryVisibility {
   PRIVATE
   PUBLIC
+}
+
+type SubIssuesSummary {
+  completed: Int!
+  percentCompleted: Int!
+  total: Int!
 }
 
 """An RFC 3986, RFC 3987, and RFC 6570 (level 4) compliant URI string."""

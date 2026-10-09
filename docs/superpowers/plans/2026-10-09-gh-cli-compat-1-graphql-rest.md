@@ -2521,7 +2521,7 @@ git commit -m "api: GitHub labels and assignable users on Repository"
 - Produces `IssueResolver.fromRepository(repository: RepositoryNode, number: number, requesterId?: string): Promise<IssueNode | PullRequestNode>` used by Task 12.
 - Produces union `IssueOrPullRequest`, enums `IssueState`, `IssueStateReason`, `IssueOrderField`, `OrderDirection`, `CommentAuthorAssociation`, `ReactionContent`, `PullRequestState`, input `IssueOrder`, input `IssueFilters`.
 
-- [ ] **Step 1: Failing e2e cases**
+- [x] **Step 1: Failing e2e cases**
 
 ```ts
   it('lists, filters and pages issues as gh issue list asks', async () => {
@@ -2580,7 +2580,7 @@ git commit -m "api: GitHub labels and assignable users on Repository"
 
 For `pullRequestNumber`, follow how `test/pull-request-reviews.e2e-spec.ts` opens a pull request (push a branch, `POST /api/repositories/:u/:r/pulls`) and copy its setup into this file's `beforeAll`. Run; Expected: FAIL.
 
-- [ ] **Step 2: Enums**
+- [x] **Step 2: Enums**
 
 Append to `enums.ts`:
 
@@ -2610,7 +2610,7 @@ export enum ReportedContentClassifiers { SPAM = 'SPAM', ABUSE = 'ABUSE', OFF_TOP
 registerEnumType(ReportedContentClassifiers, { name: 'ReportedContentClassifiers' });
 ```
 
-- [ ] **Step 3: Placeholder types for what Ghost lacks**
+- [x] **Step 3: Placeholder types for what Ghost lacks**
 
 `apps/api/src/github/graphql/types/placeholders.type.ts`:
 
@@ -2685,7 +2685,7 @@ export class SubIssuesSummary {
 
 If the conformance test reports a different type for `ReactionGroup.users` (GitHub has `ReactingUserConnection` with `totalCount`), rename the class's GraphQL name to match; the test names the exact GitHub type. Same for `IssueType.color` (an enum `IssueTypeColor` on GitHub): if flagged, declare the enum with GitHub's values and type the field with it. Remove the unused `Float` import.
 
-- [ ] **Step 4: Issue, PullRequest, IssueComment types**
+- [x] **Step 4: Issue, PullRequest, IssueComment types**
 
 `apps/api/src/github/graphql/types/issue.type.ts`:
 
@@ -2868,7 +2868,7 @@ export class IssueCommentNode {
 export const IssueCommentConnection = Connection(IssueCommentNode, 'IssueComment');
 ```
 
-- [ ] **Step 5: Mappers with a unit test**
+- [x] **Step 5: Mappers with a unit test**
 
 Append to `nodes.spec.ts`:
 
@@ -2979,7 +2979,7 @@ export function toIssueCommentNode(comment: CommentRow, issue: IssueNode, viewer
 
 Use `comment.updatedAt !== comment.createdAt`, accepting that ISO strings from the same `now()` compare equal. Run `bunx vitest run src/lib/github/nodes.spec.ts`; Expected: PASS.
 
-- [ ] **Step 6: Inputs for `issues(...)`**
+- [x] **Step 6: Inputs for `issues(...)`**
 
 Append to `enums.ts` (or a new `inputs.ts` beside it):
 
@@ -3016,7 +3016,7 @@ export class IssueFilters {
 
 `mentioned` is accepted and ignored (Ghost has no mention index); add `// ponytail: mentioned is accepted and ignored; filter on issue_reference mentions when Ghost records them.` beside it.
 
-- [ ] **Step 7: Repository issue fields and the issue resolver**
+- [x] **Step 7: Repository issue fields and the issue resolver**
 
 Add to `RepositoryResolver`:
 
@@ -3193,7 +3193,7 @@ The `author` field is declared on the `Comment` interface on GitHub, `Actor` nul
 
 Register in `GithubModule`: `IssueResolver`, `IssueCommentResolver`, and `IssuesModule` in `imports`. `RepositoryResolver` injects `IssueResolver` as `issueNodes` and `IssueResolver` injects `RepositoryResolver`: a cycle. Break it with `@Inject(forwardRef(() => IssueResolver))` on the `RepositoryResolver` side.
 
-- [ ] **Step 8: `node(id:)` for issues and comments**
+- [x] **Step 8: `node(id:)` for issues and comments**
 
 `ViewerResolver.lookup`: an `Issue` or `PullRequest` id selects `issue.repositoryId, issue.number` by id, loads the repository node with `repositories.load`, then `issueNodes.fromRepository`. An `IssueComment` id selects the comment's issue the same way and finds the comment in `getComments`. Every failure resolves to `null`.
 
@@ -3232,7 +3232,7 @@ export async function usernamesOf(db: Database, userIds: string[]) {
 
 Filter in SQL, not in memory: `labelNamesOf` must use `where(and(eq(schema.label.repositoryId, repositoryId), inArray(schema.label.id, labelIds)))` and `usernamesOf` `where(inArray(schema.user.id, userIds))`, each returning early with `[]` for an empty input. The sketch above shows the ordering logic; write the query with the `where` clauses.
 
-- [ ] **Step 9: `gh issue list` and `gh issue view` cases**
+- [x] **Step 9: `gh issue list` and `gh issue view` cases**
 
 Add to `test/gh-cli.e2e-spec.ts` (create two issues and one comment through Ghost's API in `beforeAll`):
 
@@ -3256,7 +3256,7 @@ Add to `test/gh-cli.e2e-spec.ts` (create two issues and one comment through Ghos
   });
 ```
 
-- [ ] **Step 10: Run, then commit**
+- [x] **Step 10: Run, then commit**
 
 Run: `$E2E test/github-graphql.e2e-spec.ts`, `bunx vitest run src/lib/github src/github`. Expected: PASS.
 

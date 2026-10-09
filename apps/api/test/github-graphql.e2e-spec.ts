@@ -1,4 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
+import { execFile, execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -9,6 +14,8 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
   let owner: { cookie: string; key: string; userId: string };
   let stranger: { cookie: string; key: string; userId: string };
   const username = `ghgql${Date.now()}`;
+  let work: string;
+  let pullRequestNumber: number;
 
   const graphql = (query: string, variables: object = {}, token?: string) => {
     const call = request(app.getHttpServer())
@@ -18,7 +25,8 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
   };
 
   beforeAll(async () => {
-    ({ app } = await startApp());
+    let origin: string;
+    ({ app, origin } = await startApp());
     owner = await signUp(app, username);
     const api = request(app.getHttpServer());
     await api
@@ -32,10 +40,26 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
       .send({ name: 'secret-repo', visibility: 'private' })
       .expect(201);
     stranger = await signUp(app, `${username}x`);
-  });
+
+    // Ghost numbers pull requests and issues together; one real pull request lets issueOrPullRequest answer a PullRequest.
+    work = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-ghgql-'));
+    const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=E2E', '-c', 'user.email=e2e@example.com', ...args], { cwd: work });
+    git('init', '-q', '-b', 'main');
+    writeFileSync(path.join(work, 'a.txt'), 'one\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'first');
+    git('checkout', '-q', '-b', 'feature');
+    writeFileSync(path.join(work, 'a.txt'), 'two\n');
+    git('commit', '-q', '-am', 'second');
+    // The server runs in this process, so the push must not block the event loop.
+    await promisify(execFile)('git', ['push', '-q', `${origin.replace('://', `://${username}:${owner.key}@`)}/${username}/public-repo.git`, 'main', 'feature'], { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    const pull = await api.post(`/api/repositories/${username}/public-repo/pulls`).set('cookie', owner.cookie).send({ title: 'Feature', base: 'main', head: 'feature' }).expect(201);
+    pullRequestNumber = pull.body.number;
+  }, 120_000);
 
   afterAll(async () => {
     await app?.close();
+    if (work) rmSync(work, { recursive: true, force: true });
   });
 
   it('answers a query at /api/graphql', async () => {
@@ -169,4 +193,57 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     expect(lookup.body.data.node).toEqual({ name: label.name });
   });
 
+  it('lists, filters and pages issues as gh issue list asks', async () => {
+    const api = request(app.getHttpServer());
+    for (const title of ['First', 'Second', 'Third']) {
+      await api.post(`/api/repositories/${username}/public-repo/issues`).set('cookie', owner.cookie).send({ title, labels: title === 'Second' ? ['bug'] : [] }).expect(201);
+    }
+    const LIST = 'query($owner: String!, $repo: String!, $limit: Int, $endCursor: String, $states: [IssueState!] = OPEN, $assignee: String, $author: String) { repository(owner: $owner, name: $repo) { hasIssuesEnabled issues(first: $limit, after: $endCursor, orderBy: {field: CREATED_AT, direction: DESC}, states: $states, filterBy: {assignee: $assignee, createdBy: $author}) { totalCount nodes { number title url state updatedAt labels(first: 100) { nodes { id name description color } totalCount } } pageInfo { hasNextPage endCursor } } } }';
+    const first = await graphql(LIST, { owner: username, repo: 'public-repo', limit: 2 }, owner.key).expect(200);
+    expect(first.body.errors).toBeUndefined();
+    const issues = first.body.data.repository.issues;
+    expect(issues.totalCount).toBe(3);
+    expect(issues.nodes.map((issue: { title: string }) => issue.title)).toEqual(['Third', 'Second']);
+    expect(issues.nodes[1].labels.nodes[0].name).toBe('bug');
+    expect(issues.nodes[0].state).toBe('OPEN');
+    expect(issues.pageInfo.hasNextPage).toBe(true);
+    const second = await graphql(LIST, { owner: username, repo: 'public-repo', limit: 2, endCursor: issues.pageInfo.endCursor }, owner.key).expect(200);
+    expect(second.body.data.repository.issues.nodes.map((issue: { title: string }) => issue.title)).toEqual(['First']);
+  });
+
+  it('answers every field gh issue view asks for, with empty values for what Ghost lacks', async () => {
+    const api = request(app.getHttpServer());
+    const created = await api.post(`/api/repositories/${username}/public-repo/issues`).set('cookie', owner.cookie).send({ title: 'Viewed', body: 'Body text' }).expect(201);
+    await api.post(`/api/repositories/${username}/public-repo/issues/${created.body.number}/comments`).set('cookie', owner.cookie).send({ body: 'A comment' }).expect(201);
+    const VIEW = `query($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { hasIssuesEnabled issue: issueOrPullRequest(number: $number) { __typename ...on Issue { id number url state stateReason createdAt title body author { login ...on User { id name } } milestone { number title description dueOn } assignees(first: 100) { nodes { id login name databaseId } totalCount } labels(first: 100) { nodes { id name description color } totalCount } reactionGroups { content users { totalCount } } comments(last: 1) { nodes { author { login ...on User { id name } } authorAssociation body createdAt includesCreatedEdit isMinimized minimizedReason reactionGroups { content users { totalCount } } } totalCount } parent { id number title url state repository { nameWithOwner } } subIssues(first: 100) { nodes { id number } totalCount } subIssuesSummary { total completed percentCompleted } } } } }`;
+    const response = await graphql(VIEW, { owner: username, repo: 'public-repo', number: created.body.number }, owner.key).expect(200);
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.repository.issue).toMatchObject({
+      __typename: 'Issue',
+      title: 'Viewed',
+      body: 'Body text',
+      state: 'OPEN',
+      stateReason: null,
+      author: { login: username },
+      milestone: null,
+      reactionGroups: [],
+      parent: null,
+      subIssues: { nodes: [], totalCount: 0 },
+      subIssuesSummary: { total: 0, completed: 0, percentCompleted: 0 },
+      comments: { totalCount: 1, nodes: [{ body: 'A comment', authorAssociation: 'OWNER', isMinimized: false }] },
+    });
+    const issueId = response.body.data.repository.issue.id;
+    const lookup = await graphql('query($id: ID!) { node(id: $id) { ... on Issue { title } } }', { id: issueId }, owner.key).expect(200);
+    expect(lookup.body.data.node).toEqual({ title: 'Viewed' });
+  });
+
+  it('answers a pull request number in issueOrPullRequest as a PullRequest', async () => {
+    const response = await graphql('query($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { issueOrPullRequest(number: $number) { __typename ...on PullRequest { number title } } } }', { owner: username, repo: 'public-repo', number: pullRequestNumber }, owner.key).expect(200);
+    expect(response.body.data.repository.issueOrPullRequest).toMatchObject({ __typename: 'PullRequest', number: pullRequestNumber });
+  });
+
+  it('answers a missing issue number as NOT_FOUND', async () => {
+    const response = await graphql('query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { issue(number: 9999) { title } } }', { owner: username, repo: 'public-repo' }, owner.key).expect(200);
+    expect(response.body.errors[0]).toMatchObject({ type: 'NOT_FOUND', message: `Could not resolve to an Issue with the number of 9999.` });
+  });
 });

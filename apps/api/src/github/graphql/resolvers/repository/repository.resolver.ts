@@ -1,5 +1,5 @@
 import { type Database, schema } from '@ghost/db';
-import { Inject } from '@nestjs/common';
+import { Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Args,
@@ -22,6 +22,7 @@ import { RepositoryOwner } from '../../types/node.interface.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import {
+  toIssueNode,
   toLabelNode,
   toOrganizationNode,
   toRepositoryNode,
@@ -34,6 +35,12 @@ import { UserConnection, UserNode } from '../../types/user.type.js';
 import { LabelConnection, LabelNode } from '../../types/label.type.js';
 import { sliceConnection } from '../../connection.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
+import { IssueConnection, IssueNode, IssueOrPullRequest } from '../../types/issue.type.js';
+import { PullRequestNode } from '../../types/pull-request.type.js';
+import { IssueOrderField, IssueState, OrderDirection } from '../../enums.js';
+import { IssueFilters, IssueOrder } from '../../inputs.js';
+import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
+import { IssueResolver } from '../issue/issue.resolver.js';
 
 @Resolver(() => RepositoryNode)
 @AllowAnonymous()
@@ -42,7 +49,8 @@ export class RepositoryResolver {
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
     private readonly config: ConfigService,
-    private readonly issues: IssuesService,
+    private readonly issuesService: IssuesService,
+    @Inject(forwardRef(() => IssueResolver)) private readonly issueNodes: IssueResolver,
   ) {}
 
   @Query(() => RepositoryNode, { nullable: true })
@@ -132,14 +140,14 @@ export class RepositoryResolver {
     @Args('first', { type: () => Int, nullable: true }) first?: number,
     @Args('query', { nullable: true }) query?: string,
   ) {
-    const { labels } = await this.issues.listLabels({ username: repository.ownerLogin, repo: repository.slug, requesterId: viewer?.userId });
+    const { labels } = await this.issuesService.listLabels({ username: repository.ownerLogin, repo: repository.slug, requesterId: viewer?.userId });
     const matching = query ? labels.filter((label) => label.name.toLowerCase().includes(query.toLowerCase())) : labels;
     return sliceConnection(matching.map((label) => toLabelNode(label, repository)), { first });
   }
 
   @ResolveField(() => LabelNode, { nullable: true })
   async label(@Parent() repository: RepositoryNode, @Args('name') name: string, @Viewer() viewer: GithubViewer | null) {
-    const { labels } = await this.issues.listLabels({ username: repository.ownerLogin, repo: repository.slug, requesterId: viewer?.userId });
+    const { labels } = await this.issuesService.listLabels({ username: repository.ownerLogin, repo: repository.slug, requesterId: viewer?.userId });
     const label = labels.find((candidate) => candidate.name.toLowerCase() === name.toLowerCase());
     return label ? toLabelNode(label, repository) : null;
   }
@@ -155,6 +163,58 @@ export class RepositoryResolver {
     const rows = (await loaders.usersById.loadMany(ids)).filter((row): row is UserRow => !!row && !(row instanceof Error));
     const matching = query ? rows.filter((row) => `${row.username} ${row.name}`.toLowerCase().includes(query.toLowerCase())) : rows;
     return sliceConnection(matching.map((row) => toUserNode(row, githubOrigins(this.config))), { first });
+  }
+
+  @ResolveField(() => IssueConnection)
+  async issues(
+    @Parent() repository: RepositoryNode,
+    @Viewer() viewer: GithubViewer | null,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { nullable: true }) after?: string,
+    @Args('states', { type: () => [IssueState], nullable: true }) states?: IssueState[],
+    @Args('labels', { type: () => [String], nullable: true }) labels?: string[],
+    @Args('orderBy', { type: () => IssueOrder, nullable: true }) orderBy?: IssueOrder,
+    @Args('filterBy', { type: () => IssueFilters, nullable: true }) filterBy?: IssueFilters,
+  ) {
+    const wanted = states ?? filterBy?.states ?? [];
+    const state = wanted.length === 1 ? (wanted[0] === IssueState.OPEN ? 'open' : 'closed') : 'all';
+    const sort = orderBy?.field === IssueOrderField.UPDATED_AT ? 'updated' : orderBy?.field === IssueOrderField.COMMENTS ? 'comments' : 'created';
+    const page = await this.issuesService.getIssues({
+      username: repository.ownerLogin,
+      repo: repository.slug,
+      requesterId: viewer?.userId,
+      query: {
+        state,
+        sort,
+        direction: orderBy?.direction === OrderDirection.ASC ? 'asc' : 'desc',
+        cursor: after,
+        // The controller's ValidationPipe caps limit at 100; GraphQL arguments skip it.
+        limit: Math.min(first ?? 30, 100),
+        assignee: filterBy?.assignee ?? undefined,
+        author: filterBy?.createdBy ?? undefined,
+        labels: (labels ?? filterBy?.labels)?.join(','),
+      },
+    });
+    return {
+      nodes: page.issues.map((issue) => toIssueNode(issue, repository)),
+      totalCount: state === 'open' ? page.openCount : state === 'closed' ? page.closedCount : page.total,
+      pageInfo: { hasNextPage: page.hasMore, hasPreviousPage: !!after, startCursor: null, endCursor: page.nextCursor },
+    };
+  }
+
+  @ResolveField(() => IssueNode, { nullable: true })
+  async issue(@Parent() repository: RepositoryNode, @Args('number', { type: () => Int }) number: number, @Viewer() viewer: GithubViewer | null) {
+    const found = await this.issueNodes.fromRepository(repository, number, viewer?.userId).catch((error: unknown) => {
+      if (error instanceof CouldNotResolveError) return null;
+      throw error;
+    });
+    if (!found || found instanceof PullRequestNode) throw new CouldNotResolveError(`Could not resolve to an Issue with the number of ${number}.`);
+    return found;
+  }
+
+  @ResolveField(() => IssueOrPullRequest, { nullable: true })
+  issueOrPullRequest(@Parent() repository: RepositoryNode, @Args('number', { type: () => Int }) number: number, @Viewer() viewer: GithubViewer | null) {
+    return this.issueNodes.fromRepository(repository, number, viewer?.userId);
   }
 
   /** Who gh offers as assignees: the owner, accepted collaborators and organization members, as the assignee picker's involved set. */
