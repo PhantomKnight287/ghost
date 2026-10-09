@@ -1283,7 +1283,7 @@ If `import { schema } from '@octokit/graphql-schema'` fails (the package may onl
 Run: `bunx vitest run src/github/graphql/schema-conformance.spec.ts`
 Expected: FAIL on `Query.placeholder does not exist on GitHub`. That is the test working; Task 7 deletes the placeholder.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/api/src/github/graphql/schema-conformance.spec.ts
@@ -1311,7 +1311,7 @@ The suite is red until Task 7; that is expected on this branch.
 - Produces in `nodes.ts`: `toUserNode(row: UserRow, origins: GithubOrigins): UserNode`, `toOrganizationNode(row: OrganizationRow, origins): OrganizationNode`.
 - Produces in `loaders.ts`: `createLoaders(db)` returning `{ usersById: DataLoader<string, UserRow | null>, usersByLogin: DataLoader<string, UserRow | null> }`, and `type GraphqlContext = { req: GithubRequest; loaders: Loaders }`.
 
-- [ ] **Step 1: Failing e2e cases**
+- [x] **Step 1: Failing e2e cases**
 
 Add to `test/github-graphql.e2e-spec.ts`:
 
@@ -1347,7 +1347,7 @@ Add to `test/github-graphql.e2e-spec.ts`:
 
 Run: `$E2E test/github-graphql.e2e-spec.ts` — Expected: FAIL.
 
-- [ ] **Step 2: Scalars, connection, interfaces**
+- [x] **Step 2: Scalars, connection, interfaces**
 
 `apps/api/src/github/graphql/scalars.ts`:
 
@@ -1486,7 +1486,7 @@ export abstract class RepositoryOwner {
 
 GitHub's `avatarUrl` takes `size: Int`; it is optional, so leaving it out conforms. Task 8 adds `RepositoryOwner.repository(name:)` once `Repository` exists.
 
-- [ ] **Step 3: User and Organization types**
+- [x] **Step 3: User and Organization types**
 
 `apps/api/src/github/graphql/types/user.type.ts`:
 
@@ -1564,7 +1564,7 @@ export class OrganizationNode {
 }
 ```
 
-- [ ] **Step 4: Mappers and their unit test**
+- [x] **Step 4: Mappers and their unit test**
 
 `apps/api/src/lib/github/nodes.spec.ts`:
 
@@ -1641,7 +1641,7 @@ Check the organization table's column names first (`sed -n 101,113p packages/db/
 
 Run: `bunx vitest run src/lib/github/nodes.spec.ts` — Expected: PASS.
 
-- [ ] **Step 5: Loaders**
+- [x] **Step 5: Loaders**
 
 Replace `apps/api/src/lib/github/loaders.ts`:
 
@@ -1675,7 +1675,7 @@ export type Loaders = ReturnType<typeof createLoaders>;
 export type GraphqlContext = { req: GithubRequest; loaders: Loaders };
 ```
 
-- [ ] **Step 6: Viewer resolver**
+- [x] **Step 6: Viewer resolver**
 
 Replace `apps/api/src/github/graphql/resolvers/viewer.resolver.ts`:
 
@@ -1769,7 +1769,7 @@ Drop the unused `createUnionType` import. Register `ConfigService` availability:
 
 Note: `user` and `organization` here fetch anyone by login, as GitHub does; Ghost profiles are public.
 
-- [ ] **Step 7: Run the tests and switch on the `gh auth` case**
+- [x] **Step 7: Run the tests and switch on the `gh auth` case**
 
 Run: `$E2E test/github-graphql.e2e-spec.ts` — Expected: PASS.
 Run: `bunx vitest run src/github/graphql/schema-conformance.spec.ts` — Expected: PASS (the e2e run regenerated `github.schema.gql`).

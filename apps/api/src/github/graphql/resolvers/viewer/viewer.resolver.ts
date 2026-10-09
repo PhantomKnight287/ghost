@@ -1,11 +1,128 @@
-import { Query, Resolver } from '@nestjs/graphql';
+import { Inject } from '@nestjs/common';
+import { Args, Context, ID, Query, Resolver } from '@nestjs/graphql';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import { DATABASE } from '../../../../database/database.module.js';
+import { type Database, schema } from '@ghost/db';
+import { ConfigService } from '@nestjs/config';
+import { UserNode } from '../../types/user.type.js';
+import { Viewer } from '../../../auth/viewer.decorator.js';
+import { GithubViewer } from '../../../auth/github-request.js';
+import { type GraphqlContext } from '../../../../lib/github/loaders.js';
+import {
+  CouldNotResolveError,
+  GithubForbiddenError,
+} from '../../../../lib/github/github.errors.js';
+import {
+  toOrganizationNode,
+  toUserNode,
+} from '../../../../lib/github/nodes.js';
+import { githubOrigins } from '../../../../lib/github/origins.js';
+import { OrganizationNode } from '../../types/organization.type.js';
+import { eq } from 'drizzle-orm';
+import { Node, RepositoryOwner } from '../../types/node.interface.js';
+import { decodeNodeId } from '../../../../lib/github/node-id.js';
 
 @Resolver()
 @AllowAnonymous()
 export class ViewerResolver {
-  @Query(() => String, { nullable: true, deprecationReason: 'Placeholder' })
-  placeholder() {
+  constructor(
+    @Inject(DATABASE) private readonly db: Database,
+    private readonly config: ConfigService,
+  ) {}
+
+  @Query(() => UserNode, { description: 'The currently authenticated user.' })
+  async viewer(
+    @Viewer() viewer: GithubViewer | null,
+    @Context() { loaders }: GraphqlContext,
+  ) {
+    if (!viewer)
+      throw new GithubForbiddenError(
+        'This endpoint requires you to be authenticated.',
+      );
+    const row = await loaders.usersById.load(viewer.userId);
+    if (!row)
+      throw new GithubForbiddenError(
+        'This endpoint requires you to be authenticated.',
+      );
+    return toUserNode(row, githubOrigins(this.config));
+  }
+
+  @Query(() => UserNode, { nullable: true })
+  async user(
+    @Args('login') login: string,
+    @Context() { loaders }: GraphqlContext,
+  ) {
+    const row = await loaders.usersByLogin.load(login);
+    if (!row)
+      throw new CouldNotResolveError(
+        `Could not resolve to a User with the login of '${login}'.`,
+      );
+    return toUserNode(row, githubOrigins(this.config));
+  }
+
+  @Query(() => OrganizationNode, { nullable: true })
+  async organization(@Args('login') login: string) {
+    const [row] = await this.db
+      .select()
+      .from(schema.organization)
+      .where(eq(schema.organization.slug, login));
+    if (!row)
+      throw new CouldNotResolveError(
+        `Could not resolve to an Organization with the login of '${login}'.`,
+      );
+    return toOrganizationNode(row, githubOrigins(this.config));
+  }
+
+  @Query(() => RepositoryOwner, { nullable: true })
+  async repositoryOwner(
+    @Args('login') login: string,
+    @Context() context: GraphqlContext,
+  ) {
+    const [organization] = await this.db
+      .select()
+      .from(schema.organization)
+      .where(eq(schema.organization.slug, login));
+    if (organization)
+      return toOrganizationNode(organization, githubOrigins(this.config));
+    const user = await context.loaders.usersByLogin.load(login);
+    return user ? toUserNode(user, githubOrigins(this.config)) : null;
+  }
+
+  @Query(() => Node, { nullable: true })
+  async node(
+    @Args('id', { type: () => ID }) id: string,
+    @Context() context: GraphqlContext,
+  ) {
+    const found = await this.lookup(id, context);
+    if (!found)
+      throw new CouldNotResolveError(
+        `Could not resolve to a node with the global id of '${id}'`,
+      );
+    return found;
+  }
+
+  @Query(() => [Node], { nullable: 'items' })
+  nodes(
+    @Args('ids', { type: () => [ID] }) ids: string[],
+    @Context() context: GraphqlContext,
+  ) {
+    return Promise.all(ids.map((id) => this.lookup(id, context)));
+  }
+
+  /** Later tasks add Repository, Issue, IssueComment and Label here. */
+  private async lookup(id: string, { loaders }: GraphqlContext) {
+    const decoded = decodeNodeId(id);
+    if (decoded?.type === 'User') {
+      const row = await loaders.usersById.load(decoded.id);
+      return row ? toUserNode(row, githubOrigins(this.config)) : null;
+    }
+    if (decoded?.type === 'Organization') {
+      const [row] = await this.db
+        .select()
+        .from(schema.organization)
+        .where(eq(schema.organization.id, decoded.id));
+      return row ? toOrganizationNode(row, githubOrigins(this.config)) : null;
+    }
     return null;
   }
 }

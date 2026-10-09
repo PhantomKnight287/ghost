@@ -1,4 +1,9 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
@@ -10,6 +15,10 @@ import { ViewerResolver } from './graphql/resolvers/viewer/viewer.resolver.js';
 import { MetaModule } from './rest/meta/meta.module.js';
 import { UsersModule } from './rest/users/users.module.js';
 import { GithubAuthMiddleware } from './auth/github-auth.middleware.js';
+import { GraphQLFormattedError } from 'graphql';
+import { GraphQLError } from 'graphql/error';
+import { DomainError } from '../domain/errors.js';
+import { graphqlErrorType } from '../lib/github/error-type.js';
 
 @Module({
   imports: [
@@ -37,6 +46,17 @@ import { GithubAuthMiddleware } from './auth/github-auth.middleware.js';
           res,
           loaders: createLoaders(db),
         }),
+        formatError: (formatted: GraphQLFormattedError, error: unknown) => {
+          const original =
+            error instanceof GraphQLError ? error.cause : undefined;
+          if (!(original instanceof DomainError)) return formatted;
+          return {
+            type: graphqlErrorType(original.status),
+            path: formatted.path,
+            locations: formatted.locations,
+            message: original.message,
+          };
+        },
       }),
     }),
     MetaModule,

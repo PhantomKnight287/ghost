@@ -41,5 +41,32 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     const response = await graphql('{ __typename }', {}, 'ghost_pat_nope').expect(401);
     expect(response.body.message).toBe('Bad credentials');
   });
+  it('answers viewer with the token owner', async () => {
+    const response = await graphql('{ viewer { __typename id login name url resourcePath avatarUrl } }', {}, owner.key).expect(200);
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.viewer).toMatchObject({ __typename: 'User', login: username, resourcePath: `/${username}` });
+    expect(response.body.data.viewer.id).toMatch(/^U_/);
+  });
+
+  it('refuses viewer anonymously, as GitHub does', async () => {
+    const response = await graphql('{ viewer { login } }').expect(200);
+    expect(response.body.errors[0].type).toBe('FORBIDDEN');
+  });
+
+  it('resolves user, repositoryOwner and node by id', async () => {
+    const response = await graphql(
+      'query($login: String!) { user(login: $login) { id login } repositoryOwner(login: $login) { __typename login } }',
+      { login: username },
+    ).expect(200);
+    expect(response.body.data.repositoryOwner).toEqual({ __typename: 'User', login: username });
+    const node = await graphql('query($id: ID!) { node(id: $id) { __typename ... on User { login } } }', { id: response.body.data.user.id }).expect(200);
+    expect(node.body.data.node).toEqual({ __typename: 'User', login: username });
+  });
+
+  it('answers a missing user as NOT_FOUND with GitHub wording', async () => {
+    const response = await graphql('{ user(login: "nobody-here-xyz") { login } }').expect(200);
+    expect(response.body.data.user).toBeNull();
+    expect(response.body.errors[0]).toMatchObject({ type: 'NOT_FOUND', message: "Could not resolve to a User with the login of 'nobody-here-xyz'." });
+  });
 
 });
