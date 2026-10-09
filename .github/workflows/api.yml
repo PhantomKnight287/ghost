@@ -1,5 +1,5 @@
-# Type-checks and tests the API on every pull request, stacked ones included, and on every push to main.
-name: API
+# Type-checks and tests the API and the delivery service on every pull request, stacked ones included, and on every push to main.
+name: CI
 
 on:
   pull_request:
@@ -57,9 +57,10 @@ jobs:
       # Builds the workspace packages the API imports from dist, then type-checks it.
       - run: bunx turbo run check-types --filter=@ghost/api
 
+      # Integration specs among them migrate the same database, and racing migrators collide on the journal table.
       - name: Unit tests
         working-directory: apps/api
-        run: bunx vitest run
+        run: bunx vitest run --no-file-parallelism
 
       - name: End-to-end tests
         working-directory: apps/api
@@ -67,3 +68,48 @@ jobs:
 
       - name: Committed GraphQL schema is current
         run: git diff --exit-code -- apps/api/github.schema.gql
+
+  delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+      TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/delivery/go.mod
+          cache-dependency-path: apps/delivery/go.sum
+
+      - run: bun install --frozen-lockfile
+
+      # The queue tests read and write delivery_job, which the API's migrations create.
+      - name: Migrate the database
+        run: |
+          bunx turbo run build --filter=@ghost/db
+          bun packages/db/dist/migrate.js
+
+      - name: go vet
+        working-directory: apps/delivery
+        run: go vet ./...
+
+      - name: go test
+        working-directory: apps/delivery
+        run: go test ./...
