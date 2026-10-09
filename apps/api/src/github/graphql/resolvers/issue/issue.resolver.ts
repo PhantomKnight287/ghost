@@ -19,14 +19,16 @@ import { Actor } from '../../types/node.interface.js';
 import { MilestoneNode, ReactionGroup, SubIssuesSummary } from '../../types/placeholders.type.js';
 import { RepositoryNode } from '../../types/repository.type.js';
 import { UserConnection } from '../../types/user.type.js';
-import { RepositoryResolver } from '../repository/repository.resolver.js';
+// The two resolvers inject each other: the namespace import is read lazily by forwardRef, and the type-only import keeps decorator metadata from touching the class mid-cycle.
+import * as repositoryResolver from '../repository/repository.resolver.js';
+import type { RepositoryResolver } from '../repository/repository.resolver.js';
 
 @Resolver(() => IssueNode)
 @AllowAnonymous()
 export class IssueResolver {
   constructor(
     private readonly issues: IssuesService,
-    @Inject(forwardRef(() => RepositoryResolver)) private readonly repositories: RepositoryResolver,
+    @Inject(forwardRef(() => repositoryResolver.RepositoryResolver)) private readonly repositories: RepositoryResolver,
     private readonly config: ConfigService,
   ) {}
 

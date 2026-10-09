@@ -16,7 +16,7 @@ import { RefNode, RepositoryNode } from '../../types/repository.type.js';
 import { DATABASE } from '../../../../database/database.module.js';
 import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
-import { GithubViewer } from '../../../auth/github-request.js';
+import type { GithubViewer } from '../../../auth/github-request.js';
 import { authorizeOrNotFound } from '../../../../lib/github/authorize.js';
 import { RepositoryOwner } from '../../types/node.interface.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
@@ -40,7 +40,9 @@ import { PullRequestNode } from '../../types/pull-request.type.js';
 import { IssueOrderField, IssueState, OrderDirection } from '../../enums.js';
 import { IssueFilters, IssueOrder } from '../../inputs.js';
 import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
-import { IssueResolver } from '../issue/issue.resolver.js';
+// The two resolvers inject each other: the namespace import is read lazily by forwardRef, and the type-only import keeps decorator metadata from touching the class mid-cycle.
+import * as issueResolver from '../issue/issue.resolver.js';
+import type { IssueResolver } from '../issue/issue.resolver.js';
 
 @Resolver(() => RepositoryNode)
 @AllowAnonymous()
@@ -50,7 +52,7 @@ export class RepositoryResolver {
     private readonly access: RepositoryAccessService,
     private readonly config: ConfigService,
     private readonly issuesService: IssuesService,
-    @Inject(forwardRef(() => IssueResolver)) private readonly issueNodes: IssueResolver,
+    @Inject(forwardRef(() => issueResolver.IssueResolver)) private readonly issueNodes: IssueResolver,
   ) {}
 
   @Query(() => RepositoryNode, { nullable: true })

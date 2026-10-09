@@ -1,4 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -82,5 +86,17 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
     const user = await v3(`/users/${username}`).expect(200);
     expect(user.body).toMatchObject({ login: username, type: 'User' });
     await v3('/users/nobody-xyz').expect(404);
+  });
+
+  it('lists and adds SSH keys in GitHub shape', async () => {
+    // A fingerprint belongs to one account, so each run adds a fresh key.
+    const dir = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-ghrest-'));
+    execFileSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', path.join(dir, 'id')]);
+    const key = readFileSync(path.join(dir, 'id.pub'), 'utf8');
+    rmSync(dir, { recursive: true, force: true });
+    const added = await request(app.getHttpServer()).post('/api/v3/user/keys').set('authorization', `token ${owner.key}`).send({ title: 'laptop', key }).expect(201);
+    expect(added.body).toMatchObject({ title: 'laptop', key: expect.stringContaining('ssh-ed25519'), read_only: false, verified: true });
+    const listed = await v3('/user/keys', owner.key).expect(200);
+    expect(listed.body).toContainEqual(expect.objectContaining({ title: 'laptop', key: expect.stringContaining('ssh-ed25519 AAAA') }));
   });
 });

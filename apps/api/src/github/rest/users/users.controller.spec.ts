@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { SshKeysService } from '../../../resources/ssh-keys/ssh-keys.service.js';
 import { DATABASE } from '../../../database/database.module.js';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../../services/users/users.service.js';
@@ -13,6 +14,7 @@ describe('UsersController', () => {
       providers: [
         { provide: UsersService, useValue: {} },
         { provide: ConfigService, useValue: {} },
+        { provide: SshKeysService, useValue: {} },
         { provide: DATABASE, useValue: {} },
       ],
     }).compile();

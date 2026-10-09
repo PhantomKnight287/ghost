@@ -174,4 +174,12 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     const out = await ok(['repo', 'create', `${GH_E2E_HOST}/${username}/gh-made`, '--private', '--description', 'from gh']);
     expect(out).toContain(`${username}/gh-made`);
   });
+
+  it('adds and lists SSH keys', async () => {
+    // A fingerprint belongs to one account, so each run adds a fresh key.
+    await promisify(execFile)('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', path.join(configDir, 'id')]);
+    const keyFile = path.join(configDir, 'id.pub');
+    await ok(['ssh-key', 'add', keyFile, '--title', 'gh-e2e']);
+    expect(await ok(['ssh-key', 'list'])).toContain('gh-e2e');
+  });
 });

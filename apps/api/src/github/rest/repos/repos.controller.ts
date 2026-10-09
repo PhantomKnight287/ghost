@@ -18,7 +18,7 @@ import { findReadmePath } from '../../../lib/git/blob/find-readme.js';
 import { isTextBlob, readBlob } from '../../../lib/git/blob/read-blob.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
-import { GithubViewer } from '../../auth/github-request.js';
+import type { GithubViewer } from '../../auth/github-request.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
 import { RequiresAuthenticationError } from '../../../lib/github/github.errors.js';
 import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
