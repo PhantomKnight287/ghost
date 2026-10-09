@@ -1,11 +1,8 @@
-import path from 'node:path';
 import {
   BucketAlreadyOwnedByYou,
   CreateBucketCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { createDatabase } from '@ghost/db';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
 
 import {
   DATABASE_URL,
@@ -13,19 +10,15 @@ import {
   S3_ENDPOINT,
   s3Credentials,
 } from './harness.js';
+import { migrateTestDatabase } from './migrate.js';
+import path from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
-const MIGRATIONS = path.resolve(
-  import.meta.dirname,
-  '../../../packages/db/drizzle',
-);
-
-// Once for every suite: suites run in parallel, and two migrators racing on a fresh database collide creating the journal table.
 export default async function setup() {
-  if (!hasBackends) return;
+  if (!hasBackends || !DATABASE_URL) return;
 
-  const { db, pool } = createDatabase({ connectionString: DATABASE_URL });
-  await migrate(db, { migrationsFolder: MIGRATIONS });
-  await pool.end();
+  await migrateTestDatabase(DATABASE_URL);
 
   await new S3Client({
     endpoint: S3_ENDPOINT,
@@ -40,4 +33,32 @@ export default async function setup() {
     .catch((error: unknown) => {
       if (!(error instanceof BucketAlreadyOwnedByYou)) throw error;
     });
+
+  const host = process.env.GH_E2E_HOST;
+  if (host) {
+    const dir = path.resolve(import.meta.dirname, '../.gh-e2e');
+    mkdirSync(dir, { recursive: true });
+    execFileSync(
+      'openssl',
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-nodes',
+        '-days',
+        '1',
+        '-subj',
+        `/CN=${host}`,
+        '-addext',
+        // The IP lets supertest reach the same server at 127.0.0.1 while gh uses the host name.
+        `subjectAltName=DNS:${host},IP:127.0.0.1`,
+        '-keyout',
+        path.join(dir, 'key.pem'),
+        '-out',
+        path.join(dir, 'cert.pem'),
+      ],
+      { stdio: 'ignore' },
+    );
+  }
 }

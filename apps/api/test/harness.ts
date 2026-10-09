@@ -18,7 +18,11 @@ export const s3Credentials = {
 export const hasBackends = Boolean(DATABASE_URL && S3_ENDPOINT);
 
 /** Serves the whole app on `port`, random unless given, against the database and bucket global-setup.ts prepared. `env` overrides the defaults below, such as turning the SSH transport on. */
-export async function startApp(env: Record<string, string> = {}, port = 0) {
+export async function startApp(
+  env: Record<string, string> = {},
+  port = 0,
+  httpsOptions?: { key: Buffer; cert: Buffer },
+) {
   Object.assign(process.env, {
     DATABASE_URL,
     S3_ENDPOINT,
@@ -42,13 +46,16 @@ export async function startApp(env: Record<string, string> = {}, port = 0) {
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
-  const app = moduleRef.createNestApplication({ bodyParser: false });
+  const app = moduleRef.createNestApplication({
+    bodyParser: false,
+    httpsOptions,
+  });
   configureApp(app);
   await app.listen(port, '127.0.0.1');
-
+  const scheme = httpsOptions ? 'https' : 'http';
   return {
     app,
-    origin: `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`,
+    origin: `${scheme}://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`,
   };
 }
 

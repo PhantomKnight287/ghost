@@ -34,10 +34,10 @@ export class SshKeysService {
       .orderBy(schema.userSshKey.createdAt);
 
     return {
-      keys: rows.map(({ publicKey, ...key }) => ({
-        ...key,
-        type: keyTypeOf(publicKey),
-      })),
+      keys: rows.map((key) => {
+        const type = keyTypeOf(key.publicKey);
+        return { ...key, type, publicKey: `${type} ${key.publicKey}` };
+      }),
     };
   }
 
@@ -73,7 +73,7 @@ export class SshKeysService {
     // A fingerprint belongs to one account, so a clash is someone else's key - or this account adding the same one twice.
     if (!row) throw new SshKeyAlreadyExistsError();
 
-    return { ...row, type: key.type };
+    return { ...row, type: key.type, publicKey: `${key.type} ${key.blob}` };
   }
 
   async remove(userId: string, id: string): Promise<void> {

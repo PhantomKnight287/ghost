@@ -1,0 +1,115 @@
+# Type-checks and tests the API and the delivery service on every pull request, stacked ones included, and on every push to main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      rustfs:
+        image: rustfs/rustfs:latest
+        env:
+          RUSTFS_ACCESS_KEY: ghost
+          RUSTFS_SECRET_KEY: ghostsecret
+          RUSTFS_VOLUMES: /data
+          RUSTFS_ADDRESS: 0.0.0.0:9000
+        ports: ['9000:9000']
+    env:
+      TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+      TEST_S3_ENDPOINT: http://localhost:9000
+      GH_E2E_HOST: ghost.test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - run: bun install --frozen-lockfile
+
+      # gh refuses a port in GH_HOST, so the gh suite serves HTTPS on 443 for a name only this runner resolves.
+      - name: Serve ghost.test on 443 without root
+        run: |
+          echo "127.0.0.1 ghost.test" | sudo tee -a /etc/hosts
+          sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+
+      - run: gh --version
+
+      # Builds the workspace packages the API imports from dist, then type-checks it.
+      - run: bunx turbo run check-types --filter=@ghost/api
+
+      # Integration specs among them migrate the same database, and racing migrators collide on the journal table.
+      - name: Unit tests
+        working-directory: apps/api
+        run: bunx vitest run --no-file-parallelism
+
+      - name: End-to-end tests
+        working-directory: apps/api
+        run: bunx vitest run --config ./vitest.config.e2e.ts --no-file-parallelism
+
+      - name: Committed GraphQL schema is current
+        run: git diff --exit-code -- apps/api/github.schema.gql
+
+  delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+      TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/delivery/go.mod
+          cache-dependency-path: apps/delivery/go.sum
+
+      - run: bun install --frozen-lockfile
+
+      # The queue tests read and write delivery_job, which the API's migrations create.
+      - name: Migrate the database
+        run: |
+          bunx turbo run build --filter=@ghost/db
+          bun packages/db/dist/migrate.js
+
+      - name: go vet
+        working-directory: apps/delivery
+        run: go vet ./...
+
+      - name: go test
+        working-directory: apps/delivery
+        run: go test ./...

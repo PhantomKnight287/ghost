@@ -94,10 +94,11 @@ describe.skipIf(!hasBackends)('Git LFS', () => {
     `${origin.replace('://', `://${username}:${key}@`)}/${username}/${slug}.git`;
   const sshCommand = () =>
     `ssh -i ${sshKey} -p ${sshPort} -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR`;
-  // The machine's own git config, such as a global `git lfs install`, must not change what a test pushes.
+  // The machine's own git config, such as a global or system-wide `git lfs install` (GitHub's runners have one), must not change what a test pushes.
   const gitEnv = () => ({
     ...process.env,
     GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_CONFIG_NOSYSTEM: '1',
     GIT_TERMINAL_PROMPT: '0',
     GIT_SSH_COMMAND: sshCommand(),
   });

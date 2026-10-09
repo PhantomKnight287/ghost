@@ -33,6 +33,7 @@ import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
 import { AppStatsService } from './services/stats/app-stats.service.js';
 import { S3Module } from './s3/s3.module.js';
+import { GithubModule } from './github/github.module.js';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { S3Module } from './s3/s3.module.js';
     SshKeysModule,
     GitModule,
     UserModule,
+    GithubModule,
   ],
   controllers: [AppController],
   providers: [AppStatsService],
