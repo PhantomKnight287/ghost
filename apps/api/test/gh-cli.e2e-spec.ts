@@ -35,7 +35,9 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     ));
     owner = await signUp(app, username);
     configDir = mkdtempSync(path.join(tmpdir(), 'gh-e2e-'));
-    await request(app.getHttpServer())
+    // The app serves the self-signed e2e certificate, which supertest must be told to trust.
+    const api = request.agent(app.getHttpServer()).ca(cert);
+    await api
       .post('/api/repositories')
       .set('cookie', owner.cookie)
       .send({ name: 'tools', visibility: 'public' })
@@ -67,7 +69,6 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       `https://${username}:${owner.key}@${GH_E2E_HOST}/${username}/tools.git`,
       'main',
     );
-    const api = request(app.getHttpServer());
     for (const title of ['Broken build', 'Docs typo']) {
       await api.post(`/api/repositories/${username}/tools/issues`).set('cookie', owner.cookie).send({ title }).expect(201);
     }

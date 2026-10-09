@@ -51,7 +51,8 @@ export default async function setup() {
         '-subj',
         `/CN=${host}`,
         '-addext',
-        `subjectAltName=DNS:${host}`,
+        // The IP lets supertest reach the same server at 127.0.0.1 while gh uses the host name.
+        `subjectAltName=DNS:${host},IP:127.0.0.1`,
         '-keyout',
         path.join(dir, 'key.pem'),
         '-out',
