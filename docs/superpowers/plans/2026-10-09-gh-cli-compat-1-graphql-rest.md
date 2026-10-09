@@ -3797,7 +3797,7 @@ git commit -m "api: GitHub issue mutations for gh issue create, edit, comment, c
 - Consumes `RepositoriesService.createRepository(body: CreateRepositoryRequestDTO, userId: string): Promise<{ id; slug }>` and `RepositoryResolver.load`.
 - Produces `CreateRepositoryInput { name: String!, ownerId: ID, description: String, visibility: RepositoryVisibility!, template: Boolean, homepageUrl: URI, hasWikiEnabled: Boolean, hasIssuesEnabled: Boolean, teamId: ID, clientMutationId }` and `CreateRepositoryPayload { repository, clientMutationId }`.
 
-- [ ] **Step 1: Failing cases**
+- [x] **Step 1: Failing cases**
 
 GraphQL e2e:
 
@@ -3833,7 +3833,7 @@ REST e2e:
 
 Run; Expected: FAIL.
 
-- [ ] **Step 2: Mutation**
+- [x] **Step 2: Mutation**
 
 ```ts
 @Resolver()
@@ -3869,7 +3869,7 @@ export class RepositoryMutationsResolver {
 
 `gh repo create OWNER/NAME` looks the owner up first; with the viewer's own login it sends no `ownerId`. `hasIssuesEnabled`, `hasWikiEnabled`, `homepageUrl` and `template` are accepted and ignored (Ghost has no such settings); `gh` follows a non-default value with `updateRepository`, which milestone 1 does not serve, so `gh repo create --disable-issues` fails with GitHub's unknown-field error. List it on the compatibility page (Task 16).
 
-- [ ] **Step 3: REST**
+- [x] **Step 3: REST**
 
 In `repos.controller.ts`:
 
@@ -3903,7 +3903,7 @@ In `users.controller.ts`, add `GET users/:login`: a user by username in the same
 
 Register `RepositoryMutationsResolver` in `GithubModule`.
 
-- [ ] **Step 4: Run, then commit**
+- [x] **Step 4: Run, then commit**
 
 ```bash
 git add apps/api/src apps/api/test apps/api/github.schema.gql

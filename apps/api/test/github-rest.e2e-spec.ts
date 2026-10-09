@@ -75,4 +75,12 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
    it('answers the readme as base64 content, and 404 when there is none', async () => {
      await v3(`/repos/${username}/public-repo/readme`, owner.key).expect(404);
    });
+
+  it('creates a repository with POST /user/repos and answers GET /users/:login', async () => {
+    const created = await request(app.getHttpServer()).post('/api/v3/user/repos').set('authorization', `token ${owner.key}`).send({ name: 'rest-made', private: true, auto_init: true }).expect(201);
+    expect(created.body).toMatchObject({ name: 'rest-made', full_name: `${username}/rest-made`, private: true });
+    const user = await v3(`/users/${username}`).expect(200);
+    expect(user.body).toMatchObject({ login: username, type: 'User' });
+    await v3('/users/nobody-xyz').expect(404);
+  });
 });

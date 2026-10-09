@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
 import { ConfigService } from '@nestjs/config';
 import { RepositoryResolver } from '../../graphql/resolvers/repository/repository.resolver.js';
 import { RepositoryMaterializerService } from '../../../services/git/materializer/repository-materializer.service.js';
@@ -14,6 +15,7 @@ describe('ReposController', () => {
         { provide: RepositoryResolver, useValue: {} },
         { provide: RepositoryMaterializerService, useValue: {} },
         { provide: ConfigService, useValue: {} },
+        { provide: RepositoriesService, useValue: {} },
       ],
     }).compile();
 

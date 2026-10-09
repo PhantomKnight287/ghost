@@ -1,8 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
+  Post,
   UseFilters,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -17,6 +20,9 @@ import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubViewer } from '../../auth/github-request.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
+import { RequiresAuthenticationError } from '../../../lib/github/github.errors.js';
+import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
+import { GithubCreateRepositoryDTO } from './dto/create-repository.dto.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
@@ -26,6 +32,7 @@ export class ReposController {
   constructor(
     private readonly repositoryNodes: RepositoryResolver,
     private readonly materializer: RepositoryMaterializerService,
+    private readonly repositories: RepositoriesService,
     private readonly config: ConfigService,
   ) {}
 
@@ -95,5 +102,27 @@ export class ReposController {
       path,
       content: blob.content.toString('base64'),
     };
+  }
+
+  @Post('user/repos')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Create a repository for the authenticated user' })
+  createForUser(@Body() body: GithubCreateRepositoryDTO, @Viewer() viewer: GithubViewer | null) {
+    return this.create(body, viewer, undefined);
+  }
+
+  @Post('orgs/:org/repos')
+  @HttpCode(201)
+  @ApiOperation({ summary: 'Create a repository in an organization' })
+  createForOrganization(@Param('org') org: string, @Body() body: GithubCreateRepositoryDTO, @Viewer() viewer: GithubViewer | null) {
+    return this.create(body, viewer, org);
+  }
+
+  private async create(body: GithubCreateRepositoryDTO, viewer: GithubViewer | null, organization: string | undefined) {
+    if (!viewer) throw new RequiresAuthenticationError();
+    const visibility = body.visibility ?? (body.private ? 'private' : 'public');
+    const created = await this.repositories.createRepository({ name: body.name, description: body.description, visibility, organization }, viewer.userId);
+    const node = await this.repositoryNodes.load(created.id, viewer.userId);
+    return this.get(node.ownerLogin, node.slug, viewer);
   }
 }

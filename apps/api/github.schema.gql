@@ -82,6 +82,24 @@ type CreateIssuePayload {
   issue: Issue
 }
 
+input CreateRepositoryInput {
+  clientMutationId: String
+  description: String
+  hasIssuesEnabled: Boolean = true
+  hasWikiEnabled: Boolean = false
+  homepageUrl: URI
+  name: String!
+  ownerId: ID
+  teamId: ID
+  template: Boolean = false
+  visibility: RepositoryVisibility!
+}
+
+type CreateRepositoryPayload {
+  clientMutationId: String
+  repository: Repository
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -233,6 +251,7 @@ type Mutation {
   addLabelsToLabelable(input: AddLabelsToLabelableInput!): AddLabelsToLabelablePayload
   closeIssue(input: CloseIssueInput!): CloseIssuePayload
   createIssue(input: CreateIssueInput!): CreateIssuePayload
+  createRepository(input: CreateRepositoryInput!): CreateRepositoryPayload
   removeAssigneesFromAssignable(input: RemoveAssigneesFromAssignableInput!): RemoveAssigneesFromAssignablePayload
   removeLabelsFromLabelable(input: RemoveLabelsFromLabelableInput!): RemoveLabelsFromLabelablePayload
   reopenIssue(input: ReopenIssueInput!): ReopenIssuePayload

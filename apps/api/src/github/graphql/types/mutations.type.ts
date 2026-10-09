@@ -1,10 +1,12 @@
 import { Field, ID, InputType, ObjectType } from '@nestjs/graphql';
 import { Allow } from 'class-validator';
 
-import { IssueClosedStateReason, IssueState } from '../enums.js';
+import { IssueClosedStateReason, IssueState, RepositoryVisibility } from '../enums.js';
+import { URI } from '../scalars.js';
 import { IssueCommentNode } from './issue-comment.type.js';
 import { IssueNode } from './issue.type.js';
 import { Assignable, Labelable } from './node.interface.js';
+import { RepositoryNode } from './repository.type.js';
 
 // GraphQL already checks every input's types and nullability; @Allow only keeps fields through the global ValidationPipe's whitelist.
 @InputType('CreateIssueInput')
@@ -211,3 +213,56 @@ export class AddAssigneesToAssignablePayload extends AssignablePayload {}
 
 @ObjectType('RemoveAssigneesFromAssignablePayload')
 export class RemoveAssigneesFromAssignablePayload extends AssignablePayload {}
+
+@InputType('CreateRepositoryInput')
+export class CreateRepositoryInput {
+  @Allow()
+  @Field()
+  name: string;
+
+  @Allow()
+  @Field(() => ID, { nullable: true })
+  ownerId?: string | null;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  description?: string | null;
+
+  @Allow()
+  @Field(() => RepositoryVisibility)
+  visibility: RepositoryVisibility;
+
+  // Accepted and ignored: Ghost has no templates, homepages, wikis or per-repository issue switch, and gives no team access at creation.
+  @Allow()
+  @Field(() => Boolean, { nullable: true, defaultValue: false })
+  template?: boolean | null;
+
+  @Allow()
+  @Field(() => URI, { nullable: true })
+  homepageUrl?: string | null;
+
+  @Allow()
+  @Field(() => Boolean, { nullable: true, defaultValue: false })
+  hasWikiEnabled?: boolean | null;
+
+  @Allow()
+  @Field(() => Boolean, { nullable: true, defaultValue: true })
+  hasIssuesEnabled?: boolean | null;
+
+  @Allow()
+  @Field(() => ID, { nullable: true })
+  teamId?: string | null;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+}
+
+@ObjectType('CreateRepositoryPayload')
+export class CreateRepositoryPayload {
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+
+  @Field(() => RepositoryNode, { nullable: true })
+  repository: RepositoryNode | null;
+}
