@@ -18,6 +18,7 @@ import { apiKeyPlugin } from "@/lib/auth/api-key-plugin";
 
 import { getQueryClient } from "@/lib/query-client";
 import { APP_THEME_IDS } from "@/lib/themes";
+import { deviceAuthorizationPlugin } from "@/lib/auth/device-authorization-plugin";
 
 export function Providers({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -48,6 +49,7 @@ export function Providers({ children }: { children: ReactNode }) {
               roles: organizationRoleLabels,
               teams: true,
             }),
+            deviceAuthorizationPlugin()
           ]}
           navigate={({ to, replace }) =>
             replace ? router.replace(to) : router.push(to)

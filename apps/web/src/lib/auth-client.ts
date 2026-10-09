@@ -1,7 +1,11 @@
-import { createAuthClient } from "better-auth/react";
-import { ac, roles } from "@ghost/permissions";
-import { organizationClient, usernameClient } from "better-auth/client/plugins";
 import { apiKeyClient } from "@better-auth/api-key/client";
+import { ac, roles } from "@ghost/permissions";
+import {
+  deviceAuthorizationClient,
+  organizationClient,
+  usernameClient,
+} from "better-auth/client/plugins";
+import { createAuthClient } from "better-auth/react";
 
 import { API_URL } from "@/lib/env";
 
@@ -18,5 +22,6 @@ export const authClient = createAuthClient({
       teams: { enabled: true },
       dynamicAccessControl: { enabled: true },
     }),
+    deviceAuthorizationClient(),
   ],
 });
