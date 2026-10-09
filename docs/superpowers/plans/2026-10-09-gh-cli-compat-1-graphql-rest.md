@@ -160,12 +160,12 @@ apps/docs/content/docs/github-compatibility.mdx
 
 **Interfaces:** none new.
 
-- [ ] **Step 1: Run the failing test**
+- [x] **Step 1: Run the failing test**
 
 Run: `$E2E test/webhook-events.e2e-spec.ts -t "draft, published, then deleted"`
 Expected: FAIL, the published list has a second `release.edited`.
 
-- [ ] **Step 2: Read the full row before the update and compare after**
+- [x] **Step 2: Read the full row before the update and compare after**
 
 In `updateRelease`, replace the `before` select and the publish block:
 
@@ -216,12 +216,12 @@ In `updateRelease`, replace the `before` select and the publish block:
 
 Keep the existing `.set({...})` body exactly as it is.
 
-- [ ] **Step 3: Run the test**
+- [x] **Step 3: Run the test**
 
 Run: `$E2E test/webhook-events.e2e-spec.ts`
 Expected: PASS, all cases.
 
-- [ ] **Step 4: Commit and open the PR**
+- [x] **Step 4: Commit and open the PR**
 
 ```bash
 git add apps/api/src/resources/releases/releases.service.ts
@@ -239,13 +239,13 @@ git commit -m "api: publish release.edited only when the edit changed something"
 
 **Interfaces:** Produces the `GH_E2E_HOST=ghost.test` environment that Task 3's harness reads.
 
-- [ ] **Step 1: Write the workflow**
+- [x] **Step 1: Write the workflow**
 
 The workflow as shipped is `.github/workflows/api.yml` on `gh-compat/ci`; read it there. Two corrections from its first CI run, made in layer 2: the unit step runs `bunx vitest run --no-file-parallelism` (integration specs in the unit run each migrate the same database and race on it), and a second job, `delivery`, migrates its own Postgres with `bun packages/db/dist/migrate.js` and runs `go vet ./...` and `go test ./...` in `apps/delivery`.
 
 `@ghost/db` is imported from `dist`, so turbo's `^build` dependency builds it before the type check; the unit and e2e steps reuse that build.
 
-- [ ] **Step 2: No compose change**
+- [x] **Step 2: No compose change**
 
 The api service loads `env_file: .env`, and `docker/setup.sh` already writes `SSH_CLONE_HOST` there, so `docker/compose.yaml` needs nothing. (Corrected in layer 2; the step originally added an `environment:` entry.)
 
@@ -281,7 +281,7 @@ The outer loop of this plan is the real `gh` suite. This task makes `gh api grap
 - Produces in `test/gh.ts`: `GH_E2E_HOST: string | undefined`, `tlsFiles(): { key: Buffer; cert: Buffer; certPath: string }`, `runGh(args: string[], options: { configDir: string; token?: string; input?: string }): Promise<{ stdout: string; stderr: string; code: number }>`.
 - Produces `GithubModule` with `GraphQLModule.forRootAsync` and an empty resolver list that later tasks append to.
 
-- [ ] **Step 1: Add dependencies**
+- [x] **Step 1: Add dependencies**
 
 ```bash
 cd apps/api
@@ -291,7 +291,7 @@ bun add -d @octokit/graphql-schema@^15.26.1
 
 If `bun install` warns that `@thallesp/nestjs-better-auth` wants `@nestjs/graphql ^13`, continue; the warning is the optional-peer range. Only if a later step fails inside that package, patch it with `bun patch @thallesp/nestjs-better-auth` and record the patch in the PR.
 
-- [ ] **Step 2: Write the failing GraphQL e2e test**
+- [x] **Step 2: Write the failing GraphQL e2e test**
 
 `apps/api/test/github-graphql.e2e-spec.ts`:
 
@@ -335,12 +335,12 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
 
 `owner` and `username` are used by later tasks that extend this file.
 
-- [ ] **Step 3: Run it to see it fail**
+- [x] **Step 3: Run it to see it fail**
 
 Run: `$E2E test/github-graphql.e2e-spec.ts`
 Expected: FAIL, 404 on `/api/graphql`.
 
-- [ ] **Step 4: Write `origins.ts`**
+- [x] **Step 4: Write `origins.ts`**
 
 `apps/api/src/lib/github/origins.ts`:
 
@@ -359,7 +359,7 @@ export function githubOrigins(config: ConfigService) {
 export type GithubOrigins = ReturnType<typeof githubOrigins>;
 ```
 
-- [ ] **Step 5: Write the module skeleton**
+- [x] **Step 5: Write the module skeleton**
 
 `apps/api/src/github/github.module.ts`:
 
@@ -437,16 +437,16 @@ export class ViewerResolver {
 
 Add `providers: [ViewerResolver]` to `GithubModule`. The conformance test (Task 6) would reject `placeholder`, which is why Task 7 removes it.
 
-- [ ] **Step 6: Register the module**
+- [x] **Step 6: Register the module**
 
 In `apps/api/src/app.module.ts`, import `GithubModule` from `./github/github.module.js` and add it to `imports` directly before `GitModule`. The `/login/...` aliases in plan 2 rely on the compat module registering before the git routes.
 
-- [ ] **Step 7: Run the GraphQL e2e test**
+- [x] **Step 7: Run the GraphQL e2e test**
 
 Run: `$E2E test/github-graphql.e2e-spec.ts`
 Expected: PASS, both cases. `apps/api/github.schema.gql` now exists.
 
-- [ ] **Step 8: HTTPS support in the harness**
+- [x] **Step 8: HTTPS support in the harness**
 
 In `apps/api/test/harness.ts`, change `startApp`:
 
@@ -487,7 +487,7 @@ In `apps/api/test/global-setup.ts`, after the bucket is created, add the certifi
 
 Import `execFileSync` from `node:child_process` and `mkdirSync` from `node:fs`. Add `.gh-e2e/` to `apps/api/.gitignore` (create the file if missing).
 
-- [ ] **Step 9: `gh` helper**
+- [x] **Step 9: `gh` helper**
 
 `apps/api/test/gh.ts`:
 
@@ -596,7 +596,7 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
 
 `startApp` binds `127.0.0.1`; `/etc/hosts` maps `ghost.test` there.
 
-- [ ] **Step 11: Run the `gh` suite locally only if you are on Linux with the host mapping; otherwise rely on CI**
+- [x] **Step 11: Run the `gh` suite locally only if you are on Linux with the host mapping; otherwise rely on CI**
 
 Run (Linux): `GH_E2E_HOST=ghost.test $E2E test/gh-cli.e2e-spec.ts`
 Expected: PASS. On macOS, skip: Go ignores `SSL_CERT_FILE` there. Push and read the CI result instead.

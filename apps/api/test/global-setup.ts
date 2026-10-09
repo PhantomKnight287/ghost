@@ -11,6 +11,9 @@ import {
   s3Credentials,
 } from './harness.js';
 import { migrateTestDatabase } from './migrate.js';
+import path from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 export default async function setup() {
   if (!hasBackends || !DATABASE_URL) return;
@@ -30,4 +33,11 @@ export default async function setup() {
     .catch((error: unknown) => {
       if (!(error instanceof BucketAlreadyOwnedByYou)) throw error;
     });
+
+  const host = process.env.GH_E2E_HOST;
+   if (host) {
+     const dir = path.resolve(import.meta.dirname, '../.gh-e2e');
+     mkdirSync(dir, { recursive: true });
+     execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', `/CN=${host}`, '-addext', `subjectAltName=DNS:${host}`, '-keyout', path.join(dir, 'key.pem'), '-out', path.join(dir, 'cert.pem')], { stdio: 'ignore' });
+   }
 }
