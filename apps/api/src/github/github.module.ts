@@ -23,6 +23,7 @@ import { ReposModule } from './rest/repos/repos.module.js';
 import { IssuesModule } from '../resources/issues/issues.module.js';
 import { IssueCommentResolver } from './graphql/resolvers/issue-comment/issue-comment.resolver.js';
 import { SearchResolver } from './graphql/resolvers/search/search.resolver.js';
+import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issue-mutations.resolver.js';
 
 @Module({
   imports: [
@@ -69,7 +70,7 @@ import { SearchResolver } from './graphql/resolvers/search/search.resolver.js';
     ReposModule,
     IssuesModule,
   ],
-  providers: [ViewerResolver, IssueCommentResolver, SearchResolver],
+  providers: [ViewerResolver, IssueCommentResolver, SearchResolver, IssueMutationsResolver],
 })
 export class GithubModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

@@ -3512,7 +3512,7 @@ git commit -m "api: GitHub issue search for gh issue list --search"
 
 Each input's field set must match GitHub's; the conformance test's input check (Task 6) fails when GitHub requires a field we lack. Add `IssueClosedStateReason` enum (`COMPLETED`, `NOT_PLANNED`, `DUPLICATE`) and accept it; Ghost records no reason.
 
-- [ ] **Step 1: Failing e2e cases**
+- [x] **Step 1: Failing e2e cases**
 
 ```ts
   it('creates, edits, comments on, labels, closes and reopens an issue through mutations', async () => {
@@ -3560,11 +3560,11 @@ Each input's field set must match GitHub's; the conformance test's input check (
 
 Run; Expected: FAIL.
 
-- [ ] **Step 2: Inputs and payloads**
+- [x] **Step 2: Inputs and payloads**
 
 `mutations.type.ts`: one `@InputType(<GitHub name>)` class per input and one `@ObjectType(<GitHub name>)` per payload, fields exactly as listed in this task's Interfaces, `@Field(() => ID)` for ids, `@Field(() => [ID])` for id lists, `nullable: true` wherever GitHub's input field is optional. `AddCommentPayload.commentEdge` is `IssueCommentEdge { node: IssueComment }`: declare `@ObjectType('IssueCommentEdge') class IssueCommentEdge { @Field(() => String) cursor; @Field(() => IssueCommentNode, { nullable: true }) node }` here, and answer `cursor: ''`. `labelable` and `assignable` fields are typed with `Labelable` / `Assignable` interfaces: add them to `node.interface.ts` with no fields beyond what GitHub's interfaces declare that Issue implements (`labels(first: Int): LabelConnection` for `Labelable`, `assignees(first: Int): UserConnection!` for `Assignable`), and add both to `IssueNode`'s `implements`. If Nest refuses connection-with-args on interface fields, type the payload fields with `IssueNode` instead and accept the conformance test's message only if it passes; otherwise keep the interface without fields and use `resolveType`.
 
-- [ ] **Step 3: Resolver**
+- [x] **Step 3: Resolver**
 
 ```ts
 import type { Database } from '@ghost/db';
@@ -3756,7 +3756,7 @@ Check `createComment`'s return shape at `issues.service.ts:515`: the spread assu
 
 Register `IssueMutationsResolver` in `GithubModule`.
 
-- [ ] **Step 4: `gh` cases**
+- [x] **Step 4: `gh` cases**
 
 ```ts
   it('creates an issue with a label and an assignee', async () => {
@@ -3776,7 +3776,7 @@ Register `IssueMutationsResolver` in `GithubModule`.
 
 Create label `bug` on `tools` in `beforeAll`.
 
-- [ ] **Step 5: Run, then commit**
+- [x] **Step 5: Run, then commit**
 
 Run: `$E2E test/github-graphql.e2e-spec.ts` plus unit and conformance. Expected: PASS.
 

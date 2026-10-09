@@ -4,10 +4,10 @@ import type { LabelDTO } from '../../../resources/issues/dto/label.dto.js';
 import { Connection } from '../connection.js';
 import { IssueState, IssueStateReason } from '../enums.js';
 import { HTML, URI } from '../scalars.js';
-import { Node, UniformResourceLocatable } from './node.interface.js';
+import { Assignable, Labelable, Node, UniformResourceLocatable } from './node.interface.js';
 import { PullRequestNode } from './pull-request.type.js';
 
-@ObjectType('Issue', { implements: () => [Node, UniformResourceLocatable] })
+@ObjectType('Issue', { implements: () => [Node, UniformResourceLocatable, Labelable, Assignable] })
 export class IssueNode {
   kind = 'Issue';
   ghostId: string;

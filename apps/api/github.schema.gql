@@ -9,6 +9,54 @@ interface Actor {
   url: URI!
 }
 
+input AddAssigneesToAssignableInput {
+  assignableId: ID!
+  assigneeIds: [ID!]!
+  clientMutationId: String
+}
+
+type AddAssigneesToAssignablePayload {
+  assignable: Assignable
+  clientMutationId: String
+}
+
+input AddCommentInput {
+  body: String!
+  clientMutationId: String
+  subjectId: ID!
+}
+
+type AddCommentPayload {
+  clientMutationId: String
+  commentEdge: IssueCommentEdge
+}
+
+input AddLabelsToLabelableInput {
+  clientMutationId: String
+  labelIds: [ID!]!
+  labelableId: ID!
+}
+
+type AddLabelsToLabelablePayload {
+  clientMutationId: String
+  labelable: Labelable
+}
+
+interface Assignable {
+  assignees: UserConnection!
+}
+
+input CloseIssueInput {
+  clientMutationId: String
+  issueId: ID!
+  stateReason: IssueClosedStateReason
+}
+
+type CloseIssuePayload {
+  clientMutationId: String
+  issue: Issue
+}
+
 enum CommentAuthorAssociation {
   COLLABORATOR
   CONTRIBUTOR
@@ -18,6 +66,20 @@ enum CommentAuthorAssociation {
   MEMBER
   NONE
   OWNER
+}
+
+input CreateIssueInput {
+  assigneeIds: [ID!]
+  body: String
+  clientMutationId: String
+  labelIds: [ID!]
+  repositoryId: ID!
+  title: String!
+}
+
+type CreateIssuePayload {
+  clientMutationId: String
+  issue: Issue
 }
 
 """
@@ -31,7 +93,7 @@ scalar GitSSHRemote
 """A string containing HTML code."""
 scalar HTML
 
-type Issue implements Node & UniformResourceLocatable {
+type Issue implements Assignable & Labelable & Node & UniformResourceLocatable {
   assignees(first: Int): UserConnection!
   author: Actor
   body: String!
@@ -63,6 +125,12 @@ type Issue implements Node & UniformResourceLocatable {
   viewerCanUpdate: Boolean!
 }
 
+enum IssueClosedStateReason {
+  COMPLETED
+  DUPLICATE
+  NOT_PLANNED
+}
+
 type IssueComment implements Node {
   author: Actor
   authorAssociation: CommentAuthorAssociation!
@@ -83,6 +151,11 @@ type IssueCommentConnection {
   nodes: [IssueComment]
   pageInfo: PageInfo!
   totalCount: Int!
+}
+
+type IssueCommentEdge {
+  cursor: String!
+  node: IssueComment
 }
 
 type IssueConnection {
@@ -142,12 +215,28 @@ type LabelConnection {
   totalCount: Int!
 }
 
+interface Labelable {
+  labels: LabelConnection
+}
+
 type Milestone {
   description: String
   dueOn: DateTime
   id: ID!
   number: Int!
   title: String!
+}
+
+type Mutation {
+  addAssigneesToAssignable(input: AddAssigneesToAssignableInput!): AddAssigneesToAssignablePayload
+  addComment(input: AddCommentInput!): AddCommentPayload
+  addLabelsToLabelable(input: AddLabelsToLabelableInput!): AddLabelsToLabelablePayload
+  closeIssue(input: CloseIssueInput!): CloseIssuePayload
+  createIssue(input: CreateIssueInput!): CreateIssuePayload
+  removeAssigneesFromAssignable(input: RemoveAssigneesFromAssignableInput!): RemoveAssigneesFromAssignablePayload
+  removeLabelsFromLabelable(input: RemoveLabelsFromLabelableInput!): RemoveLabelsFromLabelablePayload
+  reopenIssue(input: ReopenIssueInput!): ReopenIssuePayload
+  updateIssue(input: UpdateIssueInput!): UpdateIssuePayload
 }
 
 interface Node {
@@ -228,6 +317,38 @@ type Ref implements Node {
   id: ID!
   name: String!
   prefix: String!
+}
+
+input RemoveAssigneesFromAssignableInput {
+  assignableId: ID!
+  assigneeIds: [ID!]!
+  clientMutationId: String
+}
+
+type RemoveAssigneesFromAssignablePayload {
+  assignable: Assignable
+  clientMutationId: String
+}
+
+input RemoveLabelsFromLabelableInput {
+  clientMutationId: String
+  labelIds: [ID!]!
+  labelableId: ID!
+}
+
+type RemoveLabelsFromLabelablePayload {
+  clientMutationId: String
+  labelable: Labelable
+}
+
+input ReopenIssueInput {
+  clientMutationId: String
+  issueId: ID!
+}
+
+type ReopenIssuePayload {
+  clientMutationId: String
+  issue: Issue
 }
 
 type Repository implements Node & UniformResourceLocatable {
@@ -313,6 +434,21 @@ scalar URI
 interface UniformResourceLocatable {
   resourcePath: URI!
   url: URI!
+}
+
+input UpdateIssueInput {
+  assigneeIds: [ID!]
+  body: String
+  clientMutationId: String
+  id: ID!
+  labelIds: [ID!]
+  state: IssueState
+  title: String
+}
+
+type UpdateIssuePayload {
+  clientMutationId: String
+  issue: Issue
 }
 
 type User implements Actor & Node & RepositoryOwner & UniformResourceLocatable {

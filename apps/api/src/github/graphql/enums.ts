@@ -32,3 +32,6 @@ registerEnumType(ReportedContentClassifiers, { name: 'ReportedContentClassifiers
 
 export enum SearchType { ISSUE = 'ISSUE', REPOSITORY = 'REPOSITORY', USER = 'USER', DISCUSSION = 'DISCUSSION' }
 registerEnumType(SearchType, { name: 'SearchType' });
+
+export enum IssueClosedStateReason { COMPLETED = 'COMPLETED', NOT_PLANNED = 'NOT_PLANNED', DUPLICATE = 'DUPLICATE' }
+registerEnumType(IssueClosedStateReason, { name: 'IssueClosedStateReason' });

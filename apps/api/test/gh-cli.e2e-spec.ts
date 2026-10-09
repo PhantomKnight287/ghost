@@ -72,6 +72,7 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       await api.post(`/api/repositories/${username}/tools/issues`).set('cookie', owner.cookie).send({ title }).expect(201);
     }
     await api.post(`/api/repositories/${username}/tools/issues/1/comments`).set('cookie', owner.cookie).send({ body: 'Seen it too' }).expect(201);
+    await api.post(`/api/repositories/${username}/tools/labels`).set('cookie', owner.cookie).send({ name: 'bug', color: 'd73a4a' }).expect(201);
   });
 
   afterAll(async () => {
@@ -153,5 +154,19 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   it('searches issues', async () => {
     const out = await ok(['issue', 'list', '-R', `${GH_E2E_HOST}/${username}/tools`, '--search', 'build', '--json', 'title']);
     expect(JSON.parse(out)).toEqual([{ title: 'Broken build' }]);
+  });
+
+  it('creates an issue with a label and an assignee', async () => {
+    const out = await ok(['issue', 'create', '-R', `${GH_E2E_HOST}/${username}/tools`, '--title', 'Made by gh', '--body', 'Body', '--label', 'bug', '--assignee', username]);
+    expect(out).toMatch(new RegExp(`/${username}/tools/issues/\\d+`));
+  });
+
+  it('comments on, edits, closes and reopens an issue', async () => {
+    const repo = `${GH_E2E_HOST}/${username}/tools`;
+    await ok(['issue', 'comment', '1', '-R', repo, '--body', 'From gh']);
+    await ok(['issue', 'edit', '1', '-R', repo, '--title', 'Broken build (edited)', '--add-label', 'bug']);
+    await ok(['issue', 'close', '1', '-R', repo]);
+    expect(JSON.parse(await ok(['issue', 'view', '1', '-R', repo, '--json', 'state,title,labels']))).toMatchObject({ state: 'CLOSED', title: 'Broken build (edited)', labels: [{ name: 'bug' }] });
+    await ok(['issue', 'reopen', '1', '-R', repo]);
   });
 });
