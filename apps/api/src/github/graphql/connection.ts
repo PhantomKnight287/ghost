@@ -36,16 +36,17 @@ export function Connection<T>(node: Type<T>, name: string) {
 
 /** One page of a list that is already fully in memory, such as an issue's labels. `first`/`last` slice it as GitHub does; `after` is an offset cursor this function hands out as `endCursor`. */
 export function sliceConnection<T>(items: T[], { first, last, after }: { first?: number | null; last?: number | null; after?: string | null }): ConnectionOf<T> {
-  const start = after ? Number(Buffer.from(after, 'base64url').toString()) || 0 : 0;
+  // The cursor and the page sizes come from the client, and a negative one would slice from the end.
+  const start = Math.max(0, Math.trunc(Number(after ? Buffer.from(after, 'base64url').toString() : 0)) || 0);
   const rest = items.slice(start);
-  const nodes = last ? rest.slice(-last) : rest.slice(0, first ?? rest.length);
-  const end = last ? items.length : start + nodes.length;
+  const nodes = last != null ? rest.slice(rest.length - Math.max(0, last)) : rest.slice(0, Math.max(0, first ?? rest.length));
+  const end = last != null ? items.length : start + nodes.length;
   return {
     nodes,
     totalCount: items.length,
     pageInfo: {
       hasNextPage: end < items.length,
-      hasPreviousPage: last ? nodes.length < rest.length : start > 0,
+      hasPreviousPage: last != null ? nodes.length < rest.length : start > 0,
       startCursor: null,
       endCursor: nodes.length > 0 ? Buffer.from(String(end)).toString('base64url') : null,
     },

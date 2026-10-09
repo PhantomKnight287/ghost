@@ -106,4 +106,9 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
     const document = SwaggerModule.createDocument(app, openApiConfig);
     expect(document.paths['/api/v3/user']?.get?.tags).toEqual(['GitHub compatibility']);
   });
+
+  it('names the invalid field in a REST validation error', async () => {
+    const response = await request(app.getHttpServer()).post('/api/v3/user/repos').set('authorization', `token ${owner.key}`).send({ private: 'yes' }).expect(400);
+    expect(response.body.message).toMatch(/name/);
+  });
 });

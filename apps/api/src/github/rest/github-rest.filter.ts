@@ -14,7 +14,15 @@ export class GithubRestFilter implements ExceptionFilter<DomainError | HttpExcep
     const status = exception instanceof HttpException ? exception.getStatus() : exception.status;
     if (status >= 500) this.logger.error(exception);
     // GitHub says "Not Found" for every 404, so a private repository and a missing one read the same.
-    const message = status === 404 ? 'Not Found' : exception.message;
+    const message = status === 404 ? 'Not Found' : this.messageOf(exception);
     host.switchToHttp().getResponse<Response>().status(status).json({ message, documentation_url: DOCUMENTATION_URL });
+  }
+
+  /** ValidationPipe's BadRequestException carries the field messages in its response; its own message is only "Bad Request Exception". */
+  private messageOf(exception: DomainError | HttpException) {
+    const response = exception instanceof HttpException ? exception.getResponse() : null;
+    const detail = typeof response === 'object' && response !== null && 'message' in response ? response.message : undefined;
+    if (Array.isArray(detail)) return detail.join('; ');
+    return typeof detail === 'string' ? detail : exception.message;
   }
 }

@@ -18,4 +18,12 @@ describe('sliceConnection', () => {
     expect(sliceConnection(items, { last: 2 })).toMatchObject({ nodes: ['d', 'e'], pageInfo: { hasNextPage: false, hasPreviousPage: true } });
     expect(sliceConnection([], { first: 10 }).pageInfo).toMatchObject({ hasNextPage: false, endCursor: null });
   });
+
+  it('treats a negative or garbage cursor as the start, and a negative page size as empty', () => {
+    const cursor = (offset: string) => Buffer.from(offset).toString('base64url');
+    expect(sliceConnection(items, { first: 2, after: cursor('-2') })).toMatchObject({ nodes: ['a', 'b'], pageInfo: { hasPreviousPage: false } });
+    expect(sliceConnection(items, { first: 2, after: 'not-a-cursor' }).nodes).toEqual(['a', 'b']);
+    expect(sliceConnection(items, { first: -1 }).nodes).toEqual([]);
+    expect(sliceConnection(items, { last: -1 }).nodes).toEqual([]);
+  });
 });

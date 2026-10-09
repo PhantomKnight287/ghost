@@ -8,6 +8,7 @@ import { CouldNotResolveError, GithubForbiddenError } from '../../../../lib/gith
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
 import { decodeNodeIdAs } from '../../../../lib/github/node-id.js';
 import { issueRefOf, labelNamesOf, usernamesOf } from '../../../../lib/github/node-lookup.js';
+import { orNull } from '../../../../lib/github/authorize.js';
 import { toIssueCommentNode } from '../../../../lib/github/nodes.js';
 import { RepositoryForbiddenError } from '../../../../lib/repositories/access/repository-access.errors.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
@@ -144,18 +145,17 @@ export class IssueMutationsResolver {
 
   private async repositoryFor(nodeId: string, userId: string) {
     const repositoryId = decodeNodeIdAs(nodeId, 'Repository');
-    return this.repositories.load(repositoryId, userId).catch(() => {
-      throw this.unresolved(nodeId);
-    });
+    const repository = await orNull(this.repositories.load(repositoryId, userId));
+    if (!repository) throw this.unresolved(nodeId);
+    return repository;
   }
 
   /** The issue a node id names, with the IssueRef the service methods take. */
   private async issueRef(nodeId: string, userId: string): Promise<{ repository: RepositoryNode; ref: IssueRef }> {
     const found = await issueRefOf(this.db, decodeNodeIdAs(nodeId, 'Issue'));
     if (!found) throw this.unresolved(nodeId);
-    const repository = await this.repositories.load(found.repositoryId, userId).catch(() => {
-      throw this.unresolved(nodeId);
-    });
+    const repository = await orNull(this.repositories.load(found.repositoryId, userId));
+    if (!repository) throw this.unresolved(nodeId);
     return { repository, ref: { username: repository.ownerLogin, repo: repository.slug, number: found.number, requesterId: userId } };
   }
 

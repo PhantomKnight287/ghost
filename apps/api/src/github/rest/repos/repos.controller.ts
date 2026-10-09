@@ -89,7 +89,7 @@ export class ReposController {
       id: node.ghostId,
       defaultBranch: node.defaultBranch,
     });
-    const ref = await resolveDefaultRef({ gitDir });
+    const ref = await resolveDefaultRef({ gitDir, defaultBranch: node.defaultBranch });
     const path = await findReadmePath({ gitDir, ref });
     const blob = path && (await readBlob({ gitDir, ref, path }));
     if (!path || !blob || !isTextBlob(blob.content))

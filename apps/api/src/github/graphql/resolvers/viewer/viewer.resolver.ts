@@ -23,6 +23,7 @@ import { RepositoryResolver } from '../repository/repository.resolver.js';
 import { IssueResolver } from '../issue/issue.resolver.js';
 import { IssueNode } from '../../types/issue.type.js';
 import { commentOf, issueRefOf } from '../../../../lib/github/node-lookup.js';
+import { orNull } from '../../../../lib/github/authorize.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import { OrganizationNode } from '../../types/organization.type.js';
 import { eq } from 'drizzle-orm';
@@ -134,7 +135,7 @@ export class ViewerResolver {
     }
     const requesterId = req.githubViewer?.userId;
     if (decoded?.type === 'Repository') {
-      return this.repositories.load(decoded.id, requesterId).catch(() => null);
+      return orNull(this.repositories.load(decoded.id, requesterId));
     }
     if (decoded?.type === 'Label') {
       const [label] = await this.db
@@ -150,7 +151,7 @@ export class ViewerResolver {
         .from(schema.label)
         .where(eq(schema.label.id, decoded.id));
       if (!label) return null;
-      const repository = await this.repositories.load(label.repositoryId, requesterId).catch(() => null);
+      const repository = await orNull(this.repositories.load(label.repositoryId, requesterId));
       return repository ? toLabelNode(label, repository) : null;
     }
     if (decoded?.type === 'Issue' || decoded?.type === 'PullRequest') {
@@ -171,7 +172,7 @@ export class ViewerResolver {
   private async issueById(issueId: string, requesterId?: string) {
     const ref = await issueRefOf(this.db, issueId);
     if (!ref) return null;
-    const repository = await this.repositories.load(ref.repositoryId, requesterId).catch(() => null);
-    return repository && this.issueNodes.fromRepository(repository, ref.number, requesterId).catch(() => null);
+    const repository = await orNull(this.repositories.load(ref.repositoryId, requesterId));
+    return repository && orNull(this.issueNodes.fromRepository(repository, ref.number, requesterId));
   }
 }

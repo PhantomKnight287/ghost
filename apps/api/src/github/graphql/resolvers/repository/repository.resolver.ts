@@ -17,7 +17,7 @@ import { DATABASE } from '../../../../database/database.module.js';
 import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
-import { authorizeOrNotFound } from '../../../../lib/github/authorize.js';
+import { authorizeOrNotFound, orNull } from '../../../../lib/github/authorize.js';
 import { RepositoryOwner } from '../../types/node.interface.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
@@ -101,9 +101,7 @@ export class RepositoryResolver {
   ) {
     if (!repository.parentGhostId) return null;
     // A parent the viewer cannot read reads as no parent, as on GitHub.
-    return this.load(repository.parentGhostId, viewer?.userId).catch(
-      () => null,
-    );
+    return orNull(this.load(repository.parentGhostId, viewer?.userId));
   }
 
   @ResolveField(() => RefNode, { nullable: true })
@@ -186,8 +184,8 @@ export class RepositoryResolver {
     @Args('orderBy', { type: () => IssueOrder, nullable: true }) orderBy?: IssueOrder,
     @Args('filterBy', { type: () => IssueFilters, nullable: true }) filterBy?: IssueFilters,
   ) {
-    const wanted = states ?? filterBy?.states ?? [];
-    const state = wanted.length === 1 ? (wanted[0] === IssueState.OPEN ? 'open' : 'closed') : 'all';
+    const wanted = new Set(states ?? filterBy?.states ?? []);
+    const state = wanted.size === 1 ? (wanted.has(IssueState.OPEN) ? 'open' : 'closed') : 'all';
     const sort = orderBy?.field === IssueOrderField.UPDATED_AT ? 'updated' : orderBy?.field === IssueOrderField.COMMENTS ? 'comments' : 'created';
     const page = await this.issuesService.getIssues({
       username: repository.ownerLogin,

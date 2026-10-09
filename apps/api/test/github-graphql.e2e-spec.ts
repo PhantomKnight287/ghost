@@ -209,6 +209,8 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     expect(issues.pageInfo.hasNextPage).toBe(true);
     const second = await graphql(LIST, { owner: username, repo: 'public-repo', limit: 2, endCursor: issues.pageInfo.endCursor }, owner.key).expect(200);
     expect(second.body.data.repository.issues.nodes.map((issue: { title: string }) => issue.title)).toEqual(['First']);
+    const repeated = await graphql(LIST, { owner: username, repo: 'public-repo', limit: 10, states: ['CLOSED', 'CLOSED'] }, owner.key).expect(200);
+    expect(repeated.body.data.repository.issues.totalCount).toBe(0);
     const filtered = await graphql(LIST, { owner: username, repo: 'public-repo', limit: 10, author: `${username}x` }, owner.key).expect(200);
     expect(filtered.body.data.repository.issues.totalCount).toBe(0);
     const ascending = await graphql(LIST.replace('direction: DESC', 'direction: ASC'), { owner: username, repo: 'public-repo', limit: 1 }, owner.key).expect(200);
@@ -273,8 +275,10 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     expect(issue.labels.nodes).toEqual([{ name: 'bug' }]);
     expect(issue.assignees.nodes).toEqual([{ login: username }]);
 
-    const updated = await graphql('mutation($input: UpdateIssueInput!) { updateIssue(input: $input) { issue { title } } }', { input: { id: issue.id, title: 'Renamed' } }, owner.key).expect(200);
-    expect(updated.body.data.updateIssue.issue.title).toBe('Renamed');
+    const updated = await graphql('mutation($input: UpdateIssueInput!) { updateIssue(input: $input) { issue { title body } } }', { input: { id: issue.id, title: 'Renamed' } }, owner.key).expect(200);
+    expect(updated.body.data.updateIssue.issue).toEqual({ title: 'Renamed', body: 'Body' });
+    const cleared = await graphql('mutation($input: UpdateIssueInput!) { updateIssue(input: $input) { issue { title body } } }', { input: { id: issue.id, body: null } }, owner.key).expect(200);
+    expect(cleared.body.data.updateIssue.issue).toEqual({ title: 'Renamed', body: '' });
 
     const comment = await graphql('mutation($input: AddCommentInput!) { addComment(input: $input) { commentEdge { node { body url } } } }', { input: { subjectId: issue.id, body: 'Thanks' } }, owner.key).expect(200);
     expect(comment.body.data.addComment.commentEdge.node.body).toBe('Thanks');
