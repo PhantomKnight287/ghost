@@ -149,4 +149,9 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     const out = await ok(['issue', 'list', '-R', `${GH_E2E_HOST}/${username}/tools`, '--state', 'all', '--author', username, '--json', 'number']);
     expect(JSON.parse(out).length).toBeGreaterThanOrEqual(2);
   });
+
+  it('searches issues', async () => {
+    const out = await ok(['issue', 'list', '-R', `${GH_E2E_HOST}/${username}/tools`, '--search', 'build', '--json', 'title']);
+    expect(JSON.parse(out)).toEqual([{ title: 'Broken build' }]);
+  });
 });

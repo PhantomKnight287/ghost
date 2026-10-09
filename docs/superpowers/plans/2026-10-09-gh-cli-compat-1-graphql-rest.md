@@ -3278,7 +3278,7 @@ git commit -m "api: GitHub Issue, IssueComment and issueOrPullRequest, with empt
 - Produces `parseIssueSearch(query: string): { repo: { owner: string; name: string } | null; state: 'open' | 'closed' | 'all'; isPullRequest: boolean | null; author?: string; assignee?: string; labels: string[]; text: string }`.
 - Produces `SearchResultItemConnection { issueCount: Int!, nodes: [SearchResultItem], pageInfo: PageInfo! }` and union `SearchResultItem = Issue | PullRequest | Repository | User | Organization` (only Issue and PullRequest are returned in milestone 1).
 
-- [ ] **Step 1: Failing unit test**
+- [x] **Step 1: Failing unit test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -3315,7 +3315,7 @@ describe('parseIssueSearch', () => {
 
 Run: `bunx vitest run src/lib/github/issue-search.spec.ts` — Expected: FAIL.
 
-- [ ] **Step 2: Parser**
+- [x] **Step 2: Parser**
 
 ```ts
 const TOKEN = /(-?[\w-]+):("[^"]*"|\S+)|("[^"]*"|\S+)/g;
@@ -3374,7 +3374,7 @@ export function parseIssueSearch(query: string) {
 
 Run the unit test; Expected: PASS.
 
-- [ ] **Step 3: Types and resolver**
+- [x] **Step 3: Types and resolver**
 
 `search.type.ts`:
 
@@ -3462,7 +3462,7 @@ export class SearchResolver {
 
 Register `SearchResolver` in `GithubModule`.
 
-- [ ] **Step 4: E2E and `gh` cases**
+- [x] **Step 4: E2E and `gh` cases**
 
 `test/github-graphql.e2e-spec.ts`:
 
@@ -3489,7 +3489,7 @@ Register `SearchResolver` in `GithubModule`.
 
 Also `gh issue list --label bug` goes through search in `gh`; add that command to the case if the first passes.
 
-- [ ] **Step 5: Run, then commit**
+- [x] **Step 5: Run, then commit**
 
 Run: `$E2E test/github-graphql.e2e-spec.ts`, unit and conformance tests. Expected: PASS.
 

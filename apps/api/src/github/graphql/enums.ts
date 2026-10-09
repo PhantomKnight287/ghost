@@ -29,3 +29,6 @@ registerEnumType(ReactionContent, { name: 'ReactionContent' });
 
 export enum ReportedContentClassifiers { SPAM = 'SPAM', ABUSE = 'ABUSE', OFF_TOPIC = 'OFF_TOPIC', OUTDATED = 'OUTDATED', DUPLICATE = 'DUPLICATE', RESOLVED = 'RESOLVED' }
 registerEnumType(ReportedContentClassifiers, { name: 'ReportedContentClassifiers' });
+
+export enum SearchType { ISSUE = 'ISSUE', REPOSITORY = 'REPOSITORY', USER = 'USER', DISCUSSION = 'DISCUSSION' }
+registerEnumType(SearchType, { name: 'SearchType' });
