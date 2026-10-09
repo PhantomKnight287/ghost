@@ -5,6 +5,14 @@ import { UserNode } from '../../github/graphql/types/user.type.js';
 import { encodeNodeId } from './node-id.js';
 import type { GithubOrigins } from './origins.js';
 
+import type { AuthorizedRepository } from '../repositories/access/repository-access.js';
+import { RepositoryNode } from '../../github/graphql/types/repository.type.js';
+import {
+  RepositoryPermission,
+  RepositoryVisibility,
+} from '../../github/graphql/enums.js';
+import { repositoryPermissionOf } from './permission.js';
+
 export type UserRow = typeof schema.user.$inferSelect;
 export type OrganizationRow = typeof schema.organization.$inferSelect;
 
@@ -25,7 +33,10 @@ export function toUserNode(row: UserRow, { web }: GithubOrigins) {
 }
 
 // Mapper: same reason as toUserNode.
-export function toOrganizationNode(row: OrganizationRow, { web }: GithubOrigins) {
+export function toOrganizationNode(
+  row: OrganizationRow,
+  { web }: GithubOrigins,
+) {
   return Object.assign(new OrganizationNode(), {
     ghostId: row.id,
     id: encodeNodeId('Organization', row.id),
@@ -35,5 +46,51 @@ export function toOrganizationNode(row: OrganizationRow, { web }: GithubOrigins)
     resourcePath: `/${row.slug}`,
     url: `${web}/${row.slug}`,
     databaseId: null,
+  });
+}
+
+// Mapper: the access service returns the row the permission check already loaded; re-querying it in GitHub's shape would read it twice.
+export function toRepositoryNode(
+  row: AuthorizedRepository,
+  ownerLogin: string,
+  { web, sshHost }: GithubOrigins,
+) {
+  const permission = repositoryPermissionOf(row.viewerRole);
+  return Object.assign(new RepositoryNode(), {
+    ghostId: row.id,
+    ownerGhostId: row.ownerId,
+    organizationGhostId: row.organizationId,
+    parentGhostId: row.parentRepositoryId,
+    ownerLogin,
+    slug: row.slug,
+    defaultBranch: row.defaultBranch,
+    viewerRole: row.viewerRole,
+    id: encodeNodeId('Repository', row.id),
+    databaseId: null,
+    name: row.slug,
+    nameWithOwner: `${ownerLogin}/${row.slug}`,
+    description: row.description,
+    isPrivate: row.visibility === 'private',
+    isFork: row.parentRepositoryId !== null,
+    isArchived: false,
+    isEmpty: false,
+    visibility:
+      row.visibility === 'private'
+        ? RepositoryVisibility.PRIVATE
+        : RepositoryVisibility.PUBLIC,
+    hasIssuesEnabled: true,
+    hasWikiEnabled: false,
+    hasProjectsEnabled: false,
+    // ponytail: Ghost allows every merge method on every repository; read per-repository settings here once they exist.
+    mergeCommitAllowed: true,
+    rebaseMergeAllowed: true,
+    squashMergeAllowed: true,
+    sshUrl: sshHost ? `ssh://git@${sshHost}/${ownerLogin}/${row.slug}.git` : '',
+    url: `${web}/${ownerLogin}/${row.slug}`,
+    resourcePath: `/${ownerLogin}/${row.slug}`,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    pushedAt: row.lastPushedAt,
+    viewerPermission: permission ? RepositoryPermission[permission] : null,
   });
 }

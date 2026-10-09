@@ -1,21 +1,23 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { DATABASE } from '../../../../database/database.module.js';
-import { ViewerResolver } from './viewer.resolver.js';
+import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
+import { RepositoryResolver } from './repository.resolver.js';
 
-describe('ViewerResolver', () => {
-  let resolver: ViewerResolver;
+describe('RepositoryResolver', () => {
+  let resolver: RepositoryResolver;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ViewerResolver,
+        RepositoryResolver,
         { provide: DATABASE, useValue: {} },
+        { provide: RepositoryAccessService, useValue: {} },
         { provide: ConfigService, useValue: {} },
       ],
     }).compile();
 
-    resolver = module.get<ViewerResolver>(ViewerResolver);
+    resolver = module.get<RepositoryResolver>(RepositoryResolver);
   });
 
   it('should be defined', () => {

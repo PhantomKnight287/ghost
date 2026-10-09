@@ -1775,7 +1775,7 @@ Run: `$E2E test/github-graphql.e2e-spec.ts` — Expected: PASS.
 Run: `bunx vitest run src/github/graphql/schema-conformance.spec.ts` — Expected: PASS (the e2e run regenerated `github.schema.gql`).
 In `test/gh-cli.e2e-spec.ts`, change the `it.todo` from Task 4 Step 9 to `it`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/api/src apps/api/test apps/api/github.schema.gql
@@ -1883,7 +1883,7 @@ Add to `test/github-rest.e2e-spec.ts` (create `public-repo` the same way in `bef
 
 Run both; Expected: FAIL.
 
-- [ ] **Step 2: Enums**
+- [x] **Step 2: Enums**
 
 `apps/api/src/github/graphql/enums.ts` (later tasks append):
 
@@ -1897,7 +1897,7 @@ export enum RepositoryPermission { ADMIN = 'ADMIN', MAINTAIN = 'MAINTAIN', WRITE
 registerEnumType(RepositoryPermission, { name: 'RepositoryPermission' });
 ```
 
-- [ ] **Step 3: Permission mapping**
+- [x] **Step 3: Permission mapping**
 
 `apps/api/src/lib/github/permission.ts`:
 
@@ -1914,7 +1914,7 @@ export function repositoryPermissionOf(role: Role | null) {
 
 Run: `bunx vitest run src/lib/github/permission.spec.ts` — Expected: PASS.
 
-- [ ] **Step 4: Repository type**
+- [x] **Step 4: Repository type**
 
 `apps/api/src/github/graphql/types/repository.type.ts`:
 
@@ -2028,7 +2028,7 @@ export const RepositoryConnection = Connection(RepositoryNode, 'Repository');
 
 `owner`, `parent`, `defaultBranchRef`, `labels`, `assignableUsers`, `issues`, `issue`, `issueOrPullRequest` are field resolvers (this task and Tasks 9–10). If the conformance test says `sshUrl` must be `GitSSHRemote`, change the type to a `GitSSHRemote` scalar defined in `scalars.ts` like `URI`; GitHub declares `sshUrl: GitSSHRemote!`.
 
-- [ ] **Step 5: Mapper and shared authorization**
+- [x] **Step 5: Mapper and shared authorization**
 
 Append to `apps/api/src/lib/github/nodes.ts`:
 
@@ -2107,7 +2107,7 @@ export async function authorizeOrNotFound(
 
 Drop the unused `ownerNameOf` import. `access.authorize` follows renames, so `ownerLogin` must come from the row, not the request: resolve it with one query, `select ownerNameOf(user, organization) from repository join user left join organization where repository.id = …`. Put that query in the resolver as a private `ownerLoginOf(repositoryId)`.
 
-- [ ] **Step 6: Resolver**
+- [x] **Step 6: Resolver**
 
 `apps/api/src/github/graphql/resolvers/repository.resolver.ts`:
 
@@ -2190,7 +2190,7 @@ export class RepositoryResolver {
 
 `defaultBranch` is null until the materializer picks one. Read the actual default branch with the same helper `RepositoriesService.getRepository` uses for its `ref` (look for `defaultBranch` handling in `openRepository`, around line 1936) and use it instead of `'main'`; if that needs the git directory, inject `RepositoryStorageService` and call the same function. The `Ref` id reuses the `Repository` prefix only because `Ref` has no node lookup yet; give it a `REF_` prefix in `node-id.ts` if the reviewer objects.
 
-- [ ] **Step 7: `RepositoryOwner.repository(name:)`, `node(id:)` for repositories, REST controller**
+- [x] **Step 7: `RepositoryOwner.repository(name:)`, `node(id:)` for repositories, REST controller**
 
 Add to the `RepositoryOwner` interface a field resolver on both `UserNode` and `OrganizationNode`:
 
@@ -2294,7 +2294,7 @@ export class ReposController {
 
 Register in `GithubModule`: `imports: [RepositoriesModule, …]` (it exports `RepositoriesService`), providers `RepositoryResolver`, `UserRepositoryResolver`, `OrganizationRepositoryResolver`, `RepositoryAccessService`, controller `ReposController`. `RepositoryAccessService` is not exported by any module; providing it again in `GithubModule` matches how `IssuesModule` and `RepositoriesModule` each provide it.
 
-- [ ] **Step 8: `gh repo view` and `gh repo clone` cases**
+- [x] **Step 8: `gh repo view` and `gh repo clone` cases**
 
 Add to `test/gh-cli.e2e-spec.ts` (`beforeAll` creates `public-repo` through Ghost's API, then pushes a README with git over HTTPS using the key):
 
@@ -2331,7 +2331,7 @@ Add to `test/gh-cli.e2e-spec.ts` (`beforeAll` creates `public-repo` through Ghos
 
 If `gh repo view --json visibility` asks for a field the conformance test does not yet allow, add it to `RepositoryNode` and re-run the conformance test.
 
-- [ ] **Step 9: Run everything**
+- [x] **Step 9: Run everything**
 
 Run: `$E2E test/github-graphql.e2e-spec.ts test/github-rest.e2e-spec.ts`, then `bunx vitest run src/lib/github src/github`.
 Expected: PASS. (The `gh` cases run in CI.)

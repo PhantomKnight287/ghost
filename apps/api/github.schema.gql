@@ -14,6 +14,9 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+"""Git SSH string"""
+scalar GitSSHRemote
+
 interface Node {
   id: ID!
 }
@@ -28,15 +31,58 @@ type Organization implements Actor & Node & RepositoryOwner & UniformResourceLoc
   url: URI!
 }
 
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+}
+
 type Query {
   node(id: ID!): Node
   nodes(ids: [ID!]!): [Node]!
   organization(login: String!): Organization
+  repository(name: String!, owner: String!): Repository
   repositoryOwner(login: String!): RepositoryOwner
   user(login: String!): User
 
   """The currently authenticated user."""
   viewer: User!
+}
+
+type Ref implements Node {
+  id: ID!
+  name: String!
+  prefix: String!
+}
+
+type Repository implements Node & UniformResourceLocatable {
+  createdAt: DateTime!
+  databaseId: Int
+  defaultBranchRef: Ref
+  description: String
+  hasIssuesEnabled: Boolean!
+  hasProjectsEnabled: Boolean!
+  hasWikiEnabled: Boolean!
+  id: ID!
+  isArchived: Boolean!
+  isEmpty: Boolean!
+  isFork: Boolean!
+  isPrivate: Boolean!
+  mergeCommitAllowed: Boolean!
+  name: String!
+  nameWithOwner: String!
+  owner: RepositoryOwner!
+  parent: Repository
+  pushedAt: DateTime
+  rebaseMergeAllowed: Boolean!
+  resourcePath: URI!
+  squashMergeAllowed: Boolean!
+  sshUrl: GitSSHRemote!
+  updatedAt: DateTime!
+  url: URI!
+  viewerPermission: RepositoryPermission
+  visibility: RepositoryVisibility!
 }
 
 interface RepositoryOwner {
@@ -45,6 +91,19 @@ interface RepositoryOwner {
   login: String!
   resourcePath: URI!
   url: URI!
+}
+
+enum RepositoryPermission {
+  ADMIN
+  MAINTAIN
+  READ
+  TRIAGE
+  WRITE
+}
+
+enum RepositoryVisibility {
+  PRIVATE
+  PUBLIC
 }
 
 """An RFC 3986, RFC 3987, and RFC 6570 (level 4) compliant URI string."""
