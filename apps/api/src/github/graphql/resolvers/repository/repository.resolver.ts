@@ -4,13 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import {
   Args,
   Context,
+  Int,
   Parent,
   Query,
   ResolveField,
   Resolver,
 } from '@nestjs/graphql';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { RefNode, RepositoryNode } from '../../types/repository.type.js';
 import { DATABASE } from '../../../../database/database.module.js';
 import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
@@ -21,13 +22,18 @@ import { RepositoryOwner } from '../../types/node.interface.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import {
+  toLabelNode,
   toOrganizationNode,
   toRepositoryNode,
   toUserNode,
+  type UserRow,
 } from '../../../../lib/github/nodes.js';
 import { encodeNodeId } from '../../../../lib/github/node-id.js';
 import { ownerNameOf } from '../../../../lib/repositories/access/repository-access.js';
-import { UserNode } from '../../types/user.type.js';
+import { UserConnection, UserNode } from '../../types/user.type.js';
+import { LabelConnection, LabelNode } from '../../types/label.type.js';
+import { sliceConnection } from '../../connection.js';
+import { IssuesService } from '../../../../resources/issues/issues.service.js';
 
 @Resolver(() => RepositoryNode)
 @AllowAnonymous()
@@ -36,6 +42,7 @@ export class RepositoryResolver {
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
     private readonly config: ConfigService,
+    private readonly issues: IssuesService,
   ) {}
 
   @Query(() => RepositoryNode, { nullable: true })
@@ -116,6 +123,48 @@ export class RepositoryResolver {
       )
       .where(eq(schema.repository.id, repositoryId));
     return toRepositoryNode(row, owner!.login, githubOrigins(this.config));
+  }
+
+  @ResolveField(() => LabelConnection, { nullable: true })
+  async labels(
+    @Parent() repository: RepositoryNode,
+    @Viewer() viewer: GithubViewer | null,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('query', { nullable: true }) query?: string,
+  ) {
+    const { labels } = await this.issues.listLabels({ username: repository.ownerLogin, repo: repository.slug, requesterId: viewer?.userId });
+    const matching = query ? labels.filter((label) => label.name.toLowerCase().includes(query.toLowerCase())) : labels;
+    return sliceConnection(matching.map((label) => toLabelNode(label, repository)), { first });
+  }
+
+  @ResolveField(() => LabelNode, { nullable: true })
+  async label(@Parent() repository: RepositoryNode, @Args('name') name: string, @Viewer() viewer: GithubViewer | null) {
+    const { labels } = await this.issues.listLabels({ username: repository.ownerLogin, repo: repository.slug, requesterId: viewer?.userId });
+    const label = labels.find((candidate) => candidate.name.toLowerCase() === name.toLowerCase());
+    return label ? toLabelNode(label, repository) : null;
+  }
+
+  @ResolveField(() => UserConnection)
+  async assignableUsers(
+    @Parent() repository: RepositoryNode,
+    @Context() { loaders }: GraphqlContext,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('query', { nullable: true }) query?: string,
+  ) {
+    const ids = await this.assignableUserIds(repository.ghostId);
+    const rows = (await loaders.usersById.loadMany(ids)).filter((row): row is UserRow => !!row && !(row instanceof Error));
+    const matching = query ? rows.filter((row) => `${row.username} ${row.name}`.toLowerCase().includes(query.toLowerCase())) : rows;
+    return sliceConnection(matching.map((row) => toUserNode(row, githubOrigins(this.config))), { first });
+  }
+
+  /** Who gh offers as assignees: the owner, accepted collaborators and organization members, as the assignee picker's involved set. */
+  private async assignableUserIds(repositoryId: string) {
+    const rows = await this.db.execute<{ id: string }>(sql`
+      select owner_id as id from repository where id = ${repositoryId}
+      union select user_id from repository_collaborator where repository_id = ${repositoryId} and accepted_at is not null
+      union select m.user_id from member m join repository r on r.organization_id = m.organization_id where r.id = ${repositoryId}
+    `);
+    return rows.rows.map((row) => row.id);
   }
 }
 

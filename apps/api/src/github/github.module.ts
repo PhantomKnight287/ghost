@@ -19,9 +19,7 @@ import { GraphQLFormattedError } from 'graphql';
 import { GraphQLError } from 'graphql/error';
 import { DomainError } from '../domain/errors.js';
 import { graphqlErrorType } from '../lib/github/error-type.js';
-import { RepositoryResolver } from './graphql/resolvers/repository/repository.resolver.js';
 import { ReposModule } from './rest/repos/repos.module.js';
-import { RepositoryAccessService } from '../services/git/repository-access/repository-access.service.js';
 
 @Module({
   imports: [
@@ -67,7 +65,7 @@ import { RepositoryAccessService } from '../services/git/repository-access/repos
     UsersModule,
     ReposModule,
   ],
-  providers: [ViewerResolver, RepositoryResolver, RepositoryAccessService],
+  providers: [ViewerResolver],
 })
 export class GithubModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

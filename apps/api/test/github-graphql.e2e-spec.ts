@@ -150,4 +150,23 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
       message: `Could not resolve to a Repository with the name '${username}/secret-repo'.`,
     });
   });
+  it('lists labels and assignable users, which gh issue create resolves names against', async () => {
+    const api = request(app.getHttpServer());
+    await api.post(`/api/repositories/${username}/public-repo/labels`).set('cookie', owner.cookie).send({ name: 'bug', color: 'd73a4a' }).expect(201);
+    const response = await graphql(
+      'query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { labels(first: 100) { totalCount nodes { id name color description } } label(name: "bug") { name } assignableUsers(first: 100) { totalCount nodes { id login name } } } }',
+      { owner: username, name: 'public-repo' },
+      owner.key,
+    ).expect(200);
+    expect(response.body.errors).toBeUndefined();
+    const repository = response.body.data.repository;
+    expect(repository.labels.nodes).toContainEqual(expect.objectContaining({ name: 'bug', color: 'd73a4a' }));
+    expect(repository.labels.nodes[0].id).toMatch(/^LA_/);
+    expect(repository.label).toEqual({ name: 'bug' });
+    expect(repository.assignableUsers.nodes.map((user: { login: string }) => user.login)).toContain(username);
+    const label = repository.labels.nodes[0];
+    const lookup = await graphql('query($id: ID!) { node(id: $id) { ... on Label { name } } }', { id: label.id }, owner.key).expect(200);
+    expect(lookup.body.data.node).toEqual({ name: label.name });
+  });
+
 });

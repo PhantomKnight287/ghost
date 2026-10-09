@@ -17,6 +17,24 @@ scalar DateTime
 """Git SSH string"""
 scalar GitSSHRemote
 
+type Label implements Node {
+  color: String!
+  createdAt: DateTime
+  description: String
+  id: ID!
+  isDefault: Boolean!
+  name: String!
+  resourcePath: URI!
+  updatedAt: DateTime
+  url: URI!
+}
+
+type LabelConnection {
+  nodes: [Label]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
 interface Node {
   id: ID!
 }
@@ -57,6 +75,7 @@ type Ref implements Node {
 }
 
 type Repository implements Node & UniformResourceLocatable {
+  assignableUsers(first: Int, query: String): UserConnection!
   createdAt: DateTime!
   databaseId: Int
   defaultBranchRef: Ref
@@ -69,6 +88,8 @@ type Repository implements Node & UniformResourceLocatable {
   isEmpty: Boolean!
   isFork: Boolean!
   isPrivate: Boolean!
+  label(name: String!): Label
+  labels(first: Int, query: String): LabelConnection
   mergeCommitAllowed: Boolean!
   name: String!
   nameWithOwner: String!
@@ -123,4 +144,10 @@ type User implements Actor & Node & RepositoryOwner & UniformResourceLocatable {
   name: String
   resourcePath: URI!
   url: URI!
+}
+
+type UserConnection {
+  nodes: [User]
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
