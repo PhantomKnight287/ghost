@@ -4040,7 +4040,7 @@ git commit -m "api: pin GraphiQL, unknown-field errors and the OpenAPI tag for t
 
 **Interfaces:** none.
 
-- [ ] **Step 1: ADR**
+- [x] **Step 1: ADR**
 
 Follow the existing ADR format (`docs/0039-*.md`): title, `**Status:** adopted`, `## Decision`, `## Why`, `## Consequences`. Content:
 
@@ -4049,19 +4049,19 @@ Follow the existing ADR format (`docs/0039-*.md`): title, `**Status:** adopted`,
 - Rejected: hand-written SDL (error-prone, the user's call), vendoring GitHub's full schema at runtime (70k lines of unresolved fields), a separate service (the translation needs every Ghost service).
 - Consequences: `databaseId` and REST `id` are null; milestones, reactions, issue types, sub-issues answer empty; Ghost features without a GitHub equivalent are not exposed; the compatibility page lists differences; plan 2 adds OAuth apps and scopes.
 
-- [ ] **Step 2: Compatibility page**
+- [x] **Step 2: Compatibility page**
 
 `apps/docs/content/docs/github-compatibility.mdx`, following the frontmatter style of `webhooks.mdx`. Sections: Setup (`gh auth login --hostname api.<domain> --with-token`, `GH_HOST`), Supported commands (each milestone-1 command, each covered by `test/gh-cli.e2e-spec.ts`), GraphQL types and REST routes served, Known differences (null `databaseId`/`id`; empty milestones, reactions, issue types, sub-issues; close reason always `COMPLETED`; `authorAssociation` only `OWNER`/`NONE`; `auto_init`/templates ignored on create; `gh repo create --disable-issues/--disable-wiki/--homepage` unsupported; validation errors answer 400; global search across repositories unsupported), Not yet supported (`gh auth login --web`, `gh auth refresh`, pull requests, releases, gists, GitHub Apps, fine-grained PATs). Add `"github-compatibility"` to `meta.json` beside `webhooks`.
 
-- [ ] **Step 3: Spec layout fix**
+- [x] **Step 3: Spec layout fix**
 
 In the spec's Layout block and "Exception to code standard 2", replace `src/github/lib/` with `apps/api/src/lib/github/` and add one line: "Only `src/github/` imports from `src/lib/github/`." In the GraphQL Module section, replace the `express.json()` bullet with: "The auth module's body parsers already parse JSON and form bodies on every non-auth route; git's `application/x-git-*` bodies are untouched."
 
-- [ ] **Step 4: README**
+- [x] **Step 4: README**
 
 Under Features, add: `- Works with the GitHub CLI: point \`GH_HOST\` at the API host for \`gh repo\`, \`gh issue\` and \`gh api\``. Remove nothing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/0040-github-compatibility-is-a-translation-layer.md apps/docs/content/docs README.md docs/superpowers/specs/2026-10-09-gh-cli-compat-design.md

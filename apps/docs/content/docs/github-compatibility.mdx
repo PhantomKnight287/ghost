@@ -1,0 +1,81 @@
+---
+title: GitHub CLI
+description: Use the GitHub CLI (gh) with Ghost, and what differs from GitHub
+---
+
+# Using the GitHub CLI
+
+Ghost answers the GitHub API at the API host, so the GitHub CLI (`gh`) works against it.
+
+## Setup
+
+Create an API key in your account settings, then log in with it:
+
+```sh
+echo "$GHOST_TOKEN" | gh auth login --hostname api.<domain> --with-token
+gh auth status --hostname api.<domain>
+```
+
+Point `gh` at Ghost for a shell session with `GH_HOST`, or name the host in `-R`:
+
+```sh
+export GH_HOST=api.<domain>
+gh issue list -R api.<domain>/owner/repo
+```
+
+`GH_HOST` cannot carry a port, so the API must be served on 443.
+
+## Supported commands
+
+Each of these is run against a real Ghost server by the API's end-to-end suite.
+
+| Command | Notes |
+|---|---|
+| `gh auth login --with-token`, `gh auth status` | |
+| `gh api`, `gh api graphql` | Any route or query listed below |
+| `gh repo view`, `gh repo view --json` | Includes the README |
+| `gh repo clone` | |
+| `gh repo create` | Personal and organization repositories |
+| `gh issue list` | `--state`, `--label`, `--author`, `--assignee`, `--search` |
+| `gh issue view`, `gh issue view --comments` | |
+| `gh issue create` | `--label`, `--assignee` |
+| `gh issue comment`, `gh issue edit` | |
+| `gh issue close`, `gh issue reopen` | |
+| `gh ssh-key list`, `gh ssh-key add` | |
+
+## What is served
+
+GraphQL at `/api/graphql`:
+
+- Queries: `viewer`, `user`, `organization`, `repositoryOwner`, `repository`, `node`, `nodes`, `search(type: ISSUE)`
+- Types: `User`, `Organization`, `Repository`, `Ref`, `Label`, `Issue`, `IssueComment`, and `PullRequest` with its number, title, state and URL only
+- Mutations: `createIssue`, `updateIssue`, `closeIssue`, `reopenIssue`, `addComment`, `addLabelsToLabelable`, `removeLabelsFromLabelable`, `addAssigneesToAssignable`, `removeAssigneesFromAssignable`, `createRepository`
+
+REST at `/api/v3`:
+
+- `GET /`, `GET /meta`
+- `GET /user`, `GET /users/:login`
+- `GET /user/keys`, `POST /user/keys`
+- `GET /repos/:owner/:repo`, `GET /repos/:owner/:repo/readme`
+- `POST /user/repos`, `POST /orgs/:org/repos`
+
+GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
+
+## Known differences
+
+- `databaseId` and the REST `id` are always `null`.
+- Milestones, reactions and sub-issues are always empty.
+- A closed issue's `stateReason` is always `COMPLETED`. Ghost does not record why an issue was closed.
+- A comment's `authorAssociation` is `OWNER` or `NONE`, never `MEMBER` or `COLLABORATOR`.
+- `auto_init`, `gitignore_template` and `license_template` are accepted and ignored when creating a repository over REST. The repository starts empty.
+- `gh repo create --disable-issues`, `--disable-wiki` and `--homepage` fail: they need `updateRepository`, which is not served.
+- A query with an unknown field answers HTTP 400. GitHub answers 200. `gh` handles both.
+- `search` only finds issues in one repository, named with `repo:`. Qualifiers Ghost cannot filter on, such as `milestone:` and `sort:`, are ignored.
+- Every token is granted every scope `gh` checks for.
+
+## Not yet supported
+
+- `gh auth login --web` and `gh auth refresh`
+- Pull requests
+- Releases and gists
+- GitHub Apps and fine-grained tokens

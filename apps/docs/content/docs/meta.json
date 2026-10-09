@@ -26,6 +26,8 @@
     "---Large files---",
     "git-lfs",
     "---Webhooks---",
-    "webhooks"
+    "webhooks",
+    "---GitHub CLI---",
+    "github-compatibility"
   ]
 }

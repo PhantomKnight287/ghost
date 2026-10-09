@@ -49,6 +49,7 @@ Split diff, computed from the merge base rather than the branch tips.
 - GPG-signed commits shown as verified against keys an account uploads
 - Accounts, sessions, multiple emails, API keys, notifications, contribution graph
 - Themes, including a custom one, and a docs site
+- Works with the GitHub CLI: point `GH_HOST` at the API host for `gh repo`, `gh issue` and `gh api`
 
 Not built yet: webhooks (in progress), Git LFS, CI.
 
