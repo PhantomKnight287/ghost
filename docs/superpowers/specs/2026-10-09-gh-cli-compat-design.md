@@ -45,16 +45,15 @@ apps/api/src/github/
   graphql/
     types/                @ObjectType / @InterfaceType / enum / scalar mirrors of GitHub's schema
     resolvers/            queries, mutations, field resolvers
-    loaders/              per-request DataLoaders
-  lib/                    to<GitHubType> mappers, node-ID codec, cursor mapping, error mapping
+apps/api/src/lib/github/  to<GitHubType> mappers, node-ID codec, loaders, search parsing, error mapping
 apps/api/github.schema.gql  generated schema, committed
 ```
 
-Resolvers and controllers call the existing Ghost services for every read and write, so permission checks, numbering, events and notifications stay where they are. Nothing outside `src/github/` imports from it.
+Resolvers and controllers call the existing Ghost services for every read and write, so permission checks, numbering, events and notifications stay where they are. Nothing outside `src/github/` imports from it. Only `src/github/` imports from `src/lib/github/`.
 
 ### Exception to code standard 2
 
-Mappers are a last resort. They hide where a value came from and make a wrong field hard to trace, so the first choice is always a query that selects GitHub's field names directly, or a GraphQL field resolver that reads the one value it needs. A `to<GitHubType>` mapper in `src/github/lib/` (`toIssueNode`, later `toIssueRest`) is written only when a service's output cannot be used that way, and the ADR asks each one to say why in one line. Mapping Ghost's shapes onto GitHub's is the purpose of this layer, so the ban on reshaping functions is relaxed inside `src/github/` on those terms. It still applies everywhere else. If `scripts/check-standards.ts` enforces section 2, it gets a path exemption for `apps/api/src/github/`. GraphQL and REST mappers are separate, because the two GitHub shapes differ (camelCase nodes vs snake_case objects with URLs); the services under them are shared.
+Mappers are a last resort. They hide where a value came from and make a wrong field hard to trace, so the first choice is always a query that selects GitHub's field names directly, or a GraphQL field resolver that reads the one value it needs. A `to<GitHubType>` mapper in `apps/api/src/lib/github/` (`toIssueNode`, later `toIssueRest`) is written only when a service's output cannot be used that way, and the ADR asks each one to say why in one line. Mapping Ghost's shapes onto GitHub's is the purpose of this layer, so the ban on reshaping functions is relaxed inside `src/github/` on those terms. It still applies everywhere else. If `scripts/check-standards.ts` enforces section 2, it gets a path exemption for `apps/api/src/github/`. GraphQL and REST mappers are separate, because the two GitHub shapes differ (camelCase nodes vs snake_case objects with URLs); the services under them are shared.
 
 A new ADR, `docs/0040-github-compatibility-is-a-translation-layer.md`, records the layout, the mapper exception, `GH_HOST=api.DOMAIN`, OAuth apps issuing scoped `ghost_pat_` keys, and scoped keys being refused by Ghost's own API.
 
@@ -117,7 +116,7 @@ Better Auth 1.7.2 ships `deviceAuthorization` (`/api/auth/device/code`, `/device
 - `GraphQLModule.forRoot<ApolloDriverConfig>({ driver: ApolloDriver, path: '/graphql', useGlobalPrefix: true, autoSchemaFile: 'github.schema.gql', sortSchema: true, introspection: true, graphiql: true, context })`, served at `/api/graphql`.
 - New dependencies: `@nestjs/graphql`, `@nestjs/apollo`, `@apollo/server`, `graphql`, `dataloader`, `@better-auth/oauth-provider`. Dev: `@octokit/graphql-schema`.
 - Introspection is on in every environment: `gh` sends feature-detection introspection queries to non-github.com hosts, and Apollo turns introspection off under `NODE_ENV=production` unless told otherwise. GraphiQL is on in every environment.
-- `express.json()` is mounted for `/api/graphql` and `/api/v3` only. The global `bodyParser: false` stays, since git's raw streams depend on it (ADR 0003).
+- The auth module's body parsers already parse JSON and form bodies on every non-auth route; git's `application/x-git-*` bodies are untouched.
 - `@thallesp/nestjs-better-auth` 2.7.0 lists `@nestjs/graphql ^13` as an optional peer. If it breaks with 14, patch or fork the package; the compat guard sets the viewer on the context itself regardless.
 
 ### Types
@@ -137,7 +136,7 @@ One generic `Connection(Type)` factory builds `{ nodes, edges { node cursor }, p
 
 ### Node IDs
 
-`<prefix>_<base64url(uuid)>`, with GitHub's prefixes: `R_` repository, `I_` issue, `IC_` issue comment, `U_` user, `O_` organization, `LA_` label. The codec in `src/github/lib/node-id.ts` encodes, decodes, and rejects an ID whose prefix does not match the type a mutation expects. `node(id:)` and `nodes(ids:)` dispatch on the prefix.
+`<prefix>_<base64url(uuid)>`, with GitHub's prefixes: `R_` repository, `I_` issue, `IC_` issue comment, `U_` user, `O_` organization, `LA_` label. The codec in `apps/api/src/lib/github/node-id.ts` encodes, decodes, and rejects an ID whose prefix does not match the type a mutation expects. `node(id:)` and `nodes(ids:)` dispatch on the prefix.
 
 ### Queries
 
