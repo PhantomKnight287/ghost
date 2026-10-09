@@ -40,6 +40,14 @@ import {
 import { withTempDir } from '../../lib/temp-dir.js';
 import { listBranches } from '../../lib/git/refs/list-refs.js';
 
+/** What an edit can change; `release.edited` is published only when one of these differs afterwards. */
+const editableColumns = {
+  name: schema.release.name,
+  body: schema.release.body,
+  isDraft: schema.release.isDraft,
+  isPrerelease: schema.release.isPrerelease,
+};
+
 const DEFAULT_PAGE_SIZE = 10;
 
 type RepositoryRef = { username: string; repo: string; requesterId?: string };
@@ -201,7 +209,7 @@ export class ReleasesService {
 
     const updated = await this.db.transaction(async (tx) => {
       const [before] = await tx
-        .select({ isDraft: schema.release.isDraft })
+        .select(editableColumns)
         .from(schema.release)
         .where(this.ownRelease(repository, id))
         .for('update');
@@ -224,15 +232,19 @@ export class ReleasesService {
           }),
         })
         .where(this.ownRelease(repository, id))
-        .returning({ id: schema.release.id });
+        .returning({ id: schema.release.id, ...editableColumns });
       if (!row) throw new ReleaseNotFoundError();
       const event = {
         repositoryId: repository.id,
         actorId: target.requesterId,
         payload: { releaseId: row.id },
       };
-      await publishEvent(tx, { type: 'release.edited', ...event });
-      if (before.isDraft && body.isDraft === false) {
+      // GitHub sends `edited` only for a change, so publishing an already published release again is silent.
+      const changed = (
+        Object.keys(editableColumns) as (keyof typeof editableColumns)[]
+      ).some((column) => row[column] !== before[column]);
+      if (changed) await publishEvent(tx, { type: 'release.edited', ...event });
+      if (before.isDraft && !row.isDraft) {
         await publishEvent(tx, { type: 'release.published', ...event });
       }
       return row;
