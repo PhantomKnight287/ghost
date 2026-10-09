@@ -35,9 +35,29 @@ export default async function setup() {
     });
 
   const host = process.env.GH_E2E_HOST;
-   if (host) {
-     const dir = path.resolve(import.meta.dirname, '../.gh-e2e');
-     mkdirSync(dir, { recursive: true });
-     execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', `/CN=${host}`, '-addext', `subjectAltName=DNS:${host}`, '-keyout', path.join(dir, 'key.pem'), '-out', path.join(dir, 'cert.pem')], { stdio: 'ignore' });
-   }
+  if (host) {
+    const dir = path.resolve(import.meta.dirname, '../.gh-e2e');
+    mkdirSync(dir, { recursive: true });
+    execFileSync(
+      'openssl',
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-nodes',
+        '-days',
+        '1',
+        '-subj',
+        `/CN=${host}`,
+        '-addext',
+        `subjectAltName=DNS:${host}`,
+        '-keyout',
+        path.join(dir, 'key.pem'),
+        '-out',
+        path.join(dir, 'cert.pem'),
+      ],
+      { stdio: 'ignore' },
+    );
+  }
 }

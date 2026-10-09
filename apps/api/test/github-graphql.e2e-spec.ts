@@ -10,7 +10,9 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
   const username = `ghgql${Date.now()}`;
 
   const graphql = (query: string, variables: object = {}, token?: string) => {
-    const call = request(app.getHttpServer()).post('/api/graphql').send({ query, variables });
+    const call = request(app.getHttpServer())
+      .post('/api/graphql')
+      .send({ query, variables });
     return token ? call.set('authorization', `token ${token}`) : call;
   };
 
@@ -29,7 +31,9 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
   });
 
   it('answers introspection, which gh sends to enterprise hosts', async () => {
-    const response = await graphql('{ __type(name: "Query") { name } }').expect(200);
+    const response = await graphql('{ __type(name: "Query") { name } }').expect(
+      200,
+    );
     expect(response.body.data.__type.name).toBe('Query');
   });
 });

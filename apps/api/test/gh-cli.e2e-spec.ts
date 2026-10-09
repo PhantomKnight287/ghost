@@ -23,7 +23,10 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   beforeAll(async () => {
     const { key, cert } = tlsFiles();
     ({ app } = await startApp(
-      { BETTER_AUTH_URL: `https://${GH_E2E_HOST}`, WEB_APP_URL: `https://web.${GH_E2E_HOST}` },
+      {
+        BETTER_AUTH_URL: `https://${GH_E2E_HOST}`,
+        WEB_APP_URL: `https://web.${GH_E2E_HOST}`,
+      },
       443,
       { key, cert },
     ));

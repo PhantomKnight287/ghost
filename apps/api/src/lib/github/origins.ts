@@ -4,7 +4,9 @@ import type { ConfigService } from '@nestjs/config';
 export function githubOrigins(config: ConfigService) {
   return {
     api: config.getOrThrow<string>('BETTER_AUTH_URL').replace(/\/$/, ''),
-    web: config.get<string>('WEB_APP_URL', 'http://localhost:3000').replace(/\/$/, ''),
+    web: config
+      .get<string>('WEB_APP_URL', 'http://localhost:3000')
+      .replace(/\/$/, ''),
     sshHost: config.get<string>('SSH_CLONE_HOST', ''),
   };
 }
