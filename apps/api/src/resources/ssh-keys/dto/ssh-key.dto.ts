@@ -40,6 +40,12 @@ export class SshKeyDTO {
   type: string;
 
   @ApiProperty({
+    description: 'The key as `<type> <base64>`, without its comment.',
+    example: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...',
+  })
+  publicKey: string;
+
+  @ApiProperty({
     description: 'SHA256 fingerprint, base64, as `ssh-keygen -lf` prints it.',
   })
   fingerprint: string;

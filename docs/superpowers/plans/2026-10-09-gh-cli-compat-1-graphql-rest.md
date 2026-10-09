@@ -3921,7 +3921,7 @@ git commit -m "api: create repositories through GitHub's createRepository and RE
 
 **Interfaces:** Consumes `SshKeysService.list(userId)`, `.add(userId, line, title?)`.
 
-- [ ] **Step 1: Failing cases**
+- [x] **Step 1: Failing cases**
 
 REST e2e:
 
@@ -3948,7 +3948,7 @@ REST e2e:
 
 If either fixed key fails Ghost's parser, generate a fresh one with `ssh-keygen -t ed25519 -N '' -f /tmp/k -q && cat /tmp/k.pub` and paste it in.
 
-- [ ] **Step 2: Routes**
+- [x] **Step 2: Routes**
 
 ```ts
   @Get('user/keys')
@@ -3973,7 +3973,7 @@ If either fixed key fails Ghost's parser, generate a fresh one with `ssh-keygen 
 
 `GithubAddKeyDTO`: `title?: string` (`@MaxLength(MAX_TITLE_LENGTH)`), `key: string` (`@MaxLength(MAX_PUBLIC_KEY_LENGTH)`), both imported from `ssh-key.dto.ts`.
 
-- [ ] **Step 3: Run, then commit**
+- [x] **Step 3: Run, then commit**
 
 ```bash
 git add apps/api/src apps/api/test apps/web/src/lib/api/v1.d.ts apps/api/openapi.json

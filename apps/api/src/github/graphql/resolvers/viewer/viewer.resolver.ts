@@ -6,7 +6,7 @@ import { type Database, schema } from '@ghost/db';
 import { ConfigService } from '@nestjs/config';
 import { UserNode } from '../../types/user.type.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
-import { GithubViewer } from '../../../auth/github-request.js';
+import type { GithubViewer } from '../../../auth/github-request.js';
 import { type GraphqlContext } from '../../../../lib/github/loaders.js';
 import {
   CouldNotResolveError,

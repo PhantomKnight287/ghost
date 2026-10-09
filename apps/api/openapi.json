@@ -764,6 +764,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
           }
         },
         "summary": "List every file path",
@@ -9876,6 +9886,236 @@
           "Users"
         ]
       }
+    },
+    "/api/v3": {
+      "get": {
+        "operationId": "MetaController_root",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "GitHub API root; gh reads the X-OAuth-Scopes header it carries",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/meta": {
+      "get": {
+        "operationId": "MetaController_meta",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "GitHub Enterprise meta; installed_version decides which search syntax gh uses",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/user": {
+      "get": {
+        "operationId": "UsersController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "The authenticated user, in GitHub REST shape",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/users/{login}": {
+      "get": {
+        "operationId": "UsersController_byLogin",
+        "parameters": [
+          {
+            "name": "login",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A user or organization by login, in GitHub REST shape",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/user/keys": {
+      "get": {
+        "operationId": "UsersController_keys",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "The authenticated user's SSH keys, in GitHub REST shape",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_addKey",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubAddKeyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add an SSH key to the authenticated user",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}": {
+      "get": {
+        "operationId": "ReposController_get",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A repository, in GitHub REST shape",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/readme": {
+      "get": {
+        "operationId": "ReposController_readme",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "The repository's README at the default branch, base64 as GitHub returns it",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/user/repos": {
+      "post": {
+        "operationId": "ReposController_createForUser",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCreateRepositoryDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a repository for the authenticated user",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/orgs/{org}/repos": {
+      "post": {
+        "operationId": "ReposController_createForOrganization",
+        "parameters": [
+          {
+            "name": "org",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCreateRepositoryDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a repository in an organization",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
     }
   },
   "info": {
@@ -14891,6 +15131,11 @@
             "type": "string",
             "description": "Key algorithm, e.g. `ssh-ed25519`."
           },
+          "publicKey": {
+            "type": "string",
+            "description": "The key as `<type> <base64>`, without its comment.",
+            "example": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
+          },
           "fingerprint": {
             "type": "string",
             "description": "SHA256 fingerprint, base64, as `ssh-keygen -lf` prints it."
@@ -14909,6 +15154,7 @@
           "id",
           "title",
           "type",
+          "publicKey",
           "fingerprint",
           "lastUsedAt",
           "createdAt"
@@ -15027,6 +15273,61 @@
           "year",
           "totalContributions",
           "days"
+        ]
+      },
+      "GithubAddKeyDTO": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "key": {
+            "type": "string",
+            "description": "One authorized_keys line.",
+            "maxLength": 16384
+          }
+        },
+        "required": [
+          "key"
+        ]
+      },
+      "GithubCreateRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "tools"
+          },
+          "description": {
+            "type": "string"
+          },
+          "private": {
+            "type": "boolean",
+            "description": "Ignored when `visibility` is given."
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "private"
+            ]
+          },
+          "auto_init": {
+            "type": "boolean",
+            "description": "Accepted and ignored: Ghost cannot write an initial commit from the API yet."
+          },
+          "gitignore_template": {
+            "type": "string",
+            "description": "Accepted and ignored."
+          },
+          "license_template": {
+            "type": "string",
+            "description": "Accepted and ignored."
+          }
+        },
+        "required": [
+          "name"
         ]
       }
     }
