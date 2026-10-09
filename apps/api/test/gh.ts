@@ -7,6 +7,18 @@ export const GH_E2E_HOST = process.env.GH_E2E_HOST;
 
 const certDir = path.resolve(import.meta.dirname, '../.gh-e2e');
 
+const ghEnv = (configDir: string, token?: string) => ({
+  PATH: process.env.PATH ?? '',
+  HOME: configDir,
+  GH_CONFIG_DIR: configDir,
+  GH_HOST: GH_E2E_HOST ?? '',
+  GH_PROMPT_DISABLED: '1',
+  GH_NO_UPDATE_NOTIFIER: '1',
+  NO_COLOR: '1',
+  GH_BROWSER: 'true',
+  ...(token && { GH_ENTERPRISE_TOKEN: token }),
+});
+
 export function tlsFiles() {
   const certPath = path.join(certDir, 'cert.pem');
   return {
@@ -28,17 +40,9 @@ export function runGh(
   const { certPath } = tlsFiles();
   const child = spawn('gh', args, {
     env: {
-      PATH: process.env.PATH ?? '',
-      HOME: configDir,
-      GH_CONFIG_DIR: configDir,
-      GH_HOST: GH_E2E_HOST ?? '',
-      GH_PROMPT_DISABLED: '1',
-      GH_NO_UPDATE_NOTIFIER: '1',
-      NO_COLOR: '1',
-      GH_BROWSER: 'true',
+      ...ghEnv(configDir, token),
       SSL_CERT_FILE: certPath,
       GIT_SSL_CAINFO: certPath,
-      ...(token && { GH_ENTERPRISE_TOKEN: token }),
     },
   });
   if (input !== undefined) child.stdin.end(input);
@@ -54,4 +58,44 @@ export function runGh(
         resolve({ stdout, stderr, code: code ?? -1 }),
       ),
   );
+}
+
+export function startGh(
+  args: string[],
+  { configDir, token }: { configDir: string; token?: string },
+) {
+  const child = spawn('gh', args, { env: ghEnv(configDir, token) });
+  child.stdin.end();
+  let stdout = '';
+  let stderr = '';
+  const waiters: Array<{
+    pattern: RegExp;
+    resolve: (match: RegExpMatchArray) => void;
+  }> = [];
+  child.stdout.on('data', (chunk) => (stdout += chunk));
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk;
+    for (const waiter of [...waiters]) {
+      const match = stderr.match(waiter.pattern);
+      if (match) {
+        waiters.splice(waiters.indexOf(waiter), 1);
+        waiter.resolve(match);
+      }
+    }
+  });
+  const done = new Promise<{ stdout: string; stderr: string; code: number }>(
+    (resolve) =>
+      child.on('close', (code) =>
+        resolve({ stdout, stderr, code: code ?? -1 }),
+      ),
+  );
+  return {
+    stderrUntil: (pattern: RegExp) =>
+      new Promise<RegExpMatchArray>((resolve) => {
+        const match = stderr.match(pattern);
+        if (match) resolve(match);
+        else waiters.push({ pattern, resolve });
+      }),
+    done,
+  };
 }
