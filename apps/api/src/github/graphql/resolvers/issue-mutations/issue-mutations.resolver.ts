@@ -158,12 +158,23 @@ export class IssueMutationsResolver {
     return found;
   }
 
-  private labelNames(repository: RepositoryNode, labelIds: string[]) {
-    return labelNamesOf(this.db, repository.ghostId, labelIds.map((id) => decodeNodeIdAs(id, 'Label')));
+  private async labelNames(repository: RepositoryNode, nodeIds: string[]) {
+    const ids = nodeIds.map((nodeId) => decodeNodeIdAs(nodeId, 'Label'));
+    return this.resolveAll(nodeIds, ids, await labelNamesOf(this.db, repository.ghostId, ids));
   }
 
-  private usernames(userIds: string[]) {
-    return usernamesOf(this.db, userIds.map((id) => decodeNodeIdAs(id, 'User')));
+  private async usernames(nodeIds: string[]) {
+    const ids = nodeIds.map((nodeId) => decodeNodeIdAs(nodeId, 'User'));
+    return this.resolveAll(nodeIds, ids, await usernamesOf(this.db, ids));
+  }
+
+  /** The value for each id in order; the first id with none fails as GitHub fails an unresolvable node. */
+  private resolveAll(nodeIds: string[], ids: string[], found: Map<string, string>) {
+    return ids.map((id, index) => {
+      const value = found.get(id);
+      if (value === undefined) throw this.unresolved(nodeIds[index]!);
+      return value;
+    });
   }
 
   /** Runs a write; a permission refusal reads as GitHub's FORBIDDEN wording, which names the login. */

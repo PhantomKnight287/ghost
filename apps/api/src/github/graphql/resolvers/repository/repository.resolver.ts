@@ -31,7 +31,7 @@ import {
 } from '../../../../lib/github/nodes.js';
 import { encodeNodeId } from '../../../../lib/github/node-id.js';
 import { ownerNameOf } from '../../../../lib/repositories/access/repository-access.js';
-import { UserConnection, UserNode } from '../../types/user.type.js';
+import { UserConnection } from '../../types/user.type.js';
 import { LabelConnection, LabelNode } from '../../types/label.type.js';
 import { sliceConnection } from '../../connection.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
@@ -231,13 +231,17 @@ export class RepositoryResolver {
 }
 
 
-@Resolver(() => UserNode)
+/** RepositoryOwner.repository(name:), inherited by User and Organization; a repository the viewer cannot read answers null, as on GitHub. */
+@Resolver(() => RepositoryOwner)
 @AllowAnonymous()
-export class UserRepositoryResolver {
-  constructor(private readonly repositories: RepositoryResolver, private readonly access: RepositoryAccessService) {}
+export class RepositoryOwnerResolver {
+  constructor(private readonly repositories: RepositoryResolver) {}
 
   @ResolveField(() => RepositoryNode, { nullable: true })
-  async repository(@Parent() owner: UserNode, @Args('name') name: string, @Viewer() viewer: GithubViewer | null) {
-    return this.repositories.repository(owner.login, name, viewer).catch(() => null);
+  repository(@Parent() owner: { login: string }, @Args('name') name: string, @Viewer() viewer: GithubViewer | null) {
+    return this.repositories.repository(owner.login, name, viewer).catch((error: unknown) => {
+      if (error instanceof CouldNotResolveError) return null;
+      throw error;
+    });
   }
 }
