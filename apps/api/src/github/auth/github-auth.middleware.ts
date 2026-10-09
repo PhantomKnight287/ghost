@@ -8,6 +8,7 @@ import { ALL_SCOPES } from '../../lib/github/scopes.js';
 import type { GithubRequest, GithubViewer } from './github-request.js';
 
 const TOKEN = /^(?:token|bearer)\s+(\S+)$/i;
+const GITHUB_MEDIA_TYPE = /application\/vnd\.github\b/i;
 
 /** Resolves `Authorization: token|Bearer <key>` (what gh sends) or a session cookie (GraphiQL in a browser) to a viewer, and sets the headers gh reads on every compat response. */
 @Injectable()
@@ -16,6 +17,8 @@ export class GithubAuthMiddleware implements NestMiddleware {
 
   async use(req: GithubRequest, res: Response, next: NextFunction) {
     res.setHeader('X-GitHub-Media-Type', 'github.v3; format=json');
+    // gh asks for GitHub's preview media types, which Apollo answers 406 because they do not name JSON; they are JSON.
+    if (GITHUB_MEDIA_TYPE.test(req.headers.accept ?? '')) req.headers.accept = 'application/json';
     const header = req.headers.authorization;
     const token = header ? TOKEN.exec(header)?.[1] : undefined;
 

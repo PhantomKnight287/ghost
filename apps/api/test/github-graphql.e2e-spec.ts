@@ -348,4 +348,14 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     expect(owned.body.errors).toBeUndefined();
     expect(owned.body.data).toEqual({ repositoryOwner: { repository: { name: 'public-repo' } }, user: { repository: null } });
   });
+
+  it("answers gh's GitHub preview media types in Accept with JSON instead of 406", async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/graphql')
+      .set('authorization', `token ${owner.key}`)
+      .set('accept', 'application/vnd.github.merge-info-preview+json, application/vnd.github.nebula-preview')
+      .send({ query: '{ viewer { login } }' })
+      .expect(200);
+    expect(response.body.data.viewer.login).toBe(username);
+  });
 });
