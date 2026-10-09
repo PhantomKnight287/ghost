@@ -19,6 +19,9 @@ import {
 } from '../../../../lib/github/nodes.js';
 import { isoTimestamp } from '../../../../lib/db/sql.js';
 import { RepositoryResolver } from '../repository/repository.resolver.js';
+import { IssueResolver } from '../issue/issue.resolver.js';
+import { IssueNode } from '../../types/issue.type.js';
+import { commentIssueOf, issueRefOf } from '../../../../lib/github/node-lookup.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import { OrganizationNode } from '../../types/organization.type.js';
 import { eq } from 'drizzle-orm';
@@ -32,6 +35,7 @@ export class ViewerResolver {
     @Inject(DATABASE) private readonly db: Database,
     private readonly config: ConfigService,
     private readonly repositories: RepositoryResolver,
+    private readonly issueNodes: IssueResolver,
   ) {}
 
   @Query(() => UserNode, { description: 'The currently authenticated user.' })
@@ -113,8 +117,9 @@ export class ViewerResolver {
     return Promise.all(ids.map((id) => this.lookup(id, context)));
   }
 
-  /** Later tasks add Issue and IssueComment here. A node the viewer cannot read resolves to null, as on GitHub. */
-  private async lookup(id: string, { loaders, req }: GraphqlContext) {
+  /** A node the viewer cannot read resolves to null, as on GitHub. */
+  private async lookup(id: string, context: GraphqlContext) {
+    const { loaders, req } = context;
     const decoded = decodeNodeId(id);
     if (decoded?.type === 'User') {
       const row = await loaders.usersById.load(decoded.id);
@@ -148,6 +153,24 @@ export class ViewerResolver {
       const repository = await this.repositories.load(label.repositoryId, requesterId).catch(() => null);
       return repository ? toLabelNode(label, repository) : null;
     }
+    if (decoded?.type === 'Issue' || decoded?.type === 'PullRequest') {
+      const found = await this.issueById(decoded.id, requesterId);
+      return found?.kind === decoded.type ? found : null;
+    }
+    if (decoded?.type === 'IssueComment') {
+      const ref = await commentIssueOf(this.db, decoded.id);
+      const issue = ref && (await this.issueById(ref.issueId, requesterId));
+      if (!(issue instanceof IssueNode)) return null;
+      const { nodes } = await this.issueNodes.comments(issue, req.githubViewer, context);
+      return nodes.find((comment) => comment.ghostId === decoded.id) ?? null;
+    }
     return null;
+  }
+
+  private async issueById(issueId: string, requesterId?: string) {
+    const ref = await issueRefOf(this.db, issueId);
+    if (!ref) return null;
+    const repository = await this.repositories.load(ref.repositoryId, requesterId).catch(() => null);
+    return repository && this.issueNodes.fromRepository(repository, ref.number, requesterId).catch(() => null);
   }
 }

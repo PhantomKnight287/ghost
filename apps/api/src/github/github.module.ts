@@ -20,6 +20,7 @@ import { GraphQLError } from 'graphql/error';
 import { DomainError } from '../domain/errors.js';
 import { graphqlErrorType } from '../lib/github/error-type.js';
 import { ReposModule } from './rest/repos/repos.module.js';
+import { IssueCommentResolver } from './graphql/resolvers/issue-comment/issue-comment.resolver.js';
 
 @Module({
   imports: [
@@ -65,7 +66,7 @@ import { ReposModule } from './rest/repos/repos.module.js';
     UsersModule,
     ReposModule,
   ],
-  providers: [ViewerResolver],
+  providers: [ViewerResolver, IssueCommentResolver],
 })
 export class GithubModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

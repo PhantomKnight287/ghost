@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ReposService } from './repos.service.js';
 import { ReposController } from './repos.controller.js';
 import { RepositoryResolver } from '../../graphql/resolvers/repository/repository.resolver.js';
+import { IssueResolver } from '../../graphql/resolvers/issue/issue.resolver.js';
 import { MaterializerModule } from '../../../materializer/materializer.module.js';
 import { IssuesModule } from '../../../resources/issues/issues.module.js';
 import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
@@ -9,7 +10,7 @@ import { RepositoryAccessService } from '../../../services/git/repository-access
 @Module({
   imports: [MaterializerModule, IssuesModule],
   controllers: [ReposController],
-  providers: [ReposService, RepositoryResolver, RepositoryAccessService],
-  exports: [RepositoryResolver],
+  providers: [ReposService, RepositoryResolver, IssueResolver, RepositoryAccessService],
+  exports: [RepositoryResolver, IssueResolver],
 })
 export class ReposModule {}

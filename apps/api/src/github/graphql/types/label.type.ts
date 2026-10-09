@@ -31,10 +31,10 @@ export class LabelNode {
   resourcePath: string;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
-  createdAt: string | null;
+  createdAt: Date | null;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
-  updatedAt: string | null;
+  updatedAt: Date | null;
 }
 
 export const LabelConnection = Connection(LabelNode, 'Label');

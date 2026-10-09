@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { IssueResolver } from '../issue/issue.resolver.js';
 import { ConfigService } from '@nestjs/config';
 import { DATABASE } from '../../../../database/database.module.js';
 import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
@@ -16,6 +17,7 @@ describe('RepositoryResolver', () => {
         { provide: RepositoryAccessService, useValue: {} },
         { provide: ConfigService, useValue: {} },
         { provide: IssuesService, useValue: {} },
+        { provide: IssueResolver, useValue: {} },
       ],
     }).compile();
 
