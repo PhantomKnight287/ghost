@@ -164,12 +164,14 @@ async function assertEmailAvailable(
   return extraOwner.id;
 }
 
-/** The web app's own top-level routes: an account under one of these names would have no profile to reach. */
+/** The web app's own top-level routes, and the API host's `/login` for GitHub's OAuth paths: an account under one of these names would have no profile to reach. */
 const RESERVED_NAMES = new Set([
   'api',
   'auth',
   'changelog',
   'dashboard',
+  'device',
+  'login',
   'search',
   'settings',
 ]);
