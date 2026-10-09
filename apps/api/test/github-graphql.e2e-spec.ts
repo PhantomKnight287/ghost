@@ -396,4 +396,19 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     const response = await graphql('{ viewer { a: login a: name } }', {}, owner.key).expect(400);
     expect(response.body.errors[0].message).toContain('"a" conflict');
   });
+
+  it("accepts the createIssue and updateIssue fields gh sends, and pages project items and comments", async () => {
+    const repo = await graphql('query($o: String!, $n: String!) { repository(owner: $o, name: $n) { id } }', { o: username, n: 'public-repo' }, owner.key).expect(200);
+    const created = await graphql('mutation($input: CreateIssueInput!) { createIssue(input: $input) { issue { id number } } }', { input: { repositoryId: repo.body.data.repository.id, title: 'With gh nulls', body: 'b', issueTemplate: null, milestoneId: null, projectIds: null } }, owner.key).expect(200);
+    expect(created.body.errors).toBeUndefined();
+    const { id, number } = created.body.data.createIssue.issue;
+    const updated = await graphql('mutation($input: UpdateIssueInput!) { updateIssue(input: $input) { issue { title } } }', { input: { id, title: 'Still nulls', milestoneId: null, projectIds: null } }, owner.key).expect(200);
+    expect(updated.body.data.updateIssue.issue.title).toBe('Still nulls');
+    const milestone = await graphql('mutation($input: UpdateIssueInput!) { updateIssue(input: $input) { issue { title } } }', { input: { id, milestoneId: 'MI_bm9uZQ' } }, owner.key).expect(200);
+    expect(milestone.body.errors[0]).toMatchObject({ type: 'NOT_FOUND', message: "Could not resolve to a node with the global id of 'MI_bm9uZQ'" });
+
+    const paged = await graphql('query($o: String!, $n: Int!, $endCursor: String) { repository(owner: $o, name: "public-repo") { issue(number: $n) { projectItems(first: 100, after: $endCursor) { totalCount nodes { id } pageInfo { hasNextPage endCursor } } comments(first: 100, after: $endCursor) { totalCount pageInfo { hasNextPage } } } } }', { o: username, n: number, endCursor: null }, owner.key).expect(200);
+    expect(paged.body.errors).toBeUndefined();
+    expect(paged.body.data.repository.issue.projectItems).toMatchObject({ totalCount: 0, nodes: [] });
+  });
 });

@@ -69,10 +69,11 @@ export class IssueResolver {
     @Context() { loaders }: GraphqlContext,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
     @Args('last', { type: () => Int, nullable: true }) last?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
     const { comments } = await this.issues.getComments({ username: issue.ownerLogin, repo: issue.repoSlug, number: issue.number, requesterId: viewer?.userId });
     const viewerLogin = viewer ? ((await loaders.usersById.load(viewer.userId))?.username ?? null) : null;
-    return sliceConnection(comments.map((comment) => toIssueCommentNode(comment, issue, viewerLogin)), { first, last });
+    return sliceConnection(comments.map((comment) => toIssueCommentNode(comment, issue, viewerLogin)), { first, last, after });
   }
 
   @ResolveField(() => RepositoryNode)
@@ -91,7 +92,13 @@ export class IssueResolver {
   }
 
   @ResolveField(() => ProjectV2ItemConnection)
-  projectItems(@Args('first', { type: () => Int, nullable: true }) _first?: number) {
+  projectItems(
+    @Args('first', { type: () => Int, nullable: true }) _first?: number,
+    @Args('after', { type: () => String, nullable: true }) _after?: string,
+    @Args('last', { type: () => Int, nullable: true }) _last?: number,
+    @Args('before', { type: () => String, nullable: true }) _before?: string,
+    @Args('includeArchived', { type: () => Boolean, nullable: true, defaultValue: true }) _includeArchived?: boolean,
+  ) {
     return sliceConnection([], {});
   }
 

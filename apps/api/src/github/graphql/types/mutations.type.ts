@@ -31,6 +31,20 @@ export class CreateIssueInput {
   @Field(() => [ID], { nullable: true })
   assigneeIds?: string[] | null;
 
+  // Ghost has no milestones or projects: null is accepted, any id answers NOT_FOUND.
+  @Allow()
+  @Field(() => ID, { nullable: true })
+  milestoneId?: string | null;
+
+  @Allow()
+  @Field(() => [ID], { nullable: true })
+  projectIds?: string[] | null;
+
+  // Accepted and ignored: Ghost has no issue templates.
+  @Allow()
+  @Field(() => String, { nullable: true })
+  issueTemplate?: string | null;
+
   @Allow()
   @Field(() => String, { nullable: true })
   clientMutationId?: string | null;
@@ -61,6 +75,15 @@ export class UpdateIssueInput {
   @Allow()
   @Field(() => [ID], { nullable: true })
   assigneeIds?: string[] | null;
+
+  // Ghost has no milestones or projects: null is accepted, any id answers NOT_FOUND.
+  @Allow()
+  @Field(() => ID, { nullable: true })
+  milestoneId?: string | null;
+
+  @Allow()
+  @Field(() => [ID], { nullable: true })
+  projectIds?: string[] | null;
 
   @Allow()
   @Field(() => String, { nullable: true })

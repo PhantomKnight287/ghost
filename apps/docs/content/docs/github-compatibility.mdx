@@ -68,6 +68,7 @@ GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
 - A closed issue's `stateReason` is always `COMPLETED`. Ghost does not record why an issue was closed.
 - A comment's `authorAssociation` is `OWNER` or `NONE`, never `MEMBER` or `COLLABORATOR`.
 - `auto_init`, `gitignore_template` and `license_template` are accepted and ignored when creating a repository over REST. The repository starts empty.
+- `gh issue create` and `gh issue edit` with `--milestone` or `--project` fail: Ghost has no milestones or projects.
 - `gh repo create --disable-issues`, `--disable-wiki` and `--homepage` fail: they need `updateRepository`, which is not served.
 - A query with an unknown field answers HTTP 400. GitHub answers 200. `gh` handles both.
 - `search` only finds issues in one repository, named with `repo:`. Qualifiers Ghost cannot filter on, such as `milestone:` and `sort:`, are ignored.

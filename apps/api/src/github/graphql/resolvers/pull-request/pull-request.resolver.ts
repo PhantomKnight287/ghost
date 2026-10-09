@@ -41,8 +41,9 @@ export class PullRequestResolver {
     @Context() context: GraphqlContext,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
     @Args('last', { type: () => Int, nullable: true }) last?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
-    return this.issues.comments(pull, viewer, context, first, last);
+    return this.issues.comments(pull, viewer, context, first, last, after);
   }
 
   @ResolveField(() => RepositoryNode)
@@ -61,7 +62,13 @@ export class PullRequestResolver {
   }
 
   @ResolveField(() => ProjectV2ItemConnection)
-  projectItems(@Args('first', { type: () => Int, nullable: true }) first?: number) {
-    return this.issues.projectItems(first);
+  projectItems(
+    @Args('first', { type: () => Int, nullable: true }) _first?: number,
+    @Args('after', { type: () => String, nullable: true }) _after?: string,
+    @Args('last', { type: () => Int, nullable: true }) _last?: number,
+    @Args('before', { type: () => String, nullable: true }) _before?: string,
+    @Args('includeArchived', { type: () => Boolean, nullable: true, defaultValue: true }) _includeArchived?: boolean,
+  ) {
+    return this.issues.projectItems();
   }
 }

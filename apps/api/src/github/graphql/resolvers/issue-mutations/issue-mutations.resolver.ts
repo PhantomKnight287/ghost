@@ -34,6 +34,7 @@ export class IssueMutationsResolver {
   @Mutation(() => M.CreateIssuePayload, { nullable: true })
   async createIssue(@Args('input') input: M.CreateIssueInput, @Viewer() viewer: GithubViewer | null, @Context() context: GraphqlContext) {
     const userId = this.require(viewer, 'CreateIssue');
+    this.refuseMilestonesAndProjects(input);
     const repository = await this.repositoryFor(input.repositoryId, userId);
     const labels = await this.labelNames(repository, input.labelIds ?? []);
     const assignees = await this.usernames(input.assigneeIds ?? []);
@@ -46,6 +47,7 @@ export class IssueMutationsResolver {
   @Mutation(() => M.UpdateIssuePayload, { nullable: true })
   async updateIssue(@Args('input') input: M.UpdateIssueInput, @Viewer() viewer: GithubViewer | null, @Context() context: GraphqlContext) {
     const userId = this.require(viewer, 'UpdateIssue');
+    this.refuseMilestonesAndProjects(input);
     const { repository, ref } = await this.issueRef(input.id, userId);
     const labels = input.labelIds ? await this.labelNames(repository, input.labelIds) : null;
     const assignees = input.assigneeIds ? await this.usernames(input.assigneeIds) : null;
@@ -128,6 +130,12 @@ export class IssueMutationsResolver {
   private require(viewer: GithubViewer | null, mutation: string) {
     if (!viewer) throw new GithubForbiddenError(`You must be signed in to run ${mutation}.`);
     return viewer.userId;
+  }
+
+  /** Ghost has no milestones or projects, so any id gh sends for one cannot resolve. */
+  private refuseMilestonesAndProjects({ milestoneId, projectIds }: { milestoneId?: string | null; projectIds?: string[] | null }) {
+    const unknown = [milestoneId, ...(projectIds ?? [])].find(Boolean);
+    if (unknown) throw this.unresolved(unknown);
   }
 
   private unresolved(nodeId: string) {
