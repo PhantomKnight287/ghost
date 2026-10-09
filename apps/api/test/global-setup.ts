@@ -1,11 +1,8 @@
-import path from 'node:path';
 import {
   BucketAlreadyOwnedByYou,
   CreateBucketCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { createDatabase } from '@ghost/db';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
 
 import {
   DATABASE_URL,
@@ -13,19 +10,12 @@ import {
   S3_ENDPOINT,
   s3Credentials,
 } from './harness.js';
+import { migrateTestDatabase } from './migrate.js';
 
-const MIGRATIONS = path.resolve(
-  import.meta.dirname,
-  '../../../packages/db/drizzle',
-);
-
-// Once for every suite: suites run in parallel, and two migrators racing on a fresh database collide creating the journal table.
 export default async function setup() {
-  if (!hasBackends) return;
+  if (!hasBackends || !DATABASE_URL) return;
 
-  const { db, pool } = createDatabase({ connectionString: DATABASE_URL });
-  await migrate(db, { migrationsFolder: MIGRATIONS });
-  await pool.end();
+  await migrateTestDatabase(DATABASE_URL);
 
   await new S3Client({
     endpoint: S3_ENDPOINT,
