@@ -8,14 +8,15 @@ import {
 import type { Response } from 'express';
 
 import { DomainError } from '../../domain/errors.js';
+import { InsufficientScopesError } from '../../lib/github/github.errors.js';
 
 const DOCUMENTATION_URL = 'https://docs.github.com/rest';
 
 /** GitHub's REST error body, `{ message, documentation_url }`, for the compat controllers only; Ghost's own routes keep DomainErrorFilter. */
 @Catch(DomainError, HttpException)
-export class GithubRestFilter
-  implements ExceptionFilter<DomainError | HttpException>
-{
+export class GithubRestFilter implements ExceptionFilter<
+  DomainError | HttpException
+> {
   private readonly logger = new Logger(GithubRestFilter.name);
 
   catch(exception: DomainError | HttpException, host: ArgumentsHost) {
@@ -26,9 +27,13 @@ export class GithubRestFilter
     if (status >= 500) this.logger.error(exception);
     // GitHub says "Not Found" for every 404, so a private repository and a missing one read the same.
     const message = status === 404 ? 'Not Found' : this.messageOf(exception);
-    host
-      .switchToHttp()
-      .getResponse<Response>()
+    const response = host.switchToHttp().getResponse<Response>();
+    if (exception instanceof InsufficientScopesError)
+      response.setHeader(
+        'X-Accepted-OAuth-Scopes',
+        exception.accepted.join(', '),
+      );
+    response
       .status(status)
       .json({ message, documentation_url: DOCUMENTATION_URL });
   }

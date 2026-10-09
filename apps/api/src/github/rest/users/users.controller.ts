@@ -16,6 +16,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { UsersService } from '../../../services/users/users.service.js';
+import { requireScope } from '../../auth/require-scopes.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import {
@@ -87,6 +88,7 @@ export class UsersController {
   })
   async keys(@Viewer() viewer: GithubViewer | null) {
     if (!viewer) throw new RequiresAuthenticationError();
+    requireScope(viewer, 'GET /user/keys', 'read:public_key');
     const { keys } = await this.sshKeys.list(viewer.userId);
     return keys.map((key) => this.restKey(key));
   }
@@ -99,6 +101,7 @@ export class UsersController {
     @Viewer() viewer: GithubViewer | null,
   ) {
     if (!viewer) throw new RequiresAuthenticationError();
+    requireScope(viewer, 'POST /user/keys', 'write:public_key');
     return this.restKey(
       await this.sshKeys.add(viewer.userId, body.key, body.title),
     );

@@ -60,14 +60,14 @@ export class IssueResolver {
   async fromRepository(
     repository: RepositoryNode,
     number: number,
-    requesterId?: string,
+    viewer: GithubViewer | null,
   ) {
     try {
       const issue = await this.issues.getIssue({
         username: repository.ownerLogin,
         repo: repository.slug,
         number,
-        requesterId,
+        requesterId: viewer?.userId,
       });
       return issue.isPullRequest
         ? toPullRequestNode(issue, repository)
@@ -151,7 +151,7 @@ export class IssueResolver {
     @Parent() issue: IssueOrPullRequestFields,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return this.repositories.load(issue.repositoryGhostId, viewer?.userId);
+    return this.repositories.load(issue.repositoryGhostId, viewer);
   }
 
   @ResolveField(() => MilestoneNode, { nullable: true })

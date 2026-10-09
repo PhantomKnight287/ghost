@@ -1,34 +1,36 @@
+import { type Database, schema } from '@ghost/db';
 import { Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Args, Context, ID, Query, Resolver } from '@nestjs/graphql';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import { eq } from 'drizzle-orm';
+import { view } from 'drizzle-orm/sqlite-core';
+
 import { DATABASE } from '../../../../database/database.module.js';
-import { type Database, schema } from '@ghost/db';
-import { ConfigService } from '@nestjs/config';
-import { UserNode } from '../../types/user.type.js';
-import { Viewer } from '../../../auth/viewer.decorator.js';
-import type { GithubViewer } from '../../../auth/github-request.js';
-import { type GraphqlContext } from '../../../../lib/github/loaders.js';
+import { isoTimestamp } from '../../../../lib/db/sql.js';
+import { orNull } from '../../../../lib/github/authorize.js';
 import {
   CouldNotResolveError,
   GithubForbiddenError,
 } from '../../../../lib/github/github.errors.js';
+import { type GraphqlContext } from '../../../../lib/github/loaders.js';
+import { decodeNodeId } from '../../../../lib/github/node-id.js';
+import { commentOf, issueRefOf } from '../../../../lib/github/node-lookup.js';
 import {
   toIssueCommentNode,
   toLabelNode,
   toOrganizationNode,
   toUserNode,
 } from '../../../../lib/github/nodes.js';
-import { isoTimestamp } from '../../../../lib/db/sql.js';
-import { RepositoryResolver } from '../repository/repository.resolver.js';
-import { IssueResolver } from '../issue/issue.resolver.js';
-import { IssueNode } from '../../types/issue.type.js';
-import { commentOf, issueRefOf } from '../../../../lib/github/node-lookup.js';
-import { orNull } from '../../../../lib/github/authorize.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
-import { OrganizationNode } from '../../types/organization.type.js';
-import { eq } from 'drizzle-orm';
+import type { GithubViewer } from '../../../auth/github-request.js';
+import { Viewer } from '../../../auth/viewer.decorator.js';
+import { IssueNode } from '../../types/issue.type.js';
 import { Node, RepositoryOwner } from '../../types/node.interface.js';
-import { decodeNodeId } from '../../../../lib/github/node-id.js';
+import { OrganizationNode } from '../../types/organization.type.js';
+import { UserNode } from '../../types/user.type.js';
+import { IssueResolver } from '../issue/issue.resolver.js';
+import { RepositoryResolver } from '../repository/repository.resolver.js';
 
 @Resolver()
 @AllowAnonymous()
@@ -133,9 +135,10 @@ export class ViewerResolver {
         .where(eq(schema.organization.id, decoded.id));
       return row ? toOrganizationNode(row, githubOrigins(this.config)) : null;
     }
-    const requesterId = req.githubViewer?.userId;
+    const viewer = req.githubViewer;
+    const requesterId = viewer?.userId;
     if (decoded?.type === 'Repository') {
-      return orNull(this.repositories.load(decoded.id, requesterId));
+      return orNull(this.repositories.load(decoded.id, viewer));
     }
     if (decoded?.type === 'Label') {
       const [label] = await this.db
@@ -152,19 +155,18 @@ export class ViewerResolver {
         .where(eq(schema.label.id, decoded.id));
       if (!label) return null;
       const repository = await orNull(
-        this.repositories.load(label.repositoryId, requesterId),
+        this.repositories.load(label.repositoryId, viewer),
       );
       return repository ? toLabelNode(label, repository) : null;
     }
     if (decoded?.type === 'Issue' || decoded?.type === 'PullRequest') {
-      const found = await this.issueById(decoded.id, requesterId);
+      const found = await this.issueById(decoded.id, viewer);
       return found?.kind === decoded.type ? found : null;
     }
     if (decoded?.type === 'IssueComment') {
       const comment = await commentOf(this.db, decoded.id);
       // Loading the issue is what checks the viewer may read the comment.
-      const issue =
-        comment && (await this.issueById(comment.issueId, requesterId));
+      const issue = comment && (await this.issueById(comment.issueId, viewer));
       if (!(issue instanceof IssueNode)) return null;
       const viewerLogin = requesterId
         ? ((await loaders.usersById.load(requesterId))?.username ?? null)
@@ -174,16 +176,16 @@ export class ViewerResolver {
     return null;
   }
 
-  private async issueById(issueId: string, requesterId?: string) {
+  private async issueById(issueId: string, viewer?: GithubViewer | null) {
     const ref = await issueRefOf(this.db, issueId);
     if (!ref) return null;
     const repository = await orNull(
-      this.repositories.load(ref.repositoryId, requesterId),
+      this.repositories.load(ref.repositoryId, viewer ?? null),
     );
     return (
       repository &&
       orNull(
-        this.issueNodes.fromRepository(repository, ref.number, requesterId),
+        this.issueNodes.fromRepository(repository, ref.number, viewer ?? null),
       )
     );
   }

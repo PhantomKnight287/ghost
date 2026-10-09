@@ -4,6 +4,7 @@ import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { DATABASE } from '../../../../database/database.module.js';
+import { orNull } from '../../../../lib/github/authorize.js';
 import {
   CouldNotResolveError,
   GithubForbiddenError,
@@ -15,7 +16,6 @@ import {
   labelNamesOf,
   usernamesOf,
 } from '../../../../lib/github/node-lookup.js';
-import { orNull } from '../../../../lib/github/authorize.js';
 import { toIssueCommentNode } from '../../../../lib/github/nodes.js';
 import { RepositoryForbiddenError } from '../../../../lib/repositories/access/repository-access.errors.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
@@ -26,6 +26,7 @@ import * as M from '../../types/mutations.type.js';
 import type { RepositoryNode } from '../../types/repository.type.js';
 import { IssueResolver } from '../issue/issue.resolver.js';
 import { RepositoryResolver } from '../repository/repository.resolver.js';
+import { requireWriteScope } from '../../../auth/require-scopes.js';
 
 type IssueRef = {
   username: string;
@@ -50,30 +51,35 @@ export class IssueMutationsResolver {
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const userId = this.require(viewer, 'CreateIssue');
+    const signedIn = this.require(viewer, 'CreateIssue');
     this.refuseMilestonesAndProjects(input);
-    const repository = await this.repositoryFor(input.repositoryId, userId);
+    const repository = await this.repositoryFor(input.repositoryId, signedIn);
+    requireWriteScope(signedIn, 'createIssue', repository);
     const labels = await this.labelNames(repository, input.labelIds ?? []);
     const assignees = await this.usernames(input.assigneeIds ?? []);
-    const created = await this.write('CreateIssue', userId, context, () =>
-      this.issues.createIssue({
-        username: repository.ownerLogin,
-        repo: repository.slug,
-        requesterId: userId,
-        body: {
-          title: input.title,
-          body: input.body ?? undefined,
-          labels,
-          assignees,
-        },
-      }),
+    const created = await this.write(
+      'CreateIssue',
+      signedIn.userId,
+      context,
+      () =>
+        this.issues.createIssue({
+          username: repository.ownerLogin,
+          repo: repository.slug,
+          requesterId: signedIn.userId,
+          body: {
+            title: input.title,
+            body: input.body ?? undefined,
+            labels,
+            assignees,
+          },
+        }),
     );
     return {
       clientMutationId: input.clientMutationId,
       issue: await this.issueNodes.fromRepository(
         repository,
         created.number,
-        userId,
+        signedIn,
       ),
     };
   }
@@ -84,9 +90,10 @@ export class IssueMutationsResolver {
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const userId = this.require(viewer, 'UpdateIssue');
+    const signedIn = this.require(viewer, 'UpdateIssue');
     this.refuseMilestonesAndProjects(input);
-    const { repository, ref } = await this.issueRef(input.id, userId);
+    const { repository, ref } = await this.issueRef(input.id, signedIn);
+    requireWriteScope(signedIn, 'updateIssue', repository);
     const labels = input.labelIds
       ? await this.labelNames(repository, input.labelIds)
       : null;
@@ -94,7 +101,7 @@ export class IssueMutationsResolver {
       ? await this.usernames(input.assigneeIds)
       : null;
     // ponytail: one transaction per changed aspect; a failure midway keeps the earlier changes. Add IssuesService.updateMany if gh users hit it.
-    await this.write('UpdateIssue', userId, context, async () => {
+    await this.write('UpdateIssue', signedIn.userId, context, async () => {
       if (input.title != null || input.body !== undefined)
         await this.issues.updateIssue({
           ...ref,
@@ -111,7 +118,7 @@ export class IssueMutationsResolver {
       issue: await this.issueNodes.fromRepository(
         repository,
         ref.number,
-        userId,
+        signedIn,
       ),
     };
   }
@@ -122,9 +129,10 @@ export class IssueMutationsResolver {
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const userId = this.require(viewer, 'CloseIssue');
-    const { repository, ref } = await this.issueRef(input.issueId, userId);
-    await this.write('CloseIssue', userId, context, () =>
+    const signedIn = this.require(viewer, 'CloseIssue');
+    const { repository, ref } = await this.issueRef(input.issueId, signedIn);
+    requireWriteScope(signedIn, 'closeIssue', repository);
+    await this.write('CloseIssue', signedIn.userId, context, () =>
       this.issues.closeIssue(ref),
     );
     return {
@@ -132,7 +140,7 @@ export class IssueMutationsResolver {
       issue: await this.issueNodes.fromRepository(
         repository,
         ref.number,
-        userId,
+        signedIn,
       ),
     };
   }
@@ -143,9 +151,10 @@ export class IssueMutationsResolver {
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const userId = this.require(viewer, 'ReopenIssue');
-    const { repository, ref } = await this.issueRef(input.issueId, userId);
-    await this.write('ReopenIssue', userId, context, () =>
+    const signedIn = this.require(viewer, 'ReopenIssue');
+    const { repository, ref } = await this.issueRef(input.issueId, signedIn);
+    requireWriteScope(signedIn, 'reopenIssue', repository);
+    await this.write('ReopenIssue', signedIn.userId, context, () =>
       this.issues.reopenIssue(ref),
     );
     return {
@@ -153,7 +162,7 @@ export class IssueMutationsResolver {
       issue: await this.issueNodes.fromRepository(
         repository,
         ref.number,
-        userId,
+        signedIn,
       ),
     };
   }
@@ -164,12 +173,21 @@ export class IssueMutationsResolver {
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const userId = this.require(viewer, 'AddComment');
-    const { repository, ref } = await this.issueRef(input.subjectId, userId);
-    const comment = await this.write('AddComment', userId, context, () =>
-      this.issues.createComment({ ...ref, body: input.body }),
+    const signedIn = this.require(viewer, 'AddComment');
+    const { repository, ref } = await this.issueRef(input.subjectId, signedIn);
+    requireWriteScope(signedIn, 'addComment', repository);
+    const comment = await this.write(
+      'AddComment',
+      signedIn.userId,
+      context,
+      () => this.issues.createComment({ ...ref, body: input.body }),
     );
-    const issue = await this.issueOnly(repository, ref, input.subjectId);
+    const issue = await this.issueOnly(
+      repository,
+      ref,
+      input.subjectId,
+      signedIn,
+    );
     return {
       clientMutationId: input.clientMutationId,
       commentEdge: {
@@ -185,13 +203,17 @@ export class IssueMutationsResolver {
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const userId = this.require(viewer, 'AddLabelsToLabelable');
-    const { repository, ref } = await this.issueRef(input.labelableId, userId);
+    const signedIn = this.require(viewer, 'AddLabelsToLabelable');
+    const { repository, ref } = await this.issueRef(
+      input.labelableId,
+      signedIn,
+    );
+    requireWriteScope(signedIn, 'addLabelsToLabelable', repository);
     const current = (
-      await this.issueOnly(repository, ref, input.labelableId)
+      await this.issueOnly(repository, ref, input.labelableId, signedIn)
     ).labelDtos.map((label) => label.name);
     const added = await this.labelNames(repository, input.labelIds);
-    await this.write('AddLabelsToLabelable', userId, context, () =>
+    await this.write('AddLabelsToLabelable', signedIn.userId, context, () =>
       this.issues.setIssueLabels({
         ...ref,
         names: [...new Set([...current, ...added])],
@@ -199,7 +221,12 @@ export class IssueMutationsResolver {
     );
     return {
       clientMutationId: input.clientMutationId,
-      labelable: await this.issueOnly(repository, ref, input.labelableId),
+      labelable: await this.issueOnly(
+        repository,
+        ref,
+        input.labelableId,
+        signedIn,
+      ),
     };
   }
 
@@ -209,21 +236,34 @@ export class IssueMutationsResolver {
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const userId = this.require(viewer, 'RemoveLabelsFromLabelable');
-    const { repository, ref } = await this.issueRef(input.labelableId, userId);
+    const signedIn = this.require(viewer, 'RemoveLabelsFromLabelable');
+    const { repository, ref } = await this.issueRef(
+      input.labelableId,
+      signedIn,
+    );
+    requireWriteScope(signedIn, 'removeLabelsFromLabelable', repository);
     const current = (
-      await this.issueOnly(repository, ref, input.labelableId)
+      await this.issueOnly(repository, ref, input.labelableId, signedIn)
     ).labelDtos.map((label) => label.name);
     const removed = new Set(await this.labelNames(repository, input.labelIds));
-    await this.write('RemoveLabelsFromLabelable', userId, context, () =>
-      this.issues.setIssueLabels({
-        ...ref,
-        names: current.filter((name) => !removed.has(name)),
-      }),
+    await this.write(
+      'RemoveLabelsFromLabelable',
+      signedIn.userId,
+      context,
+      () =>
+        this.issues.setIssueLabels({
+          ...ref,
+          names: current.filter((name) => !removed.has(name)),
+        }),
     );
     return {
       clientMutationId: input.clientMutationId,
-      labelable: await this.issueOnly(repository, ref, input.labelableId),
+      labelable: await this.issueOnly(
+        repository,
+        ref,
+        input.labelableId,
+        signedIn,
+      ),
     };
   }
 
@@ -233,12 +273,17 @@ export class IssueMutationsResolver {
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const userId = this.require(viewer, 'AddAssigneesToAssignable');
-    const { repository, ref } = await this.issueRef(input.assignableId, userId);
-    const current = (await this.issueOnly(repository, ref, input.assignableId))
-      .assigneeLogins;
+    const signedIn = this.require(viewer, 'AddAssigneesToAssignable');
+    const { repository, ref } = await this.issueRef(
+      input.assignableId,
+      signedIn,
+    );
+    requireWriteScope(signedIn, 'addAssigneesToAssignable', repository);
+    const current = (
+      await this.issueOnly(repository, ref, input.assignableId, signedIn)
+    ).assigneeLogins;
     const added = await this.usernames(input.assigneeIds);
-    await this.write('AddAssigneesToAssignable', userId, context, () =>
+    await this.write('AddAssigneesToAssignable', signedIn.userId, context, () =>
       this.issues.setIssueAssignees({
         ...ref,
         usernames: [...new Set([...current, ...added])],
@@ -246,7 +291,12 @@ export class IssueMutationsResolver {
     );
     return {
       clientMutationId: input.clientMutationId,
-      assignable: await this.issueOnly(repository, ref, input.assignableId),
+      assignable: await this.issueOnly(
+        repository,
+        ref,
+        input.assignableId,
+        signedIn,
+      ),
     };
   }
 
@@ -256,20 +306,34 @@ export class IssueMutationsResolver {
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const userId = this.require(viewer, 'RemoveAssigneesFromAssignable');
-    const { repository, ref } = await this.issueRef(input.assignableId, userId);
-    const current = (await this.issueOnly(repository, ref, input.assignableId))
-      .assigneeLogins;
+    const signedIn = this.require(viewer, 'RemoveAssigneesFromAssignable');
+    const { repository, ref } = await this.issueRef(
+      input.assignableId,
+      signedIn,
+    );
+    requireWriteScope(signedIn, 'removeAssigneesFromAssignable', repository);
+    const current = (
+      await this.issueOnly(repository, ref, input.assignableId, signedIn)
+    ).assigneeLogins;
     const removed = new Set(await this.usernames(input.assigneeIds));
-    await this.write('RemoveAssigneesFromAssignable', userId, context, () =>
-      this.issues.setIssueAssignees({
-        ...ref,
-        usernames: current.filter((login) => !removed.has(login)),
-      }),
+    await this.write(
+      'RemoveAssigneesFromAssignable',
+      signedIn.userId,
+      context,
+      () =>
+        this.issues.setIssueAssignees({
+          ...ref,
+          usernames: current.filter((login) => !removed.has(login)),
+        }),
     );
     return {
       clientMutationId: input.clientMutationId,
-      assignable: await this.issueOnly(repository, ref, input.assignableId),
+      assignable: await this.issueOnly(
+        repository,
+        ref,
+        input.assignableId,
+        signedIn,
+      ),
     };
   }
 
@@ -278,7 +342,7 @@ export class IssueMutationsResolver {
       throw new GithubForbiddenError(
         `You must be signed in to run ${mutation}.`,
       );
-    return viewer.userId;
+    return viewer;
   }
 
   /** Ghost has no milestones or projects, so any id gh sends for one cannot resolve. */
@@ -299,10 +363,10 @@ export class IssueMutationsResolver {
     );
   }
 
-  private async repositoryFor(nodeId: string, userId: string) {
+  private async repositoryFor(nodeId: string, viewer: GithubViewer) {
     const repositoryId = decodeNodeIdAs(nodeId, 'Repository');
     const repository = await orNull(
-      this.repositories.load(repositoryId, userId),
+      this.repositories.load(repositoryId, viewer),
     );
     if (!repository) throw this.unresolved(nodeId);
     return repository;
@@ -311,12 +375,12 @@ export class IssueMutationsResolver {
   /** The issue a node id names, with the IssueRef the service methods take. */
   private async issueRef(
     nodeId: string,
-    userId: string,
+    viewer: GithubViewer,
   ): Promise<{ repository: RepositoryNode; ref: IssueRef }> {
     const found = await issueRefOf(this.db, decodeNodeIdAs(nodeId, 'Issue'));
     if (!found) throw this.unresolved(nodeId);
     const repository = await orNull(
-      this.repositories.load(found.repositoryId, userId),
+      this.repositories.load(found.repositoryId, viewer),
     );
     if (!repository) throw this.unresolved(nodeId);
     return {
@@ -325,7 +389,7 @@ export class IssueMutationsResolver {
         username: repository.ownerLogin,
         repo: repository.slug,
         number: found.number,
-        requesterId: userId,
+        requesterId: viewer.userId,
       },
     };
   }
@@ -335,11 +399,12 @@ export class IssueMutationsResolver {
     repository: RepositoryNode,
     ref: IssueRef,
     nodeId: string,
+    viewer: GithubViewer,
   ) {
     const found = await this.issueNodes.fromRepository(
       repository,
       ref.number,
-      ref.requesterId,
+      viewer,
     );
     if (!(found instanceof IssueNode)) throw this.unresolved(nodeId);
     return found;

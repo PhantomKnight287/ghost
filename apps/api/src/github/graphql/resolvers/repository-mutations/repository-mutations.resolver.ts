@@ -66,7 +66,7 @@ export class RepositoryMutationsResolver {
     );
     return {
       clientMutationId: input.clientMutationId,
-      repository: await this.repositoryNodes.load(created.id, viewer.userId),
+      repository: await this.repositoryNodes.load(created.id, viewer),
     };
   }
 

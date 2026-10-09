@@ -1,5 +1,5 @@
 import { type Database, schema } from '@ghost/db';
-import { Inject, forwardRef } from '@nestjs/common';
+import { forwardRef, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Args,
@@ -12,18 +12,15 @@ import {
 } from '@nestjs/graphql';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { eq, sql } from 'drizzle-orm';
-import { RefNode, RepositoryNode } from '../../types/repository.type.js';
+
 import { DATABASE } from '../../../../database/database.module.js';
-import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
-import { Viewer } from '../../../auth/viewer.decorator.js';
-import type { GithubViewer } from '../../../auth/github-request.js';
 import {
   authorizeOrNotFound,
   orNull,
 } from '../../../../lib/github/authorize.js';
-import { RepositoryOwner } from '../../types/node.interface.js';
+import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
-import { githubOrigins } from '../../../../lib/github/origins.js';
+import { encodeNodeId } from '../../../../lib/github/node-id.js';
 import {
   toIssueNode,
   toLabelNode,
@@ -32,18 +29,14 @@ import {
   toUserNode,
   type UserRow,
 } from '../../../../lib/github/nodes.js';
-import { encodeNodeId } from '../../../../lib/github/node-id.js';
+import { githubOrigins } from '../../../../lib/github/origins.js';
+import { hasScope } from '../../../../lib/github/scopes.js';
 import { ownerNameOf } from '../../../../lib/repositories/access/repository-access.js';
-import { UserConnection } from '../../types/user.type.js';
-import { LabelConnection, LabelNode } from '../../types/label.type.js';
-import { sliceConnection } from '../../connection.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
-import {
-  IssueConnection,
-  IssueNode,
-  IssueOrPullRequest,
-} from '../../types/issue.type.js';
-import { PullRequestNode } from '../../types/pull-request.type.js';
+import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
+import type { GithubViewer } from '../../../auth/github-request.js';
+import { Viewer } from '../../../auth/viewer.decorator.js';
+import { sliceConnection } from '../../connection.js';
 import {
   IssueOrderField,
   IssueState,
@@ -51,10 +44,19 @@ import {
   OrderDirection,
 } from '../../enums.js';
 import { IssueFilters, IssueOrder, LabelOrder } from '../../inputs.js';
-import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
+import {
+  IssueConnection,
+  IssueNode,
+  IssueOrPullRequest,
+} from '../../types/issue.type.js';
+import { LabelConnection, LabelNode } from '../../types/label.type.js';
+import { RepositoryOwner } from '../../types/node.interface.js';
+import { PullRequestNode } from '../../types/pull-request.type.js';
+import { RefNode, RepositoryNode } from '../../types/repository.type.js';
+import { UserConnection } from '../../types/user.type.js';
+import type { IssueResolver } from '../issue/issue.resolver.js';
 // The two resolvers inject each other: the namespace import is read lazily by forwardRef, and the type-only import keeps decorator metadata from touching the class mid-cycle.
 import * as issueResolver from '../issue/issue.resolver.js';
-import type { IssueResolver } from '../issue/issue.resolver.js';
 
 @Resolver(() => RepositoryNode)
 @AllowAnonymous()
@@ -79,12 +81,32 @@ export class RepositoryResolver {
       name,
       requesterId: viewer?.userId,
     });
+    // A token without `repo` cannot see private repositories at all, as on GitHub: they read as missing, not forbidden.
+    if (
+      row.visibility === 'private' &&
+      viewer &&
+      !hasScope(viewer.scopes, 'repo')
+    )
+      throw new CouldNotResolveError(
+        `Could not resolve to a Repository with the name '${owner}/${name}'.`,
+      );
     return this.toNode(row.id, row);
   }
 
   /** The node for a repository already authorized, for other resolvers (issue.repository, node(id:)). */
-  async load(repositoryId: string, requesterId?: string) {
-    const row = await this.access.authorizeById({ repositoryId, requesterId });
+  async load(repositoryId: string, viewer: GithubViewer | null) {
+    const row = await this.access.authorizeById({
+      repositoryId,
+      requesterId: viewer?.userId,
+    });
+    if (
+      row.visibility === 'private' &&
+      viewer &&
+      !hasScope(viewer.scopes, 'repo')
+    )
+      throw new CouldNotResolveError(
+        `Could not resolve to a node with the global id of '${encodeNodeId('Repository', repositoryId)}'`,
+      );
     return this.toNode(repositoryId, row);
   }
 
@@ -114,7 +136,7 @@ export class RepositoryResolver {
   ) {
     if (!repository.parentGhostId) return null;
     // A parent the viewer cannot read reads as no parent, as on GitHub.
-    return orNull(this.load(repository.parentGhostId, viewer?.userId));
+    return orNull(this.load(repository.parentGhostId, viewer));
   }
 
   @ResolveField(() => RefNode, { nullable: true })
@@ -294,7 +316,7 @@ export class RepositoryResolver {
     @Viewer() viewer: GithubViewer | null,
   ) {
     const found = await this.issueNodes
-      .fromRepository(repository, number, viewer?.userId)
+      .fromRepository(repository, number, viewer)
       .catch((error: unknown) => {
         if (error instanceof CouldNotResolveError) return null;
         throw error;
@@ -312,7 +334,7 @@ export class RepositoryResolver {
     @Args('number', { type: () => Int }) number: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return this.issueNodes.fromRepository(repository, number, viewer?.userId);
+    return this.issueNodes.fromRepository(repository, number, viewer);
   }
 
   /** Who gh offers as assignees: the owner, accepted collaborators and organization members, as the assignee picker's involved set. */
