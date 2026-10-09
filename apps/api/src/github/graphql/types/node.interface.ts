@@ -1,6 +1,8 @@
 import { Field, ID, InterfaceType } from '@nestjs/graphql';
 
 import { URI } from '../scalars.js';
+import { LabelConnection } from './label.type.js';
+import { UserConnection } from './user.type.js';
 
 /** Every node class sets `kind` to its GraphQL type name; it is how interfaces and unions resolve. */
 export type Kinded = { kind: string };
@@ -52,4 +54,16 @@ export abstract class RepositoryOwner {
 
   @Field(() => URI)
   url: string;
+}
+
+@InterfaceType('Labelable', { resolveType })
+export abstract class Labelable {
+  @Field(() => LabelConnection, { nullable: true })
+  labels: unknown;
+}
+
+@InterfaceType('Assignable', { resolveType })
+export abstract class Assignable {
+  @Field(() => UserConnection)
+  assignees: unknown;
 }

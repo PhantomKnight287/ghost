@@ -209,6 +209,10 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     expect(issues.pageInfo.hasNextPage).toBe(true);
     const second = await graphql(LIST, { owner: username, repo: 'public-repo', limit: 2, endCursor: issues.pageInfo.endCursor }, owner.key).expect(200);
     expect(second.body.data.repository.issues.nodes.map((issue: { title: string }) => issue.title)).toEqual(['First']);
+    const filtered = await graphql(LIST, { owner: username, repo: 'public-repo', limit: 10, author: `${username}x` }, owner.key).expect(200);
+    expect(filtered.body.data.repository.issues.totalCount).toBe(0);
+    const ascending = await graphql(LIST.replace('direction: DESC', 'direction: ASC'), { owner: username, repo: 'public-repo', limit: 1 }, owner.key).expect(200);
+    expect(ascending.body.data.repository.issues.nodes[0].title).toBe('First');
   });
 
   it('answers every field gh issue view asks for, with empty values for what Ghost lacks', async () => {
@@ -255,5 +259,47 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     ).expect(200);
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.search.nodes).toEqual([{ title: 'Second' }]);
+  });
+
+  it('creates, edits, comments on, labels, closes and reopens an issue through mutations', async () => {
+    const repo = await graphql('query($o: String!, $n: String!) { repository(owner: $o, name: $n) { id label(name: "bug") { id } } viewer { id } }', { o: username, n: 'public-repo' }, owner.key).expect(200);
+    const { id: repositoryId, label } = repo.body.data.repository;
+    const viewerId = repo.body.data.viewer.id;
+
+    const created = await graphql('mutation($input: CreateIssueInput!) { createIssue(input: $input) { clientMutationId issue { id number title url labels(first: 10) { nodes { name } } assignees(first: 10) { nodes { login } } } } }', { input: { repositoryId, title: 'From gh', body: 'Body', labelIds: [label.id], assigneeIds: [viewerId], clientMutationId: 'c1' } }, owner.key).expect(200);
+    expect(created.body.errors).toBeUndefined();
+    const issue = created.body.data.createIssue.issue;
+    expect(created.body.data.createIssue.clientMutationId).toBe('c1');
+    expect(issue.labels.nodes).toEqual([{ name: 'bug' }]);
+    expect(issue.assignees.nodes).toEqual([{ login: username }]);
+
+    const updated = await graphql('mutation($input: UpdateIssueInput!) { updateIssue(input: $input) { issue { title } } }', { input: { id: issue.id, title: 'Renamed' } }, owner.key).expect(200);
+    expect(updated.body.data.updateIssue.issue.title).toBe('Renamed');
+
+    const comment = await graphql('mutation($input: AddCommentInput!) { addComment(input: $input) { commentEdge { node { body url } } } }', { input: { subjectId: issue.id, body: 'Thanks' } }, owner.key).expect(200);
+    expect(comment.body.data.addComment.commentEdge.node.body).toBe('Thanks');
+
+    const removed = await graphql('mutation($input: RemoveLabelsFromLabelableInput!) { removeLabelsFromLabelable(input: $input) { labelable { ...on Issue { labels(first: 10) { totalCount } } } } }', { input: { labelableId: issue.id, labelIds: [label.id] } }, owner.key).expect(200);
+    expect(removed.body.data.removeLabelsFromLabelable.labelable.labels.totalCount).toBe(0);
+
+    const closed = await graphql('mutation($input: CloseIssueInput!) { closeIssue(input: $input) { issue { state stateReason } } }', { input: { issueId: issue.id, stateReason: 'NOT_PLANNED' } }, owner.key).expect(200);
+    expect(closed.body.data.closeIssue.issue.state).toBe('CLOSED');
+
+    const reopened = await graphql('mutation($input: ReopenIssueInput!) { reopenIssue(input: $input) { issue { state } } }', { input: { issueId: issue.id } }, owner.key).expect(200);
+    expect(reopened.body.data.reopenIssue.issue.state).toBe('OPEN');
+  });
+
+  it('refuses mutations without a viewer, and refuses a node id of the wrong type', async () => {
+    const repo = await graphql('query($o: String!, $n: String!) { repository(owner: $o, name: $n) { id } }', { o: username, n: 'public-repo' }, owner.key).expect(200);
+    const anonymous = await graphql('mutation($input: CreateIssueInput!) { createIssue(input: $input) { issue { id } } }', { input: { repositoryId: repo.body.data.repository.id, title: 'x' } }).expect(200);
+    expect(anonymous.body.errors[0].type).toBe('FORBIDDEN');
+    const wrongType = await graphql('mutation($input: CloseIssueInput!) { closeIssue(input: $input) { issue { id } } }', { input: { issueId: repo.body.data.repository.id } }, owner.key).expect(200);
+    expect(wrongType.body.errors[0]).toMatchObject({ type: 'NOT_FOUND', message: expect.stringContaining('Could not resolve to a node with the global id of') });
+  });
+
+  it('refuses a stranger writing to a public repository with FORBIDDEN', async () => {
+    const repo = await graphql('query($o: String!, $n: String!) { repository(owner: $o, name: $n) { issues(first: 1) { nodes { id } } } }', { o: username, n: 'public-repo' }, owner.key).expect(200);
+    const response = await graphql('mutation($input: CloseIssueInput!) { closeIssue(input: $input) { issue { id } } }', { input: { issueId: repo.body.data.repository.issues.nodes[0].id } }, stranger.key).expect(200);
+    expect(response.body.errors[0].type).toBe('FORBIDDEN');
   });
 });
