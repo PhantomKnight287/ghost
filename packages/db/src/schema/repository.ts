@@ -157,6 +157,8 @@ export const repositoryContributionIndex = pgTable(
       .references(() => repository.id, { onDelete: "cascade" })
       .notNull(),
     indexedCommitSha: text("indexed_commit_sha").notNull(),
+    /** Non-merge commits up to `indexedCommitSha`. Kept here because summing the per-author rows counts a co-authored commit once per author. */
+    commitCount: integer("commit_count").notNull().default(0),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()

@@ -28,7 +28,8 @@ const INSERT_CHUNK = 1_000;
 
 const RECORD = '\x1e';
 const FIELD = '\x1f';
-const FORMAT = `--format=${RECORD}%ae${FIELD}%an${FIELD}%ct`;
+const COAUTHOR = '\x1d';
+const FORMAT = `--format=${RECORD}%ae${FIELD}%an${FIELD}%ct${FIELD}%(trailers:key=Co-authored-by,valueonly,separator=%x1d)`;
 
 interface PendingDay {
   authorEmail: string;
@@ -86,7 +87,7 @@ export class RepositoryContributionService {
     // One person can commit from several addresses, so the grain of the list is the account where there is one, and the address where there is not.
     const identity = sql`coalesce(${contribution.authorId}, ${contribution.authorEmail})`;
 
-    const [rows, [totals]] = await Promise.all([
+    const [rows, [totals], [state]] = await Promise.all([
       this.db
         .select({
           // Newest address wins, for an author with no account to name.
@@ -111,12 +112,16 @@ export class RepositoryContributionService {
         .orderBy(desc(sum(contribution.commits)))
         .limit(pageSize),
       this.db
-        .select({
-          commits: sum(contribution.commits),
-          authors: countDistinct(identity),
-        })
+        .select({ authors: countDistinct(identity) })
         .from(contribution)
         .where(eq(contribution.repositoryId, repositoryId)),
+      // Not a sum of the rows: a co-authored commit sits in one row per author.
+      this.db
+        .select({ commits: schema.repositoryContributionIndex.commitCount })
+        .from(schema.repositoryContributionIndex)
+        .where(
+          eq(schema.repositoryContributionIndex.repositoryId, repositoryId),
+        ),
     ]);
 
     return {
@@ -133,7 +138,7 @@ export class RepositoryContributionService {
           },
         ];
       }),
-      totalCommits: Number(totals?.commits ?? 0),
+      totalCommits: state?.commits ?? 0,
       totalContributors: Number(totals?.authors ?? 0),
     };
   }
@@ -173,15 +178,21 @@ export class RepositoryContributionService {
     if (!incremental) await this.forget(repositoryId);
 
     const range = incremental ? `${state!.indexedCommitSha}..${tip}` : tip;
-    const written = await this.walk({ repositoryId, repoDirectory, range });
+    const { written, commits } = await this.walk({
+      repositoryId,
+      repoDirectory,
+      range,
+    });
+    const commitCount = (incremental ? state!.commitCount : 0) + commits;
 
     await this.db
       .insert(schema.repositoryContributionIndex)
-      .values({ repositoryId, indexedCommitSha: tip })
+      .values({ repositoryId, indexedCommitSha: tip, commitCount })
       .onConflictDoUpdate({
         target: [schema.repositoryContributionIndex.repositoryId],
         set: {
           indexedCommitSha: tip,
+          commitCount,
           updatedAt: new Date(),
         },
       });
@@ -193,7 +204,7 @@ export class RepositoryContributionService {
     return tip;
   }
 
-  /** Streams the range newest-first, bucketing non-merge commits per author and UTC day. The first name seen for an email is the newest one, so it wins. */
+  /** Streams the range newest-first, bucketing non-merge commits per author, co-authors included, and UTC day. The first name seen for an email is the newest one, so it wins. */
   private async walk({
     repositoryId,
     repoDirectory,
@@ -205,6 +216,7 @@ export class RepositoryContributionService {
   }) {
     const pending = new Map<string, PendingDay>();
     let written = 0;
+    let commits = 0;
 
     const stream = runGitStream({
       args: [
@@ -219,36 +231,36 @@ export class RepositoryContributionService {
     });
 
     for await (const record of splitRecords(stream, RECORD)) {
-      this.accumulate(pending, record);
+      if (this.accumulate(pending, record)) commits += 1;
       if (pending.size >= FLUSH_THRESHOLD) {
         written += await this.flush(repositoryId, pending);
       }
     }
 
     written += await this.flush(repositoryId, pending);
-    return written;
+    return { written, commits };
   }
 
-  /** Returns false for blank or malformed records, which are skipped. */
+  /** Credits the author and each `Co-authored-by` trailer once per commit. Returns false for blank or malformed records, which are skipped. */
   private accumulate(pending: Map<string, PendingDay>, record: string) {
-    const [email, name, epoch] = record.split(FIELD);
+    const [email, name, epoch, trailers = ''] = record.split(FIELD);
     if (!email || !epoch) return false;
     const seconds = Number.parseInt(epoch, 10);
     if (!Number.isFinite(seconds)) return false;
-
-    const authorEmail = email.toLowerCase();
     const day = new Date(seconds * 1000).toISOString().slice(0, 10);
-    const key = `${authorEmail}\x1f${day}`;
-    const existing = pending.get(key);
-    if (existing) {
-      existing.commits += 1;
-    } else {
-      pending.set(key, {
-        authorEmail,
-        authorName: name || email,
-        day,
-        commits: 1,
-      });
+
+    const people = new Map([[email.toLowerCase(), name || email]]);
+    for (const value of trailers.trim().split(COAUTHOR)) {
+      const match = /^(.*?)\s*<([^>]+)>$/.exec(value.trim());
+      if (match && !people.has(match[2].toLowerCase()))
+        people.set(match[2].toLowerCase(), match[1] || match[2]);
+    }
+
+    for (const [authorEmail, authorName] of people) {
+      const key = `${authorEmail}\x1f${day}`;
+      const existing = pending.get(key);
+      if (existing) existing.commits += 1;
+      else pending.set(key, { authorEmail, authorName, day, commits: 1 });
     }
     return true;
   }

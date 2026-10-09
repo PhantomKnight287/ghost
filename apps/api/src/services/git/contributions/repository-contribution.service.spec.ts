@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import {
   afterAll,
@@ -147,6 +147,54 @@ describe.skipIf(!CONNECTION)('RepositoryContributionService', () => {
     expect(rows.get('bob@example.com 2026-01-06')?.commits).toBe(1);
     expect(rows.get('bob@example.com 2026-01-06')?.authorName).toBe('Bob');
     expect(rows.size).toBe(2);
+  });
+
+  it('credits each co-author once per commit', async () => {
+    commitAs(
+      'alice@example.com',
+      'Alice',
+      '2026-01-10T12:00:00Z',
+      'pair\n\nCo-authored-by: Bob <Bob@Example.com>\nco-authored-by: Carol <carol@example.com>\nCo-authored-by: Alice <alice@example.com>\nCo-authored-by: not an address',
+    );
+    commitAs('bob@example.com', 'Bob', '2026-01-10T13:00:00Z', 'solo');
+
+    await sync();
+
+    const rows = await dayCounts();
+    expect(rows.get('alice@example.com 2026-01-10')?.commits).toBe(1);
+    expect(rows.get('bob@example.com 2026-01-10')?.commits).toBe(2);
+    expect(rows.get('carol@example.com 2026-01-10')?.authorName).toBe('Carol');
+    expect(rows.size).toBe(3);
+
+    const page = await service.listContributors({ repositoryId });
+    expect(page.totalCommits).toBe(2);
+    expect(page.totalContributors).toBe(3);
+  });
+
+  it('keeps the commit count across a top-up and a rebuild', async () => {
+    commitAs('alice@example.com', 'Alice', '2026-02-10T12:00:00Z', 'one');
+    commitAs(
+      'alice@example.com',
+      'Alice',
+      '2026-02-11T12:00:00Z',
+      'two\n\nCo-authored-by: Bob <bob@example.com>',
+    );
+    await sync();
+    expect(
+      (await service.listContributors({ repositoryId })).totalCommits,
+    ).toBe(2);
+
+    commitAs('bob@example.com', 'Bob', '2026-02-12T12:00:00Z', 'three');
+    await sync();
+    expect(
+      (await service.listContributors({ repositoryId })).totalCommits,
+    ).toBe(3);
+
+    git('reset', '--hard', 'HEAD~2');
+    await sync();
+    expect(
+      (await service.listContributors({ repositoryId })).totalCommits,
+    ).toBe(1);
   });
 
   it('tops up without recounting after a new push', async () => {
@@ -333,6 +381,20 @@ describe.skipIf(!CONNECTION)('RepositoryContributionService', () => {
         authorId,
         commits,
       });
+      // The total is the index's own count, as a sync would have stored it.
+      await db
+        .insert(schema.repositoryContributionIndex)
+        .values({
+          repositoryId,
+          indexedCommitSha: 'seed',
+          commitCount: commits,
+        })
+        .onConflictDoUpdate({
+          target: [schema.repositoryContributionIndex.repositoryId],
+          set: {
+            commitCount: sql`${schema.repositoryContributionIndex.commitCount} + ${commits}`,
+          },
+        });
     }
 
     it('ranks by commits with the linked account preferred', async () => {
