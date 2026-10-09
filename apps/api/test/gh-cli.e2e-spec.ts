@@ -142,9 +142,10 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   });
 
   it('views an issue with comments', async () => {
-    const out = await ok(['issue', 'view', '1', '-R', `${GH_E2E_HOST}/${username}/tools`, '--comments']);
-    expect(out).toContain('Broken build');
-    expect(out).toContain('Seen it too');
+    const repo = `${GH_E2E_HOST}/${username}/tools`;
+    expect(await ok(['issue', 'view', '1', '-R', repo])).toContain('Broken build');
+    // Without a terminal, --comments prints only the comments.
+    expect(await ok(['issue', 'view', '1', '-R', repo, '--comments'])).toContain('Seen it too');
   });
 
   it('filters issues by state, label, author and assignee', async () => {
