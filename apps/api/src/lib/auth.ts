@@ -472,6 +472,8 @@ export function createAuth(db: Database, config: AuthConfig) {
       username({}),
       apiKey({
         defaultPrefix: 'ghost_pat_',
+        // Device-flow keys record the OAuth app that minted them.
+        enableMetadata: true,
         rateLimit: {
           enabled: true,
           maxRequests: 120,

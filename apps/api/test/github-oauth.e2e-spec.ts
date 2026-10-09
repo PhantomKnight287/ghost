@@ -56,7 +56,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth device flow', () => {
   it('mints a ghost_pat_ key with the known scopes gh asked for, never the session', async () => {
     const code = form((await requestCode().expect(200)).text);
     await decide(code.user_code, 'approve');
-    expect(form((await poll(code.device_code, 'someone-else')).text)).toMatchObject({ error: 'invalid_grant' });
+    expect(form((await poll(code.device_code, 'someone-else')).text)).toMatchObject({ error: 'invalid_client' });
     const token = form((await poll(code.device_code)).text);
     expect(token).toMatchObject({ token_type: 'bearer', scope: 'repo,read:org,gist' });
     expect(token.access_token).toMatch(/^ghost_pat_/);
