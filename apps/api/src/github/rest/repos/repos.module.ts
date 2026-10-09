@@ -5,10 +5,11 @@ import { RepositoryResolver } from '../../graphql/resolvers/repository/repositor
 import { IssueResolver } from '../../graphql/resolvers/issue/issue.resolver.js';
 import { MaterializerModule } from '../../../materializer/materializer.module.js';
 import { IssuesModule } from '../../../resources/issues/issues.module.js';
+import { RepositoriesModule } from '../../../resources/repositories/repositories.module.js';
 import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
 
 @Module({
-  imports: [MaterializerModule, IssuesModule],
+  imports: [MaterializerModule, IssuesModule, RepositoriesModule],
   controllers: [ReposController],
   providers: [ReposService, RepositoryResolver, IssueResolver, RepositoryAccessService],
   exports: [RepositoryResolver, IssueResolver],

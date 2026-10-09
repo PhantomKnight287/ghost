@@ -21,9 +21,11 @@ import { DomainError } from '../domain/errors.js';
 import { graphqlErrorType } from '../lib/github/error-type.js';
 import { ReposModule } from './rest/repos/repos.module.js';
 import { IssuesModule } from '../resources/issues/issues.module.js';
+import { RepositoriesModule } from '../resources/repositories/repositories.module.js';
 import { IssueCommentResolver } from './graphql/resolvers/issue-comment/issue-comment.resolver.js';
 import { SearchResolver } from './graphql/resolvers/search/search.resolver.js';
 import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issue-mutations.resolver.js';
+import { RepositoryMutationsResolver } from './graphql/resolvers/repository-mutations/repository-mutations.resolver.js';
 
 @Module({
   imports: [
@@ -69,8 +71,9 @@ import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issu
     UsersModule,
     ReposModule,
     IssuesModule,
+    RepositoriesModule,
   ],
-  providers: [ViewerResolver, IssueCommentResolver, SearchResolver, IssueMutationsResolver],
+  providers: [ViewerResolver, IssueCommentResolver, SearchResolver, IssueMutationsResolver, RepositoryMutationsResolver],
 })
 export class GithubModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

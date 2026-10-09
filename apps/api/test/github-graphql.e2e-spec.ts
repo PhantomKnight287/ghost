@@ -302,4 +302,11 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     const response = await graphql('mutation($input: CloseIssueInput!) { closeIssue(input: $input) { issue { id } } }', { input: { issueId: repo.body.data.repository.issues.nodes[0].id } }, stranger.key).expect(200);
     expect(response.body.errors[0].type).toBe('FORBIDDEN');
   });
+
+  it('creates a repository for the viewer through createRepository', async () => {
+    const viewer = await graphql('{ viewer { id } }', {}, owner.key).expect(200);
+    const response = await graphql('mutation($input: CreateRepositoryInput!) { createRepository(input: $input) { repository { name nameWithOwner visibility url } } }', { input: { name: 'made-by-gh', visibility: 'PRIVATE', ownerId: viewer.body.data.viewer.id, description: 'x' } }, owner.key).expect(200);
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.createRepository.repository).toMatchObject({ name: 'made-by-gh', nameWithOwner: `${username}/made-by-gh`, visibility: 'PRIVATE' });
+  });
 });

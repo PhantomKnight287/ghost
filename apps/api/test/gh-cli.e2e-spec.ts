@@ -169,4 +169,9 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     expect(JSON.parse(await ok(['issue', 'view', '1', '-R', repo, '--json', 'state,title,labels']))).toMatchObject({ state: 'CLOSED', title: 'Broken build (edited)', labels: [{ name: 'bug' }] });
     await ok(['issue', 'reopen', '1', '-R', repo]);
   });
+
+  it('creates a repository', async () => {
+    const out = await ok(['repo', 'create', `${GH_E2E_HOST}/${username}/gh-made`, '--private', '--description', 'from gh']);
+    expect(out).toContain(`${username}/gh-made`);
+  });
 });
