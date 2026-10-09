@@ -15,6 +15,7 @@ class BrokenError extends DomainError {
 
 function host() {
   return {
+    getType: () => 'http',
     switchToHttp: () => ({
       getResponse: () => ({ status: () => ({ json: vi.fn() }) }),
       getRequest: () => ({ url: '/api/teapot' }),
@@ -27,6 +28,7 @@ describe('DomainErrorFilter', () => {
     const json = vi.fn();
     const status = vi.fn().mockReturnValue({ json });
     const host = {
+      getType: () => 'http',
       switchToHttp: () => ({
         getResponse: () => ({ status }),
         getRequest: () => ({ url: '/api/teapot' }),
@@ -58,5 +60,11 @@ describe('DomainErrorFilter', () => {
     filter.catch(broken, host());
     expect(error).toHaveBeenCalledWith(broken);
     error.mockRestore();
+  });
+
+  it('rethrows in a GraphQL context so Apollo shapes the error', () => {
+    const graphqlHost = { getType: () => 'graphql' } as unknown as ArgumentsHost;
+    const teapot = new TeapotError('short and stout');
+    expect(() => new DomainErrorFilter().catch(teapot, graphqlHost)).toThrow(teapot);
   });
 });
