@@ -34,4 +34,19 @@ Rejected:
 - Milestones, reactions, issue types, projects and sub-issues answer empty. They exist only so `gh`'s fixed queries validate.
 - Ghost features without a GitHub equivalent are not exposed.
 - `apps/docs/content/docs/github-compatibility.mdx` lists every known difference.
-- Plan 2 adds OAuth apps, the device flow and real scopes. Until then every token and session is granted every scope `gh` checks for.
+- Keys carry real GitHub scopes. See the addendum below.
+
+## Addendum: scopes and the device flow
+
+API keys store GitHub scopes in `permissions.scopes`. A key without them, made in Ghost's settings, and a browser session hold every scope. `X-OAuth-Scopes` reports what the key holds.
+
+One function, `hasScope` in `apps/api/src/lib/github/scopes.ts`, decides whether granted scopes cover a need, with GitHub's implications (`repo` covers `public_repo`, `admin:org` covers `write:org` and `read:org`, and so on). The compat GraphQL and REST APIs and the git transport all call it. Writes need `repo`, or `public_repo` on a public repository. A private repository needs `repo`, and answers as missing without it, so a token cannot learn that it exists.
+
+`gh auth login --web` and `gh auth refresh` use GitHub's OAuth device flow. Better Auth's `deviceAuthorization` plugin runs it. `apps/api/src/github/oauth/` serves it at GitHub's paths on the API host root, `/login/device/code` and `/login/oauth/access_token`, in GitHub's wire format. The approval page is `<web>/device`. `gh`, client id `178c6fc778ccc68e1d6a`, is the only OAuth app.
+
+On approval `gh` receives a `ghost_pat_` API key named `GitHub CLI`, holding the requested scopes Ghost knows. The session the plugin creates is deleted at once. API keys never authenticate Ghost's own `/api`, only the compat layer and git.
+
+Rejected:
+
+- Handing out the plugin's Better Auth session: it is a full browser session, valid for every Ghost API.
+- A separate OAuth token table: API keys already verify, rate-limit and revoke, and show in the settings page.
