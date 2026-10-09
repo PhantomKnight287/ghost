@@ -9,14 +9,22 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 @UseFilters(GithubRestFilter)
 export class MetaController {
   @Get()
-  @ApiOperation({ summary: 'GitHub API root; gh reads the X-OAuth-Scopes header it carries' })
+  @ApiOperation({
+    summary: 'GitHub API root; gh reads the X-OAuth-Scopes header it carries',
+  })
   root() {
     return {};
   }
 
   @Get('meta')
-  @ApiOperation({ summary: 'GitHub Enterprise meta; installed_version decides which search syntax gh uses' })
+  @ApiOperation({
+    summary:
+      'GitHub Enterprise meta; installed_version decides which search syntax gh uses',
+  })
   meta() {
-    return { installed_version: '3.17.0', verifiable_password_authentication: false };
+    return {
+      installed_version: '3.17.0',
+      verifiable_password_authentication: false,
+    };
   }
 }

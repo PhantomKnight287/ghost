@@ -17,7 +17,9 @@ describe('RepositoryMutationsResolver', () => {
       ],
     }).compile();
 
-    resolver = module.get<RepositoryMutationsResolver>(RepositoryMutationsResolver);
+    resolver = module.get<RepositoryMutationsResolver>(
+      RepositoryMutationsResolver,
+    );
   });
 
   it('should be defined', () => {

@@ -7,7 +7,10 @@ describe('IssueCommentResolver', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [IssueCommentResolver, { provide: ConfigService, useValue: {} }],
+      providers: [
+        IssueCommentResolver,
+        { provide: ConfigService, useValue: {} },
+      ],
     }).compile();
 
     resolver = module.get<IssueCommentResolver>(IssueCommentResolver);

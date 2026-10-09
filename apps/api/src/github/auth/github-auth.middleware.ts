@@ -18,12 +18,15 @@ export class GithubAuthMiddleware implements NestMiddleware {
   async use(req: GithubRequest, res: Response, next: NextFunction) {
     res.setHeader('X-GitHub-Media-Type', 'github.v3; format=json');
     // gh asks for GitHub's preview media types, which Apollo answers 406 because they do not name JSON; they are JSON.
-    if (GITHUB_MEDIA_TYPE.test(req.headers.accept ?? '')) req.headers.accept = 'application/json';
+    if (GITHUB_MEDIA_TYPE.test(req.headers.accept ?? ''))
+      req.headers.accept = 'application/json';
     const header = req.headers.authorization;
     const token = header ? TOKEN.exec(header)?.[1] : undefined;
 
     if (header && !token) return this.badCredentials(res);
-    const viewer = token ? await this.fromKey(token) : await this.fromSession(req);
+    const viewer = token
+      ? await this.fromKey(token)
+      : await this.fromSession(req);
     if (token && !viewer) return this.badCredentials(res);
 
     req.githubViewer = viewer;
@@ -32,16 +35,25 @@ export class GithubAuthMiddleware implements NestMiddleware {
   }
 
   private async fromKey(key: string): Promise<GithubViewer | null> {
-    const { valid, key: apiKey } = await this.auth.api.verifyApiKey({ body: { key } });
-    return valid && apiKey ? { userId: apiKey.referenceId, scopes: ALL_SCOPES } : null;
+    const { valid, key: apiKey } = await this.auth.api.verifyApiKey({
+      body: { key },
+    });
+    return valid && apiKey
+      ? { userId: apiKey.referenceId, scopes: ALL_SCOPES }
+      : null;
   }
 
   private async fromSession(req: GithubRequest): Promise<GithubViewer | null> {
-    const session = await this.auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+    const session = await this.auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
     return session ? { userId: session.user.id, scopes: ALL_SCOPES } : null;
   }
 
   private badCredentials(res: Response) {
-    res.status(401).json({ message: 'Bad credentials', documentation_url: 'https://docs.github.com/rest' });
+    res.status(401).json({
+      message: 'Bad credentials',
+      documentation_url: 'https://docs.github.com/rest',
+    });
   }
 }

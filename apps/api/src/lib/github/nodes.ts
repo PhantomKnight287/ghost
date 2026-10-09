@@ -107,7 +107,10 @@ export function toRepositoryNode(
 }
 
 // Mapper: labels arrive from IssuesService already selected for Ghost's API; selecting them again in GitHub's shape would double the query.
-export function toLabelNode(label: LabelDTO, repository: { url: string; resourcePath: string }) {
+export function toLabelNode(
+  label: LabelDTO,
+  repository: { url: string; resourcePath: string },
+) {
   const path = `/labels/${encodeURIComponent(label.name)}`;
   return Object.assign(new LabelNode(), {
     ghostId: label.id,
@@ -123,10 +126,17 @@ export function toLabelNode(label: LabelDTO, repository: { url: string; resource
   });
 }
 
-type RepositoryRefs = Pick<RepositoryNode, 'ghostId' | 'ownerLogin' | 'slug' | 'url' | 'resourcePath'>;
+type RepositoryRefs = Pick<
+  RepositoryNode,
+  'ghostId' | 'ownerLogin' | 'slug' | 'url' | 'resourcePath'
+>;
 
 /** What toIssueNode and toPullRequestNode share; `path` is `issues` or `pull`, as GitHub's URLs have it. */
-function issueOrPullRequestFields(issue: IssueDTO, repository: RepositoryRefs, path: 'issues' | 'pull') {
+function issueOrPullRequestFields(
+  issue: IssueDTO,
+  repository: RepositoryRefs,
+  path: 'issues' | 'pull',
+) {
   return {
     ghostId: issue.id,
     ownerLogin: repository.ownerLogin,
@@ -158,28 +168,49 @@ function issueOrPullRequestFields(issue: IssueDTO, repository: RepositoryRefs, p
 // Mapper: IssuesService.getIssues/getIssue already expand authors, labels and assignees for Ghost's API; the GitHub shape renames and re-cases those fields.
 export function toIssueNode(issue: IssueDTO, repository: RepositoryRefs) {
   const closed = issue.state === 'closed';
-  return Object.assign(new IssueNode(), issueOrPullRequestFields(issue, repository, 'issues'), {
-    id: encodeNodeId('Issue', issue.id),
-    state: closed ? IssueState.CLOSED : IssueState.OPEN,
-    // ponytail: Ghost records no close reason; every close reads as COMPLETED until it does.
-    stateReason: closed ? IssueStateReason.COMPLETED : null,
-    isPinned: false,
-  });
+  return Object.assign(
+    new IssueNode(),
+    issueOrPullRequestFields(issue, repository, 'issues'),
+    {
+      id: encodeNodeId('Issue', issue.id),
+      state: closed ? IssueState.CLOSED : IssueState.OPEN,
+      // ponytail: Ghost records no close reason; every close reads as COMPLETED until it does.
+      stateReason: closed ? IssueStateReason.COMPLETED : null,
+      isPinned: false,
+    },
+  );
 }
 
 // Mapper: same source as toIssueNode; a number that belongs to a pull request answers as one.
 export function toPullRequestNode(issue: IssueDTO, repository: RepositoryRefs) {
-  return Object.assign(new PullRequestNode(), issueOrPullRequestFields(issue, repository, 'pull'), {
-    id: encodeNodeId('PullRequest', issue.id),
-    // ponytail: merged requests read as CLOSED until milestone 3 reads pull_request.state.
-    state: issue.state === 'closed' ? PullRequestState.CLOSED : PullRequestState.OPEN,
-  });
+  return Object.assign(
+    new PullRequestNode(),
+    issueOrPullRequestFields(issue, repository, 'pull'),
+    {
+      id: encodeNodeId('PullRequest', issue.id),
+      // ponytail: merged requests read as CLOSED until milestone 3 reads pull_request.state.
+      state:
+        issue.state === 'closed'
+          ? PullRequestState.CLOSED
+          : PullRequestState.OPEN,
+    },
+  );
 }
 
-export type CommentRow = { id: string; body: string; createdAt: string; updatedAt: string; authorUsername: string };
+export type CommentRow = {
+  id: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  authorUsername: string;
+};
 
 // Mapper: IssuesService.getComments selects Ghost's comment columns for its own API.
-export function toIssueCommentNode(comment: CommentRow, issue: Pick<IssueOrPullRequestFields, 'ownerLogin' | 'url' | 'resourcePath'>, viewerLogin: string | null) {
+export function toIssueCommentNode(
+  comment: CommentRow,
+  issue: Pick<IssueOrPullRequestFields, 'ownerLogin' | 'url' | 'resourcePath'>,
+  viewerLogin: string | null,
+) {
   return Object.assign(new IssueCommentNode(), {
     ghostId: comment.id,
     authorLogin: comment.authorUsername,
@@ -191,7 +222,10 @@ export function toIssueCommentNode(comment: CommentRow, issue: Pick<IssueOrPullR
     isMinimized: false,
     minimizedReason: null,
     // ponytail: OWNER or NONE only; MEMBER and COLLABORATOR need a role lookup per author.
-    authorAssociation: comment.authorUsername === issue.ownerLogin ? CommentAuthorAssociation.OWNER : CommentAuthorAssociation.NONE,
+    authorAssociation:
+      comment.authorUsername === issue.ownerLogin
+        ? CommentAuthorAssociation.OWNER
+        : CommentAuthorAssociation.NONE,
     viewerDidAuthor: comment.authorUsername === viewerLogin,
     url: `${issue.url}#issuecomment-${comment.id}`,
     resourcePath: `${issue.resourcePath}#issuecomment-${comment.id}`,

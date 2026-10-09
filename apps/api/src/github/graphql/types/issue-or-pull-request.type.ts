@@ -1,4 +1,10 @@
-import { Field, GraphQLISODateTime, ID, Int, ObjectType } from '@nestjs/graphql';
+import {
+  Field,
+  GraphQLISODateTime,
+  ID,
+  Int,
+  ObjectType,
+} from '@nestjs/graphql';
 
 import type { LabelDTO } from '../../../resources/issues/dto/label.dto.js';
 import { HTML, URI } from '../scalars.js';

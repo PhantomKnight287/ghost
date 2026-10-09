@@ -1,7 +1,12 @@
 import { Field, InputType } from '@nestjs/graphql';
 import { Allow } from 'class-validator';
 
-import { IssueOrderField, IssueState, LabelOrderField, OrderDirection } from './enums.js';
+import {
+  IssueOrderField,
+  IssueState,
+  LabelOrderField,
+  OrderDirection,
+} from './enums.js';
 
 // GraphQL already checks every input's types and nullability; @Allow only keeps fields through the global ValidationPipe's whitelist.
 @InputType('IssueOrder')

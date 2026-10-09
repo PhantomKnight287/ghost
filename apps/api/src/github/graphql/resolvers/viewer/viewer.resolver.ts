@@ -151,7 +151,9 @@ export class ViewerResolver {
         .from(schema.label)
         .where(eq(schema.label.id, decoded.id));
       if (!label) return null;
-      const repository = await orNull(this.repositories.load(label.repositoryId, requesterId));
+      const repository = await orNull(
+        this.repositories.load(label.repositoryId, requesterId),
+      );
       return repository ? toLabelNode(label, repository) : null;
     }
     if (decoded?.type === 'Issue' || decoded?.type === 'PullRequest') {
@@ -161,9 +163,12 @@ export class ViewerResolver {
     if (decoded?.type === 'IssueComment') {
       const comment = await commentOf(this.db, decoded.id);
       // Loading the issue is what checks the viewer may read the comment.
-      const issue = comment && (await this.issueById(comment.issueId, requesterId));
+      const issue =
+        comment && (await this.issueById(comment.issueId, requesterId));
       if (!(issue instanceof IssueNode)) return null;
-      const viewerLogin = requesterId ? ((await loaders.usersById.load(requesterId))?.username ?? null) : null;
+      const viewerLogin = requesterId
+        ? ((await loaders.usersById.load(requesterId))?.username ?? null)
+        : null;
       return toIssueCommentNode(comment, issue, viewerLogin);
     }
     return null;
@@ -172,7 +177,14 @@ export class ViewerResolver {
   private async issueById(issueId: string, requesterId?: string) {
     const ref = await issueRefOf(this.db, issueId);
     if (!ref) return null;
-    const repository = await orNull(this.repositories.load(ref.repositoryId, requesterId));
-    return repository && orNull(this.issueNodes.fromRepository(repository, ref.number, requesterId));
+    const repository = await orNull(
+      this.repositories.load(ref.repositoryId, requesterId),
+    );
+    return (
+      repository &&
+      orNull(
+        this.issueNodes.fromRepository(repository, ref.number, requesterId),
+      )
+    );
   }
 }

@@ -10,7 +10,7 @@ export class DomainErrorFilter implements ExceptionFilter<DomainError> {
 
   catch(exception: DomainError, host: ArgumentsHost) {
     // we ignore graphql errors and let apollo handle it, to conform to github spec
-    if(host.getType<GqlContextType>()==='graphql') throw exception
+    if (host.getType<GqlContextType>() === 'graphql') throw exception;
     // A 4xx is an expected answer; a 5xx is ours to look into.
     if (exception.status >= 500) this.logger.error(exception);
     const ctx = host.switchToHttp();

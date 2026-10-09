@@ -89,7 +89,10 @@ export class ReposController {
       id: node.ghostId,
       defaultBranch: node.defaultBranch,
     });
-    const ref = await resolveDefaultRef({ gitDir, defaultBranch: node.defaultBranch });
+    const ref = await resolveDefaultRef({
+      gitDir,
+      defaultBranch: node.defaultBranch,
+    });
     const path = await findReadmePath({ gitDir, ref });
     const blob = path && (await readBlob({ gitDir, ref, path }));
     if (!path || !blob || !isTextBlob(blob.content))
@@ -107,21 +110,40 @@ export class ReposController {
   @Post('user/repos')
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a repository for the authenticated user' })
-  createForUser(@Body() body: GithubCreateRepositoryDTO, @Viewer() viewer: GithubViewer | null) {
+  createForUser(
+    @Body() body: GithubCreateRepositoryDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
     return this.create(body, viewer, undefined);
   }
 
   @Post('orgs/:org/repos')
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a repository in an organization' })
-  createForOrganization(@Param('org') org: string, @Body() body: GithubCreateRepositoryDTO, @Viewer() viewer: GithubViewer | null) {
+  createForOrganization(
+    @Param('org') org: string,
+    @Body() body: GithubCreateRepositoryDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
     return this.create(body, viewer, org);
   }
 
-  private async create(body: GithubCreateRepositoryDTO, viewer: GithubViewer | null, organization: string | undefined) {
+  private async create(
+    body: GithubCreateRepositoryDTO,
+    viewer: GithubViewer | null,
+    organization: string | undefined,
+  ) {
     if (!viewer) throw new RequiresAuthenticationError();
     const visibility = body.visibility ?? (body.private ? 'private' : 'public');
-    const created = await this.repositories.createRepository({ name: body.name, description: body.description, visibility, organization }, viewer.userId);
+    const created = await this.repositories.createRepository(
+      {
+        name: body.name,
+        description: body.description,
+        visibility,
+        organization,
+      },
+      viewer.userId,
+    );
     const node = await this.repositoryNodes.load(created.id, viewer.userId);
     return this.get(node.ownerLogin, node.slug, viewer);
   }

@@ -1,10 +1,20 @@
 import type { Role } from '@ghost/permissions';
-import { Field, GraphQLISODateTime, ID, Int, ObjectType } from '@nestjs/graphql';
+import {
+  Field,
+  GraphQLISODateTime,
+  ID,
+  Int,
+  ObjectType,
+} from '@nestjs/graphql';
 
 import { Connection } from '../connection.js';
 import { RepositoryPermission, RepositoryVisibility } from '../enums.js';
 import { GitSSHRemote, URI } from '../scalars.js';
-import { Node, RepositoryOwner, UniformResourceLocatable } from './node.interface.js';
+import {
+  Node,
+  RepositoryOwner,
+  UniformResourceLocatable,
+} from './node.interface.js';
 
 @ObjectType('Ref', { implements: () => [Node] })
 export class RefNode {
@@ -20,7 +30,9 @@ export class RefNode {
   prefix: string;
 }
 
-@ObjectType('Repository', { implements: () => [Node, UniformResourceLocatable] })
+@ObjectType('Repository', {
+  implements: () => [Node, UniformResourceLocatable],
+})
 export class RepositoryNode {
   kind = 'Repository';
   ghostId: string;

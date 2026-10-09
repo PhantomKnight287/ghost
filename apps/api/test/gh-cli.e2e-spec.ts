@@ -70,10 +70,22 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       'main',
     );
     for (const title of ['Broken build', 'Docs typo']) {
-      await api.post(`/api/repositories/${username}/tools/issues`).set('cookie', owner.cookie).send({ title }).expect(201);
+      await api
+        .post(`/api/repositories/${username}/tools/issues`)
+        .set('cookie', owner.cookie)
+        .send({ title })
+        .expect(201);
     }
-    await api.post(`/api/repositories/${username}/tools/issues/1/comments`).set('cookie', owner.cookie).send({ body: 'Seen it too' }).expect(201);
-    await api.post(`/api/repositories/${username}/tools/labels`).set('cookie', owner.cookie).send({ name: 'bug', color: 'd73a4a' }).expect(201);
+    await api
+      .post(`/api/repositories/${username}/tools/issues/1/comments`)
+      .set('cookie', owner.cookie)
+      .send({ body: 'Seen it too' })
+      .expect(201);
+    await api
+      .post(`/api/repositories/${username}/tools/labels`)
+      .set('cookie', owner.cookie)
+      .send({ name: 'bug', color: 'd73a4a' })
+      .expect(201);
   });
 
   afterAll(async () => {
@@ -135,51 +147,138 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   });
 
   it('lists issues', async () => {
-    const out = await ok(['issue', 'list', '-R', `${GH_E2E_HOST}/${username}/tools`, '--json', 'number,title,state,labels,author,url']);
+    const out = await ok([
+      'issue',
+      'list',
+      '-R',
+      `${GH_E2E_HOST}/${username}/tools`,
+      '--json',
+      'number,title,state,labels,author,url',
+    ]);
     const issues = JSON.parse(out);
-    expect(issues.map((issue: { title: string }) => issue.title)).toEqual(expect.arrayContaining(['Broken build', 'Docs typo']));
+    expect(issues.map((issue: { title: string }) => issue.title)).toEqual(
+      expect.arrayContaining(['Broken build', 'Docs typo']),
+    );
     expect(issues[0].state).toBe('OPEN');
   });
 
   it('views an issue with comments', async () => {
     const repo = `${GH_E2E_HOST}/${username}/tools`;
-    expect(await ok(['issue', 'view', '1', '-R', repo])).toContain('Broken build');
+    expect(await ok(['issue', 'view', '1', '-R', repo])).toContain(
+      'Broken build',
+    );
     // Without a terminal, --comments prints only the comments.
-    expect(await ok(['issue', 'view', '1', '-R', repo, '--comments'])).toContain('Seen it too');
+    expect(
+      await ok(['issue', 'view', '1', '-R', repo, '--comments']),
+    ).toContain('Seen it too');
   });
 
   it('filters issues by state, label, author and assignee', async () => {
-    const out = await ok(['issue', 'list', '-R', `${GH_E2E_HOST}/${username}/tools`, '--state', 'all', '--author', username, '--json', 'number']);
+    const out = await ok([
+      'issue',
+      'list',
+      '-R',
+      `${GH_E2E_HOST}/${username}/tools`,
+      '--state',
+      'all',
+      '--author',
+      username,
+      '--json',
+      'number',
+    ]);
     expect(JSON.parse(out).length).toBeGreaterThanOrEqual(2);
   });
 
   it('searches issues', async () => {
-    const out = await ok(['issue', 'list', '-R', `${GH_E2E_HOST}/${username}/tools`, '--search', 'build', '--json', 'title']);
+    const out = await ok([
+      'issue',
+      'list',
+      '-R',
+      `${GH_E2E_HOST}/${username}/tools`,
+      '--search',
+      'build',
+      '--json',
+      'title',
+    ]);
     expect(JSON.parse(out)).toEqual([{ title: 'Broken build' }]);
   });
 
   it('creates an issue with a label and an assignee', async () => {
-    const out = await ok(['issue', 'create', '-R', `${GH_E2E_HOST}/${username}/tools`, '--title', 'Made by gh', '--body', 'Body', '--label', 'bug', '--assignee', username]);
+    const out = await ok([
+      'issue',
+      'create',
+      '-R',
+      `${GH_E2E_HOST}/${username}/tools`,
+      '--title',
+      'Made by gh',
+      '--body',
+      'Body',
+      '--label',
+      'bug',
+      '--assignee',
+      username,
+    ]);
     expect(out).toMatch(new RegExp(`/${username}/tools/issues/\\d+`));
   });
 
   it('comments on, edits, closes and reopens an issue', async () => {
     const repo = `${GH_E2E_HOST}/${username}/tools`;
     await ok(['issue', 'comment', '1', '-R', repo, '--body', 'From gh']);
-    await ok(['issue', 'edit', '1', '-R', repo, '--title', 'Broken build (edited)', '--add-label', 'bug']);
+    await ok([
+      'issue',
+      'edit',
+      '1',
+      '-R',
+      repo,
+      '--title',
+      'Broken build (edited)',
+      '--add-label',
+      'bug',
+    ]);
     await ok(['issue', 'close', '1', '-R', repo]);
-    expect(JSON.parse(await ok(['issue', 'view', '1', '-R', repo, '--json', 'state,title,labels']))).toMatchObject({ state: 'CLOSED', title: 'Broken build (edited)', labels: [{ name: 'bug' }] });
+    expect(
+      JSON.parse(
+        await ok([
+          'issue',
+          'view',
+          '1',
+          '-R',
+          repo,
+          '--json',
+          'state,title,labels',
+        ]),
+      ),
+    ).toMatchObject({
+      state: 'CLOSED',
+      title: 'Broken build (edited)',
+      labels: [{ name: 'bug' }],
+    });
     await ok(['issue', 'reopen', '1', '-R', repo]);
   });
 
   it('creates a repository', async () => {
-    const out = await ok(['repo', 'create', `${GH_E2E_HOST}/${username}/gh-made`, '--private', '--description', 'from gh']);
+    const out = await ok([
+      'repo',
+      'create',
+      `${GH_E2E_HOST}/${username}/gh-made`,
+      '--private',
+      '--description',
+      'from gh',
+    ]);
     expect(out).toContain(`${username}/gh-made`);
   });
 
   it('adds and lists SSH keys', async () => {
     // A fingerprint belongs to one account, so each run adds a fresh key.
-    await promisify(execFile)('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', path.join(configDir, 'id')]);
+    await promisify(execFile)('ssh-keygen', [
+      '-q',
+      '-t',
+      'ed25519',
+      '-N',
+      '',
+      '-f',
+      path.join(configDir, 'id'),
+    ]);
     const keyFile = path.join(configDir, 'id.pub');
     await ok(['ssh-key', 'add', keyFile, '--title', 'gh-e2e']);
     expect(await ok(['ssh-key', 'list'])).toContain('gh-e2e');

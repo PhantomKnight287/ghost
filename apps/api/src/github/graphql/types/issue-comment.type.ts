@@ -45,4 +45,7 @@ export class IssueCommentNode {
   resourcePath: string;
 }
 
-export const IssueCommentConnection = Connection(IssueCommentNode, 'IssueComment');
+export const IssueCommentConnection = Connection(
+  IssueCommentNode,
+  'IssueComment',
+);

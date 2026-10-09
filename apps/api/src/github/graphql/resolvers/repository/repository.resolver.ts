@@ -17,7 +17,10 @@ import { DATABASE } from '../../../../database/database.module.js';
 import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
-import { authorizeOrNotFound, orNull } from '../../../../lib/github/authorize.js';
+import {
+  authorizeOrNotFound,
+  orNull,
+} from '../../../../lib/github/authorize.js';
 import { RepositoryOwner } from '../../types/node.interface.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
@@ -35,9 +38,18 @@ import { UserConnection } from '../../types/user.type.js';
 import { LabelConnection, LabelNode } from '../../types/label.type.js';
 import { sliceConnection } from '../../connection.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
-import { IssueConnection, IssueNode, IssueOrPullRequest } from '../../types/issue.type.js';
+import {
+  IssueConnection,
+  IssueNode,
+  IssueOrPullRequest,
+} from '../../types/issue.type.js';
 import { PullRequestNode } from '../../types/pull-request.type.js';
-import { IssueOrderField, IssueState, LabelOrderField, OrderDirection } from '../../enums.js';
+import {
+  IssueOrderField,
+  IssueState,
+  LabelOrderField,
+  OrderDirection,
+} from '../../enums.js';
 import { IssueFilters, IssueOrder, LabelOrder } from '../../inputs.js';
 import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
 // The two resolvers inject each other: the namespace import is read lazily by forwardRef, and the type-only import keeps decorator metadata from touching the class mid-cycle.
@@ -52,7 +64,8 @@ export class RepositoryResolver {
     private readonly access: RepositoryAccessService,
     private readonly config: ConfigService,
     private readonly issuesService: IssuesService,
-    @Inject(forwardRef(() => issueResolver.IssueResolver)) private readonly issueNodes: IssueResolver,
+    @Inject(forwardRef(() => issueResolver.IssueResolver))
+    private readonly issueNodes: IssueResolver,
   ) {}
 
   @Query(() => RepositoryNode, { nullable: true })
@@ -140,20 +153,48 @@ export class RepositoryResolver {
     @Args('first', { type: () => Int, nullable: true }) first?: number,
     @Args('after', { type: () => String, nullable: true }) after?: string,
     @Args('query', { nullable: true }) query?: string,
-    @Args('orderBy', { type: () => LabelOrder, nullable: true }) orderBy?: LabelOrder,
+    @Args('orderBy', { type: () => LabelOrder, nullable: true })
+    orderBy?: LabelOrder,
   ) {
     // listLabels answers by name, ascending.
-    const { labels } = await this.issuesService.listLabels({ username: repository.ownerLogin, repo: repository.slug, requesterId: viewer?.userId });
-    const matching = query ? labels.filter((label) => label.name.toLowerCase().includes(query.toLowerCase())) : labels;
-    const ordered = orderBy?.field === LabelOrderField.CREATED_AT ? matching.toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)) : matching;
-    const directed = orderBy?.direction === OrderDirection.DESC ? ordered.toReversed() : ordered;
-    return sliceConnection(directed.map((label) => toLabelNode(label, repository)), { first, after });
+    const { labels } = await this.issuesService.listLabels({
+      username: repository.ownerLogin,
+      repo: repository.slug,
+      requesterId: viewer?.userId,
+    });
+    const matching = query
+      ? labels.filter((label) =>
+          label.name.toLowerCase().includes(query.toLowerCase()),
+        )
+      : labels;
+    const ordered =
+      orderBy?.field === LabelOrderField.CREATED_AT
+        ? matching.toSorted((a, b) => a.createdAt.localeCompare(b.createdAt))
+        : matching;
+    const directed =
+      orderBy?.direction === OrderDirection.DESC
+        ? ordered.toReversed()
+        : ordered;
+    return sliceConnection(
+      directed.map((label) => toLabelNode(label, repository)),
+      { first, after },
+    );
   }
 
   @ResolveField(() => LabelNode, { nullable: true })
-  async label(@Parent() repository: RepositoryNode, @Args('name') name: string, @Viewer() viewer: GithubViewer | null) {
-    const { labels } = await this.issuesService.listLabels({ username: repository.ownerLogin, repo: repository.slug, requesterId: viewer?.userId });
-    const label = labels.find((candidate) => candidate.name.toLowerCase() === name.toLowerCase());
+  async label(
+    @Parent() repository: RepositoryNode,
+    @Args('name') name: string,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    const { labels } = await this.issuesService.listLabels({
+      username: repository.ownerLogin,
+      repo: repository.slug,
+      requesterId: viewer?.userId,
+    });
+    const label = labels.find(
+      (candidate) => candidate.name.toLowerCase() === name.toLowerCase(),
+    );
     return label ? toLabelNode(label, repository) : null;
   }
 
@@ -166,11 +207,24 @@ export class RepositoryResolver {
     @Args('query', { nullable: true }) query?: string,
   ) {
     const ids = await this.assignableUserIds(repository.ghostId);
-    const rows = (await loaders.usersById.loadMany(ids)).filter((row): row is UserRow => !!row && !(row instanceof Error));
-    const matching = query ? rows.filter((row) => `${row.username} ${row.name}`.toLowerCase().includes(query.toLowerCase())) : rows;
+    const rows = (await loaders.usersById.loadMany(ids)).filter(
+      (row): row is UserRow => !!row && !(row instanceof Error),
+    );
+    const matching = query
+      ? rows.filter((row) =>
+          `${row.username} ${row.name}`
+            .toLowerCase()
+            .includes(query.toLowerCase()),
+        )
+      : rows;
     // Sorted so the offset cursors sliceConnection hands out name the same users on every page.
-    const sorted = matching.toSorted((a, b) => (a.username ?? '').localeCompare(b.username ?? ''));
-    return sliceConnection(sorted.map((row) => toUserNode(row, githubOrigins(this.config))), { first, after });
+    const sorted = matching.toSorted((a, b) =>
+      (a.username ?? '').localeCompare(b.username ?? ''),
+    );
+    return sliceConnection(
+      sorted.map((row) => toUserNode(row, githubOrigins(this.config))),
+      { first, after },
+    );
   }
 
   @ResolveField(() => IssueConnection)
@@ -179,14 +233,27 @@ export class RepositoryResolver {
     @Viewer() viewer: GithubViewer | null,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
     @Args('after', { nullable: true }) after?: string,
-    @Args('states', { type: () => [IssueState], nullable: true }) states?: IssueState[],
+    @Args('states', { type: () => [IssueState], nullable: true })
+    states?: IssueState[],
     @Args('labels', { type: () => [String], nullable: true }) labels?: string[],
-    @Args('orderBy', { type: () => IssueOrder, nullable: true }) orderBy?: IssueOrder,
-    @Args('filterBy', { type: () => IssueFilters, nullable: true }) filterBy?: IssueFilters,
+    @Args('orderBy', { type: () => IssueOrder, nullable: true })
+    orderBy?: IssueOrder,
+    @Args('filterBy', { type: () => IssueFilters, nullable: true })
+    filterBy?: IssueFilters,
   ) {
     const wanted = new Set(states ?? filterBy?.states ?? []);
-    const state = wanted.size === 1 ? (wanted.has(IssueState.OPEN) ? 'open' : 'closed') : 'all';
-    const sort = orderBy?.field === IssueOrderField.UPDATED_AT ? 'updated' : orderBy?.field === IssueOrderField.COMMENTS ? 'comments' : 'created';
+    const state =
+      wanted.size === 1
+        ? wanted.has(IssueState.OPEN)
+          ? 'open'
+          : 'closed'
+        : 'all';
+    const sort =
+      orderBy?.field === IssueOrderField.UPDATED_AT
+        ? 'updated'
+        : orderBy?.field === IssueOrderField.COMMENTS
+          ? 'comments'
+          : 'created';
     const page = await this.issuesService.getIssues({
       username: repository.ownerLogin,
       repo: repository.slug,
@@ -205,23 +272,46 @@ export class RepositoryResolver {
     });
     return {
       nodes: page.issues.map((issue) => toIssueNode(issue, repository)),
-      totalCount: state === 'open' ? page.openCount : state === 'closed' ? page.closedCount : page.total,
-      pageInfo: { hasNextPage: page.hasMore, hasPreviousPage: !!after, startCursor: null, endCursor: page.nextCursor },
+      totalCount:
+        state === 'open'
+          ? page.openCount
+          : state === 'closed'
+            ? page.closedCount
+            : page.total,
+      pageInfo: {
+        hasNextPage: page.hasMore,
+        hasPreviousPage: !!after,
+        startCursor: null,
+        endCursor: page.nextCursor,
+      },
     };
   }
 
   @ResolveField(() => IssueNode, { nullable: true })
-  async issue(@Parent() repository: RepositoryNode, @Args('number', { type: () => Int }) number: number, @Viewer() viewer: GithubViewer | null) {
-    const found = await this.issueNodes.fromRepository(repository, number, viewer?.userId).catch((error: unknown) => {
-      if (error instanceof CouldNotResolveError) return null;
-      throw error;
-    });
-    if (!found || found instanceof PullRequestNode) throw new CouldNotResolveError(`Could not resolve to an Issue with the number of ${number}.`);
+  async issue(
+    @Parent() repository: RepositoryNode,
+    @Args('number', { type: () => Int }) number: number,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    const found = await this.issueNodes
+      .fromRepository(repository, number, viewer?.userId)
+      .catch((error: unknown) => {
+        if (error instanceof CouldNotResolveError) return null;
+        throw error;
+      });
+    if (!found || found instanceof PullRequestNode)
+      throw new CouldNotResolveError(
+        `Could not resolve to an Issue with the number of ${number}.`,
+      );
     return found;
   }
 
   @ResolveField(() => IssueOrPullRequest, { nullable: true })
-  issueOrPullRequest(@Parent() repository: RepositoryNode, @Args('number', { type: () => Int }) number: number, @Viewer() viewer: GithubViewer | null) {
+  issueOrPullRequest(
+    @Parent() repository: RepositoryNode,
+    @Args('number', { type: () => Int }) number: number,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
     return this.issueNodes.fromRepository(repository, number, viewer?.userId);
   }
 
@@ -236,7 +326,6 @@ export class RepositoryResolver {
   }
 }
 
-
 /** RepositoryOwner.repository(name:), inherited by User and Organization; a repository the viewer cannot read answers null, as on GitHub. */
 @Resolver(() => RepositoryOwner)
 @AllowAnonymous()
@@ -244,10 +333,16 @@ export class RepositoryOwnerResolver {
   constructor(private readonly repositories: RepositoryResolver) {}
 
   @ResolveField(() => RepositoryNode, { nullable: true })
-  repository(@Parent() owner: { login: string }, @Args('name') name: string, @Viewer() viewer: GithubViewer | null) {
-    return this.repositories.repository(owner.login, name, viewer).catch((error: unknown) => {
-      if (error instanceof CouldNotResolveError) return null;
-      throw error;
-    });
+  repository(
+    @Parent() owner: { login: string },
+    @Args('name') name: string,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.repositories
+      .repository(owner.login, name, viewer)
+      .catch((error: unknown) => {
+        if (error instanceof CouldNotResolveError) return null;
+        throw error;
+      });
   }
 }

@@ -3,10 +3,17 @@ import { createUnionType, Field, ObjectType } from '@nestjs/graphql';
 import { Connection } from '../connection.js';
 import { IssueState, IssueStateReason } from '../enums.js';
 import { IssueOrPullRequestFields } from './issue-or-pull-request.type.js';
-import { Assignable, Labelable, Node, UniformResourceLocatable } from './node.interface.js';
+import {
+  Assignable,
+  Labelable,
+  Node,
+  UniformResourceLocatable,
+} from './node.interface.js';
 import { PullRequestNode } from './pull-request.type.js';
 
-@ObjectType('Issue', { implements: () => [Node, UniformResourceLocatable, Labelable, Assignable] })
+@ObjectType('Issue', {
+  implements: () => [Node, UniformResourceLocatable, Labelable, Assignable],
+})
 export class IssueNode extends IssueOrPullRequestFields {
   kind = 'Issue' as const;
 

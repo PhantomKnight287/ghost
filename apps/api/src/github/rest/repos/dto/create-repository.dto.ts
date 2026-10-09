@@ -22,7 +22,10 @@ export class GithubCreateRepositoryDTO {
   @IsIn(['public', 'private'])
   visibility?: 'public' | 'private';
 
-  @ApiPropertyOptional({ description: 'Accepted and ignored: Ghost cannot write an initial commit from the API yet.' })
+  @ApiPropertyOptional({
+    description:
+      'Accepted and ignored: Ghost cannot write an initial commit from the API yet.',
+  })
   @IsOptional()
   @IsBoolean()
   auto_init?: boolean;

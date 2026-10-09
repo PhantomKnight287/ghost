@@ -7,7 +7,10 @@ describe('PullRequestResolver', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PullRequestResolver, { provide: IssueResolver, useValue: {} }],
+      providers: [
+        PullRequestResolver,
+        { provide: IssueResolver, useValue: {} },
+      ],
     }).compile();
 
     resolver = module.get<PullRequestResolver>(PullRequestResolver);

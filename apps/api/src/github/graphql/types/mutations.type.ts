@@ -1,7 +1,11 @@
 import { Field, ID, InputType, ObjectType } from '@nestjs/graphql';
 import { Allow } from 'class-validator';
 
-import { IssueClosedStateReason, IssueState, RepositoryVisibility } from '../enums.js';
+import {
+  IssueClosedStateReason,
+  IssueState,
+  RepositoryVisibility,
+} from '../enums.js';
 import { URI } from '../scalars.js';
 import { IssueCommentNode } from './issue-comment.type.js';
 import { IssueNode } from './issue.type.js';

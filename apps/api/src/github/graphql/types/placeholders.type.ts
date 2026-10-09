@@ -1,4 +1,11 @@
-import { createUnionType, Field, GraphQLISODateTime, ID, Int, ObjectType } from '@nestjs/graphql';
+import {
+  createUnionType,
+  Field,
+  GraphQLISODateTime,
+  ID,
+  Int,
+  ObjectType,
+} from '@nestjs/graphql';
 
 import { Connection } from '../connection.js';
 import { IssueTypeColor, ReactionContent } from '../enums.js';
@@ -101,4 +108,7 @@ export class ProjectV2ItemNode {
   project: ProjectV2Node;
 }
 
-export const ProjectV2ItemConnection = Connection(ProjectV2ItemNode, 'ProjectV2Item');
+export const ProjectV2ItemConnection = Connection(
+  ProjectV2ItemNode,
+  'ProjectV2Item',
+);

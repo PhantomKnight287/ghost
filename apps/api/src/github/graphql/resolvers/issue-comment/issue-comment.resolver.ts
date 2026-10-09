@@ -15,7 +15,10 @@ export class IssueCommentResolver {
   constructor(private readonly config: ConfigService) {}
 
   @ResolveField(() => Actor, { nullable: true })
-  async author(@Parent() comment: IssueCommentNode, @Context() { loaders }: GraphqlContext) {
+  async author(
+    @Parent() comment: IssueCommentNode,
+    @Context() { loaders }: GraphqlContext,
+  ) {
     const row = await loaders.usersByLogin.load(comment.authorLogin);
     return row ? toUserNode(row, githubOrigins(this.config)) : null;
   }

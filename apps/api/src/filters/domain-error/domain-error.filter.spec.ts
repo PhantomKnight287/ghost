@@ -63,8 +63,12 @@ describe('DomainErrorFilter', () => {
   });
 
   it('rethrows in a GraphQL context so Apollo shapes the error', () => {
-    const graphqlHost = { getType: () => 'graphql' } as unknown as ArgumentsHost;
+    const graphqlHost = {
+      getType: () => 'graphql',
+    } as unknown as ArgumentsHost;
     const teapot = new TeapotError('short and stout');
-    expect(() => new DomainErrorFilter().catch(teapot, graphqlHost)).toThrow(teapot);
+    expect(() => new DomainErrorFilter().catch(teapot, graphqlHost)).toThrow(
+      teapot,
+    );
   });
 });

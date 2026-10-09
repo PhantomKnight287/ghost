@@ -8,8 +8,19 @@ describe('node ids', () => {
     expect(encodeNodeId('IssueComment', 'ic_abc')).toMatch(/^IC_/);
     expect(encodeNodeId('Label', 'label_x')).toMatch(/^LA_/);
     expect(encodeNodeId('PullRequest', 'issue_y')).toMatch(/^PR_/);
-    for (const type of ['User', 'Organization', 'Repository', 'Issue', 'PullRequest', 'IssueComment', 'Label'] as const) {
-      expect(decodeNodeId(encodeNodeId(type, 'some_id-1'))).toEqual({ type, id: 'some_id-1' });
+    for (const type of [
+      'User',
+      'Organization',
+      'Repository',
+      'Issue',
+      'PullRequest',
+      'IssueComment',
+      'Label',
+    ] as const) {
+      expect(decodeNodeId(encodeNodeId(type, 'some_id-1'))).toEqual({
+        type,
+        id: 'some_id-1',
+      });
     }
   });
 
@@ -22,7 +33,9 @@ describe('node ids', () => {
   it('refuses an id of another type with GitHub wording', () => {
     const label = encodeNodeId('Label', 'label_x');
     expect(() => decodeNodeIdAs(label, 'Issue')).toThrow(CouldNotResolveError);
-    expect(() => decodeNodeIdAs(label, 'Issue')).toThrow(`Could not resolve to a node with the global id of '${label}'`);
+    expect(() => decodeNodeIdAs(label, 'Issue')).toThrow(
+      `Could not resolve to a node with the global id of '${label}'`,
+    );
     expect(decodeNodeIdAs(label, 'Label')).toBe('label_x');
   });
 });

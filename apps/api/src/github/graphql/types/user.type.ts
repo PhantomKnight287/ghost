@@ -1,10 +1,23 @@
-import { Field, GraphQLISODateTime, ID, Int, ObjectType } from '@nestjs/graphql';
+import {
+  Field,
+  GraphQLISODateTime,
+  ID,
+  Int,
+  ObjectType,
+} from '@nestjs/graphql';
 
 import { Connection } from '../connection.js';
 import { URI } from '../scalars.js';
-import { Actor, Node, RepositoryOwner, UniformResourceLocatable } from './node.interface.js';
+import {
+  Actor,
+  Node,
+  RepositoryOwner,
+  UniformResourceLocatable,
+} from './node.interface.js';
 
-@ObjectType('User', { implements: () => [Node, Actor, RepositoryOwner, UniformResourceLocatable] })
+@ObjectType('User', {
+  implements: () => [Node, Actor, RepositoryOwner, UniformResourceLocatable],
+})
 export class UserNode {
   kind = 'User';
   /** Ghost id, for resolvers; not a GraphQL field. */

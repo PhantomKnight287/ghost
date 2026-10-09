@@ -30,7 +30,11 @@ const NEWER_THAN_PACKAGE = `
   extend type Issue { issueType: IssueType }
 `;
 
-const theirs = extendSchema(buildSchema(github.idl, { assumeValidSDL: true }), parse(NEWER_THAN_PACKAGE), { assumeValidSDL: true });
+const theirs = extendSchema(
+  buildSchema(github.idl, { assumeValidSDL: true }),
+  parse(NEWER_THAN_PACKAGE),
+  { assumeValidSDL: true },
+);
 
 /** `[User!]!` -> `L!(N!(User))`: shape and name, so two types compare as strings. */
 function shape(type: GraphQLType): string {

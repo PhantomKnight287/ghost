@@ -1,4 +1,13 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, UseFilters } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+  UseFilters,
+} from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
 import { eq } from 'drizzle-orm';
 import { DATABASE } from '../../../database/database.module.js';
@@ -9,7 +18,10 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 import { UsersService } from '../../../services/users/users.service.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import type { GithubViewer } from '../../auth/github-request.js';
-import { CouldNotResolveError, RequiresAuthenticationError } from '../../../lib/github/github.errors.js';
+import {
+  CouldNotResolveError,
+  RequiresAuthenticationError,
+} from '../../../lib/github/github.errors.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
 import { encodeNodeId } from '../../../lib/github/node-id.js';
 import { SshKeysService } from '../../../resources/ssh-keys/ssh-keys.service.js';
@@ -37,12 +49,23 @@ export class UsersController {
   }
 
   @Get('users/:login')
-  @ApiOperation({ summary: 'A user or organization by login, in GitHub REST shape' })
+  @ApiOperation({
+    summary: 'A user or organization by login, in GitHub REST shape',
+  })
   async byLogin(@Param('login') login: string) {
-    const [user] = await this.db.select().from(schema.user).where(eq(schema.user.username, login));
+    const [user] = await this.db
+      .select()
+      .from(schema.user)
+      .where(eq(schema.user.username, login));
     if (user) return this.restUser(user);
-    const [organization] = await this.db.select().from(schema.organization).where(eq(schema.organization.slug, login));
-    if (!organization) throw new CouldNotResolveError(`Could not resolve to a User or Organization with the login of '${login}'.`);
+    const [organization] = await this.db
+      .select()
+      .from(schema.organization)
+      .where(eq(schema.organization.slug, login));
+    if (!organization)
+      throw new CouldNotResolveError(
+        `Could not resolve to a User or Organization with the login of '${login}'.`,
+      );
     const { api, web } = githubOrigins(this.config);
     return {
       login: organization.slug,
@@ -59,7 +82,9 @@ export class UsersController {
   }
 
   @Get('user/keys')
-  @ApiOperation({ summary: "The authenticated user's SSH keys, in GitHub REST shape" })
+  @ApiOperation({
+    summary: "The authenticated user's SSH keys, in GitHub REST shape",
+  })
   async keys(@Viewer() viewer: GithubViewer | null) {
     if (!viewer) throw new RequiresAuthenticationError();
     const { keys } = await this.sshKeys.list(viewer.userId);
@@ -69,13 +94,25 @@ export class UsersController {
   @Post('user/keys')
   @HttpCode(201)
   @ApiOperation({ summary: 'Add an SSH key to the authenticated user' })
-  async addKey(@Body() body: GithubAddKeyDTO, @Viewer() viewer: GithubViewer | null) {
+  async addKey(
+    @Body() body: GithubAddKeyDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
     if (!viewer) throw new RequiresAuthenticationError();
-    return this.restKey(await this.sshKeys.add(viewer.userId, body.key, body.title));
+    return this.restKey(
+      await this.sshKeys.add(viewer.userId, body.key, body.title),
+    );
   }
 
   private restKey(key: SshKeyDTO) {
-    return { id: null, key: key.publicKey, title: key.title, created_at: key.createdAt, read_only: false, verified: true };
+    return {
+      id: null,
+      key: key.publicKey,
+      title: key.title,
+      created_at: key.createdAt,
+      read_only: false,
+      verified: true,
+    };
   }
 
   private restUser(user: typeof schema.user.$inferSelect) {

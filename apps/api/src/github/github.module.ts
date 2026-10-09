@@ -77,7 +77,13 @@ import { RepositoryMutationsResolver } from './graphql/resolvers/repository-muta
     IssuesModule,
     RepositoriesModule,
   ],
-  providers: [ViewerResolver, IssueCommentResolver, SearchResolver, IssueMutationsResolver, RepositoryMutationsResolver],
+  providers: [
+    ViewerResolver,
+    IssueCommentResolver,
+    SearchResolver,
+    IssueMutationsResolver,
+    RepositoryMutationsResolver,
+  ],
 })
 export class GithubModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
