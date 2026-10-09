@@ -197,6 +197,7 @@ type Query {
   organization(login: String!): Organization
   repository(name: String!, owner: String!): Repository
   repositoryOwner(login: String!): RepositoryOwner
+  search(after: String, first: Int, last: Int, query: String!, type: SearchType!): SearchResultItemConnection!
   user(login: String!): User
 
   """The currently authenticated user."""
@@ -283,6 +284,21 @@ enum RepositoryPermission {
 enum RepositoryVisibility {
   PRIVATE
   PUBLIC
+}
+
+union SearchResultItem = Issue | PullRequest
+
+type SearchResultItemConnection {
+  issueCount: Int!
+  nodes: [SearchResultItem]
+  pageInfo: PageInfo!
+}
+
+enum SearchType {
+  DISCUSSION
+  ISSUE
+  REPOSITORY
+  USER
 }
 
 type SubIssuesSummary {

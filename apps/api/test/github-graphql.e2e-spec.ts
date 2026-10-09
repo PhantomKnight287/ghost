@@ -246,4 +246,14 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     const response = await graphql('query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { issue(number: 9999) { title } } }', { owner: username, repo: 'public-repo' }, owner.key).expect(200);
     expect(response.body.errors[0]).toMatchObject({ type: 'NOT_FOUND', message: `Could not resolve to an Issue with the number of 9999.` });
   });
+
+  it('searches issues with gh qualifiers and ignores ones Ghost cannot apply', async () => {
+    const response = await graphql(
+      'query($q: String!) { search(type: ISSUE, last: 30, query: $q) { issueCount nodes { ...on Issue { title } } } }',
+      { q: `repo:${username}/public-repo is:issue is:open label:bug milestone:v1 sort:created-desc` },
+      owner.key,
+    ).expect(200);
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.search.nodes).toEqual([{ title: 'Second' }]);
+  });
 });
