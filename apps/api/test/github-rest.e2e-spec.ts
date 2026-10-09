@@ -99,4 +99,11 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
     const listed = await v3('/user/keys', owner.key).expect(200);
     expect(listed.body).toContainEqual(expect.objectContaining({ title: 'laptop', key: expect.stringContaining('ssh-ed25519 AAAA') }));
   });
+
+  it('lists the compat routes in the OpenAPI document under GitHub compatibility', async () => {
+    const { SwaggerModule } = await import('@nestjs/swagger');
+    const { openApiConfig } = await import('../src/lib/openapi.js');
+    const document = SwaggerModule.createDocument(app, openApiConfig);
+    expect(document.paths['/api/v3/user']?.get?.tags).toEqual(['GitHub compatibility']);
+  });
 });

@@ -3989,7 +3989,7 @@ git commit -m "api: list and add SSH keys through GitHub's REST routes"
 
 **Interfaces:** none new. This task pins behavior other tasks produced.
 
-- [ ] **Step 1: Cases**
+- [x] **Step 1: Cases**
 
 ```ts
   it('serves GraphiQL to a browser and accepts the session cookie there', async () => {
@@ -4018,7 +4018,7 @@ REST:
 
 Apollo answers a validation error with HTTP 400; GitHub answers 200. `gh` handles both. If the reviewer wants GitHub's status, set Apollo's `status400ForVariableCoercionErrors: false` and check validation errors; otherwise keep 400 and record the difference on the compatibility page.
 
-- [ ] **Step 2: Run, fix what fails, commit**
+- [x] **Step 2: Run, fix what fails, commit**
 
 Run: `$E2E test/github-graphql.e2e-spec.ts test/github-rest.e2e-spec.ts`. If the OpenAPI path key differs (`/api/v3/user` vs `/v3/user`), match what `document.paths` holds.
 

@@ -309,4 +309,16 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.createRepository.repository).toMatchObject({ name: 'made-by-gh', nameWithOwner: `${username}/made-by-gh`, visibility: 'PRIVATE' });
   });
+
+  it('serves GraphiQL to a browser and accepts the session cookie there', async () => {
+    const page = await request(app.getHttpServer()).get('/api/graphql').set('accept', 'text/html').expect(200);
+    expect(page.text).toContain('graphiql');
+    const response = await request(app.getHttpServer()).post('/api/graphql').set('cookie', owner.cookie).send({ query: '{ viewer { login } }' }).expect(200);
+    expect(response.body.data.viewer.login).toBe(username);
+  });
+
+  it('answers an unknown field with a validation error naming it, which gh prints', async () => {
+    const response = await graphql('{ viewer { login notAField } }', {}, owner.key).expect(400);
+    expect(response.body.errors[0].message).toContain('notAField');
+  });
 });
