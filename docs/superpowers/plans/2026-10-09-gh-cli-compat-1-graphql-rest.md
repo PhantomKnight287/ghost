@@ -12,6 +12,25 @@
 
 **Plan 2** (OAuth apps, device flow, scopes, `gh auth login --web`, `gh auth refresh`, `gh auth setup-git` scope checks) is written after this plan lands. It builds on the middleware and viewer from Task 4.
 
+## Stack
+
+The work ships as a GitHub stacked PR (`gh stack`, `--remote origin`), one layer per row, each green on its own. Task 1 is an unrelated fix with its own PR against `main`, merged first so CI starts green.
+
+| # | Branch | Tasks |
+| --- | --- | --- |
+| 1 | `gh-compat/plans` | spec and this plan |
+| 2 | `gh-compat/ci` | 2 |
+| 3 | `gh-compat/graphql-plumbing` | 3 |
+| 4 | `gh-compat/auth` | 4, 5 |
+| 5 | `gh-compat/users` | 6, 7 (together: Task 6's conformance test fails on Task 3's placeholder until Task 7 removes it) |
+| 6 | `gh-compat/repositories` | 8, 9 |
+| 7 | `gh-compat/issues` | 10, 11 |
+| 8 | `gh-compat/issue-mutations` | 12 |
+| 9 | `gh-compat/repo-create-ssh` | 13, 14 |
+| 10 | `gh-compat/docs` | 15, 16 |
+
+Once layer 1 is reviewed it stays frozen: a correction to this plan rides in the layer that finds it, so the bottom layer never forces a restack of everything above. After a commit to a lower layer, run `gh stack rebase` then `gh stack push`. Task 17's PR step becomes `gh stack submit --remote origin` and merging the top layer.
+
 ## Facts established while planning (read before starting)
 
 These come from reading `gh` v2.102.0 and `cli/oauth` v1.2.2 source and this repository. They correct or sharpen the spec:
@@ -213,7 +232,7 @@ git commit -m "api: publish release.edited only when the edit changed something"
 
 ### Task 2: API CI workflow on every PR and every push to main
 
-**Branch:** `feat/gh-cli-compat` (where the spec lives). Rebase on `main` once Task 1 merges.
+**Branch:** `gh-compat/ci`, added with `gh stack add gh-compat/ci` on top of `gh-compat/plans`. Run `gh stack rebase` once Task 1 merges.
 
 **Files:**
 - Create: `.github/workflows/api.yml`
@@ -309,8 +328,8 @@ In `docker/compose.yaml`, under the `api` service's `environment:`, add next to 
 ```bash
 git add .github/workflows/api.yml docker/compose.yaml
 git commit -m "ci: type-check and test the API on every pull request and push to main"
-git push -u origin feat/gh-cli-compat
-gh run list --workflow api.yml --limit 1
+gh stack submit --remote origin
+gh run list --workflow api.yml --branch gh-compat/ci --limit 1
 ```
 
 Expected: a run starts. It may fail on the `webhook-events` case until Task 1 merges; every other suite passes. The schema step passes trivially (the file does not exist yet, so `git diff` is clean).
@@ -4140,7 +4159,7 @@ Expected: all PASS except the two known e2e failures recorded in memory if Task 
 
 ```bash
 git push
-gh run watch --exit-status $(gh run list --workflow api.yml --branch feat/gh-cli-compat --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch --exit-status $(gh run list --workflow api.yml --branch gh-compat/docs --limit 1 --json databaseId --jq '.[0].databaseId')
 ```
 
 Expected: green, including `gh CLI` cases. If a `gh` case fails with "Cannot query field X on type Y", add field X to Y (the conformance test then checks its type), re-run.
