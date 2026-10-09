@@ -19,7 +19,11 @@ export function tlsFiles() {
 /** Runs gh against the e2e host with its own config dir. Async because the server runs in this process. */
 export function runGh(
   args: string[],
-  { configDir, token, input }: { configDir: string; token?: string; input?: string },
+  {
+    configDir,
+    token,
+    input,
+  }: { configDir: string; token?: string; input?: string },
 ) {
   const { certPath } = tlsFiles();
   const child = spawn('gh', args, {
@@ -44,7 +48,10 @@ export function runGh(
   let stderr = '';
   child.stdout.on('data', (chunk) => (stdout += chunk));
   child.stderr.on('data', (chunk) => (stderr += chunk));
-  return new Promise<{ stdout: string; stderr: string; code: number }>((resolve) =>
-    child.on('close', (code) => resolve({ stdout, stderr, code: code ?? -1 })),
+  return new Promise<{ stdout: string; stderr: string; code: number }>(
+    (resolve) =>
+      child.on('close', (code) =>
+        resolve({ stdout, stderr, code: code ?? -1 }),
+      ),
   );
 }

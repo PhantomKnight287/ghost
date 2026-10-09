@@ -1,7 +1,7 @@
-import type { Database } from "@ghost/db";
+import type { Database } from '@ghost/db';
 
 export function createLoaders(_db: Database) {
-  return {}
+  return {};
 }
 
-export type Loaders = ReturnType<typeof createLoaders>
+export type Loaders = ReturnType<typeof createLoaders>;
