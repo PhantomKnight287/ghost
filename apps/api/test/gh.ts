@@ -6,6 +6,7 @@ import path from 'node:path';
 export const GH_E2E_HOST = process.env.GH_E2E_HOST;
 
 const certDir = path.resolve(import.meta.dirname, '../.gh-e2e');
+const certPath = path.join(certDir, 'cert.pem');
 
 const ghEnv = (configDir: string, token?: string) => ({
   PATH: process.env.PATH ?? '',
@@ -16,11 +17,13 @@ const ghEnv = (configDir: string, token?: string) => ({
   GH_NO_UPDATE_NOTIFIER: '1',
   NO_COLOR: '1',
   GH_BROWSER: 'true',
+  // gh and git trust the suite's self-signed certificate.
+  SSL_CERT_FILE: certPath,
+  GIT_SSL_CAINFO: certPath,
   ...(token && { GH_ENTERPRISE_TOKEN: token }),
 });
 
 export function tlsFiles() {
-  const certPath = path.join(certDir, 'cert.pem');
   return {
     key: readFileSync(path.join(certDir, 'key.pem')),
     cert: readFileSync(certPath),
@@ -37,14 +40,7 @@ export function runGh(
     input,
   }: { configDir: string; token?: string; input?: string },
 ) {
-  const { certPath } = tlsFiles();
-  const child = spawn('gh', args, {
-    env: {
-      ...ghEnv(configDir, token),
-      SSL_CERT_FILE: certPath,
-      GIT_SSL_CAINFO: certPath,
-    },
-  });
+  const child = spawn('gh', args, { env: ghEnv(configDir, token) });
   if (input !== undefined) child.stdin.end(input);
   else child.stdin.end();
 
@@ -71,6 +67,7 @@ export function startGh(
   const waiters: Array<{
     pattern: RegExp;
     resolve: (match: RegExpMatchArray) => void;
+    reject: (error: Error) => void;
   }> = [];
   child.stdout.on('data', (chunk) => (stdout += chunk));
   child.stderr.on('data', (chunk) => {
@@ -85,16 +82,27 @@ export function startGh(
   });
   const done = new Promise<{ stdout: string; stderr: string; code: number }>(
     (resolve) =>
-      child.on('close', (code) =>
-        resolve({ stdout, stderr, code: code ?? -1 }),
-      ),
+      child.on('close', (code) => {
+        // gh exited before printing what a waiter expects: fail with its output instead of timing out.
+        for (const waiter of waiters.splice(0))
+          waiter.reject(
+            new Error(`gh exited ${code} before ${waiter.pattern}:\n${stderr}`),
+          );
+        resolve({ stdout, stderr, code: code ?? -1 });
+      }),
   );
   return {
     stderrUntil: (pattern: RegExp) =>
-      new Promise<RegExpMatchArray>((resolve) => {
+      new Promise<RegExpMatchArray>((resolve, reject) => {
         const match = stderr.match(pattern);
         if (match) resolve(match);
-        else waiters.push({ pattern, resolve });
+        else if (child.exitCode !== null)
+          reject(
+            new Error(
+              `gh exited ${child.exitCode} before ${pattern}:\n${stderr}`,
+            ),
+          );
+        else waiters.push({ pattern, resolve, reject });
       }),
     done,
   };
