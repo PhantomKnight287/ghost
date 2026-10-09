@@ -1,0 +1,57 @@
+import type { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { hasBackends, signUp, startApp } from './harness.js';
+
+describe.skipIf(!hasBackends)('GitHub REST v3', () => {
+  let app: INestApplication;
+  let owner: { cookie: string; key: string; userId: string };
+  const username = `ghrest${Date.now()}`;
+  const v3 = (path: string, token?: string) => {
+    const call = request(app.getHttpServer()).get(`/api/v3${path}`);
+    return token ? call.set('authorization', `token ${token}`) : call;
+  };
+
+  beforeAll(async () => {
+    ({ app } = await startApp());
+    owner = await signUp(app, username);
+  });
+
+  afterAll(async () => {
+    await app?.close();
+  });
+
+  it('answers the root with the scopes gh checks for', async () => {
+    const response = await v3('/', owner.key).expect(200);
+    expect(response.headers['x-oauth-scopes']).toContain('repo');
+    expect(response.headers['x-oauth-scopes']).toContain('read:org');
+    expect(response.headers['x-github-media-type']).toBe('github.v3; format=json');
+  });
+
+  it('accepts a Bearer token as well as token', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v3/user')
+      .set('authorization', `Bearer ${owner.key}`)
+      .expect(200);
+  });
+
+  it('refuses a wrong token with Bad credentials instead of treating it as anonymous', async () => {
+    const response = await v3('/user', 'ghost_pat_nope').expect(401);
+    expect(response.body).toEqual({ message: 'Bad credentials', documentation_url: 'https://docs.github.com/rest' });
+  });
+
+  it('answers /user for the token owner and 401 without a token', async () => {
+    const response = await v3('/user', owner.key).expect(200);
+    expect(response.body).toMatchObject({ login: username, type: 'User', site_admin: false });
+    expect(response.body.node_id).toMatch(/^U_/);
+    expect(response.body.html_url).toMatch(new RegExp(`/${username}$`));
+    const anonymous = await v3('/user').expect(401);
+    expect(anonymous.body.message).toBe('Requires authentication');
+  });
+
+  it('reports an installed version below 3.18 so gh keeps the classic search syntax', async () => {
+    const response = await v3('/meta').expect(200);
+    expect(response.body.installed_version).toBe('3.17.0');
+  });
+});

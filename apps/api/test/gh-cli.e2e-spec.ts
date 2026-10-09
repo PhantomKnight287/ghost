@@ -43,4 +43,17 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     const out = await ok(['api', 'graphql', '-f', 'query={ __typename }']);
     expect(JSON.parse(out)).toEqual({ data: { __typename: 'Query' } });
   });
+  it('logs in with a pasted token and reports it in auth status', async () => {
+    const login = await runGh(['auth', 'login', '--hostname', GH_E2E_HOST!, '--with-token'], { configDir, input: owner.key });
+    expect(login, login.stderr).toMatchObject({ code: 0 });
+    const status = await runGh(['auth', 'status', '--hostname', GH_E2E_HOST!], { configDir });
+    expect(status, status.stderr).toMatchObject({ code: 0 });
+    expect(status.stdout + status.stderr).toContain(username);
+  });
+
+  it('answers gh api user', async () => {
+    expect(JSON.parse(await ok(['api', 'user']))).toMatchObject({ login: username });
+  });
+
+
 });
