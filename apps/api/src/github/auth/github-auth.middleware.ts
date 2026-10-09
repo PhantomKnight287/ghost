@@ -4,7 +4,7 @@ import { fromNodeHeaders } from 'better-auth/node';
 import type { NextFunction, Response } from 'express';
 
 import type { Auth } from '../../lib/auth.js';
-import { ALL_SCOPES } from '../../lib/github/scopes.js';
+import { KNOWN_SCOPES, scopesOfKey } from '../../lib/github/scopes.js';
 import type { GithubRequest, GithubViewer } from './github-request.js';
 
 const TOKEN = /^(?:token|bearer)\s+(\S+)$/i;
@@ -39,7 +39,7 @@ export class GithubAuthMiddleware implements NestMiddleware {
       body: { key },
     });
     return valid && apiKey
-      ? { userId: apiKey.referenceId, scopes: ALL_SCOPES }
+      ? { userId: apiKey.referenceId, scopes: scopesOfKey(apiKey.permissions) }
       : null;
   }
 
@@ -47,7 +47,7 @@ export class GithubAuthMiddleware implements NestMiddleware {
     const session = await this.auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
-    return session ? { userId: session.user.id, scopes: ALL_SCOPES } : null;
+    return session ? { userId: session.user.id, scopes: KNOWN_SCOPES } : null;
   }
 
   private badCredentials(res: Response) {
