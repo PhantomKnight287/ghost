@@ -15986,6 +15986,9 @@
           "deviceFlowEnabled": {
             "type": "boolean"
           },
+          "expireUserTokens": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string",
             "description": "When the app was registered, ISO 8601."
@@ -15999,6 +16002,7 @@
           "logoUrl",
           "callbackUrls",
           "deviceFlowEnabled",
+          "expireUserTokens",
           "createdAt"
         ]
       },
@@ -16049,6 +16053,11 @@
             "type": "boolean",
             "default": false,
             "description": "Lets the app sign users in with the device flow, as gh does."
+          },
+          "expireUserTokens": {
+            "type": "boolean",
+            "default": false,
+            "description": "Access tokens expire after 8 hours and come with a refresh token that lasts 6 months, like GitHub's \"Expire user authorization tokens\"."
           }
         },
         "required": [
@@ -16086,6 +16095,9 @@
           "deviceFlowEnabled": {
             "type": "boolean"
           },
+          "expireUserTokens": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string",
             "description": "When the app was registered, ISO 8601."
@@ -16103,6 +16115,7 @@
           "logoUrl",
           "callbackUrls",
           "deviceFlowEnabled",
+          "expireUserTokens",
           "createdAt",
           "clientSecret"
         ]
@@ -16121,7 +16134,7 @@
             "nullable": true
           },
           "scopes": {
-            "description": "Every scope the app holds across its keys for this account.",
+            "description": "Every scope the app holds across its keys and refresh tokens for this account.",
             "type": "array",
             "items": {
               "type": "string"
@@ -16233,6 +16246,11 @@
             "type": "boolean",
             "default": false,
             "description": "Lets the app sign users in with the device flow, as gh does."
+          },
+          "expireUserTokens": {
+            "type": "boolean",
+            "default": false,
+            "description": "Access tokens expire after 8 hours and come with a refresh token that lasts 6 months, like GitHub's \"Expire user authorization tokens\"."
           }
         }
       },

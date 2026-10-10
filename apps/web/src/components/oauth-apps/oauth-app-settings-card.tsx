@@ -26,6 +26,7 @@ export function OauthAppSettingsCard({
     homepageUrl: app.homepageUrl,
     callbackUrls: app.callbackUrls,
     deviceFlowEnabled: app.deviceFlowEnabled,
+    expireUserTokens: app.expireUserTokens,
   };
   const [values, setValues] = useState(saved);
   const update = useAction(updateOauthApp, {

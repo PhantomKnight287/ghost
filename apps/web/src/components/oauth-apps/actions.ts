@@ -15,6 +15,7 @@ const fields = z.object({
     .min(1, "Add at least one callback URL.")
     .max(10, "Add at most 10 callback URLs."),
   deviceFlowEnabled: z.boolean(),
+  expireUserTokens: z.boolean(),
 });
 
 export const createOauthApp = actionClient

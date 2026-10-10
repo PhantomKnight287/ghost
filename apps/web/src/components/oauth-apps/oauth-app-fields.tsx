@@ -27,6 +27,7 @@ export type OauthAppValues = {
   homepageUrl: string;
   callbackUrls: string[];
   deviceFlowEnabled: boolean;
+  expireUserTokens: boolean;
 };
 
 export const EMPTY_OAUTH_APP: OauthAppValues = {
@@ -35,6 +36,7 @@ export const EMPTY_OAUTH_APP: OauthAppValues = {
   homepageUrl: "",
   callbackUrls: [""],
   deviceFlowEnabled: false,
+  expireUserTokens: false,
 };
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -236,6 +238,30 @@ export function OauthAppFields({
             checked={values.deviceFlowEnabled}
             disabled={disabled}
             onCheckedChange={(checked) => set({ deviceFlowEnabled: checked })}
+          />
+        </Field>
+      </FieldSet>
+
+      <FieldSeparator />
+
+      <FieldSet>
+        <FieldLegend>Tokens</FieldLegend>
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor="oauth-app-expire-user-tokens">
+              Expire user authorization tokens
+            </FieldLabel>
+            <FieldDescription>
+              Access tokens stop working after 8 hours and come with a refresh
+              token, valid for 6 months, that gets a new one. Turning it off
+              changes only tokens issued afterwards.
+            </FieldDescription>
+          </FieldContent>
+          <Switch
+            id="oauth-app-expire-user-tokens"
+            checked={values.expireUserTokens}
+            disabled={disabled}
+            onCheckedChange={(checked) => set({ expireUserTokens: checked })}
           />
         </Field>
       </FieldSet>

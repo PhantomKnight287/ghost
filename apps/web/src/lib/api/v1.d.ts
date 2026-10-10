@@ -4498,6 +4498,7 @@ export interface components {
             logoUrl: string | null;
             callbackUrls: string[];
             deviceFlowEnabled: boolean;
+            expireUserTokens: boolean;
             /** @description When the app was registered, ISO 8601. */
             createdAt: string;
         };
@@ -4523,6 +4524,11 @@ export interface components {
              * @default false
              */
             deviceFlowEnabled: boolean;
+            /**
+             * @description Access tokens expire after 8 hours and come with a refresh token that lasts 6 months, like GitHub's "Expire user authorization tokens".
+             * @default false
+             */
+            expireUserTokens: boolean;
         };
         CreatedOauthAppDTO: {
             clientId: string;
@@ -4532,6 +4538,7 @@ export interface components {
             logoUrl: string | null;
             callbackUrls: string[];
             deviceFlowEnabled: boolean;
+            expireUserTokens: boolean;
             /** @description When the app was registered, ISO 8601. */
             createdAt: string;
             /** @description Shown only now. Store it: Ghost keeps only a hash. */
@@ -4541,7 +4548,7 @@ export interface components {
             clientId: string;
             name: string;
             logoUrl: string | null;
-            /** @description Every scope the app holds across its keys for this account. */
+            /** @description Every scope the app holds across its keys and refresh tokens for this account. */
             scopes: string[];
             /** @description When the app was first authorized, ISO 8601. */
             authorizedAt: string;
@@ -4581,6 +4588,11 @@ export interface components {
              * @default false
              */
             deviceFlowEnabled: boolean;
+            /**
+             * @description Access tokens expire after 8 hours and come with a refresh token that lasts 6 months, like GitHub's "Expire user authorization tokens".
+             * @default false
+             */
+            expireUserTokens: boolean;
         };
         OauthAppSecretDTO: {
             /** @description The new secret, shown only now. The previous one stops working at once. */
