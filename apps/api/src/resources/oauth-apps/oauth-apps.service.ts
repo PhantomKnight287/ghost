@@ -6,12 +6,17 @@ import { and, eq, sql } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
-import { findOauthApp, oauthAppColumns } from '../../lib/github/oauth-apps.js';
+import {
+  findOauthApp,
+  oauthAppColumns,
+  oauthAppEnabled,
+} from '../../lib/github/oauth-apps.js';
 import {
   BuiltInOauthAppError,
   OauthAppNotFoundError,
 } from '../../lib/oauth-apps/oauth-apps.errors.js';
 import type {
+  AuthorizingOauthAppDTO,
   CreatedOauthAppDTO,
   CreateOauthAppDTO,
   ListOauthAppsResponseDTO,
@@ -19,6 +24,8 @@ import type {
   OauthAppSecretDTO,
   UpdateOauthAppDTO,
 } from './dto/oauth-app.dto.js';
+
+const homepageUrl = sql<string>`coalesce(${schema.oauthClient.uri}, '')`;
 
 /** The DTO admits http only on the loopback host, which the plugin accepts from native clients alone. */
 function applicationTypeOf(callbackUrl: string) {
@@ -47,6 +54,22 @@ export class OauthAppsService {
         eq(schema.oauthClient.userId, userId),
       ),
     );
+    if (!app) throw new OauthAppNotFoundError();
+    return app;
+  }
+
+  /** What a consent or device-approval page shows about any enabled app, whoever owns it. */
+  async describe(clientId: string): Promise<AuthorizingOauthAppDTO> {
+    const [app] = await this.db
+      .select({
+        clientId: oauthAppColumns.clientId,
+        name: oauthAppColumns.name,
+        homepageUrl,
+        owner: schema.user.username,
+      })
+      .from(schema.oauthClient)
+      .leftJoin(schema.user, eq(schema.user.id, schema.oauthClient.userId))
+      .where(and(eq(schema.oauthClient.clientId, clientId), oauthAppEnabled));
     if (!app) throw new OauthAppNotFoundError();
     return app;
   }
@@ -144,7 +167,7 @@ export class OauthAppsService {
     return this.db
       .select({
         ...oauthAppColumns,
-        homepageUrl: sql<string>`coalesce(${schema.oauthClient.uri}, '')`,
+        homepageUrl,
         callbackUrl: sql<string>`${schema.oauthClient.redirectUris}[1]`,
         createdAt: isoTimestamp(schema.oauthClient.createdAt),
       })

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Session,
 } from '@nestjs/common';
@@ -27,6 +28,7 @@ import type { Request } from 'express';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
+  AuthorizingOauthAppDTO,
   CreatedOauthAppDTO,
   CreateOauthAppDTO,
   ListOauthAppsResponseDTO,
@@ -68,6 +70,18 @@ export class OauthAppsController {
       session.user.id,
       body,
     );
+  }
+
+  @Get('authorize')
+  @ApiOperation({
+    summary: 'Describe an OAuth app to the user asked to authorize it',
+    description:
+      'Any enabled app, including ones built into Ghost. Never carries the secret.',
+  })
+  @ApiOkResponse({ type: AuthorizingOauthAppDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  describe(@Query('client_id') clientId: string) {
+    return this.apps.describe(clientId);
   }
 
   @Get(':clientId')

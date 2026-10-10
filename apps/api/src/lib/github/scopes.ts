@@ -17,6 +17,9 @@ export const KNOWN_SCOPES = [
 
 export type Scope = (typeof KNOWN_SCOPES)[number];
 
+/** Stands for "no scope" in the oauth-provider plugin, which reads an empty request as every scope where GitHub reads it as public access only. `grantableScopes` drops it. */
+export const NO_SCOPE = 'public';
+
 /** What each scope also grants, as on GitHub. */
 const IMPLIES: Partial<Record<Scope, readonly Scope[]>> = {
   repo: ['public_repo'],

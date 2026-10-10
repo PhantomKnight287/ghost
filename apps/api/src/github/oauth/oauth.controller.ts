@@ -1,5 +1,14 @@
 import { type Database, schema } from '@ghost/db';
-import { Body, Controller, Inject, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
 import { APIError } from 'better-auth/api';
@@ -8,13 +17,18 @@ import type { Request, Response } from 'express';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
+import { callbackMatches } from '../../lib/github/callback.js';
 import { findOauthApp } from '../../lib/github/oauth-apps.js';
 import { sendOAuth } from '../../lib/github/oauth-response.js';
-import { grantableScopes } from '../../lib/github/scopes.js';
+import { grantableScopes, NO_SCOPE } from '../../lib/github/scopes.js';
 
 const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
 
-/** GitHub's OAuth device flow at its own paths, translated onto Better Auth's deviceAuthorization plugin. */
+/** Fixed text only: nothing from the request reaches the page. */
+const authorizeErrorPage = (message: string) =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Authorization failed</title></head><body><h1>Authorization failed</h1><p>${message}</p></body></html>`;
+
+/** GitHub's OAuth flows at its own paths: the device flow over Better Auth's deviceAuthorization plugin, the web flow over the oauth-provider plugin. */
 @Controller('login')
 @ApiExcludeController()
 @AllowAnonymous()
@@ -23,6 +37,59 @@ export class OauthController {
     private readonly auth: AuthService<Auth>,
     @Inject(DATABASE) private readonly db: Database,
   ) {}
+
+  /** Checks the app and its callback before anything redirects, so a bad request never leaves the API host. */
+  @Get('oauth/authorize')
+  async authorize(
+    @Query()
+    query: {
+      client_id?: string;
+      redirect_uri?: string;
+      scope?: string;
+      state?: string;
+      code_challenge?: string;
+      code_challenge_method?: string;
+    },
+    @Res() res: Response,
+  ) {
+    const app = query.client_id
+      ? await findOauthApp(this.db, query.client_id)
+      : null;
+    if (!app)
+      return res
+        .status(400)
+        .type('html')
+        .send(authorizeErrorPage('This application is not registered.'));
+    const redirectUri = query.redirect_uri ?? app.redirectUris[0];
+    if (
+      !redirectUri ||
+      !app.redirectUris.some((callback) =>
+        callbackMatches(callback, redirectUri),
+      )
+    )
+      return res
+        .status(400)
+        .type('html')
+        .send(
+          authorizeErrorPage(
+            'The redirect_uri is not associated with this application.',
+          ),
+        );
+    // GitHub reads commas as separators too.
+    const scopes = grantableScopes((query.scope ?? '').replaceAll(',', ' '));
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: app.clientId,
+      redirect_uri: redirectUri,
+      scope: scopes.length ? scopes.join(' ') : NO_SCOPE,
+      ...(query.state && { state: query.state }),
+      ...(query.code_challenge && { code_challenge: query.code_challenge }),
+      ...(query.code_challenge_method && {
+        code_challenge_method: query.code_challenge_method,
+      }),
+    });
+    res.redirect(302, `/api/auth/oauth2/authorize?${params}`);
+  }
 
   @Post('device/code')
   async deviceCode(

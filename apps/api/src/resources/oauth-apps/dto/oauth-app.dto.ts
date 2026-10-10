@@ -86,3 +86,22 @@ export class ListOauthAppsResponseDTO {
   @ApiProperty({ type: [OauthAppDTO] })
   apps: OauthAppDTO[];
 }
+
+export class AuthorizingOauthAppDTO {
+  @ApiProperty()
+  clientId: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  homepageUrl: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Username of the account that registered the app; null for an app built into Ghost.',
+  })
+  owner: string | null;
+}

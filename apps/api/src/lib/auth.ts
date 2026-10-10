@@ -24,7 +24,7 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import { callbackMatches } from './github/callback.js';
 import { findOauthApp } from './github/oauth-apps.js';
-import { KNOWN_SCOPES } from './github/scopes.js';
+import { KNOWN_SCOPES, NO_SCOPE } from './github/scopes.js';
 
 export type AuthConfig = {
   secret: string;
@@ -316,7 +316,7 @@ export function createAuth(db: Database, config: AuthConfig) {
   const oauthPlugin = oauthProvider({
     loginPage: consentPage,
     consentPage,
-    scopes: [...KNOWN_SCOPES],
+    scopes: [...KNOWN_SCOPES, NO_SCOPE],
     validateRedirectUri: (uri, registered) =>
       registered.some((callback) => callbackMatches(callback, uri)),
   });

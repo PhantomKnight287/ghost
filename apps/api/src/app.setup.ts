@@ -11,6 +11,7 @@ import { GIT_TRANSPORT_ROUTES } from './git/git.constants.js';
 export const OAUTH_ROUTES = [
   { path: 'login/device/code', method: RequestMethod.POST },
   { path: 'login/oauth/access_token', method: RequestMethod.POST },
+  { path: 'login/oauth/authorize', method: RequestMethod.GET },
 ];
 
 /** What every running instance needs, shared by `main.ts` and the end-to-end suite so the two cannot drift. The app must be created with `bodyParser: false`. */

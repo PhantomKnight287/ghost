@@ -18,6 +18,9 @@ export const oauthAppColumns = {
   deviceFlowEnabled: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'deviceFlow')::boolean, false)`,
 };
 
+/** The plugin leaves `disabled` null on apps it never touched. */
+export const oauthAppEnabled = sql`${schema.oauthClient.disabled} is not true`;
+
 /** An enabled OAuth app from the oauth-provider plugin's registry, or null. */
 export async function findOauthApp(
   db: Database,
@@ -31,11 +34,6 @@ export async function findOauthApp(
       ownerId: schema.oauthClient.userId,
     })
     .from(schema.oauthClient)
-    .where(
-      and(
-        eq(schema.oauthClient.clientId, clientId),
-        sql`${schema.oauthClient.disabled} is not true`,
-      ),
-    );
+    .where(and(eq(schema.oauthClient.clientId, clientId), oauthAppEnabled));
   return app ?? null;
 }

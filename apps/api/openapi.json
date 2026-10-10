@@ -10180,6 +10180,48 @@
         ]
       }
     },
+    "/api/oauth-apps/authorize": {
+      "get": {
+        "description": "Any enabled app, including ones built into Ghost. Never carries the secret.",
+        "operationId": "OauthAppsController_describe",
+        "parameters": [
+          {
+            "name": "client_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizingOauthAppDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Describe an OAuth app to the user asked to authorize it",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
     "/api/oauth-apps/{clientId}": {
       "get": {
         "operationId": "OauthAppsController_get",
@@ -15708,6 +15750,31 @@
           "deviceFlowEnabled",
           "createdAt",
           "clientSecret"
+        ]
+      },
+      "AuthorizingOauthAppDTO": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "homepageUrl": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string",
+            "nullable": true,
+            "description": "Username of the account that registered the app; null for an app built into Ghost."
+          }
+        },
+        "required": [
+          "clientId",
+          "name",
+          "homepageUrl",
+          "owner"
         ]
       },
       "UpdateOauthAppDTO": {

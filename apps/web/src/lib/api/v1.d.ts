@@ -2704,6 +2704,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/oauth-apps/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe an OAuth app to the user asked to authorize it
+         * @description Any enabled app, including ones built into Ghost. Never carries the secret.
+         */
+        get: operations["OauthAppsController_describe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/oauth-apps/{clientId}": {
         parameters: {
             query?: never;
@@ -4429,6 +4449,13 @@ export interface components {
             createdAt: string;
             /** @description Shown only now. Store it: Ghost keeps only a hash. */
             clientSecret: string;
+        };
+        AuthorizingOauthAppDTO: {
+            clientId: string;
+            name: string;
+            homepageUrl: string;
+            /** @description Username of the account that registered the app; null for an app built into Ghost. */
+            owner: string | null;
         };
         UpdateOauthAppDTO: {
             /** @example Release bot */
@@ -10683,6 +10710,35 @@ export interface operations {
                 };
             };
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_describe: {
+        parameters: {
+            query: {
+                client_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorizingOauthAppDTO"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
