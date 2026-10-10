@@ -1,11 +1,10 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, gt, sql } from 'drizzle-orm';
 import { unionAll } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
-import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import type { Auth } from '../../lib/auth.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import {
@@ -17,17 +16,19 @@ import {
   oauthAppOrganization,
   oauthAppVerified,
 } from '../../lib/github/oauth-apps.js';
-import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
+import { lockGrant } from '../../lib/github/refresh-tokens.js';
 import {
   AuthorizedOauthAppNotFoundError,
   BuiltInOauthAppError,
   OauthAppNotFoundError,
 } from '../../lib/oauth-apps/oauth-apps.errors.js';
+import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
+import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import type {
   AuthorizingOauthAppDTO,
-  ListAuthorizedOauthAppsResponseDTO,
   CreatedOauthAppDTO,
   CreateOauthAppDTO,
+  ListAuthorizedOauthAppsResponseDTO,
   ListOauthAppsResponseDTO,
   OauthAppDTO,
   OauthAppSecretDTO,
@@ -274,7 +275,12 @@ export class OauthAppsService {
         ),
       })
       .from(schema.oauthAppRefreshToken)
-      .where(eq(schema.oauthAppRefreshToken.userId, userId));
+      .where(
+        and(
+          eq(schema.oauthAppRefreshToken.userId, userId),
+          gt(schema.oauthAppRefreshToken.expiresAt, sql`now()`),
+        ),
+      );
     const grants = unionAll(keys, refreshTokens).as('grants');
     const apps = await this.db
       .select({
@@ -302,24 +308,29 @@ export class OauthAppsService {
 
   /** Deletes this user's keys and refresh tokens for the app and their consent, so the app asks again next time. Other users' grants stay. */
   async revokeAuthorized(userId: string, clientId: string): Promise<void> {
-    const keys = await this.db
-      .delete(schema.apikey)
-      .where(
-        and(
-          eq(schema.apikey.referenceId, userId),
-          eq(keyOauthClientId, clientId),
-        ),
-      )
-      .returning({ id: schema.apikey.id });
-    const refreshTokens = await this.db
-      .delete(schema.oauthAppRefreshToken)
-      .where(
-        and(
-          eq(schema.oauthAppRefreshToken.userId, userId),
-          eq(schema.oauthAppRefreshToken.clientId, clientId),
-        ),
-      )
-      .returning({ id: schema.oauthAppRefreshToken.id });
+    const { keys, refreshTokens } = await this.db.transaction(async (tx) => {
+      await lockGrant(tx, clientId, userId);
+      return {
+        keys: await tx
+          .delete(schema.apikey)
+          .where(
+            and(
+              eq(schema.apikey.referenceId, userId),
+              eq(keyOauthClientId, clientId),
+            ),
+          )
+          .returning({ id: schema.apikey.id }),
+        refreshTokens: await tx
+          .delete(schema.oauthAppRefreshToken)
+          .where(
+            and(
+              eq(schema.oauthAppRefreshToken.userId, userId),
+              eq(schema.oauthAppRefreshToken.clientId, clientId),
+            ),
+          )
+          .returning({ id: schema.oauthAppRefreshToken.id }),
+      };
+    });
     if (keys.length === 0 && refreshTokens.length === 0)
       throw new AuthorizedOauthAppNotFoundError();
     await this.db

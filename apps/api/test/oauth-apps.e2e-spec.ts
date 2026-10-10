@@ -211,6 +211,13 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
       await api().delete(`/api/oauth-apps/authorized/${a}`).set('cookie', owner.cookie).expect(404);
     });
 
+    it('drops an app once its last refresh token has expired', async () => {
+      const a = (await create(other.cookie, { name: 'App X' }).expect(201)).body.clientId;
+      await db.insert(schema.oauthAppRefreshToken).values({ tokenHash: `rx-${stamp}`, clientId: a, userId: owner.userId, scopes: ['repo'], accessKeyId: 'gone', expiresAt: new Date(Date.now() - 1000) });
+      const list = await api().get('/api/oauth-apps/authorized').set('cookie', owner.cookie).expect(200);
+      expect(list.body.apps.map((each: { clientId: string }) => each.clientId)).not.toContain(a);
+    });
+
     it('merges the scopes of keys and refresh tokens into one entry', async () => {
       const a = (await create(other.cookie, { name: 'App M' }).expect(201)).body.clientId;
       await key(`mk${stamp}`, owner.userId, a, ['repo']);

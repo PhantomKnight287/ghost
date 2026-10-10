@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -133,6 +133,28 @@ describe.skipIf(!hasBackends)('GitHub OAuth expiring tokens and refresh', () => 
       const first = form((await exchange(revoked.clientId, revoked.clientSecret)).text);
       await api().delete(`/api/oauth-apps/authorized/${revoked.clientId}`).set('cookie', owner.cookie).expect(204);
       expect(form((await refresh(first.refresh_token as string, { client_id: revoked.clientId, client_secret: revoked.clientSecret })).text).error).toBe('bad_refresh_token');
+    });
+
+    it('answers a refresh_token or client_secret that is not a string with an OAuth error, never a 500', async () => {
+      const { refresh_token } = await pair();
+      const missing = await api().post('/login/oauth/access_token').send({ client_id: clientId, client_secret: clientSecret, grant_type: 'refresh_token' }).expect(400);
+      expect(missing.body).toEqual({ error: 'unsupported_grant_type' });
+      await api().post('/login/oauth/access_token').send({ client_id: clientId, client_secret: clientSecret, grant_type: 'refresh_token', refresh_token: 123 }).expect(400);
+      const secret = await api().post('/login/oauth/access_token').set('accept', 'application/json').send({ client_id: clientId, client_secret: 123, grant_type: 'refresh_token', refresh_token }).expect(200);
+      expect(secret.body).toEqual({ error: 'incorrect_client_credentials' });
+      expect(form((await refresh(refresh_token as string)).text).access_token).toMatch(/^ghost_pat_/);
+    });
+
+    it('leaves nothing behind when a refresh races the user revoking the app', async () => {
+      const raced = await register({ name: 'Raced Tool' });
+      const credentials = { client_id: raced.clientId, client_secret: raced.clientSecret };
+      for (let round = 0; round < 10; round++) {
+        const { refresh_token } = form((await exchange(raced.clientId, raced.clientSecret)).text);
+        await Promise.all([refresh(refresh_token as string, credentials), api().delete(`/api/oauth-apps/authorized/${raced.clientId}`).set('cookie', owner.cookie).expect(204)]);
+        const keys = await db.select({ id: schema.apikey.id }).from(schema.apikey).where(and(eq(schema.apikey.referenceId, owner.userId), eq(schema.apikey.name, 'Raced Tool')));
+        const tokens = await db.select({ id: schema.oauthAppRefreshToken.id }).from(schema.oauthAppRefreshToken).where(eq(schema.oauthAppRefreshToken.clientId, raced.clientId));
+        expect({ round, keys, tokens }).toEqual({ round, keys: [], tokens: [] });
+      }
     });
 
     it('moves to keys that never expire once the switch is turned off', async () => {

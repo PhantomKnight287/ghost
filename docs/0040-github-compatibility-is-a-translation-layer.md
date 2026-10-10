@@ -74,7 +74,7 @@ Rejected:
 
 An OAuth app can turn on GitHub's "Expire user authorization tokens", stored as `oauth_client.metadata.expireUserTokens`. Its grants then mint a `ghost_pat_` key with an 8-hour expiry, which the api-key plugin enforces, and a `ghost_rt_` refresh token that lasts 6 months. `POST /login/oauth/access_token` with `grant_type=refresh_token` checks the client's secret through the plugin's introspection endpoint, spends the refresh token, deletes the old key and mints a new pair under the app's current switch. `gh`'s built-in app cannot be edited, so it never gets expiring tokens.
 
-Refresh tokens live in `oauth_app_refresh_token`, a Ghost table holding each token's sha256. Its `access_key_id` has no foreign key: the api-key plugin deletes expired keys on its own, and a cascade would take the refresh token with them. For the same reason, Authorized apps lists an app when the user holds a key or a refresh token for it, and revoking deletes both.
+Refresh tokens live in `oauth_app_refresh_token`, a Ghost table holding each token's sha256. Its `access_key_id` has no foreign key: the api-key plugin deletes expired keys on its own, and a cascade would take the refresh token with them. For the same reason, Authorized apps lists an app when the user holds a key or an unexpired refresh token for it, and revoking deletes both. A refresh and a revoke of the same user's grant take one advisory lock, so a revoke never misses a pair a refresh is minting.
 
 Rejected:
 

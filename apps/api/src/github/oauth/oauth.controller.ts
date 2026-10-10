@@ -17,6 +17,7 @@ import type { Request, Response } from 'express';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
+import type { Executor } from '../../lib/db/executor.js';
 import { callbackMatches } from '../../lib/github/callback.js';
 import { findOauthApp, type OauthApp } from '../../lib/github/oauth-apps.js';
 import { sendOAuth } from '../../lib/github/oauth-response.js';
@@ -148,7 +149,10 @@ export class OauthController {
       if (!app) return sendOAuth(req, res, 400, { error: 'invalid_client' });
       return this.deviceGrant(req, res, app, body.device_code);
     }
-    if (body.grant_type === 'refresh_token' && body.refresh_token) {
+    if (
+      body.grant_type === 'refresh_token' &&
+      typeof body.refresh_token === 'string'
+    ) {
       if (!app)
         return sendOAuth(req, res, 200, {
           error: 'incorrect_client_credentials',
@@ -261,35 +265,40 @@ export class OauthController {
     return this.issueKey(req, res, app, sub as string, granted.scope);
   }
 
-  /** GitHub's refresh for expiring user tokens: the token is spent, its key deleted, and a new pair minted under the app's current switch. */
+  /** The new pair is minted under the app's current switch, so turning it off moves the app to keys that never expire on its next refresh. The old key goes only once the new pair exists. */
   private async refreshGrant(
     req: Request,
     res: Response,
     app: OauthApp,
-    body: { client_secret?: string; refresh_token: string },
+    body: { client_secret?: unknown; refresh_token: string },
   ) {
-    if (!(await this.authenticates(app, body.client_secret)))
+    if (
+      typeof body.client_secret !== 'string' ||
+      !(await this.authenticates(app, body.client_secret))
+    )
       return sendOAuth(req, res, 200, {
         error: 'incorrect_client_credentials',
       });
-    const grant = await spendRefreshToken(
-      this.db,
-      app.clientId,
-      body.refresh_token,
-    );
-    if (!grant)
+    const refreshToken = body.refresh_token;
+    const token = await this.db.transaction(async (tx) => {
+      const grant = await spendRefreshToken(tx, app.clientId, refreshToken);
+      if (!grant) return null;
+      const minted = await this.mint(app, grant.userId, grant.scopes, tx);
+      await tx
+        .delete(schema.apikey)
+        .where(eq(schema.apikey.id, grant.accessKeyId));
+      return minted;
+    });
+    if (!token)
       return sendOAuth(req, res, 200, {
         error: 'bad_refresh_token',
         error_description: 'The refresh token passed is incorrect or expired.',
       });
-    await this.db
-      .delete(schema.apikey)
-      .where(eq(schema.apikey.id, grant.accessKeyId));
-    sendOAuth(req, res, 200, await this.mint(app, grant.userId, grant.scopes));
+    sendOAuth(req, res, 200, token);
   }
 
   /** The plugin checks a secret its own way; introspecting a token it does not hold fails only on bad credentials. */
-  private async authenticates(app: OauthApp, clientSecret?: string) {
+  private async authenticates(app: OauthApp, clientSecret: string) {
     try {
       await this.auth.api.oauth2Introspect({
         body: {
@@ -325,8 +334,13 @@ export class OauthController {
     );
   }
 
-  /** A key for the app's user in GitHub's token response, with its expiry and a refresh token when the app has expiring user tokens on. */
-  private async mint(app: OauthApp, userId: string, scopes: string[]) {
+  /** One token response for every grant, so the device flow, the code exchange and a refresh answer alike. */
+  private async mint(
+    app: OauthApp,
+    userId: string,
+    scopes: string[],
+    executor: Executor = this.db,
+  ) {
     const { key, id } = await this.auth.api.createApiKey({
       body: {
         userId,
@@ -345,7 +359,7 @@ export class OauthController {
     return {
       ...token,
       expires_in: ACCESS_TOKEN_EXPIRES_IN,
-      refresh_token: await issueRefreshToken(this.db, app.clientId, {
+      refresh_token: await issueRefreshToken(executor, app.clientId, {
         userId,
         scopes,
         accessKeyId: id,
