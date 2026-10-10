@@ -9,6 +9,7 @@ import { rotateOauthAppSecret } from "@/components/oauth-apps/actions";
 import { SecretAlert } from "@/components/secret-alert";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -76,17 +77,13 @@ export function OauthAppCredentials({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogCancel asChild>
-                      <Button
-                        disabled={rotate.isExecuting}
-                        onClick={() =>
-                          rotate.execute({ clientId: app.clientId })
-                        }
-                      >
-                        {rotate.isExecuting && <Spinner />}
-                        Generate new secret
-                      </Button>
-                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={rotate.isExecuting}
+                      onClick={() => rotate.execute({ clientId: app.clientId })}
+                    >
+                      {rotate.isExecuting && <Spinner />}
+                      Generate new secret
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>

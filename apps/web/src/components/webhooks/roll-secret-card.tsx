@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -72,15 +73,13 @@ export function RollSecretCard({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogCancel asChild>
-                <Button
-                  disabled={roll.isExecuting}
-                  onClick={() => roll.execute({ owner, webhookId: webhook.id })}
-                >
-                  {roll.isExecuting && <Spinner />}
-                  Replace secret
-                </Button>
-              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={roll.isExecuting}
+                onClick={() => roll.execute({ owner, webhookId: webhook.id })}
+              >
+                {roll.isExecuting && <Spinner />}
+                Replace secret
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

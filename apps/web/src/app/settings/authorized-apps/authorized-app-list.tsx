@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { revokeAuthorizedApp } from "@/components/oauth-apps/actions";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -50,8 +51,8 @@ export function AuthorizedAppList({ apps }: { apps: AuthorizedApp[] }) {
       <div className="flex flex-col gap-1">
         <h2 className="text-sm font-semibold">Authorized apps</h2>
         <p className="text-sm text-muted-foreground">
-          Apps you let use your account, and what each may do. Revoke one you
-          no longer use; it has to ask again next time.
+          Apps you let use your account, and what each may do. Revoke one you no
+          longer use; it has to ask again next time.
         </p>
       </div>
       <Card className="py-0">
@@ -139,15 +140,13 @@ function AuthorizedAppRow({ app }: { app: AuthorizedApp }) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogCancel asChild>
-                <Button
-                  variant="destructive"
-                  disabled={revoke.isExecuting}
-                  onClick={() => revoke.execute({ clientId: app.clientId })}
-                >
-                  Revoke access
-                </Button>
-              </AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={revoke.isExecuting}
+                onClick={() => revoke.execute({ clientId: app.clientId })}
+              >
+                Revoke access
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
