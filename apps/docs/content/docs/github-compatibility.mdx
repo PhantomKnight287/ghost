@@ -79,11 +79,11 @@ GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
 
 ## OAuth apps
 
-Other tools sign users in to Ghost the way they sign in to GitHub. Register a tool under **Settings → OAuth apps** with a name, a homepage URL and an authorization callback URL. Ghost shows the client secret once; **New secret** replaces it, and the old one stops working at once.
+Other tools sign users in to Ghost the way they sign in to GitHub. Register a tool under **Settings → OAuth apps** with a name, a homepage URL, one or more callback URLs, and optionally a description and a logo, which people see when the app asks for access. Ghost shows the client secret once; **Generate a new secret** replaces it, and the old one stops working at once.
 
 The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchanges the code at `https://api.<domain>/login/oauth/access_token`, as on GitHub. Users approve the requested scopes on `<web>/login/oauth/authorize`. The tool receives an API key holding the approved scopes Ghost knows. PKCE with `S256` is supported and optional.
 
-- The callback URL must use https, or http on `localhost`. A `redirect_uri` must have the same scheme, host and port, with a path equal to the callback's or under it. Anything else gets an error page and no redirect.
+- Callback URLs must use https, or http on `localhost`, so one app can list its production callback beside a local one. A `redirect_uri` must have the same scheme, host and port as one of them, with a path equal to its path or under it. Anything else gets an error page and no redirect. Without a `redirect_uri`, people return to the first callback URL.
 - **Enable device flow** lets the tool use the device flow, as `gh` does. It is off by default.
 - Deleting an app revokes its keys for every user.
 - Under **Settings → Authorized apps**, users see every app holding a key for their account, `gh` included, and revoke it. Revoking deletes their keys for that app, and the app asks for consent again next time.
