@@ -148,6 +148,19 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
     await create(owner.cookie, { callbackUrls: ['http://127.0.0.1:8080/cb'] }).expect(201);
   });
 
+  it('turns expiring user tokens on and off, off by default', async () => {
+    const { body } = await create(owner.cookie).expect(201);
+    expect(body.expireUserTokens).toBe(false);
+    const on = await api().patch(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).send({ expireUserTokens: true }).expect(200);
+    expect(on.body).toMatchObject({ expireUserTokens: true, deviceFlowEnabled: false, name: 'Scoped Tool' });
+    const off = await api().patch(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).send({ expireUserTokens: false }).expect(200);
+    expect(off.body.expireUserTokens).toBe(false);
+    const created = await create(owner.cookie, { expireUserTokens: true }).expect(201);
+    expect(created.body.expireUserTokens).toBe(true);
+    await api().patch(`/api/oauth-apps/${GH}`).set('cookie', owner.cookie).send({ expireUserTokens: true }).expect(403);
+    await api().patch(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).send({ expireUserTokens: 'yes' }).expect(400);
+  });
+
   it('refuses an API key of any scope', async () => {
     const key = await scopedKey(app, owner.userId, ['repo', 'user']);
     await api().get('/api/oauth-apps').set('authorization', `Bearer ${key}`).expect(401);

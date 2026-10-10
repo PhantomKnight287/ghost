@@ -134,6 +134,7 @@ export class OauthAppsService {
     );
     await this.setGhostFields(created.client_id, {
       deviceFlow: input.deviceFlowEnabled ?? false,
+      expireUserTokens: input.expireUserTokens ?? false,
       description: input.description,
     });
     return {
@@ -170,6 +171,7 @@ export class OauthAppsService {
     );
     await this.setGhostFields(clientId, {
       deviceFlow: input.deviceFlowEnabled,
+      expireUserTokens: input.expireUserTokens,
       description: input.description,
     });
     return this.get(userId, clientId);
@@ -300,7 +302,11 @@ export class OauthAppsService {
   /** The plugin's update drops `metadata`, where Ghost keeps the fields the plugin lacks, so they are merged in here. An undefined field is left as it is. */
   private async setGhostFields(
     clientId: string,
-    fields: { deviceFlow?: boolean; description?: string },
+    fields: {
+      deviceFlow?: boolean;
+      expireUserTokens?: boolean;
+      description?: string;
+    },
   ) {
     await this.db
       .update(schema.oauthClient)
