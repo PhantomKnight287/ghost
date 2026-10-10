@@ -15,7 +15,7 @@ Log in through the browser:
 gh auth login --hostname api.<domain> --web
 ```
 
-`gh` prints a one-time code and opens `<web>/device`. Sign in to Ghost, enter the code and approve. `gh` receives an API key holding the scopes it asked for. The key is named `GitHub CLI` in your account settings, where you can revoke it.
+`gh` prints a one-time code and opens `<web>/device`. Sign in to Ghost, enter the code and approve. `gh` receives an API key holding the scopes it asked for. `GitHub CLI` then shows under **Settings → Authorized apps**, where you can revoke it.
 
 Or create an API key in your account settings and log in with it:
 
@@ -77,6 +77,17 @@ REST at `/api/v3`:
 
 GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
 
+## OAuth apps
+
+Other tools sign users in to Ghost the way they sign in to GitHub. Register a tool under **Settings → OAuth apps** with a name, a homepage URL and an authorization callback URL. Ghost shows the client secret once; **New secret** replaces it, and the old one stops working at once.
+
+The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchanges the code at `https://api.<domain>/login/oauth/access_token`, as on GitHub. Users approve the requested scopes on `<web>/login/oauth/authorize`. The tool receives an API key holding the approved scopes Ghost knows. PKCE with `S256` is supported and optional.
+
+- The callback URL must use https, or http on `localhost`. A `redirect_uri` must have the same scheme, host and port, with a path equal to the callback's or under it. Anything else gets an error page and no redirect.
+- **Enable device flow** lets the tool use the device flow, as `gh` does. It is off by default.
+- Deleting an app revokes its keys for every user.
+- Under **Settings → Authorized apps**, users see every app holding a key for their account, `gh` included, and revoke it. Revoking deletes their keys for that app, and the app asks for consent again next time.
+
 ## Known differences
 
 - `databaseId` and the REST `id` are always `null`.
@@ -88,12 +99,12 @@ GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
 - `gh repo create --disable-issues`, `--disable-wiki` and `--homepage` fail: they need `updateRepository`, which is not served.
 - A query with an unknown field answers HTTP 400. GitHub answers 200. `gh` handles both.
 - `search` only finds issues in one repository, named with `repo:`. Qualifiers Ghost cannot filter on, such as `milestone:` and `sort:`, are ignored.
-- API keys made in Ghost's settings hold every scope. Keys from `gh auth login --web` hold the scopes `gh` asked for that Ghost knows (`repo`, `read:org`, `gist`, …). Unknown scopes, such as `workflow`, are dropped.
+- API keys made in Ghost's settings hold every scope. Keys from `gh auth login --web` or an OAuth app hold the scopes requested and approved that Ghost knows (`repo`, `read:org`, `gist`, …). Unknown scopes, such as `workflow`, are dropped.
+- OAuth apps always have a client secret. Public clients that authenticate with PKCE alone are not supported.
 - Without `repo`, a private repository answers as if it did not exist.
 
 ## Not yet supported
 
 - Pull requests
 - Releases and gists
-- OAuth apps other than `gh`, and the authorization-code flow
 - GitHub Apps and fine-grained tokens
