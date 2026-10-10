@@ -91,6 +91,13 @@ bun run dev
 Web on `http://localhost:3000`, API on `http://localhost:3001`, RustFS console
 on `http://localhost:9001`.
 
+`db:migrate` creates tables only. Once the API has built, register gh as a
+built-in OAuth app for `gh auth login --web`:
+
+```sh
+node apps/api/dist/scripts/seed-github-cli-app.js
+```
+
 Push an existing repository. The password is a personal access token from
 account settings, not the login password.
 

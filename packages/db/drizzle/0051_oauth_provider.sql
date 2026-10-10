@@ -158,5 +158,4 @@ CREATE INDEX "oauth_consent_user_id_idx" ON "oauth_consent" USING btree ("user_i
 CREATE INDEX "oauth_refresh_token_client_id_idx" ON "oauth_refresh_token" USING btree ("client_id");--> statement-breakpoint
 CREATE INDEX "oauth_refresh_token_session_id_idx" ON "oauth_refresh_token" USING btree ("session_id");--> statement-breakpoint
 CREATE INDEX "oauth_refresh_token_user_id_idx" ON "oauth_refresh_token" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "oauth_refresh_token_authorization_code_id_idx" ON "oauth_refresh_token" USING btree ("authorization_code_id");--> statement-breakpoint
-INSERT INTO "oauth_client" ("id", "client_id", "name", "uri", "redirect_uris", "token_endpoint_auth_method", "skip_consent", "metadata", "created_at", "updated_at") VALUES ('github-cli', '178c6fc778ccc68e1d6a', 'GitHub CLI', 'https://cli.github.com', '{}', 'none', false, '{"deviceFlow":true}', now(), now());
+CREATE INDEX "oauth_refresh_token_authorization_code_id_idx" ON "oauth_refresh_token" USING btree ("authorization_code_id");
