@@ -79,7 +79,7 @@ GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
 
 ## OAuth apps
 
-Other tools sign users in to Ghost the way they sign in to GitHub. Register a tool under **Settings → OAuth apps** with a name, a homepage URL, one or more callback URLs, and optionally a description and a logo, which people see when the app asks for access. Ghost shows the client secret once; **Generate a new secret** replaces it, and the old one stops working at once.
+Other tools sign users in to Ghost the way they sign in to GitHub. [Building an OAuth app](/oauth-apps) walks through registering one and every request it makes. Register a tool under **Settings → OAuth apps** with a name, a homepage URL, one or more callback URLs, and optionally a description and a logo, which people see when the app asks for access. Ghost shows the client secret once; **Generate a new secret** replaces it, and the old one stops working at once.
 
 The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchanges the code at `https://api.<domain>/login/oauth/access_token`, as on GitHub. Users approve the requested scopes on `<web>/login/oauth/authorize`. The tool receives an API key holding the approved scopes Ghost knows. PKCE with `S256` is supported and optional.
 

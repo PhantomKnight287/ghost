@@ -28,6 +28,8 @@
     "---Webhooks---",
     "webhooks",
     "---GitHub CLI---",
-    "github-compatibility"
+    "github-compatibility",
+    "---OAuth apps---",
+    "oauth-apps"
   ]
 }
