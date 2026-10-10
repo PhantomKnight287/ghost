@@ -71,7 +71,7 @@ export const CHANGELOG: {
   {
     date: "2026-10-03",
     title: "Checkout commands on pull requests",
-    body: `The pull request page has a Code button with the commands to check the request out locally. See [Checking out pull requests locally](${DOCS_URL}/checking-out-pull-requests-locally).`,
+    body: `The pull request page has a Code button with the commands to check the request out locally. See [Checking out pull requests locally](${DOCS_URL}/pull-requests/checking-out-locally).`,
   },
   {
     date: "2026-10-03",

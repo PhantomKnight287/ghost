@@ -1,0 +1,30 @@
+---
+title: Calling the API
+description: Use the access token with the REST and GraphQL APIs and git
+---
+
+In the examples, `api.<domain>` is your Ghost API host and `<web>` is the Ghost web app.
+
+The token is an API key starting with `ghost_pat_`. Send it in the `Authorization` header, as `Bearer` or `token`:
+
+```bash
+curl https://api.<domain>/api/v3/user \
+  -H "Authorization: Bearer $GHOST_TOKEN" \
+  -H "Accept: application/vnd.github+json"
+```
+
+```http
+HTTP/1.1 200 OK
+X-OAuth-Scopes: repo, read:org
+
+{
+  "login": "demoalice",
+  "type": "User",
+  "html_url": "https://<web>/demoalice",
+  …
+}
+```
+
+It works with Ghost's GitHub-compatible REST API under `/api/v3` and GraphQL API at `/api/graphql`; see [GitHub CLI](/github-cli) for what they serve. It also works as the password for `git` over HTTPS. Every response carries `X-OAuth-Scopes`, the scopes the token holds. A REST request that needs a scope the token lacks answers 403 with `X-Accepted-OAuth-Scopes` naming the scopes that would do; GraphQL answers a `FORBIDDEN` error.
+
+The token does not expire. It stops working when the person revokes the app, or when you delete the app. Ghost's own API under `/api`, which the web app uses, refuses these tokens with 401.

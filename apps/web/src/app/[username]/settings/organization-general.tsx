@@ -1,12 +1,12 @@
 "use client";
 
-import { ProfileAvatar } from "@/components/users/profile-avatar";
-import { useAuth } from "@better-auth-ui/react";
-import { Trash2, Upload } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ChangeEvent, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
+import { ImageSetting } from "@/components/image-setting";
 import { SettingCard } from "@/components/repositories/setting-card";
 import {
   AlertDialog,
@@ -28,14 +28,12 @@ import {
   ItemActions,
   ItemContent,
   ItemDescription,
-  ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { apiClient, apiErrorMessage } from "@/lib/api/client";
 import type { components } from "@/lib/api/v1";
 import { authClient } from "@/lib/auth-client";
-import { deleteImage, putImage } from "@/lib/auth/avatar";
 
 import {
   OrganizationPrivileges,
@@ -270,87 +268,23 @@ function DeleteOrganizationDialog({
   );
 }
 
-/** Upload or remove the logo. Uploads are resized to the same square as account avatars before they are sent. */
 function LogoSetting({ slug }: { slug: string }) {
   const router = useRouter();
-  const { avatar } = useAuth();
-  const { organization, change, busy } = useOrganization(slug);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const path = `/api/organizations/${slug}/logo`;
-
-  const run = (action: () => Promise<unknown>, done: string) =>
-    change(async () => {
-      try {
-        await action();
-        return { error: null };
-      } catch (error) {
-        return {
-          error: {
-            message: error instanceof Error ? error.message : undefined,
-          },
-        };
-      }
-    }, done).then((ok) => ok && router.refresh());
-
-  async function upload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    const resized =
-      (await avatar.resize?.(file, avatar.size, avatar.extension)) ?? file;
-    await run(() => putImage(path, resized), "Logo updated");
-  }
+  const queryClient = useQueryClient();
+  const { organization } = useOrganization(slug);
 
   return (
-    <section>
-      <h2 className="mb-3 text-sm font-semibold">Logo</h2>
-      <Card className="py-0">
-        <Item>
-          <ItemMedia>
-            <ProfileAvatar
-              name={slug}
-              image={organization?.logo}
-              className="size-16 rounded-xl"
-              fallbackClassName="text-lg"
-            />
-          </ItemMedia>
-          <ItemContent>
-            <ItemDescription>
-              Shown on the organization&apos;s profile and next to its
-              repositories. PNG or JPEG.
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/png,image/jpeg"
-              className="hidden"
-              onChange={upload}
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!organization || busy}
-              onClick={() => fileInput.current?.click()}
-            >
-              {busy ? <Spinner /> : <Upload />}
-              Upload
-            </Button>
-            {organization?.logo && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => run(() => deleteImage(path), "Logo removed")}
-              >
-                Remove
-              </Button>
-            )}
-          </ItemActions>
-        </Item>
-      </Card>
-    </section>
+    <ImageSetting
+      title="Logo"
+      hint="Shown on the organization's profile and next to its repositories. PNG or JPEG."
+      name={slug}
+      image={organization?.logo}
+      path={`/api/organizations/${slug}/logo`}
+      disabled={!organization}
+      onChanged={async () => {
+        await queryClient.invalidateQueries({ queryKey: ["auth"] });
+        router.refresh();
+      }}
+    />
   );
 }

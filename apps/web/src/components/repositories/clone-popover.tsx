@@ -1,8 +1,7 @@
 "use client";
 
 import { Check, Code2, Copy } from "lucide-react";
-import { type ReactNode, useState } from "react";
-import { toast } from "sonner";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCopy } from "@/lib/use-copy";
 
 export function ClonePopover({
   cloneUrl,
@@ -143,20 +143,4 @@ export function CommandsField({ commands }: { commands: string[] }) {
       </Button>
     </div>
   );
-}
-
-function useCopy(text: string, failure: string) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error(failure);
-    }
-  }
-
-  return { copied, copy };
 }

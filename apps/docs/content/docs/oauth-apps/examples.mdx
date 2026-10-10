@@ -1,0 +1,214 @@
+---
+title: Examples
+description: Complete sign-in flows in Node.js and Python, a device-flow script for the shell, and calling the API with Octokit
+---
+
+Each example is complete and runs as is. Set these first:
+
+```bash
+export GHOST_API=https://api.example.com          # your Ghost API host
+export GHOST_CLIENT_ID=DEyiWXBFvHvUTGkCIQzDrbNEuetuxVOr
+export GHOST_CLIENT_SECRET=...                     # from the app's page; keep it out of git
+```
+
+For the web examples, add `http://localhost:3000/oauth/callback` to the app's callback URLs.
+
+## Web app in Node.js
+
+An [Express](https://expressjs.com) server that signs people in with Ghost, with `state` and [PKCE](/oauth-apps/pkce). Node.js 20 or later; `npm install express`.
+
+```js title="server.mjs"
+import { createHash, randomBytes } from "node:crypto";
+import express from "express";
+
+const { GHOST_API, GHOST_CLIENT_ID, GHOST_CLIENT_SECRET } = process.env;
+const REDIRECT_URI = "http://localhost:3000/oauth/callback";
+
+// state -> PKCE verifier, for requests still waiting for their callback. Use your session store in production.
+const pending = new Map();
+
+const app = express();
+
+app.get("/login", (req, res) => {
+  const state = randomBytes(16).toString("base64url");
+  const verifier = randomBytes(48).toString("base64url");
+  pending.set(state, verifier);
+
+  const url = new URL("/login/oauth/authorize", GHOST_API);
+  url.search = new URLSearchParams({
+    client_id: GHOST_CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    scope: "repo read:org",
+    state,
+    code_challenge: createHash("sha256").update(verifier).digest("base64url"),
+    code_challenge_method: "S256",
+  });
+  res.redirect(url.href);
+});
+
+app.get("/oauth/callback", async (req, res) => {
+  const { code, state, error } = req.query;
+  const verifier = pending.get(state);
+  pending.delete(state);
+  if (error) return res.status(403).send(`Not authorized: ${error}`);
+  if (!verifier) return res.status(400).send("Unknown or reused state");
+
+  const token = await fetch(new URL("/login/oauth/access_token", GHOST_API), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      client_id: GHOST_CLIENT_ID,
+      client_secret: GHOST_CLIENT_SECRET,
+      code,
+      redirect_uri: REDIRECT_URI,
+      code_verifier: verifier,
+    }),
+  }).then((response) => response.json());
+  if (token.error) return res.status(400).send(`Exchange failed: ${token.error}`);
+
+  // Store token.access_token server-side against the person's session. It does not expire.
+  const user = await fetch(new URL("/api/v3/user", GHOST_API), {
+    headers: { Authorization: `Bearer ${token.access_token}` },
+  }).then((response) => response.json());
+  res.send(`Signed in as ${user.login} with ${token.scope || "no scopes"}`);
+});
+
+app.listen(3000, () => console.log("Open http://localhost:3000/login"));
+```
+
+```bash
+node server.mjs
+```
+
+## Web app in Python
+
+The same flow with [Flask](https://flask.palletsprojects.com) and [Requests](https://requests.readthedocs.io). `pip install flask requests`.
+
+```python title="app.py"
+import base64
+import hashlib
+import os
+import secrets
+from urllib.parse import urlencode
+
+import requests
+from flask import Flask, abort, redirect, request, session
+
+GHOST_API = os.environ["GHOST_API"]
+CLIENT_ID = os.environ["GHOST_CLIENT_ID"]
+CLIENT_SECRET = os.environ["GHOST_CLIENT_SECRET"]
+REDIRECT_URI = "http://localhost:3000/oauth/callback"
+
+app = Flask(__name__)
+app.secret_key = secrets.token_bytes(32)
+
+
+def challenge_for(verifier: str) -> str:
+    digest = hashlib.sha256(verifier.encode()).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+
+
+@app.get("/login")
+def login():
+    session["state"] = secrets.token_urlsafe(16)
+    session["verifier"] = secrets.token_urlsafe(48)
+    query = urlencode({
+        "client_id": CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "scope": "repo read:org",
+        "state": session["state"],
+        "code_challenge": challenge_for(session["verifier"]),
+        "code_challenge_method": "S256",
+    })
+    return redirect(f"{GHOST_API}/login/oauth/authorize?{query}")
+
+
+@app.get("/oauth/callback")
+def callback():
+    if request.args.get("error"):
+        abort(403, f"Not authorized: {request.args['error']}")
+    if request.args.get("state") != session.pop("state", None):
+        abort(400, "Unknown or reused state")
+
+    token = requests.post(
+        f"{GHOST_API}/login/oauth/access_token",
+        headers={"Accept": "application/json"},
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "code": request.args["code"],
+            "redirect_uri": REDIRECT_URI,
+            "code_verifier": session.pop("verifier"),
+        },
+    ).json()
+    if "error" in token:
+        abort(400, f"Exchange failed: {token['error']}")
+
+    user = requests.get(
+        f"{GHOST_API}/api/v3/user",
+        headers={"Authorization": f"Bearer {token['access_token']}"},
+    ).json()
+    return f"Signed in as {user['login']} with {token['scope'] or 'no scopes'}"
+
+
+if __name__ == "__main__":
+    app.run(port=3000)
+```
+
+```bash
+python app.py
+```
+
+## Command-line tool with the device flow
+
+A shell script that signs in with the [device flow](/oauth-apps/device-flow) and prints the token. It needs `curl` and [`jq`](https://jqlang.org), and **Enable device flow** turned on for the app. The device flow uses no client secret.
+
+```bash title="ghost-login.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+
+device=$(curl -fsS -X POST "$GHOST_API/login/device/code" \
+  -H "Accept: application/json" \
+  -d client_id="$GHOST_CLIENT_ID" \
+  -d scope="repo read:org")
+
+echo "Open $(jq -r .verification_uri <<<"$device") and enter $(jq -r .user_code <<<"$device")" >&2
+
+interval=$(jq -r .interval <<<"$device")
+while true; do
+  sleep "$interval"
+  answer=$(curl -fsS -X POST "$GHOST_API/login/oauth/access_token" \
+    -H "Accept: application/json" \
+    -d client_id="$GHOST_CLIENT_ID" \
+    -d device_code="$(jq -r .device_code <<<"$device")" \
+    -d grant_type=urn:ietf:params:oauth:grant-type:device_code)
+  case "$(jq -r '.error // empty' <<<"$answer")" in
+    "") jq -r .access_token <<<"$answer"; exit 0 ;;
+    authorization_pending) ;;
+    slow_down) interval=$((interval + 5)) ;;
+    *) echo "Sign-in failed: $(jq -r .error <<<"$answer")" >&2; exit 1 ;;
+  esac
+done
+```
+
+```bash
+GHOST_TOKEN=$(bash ghost-login.sh)
+```
+
+## Calling the API with Octokit
+
+Libraries written for GitHub work once they point at Ghost's API. With [Octokit](https://github.com/octokit/octokit.js):
+
+```js
+import { Octokit } from "@octokit/rest";
+
+const octokit = new Octokit({
+  auth: process.env.GHOST_TOKEN,
+  baseUrl: `${process.env.GHOST_API}/api/v3`,
+});
+
+const { data: user } = await octokit.rest.users.getAuthenticated();
+console.log(user.login);
+```
+
+Ghost serves part of GitHub's API; see [GitHub CLI](/github-cli) for what is there.

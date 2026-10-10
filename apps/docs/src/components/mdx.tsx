@@ -4,6 +4,8 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import type { MDXComponents } from "mdx/types";
 
+import { OauthUrlGenerator } from "./oauth-url-generator";
+
 /** Components MDX pages may use without importing them. */
 export function getMDXComponents(components?: MDXComponents) {
   return {
@@ -11,6 +13,7 @@ export function getMDXComponents(components?: MDXComponents) {
     Callout,
     Card,
     Cards,
+    OauthUrlGenerator,
     Tab,
     Tabs,
     ...components,

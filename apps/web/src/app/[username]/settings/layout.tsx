@@ -53,20 +53,36 @@ export default async function OrganizationSettingsLayout({
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-[200px_minmax(0,1fr)] md:gap-10">
+        <div className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)] md:gap-10">
           <SettingsNav
             label="Organization settings"
             links={[
               { href: base, label: "General", icon: "settings" },
-              { href: `${base}/people`, label: "People", icon: "users" },
+              { href: `${base}/storage`, label: "Storage", icon: "storage" },
+              {
+                href: `${base}/people`,
+                label: "People",
+                icon: "users",
+                group: "Access",
+              },
               { href: `${base}/teams`, label: "Teams", icon: "teams" },
               {
                 href: `${base}/outside-collaborators`,
                 label: "Outside collaborators",
                 icon: "outside",
               },
-              { href: `${base}/webhooks`, label: "Webhooks", icon: "webhooks" },
-              { href: `${base}/storage`, label: "Storage", icon: "storage" },
+              {
+                href: `${base}/webhooks`,
+                label: "Webhooks",
+                icon: "webhooks",
+                group: "Integrations",
+              },
+              {
+                href: `${base}/oauth-apps`,
+                label: "OAuth apps",
+                icon: "oauthApps",
+                group: "Developer",
+              },
             ]}
           />
           <div className="min-w-0 max-w-3xl">{children}</div>

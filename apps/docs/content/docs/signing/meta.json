@@ -1,0 +1,13 @@
+{
+  "title": "Signing commits",
+  "pages": [
+    "index",
+    "generating-a-gpg-key",
+    "adding-a-gpg-key",
+    "telling-git-about-your-key",
+    "signing-commits-and-tags",
+    "email-addresses-and-keys",
+    "expiration-and-revocation",
+    "troubleshooting"
+  ]
+}

@@ -10116,6 +10116,633 @@
           "GitHub compatibility"
         ]
       }
+    },
+    "/api/oauth-apps": {
+      "get": {
+        "operationId": "OauthAppsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOauthAppsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the OAuth apps the signed-in account registered",
+        "tags": [
+          "OAuth apps"
+        ]
+      },
+      "post": {
+        "description": "The response carries the client secret. It is never shown again; rotate it to get a new one.",
+        "operationId": "OauthAppsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOauthAppDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedOauthAppDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register an OAuth app",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
+    "/api/oauth-apps/authorized": {
+      "get": {
+        "operationId": "OauthAppsController_listAuthorized",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAuthorizedOauthAppsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the OAuth apps the signed-in account authorized",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
+    "/api/oauth-apps/authorized/{clientId}": {
+      "delete": {
+        "description": "Its keys for this account stop working, and it asks for consent again next time. Other accounts' keys are untouched.",
+        "operationId": "OauthAppsController_revokeAuthorized",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Revoke an OAuth app the signed-in account authorized",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
+    "/api/oauth-apps/authorize": {
+      "get": {
+        "description": "Any enabled app, including ones built into Ghost. Never carries the secret.",
+        "operationId": "OauthAppsController_describe",
+        "parameters": [
+          {
+            "name": "client_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizingOauthAppDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Describe an OAuth app to the user asked to authorize it",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
+    "/api/oauth-apps/{clientId}": {
+      "get": {
+        "operationId": "OauthAppsController_get",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "One OAuth app the signed-in account registered",
+        "tags": [
+          "OAuth apps"
+        ]
+      },
+      "patch": {
+        "operationId": "OauthAppsController_update",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOauthAppDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Change an OAuth app",
+        "tags": [
+          "OAuth apps"
+        ]
+      },
+      "delete": {
+        "description": "Every key the app was issued, for every user, stops working.",
+        "operationId": "OauthAppsController_remove",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete an OAuth app",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
+    "/api/oauth-apps/{clientId}/secret": {
+      "post": {
+        "description": "The previous secret stops working at once.",
+        "operationId": "OauthAppsController_rotateSecret",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppSecretDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace an OAuth app's client secret",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
+    "/api/oauth-apps/{clientId}/logo": {
+      "put": {
+        "description": "Takes the raw image bytes, PNG or JPEG. Users see it when they are asked to authorize the app.",
+        "operationId": "OauthAppsController_setLogo",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "content-type",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAvatarResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload an OAuth app's logo",
+        "tags": [
+          "OAuth apps"
+        ]
+      },
+      "delete": {
+        "operationId": "OauthAppsController_removeLogo",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove an OAuth app's logo",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/oauth-apps": {
+      "get": {
+        "operationId": "OrganizationOauthAppsController_list",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOauthAppsResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List an organization's OAuth apps",
+        "tags": [
+          "OAuth apps"
+        ]
+      },
+      "post": {
+        "description": "The response carries the client secret. It is never shown again; rotate it to get a new one.",
+        "operationId": "OrganizationOauthAppsController_create",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOauthAppDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedOauthAppDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register an OAuth app for an organization",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
     }
   },
   "info": {
@@ -15328,6 +15955,297 @@
         },
         "required": [
           "name"
+        ]
+      },
+      "OauthAppDTO": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "homepageUrl": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "callbackUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deviceFlowEnabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the app was registered, ISO 8601."
+          }
+        },
+        "required": [
+          "clientId",
+          "name",
+          "description",
+          "homepageUrl",
+          "logoUrl",
+          "callbackUrls",
+          "deviceFlowEnabled",
+          "createdAt"
+        ]
+      },
+      "ListOauthAppsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "apps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OauthAppDTO"
+            }
+          }
+        },
+        "required": [
+          "apps"
+        ]
+      },
+      "CreateOauthAppDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "Release bot"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 400,
+            "description": "Shown to users when they are asked to authorize the app."
+          },
+          "homepageUrl": {
+            "type": "string",
+            "example": "https://bot.example"
+          },
+          "callbackUrls": {
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Where users may return after authorizing. A redirect_uri must share one's scheme, host and port, with a path equal to or under its path; without one, users return to the first.",
+            "example": [
+              "https://bot.example/oauth/callback"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deviceFlowEnabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Lets the app sign users in with the device flow, as gh does."
+          }
+        },
+        "required": [
+          "name",
+          "homepageUrl",
+          "callbackUrls"
+        ]
+      },
+      "CreatedOauthAppDTO": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "homepageUrl": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "callbackUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deviceFlowEnabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the app was registered, ISO 8601."
+          },
+          "clientSecret": {
+            "type": "string",
+            "description": "Shown only now. Store it: Ghost keeps only a hash."
+          }
+        },
+        "required": [
+          "clientId",
+          "name",
+          "description",
+          "homepageUrl",
+          "logoUrl",
+          "callbackUrls",
+          "deviceFlowEnabled",
+          "createdAt",
+          "clientSecret"
+        ]
+      },
+      "AuthorizedOauthAppDTO": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "scopes": {
+            "description": "Every scope the app holds across its keys for this account.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authorizedAt": {
+            "type": "string",
+            "description": "When the app was first authorized, ISO 8601."
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When one of its keys was last used, ISO 8601."
+          }
+        },
+        "required": [
+          "clientId",
+          "name",
+          "logoUrl",
+          "scopes",
+          "authorizedAt",
+          "lastUsedAt"
+        ]
+      },
+      "ListAuthorizedOauthAppsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "apps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuthorizedOauthAppDTO"
+            }
+          }
+        },
+        "required": [
+          "apps"
+        ]
+      },
+      "AuthorizingOauthAppDTO": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "homepageUrl": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "owner": {
+            "type": "string",
+            "nullable": true,
+            "description": "Username or organization slug of the owner that registered the app; null for an app built into Ghost."
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "Vouched for by the operators of this Ghost instance. Owners cannot set it."
+          }
+        },
+        "required": [
+          "clientId",
+          "name",
+          "description",
+          "homepageUrl",
+          "logoUrl",
+          "owner",
+          "verified"
+        ]
+      },
+      "UpdateOauthAppDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "Release bot"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 400,
+            "description": "Shown to users when they are asked to authorize the app."
+          },
+          "homepageUrl": {
+            "type": "string",
+            "example": "https://bot.example"
+          },
+          "callbackUrls": {
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Where users may return after authorizing. A redirect_uri must share one's scheme, host and port, with a path equal to or under its path; without one, users return to the first.",
+            "example": [
+              "https://bot.example/oauth/callback"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deviceFlowEnabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Lets the app sign users in with the device flow, as gh does."
+          }
+        }
+      },
+      "OauthAppSecretDTO": {
+        "type": "object",
+        "properties": {
+          "clientSecret": {
+            "type": "string",
+            "description": "The new secret, shown only now. The previous one stops working at once."
+          }
+        },
+        "required": [
+          "clientSecret"
         ]
       }
     }

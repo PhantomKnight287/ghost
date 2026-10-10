@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
 import { createDatabase } from "./client.js";
+import { seedBuiltInRows } from "./seed.js";
 
 // Drizzle runs each migration batch in one transaction, so a failed attempt leaves nothing half-applied to retry over.
 const MAX_RETRIES = 3;
@@ -32,6 +33,7 @@ async function main() {
       }
     }
     console.log(`Migrations applied from ${migrationsFolder}`);
+    await seedBuiltInRows(db);
   } finally {
     await pool.end();
   }

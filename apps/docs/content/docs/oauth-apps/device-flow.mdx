@@ -1,0 +1,45 @@
+---
+title: The device flow
+description: Sign people in from command-line tools and devices that cannot receive a callback
+---
+
+In the examples, `api.<domain>` is your Ghost API host and `<web>` is the Ghost web app.
+
+Command-line tools and devices that cannot receive a callback use the device flow, as `gh auth login --web` does. Turn on **Enable device flow** in the app's settings first; Ghost refuses device codes for apps without it.
+
+1. Ask for a device code:
+
+   ```bash
+   curl -X POST https://api.<domain>/login/device/code \
+     -H "Accept: application/json" \
+     -d client_id=DEyiWXBFvHvUTGkCIQzDrbNEuetuxVOr \
+     -d scope=repo
+   ```
+
+   ```json
+   {
+     "device_code": "XUNcGWbIlQkErNKuRnc2jOwijqRBr203qvVoNZCx",
+     "user_code": "4TGNAEHZ",
+     "verification_uri": "https://<web>/device",
+     "expires_in": 1800,
+     "interval": 5
+   }
+   ```
+
+2. Show the person the `user_code` and the `verification_uri`. They open it, enter the code, and approve:
+
+   ![Ghost asking the person to approve a device request from Release bot](/images/oauth-apps/device-approval.png)
+
+3. Meanwhile, poll for the token every `interval` seconds:
+
+   ```bash
+   curl -X POST https://api.<domain>/login/oauth/access_token \
+     -H "Accept: application/json" \
+     -d client_id=DEyiWXBFvHvUTGkCIQzDrbNEuetuxVOr \
+     -d device_code=XUNcGWbIlQkErNKuRnc2jOwijqRBr203qvVoNZCx \
+     -d grant_type=urn:ietf:params:oauth:grant-type:device_code
+   ```
+
+   Until the person decides, Ghost answers HTTP 200 with `{"error": "authorization_pending"}`. Keep polling. On `slow_down`, wait longer between polls. `expired_token` means the code ran out; `access_denied` means the person said no. Once they approve, the answer is a token, in the same shape as the code exchange.
+
+The device flow needs no client secret, so a tool can ship its client ID in its code.

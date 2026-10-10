@@ -52,7 +52,7 @@ export function CheckoutPopover({
               </code>
               .{" "}
               <a
-                href={`${DOCS_URL}/checking-out-pull-requests-locally`}
+                href={`${DOCS_URL}/pull-requests/checking-out-locally`}
                 className="text-primary hover:underline"
               >
                 More options

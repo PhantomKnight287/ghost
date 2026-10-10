@@ -155,7 +155,7 @@ export function GpgKeys() {
         commits authored from that address read as verified.{" "}
         <a
           className="underline underline-offset-2"
-          href={`${DOCS_URL}/adding-a-gpg-key-to-your-account`}
+          href={`${DOCS_URL}/signing/adding-a-gpg-key`}
           target="_blank"
           rel="noreferrer"
         >

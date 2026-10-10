@@ -44,19 +44,19 @@ export async function callApi<T>(
   return unwrap(request(await createServerClient()));
 }
 
-/** The signed-in session, read over INTERNAL_API_URL: in Docker the public API origin can be this container's own localhost. */
-export async function getServerSession(): Promise<
-  typeof authClient.$Infer.Session | null
-> {
-  const forwarded = await forwardedHeaders();
-  if (!forwarded.cookie) return null;
+/** The signed-in session, read over INTERNAL_API_URL: in Docker the public API origin can be this container's own localhost. Fetched once per render, however many layouts and pages ask. */
+export const getServerSession = cache(
+  async (): Promise<typeof authClient.$Infer.Session | null> => {
+    const forwarded = await forwardedHeaders();
+    if (!forwarded.cookie) return null;
 
-  const res = await fetch(`${INTERNAL_API_URL}/api/auth/get-session`, {
-    headers: forwarded,
-    cache: "no-store",
-  });
-  return res.ok ? res.json() : null;
-}
+    const res = await fetch(`${INTERNAL_API_URL}/api/auth/get-session`, {
+      headers: forwarded,
+      cache: "no-store",
+    });
+    return res.ok ? res.json() : null;
+  },
+);
 
 /** The signed-in viewer's username, sending anyone signed out to sign in and back to `path`. */
 export async function requireViewer(path: string) {

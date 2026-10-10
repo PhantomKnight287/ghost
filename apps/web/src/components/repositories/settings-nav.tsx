@@ -1,13 +1,21 @@
 "use client";
 
 import {
+  AppWindow,
+  Briefcase,
   HardDrive,
+  KeyRound,
+  KeySquare,
   Settings,
+  Shield,
+  ShieldCheck,
+  User2,
   UserRound,
   Users,
   UsersRound,
   Webhook,
 } from "lucide-react";
+import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -21,12 +29,21 @@ const icons = {
   outside: UserRound,
   webhooks: Webhook,
   storage: HardDrive,
+  account: User2,
+  security: Shield,
+  keys: KeyRound,
+  tokens: KeySquare,
+  organizations: Briefcase,
+  oauthApps: AppWindow,
+  authorizedApps: ShieldCheck,
 };
 
 export type SettingsLink = {
   href: string;
   label: string;
   icon: keyof typeof icons;
+  /** A heading shown above this link on wide screens, starting a group. */
+  group?: string;
 };
 
 export function SettingsNav({
@@ -44,25 +61,31 @@ export function SettingsNav({
       aria-label={label}
       className="-mx-1 flex gap-1 overflow-x-auto md:mx-0 md:flex-col"
     >
-      {links.map(({ href, label, icon }) => {
+      {links.map(({ href, label, icon, group }) => {
         const Icon = icons[icon];
         // A nested page, such as one webhook, lights up its section; the first link is the parent of every section.
         const active =
           pathname === href ||
           (href !== links[0]?.href && pathname.startsWith(`${href}/`));
         return (
-          <Link
-            key={href}
-            href={href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-              active && "bg-muted font-medium text-foreground",
+          <Fragment key={href}>
+            {group && (
+              <p className="mt-4 hidden px-3 pb-1 text-xs font-medium text-muted-foreground md:block">
+                {group}
+              </p>
             )}
-          >
-            <Icon className="size-4" />
-            {label}
-          </Link>
+            <Link
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                active && "bg-muted font-medium text-foreground",
+              )}
+            >
+              <Icon className="size-4" />
+              {label}
+            </Link>
+          </Fragment>
         );
       })}
     </nav>

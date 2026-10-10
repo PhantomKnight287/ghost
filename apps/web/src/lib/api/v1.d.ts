@@ -2683,6 +2683,168 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/oauth-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the OAuth apps the signed-in account registered */
+        get: operations["OauthAppsController_list"];
+        put?: never;
+        /**
+         * Register an OAuth app
+         * @description The response carries the client secret. It is never shown again; rotate it to get a new one.
+         */
+        post: operations["OauthAppsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth-apps/authorized": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the OAuth apps the signed-in account authorized */
+        get: operations["OauthAppsController_listAuthorized"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth-apps/authorized/{clientId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an OAuth app the signed-in account authorized
+         * @description Its keys for this account stop working, and it asks for consent again next time. Other accounts' keys are untouched.
+         */
+        delete: operations["OauthAppsController_revokeAuthorized"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth-apps/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe an OAuth app to the user asked to authorize it
+         * @description Any enabled app, including ones built into Ghost. Never carries the secret.
+         */
+        get: operations["OauthAppsController_describe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth-apps/{clientId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One OAuth app the signed-in account registered */
+        get: operations["OauthAppsController_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an OAuth app
+         * @description Every key the app was issued, for every user, stops working.
+         */
+        delete: operations["OauthAppsController_remove"];
+        options?: never;
+        head?: never;
+        /** Change an OAuth app */
+        patch: operations["OauthAppsController_update"];
+        trace?: never;
+    };
+    "/api/oauth-apps/{clientId}/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace an OAuth app's client secret
+         * @description The previous secret stops working at once.
+         */
+        post: operations["OauthAppsController_rotateSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth-apps/{clientId}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload an OAuth app's logo
+         * @description Takes the raw image bytes, PNG or JPEG. Users see it when they are asked to authorize the app.
+         */
+        put: operations["OauthAppsController_setLogo"];
+        post?: never;
+        /** Remove an OAuth app's logo */
+        delete: operations["OauthAppsController_removeLogo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/oauth-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List an organization's OAuth apps */
+        get: operations["OrganizationOauthAppsController_list"];
+        put?: never;
+        /**
+         * Register an OAuth app for an organization
+         * @description The response carries the client secret. It is never shown again; rotate it to get a new one.
+         */
+        post: operations["OrganizationOauthAppsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4327,6 +4489,102 @@ export interface components {
             gitignore_template?: string;
             /** @description Accepted and ignored. */
             license_template?: string;
+        };
+        OauthAppDTO: {
+            clientId: string;
+            name: string;
+            description: string | null;
+            homepageUrl: string;
+            logoUrl: string | null;
+            callbackUrls: string[];
+            deviceFlowEnabled: boolean;
+            /** @description When the app was registered, ISO 8601. */
+            createdAt: string;
+        };
+        ListOauthAppsResponseDTO: {
+            apps: components["schemas"]["OauthAppDTO"][];
+        };
+        CreateOauthAppDTO: {
+            /** @example Release bot */
+            name: string;
+            /** @description Shown to users when they are asked to authorize the app. */
+            description?: string;
+            /** @example https://bot.example */
+            homepageUrl: string;
+            /**
+             * @description Where users may return after authorizing. A redirect_uri must share one's scheme, host and port, with a path equal to or under its path; without one, users return to the first.
+             * @example [
+             *       "https://bot.example/oauth/callback"
+             *     ]
+             */
+            callbackUrls: string[];
+            /**
+             * @description Lets the app sign users in with the device flow, as gh does.
+             * @default false
+             */
+            deviceFlowEnabled: boolean;
+        };
+        CreatedOauthAppDTO: {
+            clientId: string;
+            name: string;
+            description: string | null;
+            homepageUrl: string;
+            logoUrl: string | null;
+            callbackUrls: string[];
+            deviceFlowEnabled: boolean;
+            /** @description When the app was registered, ISO 8601. */
+            createdAt: string;
+            /** @description Shown only now. Store it: Ghost keeps only a hash. */
+            clientSecret: string;
+        };
+        AuthorizedOauthAppDTO: {
+            clientId: string;
+            name: string;
+            logoUrl: string | null;
+            /** @description Every scope the app holds across its keys for this account. */
+            scopes: string[];
+            /** @description When the app was first authorized, ISO 8601. */
+            authorizedAt: string;
+            /** @description When one of its keys was last used, ISO 8601. */
+            lastUsedAt: string | null;
+        };
+        ListAuthorizedOauthAppsResponseDTO: {
+            apps: components["schemas"]["AuthorizedOauthAppDTO"][];
+        };
+        AuthorizingOauthAppDTO: {
+            clientId: string;
+            name: string;
+            description: string | null;
+            homepageUrl: string;
+            logoUrl: string | null;
+            /** @description Username or organization slug of the owner that registered the app; null for an app built into Ghost. */
+            owner: string | null;
+            /** @description Vouched for by the operators of this Ghost instance. Owners cannot set it. */
+            verified: boolean;
+        };
+        UpdateOauthAppDTO: {
+            /** @example Release bot */
+            name?: string;
+            /** @description Shown to users when they are asked to authorize the app. */
+            description?: string;
+            /** @example https://bot.example */
+            homepageUrl?: string;
+            /**
+             * @description Where users may return after authorizing. A redirect_uri must share one's scheme, host and port, with a path equal to or under its path; without one, users return to the first.
+             * @example [
+             *       "https://bot.example/oauth/callback"
+             *     ]
+             */
+            callbackUrls?: string[];
+            /**
+             * @description Lets the app sign users in with the device flow, as gh does.
+             * @default false
+             */
+            deviceFlowEnabled: boolean;
+        };
+        OauthAppSecretDTO: {
+            /** @description The new secret, shown only now. The previous one stops working at once. */
+            clientSecret: string;
         };
     };
     responses: never;
@@ -10517,6 +10775,462 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    OauthAppsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOauthAppsResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOauthAppDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedOauthAppDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_listAuthorized: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListAuthorizedOauthAppsResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_revokeAuthorized: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_describe: {
+        parameters: {
+            query: {
+                client_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorizingOauthAppDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOauthAppDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_rotateSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppSecretDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_setLogo: {
+        parameters: {
+            query?: never;
+            header: {
+                "content-type": string;
+            };
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadAvatarResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_removeLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationOauthAppsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOauthAppsResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationOauthAppsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOauthAppDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedOauthAppDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
             };
         };
     };

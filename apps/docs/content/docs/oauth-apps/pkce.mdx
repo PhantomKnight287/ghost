@@ -1,0 +1,15 @@
+---
+title: PKCE
+description: Prove that the server exchanging a code is the one that asked for it
+---
+
+In the examples, `api.<domain>` is your Ghost API host and `<web>` is the Ghost web app.
+
+PKCE proves that the server exchanging a code is the one that started the request. It is optional, and worth using. Make a random verifier for each request, keep it, and send its SHA-256 as the challenge:
+
+```bash
+verifier=$(openssl rand -base64 48 | tr -d '=+/' | cut -c1-64)
+challenge=$(printf '%s' "$verifier" | openssl dgst -sha256 -binary | openssl base64 | tr '+/' '-_' | tr -d '=')
+```
+
+Add `code_challenge=$challenge&code_challenge_method=S256` to the authorize URL, and `code_verifier=$verifier` to the token request. A code requested with a challenge cannot be exchanged without the matching verifier.
