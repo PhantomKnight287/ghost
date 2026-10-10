@@ -11,7 +11,7 @@ export default async function AuthorizePage({
   const { client_id: clientId, scope } = await searchParams;
 
   return (
-    <div className="flex flex-1 items-center justify-center p-4 md:p-6">
+    <div className="flex flex-1 items-center justify-center p-4 md:p-6 w-full container">
       <ConsentForm
         clientId={typeof clientId === "string" ? clientId : ""}
         scope={typeof scope === "string" ? scope : ""}
