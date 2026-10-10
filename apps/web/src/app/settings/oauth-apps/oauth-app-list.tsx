@@ -61,7 +61,7 @@ export function OauthAppList({
             can revoke it at any time.{" "}
             <a
               className="underline underline-offset-2"
-              href={`${DOCS_URL}/github-compatibility#oauth-apps`}
+              href={`${DOCS_URL}/oauth-apps`}
               target="_blank"
               rel="noreferrer"
             >
