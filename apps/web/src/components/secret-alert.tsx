@@ -1,11 +1,11 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
-import { type ReactNode, useState } from "react";
-import { toast } from "sonner";
+import type { ReactNode } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useCopy } from "@/lib/use-copy";
 
 /** A secret Ghost shows once, with a copy button. */
 export function SecretAlert({
@@ -17,17 +17,7 @@ export function SecretAlert({
   description: ReactNode;
   secret: string;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(secret);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Could not copy the secret.");
-    }
-  }
+  const { copied, copy } = useCopy(secret, "Could not copy the secret.");
 
   return (
     <Alert>
