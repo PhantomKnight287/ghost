@@ -68,6 +68,13 @@ describe.skipIf(!hasBackends)('GitHub OAuth device flow', () => {
     expect(form((await poll(code.device_code)).text).error).toBeTruthy();
   });
 
+  it('ignores a client_secret sent with the device grant', async () => {
+    const code = form((await requestCode().expect(200)).text);
+    await decide(code.user_code, 'approve');
+    const response = await api().post('/login/oauth/access_token').type('form').send({ client_id: GH, client_secret: 'anything', device_code: code.device_code, grant_type: DEVICE_GRANT });
+    expect(form(response.text).access_token).toMatch(/^ghost_pat_/);
+  });
+
   it('refuses a device code to a user app with device flow off, and runs the flow once it is on', async () => {
     const db = app.get<Database>(DATABASE);
     const clientId = `tool${Date.now()}`;

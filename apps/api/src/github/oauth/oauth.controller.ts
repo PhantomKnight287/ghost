@@ -11,14 +11,14 @@ import {
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { AllowAnonymous, AuthService } from '@thallesp/nestjs-better-auth';
-import { APIError } from 'better-auth/api';
+import { isAPIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
 import { callbackMatches } from '../../lib/github/callback.js';
-import { findOauthApp } from '../../lib/github/oauth-apps.js';
+import { findOauthApp, type OauthApp } from '../../lib/github/oauth-apps.js';
 import { sendOAuth } from '../../lib/github/oauth-response.js';
 import { grantableScopes, NO_SCOPE } from '../../lib/github/scopes.js';
 
@@ -118,34 +118,56 @@ export class OauthController {
     });
   }
 
+  /** Dispatches as GitHub does: the device grant when `grant_type` names it, the web flow's code exchange when a `code` is sent, which GitHub's clients send without a `grant_type`. */
   @Post('oauth/access_token')
   async accessToken(
     @Body()
-    body: { client_id?: string; device_code?: string; grant_type?: string },
+    body: {
+      client_id?: string;
+      client_secret?: string;
+      device_code?: string;
+      grant_type?: string;
+      code?: string;
+      redirect_uri?: string;
+      code_verifier?: string;
+    },
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    // ponytail: the device grant only; plan 3 adds grant_type=authorization_code for user-registered apps.
-    if (
-      body.grant_type !== DEVICE_GRANT ||
-      !body.client_id ||
-      !body.device_code
-    )
-      return sendOAuth(req, res, 400, { error: 'unsupported_grant_type' });
-    const app = await findOauthApp(this.db, body.client_id);
-    if (!app) return sendOAuth(req, res, 400, { error: 'invalid_client' });
+    const app = body.client_id
+      ? await findOauthApp(this.db, body.client_id)
+      : null;
+    if (body.grant_type === DEVICE_GRANT && body.device_code) {
+      if (!app) return sendOAuth(req, res, 400, { error: 'invalid_client' });
+      return this.deviceGrant(req, res, app, body.device_code);
+    }
+    if (body.code) {
+      if (!app)
+        return sendOAuth(req, res, 200, {
+          error: 'incorrect_client_credentials',
+        });
+      return this.codeGrant(req, res, app, { ...body, code: body.code });
+    }
+    sendOAuth(req, res, 400, { error: 'unsupported_grant_type' });
+  }
 
+  private async deviceGrant(
+    req: Request,
+    res: Response,
+    app: OauthApp,
+    deviceCode: string,
+  ) {
     let granted: { access_token: string; scope: string };
     try {
       granted = await this.auth.api.deviceToken({
         body: {
           grant_type: DEVICE_GRANT,
-          device_code: body.device_code,
-          client_id: body.client_id,
+          device_code: deviceCode,
+          client_id: app.clientId,
         },
       });
     } catch (error) {
-      if (!(error instanceof APIError)) throw error;
+      if (!isAPIError(error)) throw error;
       // GitHub answers pending, slow_down, expired and denied with 200 and `error` in the body; gh reads the body, not the status.
       const { error: code, error_description } = error.body as {
         error?: string;
@@ -163,10 +185,76 @@ export class OauthController {
       .where(eq(schema.session.token, granted.access_token))
       .returning({ userId: schema.session.userId });
     if (!session) return sendOAuth(req, res, 200, { error: 'invalid_grant' });
-    const scopes = grantableScopes(granted.scope);
+    return this.issueKey(req, res, app, session.userId, granted.scope);
+  }
+
+  private async codeGrant(
+    req: Request,
+    res: Response,
+    app: OauthApp,
+    body: {
+      client_secret?: string;
+      code: string;
+      redirect_uri?: string;
+      code_verifier?: string;
+    },
+  ) {
+    const redirectUri = body.redirect_uri ?? app.redirectUris[0];
+    if (
+      !redirectUri ||
+      !app.redirectUris.some((callback) =>
+        callbackMatches(callback, redirectUri),
+      )
+    )
+      return sendOAuth(req, res, 200, { error: 'redirect_uri_mismatch' });
+    const client = {
+      client_id: app.clientId,
+      client_secret: body.client_secret,
+    };
+    let granted: { access_token: string; scope: string };
+    try {
+      granted = await this.auth.api.oauth2Token({
+        body: {
+          ...client,
+          grant_type: 'authorization_code',
+          code: body.code,
+          redirect_uri: redirectUri,
+          code_verifier: body.code_verifier,
+        },
+      });
+    } catch (error) {
+      if (!isAPIError(error)) throw error;
+      const { error: code } = error.body as { error?: string };
+      return sendOAuth(req, res, 200, {
+        error:
+          code === 'invalid_client'
+            ? 'incorrect_client_credentials'
+            : 'bad_verification_code',
+      });
+    }
+
+    // The plugin's token is never handed out: Ghost reads whose it is, revokes it, and mints a key in its place.
+    const token = {
+      ...client,
+      token: granted.access_token,
+      token_type_hint: 'access_token' as const,
+    };
+    const { sub } = await this.auth.api.oauth2Introspect({ body: token });
+    await this.auth.api.oauth2Revoke({ body: token });
+    return this.issueKey(req, res, app, sub as string, granted.scope);
+  }
+
+  private async issueKey(
+    req: Request,
+    res: Response,
+    app: OauthApp,
+    userId: string,
+    scope: string,
+  ) {
+    const scopes = grantableScopes(scope);
     const { key } = await this.auth.api.createApiKey({
       body: {
-        userId: session.userId,
+        userId,
         name: app.name,
         permissions: { scopes },
         metadata: { oauthClientId: app.clientId },

@@ -1,7 +1,12 @@
+import { createHash } from 'node:crypto';
+
+import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
+import { and, eq, isNull } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { DATABASE } from '../src/database/database.module.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 const CALLBACK = 'https://tool.example/oauth/callback';
@@ -24,6 +29,14 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
     const response = await api().post('/api/auth/oauth2/consent').set('cookie', owner.cookie).send({ accept, oauth_query: consent.search.slice(1) }).expect(200);
     return new URL(response.body.url);
   };
+
+  const codeFor = async (query: Record<string, string> = {}) => {
+    const consent = await follow({ client_id: clientId, scope: 'repo', ...query });
+    const callback = consent.searchParams.has('sig') ? await decide(consent, true) : consent;
+    return callback.searchParams.get('code') as string;
+  };
+  const exchange = (body: Record<string, string>, accept = 'application/x-www-form-urlencoded') => api().post('/login/oauth/access_token').set('accept', accept).type('form').send({ client_id: clientId, client_secret: clientSecret, ...body }).expect(200);
+  const form = (text: string) => Object.fromEntries(new URLSearchParams(text));
 
   beforeAll(async () => {
     ({ app } = await startApp({ WEB_APP_URL: 'https://web.example' }));
@@ -102,5 +115,87 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
     const gh = await api().get('/api/oauth-apps/authorize').query({ client_id: '178c6fc778ccc68e1d6a' }).set('cookie', owner.cookie).expect(200);
     expect(gh.body).toEqual({ clientId: '178c6fc778ccc68e1d6a', name: 'GitHub CLI', homepageUrl: 'https://cli.github.com', owner: null });
     await api().get('/api/oauth-apps/authorize').query({ client_id: 'nope' }).set('cookie', owner.cookie).expect(404);
+  });
+
+  it('exchanges a code for a ghost_pat_ key with the approved scopes, form-encoded by default', async () => {
+    const code = await codeFor({ scope: 'repo read:org' });
+    const response = await exchange({ code });
+    expect(response.headers['content-type']).toMatch(/application\/x-www-form-urlencoded/);
+    const token = form(response.text);
+    expect(token).toMatchObject({ token_type: 'bearer', scope: 'repo,read:org' });
+    expect(token.access_token).toMatch(/^ghost_pat_/);
+    const user = await api().get('/api/v3/user').set('authorization', `token ${token.access_token}`).expect(200);
+    expect(user.headers['x-oauth-scopes']).toBe('repo, read:org');
+    await api().get('/api/notifications').set('authorization', `Bearer ${token.access_token}`).expect(401);
+    const live = await app.get<Database>(DATABASE).select({ id: schema.oauthAccessToken.id }).from(schema.oauthAccessToken).where(and(eq(schema.oauthAccessToken.clientId, clientId), isNull(schema.oauthAccessToken.revoked)));
+    expect(live).toEqual([]);
+  });
+
+  it('answers JSON when asked', async () => {
+    const response = await exchange({ code: await codeFor() }, 'application/json');
+    expect(response.body).toMatchObject({ token_type: 'bearer', scope: 'repo' });
+    expect(response.body.access_token).toMatch(/^ghost_pat_/);
+  });
+
+  it('mints a key with no scope when the app asked for none', async () => {
+    const token = form((await exchange({ code: await codeFor({ scope: '' }) })).text);
+    expect(token.scope).toBe('');
+    const user = await api().get('/api/v3/user').set('authorization', `token ${token.access_token}`).expect(200);
+    expect(user.headers['x-oauth-scopes']).toBe('');
+  });
+
+  it('yields a key for a code only once', async () => {
+    const code = await codeFor();
+    expect(form((await exchange({ code })).text).access_token).toMatch(/^ghost_pat_/);
+    expect(form((await exchange({ code })).text)).toMatchObject({ error: 'bad_verification_code' });
+  });
+
+  it('refuses a wrong secret, and the secret a rotation replaced', async () => {
+    expect(form((await exchange({ code: await codeFor(), client_secret: 'wrong' })).text)).toMatchObject({ error: 'incorrect_client_credentials' });
+    const other = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Rotating', homepageUrl: 'https://tool.example', callbackUrl: CALLBACK }).expect(201);
+    const rotated = await api().post(`/api/oauth-apps/${other.body.clientId}/secret`).set('cookie', owner.cookie).expect(201);
+    const consent = await follow({ client_id: other.body.clientId, scope: 'repo' });
+    const code = (await decide(consent, true)).searchParams.get('code') as string;
+    const stale = await exchange({ client_id: other.body.clientId, client_secret: other.body.clientSecret, code });
+    expect(form(stale.text)).toMatchObject({ error: 'incorrect_client_credentials' });
+    const again = (await decide(await follow({ client_id: other.body.clientId, scope: 'gist' }), true)).searchParams.get('code') as string;
+    const fresh = await exchange({ client_id: other.body.clientId, client_secret: rotated.body.clientSecret, code: again });
+    expect(form(fresh.text).access_token).toMatch(/^ghost_pat_/);
+  });
+
+  it("refuses a code presented with another app's credentials", async () => {
+    const code = await codeFor();
+    const other = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Other', homepageUrl: 'https://tool.example', callbackUrl: CALLBACK }).expect(201);
+    const response = await exchange({ client_id: other.body.clientId, client_secret: other.body.clientSecret, code });
+    expect(form(response.text).access_token).toBeUndefined();
+    expect(form(response.text).error).toBeTruthy();
+  });
+
+  it('refuses an unknown client and a redirect_uri outside the callback', async () => {
+    expect(form((await exchange({ client_id: 'nope', code: 'x' })).text)).toMatchObject({ error: 'incorrect_client_credentials' });
+    expect(form((await exchange({ code: await codeFor(), redirect_uri: 'https://evil.example/cb' })).text)).toMatchObject({ error: 'redirect_uri_mismatch' });
+  });
+
+  it('refuses an expired code', async () => {
+    const code = await codeFor();
+    const db = app.get<Database>(DATABASE);
+    // The plugin stores a code as its SHA-256, base64url.
+    const expired = await db.update(schema.verification).set({ expiresAt: new Date(0) }).where(eq(schema.verification.identifier, createHash('sha256').update(code).digest('base64url'))).returning({ id: schema.verification.id });
+    expect(expired).toHaveLength(1);
+    expect(form((await exchange({ code })).text)).toMatchObject({ error: 'bad_verification_code' });
+  });
+
+  it('checks the PKCE verifier against the S256 challenge', async () => {
+    const verifier = 'a'.repeat(64);
+    const challenge = createHash('sha256').update(verifier).digest('base64url');
+    const wrong = await codeFor({ code_challenge: challenge, code_challenge_method: 'S256' });
+    expect(form((await exchange({ code: wrong, code_verifier: 'b'.repeat(64) })).text)).toMatchObject({ error: 'bad_verification_code' });
+    const right = await codeFor({ code_challenge: challenge, code_challenge_method: 'S256' });
+    expect(form((await exchange({ code: right, code_verifier: verifier })).text).access_token).toMatch(/^ghost_pat_/);
+  });
+
+  it('answers a request with neither a device code nor a code with unsupported_grant_type', async () => {
+    const response = await api().post('/login/oauth/access_token').type('form').send({ client_id: clientId }).expect(400);
+    expect(form(response.text)).toMatchObject({ error: 'unsupported_grant_type' });
   });
 });
