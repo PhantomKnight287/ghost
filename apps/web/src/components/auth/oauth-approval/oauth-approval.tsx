@@ -16,6 +16,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { apiClient, unwrap } from "@/lib/api/client";
 
 export type OauthApprovalProps = {
@@ -145,9 +146,26 @@ function OauthAppSummary({ clientId }: { clientId: string }) {
   if (isPending) return <OauthAppSummarySkeleton />;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       <p className="text-xs text-muted-foreground">Application</p>
-      <p className="text-sm font-medium">{app?.name ?? clientId}</p>
+      <div className="flex items-center gap-3">
+        <ProfileAvatar
+          name={app?.name ?? clientId}
+          image={app?.logoUrl}
+          className="size-10 rounded-lg"
+        />
+        <div className="flex min-w-0 flex-col">
+          <p className="truncate text-sm font-medium">
+            {app?.name ?? clientId}
+          </p>
+          {app ? (
+            <p className="text-xs text-muted-foreground">
+              {app.owner ? `Registered by @${app.owner}` : "Built into Ghost"}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      {app?.description ? <p className="text-sm">{app.description}</p> : null}
       {app?.homepageUrl ? (
         <a
           className="truncate text-xs text-muted-foreground underline-offset-4 hover:underline"
@@ -158,21 +176,21 @@ function OauthAppSummary({ clientId }: { clientId: string }) {
           {app.homepageUrl}
         </a>
       ) : null}
-      {app ? (
-        <p className="text-xs text-muted-foreground">
-          {app.owner ? `Registered by @${app.owner}` : "Built into Ghost"}
-        </p>
-      ) : null}
     </div>
   );
 }
 
 function OauthAppSummarySkeleton() {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       <p className="text-xs text-muted-foreground">Application</p>
-      <Skeleton className="h-5 w-32" />
-      <Skeleton className="h-4 w-48" />
+      <div className="flex items-center gap-3">
+        <Skeleton className="size-10 rounded-lg" />
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      </div>
     </div>
   );
 }

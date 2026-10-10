@@ -4,7 +4,6 @@ import {
   apiKeyPlugin as coreApiKeyPlugin,
 } from "@better-auth-ui/core/plugins/api-key";
 
-import { ApiKeys } from "@/components/auth/api-key/api-keys";
 import { OrganizationApiKeys } from "@/components/auth/api-key/organization-api-keys";
 
 /** Ghost calls these personal access tokens - they authenticate git over HTTP. */
@@ -35,7 +34,6 @@ export const apiKeyPlugin = createAuthPlugin(
 
     return {
       ...core,
-      securityCards: [ApiKeys],
       ...(core.organization
         ? { organizationCards: [OrganizationApiKeys] }
         : {}),
