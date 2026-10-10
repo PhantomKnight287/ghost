@@ -5,7 +5,11 @@ import type { NextFunction, Request, Response } from 'express';
 
 import type { Auth } from '../../../lib/auth.js';
 import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
-import { AuthenticationRequiredError } from '../../../lib/repositories/access/repository-access.errors.js';
+import {
+  AuthenticationRequiredError,
+  RepositoryForbiddenError,
+} from '../../../lib/repositories/access/repository-access.errors.js';
+import { hasScope, scopesOfKey } from '../../../lib/github/scopes.js';
 import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
 import { type Actor } from '../../../lib/repositories/access/repository-access.js';
 import {
@@ -45,13 +49,21 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
       (req.body as { operation?: unknown } | undefined)?.operation === 'upload';
 
     try {
-      const { actor, apiKeyId, scope } = await this.resolveKey(req);
+      const { actor, apiKeyId, scope, scopes } = await this.resolveKey(req);
       req.repository = await this.access.authorize({
         username,
         repo: repo.replace(/\.git$/, ''),
         requesterId: actor?.userId,
         operation: isPush ? 'write' : 'read',
       });
+      // A scoped token reads private repositories only with `repo`, and pushes with `repo` or, to a public repository, `public_repo`. Unreadable reads as missing, as on GitHub.
+      if (scopes) {
+        const isPrivate = req.repository.visibility === 'private';
+        if (isPrivate && !hasScope(scopes, 'repo'))
+          throw new RepositoryNotFoundError();
+        if (isPush && !hasScope(scopes, isPrivate ? 'repo' : 'public_repo'))
+          throw new RepositoryForbiddenError();
+      }
       // A token from `git-lfs-authenticate` is good for the LFS API of one repository, and for writes only if it was asked for an upload.
       if (
         scope &&
@@ -77,13 +89,19 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     actor: Actor;
     apiKeyId: string | null;
     scope?: LfsTokenClaims;
+    scopes: readonly string[] | null;
   }> {
-    const anonymous = { actor: null, apiKeyId: null };
+    const anonymous = { actor: null, apiKeyId: null, scopes: null };
     const header = req.headers.authorization;
     if (header?.startsWith('Bearer ')) {
       const scope = verifyLfsToken(this.secret, header.slice(7));
       return scope
-        ? { actor: { userId: scope.userId }, apiKeyId: null, scope }
+        ? {
+            actor: { userId: scope.userId },
+            apiKeyId: null,
+            scope,
+            scopes: null,
+          }
         : anonymous;
     }
     if (!header?.startsWith('Basic ')) return anonymous;
@@ -99,7 +117,11 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
 
     // A bad key is treated as no key, so the caller is challenged again.
     return valid && apiKey
-      ? { actor: { userId: apiKey.referenceId }, apiKeyId: apiKey.id }
+      ? {
+          actor: { userId: apiKey.referenceId },
+          apiKeyId: apiKey.id,
+          scopes: scopesOfKey(apiKey.permissions),
+        }
       : anonymous;
   }
 }

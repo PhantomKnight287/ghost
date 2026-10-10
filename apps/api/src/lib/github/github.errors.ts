@@ -30,3 +30,17 @@ export class GithubForbiddenError extends DomainError {
 export class UnprocessableError extends DomainError {
   readonly status = HttpStatus.UNPROCESSABLE_ENTITY;
 }
+
+export class InsufficientScopesError extends DomainError {
+  readonly status = HttpStatus.FORBIDDEN;
+
+  constructor(
+    field: string,
+    readonly accepted: readonly string[],
+    granted: readonly string[],
+  ) {
+    super(
+      `Your token has not been granted the required scopes to execute this query. The '${field}' field requires one of the following scopes: [${accepted.map((scope) => `'${scope}'`).join(', ')}], but your token has only been granted the: [${granted.map((scope) => `'${scope}'`).join(', ')}] scopes.`,
+    );
+  }
+}

@@ -9,11 +9,25 @@ Ghost answers the GitHub API at the API host, so the GitHub CLI (`gh`) works aga
 
 ## Setup
 
-Create an API key in your account settings, then log in with it:
+Log in through the browser:
+
+```sh
+gh auth login --hostname api.<domain> --web
+```
+
+`gh` prints a one-time code and opens `<web>/device`. Sign in to Ghost, enter the code and approve. `gh` receives an API key holding the scopes it asked for. The key is named `GitHub CLI` in your account settings, where you can revoke it.
+
+Or create an API key in your account settings and log in with it:
 
 ```sh
 echo "$GHOST_TOKEN" | gh auth login --hostname api.<domain> --with-token
 gh auth status --hostname api.<domain>
+```
+
+To let `git` use the same credentials for clones and pushes over HTTPS:
+
+```sh
+gh auth setup-git --hostname api.<domain>
 ```
 
 Point `gh` at Ghost for a shell session with `GH_HOST`, or name the host in `-R`:
@@ -32,6 +46,8 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 | Command | Notes |
 |---|---|
 | `gh auth login --with-token`, `gh auth status` | |
+| `gh auth login --web` | Approve the code at `<web>/device` |
+| `gh auth refresh --scopes …` | Approve again; `gh` switches to the new key. The old key stays valid until you revoke it |
 | `gh api`, `gh api graphql` | Any route or query listed below |
 | `gh repo view`, `gh repo view --json` | Includes the README |
 | `gh repo clone` | |
@@ -72,11 +88,12 @@ GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
 - `gh repo create --disable-issues`, `--disable-wiki` and `--homepage` fail: they need `updateRepository`, which is not served.
 - A query with an unknown field answers HTTP 400. GitHub answers 200. `gh` handles both.
 - `search` only finds issues in one repository, named with `repo:`. Qualifiers Ghost cannot filter on, such as `milestone:` and `sort:`, are ignored.
-- Every token is granted every scope `gh` checks for.
+- API keys made in Ghost's settings hold every scope. Keys from `gh auth login --web` hold the scopes `gh` asked for that Ghost knows (`repo`, `read:org`, `gist`, …). Unknown scopes, such as `workflow`, are dropped.
+- Without `repo`, a private repository answers as if it did not exist.
 
 ## Not yet supported
 
-- `gh auth login --web` and `gh auth refresh`
 - Pull requests
 - Releases and gists
+- OAuth apps other than `gh`, and the authorization-code flow
 - GitHub Apps and fine-grained tokens

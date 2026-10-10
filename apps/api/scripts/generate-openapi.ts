@@ -6,8 +6,9 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from '../src/app.module.js';
-import { openApiConfig } from '../src/lib/openapi.js';
+import { OAUTH_ROUTES } from '../src/app.setup.js';
 import { GIT_TRANSPORT_ROUTES } from '../src/git/git.constants.js';
+import { openApiConfig } from '../src/lib/openapi.js';
 
 const target = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -19,7 +20,9 @@ const app = await NestFactory.create(AppModule, {
   logger: false,
 });
 
-app.setGlobalPrefix('/api', { exclude: GIT_TRANSPORT_ROUTES });
+app.setGlobalPrefix('/api', {
+  exclude: [...GIT_TRANSPORT_ROUTES, ...OAUTH_ROUTES],
+});
 const document = SwaggerModule.createDocument(app, openApiConfig);
 
 await writeFile(target, `${JSON.stringify(document, null, 2)}\n`);

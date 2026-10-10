@@ -303,6 +303,9 @@ describe.skipIf(!hasBackends)('organizations', () => {
     await expect(signUp(app, 'dashboard')).rejects.toThrow(
       'That name is reserved',
     );
+    await expect(signUp(app, 'device')).rejects.toThrow(
+      'That name is reserved',
+    );
     await expect(
       auth().createOrganization({
         body: { name: 'Settings', slug: 'settings' },

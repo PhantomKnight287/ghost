@@ -75,3 +75,10 @@ export async function signUp(app: INestApplication, username: string) {
 
   return { cookie: headers.get('set-cookie') ?? '', key, userId: user.id };
 }
+
+/** An API key holding only `scopes`, as the device flow mints them. */
+export async function scopedKey(app: INestApplication, userId: string, scopes: string[]) {
+  const auth = app.get<AuthService<Auth>>(AuthService).api;
+  const { key } = await auth.createApiKey({ body: { userId, permissions: { scopes } } });
+  return key;
+}

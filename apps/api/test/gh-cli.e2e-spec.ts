@@ -1,20 +1,24 @@
+import { execFile } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
+
 import type { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import TestAgent from 'supertest/lib/agent.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { GH_E2E_HOST, runGh, tlsFiles } from './gh.js';
-import { hasBackends, signUp, startApp } from './harness.js';
-import request from 'supertest';
-import { promisify } from 'node:util';
-import { execFile } from 'node:child_process';
+import { GH_E2E_HOST, runGh, startGh, tlsFiles } from './gh.js';
+import { hasBackends, scopedKey, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   let app: INestApplication;
   let owner: { cookie: string; key: string; userId: string };
   let configDir: string;
   const username = `ghcli${Date.now()}`;
+  let api: ReturnType<(typeof request)['agent']>;
+
   const gh = (args: string[], input?: string) =>
     runGh(args, { configDir, token: owner.key, input });
   const ok = async (args: string[], input?: string) => {
@@ -36,7 +40,7 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     owner = await signUp(app, username);
     configDir = mkdtempSync(path.join(tmpdir(), 'gh-e2e-'));
     // The app serves the self-signed e2e certificate, which supertest must be told to trust.
-    const api = request.agent(app.getHttpServer()).ca(cert);
+    api = request.agent(app.getHttpServer()).ca(cert);
     await api
       .post('/api/repositories')
       .set('cookie', owner.cookie)
@@ -283,4 +287,75 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     await ok(['ssh-key', 'add', keyFile, '--title', 'gh-e2e']);
     expect(await ok(['ssh-key', 'list'])).toContain('gh-e2e');
   });
+  it('logs in through the device flow', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'gh-e2e-web-'));
+    const login = startGh(
+      [
+        'auth',
+        'login',
+        '--hostname',
+        GH_E2E_HOST!,
+        '--web',
+        '--git-protocol',
+        'https',
+        '--skip-ssh-key',
+      ],
+      { configDir: dir },
+    );
+    const [, userCode] = await login.stderrUntil(/one-time code: (\S+)/);
+    await api
+      .get('/api/auth/device')
+      .query({ user_code: userCode.replace('-', '') })
+      .set('cookie', owner.cookie)
+      .expect(200);
+    await api
+      .post('/api/auth/device/approve')
+      .set('cookie', owner.cookie)
+      .send({ userCode: userCode.replace('-', '') })
+      .expect(200);
+    const result = await login.done;
+    expect(result, result.stderr).toMatchObject({ code: 0 });
+    // gh auth status lists scopes only for ghp_ and gho_ tokens, so read the header gh got them from.
+    const root = await runGh(['api', '--include', '/'], { configDir: dir });
+    expect(root.stdout, root.stderr).toMatch(
+      /^X-Oauth-Scopes: repo, read:org, gist\r?$/im,
+    );
+    rmSync(dir, { recursive: true, force: true });
+  }, 60_000);
+
+  it('widens scopes with gh auth refresh', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'gh-e2e-refresh-'));
+    await runGh(['auth', 'login', '--hostname', GH_E2E_HOST!, '--with-token'], {
+      configDir: dir,
+      input: await scopedKey(app, owner.userId, ['repo', 'read:org', 'gist']),
+    });
+    const refresh = startGh(
+      [
+        'auth',
+        'refresh',
+        '--hostname',
+        GH_E2E_HOST!,
+        '--scopes',
+        'admin:public_key',
+      ],
+      { configDir: dir },
+    );
+    const [, userCode] = await refresh.stderrUntil(/one-time code: (\S+)/);
+    await api
+      .get('/api/auth/device')
+      .query({ user_code: userCode.replace('-', '') })
+      .set('cookie', owner.cookie)
+      .expect(200);
+    await api
+      .post('/api/auth/device/approve')
+      .set('cookie', owner.cookie)
+      .send({ userCode: userCode.replace('-', '') })
+      .expect(200);
+    expect((await refresh.done).code).toBe(0);
+    const root = await runGh(['api', '--include', '/'], { configDir: dir });
+    expect(root.stdout, root.stderr).toMatch(
+      /^X-Oauth-Scopes: .*\badmin:public_key\b/im,
+    );
+    rmSync(dir, { recursive: true, force: true });
+  }, 60_000);
 });

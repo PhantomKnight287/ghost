@@ -20,6 +20,7 @@ import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
+import { requireWriteScope } from '../../auth/require-scopes.js';
 import { RequiresAuthenticationError } from '../../../lib/github/github.errors.js';
 import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
 import { GithubCreateRepositoryDTO } from './dto/create-repository.dto.js';
@@ -114,7 +115,7 @@ export class ReposController {
     @Body() body: GithubCreateRepositoryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return this.create(body, viewer, undefined);
+    return this.create(body, viewer, undefined, 'POST /user/repos');
   }
 
   @Post('orgs/:org/repos')
@@ -125,16 +126,20 @@ export class ReposController {
     @Body() body: GithubCreateRepositoryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return this.create(body, viewer, org);
+    return this.create(body, viewer, org, 'POST /orgs/:org/repos');
   }
 
   private async create(
     body: GithubCreateRepositoryDTO,
     viewer: GithubViewer | null,
     organization: string | undefined,
+    route: string,
   ) {
     if (!viewer) throw new RequiresAuthenticationError();
     const visibility = body.visibility ?? (body.private ? 'private' : 'public');
+    requireWriteScope(viewer, route, {
+      isPrivate: visibility === 'private',
+    });
     const created = await this.repositories.createRepository(
       {
         name: body.name,
@@ -144,7 +149,7 @@ export class ReposController {
       },
       viewer.userId,
     );
-    const node = await this.repositoryNodes.load(created.id, viewer.userId);
+    const node = await this.repositoryNodes.load(created.id, viewer);
     return this.get(node.ownerLogin, node.slug, viewer);
   }
 }

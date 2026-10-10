@@ -1,6 +1,7 @@
 import { apiKey } from '@better-auth/api-key';
 import { tryGetCurrentAuthEndpointContext } from '@better-auth/core/context';
 import { type Database, schema } from '@ghost/db';
+import { ac, roles } from '@ghost/permissions';
 import {
   type BetterAuthOptions,
   betterAuth,
@@ -12,10 +13,14 @@ import {
   createAuthMiddleware,
   getSessionFromCtx,
 } from 'better-auth/api';
-import { organization, username } from 'better-auth/plugins';
+import {
+  deviceAuthorization,
+  organization,
+  username,
+} from 'better-auth/plugins';
 import { and, eq, sql } from 'drizzle-orm';
 
-import { ac, roles } from '@ghost/permissions';
+import { oauthAppOf } from './github/oauth-apps.js';
 
 export type AuthConfig = {
   secret: string;
@@ -159,12 +164,14 @@ async function assertEmailAvailable(
   return extraOwner.id;
 }
 
-/** The web app's own top-level routes: an account under one of these names would have no profile to reach. */
+/** The web app's own top-level routes, and the API host's `/login` for GitHub's OAuth paths: an account under one of these names would have no profile to reach. */
 const RESERVED_NAMES = new Set([
   'api',
   'auth',
   'changelog',
   'dashboard',
+  'device',
+  'login',
   'search',
   'settings',
 ]);
@@ -467,11 +474,17 @@ export function createAuth(db: Database, config: AuthConfig) {
       username({}),
       apiKey({
         defaultPrefix: 'ghost_pat_',
+        // Device-flow keys record the OAuth app that minted them.
+        enableMetadata: true,
         rateLimit: {
           enabled: true,
           maxRequests: 120,
           timeWindow: 60000,
         },
+      }),
+      deviceAuthorization({
+        verificationUri: `${config.webAppUrl ?? ''}/device`,
+        validateClient: (clientId) => oauthAppOf(clientId) !== null,
       }),
     ],
   });
