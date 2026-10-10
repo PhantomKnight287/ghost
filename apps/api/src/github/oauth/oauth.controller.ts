@@ -20,7 +20,7 @@ import type { Auth } from '../../lib/auth.js';
 import type { Executor } from '../../lib/db/executor.js';
 import { callbackMatches } from '../../lib/github/callback.js';
 import { findOauthApp, type OauthApp } from '../../lib/github/oauth-apps.js';
-import { sendOAuth } from '../../lib/github/oauth-response.js';
+import { sendOAuth, sendOAuthError } from '../../lib/github/oauth-response.js';
 import {
   ACCESS_TOKEN_EXPIRES_IN,
   issueRefreshToken,
@@ -106,10 +106,7 @@ export class OauthController {
   ) {
     const app = body.client_id && (await findOauthApp(this.db, body.client_id));
     if (!app || !app.deviceFlowEnabled)
-      return sendOAuth(req, res, 400, {
-        error: 'unauthorized_client',
-        error_description: 'Unknown client_id',
-      });
+      return sendOAuthError(req, res, 400, 'unauthorized_client');
     const code = await this.auth.api.deviceCode({
       body: {
         client_id: app.clientId,
@@ -146,7 +143,7 @@ export class OauthController {
       ? await findOauthApp(this.db, body.client_id)
       : null;
     if (body.grant_type === DEVICE_GRANT && body.device_code) {
-      if (!app) return sendOAuth(req, res, 400, { error: 'invalid_client' });
+      if (!app) return sendOAuthError(req, res, 400, 'invalid_client');
       return this.deviceGrant(req, res, app, body.device_code);
     }
     if (
@@ -154,9 +151,7 @@ export class OauthController {
       typeof body.refresh_token === 'string'
     ) {
       if (!app)
-        return sendOAuth(req, res, 200, {
-          error: 'incorrect_client_credentials',
-        });
+        return sendOAuthError(req, res, 200, 'incorrect_client_credentials');
       return this.refreshGrant(req, res, app, {
         client_secret: body.client_secret,
         refresh_token: body.refresh_token,
@@ -164,12 +159,10 @@ export class OauthController {
     }
     if (body.code) {
       if (!app)
-        return sendOAuth(req, res, 200, {
-          error: 'incorrect_client_credentials',
-        });
+        return sendOAuthError(req, res, 200, 'incorrect_client_credentials');
       return this.codeGrant(req, res, app, { ...body, code: body.code });
     }
-    sendOAuth(req, res, 400, { error: 'unsupported_grant_type' });
+    sendOAuthError(req, res, 400, 'unsupported_grant_type');
   }
 
   private async deviceGrant(
@@ -205,7 +198,7 @@ export class OauthController {
       .delete(schema.session)
       .where(eq(schema.session.token, granted.access_token))
       .returning({ userId: schema.session.userId });
-    if (!session) return sendOAuth(req, res, 200, { error: 'invalid_grant' });
+    if (!session) return sendOAuthError(req, res, 200, 'invalid_grant');
     return this.issueKey(req, res, app, session.userId, granted.scope);
   }
 
@@ -227,7 +220,7 @@ export class OauthController {
         callbackMatches(callback, redirectUri),
       )
     )
-      return sendOAuth(req, res, 200, { error: 'redirect_uri_mismatch' });
+      return sendOAuthError(req, res, 200, 'redirect_uri_mismatch');
     const client = {
       client_id: app.clientId,
       client_secret: body.client_secret,
@@ -246,12 +239,14 @@ export class OauthController {
     } catch (error) {
       if (!isAPIError(error)) throw error;
       const { error: code } = error.body as { error?: string };
-      return sendOAuth(req, res, 200, {
-        error:
-          code === 'invalid_client'
-            ? 'incorrect_client_credentials'
-            : 'bad_verification_code',
-      });
+      return sendOAuthError(
+        req,
+        res,
+        200,
+        code === 'invalid_client'
+          ? 'incorrect_client_credentials'
+          : 'bad_verification_code',
+      );
     }
 
     // The plugin's token is never handed out: Ghost reads whose it is, revokes it, and mints a key in its place.
@@ -276,9 +271,7 @@ export class OauthController {
       typeof body.client_secret !== 'string' ||
       !(await this.authenticates(app, body.client_secret))
     )
-      return sendOAuth(req, res, 200, {
-        error: 'incorrect_client_credentials',
-      });
+      return sendOAuthError(req, res, 200, 'incorrect_client_credentials');
     const refreshToken = body.refresh_token;
     const token = await this.db.transaction(async (tx) => {
       const grant = await spendRefreshToken(tx, app.clientId, refreshToken);
@@ -289,11 +282,7 @@ export class OauthController {
         .where(eq(schema.apikey.id, grant.accessKeyId));
       return minted;
     });
-    if (!token)
-      return sendOAuth(req, res, 200, {
-        error: 'bad_refresh_token',
-        error_description: 'The refresh token passed is incorrect or expired.',
-      });
+    if (!token) return sendOAuthError(req, res, 200, 'bad_refresh_token');
     sendOAuth(req, res, 200, token);
   }
 

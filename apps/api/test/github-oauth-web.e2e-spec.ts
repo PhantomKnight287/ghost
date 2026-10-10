@@ -158,17 +158,17 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
   it('yields a key for a code only once', async () => {
     const code = await codeFor();
     expect(form((await exchange({ code })).text).access_token).toMatch(/^ghost_pat_/);
-    expect(form((await exchange({ code })).text)).toMatchObject({ error: 'bad_verification_code' });
+    expect(form((await exchange({ code })).text)).toMatchObject({ error: 'bad_verification_code', error_description: 'The code passed is incorrect or expired.' });
   });
 
   it('refuses a wrong secret, and the secret a rotation replaced', async () => {
-    expect(form((await exchange({ code: await codeFor(), client_secret: 'wrong' })).text)).toMatchObject({ error: 'incorrect_client_credentials' });
+    expect(form((await exchange({ code: await codeFor(), client_secret: 'wrong' })).text)).toMatchObject({ error: 'incorrect_client_credentials', error_description: 'The client_id and/or client_secret passed are incorrect.' });
     const other = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Rotating', homepageUrl: 'https://tool.example', callbackUrls: [CALLBACK] }).expect(201);
     const rotated = await api().post(`/api/oauth-apps/${other.body.clientId}/secret`).set('cookie', owner.cookie).expect(201);
     const consent = await follow({ client_id: other.body.clientId, scope: 'repo' });
     const code = (await decide(consent, true)).searchParams.get('code') as string;
     const stale = await exchange({ client_id: other.body.clientId, client_secret: other.body.clientSecret, code });
-    expect(form(stale.text)).toMatchObject({ error: 'incorrect_client_credentials' });
+    expect(form(stale.text)).toMatchObject({ error: 'incorrect_client_credentials', error_description: 'The client_id and/or client_secret passed are incorrect.' });
     const again = (await decide(await follow({ client_id: other.body.clientId, scope: 'gist' }), true)).searchParams.get('code') as string;
     const fresh = await exchange({ client_id: other.body.clientId, client_secret: rotated.body.clientSecret, code: again });
     expect(form(fresh.text).access_token).toMatch(/^ghost_pat_/);
@@ -183,8 +183,8 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
   });
 
   it('refuses an unknown client and a redirect_uri outside the callback', async () => {
-    expect(form((await exchange({ client_id: 'nope', code: 'x' })).text)).toMatchObject({ error: 'incorrect_client_credentials' });
-    expect(form((await exchange({ code: await codeFor(), redirect_uri: 'https://evil.example/cb' })).text)).toMatchObject({ error: 'redirect_uri_mismatch' });
+    expect(form((await exchange({ client_id: 'nope', code: 'x' })).text)).toMatchObject({ error: 'incorrect_client_credentials', error_description: 'The client_id and/or client_secret passed are incorrect.' });
+    expect(form((await exchange({ code: await codeFor(), redirect_uri: 'https://evil.example/cb' })).text)).toMatchObject({ error: 'redirect_uri_mismatch', error_description: 'The redirect_uri MUST match the registered callback URL for this application.' });
   });
 
   it('refuses an expired code', async () => {
@@ -193,20 +193,20 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
     // The plugin stores a code as its SHA-256, base64url.
     const expired = await db.update(schema.verification).set({ expiresAt: new Date(0) }).where(eq(schema.verification.identifier, createHash('sha256').update(code).digest('base64url'))).returning({ id: schema.verification.id });
     expect(expired).toHaveLength(1);
-    expect(form((await exchange({ code })).text)).toMatchObject({ error: 'bad_verification_code' });
+    expect(form((await exchange({ code })).text)).toMatchObject({ error: 'bad_verification_code', error_description: 'The code passed is incorrect or expired.' });
   });
 
   it('checks the PKCE verifier against the S256 challenge', async () => {
     const verifier = 'a'.repeat(64);
     const challenge = createHash('sha256').update(verifier).digest('base64url');
     const wrong = await codeFor({ code_challenge: challenge, code_challenge_method: 'S256' });
-    expect(form((await exchange({ code: wrong, code_verifier: 'b'.repeat(64) })).text)).toMatchObject({ error: 'bad_verification_code' });
+    expect(form((await exchange({ code: wrong, code_verifier: 'b'.repeat(64) })).text)).toMatchObject({ error: 'bad_verification_code', error_description: 'The code passed is incorrect or expired.' });
     const right = await codeFor({ code_challenge: challenge, code_challenge_method: 'S256' });
     expect(form((await exchange({ code: right, code_verifier: verifier })).text).access_token).toMatch(/^ghost_pat_/);
   });
 
   it('answers a request with neither a device code nor a code with unsupported_grant_type', async () => {
     const response = await api().post('/login/oauth/access_token').type('form').send({ client_id: clientId }).expect(400);
-    expect(form(response.text)).toMatchObject({ error: 'unsupported_grant_type' });
+    expect(form(response.text)).toMatchObject({ error: 'unsupported_grant_type', error_description: 'Send a code, a device_code with the device grant_type, or a refresh_token with grant_type=refresh_token.' });
   });
 });

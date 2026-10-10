@@ -121,10 +121,10 @@ describe.skipIf(!hasBackends)('GitHub OAuth expiring tokens and refresh', () => 
 
     it('refuses a wrong or missing client secret, and an unknown client, and spends nothing', async () => {
       const { refresh_token } = await pair();
-      expect(form((await refresh(refresh_token as string, { client_secret: 'wrong' })).text)).toMatchObject({ error: 'incorrect_client_credentials' });
+      expect(form((await refresh(refresh_token as string, { client_secret: 'wrong' })).text)).toMatchObject({ error: 'incorrect_client_credentials', error_description: 'The client_id and/or client_secret passed are incorrect.' });
       const missing = await api().post('/login/oauth/access_token').type('form').send({ client_id: clientId, grant_type: 'refresh_token', refresh_token }).expect(200);
-      expect(form(missing.text)).toMatchObject({ error: 'incorrect_client_credentials' });
-      expect(form((await refresh(refresh_token as string, { client_id: 'nope' })).text)).toMatchObject({ error: 'incorrect_client_credentials' });
+      expect(form(missing.text)).toMatchObject({ error: 'incorrect_client_credentials', error_description: 'The client_id and/or client_secret passed are incorrect.' });
+      expect(form((await refresh(refresh_token as string, { client_id: 'nope' })).text)).toMatchObject({ error: 'incorrect_client_credentials', error_description: 'The client_id and/or client_secret passed are incorrect.' });
       expect(form((await refresh(refresh_token as string)).text).access_token).toMatch(/^ghost_pat_/);
     });
 
@@ -138,10 +138,10 @@ describe.skipIf(!hasBackends)('GitHub OAuth expiring tokens and refresh', () => 
     it('answers a refresh_token or client_secret that is not a string with an OAuth error, never a 500', async () => {
       const { refresh_token } = await pair();
       const missing = await api().post('/login/oauth/access_token').send({ client_id: clientId, client_secret: clientSecret, grant_type: 'refresh_token' }).expect(400);
-      expect(missing.body).toEqual({ error: 'unsupported_grant_type' });
+      expect(missing.body).toEqual({ error: 'unsupported_grant_type', error_description: 'Send a code, a device_code with the device grant_type, or a refresh_token with grant_type=refresh_token.' });
       await api().post('/login/oauth/access_token').send({ client_id: clientId, client_secret: clientSecret, grant_type: 'refresh_token', refresh_token: 123 }).expect(400);
       const secret = await api().post('/login/oauth/access_token').set('accept', 'application/json').send({ client_id: clientId, client_secret: 123, grant_type: 'refresh_token', refresh_token }).expect(200);
-      expect(secret.body).toEqual({ error: 'incorrect_client_credentials' });
+      expect(secret.body).toEqual({ error: 'incorrect_client_credentials', error_description: 'The client_id and/or client_secret passed are incorrect.' });
       expect(form((await refresh(refresh_token as string)).text).access_token).toMatch(/^ghost_pat_/);
     });
 

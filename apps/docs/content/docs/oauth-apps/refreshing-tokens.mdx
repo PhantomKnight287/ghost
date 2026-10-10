@@ -68,7 +68,7 @@ Without `Accept: application/json`, Ghost answers form-encoded, as GitHub does.
 
 ## Errors
 
-Failures answer HTTP 200, with an `error` field instead of a token:
+Failures answer HTTP 200, with an `error` field instead of a token and an `error_description` in words, as in the [code exchange](/oauth-apps/exchanging-the-code#errors):
 
 | `error` | Cause |
 |---|---|

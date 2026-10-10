@@ -73,7 +73,16 @@ access_token=ghost_pat_UxkahUQBptnqPZulFOGmJEniHcUnmCxK…&token_type=bearer&sco
 
 ## Errors
 
-Failures also answer HTTP 200, with an `error` field instead of a token:
+Failures also answer HTTP 200, with an `error` field instead of a token, and an `error_description` that says what went wrong in words:
+
+```json
+{
+  "error": "bad_verification_code",
+  "error_description": "The code passed is incorrect or expired."
+}
+```
+
+Branch on `error`; show or log `error_description`. Its wording can change.
 
 | `error` | Cause |
 |---|---|
