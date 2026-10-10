@@ -42,7 +42,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
   beforeAll(async () => {
     ({ app } = await startApp({ WEB_APP_URL: 'https://web.example' }));
     owner = await signUp(app, username);
-    const created = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Web Tool', homepageUrl: 'https://tool.example', callbackUrl: CALLBACK }).expect(201);
+    const created = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Web Tool', homepageUrl: 'https://tool.example', callbackUrls: [CALLBACK] }).expect(201);
     ({ clientId, clientSecret } = created.body);
   });
 
@@ -100,6 +100,15 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
     expect(again.searchParams.get('state')).toBe('s2');
   });
 
+  it('accepts a redirect_uri under any registered callback, and sends users to the first by default', async () => {
+    const created = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Two Callbacks', homepageUrl: 'https://tool.example', callbackUrls: [CALLBACK, 'http://localhost:4000/cb'] }).expect(201);
+    const local = await follow({ client_id: created.body.clientId, redirect_uri: 'http://localhost:4000/cb/next', scope: 'repo' });
+    expect(`${(await decide(local, true)).origin}`).toBe('http://localhost:4000');
+    const fallback = await follow({ client_id: created.body.clientId, scope: 'gist' });
+    const callback = await decide(fallback, true);
+    expect(`${callback.origin}${callback.pathname}`).toBe(CALLBACK);
+  });
+
   it('sends a signed-out user to the same page to sign in first', async () => {
     const consent = await follow({ client_id: clientId, scope: 'repo' }, '');
     expect(`${consent.origin}${consent.pathname}`).toBe('https://web.example/login/oauth/authorize');
@@ -112,9 +121,9 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
 
   it('describes the app to the consent page: name, homepage and owner, never the secret', async () => {
     const response = await api().get('/api/oauth-apps/authorize').query({ client_id: clientId }).set('cookie', owner.cookie).expect(200);
-    expect(response.body).toEqual({ clientId, name: 'Web Tool', homepageUrl: 'https://tool.example', owner: expect.stringMatching(/^ghweb/) });
+    expect(response.body).toEqual({ clientId, name: 'Web Tool', description: null, homepageUrl: 'https://tool.example', logoUrl: null, owner: expect.stringMatching(/^ghweb/) });
     const gh = await api().get('/api/oauth-apps/authorize').query({ client_id: '178c6fc778ccc68e1d6a' }).set('cookie', owner.cookie).expect(200);
-    expect(gh.body).toEqual({ clientId: '178c6fc778ccc68e1d6a', name: 'GitHub CLI', homepageUrl: 'https://cli.github.com', owner: null });
+    expect(gh.body).toEqual({ clientId: '178c6fc778ccc68e1d6a', name: 'GitHub CLI', description: null, homepageUrl: 'https://cli.github.com', logoUrl: null, owner: null });
     await api().get('/api/oauth-apps/authorize').query({ client_id: 'nope' }).set('cookie', owner.cookie).expect(404);
   });
 
@@ -154,7 +163,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
 
   it('refuses a wrong secret, and the secret a rotation replaced', async () => {
     expect(form((await exchange({ code: await codeFor(), client_secret: 'wrong' })).text)).toMatchObject({ error: 'incorrect_client_credentials' });
-    const other = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Rotating', homepageUrl: 'https://tool.example', callbackUrl: CALLBACK }).expect(201);
+    const other = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Rotating', homepageUrl: 'https://tool.example', callbackUrls: [CALLBACK] }).expect(201);
     const rotated = await api().post(`/api/oauth-apps/${other.body.clientId}/secret`).set('cookie', owner.cookie).expect(201);
     const consent = await follow({ client_id: other.body.clientId, scope: 'repo' });
     const code = (await decide(consent, true)).searchParams.get('code') as string;
@@ -167,7 +176,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
 
   it("refuses a code presented with another app's credentials", async () => {
     const code = await codeFor();
-    const other = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Other', homepageUrl: 'https://tool.example', callbackUrl: CALLBACK }).expect(201);
+    const other = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Other', homepageUrl: 'https://tool.example', callbackUrls: [CALLBACK] }).expect(201);
     const response = await exchange({ client_id: other.body.clientId, client_secret: other.body.clientSecret, code });
     expect(form(response.text).access_token).toBeUndefined();
     expect(form(response.text).error).toBeTruthy();

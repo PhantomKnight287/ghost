@@ -15,6 +15,10 @@ export type OauthApp = {
 export const oauthAppColumns = {
   clientId: schema.oauthClient.clientId,
   name: sql<string>`coalesce(${schema.oauthClient.name}, ${schema.oauthClient.clientId})`,
+  description: sql<
+    string | null
+  >`${schema.oauthClient.metadata}->>'description'`,
+  logoUrl: schema.oauthClient.icon,
   deviceFlowEnabled: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'deviceFlow')::boolean, false)`,
 };
 
@@ -33,7 +37,9 @@ export async function findOauthApp(
 ): Promise<OauthApp | null> {
   const [app] = await db
     .select({
-      ...oauthAppColumns,
+      clientId: oauthAppColumns.clientId,
+      name: oauthAppColumns.name,
+      deviceFlowEnabled: oauthAppColumns.deviceFlowEnabled,
       redirectUris: schema.oauthClient.redirectUris,
       builtIn: sql<boolean>`${schema.oauthClient.userId} is null`,
       ownerId: schema.oauthClient.userId,

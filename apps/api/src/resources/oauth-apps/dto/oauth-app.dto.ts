@@ -1,5 +1,9 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsOptional,
   IsString,
@@ -9,8 +13,10 @@ import {
 } from 'class-validator';
 
 export const MAX_NAME_LENGTH = 100;
+export const MAX_DESCRIPTION_LENGTH = 400;
+export const MAX_CALLBACK_URLS = 10;
 
-/** https off the loopback host, or plain http on it for local development: the two shapes the oauth-provider plugin accepts, as web and native clients. */
+/** https off the loopback host, or plain http on it for local development: the shapes the oauth-provider plugin accepts from a native client. */
 const CALLBACK_URL =
   /^(https:\/\/(?!(localhost|127\.0\.0\.1|\[::1\])([:/]|$))|http:\/\/(localhost|127\.0\.0\.1|\[::1\])([:/]|$))/;
 
@@ -20,20 +26,38 @@ export class CreateOauthAppDTO {
   @MaxLength(MAX_NAME_LENGTH)
   name: string;
 
+  @ApiProperty({
+    required: false,
+    maxLength: MAX_DESCRIPTION_LENGTH,
+    description: 'Shown to users when they are asked to authorize the app.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_DESCRIPTION_LENGTH)
+  description?: string;
+
   @ApiProperty({ example: 'https://bot.example' })
   @IsUrl({ protocols: ['http', 'https'], require_tld: false })
   homepageUrl: string;
 
   @ApiProperty({
+    type: [String],
+    minItems: 1,
+    maxItems: MAX_CALLBACK_URLS,
     description:
-      'Where users return after authorizing. A redirect_uri must share its host and port, with a path equal to or under its path.',
-    example: 'https://bot.example/oauth/callback',
+      "Where users may return after authorizing. A redirect_uri must share one's scheme, host and port, with a path equal to or under its path; without one, users return to the first.",
+    example: ['https://bot.example/oauth/callback'],
   })
-  @IsUrl({ protocols: ['http', 'https'], require_tld: false })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_CALLBACK_URLS)
+  @ArrayUnique()
+  @IsUrl({ protocols: ['http', 'https'], require_tld: false }, { each: true })
   @Matches(CALLBACK_URL, {
-    message: 'callbackUrl must use https, or http on localhost',
+    each: true,
+    message: 'Each callback URL must use https, or http on localhost',
   })
-  callbackUrl: string;
+  callbackUrls: string[];
 
   @ApiProperty({
     required: false,
@@ -54,11 +78,17 @@ export class OauthAppDTO {
   @ApiProperty()
   name: string;
 
+  @ApiProperty({ type: String, nullable: true })
+  description: string | null;
+
   @ApiProperty()
   homepageUrl: string;
 
-  @ApiProperty()
-  callbackUrl: string;
+  @ApiProperty({ type: String, nullable: true })
+  logoUrl: string | null;
+
+  @ApiProperty({ type: [String] })
+  callbackUrls: string[];
 
   @ApiProperty()
   deviceFlowEnabled: boolean;
@@ -94,8 +124,14 @@ export class AuthorizingOauthAppDTO {
   @ApiProperty()
   name: string;
 
+  @ApiProperty({ type: String, nullable: true })
+  description: string | null;
+
   @ApiProperty()
   homepageUrl: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  logoUrl: string | null;
 
   @ApiProperty({
     type: String,
@@ -112,6 +148,9 @@ export class AuthorizedOauthAppDTO {
 
   @ApiProperty()
   name: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  logoUrl: string | null;
 
   @ApiProperty({
     type: [String],

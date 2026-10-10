@@ -2803,6 +2803,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/oauth-apps/{clientId}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload an OAuth app's logo
+         * @description Takes the raw image bytes, PNG or JPEG. Users see it when they are asked to authorize the app.
+         */
+        put: operations["OauthAppsController_setLogo"];
+        post?: never;
+        /** Remove an OAuth app's logo */
+        delete: operations["OauthAppsController_removeLogo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4451,8 +4472,10 @@ export interface components {
         OauthAppDTO: {
             clientId: string;
             name: string;
+            description: string | null;
             homepageUrl: string;
-            callbackUrl: string;
+            logoUrl: string | null;
+            callbackUrls: string[];
             deviceFlowEnabled: boolean;
             /** @description When the app was registered, ISO 8601. */
             createdAt: string;
@@ -4463,13 +4486,17 @@ export interface components {
         CreateOauthAppDTO: {
             /** @example Release bot */
             name: string;
+            /** @description Shown to users when they are asked to authorize the app. */
+            description?: string;
             /** @example https://bot.example */
             homepageUrl: string;
             /**
-             * @description Where users return after authorizing. A redirect_uri must share its host and port, with a path equal to or under its path.
-             * @example https://bot.example/oauth/callback
+             * @description Where users may return after authorizing. A redirect_uri must share one's scheme, host and port, with a path equal to or under its path; without one, users return to the first.
+             * @example [
+             *       "https://bot.example/oauth/callback"
+             *     ]
              */
-            callbackUrl: string;
+            callbackUrls: string[];
             /**
              * @description Lets the app sign users in with the device flow, as gh does.
              * @default false
@@ -4479,8 +4506,10 @@ export interface components {
         CreatedOauthAppDTO: {
             clientId: string;
             name: string;
+            description: string | null;
             homepageUrl: string;
-            callbackUrl: string;
+            logoUrl: string | null;
+            callbackUrls: string[];
             deviceFlowEnabled: boolean;
             /** @description When the app was registered, ISO 8601. */
             createdAt: string;
@@ -4490,6 +4519,7 @@ export interface components {
         AuthorizedOauthAppDTO: {
             clientId: string;
             name: string;
+            logoUrl: string | null;
             /** @description Every scope the app holds across its keys for this account. */
             scopes: string[];
             /** @description When the app was first authorized, ISO 8601. */
@@ -4503,20 +4533,26 @@ export interface components {
         AuthorizingOauthAppDTO: {
             clientId: string;
             name: string;
+            description: string | null;
             homepageUrl: string;
+            logoUrl: string | null;
             /** @description Username of the account that registered the app; null for an app built into Ghost. */
             owner: string | null;
         };
         UpdateOauthAppDTO: {
             /** @example Release bot */
             name?: string;
+            /** @description Shown to users when they are asked to authorize the app. */
+            description?: string;
             /** @example https://bot.example */
             homepageUrl?: string;
             /**
-             * @description Where users return after authorizing. A redirect_uri must share its host and port, with a path equal to or under its path.
-             * @example https://bot.example/oauth/callback
+             * @description Where users may return after authorizing. A redirect_uri must share one's scheme, host and port, with a path equal to or under its path; without one, users return to the first.
+             * @example [
+             *       "https://bot.example/oauth/callback"
+             *     ]
              */
-            callbackUrl?: string;
+            callbackUrls?: string[];
             /**
              * @description Lets the app sign users in with the device flow, as gh does.
              * @default false
@@ -10975,6 +11011,101 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["OauthAppSecretDTO"];
                 };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_setLogo: {
+        parameters: {
+            query?: never;
+            header: {
+                "content-type": string;
+            };
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadAvatarResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_removeLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             403: {
                 headers: {

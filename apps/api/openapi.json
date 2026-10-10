@@ -10483,6 +10483,145 @@
           "OAuth apps"
         ]
       }
+    },
+    "/api/oauth-apps/{clientId}/logo": {
+      "put": {
+        "description": "Takes the raw image bytes, PNG or JPEG. Users see it when they are asked to authorize the app.",
+        "operationId": "OauthAppsController_setLogo",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "content-type",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAvatarResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload an OAuth app's logo",
+        "tags": [
+          "OAuth apps"
+        ]
+      },
+      "delete": {
+        "operationId": "OauthAppsController_removeLogo",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove an OAuth app's logo",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
     }
   },
   "info": {
@@ -15706,11 +15845,22 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
           "homepageUrl": {
             "type": "string"
           },
-          "callbackUrl": {
-            "type": "string"
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "callbackUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "deviceFlowEnabled": {
             "type": "boolean"
@@ -15723,8 +15873,10 @@
         "required": [
           "clientId",
           "name",
+          "description",
           "homepageUrl",
-          "callbackUrl",
+          "logoUrl",
+          "callbackUrls",
           "deviceFlowEnabled",
           "createdAt"
         ]
@@ -15751,14 +15903,26 @@
             "maxLength": 100,
             "example": "Release bot"
           },
+          "description": {
+            "type": "string",
+            "maxLength": 400,
+            "description": "Shown to users when they are asked to authorize the app."
+          },
           "homepageUrl": {
             "type": "string",
             "example": "https://bot.example"
           },
-          "callbackUrl": {
-            "type": "string",
-            "description": "Where users return after authorizing. A redirect_uri must share its host and port, with a path equal to or under its path.",
-            "example": "https://bot.example/oauth/callback"
+          "callbackUrls": {
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Where users may return after authorizing. A redirect_uri must share one's scheme, host and port, with a path equal to or under its path; without one, users return to the first.",
+            "example": [
+              "https://bot.example/oauth/callback"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "deviceFlowEnabled": {
             "type": "boolean",
@@ -15769,7 +15933,7 @@
         "required": [
           "name",
           "homepageUrl",
-          "callbackUrl"
+          "callbackUrls"
         ]
       },
       "CreatedOauthAppDTO": {
@@ -15781,11 +15945,22 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
           "homepageUrl": {
             "type": "string"
           },
-          "callbackUrl": {
-            "type": "string"
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "callbackUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "deviceFlowEnabled": {
             "type": "boolean"
@@ -15802,8 +15977,10 @@
         "required": [
           "clientId",
           "name",
+          "description",
           "homepageUrl",
-          "callbackUrl",
+          "logoUrl",
+          "callbackUrls",
           "deviceFlowEnabled",
           "createdAt",
           "clientSecret"
@@ -15817,6 +15994,10 @@
           },
           "name": {
             "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
           },
           "scopes": {
             "description": "Every scope the app holds across its keys for this account.",
@@ -15838,6 +16019,7 @@
         "required": [
           "clientId",
           "name",
+          "logoUrl",
           "scopes",
           "authorizedAt",
           "lastUsedAt"
@@ -15866,8 +16048,16 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
           "homepageUrl": {
             "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
           },
           "owner": {
             "type": "string",
@@ -15878,7 +16068,9 @@
         "required": [
           "clientId",
           "name",
+          "description",
           "homepageUrl",
+          "logoUrl",
           "owner"
         ]
       },
@@ -15890,14 +16082,26 @@
             "maxLength": 100,
             "example": "Release bot"
           },
+          "description": {
+            "type": "string",
+            "maxLength": 400,
+            "description": "Shown to users when they are asked to authorize the app."
+          },
           "homepageUrl": {
             "type": "string",
             "example": "https://bot.example"
           },
-          "callbackUrl": {
-            "type": "string",
-            "description": "Where users return after authorizing. A redirect_uri must share its host and port, with a path equal to or under its path.",
-            "example": "https://bot.example/oauth/callback"
+          "callbackUrls": {
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Where users may return after authorizing. A redirect_uri must share one's scheme, host and port, with a path equal to or under its path; without one, users return to the first.",
+            "example": [
+              "https://bot.example/oauth/callback"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "deviceFlowEnabled": {
             "type": "boolean",

@@ -4,6 +4,7 @@ import { AuthService } from '@thallesp/nestjs-better-auth';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import type { Auth } from '../../lib/auth.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import {
@@ -30,10 +31,8 @@ import type {
 
 const homepageUrl = sql<string>`coalesce(${schema.oauthClient.uri}, '')`;
 
-/** The DTO admits http only on the loopback host, which the plugin accepts from native clients alone. */
-function applicationTypeOf(callbackUrl: string) {
-  return new URL(callbackUrl).protocol === 'http:' ? 'native' : 'web';
-}
+/** The plugin checks every redirect URI against one application type: a web client may not use http on localhost, a native one may use both shapes the DTO admits, so one app can list a production callback and a local one. */
+const APPLICATION_TYPE = 'native';
 
 /** OAuth apps a user registers, kept in the oauth-provider plugin's registry. Writes go through the plugin so secrets are hashed its way; Ghost adds GitHub's rules on top. */
 @Injectable()
@@ -41,6 +40,7 @@ export class OauthAppsService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly auth: AuthService<Auth>,
+    private readonly avatars: AvatarStorageService,
   ) {}
 
   async list(userId: string): Promise<ListOauthAppsResponseDTO> {
@@ -67,7 +67,9 @@ export class OauthAppsService {
       .select({
         clientId: oauthAppColumns.clientId,
         name: oauthAppColumns.name,
+        description: oauthAppColumns.description,
         homepageUrl,
+        logoUrl: oauthAppColumns.logoUrl,
         owner: schema.user.username,
       })
       .from(schema.oauthClient)
@@ -87,8 +89,8 @@ export class OauthAppsService {
       body: {
         client_name: input.name,
         client_uri: input.homepageUrl,
-        redirect_uris: [input.callbackUrl],
-        application_type: applicationTypeOf(input.callbackUrl),
+        redirect_uris: input.callbackUrls,
+        application_type: APPLICATION_TYPE,
         // GitHub's web flow posts the secret in the form body and makes PKCE optional.
         token_endpoint_auth_method: 'client_secret_post',
         grant_types: ['authorization_code'],
@@ -96,10 +98,10 @@ export class OauthAppsService {
         require_pkce: false,
       },
     });
-    await this.setDeviceFlow(
-      created.client_id,
-      input.deviceFlowEnabled ?? false,
-    );
+    await this.setGhostFields(created.client_id, {
+      deviceFlow: input.deviceFlowEnabled ?? false,
+      description: input.description,
+    });
     return {
       ...(await this.get(userId, created.client_id)),
       clientSecret: created.client_secret as string,
@@ -123,15 +125,17 @@ export class OauthAppsService {
           ...(input.homepageUrl !== undefined && {
             client_uri: input.homepageUrl,
           }),
-          ...(input.callbackUrl !== undefined && {
-            redirect_uris: [input.callbackUrl],
-            application_type: applicationTypeOf(input.callbackUrl),
+          ...(input.callbackUrls !== undefined && {
+            redirect_uris: input.callbackUrls,
+            application_type: APPLICATION_TYPE,
           }),
         },
       },
     });
-    if (input.deviceFlowEnabled !== undefined)
-      await this.setDeviceFlow(clientId, input.deviceFlowEnabled);
+    await this.setGhostFields(clientId, {
+      deviceFlow: input.deviceFlowEnabled,
+      description: input.description,
+    });
     return this.get(userId, clientId);
   }
 
@@ -160,6 +164,35 @@ export class OauthAppsService {
       headers,
       body: { client_id: clientId },
     });
+    await this.avatars.remove(clientId);
+  }
+
+  async setLogo(
+    userId: string,
+    clientId: string,
+    contentType: string,
+    body: Buffer | undefined,
+  ) {
+    await this.editable(userId, clientId);
+    const { url } = await this.avatars.store({
+      ownerId: clientId,
+      contentType,
+      body,
+    });
+    await this.db
+      .update(schema.oauthClient)
+      .set({ icon: url })
+      .where(eq(schema.oauthClient.clientId, clientId));
+    return { url };
+  }
+
+  async removeLogo(userId: string, clientId: string): Promise<void> {
+    await this.editable(userId, clientId);
+    await this.db
+      .update(schema.oauthClient)
+      .set({ icon: null })
+      .where(eq(schema.oauthClient.clientId, clientId));
+    await this.avatars.remove(clientId);
   }
 
   /** Apps holding a key for this user, gh included. */
@@ -170,6 +203,7 @@ export class OauthAppsService {
       .select({
         clientId: oauthAppColumns.clientId,
         name: oauthAppColumns.name,
+        logoUrl: oauthAppColumns.logoUrl,
         // jsonb_agg runs over the outer group; Postgres allows that only in a select list, hence the one-row derived table.
         scopes: sql<
           string[]
@@ -185,7 +219,7 @@ export class OauthAppsService {
         eq(schema.oauthClient.clientId, keyOauthClientId),
       )
       .where(eq(schema.apikey.referenceId, userId))
-      .groupBy(schema.oauthClient.clientId, schema.oauthClient.name)
+      .groupBy(schema.oauthClient.id)
       .orderBy(oauthAppColumns.name);
     return { apps };
   }
@@ -217,17 +251,22 @@ export class OauthAppsService {
       .select({
         ...oauthAppColumns,
         homepageUrl,
-        callbackUrl: sql<string>`${schema.oauthClient.redirectUris}[1]`,
+        callbackUrls: schema.oauthClient.redirectUris,
         createdAt: isoTimestamp(schema.oauthClient.createdAt),
       })
       .from(schema.oauthClient);
   }
 
-  /** The plugin's update drops `metadata`, and the switch is Ghost's own, so it is written here. */
-  private async setDeviceFlow(clientId: string, enabled: boolean) {
+  /** The plugin's update drops `metadata`, where Ghost keeps the fields the plugin lacks, so they are merged in here. An undefined field is left as it is. */
+  private async setGhostFields(
+    clientId: string,
+    fields: { deviceFlow?: boolean; description?: string },
+  ) {
     await this.db
       .update(schema.oauthClient)
-      .set({ metadata: { deviceFlow: enabled } })
+      .set({
+        metadata: sql`coalesce(${schema.oauthClient.metadata}, '{}'::jsonb) || ${JSON.stringify(fields)}::jsonb`,
+      })
       .where(eq(schema.oauthClient.clientId, clientId));
   }
 

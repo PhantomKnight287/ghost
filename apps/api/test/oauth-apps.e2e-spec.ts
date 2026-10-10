@@ -17,7 +17,7 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
   let other: { cookie: string; key: string; userId: string };
   const stamp = Date.now();
   const api = () => request(app.getHttpServer());
-  const create = (cookie: string, body: object = {}) => api().post('/api/oauth-apps').set('cookie', cookie).send({ name: 'Scoped Tool', homepageUrl: 'https://tool.example', callbackUrl: 'https://tool.example/callback', ...body });
+  const create = (cookie: string, body: object = {}) => api().post('/api/oauth-apps').set('cookie', cookie).send({ name: 'Scoped Tool', homepageUrl: 'https://tool.example', callbackUrls: ['https://tool.example/callback'], ...body });
 
   beforeAll(async () => {
     ({ app } = await startApp());
@@ -32,7 +32,7 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
 
   it('shows the client secret once, on create, and never on read', async () => {
     const created = await create(owner.cookie).expect(201);
-    expect(created.body).toMatchObject({ name: 'Scoped Tool', homepageUrl: 'https://tool.example', callbackUrl: 'https://tool.example/callback', deviceFlowEnabled: false });
+    expect(created.body).toMatchObject({ name: 'Scoped Tool', homepageUrl: 'https://tool.example', callbackUrls: ['https://tool.example/callback'], deviceFlowEnabled: false });
     expect(created.body.clientId).toBeTruthy();
     expect(created.body.clientSecret).toEqual(expect.any(String));
 
@@ -50,8 +50,8 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
 
   it('updates an app and turns its device flow on', async () => {
     const { body } = await create(owner.cookie).expect(201);
-    const updated = await api().patch(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).send({ name: 'Renamed', callbackUrl: 'http://localhost:4000/cb', deviceFlowEnabled: true }).expect(200);
-    expect(updated.body).toMatchObject({ name: 'Renamed', callbackUrl: 'http://localhost:4000/cb', deviceFlowEnabled: true, homepageUrl: 'https://tool.example' });
+    const updated = await api().patch(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).send({ name: 'Renamed', callbackUrls: ['http://localhost:4000/cb'], deviceFlowEnabled: true }).expect(200);
+    expect(updated.body).toMatchObject({ name: 'Renamed', callbackUrls: ['http://localhost:4000/cb'], deviceFlowEnabled: true, homepageUrl: 'https://tool.example' });
     await api().post('/login/device/code').type('form').send({ client_id: body.clientId, scope: 'repo' }).expect(200);
 
     const enabled = await create(owner.cookie, { deviceFlowEnabled: true }).expect(201);
@@ -101,11 +101,40 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
     expect(ids).toContain(`k${GH}${owner.userId}`);
   });
 
+  it('keeps a description and several callbacks, production and local alike', async () => {
+    const callbackUrls = ['https://tool.example/callback', 'http://localhost:4000/cb'];
+    const { body } = await create(owner.cookie, { description: 'Ships releases.', callbackUrls }).expect(201);
+    expect(body).toMatchObject({ description: 'Ships releases.', callbackUrls, logoUrl: null });
+    const updated = await api().patch(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).send({ description: 'Ships faster.' }).expect(200);
+    expect(updated.body).toMatchObject({ description: 'Ships faster.', callbackUrls, deviceFlowEnabled: false });
+    const described = await api().get('/api/oauth-apps/authorize').query({ client_id: body.clientId }).set('cookie', other.cookie).expect(200);
+    expect(described.body).toMatchObject({ description: 'Ships faster.', logoUrl: null });
+  });
+
+  it('refuses an empty, oversized or partly invalid callback list', async () => {
+    await create(owner.cookie, { callbackUrls: [] }).expect(400);
+    await create(owner.cookie, { callbackUrls: Array.from({ length: 11 }, (_, index) => `https://tool.example/${index}`) }).expect(400);
+    await create(owner.cookie, { callbackUrls: ['https://tool.example/ok', 'http://tool.example/bad'] }).expect(400);
+  });
+
+  it('sets and removes a logo, which the consent page sees', async () => {
+    const { body } = await create(owner.cookie).expect(201);
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+    const uploaded = await api().put(`/api/oauth-apps/${body.clientId}/logo`).set('cookie', owner.cookie).set('content-type', 'image/png').send(png).expect(200);
+    expect(uploaded.body.url).toMatch(/\.png$/);
+    const described = await api().get('/api/oauth-apps/authorize').query({ client_id: body.clientId }).set('cookie', owner.cookie).expect(200);
+    expect(described.body.logoUrl).toBe(uploaded.body.url);
+    await api().put(`/api/oauth-apps/${body.clientId}/logo`).set('cookie', other.cookie).set('content-type', 'image/png').send(png).expect(404);
+    await api().put(`/api/oauth-apps/${GH}/logo`).set('cookie', owner.cookie).set('content-type', 'image/png').send(png).expect(403);
+    await api().delete(`/api/oauth-apps/${body.clientId}/logo`).set('cookie', owner.cookie).expect(204);
+    expect((await api().get(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).expect(200)).body.logoUrl).toBeNull();
+  });
+
   it('accepts only an https or localhost callback', async () => {
-    await create(owner.cookie, { callbackUrl: 'http://tool.example/callback' }).expect(400);
-    await create(owner.cookie, { callbackUrl: 'javascript:alert(1)' }).expect(400);
-    await create(owner.cookie, { callbackUrl: 'https://localhost/callback' }).expect(400);
-    await create(owner.cookie, { callbackUrl: 'http://127.0.0.1:8080/cb' }).expect(201);
+    await create(owner.cookie, { callbackUrls: ['http://tool.example/callback'] }).expect(400);
+    await create(owner.cookie, { callbackUrls: ['javascript:alert(1)'] }).expect(400);
+    await create(owner.cookie, { callbackUrls: ['https://localhost/callback'] }).expect(400);
+    await create(owner.cookie, { callbackUrls: ['http://127.0.0.1:8080/cb'] }).expect(201);
   });
 
   it('refuses an API key of any scope', async () => {

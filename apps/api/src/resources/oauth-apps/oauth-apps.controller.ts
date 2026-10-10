@@ -3,17 +3,21 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Session,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
@@ -21,12 +25,14 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnsupportedMediaTypeResponse,
 } from '@nestjs/swagger';
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Request } from 'express';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { UploadAvatarResponseDTO } from '../user/dto/avatar.dto.js';
 import {
   AuthorizingOauthAppDTO,
   ListAuthorizedOauthAppsResponseDTO,
@@ -156,6 +162,46 @@ export class OauthAppsController {
       session.user.id,
       clientId,
     );
+  }
+
+  @Put(':clientId/logo')
+  @ApiOperation({
+    summary: "Upload an OAuth app's logo",
+    description:
+      'Takes the raw image bytes, PNG or JPEG. Users see it when they are asked to authorize the app.',
+  })
+  @ApiConsumes('image/png', 'image/jpeg')
+  @ApiBody({ schema: { type: 'string', format: 'binary' } })
+  @ApiOkResponse({ type: UploadAvatarResponseDTO })
+  @ApiBadRequestResponse({ type: ErrorResponseDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiUnsupportedMediaTypeResponse({ type: ErrorResponseDTO })
+  setLogo(
+    @Session() session: UserSession,
+    @Param('clientId') clientId: string,
+    @Headers('content-type') contentType: string,
+    @Req() request: Request,
+  ): Promise<UploadAvatarResponseDTO> {
+    return this.apps.setLogo(
+      session.user.id,
+      clientId,
+      contentType ?? '',
+      Buffer.isBuffer(request.body) ? request.body : undefined,
+    );
+  }
+
+  @Delete(':clientId/logo')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Remove an OAuth app's logo" })
+  @ApiNoContentResponse()
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  removeLogo(
+    @Session() session: UserSession,
+    @Param('clientId') clientId: string,
+  ) {
+    return this.apps.removeLogo(session.user.id, clientId);
   }
 
   @Delete(':clientId')
