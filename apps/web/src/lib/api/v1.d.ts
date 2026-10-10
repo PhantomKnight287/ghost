@@ -3539,7 +3539,7 @@ export interface components {
              */
             head: string;
             /** @default false */
-            draft: boolean;
+            draft?: boolean;
         };
         /** @enum {string} */
         PullRequestState: "open" | "closed" | "merged";
@@ -3680,7 +3680,7 @@ export interface components {
              * @description `merge` adds a merge commit, `squash` lands the whole request as one commit, `rebase` replays each of its commits onto the base.
              * @default merge
              */
-            method: components["schemas"]["MergeMethod"];
+            method?: components["schemas"]["MergeMethod"];
         };
         MergePullRequestResponseDTO: {
             /** @description The new base tip: the merge commit, the squashed commit, or the last rebased one. */
@@ -4152,9 +4152,9 @@ export interface components {
             /** @description Markdown. */
             body?: string;
             /** @default false */
-            isDraft: boolean;
+            isDraft?: boolean;
             /** @default false */
-            isPrerelease: boolean;
+            isPrerelease?: boolean;
         };
         UpdateReleaseRequestDTO: {
             /** @description `null` falls back to the tag name. */
@@ -4498,6 +4498,7 @@ export interface components {
             logoUrl: string | null;
             callbackUrls: string[];
             deviceFlowEnabled: boolean;
+            expireUserTokens: boolean;
             /** @description When the app was registered, ISO 8601. */
             createdAt: string;
         };
@@ -4522,7 +4523,12 @@ export interface components {
              * @description Lets the app sign users in with the device flow, as gh does.
              * @default false
              */
-            deviceFlowEnabled: boolean;
+            deviceFlowEnabled?: boolean;
+            /**
+             * @description Access tokens expire after 8 hours and come with a refresh token that lasts 6 months, like GitHub's "Expire user authorization tokens".
+             * @default false
+             */
+            expireUserTokens?: boolean;
         };
         CreatedOauthAppDTO: {
             clientId: string;
@@ -4532,6 +4538,7 @@ export interface components {
             logoUrl: string | null;
             callbackUrls: string[];
             deviceFlowEnabled: boolean;
+            expireUserTokens: boolean;
             /** @description When the app was registered, ISO 8601. */
             createdAt: string;
             /** @description Shown only now. Store it: Ghost keeps only a hash. */
@@ -4541,7 +4548,7 @@ export interface components {
             clientId: string;
             name: string;
             logoUrl: string | null;
-            /** @description Every scope the app holds across its keys for this account. */
+            /** @description Every scope the app holds across its keys and refresh tokens for this account. */
             scopes: string[];
             /** @description When the app was first authorized, ISO 8601. */
             authorizedAt: string;
@@ -4580,7 +4587,12 @@ export interface components {
              * @description Lets the app sign users in with the device flow, as gh does.
              * @default false
              */
-            deviceFlowEnabled: boolean;
+            deviceFlowEnabled?: boolean;
+            /**
+             * @description Access tokens expire after 8 hours and come with a refresh token that lasts 6 months, like GitHub's "Expire user authorization tokens".
+             * @default false
+             */
+            expireUserTokens?: boolean;
         };
         OauthAppSecretDTO: {
             /** @description The new secret, shown only now. The previous one stops working at once. */

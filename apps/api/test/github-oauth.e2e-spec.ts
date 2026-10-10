@@ -49,17 +49,17 @@ describe.skipIf(!hasBackends)('GitHub OAuth device flow', () => {
 
   it('answers authorization_pending before approval, and access_denied after a deny', async () => {
     const pending = form((await requestCode().expect(200)).text);
-    expect(form((await poll(pending.device_code)).text)).toMatchObject({ error: 'authorization_pending' });
+    expect(form((await poll(pending.device_code)).text)).toMatchObject({ error: 'authorization_pending', error_description: expect.any(String) });
 
     const denied = form((await requestCode().expect(200)).text);
     await decide(denied.user_code, 'deny');
-    expect(form((await poll(denied.device_code)).text)).toMatchObject({ error: 'access_denied' });
+    expect(form((await poll(denied.device_code)).text)).toMatchObject({ error: 'access_denied', error_description: expect.any(String) });
   });
 
   it('mints a ghost_pat_ key with the known scopes gh asked for, never the session', async () => {
     const code = form((await requestCode().expect(200)).text);
     await decide(code.user_code, 'approve');
-    expect(form((await poll(code.device_code, 'someone-else')).text)).toMatchObject({ error: 'invalid_client' });
+    expect(form((await poll(code.device_code, 'someone-else')).text)).toMatchObject({ error: 'invalid_client', error_description: 'No OAuth app is registered with this client_id.' });
     const token = form((await poll(code.device_code)).text);
     expect(token).toMatchObject({ token_type: 'bearer', scope: 'repo,read:org,gist' });
     expect(token.access_token).toMatch(/^ghost_pat_/);
@@ -80,7 +80,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth device flow', () => {
     const clientId = `tool${Date.now()}`;
     await db.insert(schema.oauthClient).values({ id: clientId, clientId, name: 'Scoped Tool', userId: owner.userId, redirectUris: ['https://tool.example/callback'], metadata: { deviceFlow: false } });
     const refused = await requestCode('repo', clientId).expect(400);
-    expect(form(refused.text)).toMatchObject({ error: 'unauthorized_client' });
+    expect(form(refused.text)).toMatchObject({ error: 'unauthorized_client', error_description: 'No OAuth app with device flow enabled is registered with this client_id.' });
 
     await db.update(schema.oauthClient).set({ metadata: { deviceFlow: true } }).where(eq(schema.oauthClient.clientId, clientId));
     const code = form((await requestCode('repo', clientId).expect(200)).text);

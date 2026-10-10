@@ -69,3 +69,15 @@ Rejected:
 
 - A Ghost-owned registry (two tables, PKCE as one hash compare): smaller, but the plugin is kept so Ghost can later act as an OIDC provider without a second migration.
 - Handing out the plugin's access tokens: they authenticate nothing in the compat layer, and would be a second token type beside API keys.
+
+## Addendum: expiring user tokens and refresh tokens
+
+An OAuth app can turn on GitHub's "Expire user authorization tokens", stored as `oauth_client.metadata.expireUserTokens`. Its grants then mint a `ghost_pat_` key with an 8-hour expiry, which the api-key plugin enforces, and a `ghost_rt_` refresh token that lasts 6 months. `POST /login/oauth/access_token` with `grant_type=refresh_token` checks the client's secret through the plugin's introspection endpoint, spends the refresh token, deletes the old key and mints a new pair under the app's current switch. `gh`'s built-in app cannot be edited, so it never gets expiring tokens.
+
+Refresh tokens live in `oauth_app_refresh_token`, a Ghost table holding each token's sha256. Its `access_key_id` has no foreign key: the api-key plugin deletes expired keys on its own, and a cascade would take the refresh token with them. For the same reason, Authorized apps lists an app when the user holds a key or an unexpired refresh token for it, and revoking deletes both. A refresh and a revoke of the same user's grant take one advisory lock, so a revoke never misses a pair a refresh is minting.
+
+Rejected:
+
+- The plugin's `oauth_refresh_token` table: its rows belong to the plugin's access tokens and sessions, which Ghost revokes right after the code exchange.
+- Refresh tokens as API keys with another prefix: the token guard would accept them as access tokens unless every check filtered them out.
+- Re-hashing client secrets in Ghost to check them: the plugin owns the hashing, so Ghost asks the plugin.

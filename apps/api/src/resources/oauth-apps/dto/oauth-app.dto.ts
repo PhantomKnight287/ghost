@@ -67,6 +67,16 @@ export class CreateOauthAppDTO {
   @IsOptional()
   @IsBoolean()
   deviceFlowEnabled?: boolean;
+
+  @ApiProperty({
+    required: false,
+    default: false,
+    description:
+      'Access tokens expire after 8 hours and come with a refresh token that lasts 6 months, like GitHub\'s "Expire user authorization tokens".',
+  })
+  @IsOptional()
+  @IsBoolean()
+  expireUserTokens?: boolean;
 }
 
 export class UpdateOauthAppDTO extends PartialType(CreateOauthAppDTO) {}
@@ -92,6 +102,9 @@ export class OauthAppDTO {
 
   @ApiProperty()
   deviceFlowEnabled: boolean;
+
+  @ApiProperty()
+  expireUserTokens: boolean;
 
   @ApiProperty({ description: 'When the app was registered, ISO 8601.' })
   createdAt: string;
@@ -160,7 +173,8 @@ export class AuthorizedOauthAppDTO {
 
   @ApiProperty({
     type: [String],
-    description: 'Every scope the app holds across its keys for this account.',
+    description:
+      'Every scope the app holds across its keys and refresh tokens for this account.',
   })
   scopes: string[];
 

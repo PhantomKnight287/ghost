@@ -8,6 +8,8 @@ export type OauthApp = {
   name: string;
   redirectUris: string[];
   deviceFlowEnabled: boolean;
+  /** GitHub's "Expire user authorization tokens": keys last 8 hours and come with a refresh token. */
+  expireUserTokens: boolean;
   /** Built into the instance, such as gh: no owner, and no one can edit or delete it. */
   builtIn: boolean;
   ownerId: string | null;
@@ -27,6 +29,7 @@ export const oauthAppColumns = {
   >`${schema.oauthClient.metadata}->>'description'`,
   logoUrl: schema.oauthClient.icon,
   deviceFlowEnabled: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'deviceFlow')::boolean, false)`,
+  expireUserTokens: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'expireUserTokens')::boolean, false)`,
 };
 
 /** Vouched for by the instance. Only an operator sets it, in the database or the seed; no API writes it. */
@@ -50,6 +53,7 @@ export async function findOauthApp(
       clientId: oauthAppColumns.clientId,
       name: oauthAppColumns.name,
       deviceFlowEnabled: oauthAppColumns.deviceFlowEnabled,
+      expireUserTokens: oauthAppColumns.expireUserTokens,
       redirectUris: schema.oauthClient.redirectUris,
       builtIn: sql<boolean>`${schema.oauthClient.userId} is null and ${schema.oauthClient.referenceId} is null`,
       ownerId: schema.oauthClient.userId,

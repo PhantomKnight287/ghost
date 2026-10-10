@@ -40,6 +40,6 @@ Command-line tools and devices that cannot receive a callback use the device flo
      -d grant_type=urn:ietf:params:oauth:grant-type:device_code
    ```
 
-   Until the person decides, Ghost answers HTTP 200 with `{"error": "authorization_pending"}`. Keep polling. On `slow_down`, wait longer between polls. `expired_token` means the code ran out; `access_denied` means the person said no. Once they approve, the answer is a token, in the same shape as the code exchange.
+   Until the person decides, Ghost answers HTTP 200 with `{"error": "authorization_pending", "error_description": "…"}`. Keep polling. On `slow_down`, wait longer between polls. `expired_token` means the code ran out; `access_denied` means the person said no. Once they approve, the answer is a token, in the same shape as the code exchange.
 
 The device flow needs no client secret, so a tool can ship its client ID in its code.
