@@ -1,0 +1,39 @@
+---
+title: Receiving webhooks
+description: What a Ghost webhook delivery looks like, how retries work, and chat services
+---
+
+
+Ghost POSTs JSON to each webhook URL when one of the events it subscribes to happens. This page covers what a delivery looks like and how a receiver checks that it came from Ghost.
+
+## Headers
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `application/json` |
+| `User-Agent` | `Ghost-Hookshot/1` |
+| `X-Ghost-Event` | The event, such as `issue.opened`, or `ping` for the test delivery |
+| `X-Ghost-Delivery` | A UUID for this delivery. A retry keeps it; a manual redelivery gets a new one. |
+| `X-Ghost-Timestamp` | When this attempt was signed, in Unix seconds |
+| `X-Ghost-Signature-256` | `sha256=` and the hex HMAC-SHA256 of `<timestamp>.<body>` |
+| `X-Hub-Signature-256` | `sha256=` and the hex HMAC-SHA256 of the body alone, the way GitHub signs |
+
+Both signatures use the endpoint's signing secret, the `whsec_…` value shown once when the webhook is created.
+
+## Verifying a delivery
+
+Every delivery is signed with the webhook's secret. Check the signature before trusting the payload: [Verifying deliveries](/webhooks/verifying-deliveries) shows how, in Node.js, Python and Go.
+
+## Retries
+
+- A 2xx response is a success.
+- A 410 Gone turns the webhook off.
+- A 429 is retried after its `Retry-After`.
+- Anything else, including a timeout, a redirect or a connection error, is retried with exponential backoff and jitter, at most an hour apart, for three days. After that the delivery is marked failed and can be redelivered from the webhook's page.
+- A webhook whose deliveries all failed for three days is turned off, and the repository's or organization's admins get an email.
+
+Ghost does not follow redirects, and it refuses URLs that resolve to private or reserved addresses.
+
+## Chat services
+
+A URL that is a Slack, Discord, Google Chat or Microsoft Teams incoming webhook gets a message in that service's own format instead of Ghost's JSON. It is sent as the Ghost app, with its name and logo where the service allows that. These services do not check signatures; the headers above are sent anyway.

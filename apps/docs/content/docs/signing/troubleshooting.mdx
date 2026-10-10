@@ -69,8 +69,8 @@ Hover the badge; the reason names the failure.
 
 | Reason | Cause | Fix |
 | --- | --- | --- |
-| Signed with a key no Ghost account has uploaded | The public key is not on any account on this instance | [Add the key](/adding-a-gpg-key-to-your-account) |
-| The signing key is not linked to *address* | The commit's author address is not verified for the key's owner | [Verify the address](/email-addresses-and-keys), then set `user.email` to it |
+| Signed with a key no Ghost account has uploaded | The public key is not on any account on this instance | [Add the key](/signing/adding-a-gpg-key) |
+| The signing key is not linked to *address* | The commit's author address is not verified for the key's owner | [Verify the address](/signing/email-addresses-and-keys), then set `user.email` to it |
 | Signature does not match the commit | The commit was rewritten after signing, or the signature is for other content | Re-sign: `git commit --amend --no-edit -S` |
 
 Check which key actually signed, and which address the commit claims:
@@ -101,7 +101,7 @@ git log --pretty="%h %an <%ae> %GK" -5
 | Message | Cause |
 | --- | --- |
 | That is not a usable public key | The armor is malformed, truncated, or is a private key block |
-| the key is revoked / the key has expired | Extend or replace the key first — see [Expiration and revocation](/expiration-and-revocation) |
+| the key is revoked / the key has expired | Extend or replace the key first — see [Expiration and revocation](/signing/expiration-and-revocation) |
 | Verify one of the key's addresses on this account first | None of the key's user ids is a verified address of yours |
 | The key carries no email address | The key has no user id with an address; add one with `gpg --edit-key` then `adduid` |
 | That key is already on an account | The key id is in use — remove it from the account that holds it, or use a different key |

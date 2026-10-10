@@ -1,0 +1,84 @@
+---
+title: Exchanging the code
+description: Trade the one-time code for an access token, and the errors that can come back
+---
+
+In the examples, `api.<domain>` is your Ghost API host and `<web>` is the Ghost web app.
+
+Your server sends the code and the client secret to:
+
+```txt
+POST https://api.<domain>/login/oauth/access_token
+```
+
+| Parameter | Required | Description |
+|---|---|---|
+| `client_id` | Yes | Your app's client ID. |
+| `client_secret` | Yes | Your app's client secret. |
+| `code` | Yes | The code from the callback. |
+| `redirect_uri` | If you sent one | The same `redirect_uri` the authorize request used. |
+| `code_verifier` | With PKCE | The verifier behind the `code_challenge`. |
+
+GitHub's clients send no `grant_type` here, and Ghost needs none. Send the body form-encoded or as JSON.
+
+<Tabs items={["curl", "JavaScript"]}>
+<Tab value="curl">
+
+```bash
+curl -X POST https://api.<domain>/login/oauth/access_token \
+  -H "Accept: application/json" \
+  -d client_id=DEyiWXBFvHvUTGkCIQzDrbNEuetuxVOr \
+  -d client_secret="$GHOST_CLIENT_SECRET" \
+  -d code=k8DfjBZl4QVfliGLImbhbIKc7qUaNvZE \
+  -d redirect_uri=https://bot.example/oauth/callback
+```
+
+</Tab>
+<Tab value="JavaScript">
+
+```js
+const response = await fetch("https://api.<domain>/login/oauth/access_token", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
+  body: JSON.stringify({
+    client_id: process.env.GHOST_CLIENT_ID,
+    client_secret: process.env.GHOST_CLIENT_SECRET,
+    code,
+    redirect_uri: "https://bot.example/oauth/callback",
+  }),
+});
+const { access_token, error } = await response.json();
+```
+
+</Tab>
+</Tabs>
+
+With `Accept: application/json`, Ghost answers JSON:
+
+```json
+{
+  "access_token": "ghost_pat_KOYduxMKlnMGQKszNbnWWRxpLOivafxX…",
+  "token_type": "bearer",
+  "scope": "repo,read:org"
+}
+```
+
+Without it, Ghost answers form-encoded, as GitHub does:
+
+```txt
+access_token=ghost_pat_UxkahUQBptnqPZulFOGmJEniHcUnmCxK…&token_type=bearer&scope=repo%2Cread%3Aorg
+```
+
+`scope` lists, comma-separated, the scopes the person approved that Ghost knows. Check it: it can be narrower than what your app asked for.
+
+## Errors
+
+Failures also answer HTTP 200, with an `error` field instead of a token:
+
+| `error` | Cause |
+|---|---|
+| `incorrect_client_credentials` | Unknown `client_id`, or a wrong or replaced `client_secret`. |
+| `bad_verification_code` | The code is wrong, expired, already used, belongs to another app, was issued for another `redirect_uri`, or the `code_verifier` does not match. |
+| `redirect_uri_mismatch` | The `redirect_uri` matches none of the app's callback URLs. |
+
+A failed exchange uses the code up, so start again from the authorize step.

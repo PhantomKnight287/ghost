@@ -1,0 +1,53 @@
+---
+title: Authorizing users
+description: Send people to Ghost to approve your app, and what Ghost sends back
+---
+
+In the examples, `api.<domain>` is your Ghost API host and `<web>` is the Ghost web app.
+
+Redirect the person's browser to:
+
+```txt
+https://api.<domain>/login/oauth/authorize
+```
+
+with these query parameters:
+
+| Parameter | Required | Description |
+|---|---|---|
+| `client_id` | Yes | Your app's client ID. |
+| `redirect_uri` | No | Where to send the person back. Must match one of the callback URLs as described above. Defaults to the first one. |
+| `scope` | No | Space-separated [scopes](/oauth-apps/scopes). Without one, the app may read public information only. |
+| `state` | Recommended | A random value your app makes up for this request. Ghost sends it back unchanged; check it to stop cross-site request forgery. |
+| `code_challenge` | No | For [PKCE](/oauth-apps/pkce). |
+| `code_challenge_method` | No | `S256`, with `code_challenge`. |
+
+For example:
+
+```txt
+https://api.<domain>/login/oauth/authorize?client_id=DEyiWXBFvHvUTGkCIQzDrbNEuetuxVOr&redirect_uri=https%3A%2F%2Fbot.example%2Foauth%2Fcallback&scope=repo%20read%3Aorg&state=af0ifjsldkj
+```
+
+If the person is not signed in, Ghost asks them to sign in first. Then it shows what your app is asking for:
+
+![Ghost asking the signed-in person to authorize Release bot with the repo and read:org scopes](/images/oauth-apps/oauth-consent.png)
+
+When the person chooses **Authorize**, Ghost redirects to your callback with a `code` and your `state`:
+
+```txt
+https://bot.example/oauth/callback?code=k8DfjBZl4QVfliGLImbhbIKc7qUaNvZE&state=af0ifjsldkj&iss=https%3A%2F%2Fapi.<domain>%2Fapi%2Fauth
+```
+
+The code is valid for 10 minutes and can be exchanged once. Ghost also adds `iss`, which your app can ignore.
+
+When the person chooses **Cancel**, Ghost redirects with `error=access_denied` and your `state` instead of a code:
+
+```txt
+https://bot.example/oauth/callback?error=access_denied&state=af0ifjsldkj
+```
+
+A person who already approved the same scopes, or more, is not asked again: Ghost redirects straight back with a new code.
+
+<Callout>
+An unknown `client_id`, or a `redirect_uri` that matches none of the callback URLs, shows an error page on Ghost and never redirects. Check the app's callback URLs if people land there.
+</Callout>

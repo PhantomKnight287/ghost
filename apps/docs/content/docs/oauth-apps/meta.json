@@ -1,0 +1,15 @@
+{
+  "title": "OAuth apps",
+  "pages": [
+    "index",
+    "authorizing-users",
+    "exchanging-the-code",
+    "calling-the-api",
+    "scopes",
+    "pkce",
+    "device-flow",
+    "managing-access",
+    "url-generator",
+    "examples"
+  ]
+}

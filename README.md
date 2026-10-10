@@ -74,7 +74,7 @@ relay, and where to store data; it generates every secret you skip.
 powershell -ExecutionPolicy Bypass -File docker\setup.ps1   # Windows
 ```
 
-Full guide: [`apps/docs/content/docs/self-hosting.mdx`](apps/docs/content/docs/self-hosting.mdx).
+Full guide: [`apps/docs/content/docs/self-hosting/index.mdx`](apps/docs/content/docs/self-hosting/index.mdx).
 
 ## Running it for development
 

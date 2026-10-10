@@ -51,7 +51,7 @@ The script asks:
    a GitHub repository with its code, releases, issues and pull requests, then
    enter the client ID and secret of a GitHub OAuth app. The script prints the
    callback URL the app needs. See
-   [GitHub imports](/self-hosting-configuration#github-imports).
+   [GitHub imports](/self-hosting/configuration#github-imports).
 6. **Secrets.** Press enter at each one and the script generates it: the auth
    secret, the webhook encryption key, the SSH host key, the commit signing
    key, and the database and storage passwords.
@@ -115,5 +115,5 @@ cd docker
 docker compose exec postgres pg_dump -U ghost ghost > ghost.sql
 ```
 
-Next: [Self-hosting configuration](/self-hosting-configuration) covers every
+Next: [Self-hosting configuration](/self-hosting/configuration) covers every
 setting, running without the script, and troubleshooting.

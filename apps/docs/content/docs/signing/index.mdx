@@ -34,11 +34,11 @@ Three separate things have to be true, and the badge tells you which one failed:
 
 - **"Signed with a key no Ghost account has uploaded"** — nobody on this
   instance has added that public key, so there is nothing to check against.
-  See [Adding a GPG key to your account](/adding-a-gpg-key-to-your-account).
+  See [Adding a GPG key to your account](/signing/adding-a-gpg-key).
 - **"The signing key is not linked to *address*"** — the signature is good, but
   the commit's author address is not one the key's owner has verified. Holding
   a key proves who signed; it never proves who authored. See
-  [Email addresses and keys](/email-addresses-and-keys).
+  [Email addresses and keys](/signing/email-addresses-and-keys).
 - **"Signature does not match the commit"** — the commit was altered after it
   was signed, or the signature belongs to different content.
 
@@ -50,7 +50,7 @@ platform signs them with its own key:
 - **Ghost** signs the commits it writes for you: merging, squashing or rebasing
   a pull request from the web, and applying a review suggestion. The badge
   reads "Signed by Ghost". This needs the instance to have a signing key; see
-  [Secrets](/self-hosting-configuration#secrets).
+  [Secrets](/self-hosting/configuration#secrets).
 - **GitHub** signs the commits it wrote the same way, so the merge commits in
   a repository imported from GitHub read "Signed by GitHub". Both of GitHub's
   [published keys](https://github.com/web-flow.gpg) are trusted, including the

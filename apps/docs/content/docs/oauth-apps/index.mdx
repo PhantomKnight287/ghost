@@ -1,0 +1,68 @@
+---
+title: Building an OAuth app
+description: Register an app, send people to Ghost to approve it, and exchange the code for a token that calls the API
+---
+
+An OAuth app lets your tool act on someone's Ghost account without asking for their password. The person approves the app once, choosing what it may do, and your app receives a token it can call the API with. Ghost speaks GitHub's OAuth: a library or tool written for GitHub OAuth apps works against Ghost once you point it at your Ghost host.
+
+The flow has three parts:
+
+1. You register the app once and get a **client ID** and a **client secret**.
+2. Your app sends each person to Ghost, where they approve it. Ghost sends them back to your app with a one-time **code**.
+3. Your app exchanges the code, with its secret, for an **access token**.
+
+In the examples below, `api.<domain>` is your Ghost API host and `<web>` is the Ghost web app.
+
+## Register the app
+
+Open **Settings → OAuth apps** and choose **New OAuth app**.
+
+![The OAuth apps page in settings, before any app is registered](/images/oauth-apps/oauth-apps-empty.png)
+
+Fill in the form:
+
+- **Application name**: what people see when your app asks for access.
+- **Description**: optional. One or two sentences on what the app does, shown on the approval page.
+- **Homepage URL**: your app's website.
+- **Callback URLs**: where Ghost sends people after they approve the app. Add your production callback and, while you develop, a `http://localhost` one. See [Callback URLs](/oauth-apps#callback-urls) for the rules.
+- **Enable device flow**: only for command-line tools and devices that cannot receive a callback. See [The device flow](/oauth-apps/device-flow).
+
+![The form for registering a new OAuth app, filled in for an app named Release bot with two callback URLs](/images/oauth-apps/oauth-app-new.png)
+
+Choose **Register application**. Ghost shows the client ID and the client secret.
+
+![The registered app's client ID and client secret, with copy buttons](/images/oauth-apps/oauth-app-credentials.png)
+
+<Callout type="warn">
+Copy the client secret now. Ghost keeps only a hash of it and cannot show it again. Keep it on your server, never in a browser, a mobile app or a public repository. If you lose it, generate a new one.
+</Callout>
+
+The app's page then holds everything you can change later: the credentials, a logo, the settings, and deleting the app.
+
+![The settings page of the Release bot app: credentials, logo, settings and delete](/images/oauth-apps/oauth-app-settings.png)
+
+### Callback URLs
+
+- Use `https://`, or `http://` on `localhost`, `127.0.0.1` or `[::1]` while you develop. Plain `http://` on any other host is refused.
+- An app can have up to 10 callback URLs.
+- When your app names a `redirect_uri`, it must have the same scheme, host and port as one of the callback URLs, and its path must equal that callback's path or sit under it. With a callback of `https://bot.example/oauth/callback`:
+
+| `redirect_uri` | Accepted |
+|---|---|
+| `https://bot.example/oauth/callback` | Yes |
+| `https://bot.example/oauth/callback/github` | Yes |
+| `https://bot.example/oauth/callback?next=%2Fhome` | Yes |
+| `https://bot.example/elsewhere` | No: path outside the callback |
+| `https://bot.example:8443/oauth/callback` | No: another port |
+| `https://evil.example/oauth/callback` | No: another host |
+
+- When your app names no `redirect_uri`, Ghost uses the first callback URL.
+
+## Next steps
+
+<Cards>
+  <Card href="/oauth-apps/authorizing-users" title="Authorizing users" description="Send people to Ghost to approve your app." />
+  <Card href="/oauth-apps/exchanging-the-code" title="Exchanging the code" description="Trade the one-time code for an access token." />
+  <Card href="/oauth-apps/url-generator" title="URL generator" description="Build an authorize URL and the token request in the browser." />
+  <Card href="/oauth-apps/examples" title="Examples" description="Complete sign-in flows in Node.js, Python and the shell." />
+</Cards>

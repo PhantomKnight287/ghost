@@ -1,0 +1,17 @@
+---
+title: URL generator
+description: Build an authorize URL and the matching token request without writing code
+---
+
+Fill in your app's details to get the URL that starts the sign-in, and the request your server makes once Ghost sends the person back. Everything is computed in your browser; nothing you type is sent anywhere.
+
+<OauthUrlGenerator />
+
+## Trying it by hand
+
+1. Register an app under **Settings → OAuth apps**, and copy its client ID here.
+2. Open the URL in a browser where you are signed in to Ghost, and approve the app.
+3. Ghost redirects to your callback. If nothing listens there yet, copy the `code` from the address bar of the page that fails to load.
+4. Within 10 minutes, run the `curl` command with that code and your client secret in `GHOST_CLIENT_SECRET`. A code works once, and a failed exchange uses it up.
+
+See [Authorizing users](/oauth-apps/authorizing-users) and [Exchanging the code](/oauth-apps/exchanging-the-code) for what each parameter means.

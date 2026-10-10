@@ -1,0 +1,11 @@
+{
+  "title": "Connecting over SSH",
+  "pages": [
+    "index",
+    "generating-a-key",
+    "adding-a-key",
+    "testing-your-connection",
+    "using-with-a-repository",
+    "troubleshooting"
+  ]
+}

@@ -13,19 +13,19 @@ HTTP asks for a personal access token every time something forgets it. SSH
 asks for a key once, and then stays out of the way.
 
 <Cards>
-  <Card href="/about-ssh" title="About SSH access">
+  <Card href="/ssh" title="About SSH access">
     What the transport does, and what it refuses to do.
   </Card>
-  <Card href="/generating-an-ssh-key" title="Generating an SSH key">
+  <Card href="/ssh/generating-a-key" title="Generating an SSH key">
     Make a key pair and load it into the agent.
   </Card>
   <Card
-    href="/adding-an-ssh-key-to-your-account"
+    href="/ssh/adding-a-key"
     title="Adding a key to your account"
   >
     Copy the public half into your settings.
   </Card>
-  <Card href="/using-ssh-with-a-repository" title="Using SSH with a repository">
+  <Card href="/ssh/using-with-a-repository" title="Using SSH with a repository">
     Clone over SSH, or move an existing remote onto it.
   </Card>
 </Cards>
@@ -41,21 +41,60 @@ Start here:
 
 <Cards>
   <Card
-    href="/about-commit-signature-verification"
+    href="/signing"
     title="About commit signature verification"
   >
     What the Verified badge means, and what it does not.
   </Card>
-  <Card href="/generating-a-gpg-key" title="Generating a GPG key">
+  <Card href="/signing/generating-a-gpg-key" title="Generating a GPG key">
     Install GnuPG and create a key you can sign with.
   </Card>
   <Card
-    href="/adding-a-gpg-key-to-your-account"
+    href="/signing/adding-a-gpg-key"
     title="Adding a key to your account"
   >
     Export the public half and paste it into your settings.
   </Card>
-  <Card href="/telling-git-about-your-key" title="Telling git about your key">
+  <Card href="/signing/telling-git-about-your-key" title="Telling git about your key">
     Configure git to sign every commit you make.
+  </Card>
+</Cards>
+
+## Working with repositories
+
+<Cards>
+  <Card href="/pull-requests/checking-out-locally" title="Checking out pull requests locally">
+    Fetch a pull request's commits to review or test them.
+  </Card>
+  <Card href="/git-lfs" title="Git LFS">
+    Keep large files out of the repository's history.
+  </Card>
+</Cards>
+
+## Building on Ghost
+
+<Cards>
+  <Card href="/oauth-apps" title="Building an OAuth app">
+    Let your tools sign people in with their Ghost account.
+  </Card>
+  <Card href="/oauth-apps/url-generator" title="OAuth URL generator">
+    Build an authorize URL and token request in the browser.
+  </Card>
+  <Card href="/webhooks" title="Receiving webhooks">
+    Get a signed POST whenever something happens.
+  </Card>
+  <Card href="/github-cli" title="GitHub CLI">
+    Use gh, and tools written for GitHub's API, with Ghost.
+  </Card>
+</Cards>
+
+## Running Ghost
+
+<Cards>
+  <Card href="/self-hosting" title="Self-hosting Ghost">
+    Run Ghost on your own server with Docker.
+  </Card>
+  <Card href="/self-hosting/configuration" title="Configuration">
+    Every environment variable and what it changes.
   </Card>
 </Cards>

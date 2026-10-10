@@ -1,0 +1,21 @@
+---
+title: Scopes
+description: What each scope lets an app do in Ghost
+---
+
+In the examples, `api.<domain>` is your Ghost API host and `<web>` is the Ghost web app.
+
+Ghost uses GitHub's scope names. What each one guards today:
+
+| Scope | What Ghost checks |
+|---|---|
+| (none) | Public information only. Private repositories answer as if they did not exist. |
+| `repo` | Reading private repositories, and writing to any repository: issues, comments, labels, creating repositories, and `git push`. Includes `public_repo`. |
+| `public_repo` | Writing to public repositories, including `git push`. |
+| `read:public_key` | Listing the person's SSH keys. |
+| `write:public_key` | Adding SSH keys. Includes `read:public_key`. |
+| `admin:public_key` | Includes `write:public_key` and `read:public_key`. |
+
+`read:org`, `write:org`, `admin:org`, `user`, `read:user`, `user:email`, `delete_repo` and `gist` are accepted and recorded on the token, so tools written for GitHub keep working, but nothing in Ghost checks them yet. Scopes Ghost does not know at all, such as `workflow`, are dropped rather than refused.
+
+Ask for the fewest scopes your app needs; people are likelier to approve a short list.
