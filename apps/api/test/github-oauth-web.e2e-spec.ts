@@ -121,9 +121,9 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
 
   it('describes the app to the consent page: name, homepage and owner, never the secret', async () => {
     const response = await api().get('/api/oauth-apps/authorize').query({ client_id: clientId }).set('cookie', owner.cookie).expect(200);
-    expect(response.body).toEqual({ clientId, name: 'Web Tool', description: null, homepageUrl: 'https://tool.example', logoUrl: null, owner: expect.stringMatching(/^ghweb/) });
+    expect(response.body).toEqual({ clientId, name: 'Web Tool', description: null, homepageUrl: 'https://tool.example', logoUrl: null, owner: expect.stringMatching(/^ghweb/), verified: false });
     const gh = await api().get('/api/oauth-apps/authorize').query({ client_id: '178c6fc778ccc68e1d6a' }).set('cookie', owner.cookie).expect(200);
-    expect(gh.body).toEqual({ clientId: '178c6fc778ccc68e1d6a', name: 'GitHub CLI', description: null, homepageUrl: 'https://cli.github.com', logoUrl: null, owner: null });
+    expect(gh.body).toEqual({ clientId: '178c6fc778ccc68e1d6a', name: 'GitHub CLI', description: null, homepageUrl: 'https://cli.github.com', logoUrl: null, owner: null, verified: true });
     await api().get('/api/oauth-apps/authorize').query({ client_id: 'nope' }).set('cookie', owner.cookie).expect(404);
   });
 
