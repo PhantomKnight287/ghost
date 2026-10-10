@@ -32,6 +32,8 @@ If the person is not signed in, Ghost asks them to sign in first. Then it shows 
 
 ![Ghost asking the signed-in person to authorize Release bot with the repo and read:org scopes](/images/oauth-apps/oauth-consent.png)
 
+A green check on the app's logo means the app is **verified**: the operators of this Ghost instance vouch for it. Only an operator can mark an app verified, by setting `verified` to `true` in the app's `oauth_client.metadata` in the database. No page or API sets it. `gh` is verified on every instance.
+
 When the person chooses **Authorize**, Ghost redirects to your callback with a `code` and your `state`:
 
 ```txt
