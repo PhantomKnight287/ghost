@@ -8,15 +8,18 @@ import type { Auth } from '../../lib/auth.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import {
   findOauthApp,
+  keyOauthClientId,
   oauthAppColumns,
   oauthAppEnabled,
 } from '../../lib/github/oauth-apps.js';
 import {
+  AuthorizedOauthAppNotFoundError,
   BuiltInOauthAppError,
   OauthAppNotFoundError,
 } from '../../lib/oauth-apps/oauth-apps.errors.js';
 import type {
   AuthorizingOauthAppDTO,
+  ListAuthorizedOauthAppsResponseDTO,
   CreatedOauthAppDTO,
   CreateOauthAppDTO,
   ListOauthAppsResponseDTO,
@@ -152,15 +155,61 @@ export class OauthAppsService {
     clientId: string,
   ): Promise<void> {
     await this.editable(userId, clientId);
-    await this.db
-      .delete(schema.apikey)
-      .where(
-        sql`${schema.apikey.metadata}::jsonb->>'oauthClientId' = ${clientId}`,
-      );
+    await this.db.delete(schema.apikey).where(eq(keyOauthClientId, clientId));
     await this.auth.api.deleteOAuthClient({
       headers,
       body: { client_id: clientId },
     });
+  }
+
+  /** Apps holding a key for this user, gh included. */
+  async listAuthorized(
+    userId: string,
+  ): Promise<ListAuthorizedOauthAppsResponseDTO> {
+    const apps = await this.db
+      .select({
+        clientId: oauthAppColumns.clientId,
+        name: oauthAppColumns.name,
+        // jsonb_agg runs over the outer group; Postgres allows that only in a select list, hence the one-row derived table.
+        scopes: sql<
+          string[]
+        >`array(select distinct scope from (select jsonb_agg(coalesce(${schema.apikey.permissions}::jsonb->'scopes', '[]')) as granted) as keys, jsonb_array_elements(keys.granted) as key_scopes, jsonb_array_elements_text(key_scopes) as scope order by scope)`,
+        authorizedAt: isoTimestamp(sql`min(${schema.apikey.createdAt})`),
+        lastUsedAt: sql<
+          string | null
+        >`${isoTimestamp(sql`max(${schema.apikey.lastRequest})`)}`,
+      })
+      .from(schema.apikey)
+      .innerJoin(
+        schema.oauthClient,
+        eq(schema.oauthClient.clientId, keyOauthClientId),
+      )
+      .where(eq(schema.apikey.referenceId, userId))
+      .groupBy(schema.oauthClient.clientId, schema.oauthClient.name)
+      .orderBy(oauthAppColumns.name);
+    return { apps };
+  }
+
+  /** Deletes this user's keys for the app and their consent, so the app asks again next time. Other users' keys stay. */
+  async revokeAuthorized(userId: string, clientId: string): Promise<void> {
+    const keys = await this.db
+      .delete(schema.apikey)
+      .where(
+        and(
+          eq(schema.apikey.referenceId, userId),
+          eq(keyOauthClientId, clientId),
+        ),
+      )
+      .returning({ id: schema.apikey.id });
+    if (keys.length === 0) throw new AuthorizedOauthAppNotFoundError();
+    await this.db
+      .delete(schema.oauthConsent)
+      .where(
+        and(
+          eq(schema.oauthConsent.userId, userId),
+          eq(schema.oauthConsent.clientId, clientId),
+        ),
+      );
   }
 
   private select() {

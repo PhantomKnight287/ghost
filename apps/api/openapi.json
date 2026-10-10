@@ -10180,6 +10180,63 @@
         ]
       }
     },
+    "/api/oauth-apps/authorized": {
+      "get": {
+        "operationId": "OauthAppsController_listAuthorized",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAuthorizedOauthAppsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the OAuth apps the signed-in account authorized",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
+    "/api/oauth-apps/authorized/{clientId}": {
+      "delete": {
+        "description": "Its keys for this account stop working, and it asks for consent again next time. Other accounts' keys are untouched.",
+        "operationId": "OauthAppsController_revokeAuthorized",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Revoke an OAuth app the signed-in account authorized",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
     "/api/oauth-apps/authorize": {
       "get": {
         "description": "Any enabled app, including ones built into Ghost. Never carries the secret.",
@@ -15750,6 +15807,54 @@
           "deviceFlowEnabled",
           "createdAt",
           "clientSecret"
+        ]
+      },
+      "AuthorizedOauthAppDTO": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scopes": {
+            "description": "Every scope the app holds across its keys for this account.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authorizedAt": {
+            "type": "string",
+            "description": "When the app was first authorized, ISO 8601."
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When one of its keys was last used, ISO 8601."
+          }
+        },
+        "required": [
+          "clientId",
+          "name",
+          "scopes",
+          "authorizedAt",
+          "lastUsedAt"
+        ]
+      },
+      "ListAuthorizedOauthAppsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "apps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuthorizedOauthAppDTO"
+            }
+          }
+        },
+        "required": [
+          "apps"
         ]
       },
       "AuthorizingOauthAppDTO": {

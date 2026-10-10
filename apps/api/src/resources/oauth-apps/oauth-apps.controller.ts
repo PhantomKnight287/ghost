@@ -29,6 +29,7 @@ import type { Request } from 'express';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   AuthorizingOauthAppDTO,
+  ListAuthorizedOauthAppsResponseDTO,
   CreatedOauthAppDTO,
   CreateOauthAppDTO,
   ListOauthAppsResponseDTO,
@@ -70,6 +71,31 @@ export class OauthAppsController {
       session.user.id,
       body,
     );
+  }
+
+  @Get('authorized')
+  @ApiOperation({
+    summary: 'List the OAuth apps the signed-in account authorized',
+  })
+  @ApiOkResponse({ type: ListAuthorizedOauthAppsResponseDTO })
+  listAuthorized(@Session() session: UserSession) {
+    return this.apps.listAuthorized(session.user.id);
+  }
+
+  @Delete('authorized/:clientId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Revoke an OAuth app the signed-in account authorized',
+    description:
+      "Its keys for this account stop working, and it asks for consent again next time. Other accounts' keys are untouched.",
+  })
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  revokeAuthorized(
+    @Session() session: UserSession,
+    @Param('clientId') clientId: string,
+  ) {
+    return this.apps.revokeAuthorized(session.user.id, clientId);
   }
 
   @Get('authorize')

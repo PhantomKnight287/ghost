@@ -18,6 +18,11 @@ export const oauthAppColumns = {
   deviceFlowEnabled: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'deviceFlow')::boolean, false)`,
 };
 
+/** The OAuth app an API key was minted for, null for keys made in Ghost. */
+export const keyOauthClientId = sql<
+  string | null
+>`${schema.apikey.metadata}::jsonb->>'oauthClientId'`;
+
 /** The plugin leaves `disabled` null on apps it never touched. */
 export const oauthAppEnabled = sql`${schema.oauthClient.disabled} is not true`;
 

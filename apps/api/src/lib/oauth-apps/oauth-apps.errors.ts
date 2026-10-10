@@ -17,3 +17,11 @@ export class BuiltInOauthAppError extends DomainError {
     super('Built-in OAuth apps cannot be changed');
   }
 }
+
+export class AuthorizedOauthAppNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('This account has not authorized that OAuth app');
+  }
+}

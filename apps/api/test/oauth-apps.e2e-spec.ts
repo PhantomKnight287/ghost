@@ -8,6 +8,7 @@ import { DATABASE } from '../src/database/database.module.js';
 import { hasBackends, scopedKey, signUp, startApp } from './harness.js';
 
 const GH = '178c6fc778ccc68e1d6a';
+const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
 
 describe.skipIf(!hasBackends)('OAuth apps', () => {
   let app: INestApplication;
@@ -111,5 +112,54 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
     const key = await scopedKey(app, owner.userId, ['repo', 'user']);
     await api().get('/api/oauth-apps').set('authorization', `Bearer ${key}`).expect(401);
     await api().get('/api/oauth-apps').set('x-api-key', owner.key).expect(401);
+  });
+
+  describe('authorized apps', () => {
+    const key = (id: string, userId: string, clientId: string | null, scopes: string[]) =>
+      db.insert(schema.apikey).values({ id, referenceId: userId, key: `hash-${id}`, name: 'k', permissions: JSON.stringify({ scopes }), metadata: clientId ? JSON.stringify({ oauthClientId: clientId }) : null, createdAt: new Date(), updatedAt: new Date() });
+    const ids = async () => (await db.select({ id: schema.apikey.id }).from(schema.apikey)).map((row) => row.id);
+
+    it('lists the apps holding a key for me, with their scopes', async () => {
+      const a = (await create(other.cookie, { name: 'App A' }).expect(201)).body.clientId;
+      await key(`la1${stamp}`, owner.userId, a, ['repo']);
+      await key(`la2${stamp}`, owner.userId, a, ['gist', 'repo']);
+      const list = await api().get('/api/oauth-apps/authorized').set('cookie', owner.cookie).expect(200);
+      const entry = list.body.apps.find((each: { clientId: string }) => each.clientId === a);
+      expect(entry).toMatchObject({ clientId: a, name: 'App A', scopes: ['gist', 'repo'], lastUsedAt: null });
+      expect(entry.authorizedAt).toEqual(expect.any(String));
+      const theirs = await api().get('/api/oauth-apps/authorized').set('cookie', other.cookie).expect(200);
+      expect(theirs.body.apps.map((each: { clientId: string }) => each.clientId)).not.toContain(a);
+    });
+
+    it("revokes only my keys for that app, and its consent", async () => {
+      const a = (await create(other.cookie, { name: 'App A' }).expect(201)).body.clientId;
+      const b = (await create(other.cookie, { name: 'App B' }).expect(201)).body.clientId;
+      await key(`ra-mine${stamp}`, owner.userId, a, ['repo']);
+      await key(`ra-theirs${stamp}`, other.userId, a, ['repo']);
+      await key(`rb-mine${stamp}`, owner.userId, b, ['repo']);
+      await key(`r-ui${stamp}`, owner.userId, null, []);
+      await db.insert(schema.oauthConsent).values({ id: `c${stamp}`, clientId: a, userId: owner.userId, scopes: ['repo'], createdAt: new Date(), updatedAt: new Date() });
+
+      await api().delete(`/api/oauth-apps/authorized/${a}`).set('cookie', owner.cookie).expect(204);
+      const left = await ids();
+      expect(left).not.toContain(`ra-mine${stamp}`);
+      expect(left).toEqual(expect.arrayContaining([`ra-theirs${stamp}`, `rb-mine${stamp}`, `r-ui${stamp}`]));
+      expect(await db.select().from(schema.oauthConsent).where(eq(schema.oauthConsent.id, `c${stamp}`))).toEqual([]);
+      await api().delete(`/api/oauth-apps/authorized/${a}`).set('cookie', owner.cookie).expect(404);
+    });
+
+    it('shows gh after the device flow, and revoking it locks gh out', async () => {
+      const form = (text: string) => Object.fromEntries(new URLSearchParams(text));
+      const code = form((await api().post('/login/device/code').type('form').send({ client_id: GH, scope: 'repo' }).expect(200)).text);
+      await api().get('/api/auth/device').query({ user_code: code.user_code }).set('cookie', owner.cookie).expect(200);
+      await api().post('/api/auth/device/approve').set('cookie', owner.cookie).send({ userCode: code.user_code }).expect(200);
+      const token = form((await api().post('/login/oauth/access_token').type('form').send({ client_id: GH, device_code: code.device_code, grant_type: DEVICE_GRANT })).text);
+      await api().get('/api/v3/user').set('authorization', `token ${token.access_token}`).expect(200);
+
+      const list = await api().get('/api/oauth-apps/authorized').set('cookie', owner.cookie).expect(200);
+      expect(list.body.apps).toEqual(expect.arrayContaining([expect.objectContaining({ clientId: GH, name: 'GitHub CLI', scopes: ['repo'] })]));
+      await api().delete(`/api/oauth-apps/authorized/${GH}`).set('cookie', owner.cookie).expect(204);
+      await api().get('/api/v3/user').set('authorization', `token ${token.access_token}`).expect(401);
+    });
   });
 });

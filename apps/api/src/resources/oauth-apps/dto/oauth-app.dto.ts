@@ -105,3 +105,32 @@ export class AuthorizingOauthAppDTO {
   })
   owner: string | null;
 }
+
+export class AuthorizedOauthAppDTO {
+  @ApiProperty()
+  clientId: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty({
+    type: [String],
+    description: 'Every scope the app holds across its keys for this account.',
+  })
+  scopes: string[];
+
+  @ApiProperty({ description: 'When the app was first authorized, ISO 8601.' })
+  authorizedAt: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'When one of its keys was last used, ISO 8601.',
+  })
+  lastUsedAt: string | null;
+}
+
+export class ListAuthorizedOauthAppsResponseDTO {
+  @ApiProperty({ type: [AuthorizedOauthAppDTO] })
+  apps: AuthorizedOauthAppDTO[];
+}

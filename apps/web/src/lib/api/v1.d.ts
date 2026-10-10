@@ -2704,6 +2704,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/oauth-apps/authorized": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the OAuth apps the signed-in account authorized */
+        get: operations["OauthAppsController_listAuthorized"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth-apps/authorized/{clientId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an OAuth app the signed-in account authorized
+         * @description Its keys for this account stop working, and it asks for consent again next time. Other accounts' keys are untouched.
+         */
+        delete: operations["OauthAppsController_revokeAuthorized"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/oauth-apps/authorize": {
         parameters: {
             query?: never;
@@ -4449,6 +4486,19 @@ export interface components {
             createdAt: string;
             /** @description Shown only now. Store it: Ghost keeps only a hash. */
             clientSecret: string;
+        };
+        AuthorizedOauthAppDTO: {
+            clientId: string;
+            name: string;
+            /** @description Every scope the app holds across its keys for this account. */
+            scopes: string[];
+            /** @description When the app was first authorized, ISO 8601. */
+            authorizedAt: string;
+            /** @description When one of its keys was last used, ISO 8601. */
+            lastUsedAt: string | null;
+        };
+        ListAuthorizedOauthAppsResponseDTO: {
+            apps: components["schemas"]["AuthorizedOauthAppDTO"][];
         };
         AuthorizingOauthAppDTO: {
             clientId: string;
@@ -10710,6 +10760,52 @@ export interface operations {
                 };
             };
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_listAuthorized: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListAuthorizedOauthAppsResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_revokeAuthorized: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
