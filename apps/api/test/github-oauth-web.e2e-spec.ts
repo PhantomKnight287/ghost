@@ -14,6 +14,7 @@ const CALLBACK = 'https://tool.example/oauth/callback';
 describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
   let app: INestApplication;
   let owner: { cookie: string; key: string; userId: string };
+  const username = `ghweb${Date.now()}`;
   let clientId: string;
   let clientSecret: string;
   const api = () => request(app.getHttpServer());
@@ -40,7 +41,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
 
   beforeAll(async () => {
     ({ app } = await startApp({ WEB_APP_URL: 'https://web.example' }));
-    owner = await signUp(app, `ghweb${Date.now()}`);
+    owner = await signUp(app, username);
     const created = await api().post('/api/oauth-apps').set('cookie', owner.cookie).send({ name: 'Web Tool', homepageUrl: 'https://tool.example', callbackUrl: CALLBACK }).expect(201);
     ({ clientId, clientSecret } = created.body);
   });
@@ -126,6 +127,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
     expect(token.access_token).toMatch(/^ghost_pat_/);
     const user = await api().get('/api/v3/user').set('authorization', `token ${token.access_token}`).expect(200);
     expect(user.headers['x-oauth-scopes']).toBe('repo, read:org');
+    expect(user.body.login).toBe(username);
     await api().get('/api/notifications').set('authorization', `Bearer ${token.access_token}`).expect(401);
     const live = await app.get<Database>(DATABASE).select({ id: schema.oauthAccessToken.id }).from(schema.oauthAccessToken).where(and(eq(schema.oauthAccessToken.clientId, clientId), isNull(schema.oauthAccessToken.revoked)));
     expect(live).toEqual([]);
