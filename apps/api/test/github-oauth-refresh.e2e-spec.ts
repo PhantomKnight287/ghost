@@ -77,4 +77,67 @@ describe.skipIf(!hasBackends)('GitHub OAuth expiring tokens and refresh', () => 
       expect(token).toMatchObject({ expires_in: '28800', refresh_token: expect.stringMatching(/^ghost_rt_/), refresh_token_expires_in: '15897600', scope: 'repo' });
     });
   });
+
+  describe('refreshing', () => {
+    const pair = async () => form((await exchange()).text);
+
+    it('trades a refresh token for a new pair with the same scopes, and retires the old pair', async () => {
+      const first = await pair();
+      const next = form((await refresh(first.refresh_token as string)).text);
+      expect(next).toEqual({ access_token: expect.stringMatching(/^ghost_pat_/), expires_in: '28800', refresh_token: expect.stringMatching(/^ghost_rt_/), refresh_token_expires_in: '15897600', token_type: 'bearer', scope: 'repo' });
+      expect(next.access_token).not.toBe(first.access_token);
+      const user = await api().get('/api/v3/user').set('authorization', `token ${next.access_token}`).expect(200);
+      expect(user.headers['x-oauth-scopes']).toBe('repo');
+      await api().get('/api/v3/user').set('authorization', `token ${first.access_token}`).expect(401);
+      expect(form((await refresh(first.refresh_token as string)).text)).toEqual({ error: 'bad_refresh_token', error_description: 'The refresh token passed is incorrect or expired.' });
+    });
+
+    it('answers JSON when asked', async () => {
+      const response = await refresh((await pair()).refresh_token as string).set('accept', 'application/json');
+      expect(response.body).toMatchObject({ expires_in: 28800, refresh_token_expires_in: 15897600, token_type: 'bearer' });
+    });
+
+    it('lets only one of two concurrent refreshes with the same token win', async () => {
+      const { refresh_token } = await pair();
+      const answers = await Promise.all([refresh(refresh_token as string), refresh(refresh_token as string)]);
+      const tokens = answers.map((answer) => form(answer.text));
+      expect(tokens.filter((token) => token.access_token)).toHaveLength(1);
+      expect(tokens.filter((token) => token.error === 'bad_refresh_token')).toHaveLength(1);
+    });
+
+    it('refuses an expired refresh token and an unknown one', async () => {
+      const { refresh_token } = await pair();
+      await db.update(schema.oauthAppRefreshToken).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(schema.oauthAppRefreshToken.tokenHash, hashRefreshToken(refresh_token as string)));
+      expect(form((await refresh(refresh_token as string)).text).error).toBe('bad_refresh_token');
+      expect(form((await refresh('ghost_rt_nope')).text).error).toBe('bad_refresh_token');
+    });
+
+    it("refuses another app's refresh token and leaves it working for its own app", async () => {
+      const { refresh_token } = await pair();
+      const other = await register({ name: 'Other Tool' });
+      expect(form((await refresh(refresh_token as string, { client_id: other.clientId, client_secret: other.clientSecret })).text).error).toBe('bad_refresh_token');
+      expect(form((await refresh(refresh_token as string)).text).access_token).toMatch(/^ghost_pat_/);
+    });
+
+    it('refuses a wrong or missing client secret, and an unknown client, and spends nothing', async () => {
+      const { refresh_token } = await pair();
+      expect(form((await refresh(refresh_token as string, { client_secret: 'wrong' })).text)).toMatchObject({ error: 'incorrect_client_credentials' });
+      const missing = await api().post('/login/oauth/access_token').type('form').send({ client_id: clientId, grant_type: 'refresh_token', refresh_token }).expect(200);
+      expect(form(missing.text)).toMatchObject({ error: 'incorrect_client_credentials' });
+      expect(form((await refresh(refresh_token as string, { client_id: 'nope' })).text)).toMatchObject({ error: 'incorrect_client_credentials' });
+      expect(form((await refresh(refresh_token as string)).text).access_token).toMatch(/^ghost_pat_/);
+    });
+
+    it('moves to keys that never expire once the switch is turned off', async () => {
+      const toggled = await register({ name: 'Toggled Tool' });
+      const credentials = { client_id: toggled.clientId, client_secret: toggled.clientSecret };
+      const first = form((await exchange(toggled.clientId, toggled.clientSecret)).text);
+      await api().patch(`/api/oauth-apps/${toggled.clientId}`).set('cookie', owner.cookie).send({ expireUserTokens: false }).expect(200);
+      const next = form((await refresh(first.refresh_token as string, credentials)).text);
+      expect(next).toEqual({ access_token: expect.stringMatching(/^ghost_pat_/), token_type: 'bearer', scope: 'repo' });
+      expect((await newestKey())?.expiresAt).toBeNull();
+      await api().get('/api/v3/user').set('authorization', `token ${first.access_token}`).expect(401);
+      expect(form((await refresh(first.refresh_token as string, credentials)).text).error).toBe('bad_refresh_token');
+    });
+  });
 });

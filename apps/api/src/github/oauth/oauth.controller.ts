@@ -24,6 +24,7 @@ import {
   ACCESS_TOKEN_EXPIRES_IN,
   issueRefreshToken,
   REFRESH_TOKEN_EXPIRES_IN,
+  spendRefreshToken,
 } from '../../lib/github/refresh-tokens.js';
 import { grantableScopes, NO_SCOPE } from '../../lib/github/scopes.js';
 
@@ -123,7 +124,7 @@ export class OauthController {
     });
   }
 
-  /** Dispatches as GitHub does: the device grant when `grant_type` names it, the web flow's code exchange when a `code` is sent, which GitHub's clients send without a `grant_type`. */
+  /** Dispatches as GitHub does: the device and refresh grants when `grant_type` names them, the web flow's code exchange when a `code` is sent, which GitHub's clients send without a `grant_type`. */
   @Post('oauth/access_token')
   async accessToken(
     @Body()
@@ -135,6 +136,7 @@ export class OauthController {
       code?: string;
       redirect_uri?: string;
       code_verifier?: string;
+      refresh_token?: string;
     },
     @Req() req: Request,
     @Res() res: Response,
@@ -145,6 +147,16 @@ export class OauthController {
     if (body.grant_type === DEVICE_GRANT && body.device_code) {
       if (!app) return sendOAuth(req, res, 400, { error: 'invalid_client' });
       return this.deviceGrant(req, res, app, body.device_code);
+    }
+    if (body.grant_type === 'refresh_token' && body.refresh_token) {
+      if (!app)
+        return sendOAuth(req, res, 200, {
+          error: 'incorrect_client_credentials',
+        });
+      return this.refreshGrant(req, res, app, {
+        client_secret: body.client_secret,
+        refresh_token: body.refresh_token,
+      });
     }
     if (body.code) {
       if (!app)
@@ -247,6 +259,55 @@ export class OauthController {
     const { sub } = await this.auth.api.oauth2Introspect({ body: token });
     await this.auth.api.oauth2Revoke({ body: token });
     return this.issueKey(req, res, app, sub as string, granted.scope);
+  }
+
+  /** GitHub's refresh for expiring user tokens: the token is spent, its key deleted, and a new pair minted under the app's current switch. */
+  private async refreshGrant(
+    req: Request,
+    res: Response,
+    app: OauthApp,
+    body: { client_secret?: string; refresh_token: string },
+  ) {
+    if (!(await this.authenticates(app, body.client_secret)))
+      return sendOAuth(req, res, 200, {
+        error: 'incorrect_client_credentials',
+      });
+    const grant = await spendRefreshToken(
+      this.db,
+      app.clientId,
+      body.refresh_token,
+    );
+    if (!grant)
+      return sendOAuth(req, res, 200, {
+        error: 'bad_refresh_token',
+        error_description: 'The refresh token passed is incorrect or expired.',
+      });
+    await this.db
+      .delete(schema.apikey)
+      .where(eq(schema.apikey.id, grant.accessKeyId));
+    sendOAuth(req, res, 200, await this.mint(app, grant.userId, grant.scopes));
+  }
+
+  /** The plugin checks a secret its own way; introspecting a token it does not hold fails only on bad credentials. */
+  private async authenticates(app: OauthApp, clientSecret?: string) {
+    try {
+      await this.auth.api.oauth2Introspect({
+        body: {
+          client_id: app.clientId,
+          client_secret: clientSecret,
+          token: 'ghost-client-check',
+          token_type_hint: 'access_token',
+        },
+      });
+      return true;
+    } catch (error) {
+      if (
+        isAPIError(error) &&
+        (error.body as { error?: string }).error === 'invalid_client'
+      )
+        return false;
+      throw error;
+    }
   }
 
   private async issueKey(
