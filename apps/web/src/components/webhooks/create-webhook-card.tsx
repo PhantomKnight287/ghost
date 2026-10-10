@@ -19,7 +19,7 @@ import {
 
 import { createWebhook } from "./actions";
 import { EventPicker } from "./event-picker";
-import { SecretAlert } from "./secret-alert";
+import { SecretAlert } from "@/components/secret-alert";
 
 /** Once the endpoint exists, its secret replaces the form: the only time anyone sees it. */
 export function CreateWebhookCard({
@@ -47,7 +47,17 @@ export function CreateWebhookCard({
   if (created) {
     return (
       <div className="flex flex-col items-start gap-4">
-        <SecretAlert url={created.url} secret={created.secret} />
+        <SecretAlert
+          title={`Copy the signing secret for ${created.url} now`}
+          description={
+            <>
+              Ghost will not show it again. Use it to check the{" "}
+              <code className="font-mono text-xs">X-Ghost-Signature-256</code>{" "}
+              header on each delivery.
+            </>
+          }
+          secret={created.secret}
+        />
         <Button asChild>
           <Link href={`${webhooksPath(owner)}/${created.id}`}>
             I have copied it

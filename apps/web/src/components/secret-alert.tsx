@@ -1,13 +1,22 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
-export function SecretAlert({ url, secret }: { url: string; secret: string }) {
+/** A secret Ghost shows once, with a copy button. */
+export function SecretAlert({
+  title,
+  description,
+  secret,
+}: {
+  title: string;
+  description: ReactNode;
+  secret: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -22,13 +31,9 @@ export function SecretAlert({ url, secret }: { url: string; secret: string }) {
 
   return (
     <Alert>
-      <AlertTitle>Copy the signing secret for {url} now</AlertTitle>
+      <AlertTitle>{title}</AlertTitle>
       <AlertDescription className="flex flex-col gap-3">
-        <p>
-          Ghost will not show it again. Use it to check the{" "}
-          <code className="font-mono text-xs">X-Ghost-Signature-256</code>{" "}
-          header on each delivery.
-        </p>
+        <p>{description}</p>
         <div className="flex w-full items-center gap-2">
           <code className="min-w-0 flex-1 truncate rounded-md border bg-muted px-2 py-1.5 font-mono text-xs">
             {secret}
@@ -38,7 +43,7 @@ export function SecretAlert({ url, secret }: { url: string; secret: string }) {
             size="sm"
             variant="outline"
             onClick={copy}
-            aria-label="Copy signing secret"
+            aria-label="Copy secret"
           >
             {copied ? <Check /> : <Copy />}
             {copied ? "Copied" : "Copy"}

@@ -3,13 +3,16 @@
 import type { SettingsView } from "@better-auth-ui/core";
 import { useAuth } from "@better-auth-ui/react";
 
+import { GHOST_SETTINGS_PATHS } from "@/lib/auth/settings-paths";
 import { useAuthenticate } from "@/lib/auth/use-authenticate";
-import { HardDrive, Shield, User2 } from "lucide-react";
+import { AppWindow, HardDrive, KeyRound, Shield, User2 } from "lucide-react";
 import { useMemo } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { AccountSettings } from "./account/account-settings";
+import { AuthorizedAppsSettings } from "./authorized-apps/authorized-apps-settings";
+import { OauthAppsSettings } from "./oauth-apps/oauth-apps-settings";
 import { SecuritySettings } from "./security/security-settings";
 import { StorageSettings } from "./storage/storage-settings";
 
@@ -34,8 +37,8 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
   const currentView = useMemo(() => {
     if (view) return view;
     if (!path) return undefined;
-    // Ghost's own tab, which no better-auth-ui plugin knows about.
-    if (path === "storage") return "storage" as SettingsView;
+    if ((GHOST_SETTINGS_PATHS as readonly string[]).includes(path))
+      return path as SettingsView;
 
     const match = [
       viewPaths.settings,
@@ -103,6 +106,26 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
             Storage
           </TabsTrigger>
 
+          <TabsTrigger
+            value="oauth-apps"
+            className="gap-1"
+            onClick={() => navigate({ to: `${basePaths.settings}/oauth-apps` })}
+          >
+            <AppWindow className="text-muted-foreground" />
+            OAuth apps
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="authorized-apps"
+            className="gap-1"
+            onClick={() =>
+              navigate({ to: `${basePaths.settings}/authorized-apps` })
+            }
+          >
+            <KeyRound className="text-muted-foreground" />
+            Authorized apps
+          </TabsTrigger>
+
           {plugins.flatMap(
             (plugin) =>
               plugin.settingsTabs?.map((settingsTab) => (
@@ -133,6 +156,14 @@ export function Settings({ className, view, path, hideNav }: SettingsProps) {
 
       <TabsContent value="storage" tabIndex={-1}>
         <StorageSettings />
+      </TabsContent>
+
+      <TabsContent value="oauth-apps" tabIndex={-1}>
+        <OauthAppsSettings />
+      </TabsContent>
+
+      <TabsContent value="authorized-apps" tabIndex={-1}>
+        <AuthorizedAppsSettings />
       </TabsContent>
 
       {plugins.flatMap((plugin) =>

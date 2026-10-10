@@ -20,7 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import type { WebhookOwner } from "@/lib/webhooks";
 
 import { rollWebhookSecret } from "./actions";
-import { SecretAlert } from "./secret-alert";
+import { SecretAlert } from "@/components/secret-alert";
 
 export function RollSecretCard({
   owner,
@@ -38,7 +38,19 @@ export function RollSecretCard({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold">Signing secret</h2>
-      {secret && <SecretAlert url={webhook.url} secret={secret} />}
+      {secret && (
+        <SecretAlert
+          title={`Copy the signing secret for ${webhook.url} now`}
+          description={
+            <>
+              Ghost will not show it again. Use it to check the{" "}
+              <code className="font-mono text-xs">X-Ghost-Signature-256</code>{" "}
+              header on each delivery.
+            </>
+          }
+          secret={secret}
+        />
+      )}
       <Card className="flex-row items-center justify-between gap-4 px-6">
         <p className="text-sm text-muted-foreground">
           Replace the secret if it leaked. The old one stops working at once.
