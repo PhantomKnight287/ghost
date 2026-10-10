@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { apiClient, unwrap } from "@/lib/api/client";
+import { describeScope } from "@/lib/oauth-scopes";
 
 export type OauthApprovalProps = {
   className?: string;
@@ -79,21 +80,28 @@ export function OauthApproval({
             </>
           ) : null}
 
-          <div className="flex flex-col gap-1">
-            <p className="text-xs text-muted-foreground">Requested scopes</p>
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-muted-foreground">
+              {scopes.length > 0 ? "It will be able to" : "Requested scopes"}
+            </p>
             {scopes.length > 0 ? (
-              <ul className="flex flex-wrap gap-1">
+              <ul className="flex flex-col gap-2">
                 {scopes.map((scope) => (
-                  <li
-                    key={scope}
-                    className="rounded border bg-background px-1.5 py-0.5 font-mono text-xs"
-                  >
-                    {scope}
+                  <li key={scope} className="flex items-start gap-2">
+                    <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                    <div className="flex min-w-0 flex-col">
+                      <span className="text-sm">{describeScope(scope)}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {scope}
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm">None: public information only</p>
+              <p className="text-sm">
+                None. It can only see information that is already public.
+              </p>
             )}
           </div>
 
