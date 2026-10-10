@@ -115,7 +115,7 @@ export class ReposController {
     @Body() body: GithubCreateRepositoryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return this.create(body, viewer, undefined);
+    return this.create(body, viewer, undefined, 'POST /user/repos');
   }
 
   @Post('orgs/:org/repos')
@@ -126,17 +126,18 @@ export class ReposController {
     @Body() body: GithubCreateRepositoryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return this.create(body, viewer, org);
+    return this.create(body, viewer, org, 'POST /orgs/:org/repos');
   }
 
   private async create(
     body: GithubCreateRepositoryDTO,
     viewer: GithubViewer | null,
     organization: string | undefined,
+    route: string,
   ) {
     if (!viewer) throw new RequiresAuthenticationError();
     const visibility = body.visibility ?? (body.private ? 'private' : 'public');
-    requireWriteScope(viewer, 'POST /user/repos', {
+    requireWriteScope(viewer, route, {
       isPrivate: visibility === 'private',
     });
     const created = await this.repositories.createRepository(
