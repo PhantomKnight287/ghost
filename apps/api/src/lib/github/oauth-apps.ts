@@ -1,5 +1,5 @@
 import { type Database, schema } from '@ghost/db';
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 export type OauthApp = {
   clientId: string;
@@ -16,25 +16,21 @@ export async function findOauthApp(
   db: Database,
   clientId: string,
 ): Promise<OauthApp | null> {
-  const [row] = await db
+  const [app] = await db
     .select({
       clientId: schema.oauthClient.clientId,
-      name: schema.oauthClient.name,
+      name: sql<string>`coalesce(${schema.oauthClient.name}, ${schema.oauthClient.clientId})`,
       redirectUris: schema.oauthClient.redirectUris,
-      disabled: schema.oauthClient.disabled,
-      metadata: schema.oauthClient.metadata,
+      deviceFlowEnabled: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'deviceFlow')::boolean, false)`,
+      builtIn: sql<boolean>`${schema.oauthClient.userId} is null`,
       ownerId: schema.oauthClient.userId,
     })
     .from(schema.oauthClient)
-    .where(eq(schema.oauthClient.clientId, clientId));
-  if (!row || row.disabled) return null;
-  return {
-    clientId: row.clientId,
-    name: row.name ?? row.clientId,
-    redirectUris: row.redirectUris,
-    deviceFlowEnabled:
-      (row.metadata as { deviceFlow?: boolean } | null)?.deviceFlow === true,
-    builtIn: row.ownerId === null,
-    ownerId: row.ownerId,
-  };
+    .where(
+      and(
+        eq(schema.oauthClient.clientId, clientId),
+        sql`${schema.oauthClient.disabled} is not true`,
+      ),
+    );
+  return app ?? null;
 }
