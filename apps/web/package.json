@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check-types": "tsc --noEmit",
-    "generate": "openapi-typescript ../api/openapi.json -o ./src/lib/api/v1.d.ts",
+    "generate": "openapi-typescript ../api/openapi.json -o ./src/lib/api/v1.d.ts --default-non-nullable false",
     "format": "biome format --write .",
     "test": "bun test"
   },
