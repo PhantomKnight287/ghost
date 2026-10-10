@@ -269,8 +269,8 @@ export const userEmail = pgTable(
 
 export const deviceCode = pgTable("device_code", {
   id: text("id").primaryKey(),
-  deviceCode: text("device_code").notNull(),
-  userCode: text("user_code").notNull(),
+  deviceCode: text("device_code").notNull().unique(),
+  userCode: text("user_code").notNull().unique(),
   userId: text("user_id"),
   expiresAt: timestamp("expires_at").notNull(),
   status: text("status").notNull(),

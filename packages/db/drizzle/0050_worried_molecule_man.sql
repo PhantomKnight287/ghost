@@ -8,5 +8,7 @@ CREATE TABLE "device_code" (
 	"last_polled_at" timestamp,
 	"polling_interval" integer,
 	"client_id" text,
-	"scope" text
+	"scope" text,
+	CONSTRAINT "device_code_device_code_unique" UNIQUE("device_code"),
+	CONSTRAINT "device_code_user_code_unique" UNIQUE("user_code")
 );
