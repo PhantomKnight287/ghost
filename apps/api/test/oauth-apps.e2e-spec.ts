@@ -201,6 +201,24 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
       await api().delete(`/api/oauth-apps/authorized/${a}`).set('cookie', owner.cookie).expect(404);
     });
 
+    it('keeps an app whose key expired but whose refresh token lives, and revoking it deletes the refresh token', async () => {
+      const a = (await create(other.cookie, { name: 'App R' }).expect(201)).body.clientId;
+      await db.insert(schema.oauthAppRefreshToken).values({ tokenHash: `rt-${stamp}`, clientId: a, userId: owner.userId, scopes: ['read:org', 'repo'], accessKeyId: 'gone', expiresAt: new Date(Date.now() + 60_000) });
+      const list = await api().get('/api/oauth-apps/authorized').set('cookie', owner.cookie).expect(200);
+      expect(list.body.apps.find((each: { clientId: string }) => each.clientId === a)).toMatchObject({ name: 'App R', scopes: ['read:org', 'repo'], lastUsedAt: null, authorizedAt: expect.any(String) });
+      await api().delete(`/api/oauth-apps/authorized/${a}`).set('cookie', owner.cookie).expect(204);
+      expect(await db.select().from(schema.oauthAppRefreshToken).where(eq(schema.oauthAppRefreshToken.clientId, a))).toEqual([]);
+      await api().delete(`/api/oauth-apps/authorized/${a}`).set('cookie', owner.cookie).expect(404);
+    });
+
+    it('merges the scopes of keys and refresh tokens into one entry', async () => {
+      const a = (await create(other.cookie, { name: 'App M' }).expect(201)).body.clientId;
+      await key(`mk${stamp}`, owner.userId, a, ['repo']);
+      await db.insert(schema.oauthAppRefreshToken).values({ tokenHash: `rm-${stamp}`, clientId: a, userId: owner.userId, scopes: ['gist', 'repo'], accessKeyId: `mk${stamp}`, expiresAt: new Date(Date.now() + 60_000) });
+      const list = await api().get('/api/oauth-apps/authorized').set('cookie', owner.cookie).expect(200);
+      expect(list.body.apps.filter((each: { clientId: string }) => each.clientId === a)).toEqual([expect.objectContaining({ scopes: ['gist', 'repo'] })]);
+    });
+
     it('shows gh after the device flow, and revoking it locks gh out', async () => {
       const form = (text: string) => Object.fromEntries(new URLSearchParams(text));
       const code = form((await api().post('/login/device/code').type('form').send({ client_id: GH, scope: 'repo' }).expect(200)).text);

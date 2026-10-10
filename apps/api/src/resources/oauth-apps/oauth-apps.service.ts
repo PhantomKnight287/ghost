@@ -2,6 +2,7 @@ import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { and, eq, sql } from 'drizzle-orm';
+import { unionAll } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
@@ -237,10 +238,44 @@ export class OauthAppsService {
     await this.avatars.remove(clientId);
   }
 
-  /** Apps holding a key for this user, gh included. */
+  /** Apps holding a key or a refresh token for this user, gh included. */
   async listAuthorized(
     userId: string,
   ): Promise<ListAuthorizedOauthAppsResponseDTO> {
+    const keys = this.db
+      .select({
+        clientId: sql<string>`${keyOauthClientId}`.as('grant_client_id'),
+        scopes:
+          sql<unknown>`coalesce(${schema.apikey.permissions}::jsonb->'scopes', '[]'::jsonb)`.as(
+            'grant_scopes',
+          ),
+        createdAt: sql<Date>`${schema.apikey.createdAt}`.as('granted_at'),
+        lastRequest: sql<Date | null>`${schema.apikey.lastRequest}`.as(
+          'grant_last_request',
+        ),
+      })
+      .from(schema.apikey)
+      .where(eq(schema.apikey.referenceId, userId));
+    // An expiring key may already be deleted while its refresh token still lets the app back in.
+    const refreshTokens = this.db
+      .select({
+        clientId: sql<string>`${schema.oauthAppRefreshToken.clientId}`.as(
+          'grant_client_id',
+        ),
+        scopes:
+          sql<unknown>`to_jsonb(${schema.oauthAppRefreshToken.scopes})`.as(
+            'grant_scopes',
+          ),
+        createdAt: sql<Date>`${schema.oauthAppRefreshToken.createdAt}`.as(
+          'granted_at',
+        ),
+        lastRequest: sql<Date | null>`null::timestamptz`.as(
+          'grant_last_request',
+        ),
+      })
+      .from(schema.oauthAppRefreshToken)
+      .where(eq(schema.oauthAppRefreshToken.userId, userId));
+    const grants = unionAll(keys, refreshTokens).as('grants');
     const apps = await this.db
       .select({
         clientId: oauthAppColumns.clientId,
@@ -249,24 +284,23 @@ export class OauthAppsService {
         // jsonb_agg runs over the outer group; Postgres allows that only in a select list, hence the one-row derived table.
         scopes: sql<
           string[]
-        >`array(select distinct scope from (select jsonb_agg(coalesce(${schema.apikey.permissions}::jsonb->'scopes', '[]')) as granted) as keys, jsonb_array_elements(keys.granted) as key_scopes, jsonb_array_elements_text(key_scopes) as scope order by scope)`,
-        authorizedAt: isoTimestamp(sql`min(${schema.apikey.createdAt})`),
+        >`array(select distinct scope from (select jsonb_agg(${grants.scopes}) as granted) as each_grant, jsonb_array_elements(each_grant.granted) as each_scope_list, jsonb_array_elements_text(each_scope_list) as scope order by scope)`,
+        authorizedAt: isoTimestamp(sql`min(${grants.createdAt})`),
         lastUsedAt: sql<
           string | null
-        >`${isoTimestamp(sql`max(${schema.apikey.lastRequest})`)}`,
+        >`${isoTimestamp(sql`max(${grants.lastRequest})`)}`,
       })
-      .from(schema.apikey)
+      .from(grants)
       .innerJoin(
         schema.oauthClient,
-        eq(schema.oauthClient.clientId, keyOauthClientId),
+        eq(schema.oauthClient.clientId, grants.clientId),
       )
-      .where(eq(schema.apikey.referenceId, userId))
       .groupBy(schema.oauthClient.id)
       .orderBy(oauthAppColumns.name);
     return { apps };
   }
 
-  /** Deletes this user's keys for the app and their consent, so the app asks again next time. Other users' keys stay. */
+  /** Deletes this user's keys and refresh tokens for the app and their consent, so the app asks again next time. Other users' grants stay. */
   async revokeAuthorized(userId: string, clientId: string): Promise<void> {
     const keys = await this.db
       .delete(schema.apikey)
@@ -277,7 +311,17 @@ export class OauthAppsService {
         ),
       )
       .returning({ id: schema.apikey.id });
-    if (keys.length === 0) throw new AuthorizedOauthAppNotFoundError();
+    const refreshTokens = await this.db
+      .delete(schema.oauthAppRefreshToken)
+      .where(
+        and(
+          eq(schema.oauthAppRefreshToken.userId, userId),
+          eq(schema.oauthAppRefreshToken.clientId, clientId),
+        ),
+      )
+      .returning({ id: schema.oauthAppRefreshToken.id });
+    if (keys.length === 0 && refreshTokens.length === 0)
+      throw new AuthorizedOauthAppNotFoundError();
     await this.db
       .delete(schema.oauthConsent)
       .where(

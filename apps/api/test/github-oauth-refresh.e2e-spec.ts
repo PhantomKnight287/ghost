@@ -128,6 +128,13 @@ describe.skipIf(!hasBackends)('GitHub OAuth expiring tokens and refresh', () => 
       expect(form((await refresh(refresh_token as string)).text).access_token).toMatch(/^ghost_pat_/);
     });
 
+    it('stops refreshing once the user revokes the app', async () => {
+      const revoked = await register({ name: 'Revoked Tool' });
+      const first = form((await exchange(revoked.clientId, revoked.clientSecret)).text);
+      await api().delete(`/api/oauth-apps/authorized/${revoked.clientId}`).set('cookie', owner.cookie).expect(204);
+      expect(form((await refresh(first.refresh_token as string, { client_id: revoked.clientId, client_secret: revoked.clientSecret })).text).error).toBe('bad_refresh_token');
+    });
+
     it('moves to keys that never expire once the switch is turned off', async () => {
       const toggled = await register({ name: 'Toggled Tool' });
       const credentials = { client_id: toggled.clientId, client_secret: toggled.clientSecret };
