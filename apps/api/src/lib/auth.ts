@@ -28,6 +28,7 @@ import {
   keyOauthClientId,
   oauthAppOrganization,
 } from './github/oauth-apps.js';
+import { ACCESS_TOKEN_EXPIRES_IN } from './github/refresh-tokens.js';
 import { KNOWN_SCOPES, NO_SCOPE } from './github/scopes.js';
 
 export type AuthConfig = {
@@ -519,6 +520,8 @@ export function createAuth(db: Database, config: AuthConfig) {
       username({}),
       apiKey({
         defaultPrefix: 'ghost_pat_',
+        // In days: OAuth apps with expiring user tokens get keys that last 8 hours.
+        keyExpiration: { minExpiresIn: ACCESS_TOKEN_EXPIRES_IN / 86400 },
         // Device-flow keys record the OAuth app that minted them.
         enableMetadata: true,
         rateLimit: {

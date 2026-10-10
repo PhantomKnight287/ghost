@@ -20,6 +20,11 @@ import type { Auth } from '../../lib/auth.js';
 import { callbackMatches } from '../../lib/github/callback.js';
 import { findOauthApp, type OauthApp } from '../../lib/github/oauth-apps.js';
 import { sendOAuth } from '../../lib/github/oauth-response.js';
+import {
+  ACCESS_TOKEN_EXPIRES_IN,
+  issueRefreshToken,
+  REFRESH_TOKEN_EXPIRES_IN,
+} from '../../lib/github/refresh-tokens.js';
 import { grantableScopes, NO_SCOPE } from '../../lib/github/scopes.js';
 
 const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
@@ -251,19 +256,40 @@ export class OauthController {
     userId: string,
     scope: string,
   ) {
-    const scopes = grantableScopes(scope);
-    const { key } = await this.auth.api.createApiKey({
+    sendOAuth(
+      req,
+      res,
+      200,
+      await this.mint(app, userId, grantableScopes(scope)),
+    );
+  }
+
+  /** A key for the app's user in GitHub's token response, with its expiry and a refresh token when the app has expiring user tokens on. */
+  private async mint(app: OauthApp, userId: string, scopes: string[]) {
+    const { key, id } = await this.auth.api.createApiKey({
       body: {
         userId,
         name: app.name,
         permissions: { scopes },
         metadata: { oauthClientId: app.clientId },
+        ...(app.expireUserTokens && { expiresIn: ACCESS_TOKEN_EXPIRES_IN }),
       },
     });
-    sendOAuth(req, res, 200, {
+    const token = {
       access_token: key,
       token_type: 'bearer',
       scope: scopes.join(','),
-    });
+    };
+    if (!app.expireUserTokens) return token;
+    return {
+      ...token,
+      expires_in: ACCESS_TOKEN_EXPIRES_IN,
+      refresh_token: await issueRefreshToken(this.db, app.clientId, {
+        userId,
+        scopes,
+        accessKeyId: id,
+      }),
+      refresh_token_expires_in: REFRESH_TOKEN_EXPIRES_IN,
+    };
   }
 }
