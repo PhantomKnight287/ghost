@@ -246,7 +246,6 @@ export function DeviceAuthorization({ className }: DeviceAuthorizationProps) {
   if (state.step === "approval" && session) {
     return (
       <DeviceApproval
-        className={cardClassName}
         localization={localization}
         userCode={authorizedCode}
         request={state.request}
@@ -423,7 +422,6 @@ function DeviceCodeForm({
 }
 
 type DeviceApprovalProps = {
-  className: string
   isApproving: boolean
   isDenying: boolean
   localization: DeviceAuthorizationLocalization
@@ -431,6 +429,7 @@ type DeviceApprovalProps = {
   user: {
     email: string
     name: string
+    image?: string | null
   }
   userCode: string
   onApprove: () => void
@@ -438,7 +437,6 @@ type DeviceApprovalProps = {
 }
 
 function DeviceApproval({
-  className,
   isApproving,
   isDenying,
   localization,
@@ -450,15 +448,12 @@ function DeviceApproval({
 }: DeviceApprovalProps) {
   return (
     <OauthApproval
-      className={className}
-      title={localization.approveDevice}
-      description={localization.approveDeviceDescription}
       details={
-        <div className="flex flex-col gap-1">
+        <div className="flex w-full flex-col items-center gap-1 rounded-lg border bg-muted/50 px-4 py-3">
           <p className="text-xs text-muted-foreground">
-            {localization.deviceCode}
+            Check this code matches the one on your device
           </p>
-          <p className="font-mono text-sm font-medium tracking-wider">
+          <p className="font-mono text-2xl font-semibold tracking-[0.3em]">
             {userCode}
           </p>
         </div>
@@ -466,7 +461,6 @@ function DeviceApproval({
       clientId={request.clientId}
       scopes={request.scope?.split(" ").filter(Boolean) ?? []}
       user={user}
-      signedInAsLabel={localization.signedInAs}
       approveLabel={localization.approve}
       denyLabel={localization.deny}
       isApproving={isApproving}

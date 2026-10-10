@@ -4,9 +4,10 @@ import { useSession } from "@better-auth-ui/react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { OauthApproval } from "@/components/auth/oauth-approval/oauth-approval";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  OauthApproval,
+  OauthApprovalSkeleton,
+} from "@/components/auth/oauth-approval/oauth-approval";
 import { authClient } from "@/lib/auth-client";
 
 /** What the API asks the oauth-provider plugin for when an app requests no scope, since the plugin reads an empty request as every scope. */
@@ -37,17 +38,13 @@ export function ConsentForm({
     onError: (error) => toast.error(error.message),
   });
 
-  if (!session) return <ConsentFormSkeleton />;
+  if (!session) return <OauthApprovalSkeleton />;
 
   return (
     <OauthApproval
-      className="w-full max-w-sm"
-      title="Authorize application"
-      description="An application is asking to act on your account."
       clientId={clientId}
       scopes={scope.split(" ").filter((each) => each && each !== NO_SCOPE)}
       user={session.user}
-      signedInAsLabel="Signed in as"
       approveLabel="Authorize"
       denyLabel="Cancel"
       isApproving={decide.isPending && decide.variables}
@@ -55,19 +52,5 @@ export function ConsentForm({
       onApprove={() => decide.mutate(true)}
       onDeny={() => decide.mutate(false)}
     />
-  );
-}
-
-function ConsentFormSkeleton() {
-  return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-64" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-48 w-full" />
-      </CardContent>
-    </Card>
   );
 }

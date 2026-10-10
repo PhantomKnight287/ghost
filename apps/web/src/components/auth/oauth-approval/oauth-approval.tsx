@@ -1,35 +1,43 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CheckIcon, XIcon } from "lucide-react";
+import {
+  ArrowLeftRight,
+  BookLock,
+  Building2,
+  ExternalLink,
+  Globe,
+  KeyRound,
+  Trash2,
+  UserRound,
+} from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { apiClient, unwrap } from "@/lib/api/client";
-import { describeScope } from "@/lib/oauth-scopes";
+import { describeScope, type ScopeGroup } from "@/lib/oauth-scopes";
+
+const GROUP_ICONS: Record<ScopeGroup, typeof BookLock> = {
+  repo: BookLock,
+  org: Building2,
+  user: UserRound,
+  key: KeyRound,
+  delete: Trash2,
+  other: Globe,
+};
 
 export type OauthApprovalProps = {
-  className?: string;
-  title: string;
-  description: string;
-  /** Shown above the app, such as the device flow's user code. */
+  /** Shown under the app, such as the device flow's user code. */
   details?: ReactNode;
   clientId?: string;
   scopes: string[];
-  user: { email: string; name: string };
-  signedInAsLabel: string;
+  user: { email: string; name: string; image?: string | null };
   approveLabel: string;
   denyLabel: string;
   isApproving: boolean;
@@ -38,16 +46,12 @@ export type OauthApprovalProps = {
   onDeny: () => void;
 };
 
-/** The card a user approves an OAuth app on, from the device flow or the web flow: who is asking, for what, and as whom. */
+/** The card a person approves an OAuth app on, from the device flow or the web flow: who is asking, what it could do, and as whom. */
 export function OauthApproval({
-  className,
-  title,
-  description,
   details,
   clientId,
   scopes,
   user,
-  signedInAsLabel,
   approveLabel,
   denyLabel,
   isApproving,
@@ -55,150 +59,177 @@ export function OauthApproval({
   onApprove,
   onDeny,
 }: OauthApprovalProps) {
+  const { data: app, isPending: isAppPending } = useQuery({
+    queryKey: ["oauth-apps", "authorize", clientId],
+    queryFn: () =>
+      unwrap(
+        apiClient.GET("/api/oauth-apps/authorize", {
+          params: { query: { client_id: clientId ?? "" } },
+        }),
+      ),
+    enabled: Boolean(clientId),
+  });
+  if (clientId && isAppPending) return <OauthApprovalSkeleton />;
+
+  const name = app?.name ?? "An application";
   const isPending = isApproving || isDenying;
+  const homepage = app?.homepageUrl ? new URL(app.homepageUrl) : null;
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="text-xl">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-
-      <CardContent>
-        <div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3">
-          {details ? (
-            <>
-              {details}
-              <Separator />
-            </>
-          ) : null}
-
-          {clientId ? (
-            <>
-              <OauthAppSummary clientId={clientId} />
-              <Separator />
-            </>
-          ) : null}
-
-          <div className="flex flex-col gap-2">
-            <p className="text-xs text-muted-foreground">
-              {scopes.length > 0 ? "It will be able to" : "Requested scopes"}
-            </p>
-            {scopes.length > 0 ? (
-              <ul className="flex flex-col gap-2">
-                {scopes.map((scope) => (
-                  <li key={scope} className="flex items-start gap-2">
-                    <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                    <div className="flex min-w-0 flex-col">
-                      <span className="text-sm">{describeScope(scope)}</span>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {scope}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm">
-                None. It can only see information that is already public.
-              </p>
-            )}
-          </div>
-
-          <Separator />
-
-          <div className="flex flex-col gap-1">
-            <p className="text-xs text-muted-foreground">{signedInAsLabel}</p>
-            <p className="text-sm font-medium">{user.name || user.email}</p>
-            {user.name ? (
-              <p className="text-xs text-muted-foreground">{user.email}</p>
-            ) : null}
-          </div>
+    <Card className="w-full max-w-lg gap-0 py-0">
+      <CardContent className="flex flex-col items-center gap-4 px-6 pt-8 pb-6 text-center">
+        <div className="flex items-center gap-3">
+          <ProfileAvatar
+            name={name}
+            image={app?.logoUrl}
+            className="size-14 rounded-xl"
+            fallbackClassName="text-lg"
+          />
+          <ArrowLeftRight
+            aria-hidden
+            className="size-4 text-muted-foreground"
+          />
+          <ProfileAvatar
+            name={user.name || user.email}
+            image={user.image}
+            className="size-14"
+            fallbackClassName="text-lg"
+          />
         </div>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-semibold text-balance">
+            {name} wants to access your account
+          </h1>
+          {app && (
+            <p className="flex flex-wrap items-center justify-center gap-x-1.5 text-sm text-muted-foreground">
+              <span>{app.owner ? `by @${app.owner}` : "Built into Ghost"}</span>
+              {homepage && (
+                <>
+                  <span aria-hidden>·</span>
+                  <a
+                    href={homepage.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground"
+                  >
+                    {homepage.host}
+                    <ExternalLink aria-hidden className="size-3" />
+                  </a>
+                </>
+              )}
+            </p>
+          )}
+        </div>
+        {app?.description && (
+          <p className="max-w-sm text-sm text-pretty text-muted-foreground">
+            {app.description}
+          </p>
+        )}
+        {details}
       </CardContent>
 
-      <CardFooter className="grid grid-cols-2 gap-2">
-        <Button disabled={isPending} variant="outline" onClick={onDeny}>
-          {isDenying ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <XIcon data-icon="inline-start" />
-          )}
-          {denyLabel}
-        </Button>
+      <Separator />
 
-        <Button disabled={isPending} onClick={onApprove}>
-          {isApproving ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <CheckIcon data-icon="inline-start" />
-          )}
-          {approveLabel}
-        </Button>
+      <CardContent className="flex flex-col gap-3 px-6 py-5">
+        <h2 className="text-sm font-medium">
+          {scopes.length > 0
+            ? `This will let ${name}:`
+            : `${name} is asking for no extra access.`}
+        </h2>
+        {scopes.length > 0 ? (
+          <ul className="flex flex-col gap-4">
+            {scopes.map((scope) => {
+              const { title, detail, group } = describeScope(scope);
+              const Icon = GROUP_ICONS[group];
+              return (
+                <li key={scope} className="flex gap-3">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                    <Icon aria-hidden className="size-4" />
+                  </span>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="text-sm font-medium">{title}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {detail}
+                    </span>
+                    <code className="mt-0.5 font-mono text-xs text-muted-foreground/80">
+                      {scope}
+                    </code>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            It can only see information that is already public.
+          </p>
+        )}
+      </CardContent>
+
+      <CardFooter className="flex flex-col gap-4 border-t px-6 py-5">
+        <div className="grid w-full grid-cols-2 gap-2">
+          <Button
+            size="lg"
+            variant="outline"
+            disabled={isPending}
+            onClick={onDeny}
+          >
+            {isDenying && <Spinner data-icon="inline-start" />}
+            {denyLabel}
+          </Button>
+          <Button size="lg" disabled={isPending} onClick={onApprove}>
+            {isApproving && <Spinner data-icon="inline-start" />}
+            {approveLabel}
+          </Button>
+        </div>
+        <p className="text-center text-xs text-balance text-muted-foreground">
+          Signed in as{" "}
+          <span className="font-medium text-foreground">
+            {user.name || user.email}
+          </span>
+          . You can revoke access at any time in{" "}
+          <Link
+            href="/settings/authorized-apps"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Authorized apps
+          </Link>
+          .
+        </p>
       </CardFooter>
     </Card>
   );
 }
 
-function OauthAppSummary({ clientId }: { clientId: string }) {
-  const { data: app, isPending } = useQuery({
-    queryKey: ["oauth-apps", "authorize", clientId],
-    queryFn: () =>
-      unwrap(
-        apiClient.GET("/api/oauth-apps/authorize", {
-          params: { query: { client_id: clientId } },
-        }),
-      ),
-  });
-
-  if (isPending) return <OauthAppSummarySkeleton />;
-
+/** The card's shape while the app's details load, and while the session does. */
+export function OauthApprovalSkeleton() {
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-xs text-muted-foreground">Application</p>
-      <div className="flex items-center gap-3">
-        <ProfileAvatar
-          name={app?.name ?? clientId}
-          image={app?.logoUrl}
-          className="size-10 rounded-lg"
-        />
-        <div className="flex min-w-0 flex-col">
-          <p className="truncate text-sm font-medium">
-            {app?.name ?? clientId}
-          </p>
-          {app ? (
-            <p className="text-xs text-muted-foreground">
-              {app.owner ? `Registered by @${app.owner}` : "Built into Ghost"}
-            </p>
-          ) : null}
+    <Card className="w-full max-w-lg gap-0 py-0">
+      <CardContent className="flex flex-col items-center gap-4 px-6 pt-8 pb-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-14 rounded-xl" />
+          <Skeleton className="size-4" />
+          <Skeleton className="size-14 rounded-full" />
         </div>
-      </div>
-      {app?.description ? <p className="text-sm">{app.description}</p> : null}
-      {app?.homepageUrl ? (
-        <a
-          className="truncate text-xs text-muted-foreground underline-offset-4 hover:underline"
-          href={app.homepageUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          {app.homepageUrl}
-        </a>
-      ) : null}
-    </div>
-  );
-}
-
-function OauthAppSummarySkeleton() {
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-xs text-muted-foreground">Application</p>
-      <div className="flex items-center gap-3">
-        <Skeleton className="size-10 rounded-lg" />
-        <div className="flex flex-col gap-1.5">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-3 w-24" />
-        </div>
-      </div>
-    </div>
+        <Skeleton className="h-6 w-64" />
+        <Skeleton className="h-4 w-40" />
+      </CardContent>
+      <Separator />
+      <CardContent className="flex flex-col gap-4 px-6 py-5">
+        <Skeleton className="h-4 w-36" />
+        {Array.from({ length: 2 }).map((_, index) => (
+          <div key={index} className="flex gap-3">
+            <Skeleton className="size-8 rounded-md" />
+            <div className="flex flex-1 flex-col gap-1.5">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          </div>
+        ))}
+      </CardContent>
+      <CardFooter className="border-t px-6 py-5">
+        <Skeleton className="h-10 w-full" />
+      </CardFooter>
+    </Card>
   );
 }
