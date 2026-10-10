@@ -4,6 +4,7 @@
     "index",
     "authorizing-users",
     "exchanging-the-code",
+    "refreshing-tokens",
     "calling-the-api",
     "scopes",
     "pkce",

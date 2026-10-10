@@ -102,6 +102,7 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - `search` only finds issues in one repository, named with `repo:`. Qualifiers Ghost cannot filter on, such as `milestone:` and `sort:`, are ignored.
 - API keys made in Ghost's settings hold every scope. Keys from `gh auth login --web` or an OAuth app hold the scopes requested and approved that Ghost knows (`repo`, `read:org`, `gist`, …). Unknown scopes, such as `workflow`, are dropped.
 - OAuth apps always have a client secret. Public clients that authenticate with PKCE alone are not supported.
+- OAuth apps can turn on expiring user tokens with refresh tokens. GitHub offers them only to GitHub Apps. `gh`'s built-in app keeps tokens that never expire.
 - Without `repo`, a private repository answers as if it did not exist.
 
 ## Not yet supported

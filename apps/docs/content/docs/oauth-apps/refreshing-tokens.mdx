@@ -1,0 +1,92 @@
+---
+title: Refreshing tokens
+description: Access tokens that expire after 8 hours, and the refresh token that gets a new one
+---
+
+In the examples, `api.<domain>` is your Ghost API host.
+
+By default, an access token from an OAuth app never expires, as on GitHub. Turn on **Expire user authorization tokens** and every token the app gets lasts 8 hours instead, and comes with a refresh token that lasts 6 months. Your app uses the refresh token to get a new pair before or after the access token runs out, so a leaked access token stops working on its own.
+
+The format is GitHub's for GitHub Apps with expiring user tokens, so a client written for those refreshes against Ghost unchanged. GitHub offers expiring tokens only to GitHub Apps; Ghost offers them to OAuth apps.
+
+## Turning it on
+
+Open **Settings → OAuth apps**, choose the app, and turn on **Expire user authorization tokens**. Through the API, send `expireUserTokens: true` to `PATCH /api/oauth-apps/{clientId}`.
+
+The switch applies to the [code exchange](/oauth-apps/exchanging-the-code) and to the [device flow](/oauth-apps/device-flow) alike. `gh`'s built-in app keeps tokens that never expire.
+
+## The token response
+
+With the switch on, the token response carries two more fields and a refresh token:
+
+```json
+{
+  "access_token": "ghost_pat_KOYduxMKlnMGQKszNbnWWRxpLOivafxX…",
+  "expires_in": 28800,
+  "refresh_token": "ghost_rt_Wm9sTq3vYcB1a8Hk2dPzXr6uNfLe4gJ…",
+  "refresh_token_expires_in": 15897600,
+  "token_type": "bearer",
+  "scope": "repo,read:org"
+}
+```
+
+| Field | Description |
+|---|---|
+| `expires_in` | Seconds until the access token stops working: 28800, or 8 hours. |
+| `refresh_token` | Trades for a new pair. Store it as carefully as the client secret. |
+| `refresh_token_expires_in` | Seconds until the refresh token stops working: 15897600, or 6 months. |
+
+Ghost shows the refresh token once and keeps only its hash.
+
+## Refreshing
+
+Your server sends the refresh token with the app's credentials to the same endpoint as the code exchange:
+
+```txt
+POST https://api.<domain>/login/oauth/access_token
+```
+
+| Parameter | Required | Description |
+|---|---|---|
+| `client_id` | Yes | Your app's client ID. |
+| `client_secret` | Yes | Your app's client secret. |
+| `grant_type` | Yes | `refresh_token`. |
+| `refresh_token` | Yes | The refresh token from the last token response. |
+
+```bash
+curl -X POST https://api.<domain>/login/oauth/access_token \
+  -H "Accept: application/json" \
+  -d client_id=DEyiWXBFvHvUTGkCIQzDrbNEuetuxVOr \
+  -d client_secret="$GHOST_CLIENT_SECRET" \
+  -d grant_type=refresh_token \
+  -d refresh_token="$GHOST_REFRESH_TOKEN"
+```
+
+The answer has the same shape as the token response above, with a new access token, a new refresh token, and the scopes the person approved. A refresh cannot widen or narrow the scopes; to change them, send the person through authorization again.
+
+Without `Accept: application/json`, Ghost answers form-encoded, as GitHub does.
+
+## Errors
+
+Failures answer HTTP 200, with an `error` field instead of a token:
+
+| `error` | Cause |
+|---|---|
+| `bad_refresh_token` | The refresh token is wrong, expired, already used, or belongs to another app. |
+| `incorrect_client_credentials` | Unknown `client_id`, or a missing, wrong or replaced `client_secret`. |
+
+After `bad_refresh_token`, send the person through authorization again. After `incorrect_client_credentials`, the refresh token is untouched; retry with the right secret.
+
+## Rotation
+
+Each refresh replaces both tokens. The refresh token you sent and the access token issued with it stop working at once, so keep only the newest pair. A refresh token works once: if two requests send the same one, one gets the new pair and the other gets `bad_refresh_token`.
+
+## Turning it off
+
+Turning the switch off changes only tokens issued afterwards. Tokens already issued keep their expiry, and their refresh tokens keep working until they expire. The next refresh answers with an access token that never expires and no refresh token, so the app moves over without asking the person again.
+
+## Revoking
+
+When a person revokes the app under **Settings → Authorized apps**, Ghost deletes its access tokens and refresh tokens for that account, and the next refresh answers `bad_refresh_token`. The app still shows there while it holds only a refresh token, after its last access token has expired.
+
+Deleting the app deletes every token it holds. Regenerating the client secret revokes nothing, as on GitHub, but the next refresh needs the new secret.
