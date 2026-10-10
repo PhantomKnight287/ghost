@@ -12,7 +12,7 @@ import {
 } from "@better-auth-ui/react/plugins/device-authorization"
 import { useSelector } from "@tanstack/react-form"
 import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp"
-import { CheckIcon, CircleCheckIcon, CircleXIcon, XIcon } from "lucide-react"
+import { CircleCheckIcon, CircleXIcon } from "lucide-react"
 import {
   type ReactNode,
   useCallback,
@@ -43,11 +43,10 @@ import {
   InputOTPSeparator,
   InputOTPSlot
 } from "@/components/ui/input-otp"
-import { Separator } from "@/components/ui/separator"
-import { Spinner } from "@/components/ui/spinner"
 import { deviceAuthorizationPlugin } from "@/lib/auth/device-authorization-plugin"
 import { cn } from "cn"
 import { useAuthForm } from "../auth-form"
+import { OauthApproval } from "../oauth-approval/oauth-approval"
 
 type DeviceAuthorizationStep = "code" | "approval" | "approved" | "denied"
 
@@ -97,11 +96,6 @@ function deviceAuthorizationReducer(
     case "denied":
       return { ...state, step: "denied", codeError: "" }
   }
-}
-
-// Plan 3 replaces this with the API's registry of OAuth apps.
-const OAUTH_APP_NAMES: Record<string, string> = {
-  "178c6fc778ccc68e1d6a": "GitHub CLI"
 }
 
 function normalizeDeviceCode(value: string) {
@@ -454,96 +448,32 @@ function DeviceApproval({
   onApprove,
   onDeny
 }: DeviceApprovalProps) {
-  const isPending = isApproving || isDenying
-  const scopes = request.scope?.split(" ").filter(Boolean) ?? []
-
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="text-xl">{localization.approveDevice}</CardTitle>
-        <CardDescription>
-          {localization.approveDeviceDescription}
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent>
-        <div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3">
-          <div className="flex flex-col gap-1">
-            <p className="text-xs text-muted-foreground">
-              {localization.deviceCode}
-            </p>
-            <p className="font-mono text-sm font-medium tracking-wider">
-              {userCode}
-            </p>
-          </div>
-
-          {request.clientId ? (
-            <>
-              <Separator />
-
-              <div className="flex flex-col gap-1">
-                <p className="text-xs text-muted-foreground">Application</p>
-                <p className="text-sm font-medium">
-                  {OAUTH_APP_NAMES[request.clientId] ?? request.clientId}
-                </p>
-              </div>
-            </>
-          ) : null}
-
-          <Separator />
-
-          <div className="flex flex-col gap-1">
-            <p className="text-xs text-muted-foreground">Requested scopes</p>
-            {scopes.length > 0 ? (
-              <ul className="flex flex-wrap gap-1">
-                {scopes.map((scope) => (
-                  <li
-                    key={scope}
-                    className="rounded border bg-background px-1.5 py-0.5 font-mono text-xs"
-                  >
-                    {scope}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm">None</p>
-            )}
-          </div>
-
-          <Separator />
-
-          <div className="flex flex-col gap-1">
-            <p className="text-xs text-muted-foreground">
-              {localization.signedInAs}
-            </p>
-            <p className="text-sm font-medium">{user.name || user.email}</p>
-            {user.name ? (
-              <p className="text-xs text-muted-foreground">{user.email}</p>
-            ) : null}
-          </div>
+    <OauthApproval
+      className={className}
+      title={localization.approveDevice}
+      description={localization.approveDeviceDescription}
+      details={
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-muted-foreground">
+            {localization.deviceCode}
+          </p>
+          <p className="font-mono text-sm font-medium tracking-wider">
+            {userCode}
+          </p>
         </div>
-      </CardContent>
-
-      <CardFooter className="grid grid-cols-2 gap-2">
-        <Button disabled={isPending} variant="outline" onClick={onDeny}>
-          {isDenying ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <XIcon data-icon="inline-start" />
-          )}
-          {localization.deny}
-        </Button>
-
-        <Button disabled={isPending} onClick={onApprove}>
-          {isApproving ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <CheckIcon data-icon="inline-start" />
-          )}
-          {localization.approve}
-        </Button>
-      </CardFooter>
-    </Card>
+      }
+      clientId={request.clientId}
+      scopes={request.scope?.split(" ").filter(Boolean) ?? []}
+      user={user}
+      signedInAsLabel={localization.signedInAs}
+      approveLabel={localization.approve}
+      denyLabel={localization.deny}
+      isApproving={isApproving}
+      isDenying={isDenying}
+      onApprove={onApprove}
+      onDeny={onDeny}
+    />
   )
 }
 
