@@ -18,9 +18,16 @@ const fields = z.object({
 });
 
 export const createOauthApp = actionClient
-  .inputSchema(fields)
-  .action(({ parsedInput: body }) =>
-    callApi((client) => client.POST("/api/oauth-apps", { body })),
+  .inputSchema(fields.extend({ organization: z.string().optional() }))
+  .action(({ parsedInput: { organization, ...body } }) =>
+    callApi((client) =>
+      organization
+        ? client.POST("/api/organizations/{slug}/oauth-apps", {
+            params: { path: { slug: organization } },
+            body,
+          })
+        : client.POST("/api/oauth-apps", { body }),
+    ),
   );
 
 export const updateOauthApp = actionClient

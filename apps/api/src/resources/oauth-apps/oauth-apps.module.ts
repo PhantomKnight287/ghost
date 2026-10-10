@@ -6,12 +6,15 @@ import {
   AVATAR_CONTENT_TYPES,
   AVATAR_MAX_BYTES,
 } from '../../lib/avatars/avatar.constants.js';
-import { OauthAppsController } from './oauth-apps.controller.js';
+import {
+  OauthAppsController,
+  OrganizationOauthAppsController,
+} from './oauth-apps.controller.js';
 import { OauthAppsService } from './oauth-apps.service.js';
 
 @Module({
   imports: [AvatarsModule],
-  controllers: [OauthAppsController],
+  controllers: [OauthAppsController, OrganizationOauthAppsController],
   providers: [OauthAppsService],
 })
 export class OauthAppsModule implements NestModule {

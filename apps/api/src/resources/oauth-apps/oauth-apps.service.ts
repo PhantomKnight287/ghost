@@ -10,9 +10,13 @@ import { isoTimestamp } from '../../lib/db/sql.js';
 import {
   findOauthApp,
   keyOauthClientId,
+  type OauthApp,
   oauthAppColumns,
   oauthAppEnabled,
+  oauthAppOrganization,
+  oauthAppVerified,
 } from '../../lib/github/oauth-apps.js';
+import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
 import {
   AuthorizedOauthAppNotFoundError,
   BuiltInOauthAppError,
@@ -34,7 +38,7 @@ const homepageUrl = sql<string>`coalesce(${schema.oauthClient.uri}, '')`;
 /** The plugin checks every redirect URI against one application type: a web client may not use http on localhost, a native one may use both shapes the DTO admits, so one app can list a production callback and a local one. */
 const APPLICATION_TYPE = 'native';
 
-/** OAuth apps a user registers, kept in the oauth-provider plugin's registry. Writes go through the plugin so secrets are hashed its way; Ghost adds GitHub's rules on top. */
+/** OAuth apps a user or an organization registers, kept in the oauth-provider plugin's registry. Writes go through the plugin so secrets are hashed its way; Ghost adds GitHub's rules on top. */
 @Injectable()
 export class OauthAppsService {
   constructor(
@@ -50,12 +54,27 @@ export class OauthAppsService {
     return { apps };
   }
 
+  /** The organization's apps, for its admins. */
+  async listForOrganization(
+    slug: string,
+    userId: string,
+  ): Promise<ListOauthAppsResponseDTO> {
+    const { organizationId } = await administeredOrganization(
+      this.db,
+      slug,
+      userId,
+    );
+    const apps = await this.select()
+      .where(eq(schema.oauthClient.referenceId, organizationId))
+      .orderBy(schema.oauthClient.createdAt);
+    return { apps };
+  }
+
+  /** One app the user owns, or one of an organization they administer. */
   async get(userId: string, clientId: string): Promise<OauthAppDTO> {
+    await this.manageable(userId, await findOauthApp(this.db, clientId));
     const [app] = await this.select().where(
-      and(
-        eq(schema.oauthClient.clientId, clientId),
-        eq(schema.oauthClient.userId, userId),
-      ),
+      eq(schema.oauthClient.clientId, clientId),
     );
     if (!app) throw new OauthAppNotFoundError();
     return app;
@@ -70,34 +89,49 @@ export class OauthAppsService {
         description: oauthAppColumns.description,
         homepageUrl,
         logoUrl: oauthAppColumns.logoUrl,
-        owner: schema.user.username,
+        owner: sql<
+          string | null
+        >`coalesce(${schema.user.username}, ${schema.organization.slug})`,
+        verified: oauthAppVerified,
       })
       .from(schema.oauthClient)
       .leftJoin(schema.user, eq(schema.user.id, schema.oauthClient.userId))
+      .leftJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.oauthClient.referenceId),
+      )
       .where(and(eq(schema.oauthClient.clientId, clientId), oauthAppEnabled));
     if (!app) throw new OauthAppNotFoundError();
     return app;
   }
 
+  /** Registers an app for the user, or for the organization behind `organization` when they administer it. */
   async create(
     headers: Headers,
     userId: string,
     input: CreateOauthAppDTO,
+    organization?: string,
   ): Promise<CreatedOauthAppDTO> {
-    const created = await this.auth.api.adminCreateOAuthClient({
-      headers,
-      body: {
-        client_name: input.name,
-        client_uri: input.homepageUrl,
-        redirect_uris: input.callbackUrls,
-        application_type: APPLICATION_TYPE,
-        // GitHub's web flow posts the secret in the form body and makes PKCE optional.
-        token_endpoint_auth_method: 'client_secret_post',
-        grant_types: ['authorization_code'],
-        response_types: ['code'],
-        require_pkce: false,
-      },
-    });
+    const organizationId = organization
+      ? (await administeredOrganization(this.db, organization, userId))
+          .organizationId
+      : undefined;
+    const created = await this.actingFor(organizationId, () =>
+      this.auth.api.adminCreateOAuthClient({
+        headers,
+        body: {
+          client_name: input.name,
+          client_uri: input.homepageUrl,
+          redirect_uris: input.callbackUrls,
+          application_type: APPLICATION_TYPE,
+          // GitHub's web flow posts the secret in the form body and makes PKCE optional.
+          token_endpoint_auth_method: 'client_secret_post',
+          grant_types: ['authorization_code'],
+          response_types: ['code'],
+          require_pkce: false,
+        },
+      }),
+    );
     await this.setGhostFields(created.client_id, {
       deviceFlow: input.deviceFlowEnabled ?? false,
       description: input.description,
@@ -114,24 +148,26 @@ export class OauthAppsService {
     clientId: string,
     input: UpdateOauthAppDTO,
   ): Promise<OauthAppDTO> {
-    await this.editable(userId, clientId);
-    await this.auth.api.adminUpdateOAuthClient({
-      headers,
-      body: {
-        client_id: clientId,
-        // The plugin merges `update` over the stored client, so an absent field must be left out rather than sent as undefined.
-        update: {
-          ...(input.name !== undefined && { client_name: input.name }),
-          ...(input.homepageUrl !== undefined && {
-            client_uri: input.homepageUrl,
-          }),
-          ...(input.callbackUrls !== undefined && {
-            redirect_uris: input.callbackUrls,
-            application_type: APPLICATION_TYPE,
-          }),
+    const organizationId = await this.editable(userId, clientId);
+    await this.actingFor(organizationId, () =>
+      this.auth.api.adminUpdateOAuthClient({
+        headers,
+        body: {
+          client_id: clientId,
+          // The plugin merges `update` over the stored client, so an absent field must be left out rather than sent as undefined.
+          update: {
+            ...(input.name !== undefined && { client_name: input.name }),
+            ...(input.homepageUrl !== undefined && {
+              client_uri: input.homepageUrl,
+            }),
+            ...(input.callbackUrls !== undefined && {
+              redirect_uris: input.callbackUrls,
+              application_type: APPLICATION_TYPE,
+            }),
+          },
         },
-      },
-    });
+      }),
+    );
     await this.setGhostFields(clientId, {
       deviceFlow: input.deviceFlowEnabled,
       description: input.description,
@@ -144,11 +180,13 @@ export class OauthAppsService {
     userId: string,
     clientId: string,
   ): Promise<OauthAppSecretDTO> {
-    await this.editable(userId, clientId);
-    const rotated = await this.auth.api.rotateClientSecret({
-      headers,
-      body: { client_id: clientId },
-    });
+    const organizationId = await this.editable(userId, clientId);
+    const rotated = await this.actingFor(organizationId, () =>
+      this.auth.api.rotateClientSecret({
+        headers,
+        body: { client_id: clientId },
+      }),
+    );
     return { clientSecret: rotated.client_secret as string };
   }
 
@@ -158,12 +196,14 @@ export class OauthAppsService {
     userId: string,
     clientId: string,
   ): Promise<void> {
-    await this.editable(userId, clientId);
+    const organizationId = await this.editable(userId, clientId);
     await this.db.delete(schema.apikey).where(eq(keyOauthClientId, clientId));
-    await this.auth.api.deleteOAuthClient({
-      headers,
-      body: { client_id: clientId },
-    });
+    await this.actingFor(organizationId, () =>
+      this.auth.api.deleteOAuthClient({
+        headers,
+        body: { client_id: clientId },
+      }),
+    );
     await this.avatars.remove(clientId);
   }
 
@@ -270,9 +310,31 @@ export class OauthAppsService {
       .where(eq(schema.oauthClient.clientId, clientId));
   }
 
+  /** Throws unless the user may change the app; returns the owning organization's id for an organization's app. */
   private async editable(userId: string, clientId: string) {
     const app = await findOauthApp(this.db, clientId);
     if (app?.builtIn) throw new BuiltInOauthAppError();
-    if (app?.ownerId !== userId) throw new OauthAppNotFoundError();
+    return this.manageable(userId, app);
+  }
+
+  /** A user's own app, or an organization's when they administer it; the organization's id in that case. Members below admin get a 403, everyone else a 404. */
+  private async manageable(userId: string, app: OauthApp | null) {
+    if (app?.organization) {
+      const { organizationId } = await administeredOrganization(
+        this.db,
+        app.organization,
+        userId,
+      );
+      return organizationId;
+    }
+    if (!app || app.ownerId !== userId) throw new OauthAppNotFoundError();
+    return undefined;
+  }
+
+  /** Runs a plugin call for the organization, so the plugin files a new app under it and lets its admins change one. */
+  private actingFor<T>(organizationId: string | undefined, call: () => T) {
+    return organizationId
+      ? oauthAppOrganization.run(organizationId, call)
+      : call();
   }
 }

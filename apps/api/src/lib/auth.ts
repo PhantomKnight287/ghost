@@ -20,10 +20,14 @@ import {
   organization,
   username,
 } from 'better-auth/plugins';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { callbackMatches } from './github/callback.js';
-import { findOauthApp } from './github/oauth-apps.js';
+import {
+  findOauthApp,
+  keyOauthClientId,
+  oauthAppOrganization,
+} from './github/oauth-apps.js';
 import { KNOWN_SCOPES, NO_SCOPE } from './github/scopes.js';
 
 export type AuthConfig = {
@@ -45,8 +49,11 @@ export type AuthConfig = {
     url: string;
   }) => Promise<void>;
   /** Set whenever mail is configured. Better Auth sends this to the address currently on the account, which is what makes a change reversible. */
-  /** After an organization is gone: what it stored outside the database goes too. */
-  onOrganizationDeleted?: (organizationId: string) => Promise<void>;
+  /** After an organization is gone: what it stored outside the database goes too, its OAuth apps' logos among it. */
+  onOrganizationDeleted?: (
+    organizationId: string,
+    oauthClientIds: string[],
+  ) => Promise<void>;
   sendOrganizationInvitation?: (data: {
     email: string;
     inviter: string;
@@ -316,6 +323,7 @@ export function createAuth(db: Database, config: AuthConfig) {
   const oauthPlugin = oauthProvider({
     loginPage: consentPage,
     consentPage,
+    clientReference: () => oauthAppOrganization.getStore(),
     scopes: [...KNOWN_SCOPES, NO_SCOPE],
     validateRedirectUri: (uri, registered) =>
       registered.some((callback) => callbackMatches(callback, uri)),
@@ -485,8 +493,19 @@ export function createAuth(db: Database, config: AuthConfig) {
               .values({ organizationId: organization.id })
               .onConflictDoNothing();
           },
+          // `referenceId` has no foreign key, so the organization's OAuth apps and the keys they minted go here.
           afterDeleteOrganization: async ({ organization }) => {
-            await config.onOrganizationDeleted?.(organization.id);
+            const apps = await db
+              .delete(schema.oauthClient)
+              .where(eq(schema.oauthClient.referenceId, organization.id))
+              .returning({ clientId: schema.oauthClient.clientId });
+            const clientIds = apps.map((app) => app.clientId);
+            if (clientIds.length > 0) {
+              await db
+                .delete(schema.apikey)
+                .where(inArray(keyOauthClientId, clientIds));
+            }
+            await config.onOrganizationDeleted?.(organization.id, clientIds);
           },
         },
         dynamicAccessControl: {

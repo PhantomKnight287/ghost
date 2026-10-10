@@ -18,8 +18,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
-/** Register an app, then show its credentials once: the secret is never shown again. */
-export function CreateOauthApp() {
+import { oauthAppsPath } from "./paths";
+
+/** Register an app for the user or `organization`, then show its credentials once: the secret is never shown again. */
+export function CreateOauthApp({ organization }: { organization?: string }) {
+  const base = oauthAppsPath(organization);
   const [values, setValues] = useState(EMPTY_OAUTH_APP);
   const create = useAction(createOauthApp, {
     onError: ({ error }) =>
@@ -56,7 +59,7 @@ export function CreateOauthApp() {
           </CardContent>
           <CardFooter className="justify-end border-t">
             <Button asChild>
-              <Link href={`/settings/oauth-apps/${created.clientId}`}>
+              <Link href={`${base}/${created.clientId}`}>
                 I have saved the secret
               </Link>
             </Button>
@@ -72,7 +75,7 @@ export function CreateOauthApp() {
     <section className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <Link
-          href="/settings/oauth-apps"
+          href={base}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
@@ -88,6 +91,7 @@ export function CreateOauthApp() {
           event.preventDefault();
           create.execute({
             ...values,
+            organization,
             callbackUrls: values.callbackUrls.filter((url) => url.trim()),
           });
         }}
@@ -102,7 +106,7 @@ export function CreateOauthApp() {
           </CardContent>
           <CardFooter className="justify-end gap-2 border-t py-4">
             <Button variant="ghost" asChild>
-              <Link href="/settings/oauth-apps">Cancel</Link>
+              <Link href={base}>Cancel</Link>
             </Button>
             <Button type="submit" disabled={!ready || create.isExecuting}>
               {create.isExecuting && <Spinner />}

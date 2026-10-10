@@ -77,8 +77,13 @@ import { OauthAppsModule } from './resources/oauth-apps/oauth-apps.module.js';
                   approveUrl: url,
                 })
             : undefined,
-          onOrganizationDeleted: (organizationId) =>
-            avatars.remove(organizationId),
+          onOrganizationDeleted: async (organizationId, oauthClientIds) => {
+            await Promise.all(
+              [organizationId, ...oauthClientIds].map((id) =>
+                avatars.remove(id),
+              ),
+            );
+          },
           sendOrganizationInvitation: mailConfigured(config)
             ? ({ email, url, ...context }) =>
                 mail.sendOrganizationInvitationEmail(email, {

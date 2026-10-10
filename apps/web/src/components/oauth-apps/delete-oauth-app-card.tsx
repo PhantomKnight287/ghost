@@ -21,16 +21,20 @@ import { Card } from "@/components/ui/card";
 import { FieldError } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 
+import { oauthAppsPath } from "./paths";
+
 export function DeleteOauthAppCard({
   app,
+  organization,
 }: {
   app: { clientId: string; name: string };
+  organization?: string;
 }) {
   const router = useRouter();
   const remove = useAction(deleteOauthApp, {
     onSuccess: () => {
       toast.success(`${app.name} deleted`);
-      router.push("/settings/oauth-apps");
+      router.push(oauthAppsPath(organization));
     },
   });
 

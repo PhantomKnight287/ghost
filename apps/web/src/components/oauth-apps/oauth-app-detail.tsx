@@ -10,18 +10,21 @@ import { DeleteOauthAppCard } from "./delete-oauth-app-card";
 import { OauthAppCredentials } from "./oauth-app-credentials";
 import { OauthAppLogo } from "./oauth-app-logo";
 import { OauthAppSettingsCard } from "./oauth-app-settings-card";
+import { oauthAppsPath } from "./paths";
 
 /** One OAuth app: what it needs to connect, how it looks to people, its settings, and deleting it. */
 export function OauthAppDetail({
   app,
+  organization,
 }: {
   app: components["schemas"]["OauthAppDTO"];
+  organization?: string;
 }) {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
         <Link
-          href="/settings/oauth-apps"
+          href={oauthAppsPath(organization)}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
@@ -49,7 +52,7 @@ export function OauthAppDetail({
       <OauthAppCredentials app={app} />
       <OauthAppLogo app={app} />
       <OauthAppSettingsCard app={app} />
-      <DeleteOauthAppCard app={app} />
+      <DeleteOauthAppCard app={app} organization={organization} />
     </div>
   );
 }

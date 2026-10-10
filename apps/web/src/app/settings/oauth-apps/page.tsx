@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { createServerClient } from "@/lib/api/server";
-import { OauthAppList } from "./oauth-app-list";
+import { OauthAppList } from "@/components/oauth-apps/oauth-app-list";
 
 export default async function OauthAppsPage() {
   const client = await createServerClient();

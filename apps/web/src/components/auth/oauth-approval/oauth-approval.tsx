@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeftRight,
+  BadgeCheck,
   BookLock,
   Building2,
   ExternalLink,
@@ -19,6 +20,12 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { apiClient, unwrap } from "@/lib/api/client";
 import { describeScope, type ScopeGroup } from "@/lib/oauth-scopes";
@@ -79,12 +86,36 @@ export function OauthApproval({
     <Card className="w-full max-w-lg gap-0 py-0">
       <CardContent className="flex flex-col items-center gap-4 px-6 pt-8 pb-6 text-center">
         <div className="flex items-center gap-3">
-          <ProfileAvatar
-            name={name}
-            image={app?.logoUrl}
-            className="size-14 rounded-xl"
-            fallbackClassName="text-lg"
-          />
+          <div className="relative">
+            <ProfileAvatar
+              name={name}
+              image={app?.logoUrl}
+              className="size-14 rounded-xl"
+              fallbackClassName="text-lg"
+            />
+            {app?.verified && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      tabIndex={0}
+                      role="img"
+                      aria-label="Verified"
+                      className="absolute -right-1.5 -bottom-1.5 rounded-full bg-card"
+                    >
+                      <BadgeCheck
+                        aria-hidden
+                        className="size-6 fill-emerald-500 text-card"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Verified by the operators of this Ghost instance
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
           <ArrowLeftRight
             aria-hidden
             className="size-4 text-muted-foreground"

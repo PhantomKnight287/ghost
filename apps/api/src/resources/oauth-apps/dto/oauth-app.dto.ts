@@ -137,9 +137,15 @@ export class AuthorizingOauthAppDTO {
     type: String,
     nullable: true,
     description:
-      'Username of the account that registered the app; null for an app built into Ghost.',
+      'Username or organization slug of the owner that registered the app; null for an app built into Ghost.',
   })
   owner: string | null;
+
+  @ApiProperty({
+    description:
+      'Vouched for by the operators of this Ghost instance. Owners cannot set it.',
+  })
+  verified: boolean;
 }
 
 export class AuthorizedOauthAppDTO {

@@ -1,10 +1,12 @@
 import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 import { eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
+import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, scopedKey, signUp, startApp } from './harness.js';
 
 const GH = '178c6fc778ccc68e1d6a';
@@ -130,6 +132,15 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
     expect((await api().get(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).expect(200)).body.logoUrl).toBeNull();
   });
 
+  it('marks gh verified, and no owner can mark their own app', async () => {
+    const gh = await api().get('/api/oauth-apps/authorize').query({ client_id: GH }).set('cookie', owner.cookie).expect(200);
+    expect(gh.body.verified).toBe(true);
+    const { body } = await create(owner.cookie, { verified: true, metadata: { verified: true } });
+    await api().patch(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).send({ verified: true, metadata: { verified: true } });
+    const described = await api().get('/api/oauth-apps/authorize').query({ client_id: body.clientId }).set('cookie', other.cookie).expect(200);
+    expect(described.body.verified).toBe(false);
+  });
+
   it('accepts only an https or localhost callback', async () => {
     await create(owner.cookie, { callbackUrls: ['http://tool.example/callback'] }).expect(400);
     await create(owner.cookie, { callbackUrls: ['javascript:alert(1)'] }).expect(400);
@@ -189,6 +200,68 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
       expect(list.body.apps).toEqual(expect.arrayContaining([expect.objectContaining({ clientId: GH, name: 'GitHub CLI', scopes: ['repo'] })]));
       await api().delete(`/api/oauth-apps/authorized/${GH}`).set('cookie', owner.cookie).expect(204);
       await api().get('/api/v3/user').set('authorization', `token ${token.access_token}`).expect(401);
+    });
+  });
+
+  describe('organization apps', () => {
+    const auth = () => app.get<AuthService<Auth>>(AuthService).api;
+    const org = `oaorg${stamp}`;
+    let organizationId: string;
+    let admin: { cookie: string; key: string; userId: string };
+    let member: { cookie: string; key: string; userId: string };
+    const createFor = (cookie: string, slug = org) => api().post(`/api/organizations/${slug}/oauth-apps`).set('cookie', cookie).send({ name: 'Org Tool', homepageUrl: 'https://org.example', callbackUrls: ['https://org.example/callback'] });
+
+    beforeAll(async () => {
+      admin = await signUp(app, `oaadmin${stamp}`);
+      member = await signUp(app, `oamember${stamp}`);
+      organizationId = (await auth().createOrganization({ body: { name: 'OAuth Org', slug: org }, headers: new Headers({ cookie: owner.cookie }) }))!.id;
+      await auth().addMember({ body: { userId: admin.userId, role: 'admin', organizationId } });
+      await auth().addMember({ body: { userId: member.userId, role: 'member', organizationId } });
+    });
+
+    it('files the app under the organization, not the user who made it', async () => {
+      const { body } = await createFor(owner.cookie).expect(201);
+      expect(body.clientSecret).toEqual(expect.any(String));
+      const [row] = await db.select({ userId: schema.oauthClient.userId, referenceId: schema.oauthClient.referenceId }).from(schema.oauthClient).where(eq(schema.oauthClient.clientId, body.clientId));
+      expect(row).toEqual({ userId: null, referenceId: organizationId });
+
+      const listed = await api().get(`/api/organizations/${org}/oauth-apps`).set('cookie', admin.cookie).expect(200);
+      expect(listed.body.apps.map((each: { clientId: string }) => each.clientId)).toContain(body.clientId);
+      const mine = await api().get('/api/oauth-apps').set('cookie', owner.cookie).expect(200);
+      expect(mine.body.apps.map((each: { clientId: string }) => each.clientId)).not.toContain(body.clientId);
+      const described = await api().get('/api/oauth-apps/authorize').query({ client_id: body.clientId }).set('cookie', other.cookie).expect(200);
+      expect(described.body.owner).toBe(org);
+    });
+
+    it('lets any admin manage it, through the same routes as a personal app', async () => {
+      const { body } = await createFor(owner.cookie).expect(201);
+      await api().get(`/api/oauth-apps/${body.clientId}`).set('cookie', admin.cookie).expect(200);
+      const updated = await api().patch(`/api/oauth-apps/${body.clientId}`).set('cookie', admin.cookie).send({ name: 'Renamed Org Tool' }).expect(200);
+      expect(updated.body.name).toBe('Renamed Org Tool');
+      const rotated = await api().post(`/api/oauth-apps/${body.clientId}/secret`).set('cookie', admin.cookie).expect(201);
+      expect(rotated.body.clientSecret).not.toBe(body.clientSecret);
+      await api().delete(`/api/oauth-apps/${body.clientId}`).set('cookie', admin.cookie).expect(204);
+      await api().get(`/api/oauth-apps/${body.clientId}`).set('cookie', owner.cookie).expect(404);
+    });
+
+    it('keeps members below admin and outsiders out', async () => {
+      const { body } = await createFor(owner.cookie).expect(201);
+      await createFor(member.cookie).expect(403);
+      await api().get(`/api/organizations/${org}/oauth-apps`).set('cookie', member.cookie).expect(403);
+      await api().patch(`/api/oauth-apps/${body.clientId}`).set('cookie', member.cookie).send({ name: 'Mine now' }).expect(403);
+      await api().post(`/api/oauth-apps/${body.clientId}/secret`).set('cookie', other.cookie).expect(404);
+      await api().delete(`/api/oauth-apps/${body.clientId}`).set('cookie', other.cookie).expect(404);
+      await createFor(other.cookie).expect(404);
+    });
+
+    it('goes, with the keys it minted, when the organization is deleted', async () => {
+      const slug = `oagone${stamp}`;
+      const gone = (await auth().createOrganization({ body: { name: 'Gone Org', slug }, headers: new Headers({ cookie: owner.cookie }) }))!.id;
+      const { body } = await createFor(owner.cookie, slug).expect(201);
+      await db.insert(schema.apikey).values({ id: `kgone${stamp}`, referenceId: other.userId, key: `hashgone${stamp}`, name: 'k', metadata: JSON.stringify({ oauthClientId: body.clientId }), createdAt: new Date(), updatedAt: new Date() });
+      await auth().deleteOrganization({ body: { organizationId: gone }, headers: new Headers({ cookie: owner.cookie }) });
+      expect(await db.select().from(schema.oauthClient).where(eq(schema.oauthClient.clientId, body.clientId))).toEqual([]);
+      expect(await db.select().from(schema.apikey).where(eq(schema.apikey.id, `kgone${stamp}`))).toEqual([]);
     });
   });
 });

@@ -28,10 +28,12 @@ import { ProfileAvatar } from "@/components/users/profile-avatar";
 import type { components } from "@/lib/api/v1";
 import { DOCS_URL } from "@/lib/env";
 
-function NewAppButton() {
+import { oauthAppsPath } from "./paths";
+
+function NewAppButton({ organization }: { organization?: string }) {
   return (
     <Button size="sm" asChild>
-      <Link href="/settings/oauth-apps/new">
+      <Link href={`${oauthAppsPath(organization)}/new`}>
         <Plus />
         New OAuth app
       </Link>
@@ -39,11 +41,13 @@ function NewAppButton() {
   );
 }
 
-/** The OAuth apps this account registered, each a link to its own settings. */
+/** The OAuth apps this account or `organization` registered, each a link to its own settings. */
 export function OauthAppList({
   apps,
+  organization,
 }: {
   apps: components["schemas"]["OauthAppDTO"][];
+  organization?: string;
 }) {
   return (
     <section className="flex flex-col gap-4">
@@ -69,7 +73,7 @@ export function OauthAppList({
             </a>
           </p>
         </div>
-        {apps.length > 0 && <NewAppButton />}
+        {apps.length > 0 && <NewAppButton organization={organization} />}
       </div>
 
       <Card className="py-0">
@@ -86,7 +90,7 @@ export function OauthAppList({
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <NewAppButton />
+              <NewAppButton organization={organization} />
             </EmptyContent>
           </Empty>
         ) : (
@@ -115,7 +119,9 @@ export function OauthAppList({
                   </ItemContent>
                   <ItemActions>
                     <Button size="sm" variant="outline" asChild>
-                      <Link href={`/settings/oauth-apps/${app.clientId}`}>
+                      <Link
+                        href={`${oauthAppsPath(organization)}/${app.clientId}`}
+                      >
                         Manage
                       </Link>
                     </Button>

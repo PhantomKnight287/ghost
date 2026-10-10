@@ -10622,6 +10622,127 @@
           "OAuth apps"
         ]
       }
+    },
+    "/api/organizations/{slug}/oauth-apps": {
+      "get": {
+        "operationId": "OrganizationOauthAppsController_list",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOauthAppsResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List an organization's OAuth apps",
+        "tags": [
+          "OAuth apps"
+        ]
+      },
+      "post": {
+        "description": "The response carries the client secret. It is never shown again; rotate it to get a new one.",
+        "operationId": "OrganizationOauthAppsController_create",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOauthAppDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedOauthAppDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register an OAuth app for an organization",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
     }
   },
   "info": {
@@ -16062,7 +16183,11 @@
           "owner": {
             "type": "string",
             "nullable": true,
-            "description": "Username of the account that registered the app; null for an app built into Ghost."
+            "description": "Username or organization slug of the owner that registered the app; null for an app built into Ghost."
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "Vouched for by the operators of this Ghost instance. Owners cannot set it."
           }
         },
         "required": [
@@ -16071,7 +16196,8 @@
           "description",
           "homepageUrl",
           "logoUrl",
-          "owner"
+          "owner",
+          "verified"
         ]
       },
       "UpdateOauthAppDTO": {

@@ -2824,6 +2824,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/organizations/{slug}/oauth-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List an organization's OAuth apps */
+        get: operations["OrganizationOauthAppsController_list"];
+        put?: never;
+        /**
+         * Register an OAuth app for an organization
+         * @description The response carries the client secret. It is never shown again; rotate it to get a new one.
+         */
+        post: operations["OrganizationOauthAppsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4536,8 +4557,10 @@ export interface components {
             description: string | null;
             homepageUrl: string;
             logoUrl: string | null;
-            /** @description Username of the account that registered the app; null for an app built into Ghost. */
+            /** @description Username or organization slug of the owner that registered the app; null for an app built into Ghost. */
             owner: string | null;
+            /** @description Vouched for by the operators of this Ghost instance. Owners cannot set it. */
+            verified: boolean;
         };
         UpdateOauthAppDTO: {
             /** @example Release bot */
@@ -11106,6 +11129,92 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationOauthAppsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOauthAppsResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationOauthAppsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOauthAppDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedOauthAppDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
             };
             403: {
                 headers: {
