@@ -135,7 +135,13 @@ export type WebhookOwner =
   | { repositoryId: string; name: string }
   | { organizationId: string; name: string };
 
-type UserRef = { id: string; username: string | null };
+type UserRef = {
+  id: string;
+  username: string | null;
+  avatarUrl: string | null;
+  /** The profile page, null without a username. */
+  htmlUrl: string | null;
+};
 
 export type WebhookRepository = {
   id: string;

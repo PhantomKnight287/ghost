@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { WebhookBody } from '../webhooks.js';
 import { renderWebhookBody as render } from './index.js';
-import { messageOf } from './message.js';
+import { messageOf, summaryOf } from './message.js';
 
 const repository = {
   id: 'repo_1',
@@ -21,10 +21,16 @@ const thread = {
   author: null,
   htmlUrl: 'https://ghost.test/ada/app/issues/7',
 };
+const ada = {
+  id: 'user_1',
+  username: 'ada',
+  avatarUrl: 'https://ghost.test/api/users/avatars/user_1/a.png',
+  htmlUrl: 'https://ghost.test/ada',
+};
 const body = (extra: Partial<WebhookBody>): WebhookBody => ({
   event: 'issue.opened',
   repository,
-  sender: { id: 'user_1', username: 'ada' },
+  sender: ada,
   createdAt: '2026-09-30T00:00:00.000Z',
   ...extra,
 });
@@ -108,10 +114,17 @@ describe('render', () => {
       allowed_mentions: { parse: [] },
       embeds: [
         {
-          title: 'ada opened issue #7: <!channel> & <users/all> @everyone',
+          author: {
+            name: 'ada',
+            url: 'https://ghost.test/ada',
+            icon_url: 'https://ghost.test/api/users/avatars/user_1/a.png',
+          },
+          title:
+            '[ada/app] Opened issue #7: <!channel> & <users/all> @everyone',
           url: 'https://ghost.test/ada/app/issues/7',
           description: 'The bell should count',
-          footer: { text: 'ada/app' },
+          color: 0x1f883d,
+          timestamp: '2026-09-30T00:00:00.000Z',
         },
       ],
     });
@@ -150,9 +163,10 @@ describe('render', () => {
     expect(
       JSON.parse(send('https://discord.com/api/webhooks/1/x', ping)).embeds[0],
     ).toEqual({
-      title: 'Ghost webhook connected',
+      title: '[acme] Ghost webhook connected',
       description: 'Events: push',
-      footer: { text: 'acme' },
+      color: 0x0969da,
+      timestamp: '2026-09-30T00:00:00.000Z',
     });
     expect(
       JSON.parse(send('https://hooks.slack.com/services/x', ping)).text,
@@ -166,6 +180,32 @@ describe('render', () => {
         }),
       ).text,
     ).toBe('*ada/app*\nGhost webhook connected\nEvents: push');
+  });
+
+  it('links each pushed commit, keeping its subject plain text', () => {
+    const push = body({
+      event: 'push',
+      ref: 'refs/heads/main',
+      commits: [{ ...commit(1), subject: 'Fix *all* [the] <!here> bugs' }],
+    });
+    const sha = '1'.repeat(40);
+    const url = `${repository.htmlUrl}/commit/${sha}`;
+
+    expect(
+      JSON.parse(send('https://discord.com/api/webhooks/1/x', push)).embeds[0]
+        .description,
+    ).toBe(`[\`1111111\`](${url}) Fix \\*all\\* \\[the\\] <!here> bugs - Ada`);
+    expect(
+      JSON.parse(send('https://hooks.slack.com/services/x', push)).text,
+    ).toBe(
+      `[ada/app] <${url}|ada pushed 1 commit to main>\n><${url}|\`1111111\`> Fix *all* [the] &lt;!here&gt; bugs - Ada`,
+    );
+    expect(
+      JSON.parse(send('https://chat.googleapis.com/v1/spaces/A/messages', push))
+        .text,
+    ).toBe(
+      `*ada/app*\n<${url}|ada pushed 1 commit to main>\n<${url}|1111111> Fix *all* [the] ‹!here› bugs - Ada`,
+    );
   });
 
   it('adds an Open button in Teams when there is somewhere to go', () => {
@@ -194,7 +234,12 @@ describe('messageOf', () => {
     description: null,
     color: 'ff0000',
   };
-  const bob = { id: 'user_2', username: 'bob' };
+  const bob = {
+    id: 'user_2',
+    username: 'bob',
+    avatarUrl: null,
+    htmlUrl: 'https://ghost.test/bob',
+  };
   const comment = { id: 'ic_1', body: 'On it' };
   const review = {
     id: 'prr_1',
@@ -291,7 +336,7 @@ describe('messageOf', () => {
       },
       'ada force-pushed 1 commit to pull request #7: Bell count',
       pull.htmlUrl,
-      '3333333 Commit 3',
+      null,
     ],
     [
       { event: 'pull_request.merged', pullRequest: pull },
@@ -430,8 +475,18 @@ describe('messageOf', () => {
         commits: [commit(1)],
       },
       'ada pushed 1 commit to main',
-      `${repository.htmlUrl}/tree/main`,
-      `${'1'.repeat(7)} Commit 1`,
+      `${repository.htmlUrl}/commit/${'1'.repeat(40)}`,
+      null,
+    ],
+    [
+      {
+        event: 'push',
+        ref: 'refs/heads/main',
+        commits: [commit(1), commit(2)],
+      },
+      'ada pushed 2 commits to main',
+      `${repository.htmlUrl}/commits/main`,
+      null,
     ],
     [
       {
@@ -464,24 +519,29 @@ describe('messageOf', () => {
       'The bell should count',
     ],
   ])('describes %o', (extra, summary, url, excerpt) => {
-    expect(messageOf(body(extra))).toEqual({
-      context: 'ada/app',
-      summary,
-      url,
-      excerpt,
-    });
+    const message = messageOf(body(extra));
+    expect(message.context).toBe('ada/app');
+    expect(summaryOf(message)).toBe(summary);
+    expect(message.url).toBe(url);
+    expect(message.excerpt).toBe(excerpt);
   });
 
   it('lists the first commits of a big push and counts the rest', () => {
-    const { excerpt } = messageOf(
+    const { commits, moreCommits } = messageOf(
       body({
         event: 'push',
         ref: 'refs/heads/main',
         commits: [1, 2, 3, 4, 5, 6, 7].map(commit),
       }),
     );
-    expect(excerpt?.split('\n')).toHaveLength(6);
-    expect(excerpt).toMatch(/Commit 5\nand 2 more$/);
+    expect(commits).toHaveLength(5);
+    expect(commits[0]).toEqual({
+      sha: '1'.repeat(40),
+      url: `${repository.htmlUrl}/commit/${'1'.repeat(40)}`,
+      subject: 'Commit 1',
+      author: 'Ada',
+    });
+    expect(moreCommits).toBe(2);
   });
 
   it('cuts a long excerpt short', () => {

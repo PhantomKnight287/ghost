@@ -320,9 +320,18 @@ export class WebhookFanoutService {
 
   private async userRef(userId: string) {
     const [user] = await this.db
-      .select({ id: schema.user.id, username: schema.user.username })
+      .select({
+        id: schema.user.id,
+        username: schema.user.username,
+        avatarUrl: schema.user.image,
+      })
       .from(schema.user)
       .where(eq(schema.user.id, userId));
-    return user ?? null;
+    return user
+      ? {
+          ...user,
+          htmlUrl: user.username ? `${this.appUrl}/${user.username}` : null,
+        }
+      : null;
   }
 }
