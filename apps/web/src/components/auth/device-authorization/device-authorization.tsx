@@ -51,21 +51,28 @@ import { useAuthForm } from "../auth-form"
 
 type DeviceAuthorizationStep = "code" | "approval" | "approved" | "denied"
 
+type DeviceRequest = {
+  clientId?: string
+  scope?: string
+}
+
 type DeviceAuthorizationState = {
   step: DeviceAuthorizationStep
   codeError: string
+  request: DeviceRequest
 }
 
 type DeviceAuthorizationAction =
   | { type: "codeChanged" }
   | { type: "verificationFailed"; message: string }
-  | { type: "verificationSucceeded"; status: string }
+  | { type: "verificationSucceeded"; status: string; request: DeviceRequest }
   | { type: "approved" }
   | { type: "denied" }
 
 const initialDeviceAuthorizationState: DeviceAuthorizationState = {
   step: "code",
-  codeError: ""
+  codeError: "",
+  request: {}
 }
 
 function deviceAuthorizationReducer(
@@ -76,20 +83,25 @@ function deviceAuthorizationReducer(
     case "codeChanged":
       return state.codeError ? { ...state, codeError: "" } : state
     case "verificationFailed":
-      return { step: "code", codeError: action.message }
+      return { step: "code", codeError: action.message, request: {} }
     case "verificationSucceeded":
       if (action.status === "approved") {
-        return { step: "approved", codeError: "" }
+        return { step: "approved", codeError: "", request: action.request }
       }
       if (action.status === "denied") {
-        return { step: "denied", codeError: "" }
+        return { step: "denied", codeError: "", request: action.request }
       }
-      return { step: "approval", codeError: "" }
+      return { step: "approval", codeError: "", request: action.request }
     case "approved":
-      return { step: "approved", codeError: "" }
+      return { ...state, step: "approved", codeError: "" }
     case "denied":
-      return { step: "denied", codeError: "" }
+      return { ...state, step: "denied", codeError: "" }
   }
+}
+
+// Plan 3 replaces this with the API's registry of OAuth apps.
+const OAUTH_APP_NAMES: Record<string, string> = {
+  "178c6fc778ccc68e1d6a": "GitHub CLI"
 }
 
 function normalizeDeviceCode(value: string) {
@@ -154,8 +166,12 @@ export function DeviceAuthorization({ className }: DeviceAuthorizationProps) {
   const { mutateAsync: verifyDeviceCode, isPending: isVerifying } =
     useVerifyDeviceCode(deviceAuthClient, {
       onError: handleAuthorizationError,
-      onSuccess: ({ status }) => {
-        dispatch({ type: "verificationSucceeded", status })
+      onSuccess: ({ status, client_id, scope }) => {
+        dispatch({
+          type: "verificationSucceeded",
+          status,
+          request: { clientId: client_id, scope }
+        })
       }
     })
 
@@ -239,6 +255,7 @@ export function DeviceAuthorization({ className }: DeviceAuthorizationProps) {
         className={cardClassName}
         localization={localization}
         userCode={authorizedCode}
+        request={state.request}
         user={session.user}
         isApproving={isApproving}
         isDenying={isDenying}
@@ -416,6 +433,7 @@ type DeviceApprovalProps = {
   isApproving: boolean
   isDenying: boolean
   localization: DeviceAuthorizationLocalization
+  request: DeviceRequest
   user: {
     email: string
     name: string
@@ -430,12 +448,14 @@ function DeviceApproval({
   isApproving,
   isDenying,
   localization,
+  request,
   user,
   userCode,
   onApprove,
   onDeny
 }: DeviceApprovalProps) {
   const isPending = isApproving || isDenying
+  const scopes = request.scope?.split(" ").filter(Boolean) ?? []
 
   return (
     <Card className={className}>
@@ -455,6 +475,39 @@ function DeviceApproval({
             <p className="font-mono text-sm font-medium tracking-wider">
               {userCode}
             </p>
+          </div>
+
+          {request.clientId ? (
+            <>
+              <Separator />
+
+              <div className="flex flex-col gap-1">
+                <p className="text-xs text-muted-foreground">Application</p>
+                <p className="text-sm font-medium">
+                  {OAUTH_APP_NAMES[request.clientId] ?? request.clientId}
+                </p>
+              </div>
+            </>
+          ) : null}
+
+          <Separator />
+
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">Requested scopes</p>
+            {scopes.length > 0 ? (
+              <ul className="flex flex-wrap gap-1">
+                {scopes.map((scope) => (
+                  <li
+                    key={scope}
+                    className="rounded border bg-background px-1.5 py-0.5 font-mono text-xs"
+                  >
+                    {scope}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm">None</p>
+            )}
           </div>
 
           <Separator />
