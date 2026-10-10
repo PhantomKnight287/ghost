@@ -1,5 +1,6 @@
 import { apiKey } from '@better-auth/api-key';
 import { tryGetCurrentAuthEndpointContext } from '@better-auth/core/context';
+import { oauthProvider } from '@better-auth/oauth-provider';
 import { type Database, schema } from '@ghost/db';
 import { ac, roles } from '@ghost/permissions';
 import {
@@ -15,12 +16,15 @@ import {
 } from 'better-auth/api';
 import {
   deviceAuthorization,
+  jwt,
   organization,
   username,
 } from 'better-auth/plugins';
 import { and, eq, sql } from 'drizzle-orm';
 
+import { callbackMatches } from './github/callback.js';
 import { findOauthApp } from './github/oauth-apps.js';
+import { KNOWN_SCOPES } from './github/scopes.js';
 
 export type AuthConfig = {
   secret: string;
@@ -299,9 +303,31 @@ async function claimEmailForAccount(
   await db.delete(schema.userEmail).where(eq(schema.userEmail.id, extraId));
 }
 
+/** The only oauth-provider routes a browser reaches; everything else runs server-side through `auth.api`, behind GitHub's paths and Ghost's own API. */
+const BROWSER_OAUTH_PATHS = new Set([
+  '/oauth2/authorize',
+  '/oauth2/consent',
+  '/oauth2/continue',
+]);
+
 export function createAuth(db: Database, config: AuthConfig) {
+  const consentPage = `${config.webAppUrl ?? ''}/login/oauth/authorize`;
+  const jwtPlugin = jwt();
+  const oauthPlugin = oauthProvider({
+    loginPage: consentPage,
+    consentPage,
+    scopes: [...KNOWN_SCOPES],
+    validateRedirectUri: (uri, registered) =>
+      registered.some((callback) => callbackMatches(callback, uri)),
+  });
   return betterAuth({
     secret: config.secret,
+    disabledPaths: [
+      ...Object.values(jwtPlugin.endpoints),
+      ...Object.values(oauthPlugin.endpoints),
+    ]
+      .map((endpoint) => endpoint.path)
+      .filter((path) => !BROWSER_OAUTH_PATHS.has(path)),
     baseURL: config.baseURL,
     trustedOrigins: config.trustedOrigins ?? [],
     advanced: {
@@ -487,6 +513,8 @@ export function createAuth(db: Database, config: AuthConfig) {
         validateClient: async (clientId) =>
           (await findOauthApp(db, clientId))?.deviceFlowEnabled === true,
       }),
+      jwtPlugin,
+      oauthPlugin,
     ],
   });
 }

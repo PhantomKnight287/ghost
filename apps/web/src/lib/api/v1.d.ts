@@ -2683,6 +2683,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/oauth-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the OAuth apps the signed-in account registered */
+        get: operations["OauthAppsController_list"];
+        put?: never;
+        /**
+         * Register an OAuth app
+         * @description The response carries the client secret. It is never shown again; rotate it to get a new one.
+         */
+        post: operations["OauthAppsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth-apps/{clientId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One OAuth app the signed-in account registered */
+        get: operations["OauthAppsController_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an OAuth app
+         * @description Every key the app was issued, for every user, stops working.
+         */
+        delete: operations["OauthAppsController_remove"];
+        options?: never;
+        head?: never;
+        /** Change an OAuth app */
+        patch: operations["OauthAppsController_update"];
+        trace?: never;
+    };
+    "/api/oauth-apps/{clientId}/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace an OAuth app's client secret
+         * @description The previous secret stops working at once.
+         */
+        post: operations["OauthAppsController_rotateSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4327,6 +4390,65 @@ export interface components {
             gitignore_template?: string;
             /** @description Accepted and ignored. */
             license_template?: string;
+        };
+        OauthAppDTO: {
+            clientId: string;
+            name: string;
+            homepageUrl: string;
+            callbackUrl: string;
+            deviceFlowEnabled: boolean;
+            /** @description When the app was registered, ISO 8601. */
+            createdAt: string;
+        };
+        ListOauthAppsResponseDTO: {
+            apps: components["schemas"]["OauthAppDTO"][];
+        };
+        CreateOauthAppDTO: {
+            /** @example Release bot */
+            name: string;
+            /** @example https://bot.example */
+            homepageUrl: string;
+            /**
+             * @description Where users return after authorizing. A redirect_uri must share its host and port, with a path equal to or under its path.
+             * @example https://bot.example/oauth/callback
+             */
+            callbackUrl: string;
+            /**
+             * @description Lets the app sign users in with the device flow, as gh does.
+             * @default false
+             */
+            deviceFlowEnabled: boolean;
+        };
+        CreatedOauthAppDTO: {
+            clientId: string;
+            name: string;
+            homepageUrl: string;
+            callbackUrl: string;
+            deviceFlowEnabled: boolean;
+            /** @description When the app was registered, ISO 8601. */
+            createdAt: string;
+            /** @description Shown only now. Store it: Ghost keeps only a hash. */
+            clientSecret: string;
+        };
+        UpdateOauthAppDTO: {
+            /** @example Release bot */
+            name?: string;
+            /** @example https://bot.example */
+            homepageUrl?: string;
+            /**
+             * @description Where users return after authorizing. A redirect_uri must share its host and port, with a path equal to or under its path.
+             * @example https://bot.example/oauth/callback
+             */
+            callbackUrl?: string;
+            /**
+             * @description Lets the app sign users in with the device flow, as gh does.
+             * @default false
+             */
+            deviceFlowEnabled: boolean;
+        };
+        OauthAppSecretDTO: {
+            /** @description The new secret, shown only now. The previous one stops working at once. */
+            clientSecret: string;
         };
     };
     responses: never;
@@ -10517,6 +10639,206 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    OauthAppsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOauthAppsResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOauthAppDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedOauthAppDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOauthAppDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppsController_rotateSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppSecretDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
             };
         };
     };

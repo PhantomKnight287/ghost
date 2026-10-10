@@ -1,0 +1,141 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Req,
+  Session,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
+import { fromNodeHeaders } from 'better-auth/node';
+import type { Request } from 'express';
+
+import { ErrorResponseDTO } from '../../domain/http.js';
+import {
+  CreatedOauthAppDTO,
+  CreateOauthAppDTO,
+  ListOauthAppsResponseDTO,
+  OauthAppDTO,
+  OauthAppSecretDTO,
+  UpdateOauthAppDTO,
+} from './dto/oauth-app.dto.js';
+import { OauthAppsService } from './oauth-apps.service.js';
+
+@ApiTags('OAuth apps')
+@Controller('oauth-apps')
+export class OauthAppsController {
+  constructor(private readonly apps: OauthAppsService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'List the OAuth apps the signed-in account registered',
+  })
+  @ApiOkResponse({ type: ListOauthAppsResponseDTO })
+  list(@Session() session: UserSession) {
+    return this.apps.list(session.user.id);
+  }
+
+  @Post()
+  @ApiOperation({
+    summary: 'Register an OAuth app',
+    description:
+      'The response carries the client secret. It is never shown again; rotate it to get a new one.',
+  })
+  @ApiCreatedResponse({ type: CreatedOauthAppDTO })
+  @ApiBadRequestResponse({ type: ErrorResponseDTO })
+  create(
+    @Session() session: UserSession,
+    @Body() body: CreateOauthAppDTO,
+    @Req() request: Request,
+  ) {
+    return this.apps.create(
+      fromNodeHeaders(request.headers),
+      session.user.id,
+      body,
+    );
+  }
+
+  @Get(':clientId')
+  @ApiOperation({ summary: 'One OAuth app the signed-in account registered' })
+  @ApiOkResponse({ type: OauthAppDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  get(@Session() session: UserSession, @Param('clientId') clientId: string) {
+    return this.apps.get(session.user.id, clientId);
+  }
+
+  @Patch(':clientId')
+  @ApiOperation({ summary: 'Change an OAuth app' })
+  @ApiOkResponse({ type: OauthAppDTO })
+  @ApiBadRequestResponse({ type: ErrorResponseDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  update(
+    @Session() session: UserSession,
+    @Param('clientId') clientId: string,
+    @Body() body: UpdateOauthAppDTO,
+    @Req() request: Request,
+  ) {
+    return this.apps.update(
+      fromNodeHeaders(request.headers),
+      session.user.id,
+      clientId,
+      body,
+    );
+  }
+
+  @Post(':clientId/secret')
+  @ApiOperation({
+    summary: "Replace an OAuth app's client secret",
+    description: 'The previous secret stops working at once.',
+  })
+  @ApiCreatedResponse({ type: OauthAppSecretDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  rotateSecret(
+    @Session() session: UserSession,
+    @Param('clientId') clientId: string,
+    @Req() request: Request,
+  ) {
+    return this.apps.rotateSecret(
+      fromNodeHeaders(request.headers),
+      session.user.id,
+      clientId,
+    );
+  }
+
+  @Delete(':clientId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete an OAuth app',
+    description: 'Every key the app was issued, for every user, stops working.',
+  })
+  @ApiNoContentResponse()
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  remove(
+    @Session() session: UserSession,
+    @Param('clientId') clientId: string,
+    @Req() request: Request,
+  ) {
+    return this.apps.remove(
+      fromNodeHeaders(request.headers),
+      session.user.id,
+      clientId,
+    );
+  }
+}

@@ -34,6 +34,7 @@ import { UserModule } from './resources/user/user.module.js';
 import { AppStatsService } from './services/stats/app-stats.service.js';
 import { S3Module } from './s3/s3.module.js';
 import { GithubModule } from './github/github.module.js';
+import { OauthAppsModule } from './resources/oauth-apps/oauth-apps.module.js';
 
 @Module({
   imports: [
@@ -113,6 +114,7 @@ import { GithubModule } from './github/github.module.js';
     GitModule,
     UserModule,
     GithubModule,
+    OauthAppsModule,
   ],
   controllers: [AppController],
   providers: [AppStatsService],

@@ -11,6 +11,13 @@ export type OauthApp = {
   ownerId: string | null;
 };
 
+/** Columns of an OAuth app as Ghost names them, shared by every query that reads one. */
+export const oauthAppColumns = {
+  clientId: schema.oauthClient.clientId,
+  name: sql<string>`coalesce(${schema.oauthClient.name}, ${schema.oauthClient.clientId})`,
+  deviceFlowEnabled: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'deviceFlow')::boolean, false)`,
+};
+
 /** An enabled OAuth app from the oauth-provider plugin's registry, or null. */
 export async function findOauthApp(
   db: Database,
@@ -18,10 +25,8 @@ export async function findOauthApp(
 ): Promise<OauthApp | null> {
   const [app] = await db
     .select({
-      clientId: schema.oauthClient.clientId,
-      name: sql<string>`coalesce(${schema.oauthClient.name}, ${schema.oauthClient.clientId})`,
+      ...oauthAppColumns,
       redirectUris: schema.oauthClient.redirectUris,
-      deviceFlowEnabled: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'deviceFlow')::boolean, false)`,
       builtIn: sql<boolean>`${schema.oauthClient.userId} is null`,
       ownerId: schema.oauthClient.userId,
     })
