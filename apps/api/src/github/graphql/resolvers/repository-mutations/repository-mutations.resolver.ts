@@ -12,6 +12,7 @@ import {
 import { decodeNodeId } from '../../../../lib/github/node-id.js';
 import { RepositoriesService } from '../../../../resources/repositories/repositories.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
+import { requireWriteScope } from '../../../auth/require-scopes.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
 import { RepositoryVisibility } from '../../enums.js';
 import * as M from '../../types/mutations.type.js';
@@ -35,6 +36,11 @@ export class RepositoryMutationsResolver {
       throw new GithubForbiddenError(
         'You must be signed in to run CreateRepository.',
       );
+    const visibility =
+      input.visibility === RepositoryVisibility.PUBLIC ? 'public' : 'private';
+    requireWriteScope(viewer, 'createRepository', {
+      isPrivate: visibility === 'private',
+    });
     const owner = input.ownerId ? decodeNodeId(input.ownerId) : null;
     if (
       input.ownerId &&
@@ -56,10 +62,7 @@ export class RepositoryMutationsResolver {
       {
         name: input.name,
         description: input.description ?? undefined,
-        visibility:
-          input.visibility === RepositoryVisibility.PUBLIC
-            ? 'public'
-            : 'private',
+        visibility,
         organization,
       },
       viewer.userId,

@@ -133,5 +133,16 @@ describe.skipIf(!hasBackends)('GitHub scopes', () => {
       .set('authorization', `token ${key}`)
       .send({ name: 'scoped-public' })
       .expect(201);
+    const refused = await graphql(
+      'mutation($input: CreateRepositoryInput!) { createRepository(input: $input) { repository { name } } }',
+      { input: { name: 'scoped-graphql', visibility: 'PRIVATE' } },
+      key,
+    ).expect(200);
+    expect(refused.body.errors[0]).toMatchObject({
+      type: 'FORBIDDEN',
+      message: expect.stringContaining(
+        "The 'createRepository' field requires one of the following scopes: ['repo']",
+      ),
+    });
   });
 });
