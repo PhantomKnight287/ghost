@@ -167,3 +167,12 @@ Anything that waits for data shows a skeleton while it waits. A route segment th
 ## 11. Changes to Infra or env variables must be propagated to `docker` and `apps/*/Dockerfile`
 
 If a new item to the workspace is added, the apps/*/Dockerfile needs to update else the build fails. and self hosting setup(in /docker) and docs in (apps/docker) needs to be updated too.
+
+
+## Philosophy
+
+This codebase will outlive you. Every shortcut becomes someone else's burden. Every hack compounds into technical debt that slows the whole team down.
+
+You are not just writing code. You are shaping the future of this project. The patterns you establish will be copied. The corners you cut will be cut again.
+
+Fight entropy. Leave the codebase better than you found it.
