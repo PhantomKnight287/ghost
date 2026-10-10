@@ -171,7 +171,7 @@ export function SshKeys() {
         half, never the file without <code>.pub</code>.{" "}
         <a
           className="underline underline-offset-2"
-          href={`${DOCS_URL}/adding-an-ssh-key-to-your-account`}
+          href={`${DOCS_URL}/ssh/adding-a-key`}
           target="_blank"
           rel="noreferrer"
         >
