@@ -20,7 +20,7 @@ import {
 } from 'better-auth/plugins';
 import { and, eq, sql } from 'drizzle-orm';
 
-import { oauthAppOf } from './github/oauth-apps.js';
+import { findOauthApp } from './github/oauth-apps.js';
 
 export type AuthConfig = {
   secret: string;
@@ -484,7 +484,8 @@ export function createAuth(db: Database, config: AuthConfig) {
       }),
       deviceAuthorization({
         verificationUri: `${config.webAppUrl ?? ''}/device`,
-        validateClient: (clientId) => oauthAppOf(clientId) !== null,
+        validateClient: async (clientId) =>
+          (await findOauthApp(db, clientId))?.deviceFlowEnabled === true,
       }),
     ],
   });

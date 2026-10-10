@@ -8,7 +8,7 @@ import type { Request, Response } from 'express';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
-import { oauthAppOf } from '../../lib/github/oauth-apps.js';
+import { findOauthApp } from '../../lib/github/oauth-apps.js';
 import { sendOAuth } from '../../lib/github/oauth-response.js';
 import { grantableScopes } from '../../lib/github/scopes.js';
 
@@ -30,14 +30,15 @@ export class OauthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    if (!body.client_id || !oauthAppOf(body.client_id))
+    const app = body.client_id && (await findOauthApp(this.db, body.client_id));
+    if (!app || !app.deviceFlowEnabled)
       return sendOAuth(req, res, 400, {
         error: 'unauthorized_client',
         error_description: 'Unknown client_id',
       });
     const code = await this.auth.api.deviceCode({
       body: {
-        client_id: body.client_id,
+        client_id: app.clientId,
         scope: grantableScopes(body.scope ?? '').join(' '),
       },
     });
@@ -64,7 +65,7 @@ export class OauthController {
       !body.device_code
     )
       return sendOAuth(req, res, 400, { error: 'unsupported_grant_type' });
-    const app = oauthAppOf(body.client_id);
+    const app = await findOauthApp(this.db, body.client_id);
     if (!app) return sendOAuth(req, res, 400, { error: 'invalid_client' });
 
     let granted: { access_token: string; scope: string };

@@ -1,7 +1,10 @@
+import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
+import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { DATABASE } from '../src/database/database.module.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 const GH = '178c6fc778ccc68e1d6a';
@@ -12,7 +15,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth device flow', () => {
   let owner: { cookie: string; key: string; userId: string };
   const username = `ghoauth${Date.now()}`;
   const api = () => request(app.getHttpServer());
-  const requestCode = (scope = 'repo read:org gist workflow') => api().post('/login/device/code').type('form').send({ client_id: GH, scope });
+  const requestCode = (scope = 'repo read:org gist workflow', clientId = GH) => api().post('/login/device/code').type('form').send({ client_id: clientId, scope });
   const poll = (deviceCode: string, clientId = GH) => api().post('/login/oauth/access_token').type('form').send({ client_id: clientId, device_code: deviceCode, grant_type: DEVICE_GRANT });
   const form = (text: string) => Object.fromEntries(new URLSearchParams(text));
   const decide = async (userCode: string, decision: 'approve' | 'deny') => {
@@ -63,5 +66,21 @@ describe.skipIf(!hasBackends)('GitHub OAuth device flow', () => {
     const status = await api().get('/api/v3/').set('authorization', `token ${token.access_token}`).expect(200);
     expect(status.headers['x-oauth-scopes']).toBe('repo, read:org, gist');
     expect(form((await poll(code.device_code)).text).error).toBeTruthy();
+  });
+
+  it('refuses a device code to a user app with device flow off, and runs the flow once it is on', async () => {
+    const db = app.get<Database>(DATABASE);
+    const clientId = `tool${Date.now()}`;
+    await db.insert(schema.oauthClient).values({ id: clientId, clientId, name: 'Scoped Tool', userId: owner.userId, redirectUris: ['https://tool.example/callback'], metadata: { deviceFlow: false } });
+    const refused = await requestCode('repo', clientId).expect(400);
+    expect(form(refused.text)).toMatchObject({ error: 'unauthorized_client' });
+
+    await db.update(schema.oauthClient).set({ metadata: { deviceFlow: true } }).where(eq(schema.oauthClient.clientId, clientId));
+    const code = form((await requestCode('repo', clientId).expect(200)).text);
+    await decide(code.user_code, 'approve');
+    const token = form((await poll(code.device_code, clientId)).text);
+    expect(token.access_token).toMatch(/^ghost_pat_/);
+    const [key] = await db.select({ name: schema.apikey.name, metadata: schema.apikey.metadata }).from(schema.apikey).where(and(eq(schema.apikey.referenceId, owner.userId), eq(schema.apikey.name, 'Scoped Tool')));
+    expect(JSON.parse(key?.metadata ?? '{}')).toEqual({ oauthClientId: clientId });
   });
 });
