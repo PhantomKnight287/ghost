@@ -6,11 +6,16 @@ import { encodeNodeId } from './node-id.js';
 import type { GithubOrigins } from './origins.js';
 
 import type { AuthorizedRepository } from '../repositories/access/repository-access.js';
-import { RepositoryNode } from '../../github/graphql/types/repository.type.js';
+import {
+  RefNode,
+  RepositoryNode,
+} from '../../github/graphql/types/repository.type.js';
+import type { PullRequestRow } from './node-lookup.js';
 import {
   CommentAuthorAssociation,
   IssueState,
   IssueStateReason,
+  PullRequestReviewState,
   PullRequestState,
   RepositoryPermission,
   RepositoryVisibility,
@@ -20,7 +25,13 @@ import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
 import { LabelNode } from '../../github/graphql/types/label.type.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import { IssueNode } from '../../github/graphql/types/issue.type.js';
-import { PullRequestNode } from '../../github/graphql/types/pull-request.type.js';
+import {
+  CommitNode,
+  PullRequestNode,
+  PullRequestReviewNode,
+} from '../../github/graphql/types/pull-request.type.js';
+import type { Commit } from '../git/commits/list-commits.js';
+import type { ReviewRow } from './loaders.js';
 import type { IssueOrPullRequestFields } from '../../github/graphql/types/issue-or-pull-request.type.js';
 import { IssueCommentNode } from '../../github/graphql/types/issue-comment.type.js';
 
@@ -180,20 +191,48 @@ export function toIssueNode(issue: IssueDTO, repository: RepositoryRefs) {
   );
 }
 
-// Mapper: same source as toIssueNode; a number that belongs to a pull request answers as one.
-export function toPullRequestNode(issue: IssueDTO, repository: RepositoryRefs) {
+// Mapper: same source as toIssueNode, plus the pull_request row; IssueDTO carries the labels, assignees and close time a pull request shares with an issue.
+export function toPullRequestNode(
+  issue: IssueDTO,
+  repository: RepositoryRefs,
+  pull: PullRequestRow,
+) {
   return Object.assign(
     new PullRequestNode(),
     issueOrPullRequestFields(issue, repository, 'pull'),
     {
       id: encodeNodeId('PullRequest', issue.id),
-      // ponytail: merged requests read as CLOSED until milestone 3 reads pull_request.state.
+      pullRequestGhostId: pull.id,
+      baseRepositoryGhostId: pull.baseRepositoryId,
+      headRepositoryGhostId: pull.headRepositoryId,
+      storedHeadSha: pull.headSha,
+      mergeCommitSha: pull.mergeCommitSha,
       state:
-        issue.state === 'closed'
-          ? PullRequestState.CLOSED
-          : PullRequestState.OPEN,
+        pull.state === 'merged'
+          ? PullRequestState.MERGED
+          : pull.state === 'closed'
+            ? PullRequestState.CLOSED
+            : PullRequestState.OPEN,
+      isDraft: pull.draft,
+      merged: pull.state === 'merged',
+      mergedAt: pull.mergedAt,
+      baseRefName: pull.baseRef,
+      headRefName: pull.headRef,
+      isCrossRepository: pull.headRepositoryId !== pull.baseRepositoryId,
+      // ponytail: Ghost has no "allow edits by maintainers"; a fork's branch is never writable from the base, so false.
+      maintainerCanModify: false,
     },
   );
+}
+
+/** A branch as GitHub's Ref; the id is opaque and only needs to be stable. */
+export function toRefNode(repositoryGhostId: string, name: string) {
+  return Object.assign(new RefNode(), {
+    id: encodeNodeId('Repository', `${repositoryGhostId}:refs/heads/${name}`),
+    name,
+    prefix: 'refs/heads/',
+    branchProtectionRule: null,
+  });
 }
 
 export type CommentRow = {
@@ -228,5 +267,69 @@ export function toIssueCommentNode(
     viewerDidAuthor: comment.authorUsername === viewerLogin,
     url: `${issue.url}#issuecomment-${comment.id}`,
     resourcePath: `${issue.resourcePath}#issuecomment-${comment.id}`,
+  });
+}
+
+// Mapper: reviews come from the per-request loader, whose rows other fields (reviewDecision) read too.
+export function toPullRequestReviewNode(
+  review: ReviewRow,
+  pull: Pick<
+    PullRequestNode,
+    | 'ownerLogin'
+    | 'repoSlug'
+    | 'number'
+    | 'url'
+    | 'resourcePath'
+    | 'repositoryGhostId'
+    | 'repositoryUrl'
+    | 'repositoryResourcePath'
+  >,
+) {
+  const anchor = `#pullrequestreview-${review.id}`;
+  return Object.assign(new PullRequestReviewNode(), {
+    authorLogin: review.authorLogin,
+    commitSha: review.commitSha,
+    pullRequest: pull,
+    id: encodeNodeId('PullRequestReview', review.id),
+    databaseId: review.numericId,
+    body: review.body ?? '',
+    state: review.dismissed
+      ? PullRequestReviewState.DISMISSED
+      : review.state === 'approved'
+        ? PullRequestReviewState.APPROVED
+        : review.state === 'changes_requested'
+          ? PullRequestReviewState.CHANGES_REQUESTED
+          : PullRequestReviewState.COMMENTED,
+    // ponytail: OWNER or NONE only, as for comments.
+    authorAssociation:
+      review.authorLogin === pull.ownerLogin
+        ? CommentAuthorAssociation.OWNER
+        : CommentAuthorAssociation.NONE,
+    createdAt: review.createdAt,
+    submittedAt: review.submittedAt,
+    includesCreatedEdit: false,
+    url: `${pull.url}${anchor}`,
+    resourcePath: `${pull.resourcePath}${anchor}`,
+  });
+}
+
+// Mapper: commits come from git log, in Ghost's shape; GitActor.user resolves each email to an account.
+export function toCommitNode(
+  commit: Commit,
+  repository: { ghostId: string; url: string; resourcePath: string },
+) {
+  return Object.assign(new CommitNode(), {
+    author: { name: commit.authorName, email: commit.authorEmail },
+    committer: { name: commit.committerName, email: commit.committerEmail },
+    id: encodeNodeId('Commit', `${repository.ghostId}:${commit.sha}`),
+    oid: commit.sha,
+    abbreviatedOid: commit.sha.slice(0, 7),
+    message: [commit.subject, commit.body].filter(Boolean).join('\n\n'),
+    messageHeadline: commit.subject,
+    messageBody: commit.body,
+    authoredDate: new Date(commit.authoredAt),
+    committedDate: new Date(commit.committedAt),
+    url: `${repository.url}/commit/${commit.sha}`,
+    resourcePath: `${repository.resourcePath}/commit/${commit.sha}`,
   });
 }

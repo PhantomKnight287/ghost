@@ -6,8 +6,11 @@ export function parseIssueSearch(query: string) {
     repo: null as { owner: string; name: string } | null,
     state: 'all' as 'open' | 'closed' | 'all',
     isPullRequest: null as boolean | null,
+    /** `is:merged` true, `is:unmerged` false; either one means pull requests only. */
+    merged: null as boolean | null,
     author: undefined as string | undefined,
     assignee: undefined as string | undefined,
+    reviewRequested: undefined as string | undefined,
     labels: [] as string[],
     text: '',
   };
@@ -28,6 +31,10 @@ export function parseIssueSearch(query: string) {
         if (value === 'open' || value === 'closed') result.state = value;
         if (value === 'issue') result.isPullRequest = false;
         if (value === 'pr') result.isPullRequest = true;
+        if (value === 'merged' || value === 'unmerged') {
+          result.isPullRequest = true;
+          result.merged = value === 'merged';
+        }
         break;
       case 'state':
         if (value === 'open' || value === 'closed') result.state = value;
@@ -41,6 +48,9 @@ export function parseIssueSearch(query: string) {
         break;
       case 'assignee':
         result.assignee = value;
+        break;
+      case 'review-requested':
+        result.reviewRequested = value;
         break;
       case 'label':
         result.labels.push(value);

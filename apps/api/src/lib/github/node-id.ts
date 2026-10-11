@@ -6,6 +6,9 @@ const PREFIXES = {
   Repository: 'R',
   Issue: 'I',
   PullRequest: 'PR',
+  PullRequestReview: 'PRR',
+  PullRequestCommit: 'PURC',
+  Commit: 'C',
   IssueComment: 'IC',
   Label: 'LA',
 } as const;
@@ -34,9 +37,10 @@ export function decodeNodeId(
   return type && id ? { type, id } : null;
 }
 
-export function decodeNodeIdAs(nodeId: string, type: NodeType) {
+/** The Ghost id behind a node id of one of `types`; any other id fails as GitHub fails an unresolvable node. */
+export function decodeNodeIdAs(nodeId: string, ...types: NodeType[]) {
   const decoded = decodeNodeId(nodeId);
-  if (decoded?.type !== type)
+  if (!decoded || !types.includes(decoded.type))
     throw new CouldNotResolveError(
       `Could not resolve to a node with the global id of '${nodeId}'`,
     );

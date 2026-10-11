@@ -30,5 +30,6 @@ import { ReviewsService } from './reviews.service.js';
     CommitSigningService,
     CommitVerificationService,
   ],
+  exports: [PullRequestsService],
 })
 export class PullRequestsModule {}

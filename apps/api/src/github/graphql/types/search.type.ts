@@ -1,6 +1,6 @@
 import { createUnionType, Field, Int, ObjectType } from '@nestjs/graphql';
 
-import { PageInfo } from '../connection.js';
+import { Edge, PageInfo } from '../connection.js';
 import { IssueNode } from './issue.type.js';
 import { PullRequestNode } from './pull-request.type.js';
 
@@ -10,6 +10,8 @@ export const SearchResultItem = createUnionType({
   resolveType: (value: { kind: string }) => value.kind,
 });
 
+const SearchResultItemEdge = Edge(SearchResultItem, 'SearchResultItem');
+
 @ObjectType('SearchResultItemConnection')
 export class SearchResultItemConnection {
   @Field(() => Int)
@@ -17,6 +19,9 @@ export class SearchResultItemConnection {
 
   @Field(() => [SearchResultItem], { nullable: 'itemsAndList' })
   nodes: Array<IssueNode | PullRequestNode>;
+
+  @Field(() => [SearchResultItemEdge], { nullable: 'itemsAndList' })
+  edges: { cursor: string; node: IssueNode | PullRequestNode }[];
 
   @Field(() => PageInfo)
   pageInfo: PageInfo;

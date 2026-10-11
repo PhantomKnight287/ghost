@@ -23,7 +23,7 @@
             "viewerQuery": "repo:<login>/tools state:open is:pr author:<login>"
           }
         },
-        "status": 400
+        "status": 200
       },
       {
         "method": "POST",

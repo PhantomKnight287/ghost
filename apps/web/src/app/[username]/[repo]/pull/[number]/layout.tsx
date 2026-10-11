@@ -19,7 +19,7 @@ import { threadStateStyle } from "@/components/thread-state";
 
 export async function generateMetadata({
   params,
-}: LayoutProps<"/[username]/[repo]/pulls/[number]">): Promise<Metadata> {
+}: LayoutProps<"/[username]/[repo]/pull/[number]">): Promise<Metadata> {
   const { username, repo, number } = await params;
   const client = await createServerClient();
   const { data } = await client.GET(
@@ -37,7 +37,7 @@ export async function generateMetadata({
 export default async function PullRequestLayout({
   params,
   children,
-}: LayoutProps<"/[username]/[repo]/pulls/[number]">) {
+}: LayoutProps<"/[username]/[repo]/pull/[number]">) {
   const { username, repo, number } = await params;
 
   const client = await createServerClient();
@@ -137,7 +137,7 @@ export default async function PullRequestLayout({
       )}
 
       <PullRequestNav
-        base={`/${username}/${repo}/pulls/${pull.data.number}`}
+        base={`/${username}/${repo}/pull/${pull.data.number}`}
         commitCount={pull.data.commitCount}
         changedFiles={pull.data.changedFiles}
         additions={pull.data.additions}

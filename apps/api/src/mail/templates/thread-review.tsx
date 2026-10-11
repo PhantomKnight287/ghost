@@ -58,7 +58,7 @@ export default function ThreadReview({
 ThreadReview.PreviewProps = {
   ...previewThread,
   isPullRequest: true,
-  path: '/alice/ghost/pulls/42',
+  path: '/alice/ghost/pull/42',
   reason: 'author',
   state: 'changes_requested',
   body: 'Close, but the count overflows past 99.',

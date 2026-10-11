@@ -15,6 +15,7 @@ import {
   RepositoryOwner,
   UniformResourceLocatable,
 } from './node.interface.js';
+import { BranchProtectionRuleNode } from './placeholders.type.js';
 
 @ObjectType('Ref', { implements: () => [Node] })
 export class RefNode {
@@ -28,6 +29,10 @@ export class RefNode {
 
   @Field()
   prefix: string;
+
+  /** Ghost has no branch protection; always null. */
+  @Field(() => BranchProtectionRuleNode, { nullable: true })
+  branchProtectionRule: BranchProtectionRuleNode | null;
 }
 
 @ObjectType('Repository', {

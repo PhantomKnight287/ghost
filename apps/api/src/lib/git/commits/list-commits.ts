@@ -3,7 +3,7 @@ import { runGit } from '../exec/run-git.js';
 const RECORD = '\x1e';
 const FIELD = '\x1f';
 const SUMMARY_FORMAT = `--format=%H${FIELD}%ct${FIELD}%s`;
-const FORMAT = `--format=${RECORD}%H${FIELD}%an${FIELD}%ae${FIELD}%ct${FIELD}%s${FIELD}%b`;
+const FORMAT = `--format=${RECORD}%H${FIELD}%an${FIELD}%ae${FIELD}%ct${FIELD}%at${FIELD}%cn${FIELD}%ce${FIELD}%s${FIELD}%b`;
 
 export interface Commit {
   sha: string;
@@ -11,6 +11,10 @@ export interface Commit {
   authorEmail: string;
   /** Committer timestamp, ISO 8601. */
   committedAt: string;
+  /** Author timestamp, ISO 8601; differs from `committedAt` once a commit is rebased or amended. */
+  authoredAt: string;
+  committerName: string;
+  committerEmail: string;
   subject: string;
   body: string;
 }
@@ -34,8 +38,17 @@ export function isSha(value: string) {
 }
 
 function parse(record: string): Commit | null {
-  const [sha, authorName, authorEmail, committedAt, subject, body] =
-    record.split(FIELD);
+  const [
+    sha,
+    authorName,
+    authorEmail,
+    committedAt,
+    authoredAt,
+    committerName,
+    committerEmail,
+    subject,
+    body,
+  ] = record.split(FIELD);
   if (!sha) return null;
 
   return {
@@ -43,6 +56,9 @@ function parse(record: string): Commit | null {
     authorName,
     authorEmail,
     committedAt: new Date(Number(committedAt) * 1000).toISOString(),
+    authoredAt: new Date(Number(authoredAt) * 1000).toISOString(),
+    committerName,
+    committerEmail,
     subject,
     body: (body ?? '').trim(),
   };

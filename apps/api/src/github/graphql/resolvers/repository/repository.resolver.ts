@@ -25,6 +25,7 @@ import {
   toIssueNode,
   toLabelNode,
   toOrganizationNode,
+  toRefNode,
   toRepositoryNode,
   toUserNode,
   type UserRow,
@@ -36,12 +37,13 @@ import { IssuesService } from '../../../../resources/issues/issues.service.js';
 import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
-import { sliceConnection } from '../../connection.js';
+import { issueCursor, sliceConnection } from '../../connection.js';
 import {
   IssueOrderField,
   IssueState,
   LabelOrderField,
   OrderDirection,
+  PullRequestState,
 } from '../../enums.js';
 import { IssueFilters, IssueOrder, LabelOrder } from '../../inputs.js';
 import {
@@ -51,7 +53,10 @@ import {
 } from '../../types/issue.type.js';
 import { LabelConnection, LabelNode } from '../../types/label.type.js';
 import { RepositoryOwner } from '../../types/node.interface.js';
-import { PullRequestNode } from '../../types/pull-request.type.js';
+import {
+  PullRequestConnection,
+  PullRequestNode,
+} from '../../types/pull-request.type.js';
 import { RefNode, RepositoryNode } from '../../types/repository.type.js';
 import { UserConnection } from '../../types/user.type.js';
 import type { IssueResolver } from '../issue/issue.resolver.js';
@@ -141,15 +146,7 @@ export class RepositoryResolver {
 
   @ResolveField(() => RefNode, { nullable: true })
   defaultBranchRef(@Parent() repository: RepositoryNode) {
-    const name = repository.defaultBranch ?? 'main';
-    return Object.assign(new RefNode(), {
-      id: encodeNodeId(
-        'Repository',
-        `${repository.ghostId}:refs/heads/${name}`,
-      ),
-      name,
-      prefix: 'refs/heads/',
-    });
+    return toRefNode(repository.ghostId, repository.defaultBranch ?? 'main');
   }
 
   private async toNode(
@@ -324,6 +321,80 @@ export class RepositoryResolver {
     if (!found || found instanceof PullRequestNode)
       throw new CouldNotResolveError(
         `Could not resolve to an Issue with the number of ${number}.`,
+      );
+    return found;
+  }
+
+  @ResolveField(() => PullRequestConnection)
+  async pullRequests(
+    @Parent() repository: RepositoryNode,
+    @Viewer() viewer: GithubViewer | null,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { nullable: true }) after?: string,
+    @Args('states', { type: () => [PullRequestState], nullable: true })
+    states?: PullRequestState[],
+    @Args('labels', { type: () => [String], nullable: true }) labels?: string[],
+    @Args('headRefName', { nullable: true }) headRefName?: string,
+    @Args('baseRefName', { nullable: true }) baseRefName?: string,
+    @Args('orderBy', { type: () => IssueOrder, nullable: true })
+    orderBy?: IssueOrder,
+  ) {
+    const sort =
+      orderBy?.field === IssueOrderField.UPDATED_AT ? 'updated' : 'created';
+    const page = await this.issuesService.getIssues(
+      {
+        username: repository.ownerLogin,
+        repo: repository.slug,
+        requesterId: viewer?.userId,
+        query: {
+          state: 'all',
+          sort,
+          direction: orderBy?.direction === OrderDirection.ASC ? 'asc' : 'desc',
+          cursor: after,
+          // The controller's ValidationPipe caps limit at 100; GraphQL arguments skip it.
+          limit: Math.min(first ?? 30, 100),
+          labels: labels?.join(','),
+        },
+      },
+      {
+        pullRequests: {
+          states: states?.map(
+            (state) => state.toLowerCase() as Lowercase<PullRequestState>,
+          ),
+          headRef: headRefName,
+          baseRef: baseRefName,
+        },
+      },
+    );
+    const nodes = await this.issueNodes.toNodes(page.issues, repository);
+    return {
+      nodes,
+      edges: nodes.map((node, index) => ({
+        node,
+        cursor: issueCursor(page.issues[index]!, sort),
+      })),
+      totalCount: page.total,
+      pageInfo: {
+        hasNextPage: page.hasMore,
+        hasPreviousPage: !!after,
+        startCursor: null,
+        endCursor: page.nextCursor,
+      },
+    };
+  }
+
+  @ResolveField(() => PullRequestNode, { nullable: true })
+  async pullRequest(
+    @Parent() repository: RepositoryNode,
+    @Args('number', { type: () => Int }) number: number,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    const found = await orNull(
+      this.issueNodes.fromRepository(repository, number, viewer),
+    );
+    if (!(found instanceof PullRequestNode))
+      throw new CouldNotResolveError(
+        `Could not resolve to a PullRequest with the number of ${number}.`,
       );
     return found;
   }

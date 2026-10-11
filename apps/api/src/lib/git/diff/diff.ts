@@ -136,6 +136,26 @@ export function streamDiffPatch({
   });
 }
 
+/** `from..to` as one mailbox-style patch per commit, oldest first, as `git format-patch` writes it and `git am` reads it. */
+export function streamFormatPatch({
+  gitDir,
+  alternates,
+  from,
+  to,
+}: DiffRange): Readable {
+  return runGitReadable({
+    args: [
+      'format-patch',
+      '--stdout',
+      '--no-renames',
+      '--end-of-options',
+      `${from}..${to}`,
+    ],
+    gitDir,
+    env: alternatesEnv(alternates),
+  });
+}
+
 export interface DiffLine {
   kind: ' ' | '+' | '-';
   /** Line number on the base side; for an added line, the base line it comes before. */

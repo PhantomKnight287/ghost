@@ -20,6 +20,7 @@ import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
+import { toRepositoryRest } from '../../../lib/github/rest.js';
 import { requireWriteScope } from '../../auth/require-scopes.js';
 import { RequiresAuthenticationError } from '../../../lib/github/github.errors.js';
 import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
@@ -45,34 +46,7 @@ export class ReposController {
     @Viewer() viewer: GithubViewer | null,
   ) {
     const node = await this.repositoryNodes.repository(owner, repo, viewer);
-    const { api, web } = githubOrigins(this.config);
-    return {
-      id: node.databaseId,
-      node_id: node.id,
-      name: node.name,
-      full_name: node.nameWithOwner,
-      private: node.isPrivate,
-      visibility: node.isPrivate ? 'private' : 'public',
-      owner: { login: node.ownerLogin, html_url: `${web}/${node.ownerLogin}` },
-      html_url: node.url,
-      description: node.description,
-      fork: node.isFork,
-      url: `${api}/api/v3/repos/${node.nameWithOwner}`,
-      clone_url: `${api}/${node.nameWithOwner}.git`,
-      ssh_url: node.sshUrl,
-      default_branch: node.defaultBranch ?? 'main',
-      created_at: node.createdAt.toISOString(),
-      updated_at: node.updatedAt.toISOString(),
-      pushed_at: node.pushedAt?.toISOString() ?? null,
-      has_issues: node.hasIssuesEnabled,
-      permissions: node.viewerPermission && {
-        admin: node.viewerPermission === 'ADMIN',
-        maintain: ['ADMIN', 'MAINTAIN'].includes(node.viewerPermission),
-        push: ['ADMIN', 'MAINTAIN', 'WRITE'].includes(node.viewerPermission),
-        triage: node.viewerPermission !== 'READ',
-        pull: true,
-      },
-    };
+    return toRepositoryRest(node, githubOrigins(this.config));
   }
 
   @Get('repos/:owner/:repo/readme')

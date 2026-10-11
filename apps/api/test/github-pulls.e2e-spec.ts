@@ -1,0 +1,383 @@
+import type { INestApplication } from '@nestjs/common';
+import { execFile, execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { type Database, schema } from '@ghost/db';
+import { eq } from 'drizzle-orm';
+
+import { DATABASE } from '../src/database/database.module.js';
+import { hasBackends, signUp, startApp } from './harness.js';
+
+/** The pull request routes and fields gh's own suite (gh-cli.e2e-spec.ts) does not reach: REST pulls, reviews, reopening and merge refusals. */
+describe.skipIf(!hasBackends)('GitHub pull requests', () => {
+  let app: INestApplication;
+  let work: string;
+  let owner: { cookie: string; key: string; userId: string };
+  let reviewer: { cookie: string; key: string; userId: string };
+  const username = `ghpulls${Date.now()}`;
+  const repo = `/repos/${username}/tools`;
+  const v3 = () => request(app.getHttpServer());
+  const get = (path: string, token = owner.key) =>
+    v3().get(`/api/v3${path}`).set('authorization', `token ${token}`);
+  const send = (
+    method: 'post' | 'patch' | 'put',
+    path: string,
+    body: object,
+    token = owner.key,
+  ) =>
+    v3()
+      [method](`/api/v3${path}`)
+      .set('authorization', `token ${token}`)
+      .send(body);
+  const graphql = async (query: string, token = owner.key) => {
+    const { body } = await v3()
+      .post('/api/graphql')
+      .set('authorization', `token ${token}`)
+      .send({ query })
+      .expect(200);
+    return body;
+  };
+
+  beforeAll(async () => {
+    let origin: string;
+    ({ app, origin } = await startApp());
+    owner = await signUp(app, username);
+    reviewer = await signUp(app, `${username}r`);
+    // GitHub links a commit to an account by verified email only.
+    await app
+      .get<Database>(DATABASE)
+      .update(schema.user)
+      .set({ emailVerified: true })
+      .where(eq(schema.user.id, owner.userId));
+    await v3()
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'tools', visibility: 'public' })
+      .expect(201);
+
+    work = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-ghpulls-'));
+    const git = (...args: string[]) =>
+      execFileSync(
+        'git',
+        [
+          '-c',
+          'user.name=E2E',
+          '-c',
+          `user.email=${username}@example.com`,
+          ...args,
+        ],
+        { cwd: work },
+      );
+    git('init', '-q', '-b', 'main');
+    writeFileSync(path.join(work, 'a.txt'), 'one\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'first');
+    // `feature` merges cleanly, `clash` conflicts with what main gains below, `chore` is closed and reopened.
+    for (const [branch, content] of [
+      ['feature', 'two\n'],
+      ['clash', 'three\n'],
+      ['chore', 'four\n'],
+    ]) {
+      git('checkout', '-q', '-b', branch, 'main');
+      writeFileSync(path.join(work, `${branch}.txt`), content!);
+      if (branch === 'clash') writeFileSync(path.join(work, 'a.txt'), 'x\n');
+      git('add', '.');
+      git('commit', '-q', '-m', `Add ${branch}`);
+    }
+    git('checkout', '-q', 'main');
+    writeFileSync(path.join(work, 'a.txt'), 'y\n');
+    git('commit', '-q', '-am', 'main moves');
+    // The server runs in this process, so the push must not block the event loop.
+    await promisify(execFile)(
+      'git',
+      [
+        'push',
+        '-q',
+        `${origin.replace('://', `://${username}:${owner.key}@`)}/${username}/tools.git`,
+        'main',
+        'feature',
+        'clash',
+        'chore',
+      ],
+      { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+    );
+  }, 120_000);
+
+  afterAll(async () => {
+    await app?.close();
+    if (work) rmSync(work, { recursive: true, force: true });
+  });
+
+  it('opens a pull request over REST and answers it in GitHub shape', async () => {
+    const { body, headers } = await send('post', `${repo}/pulls`, {
+      title: 'Feature',
+      head: 'feature',
+      base: 'main',
+      body: 'Adds a feature',
+    }).expect(201);
+    expect(headers.location).toBe(body.url);
+    expect(body).toMatchObject({
+      id: expect.any(Number),
+      node_id: expect.stringMatching(/^PR_/),
+      number: 1,
+      state: 'open',
+      title: 'Feature',
+      body: 'Adds a feature',
+      draft: false,
+      merged: false,
+      mergeable: true,
+      mergeable_state: 'clean',
+      commits: 1,
+      additions: 1,
+      deletions: 0,
+      changed_files: 1,
+      user: expect.objectContaining({ login: username }),
+      head: {
+        label: `${username}:feature`,
+        ref: 'feature',
+        sha: expect.stringMatching(/^[0-9a-f]{40}$/),
+        repo: expect.objectContaining({ full_name: `${username}/tools` }),
+      },
+      base: expect.objectContaining({
+        ref: 'main',
+        sha: expect.stringMatching(/^[0-9a-f]{40}$/),
+      }),
+    });
+    expect(body.html_url).toMatch(/\/tools\/pull\/1$/);
+    // One integer id for the pull request everywhere, as GraphQL's databaseId has always answered.
+    const { data } = await graphql(`{
+      repository(owner: "${username}", name: "tools") { pullRequest(number: 1) { databaseId } }
+    }`);
+    expect(data.repository.pullRequest.databaseId).toBe(body.id);
+    expect((await get(`${repo}/issues/1`).expect(200)).body.id).toBe(body.id);
+  });
+
+  it('answers a conflicting pull request as not mergeable', async () => {
+    const { body } = await send('post', `${repo}/pulls`, {
+      title: 'Clash',
+      head: 'clash',
+      base: 'main',
+    }).expect(201);
+    expect(body).toMatchObject({
+      number: 2,
+      mergeable: false,
+      mergeable_state: 'dirty',
+    });
+    expect(
+      (await send('put', `${repo}/pulls/2/merge`, {}).expect(405)).body,
+    ).toMatchObject({ message: 'Pull Request is not mergeable' });
+  });
+
+  it('lists by state, head and base, and answers 404 for an issue number', async () => {
+    const open = (await get(`${repo}/pulls`).expect(200)).body;
+    expect(open.map((pull: { number: number }) => pull.number)).toEqual([2, 1]);
+    expect(open[0]).not.toHaveProperty('mergeable');
+    expect(
+      (await get(`${repo}/pulls?head=${username}:feature`).expect(200)).body,
+    ).toEqual([expect.objectContaining({ number: 1 })]);
+    expect((await get(`${repo}/pulls?base=nope`).expect(200)).body).toEqual([]);
+    expect((await get(`${repo}/pulls?state=closed`).expect(200)).body).toEqual(
+      [],
+    );
+    await v3()
+      .post(`/api/repositories/${username}/tools/issues`)
+      .set('cookie', owner.cookie)
+      .send({ title: 'Not a pull request' })
+      .expect(201);
+    await get(`${repo}/pulls/3`).expect(404);
+  });
+
+  it('answers the diff when Accept asks for it, and the files and commits', async () => {
+    const diff = await get(`${repo}/pulls/1`)
+      .set('accept', 'application/vnd.github.v3.diff')
+      .expect(200);
+    expect(diff.text).toContain('diff --git a/feature.txt b/feature.txt');
+    const patch = await get(`${repo}/pulls/1`)
+      .set('accept', 'application/vnd.github.v3.patch')
+      .expect(200);
+    expect(patch.text).toMatch(/^From [0-9a-f]{40} /);
+    expect(patch.text).toContain('Subject: [PATCH] Add feature');
+    expect((await get(`${repo}/pulls/1/files`).expect(200)).body).toEqual([
+      expect.objectContaining({
+        filename: 'feature.txt',
+        status: 'added',
+        additions: 1,
+        changes: 1,
+      }),
+    ]);
+    expect((await get(`${repo}/pulls/1/commits`).expect(200)).body).toEqual([
+      expect.objectContaining({
+        sha: expect.stringMatching(/^[0-9a-f]{40}$/),
+        commit: expect.objectContaining({
+          message: 'Add feature',
+          author: expect.objectContaining({
+            email: `${username}@example.com`,
+            date: expect.any(String),
+          }),
+        }),
+        author: expect.objectContaining({ login: username }),
+        committer: expect.objectContaining({ login: username }),
+      }),
+    ]);
+    const { data } = await graphql(`{
+      repository(owner: "${username}", name: "tools") {
+        pullRequest(number: 1) {
+          commits(first: 1) { nodes { commit {
+            messageHeadline authoredDate
+            authors(first: 1) { nodes { email user { login } } }
+          } } }
+        }
+      }
+    }`);
+    expect(data.repository.pullRequest.commits.nodes[0].commit).toMatchObject({
+      messageHeadline: 'Add feature',
+      authoredDate: expect.any(String),
+      authors: {
+        nodes: [
+          { email: `${username}@example.com`, user: { login: username } },
+        ],
+      },
+    });
+  });
+
+  it('derives reviewDecision and latestReviews from submitted reviews', async () => {
+    await v3()
+      .post(`/api/repositories/${username}/tools/pulls/1/reviews`)
+      .set('cookie', reviewer.cookie)
+      .send({ state: 'commented', body: 'Looking' })
+      .expect(201);
+    await v3()
+      .post(`/api/repositories/${username}/tools/pulls/1/reviews`)
+      .set('cookie', reviewer.cookie)
+      .send({ state: 'approved' })
+      .expect(201);
+    const { data } = await graphql(`{
+      repository(owner: "${username}", name: "tools") {
+        pullRequest(number: 1) {
+          state merged isDraft reviewDecision mergeable mergeStateStatus
+          reviews(first: 10) { totalCount nodes { databaseId state author { login } commit { oid messageHeadline } } }
+          latestReviews(first: 10) { nodes { state } }
+        }
+      }
+    }`);
+    expect(data.repository.pullRequest).toMatchObject({
+      state: 'OPEN',
+      merged: false,
+      isDraft: false,
+      reviewDecision: 'APPROVED',
+      mergeable: 'MERGEABLE',
+      mergeStateStatus: 'CLEAN',
+      reviews: {
+        totalCount: 2,
+        nodes: [
+          { state: 'COMMENTED', author: { login: `${username}r` } },
+          {
+            state: 'APPROVED',
+            commit: {
+              oid: expect.stringMatching(/^[0-9a-f]{40}$/),
+              messageHeadline: 'Add feature',
+            },
+          },
+        ],
+      },
+      latestReviews: { nodes: [{ state: 'APPROVED' }] },
+    });
+    const approved = data.repository.pullRequest.reviews.nodes[1];
+    const reviews = (await get(`${repo}/pulls/1/reviews`).expect(200)).body;
+    expect(reviews).toEqual([
+      expect.objectContaining({
+        state: 'COMMENTED',
+        body: 'Looking',
+        user: expect.objectContaining({ login: `${username}r` }),
+      }),
+      expect.objectContaining({
+        id: approved.databaseId,
+        state: 'APPROVED',
+        commit_id: approved.commit.oid,
+        html_url: expect.stringMatching(/\/pull\/1#pullrequestreview-/),
+      }),
+    ]);
+    expect(
+      (await get(`${repo}/pulls/1/reviews/${approved.databaseId}`).expect(200))
+        .body,
+    ).toEqual(reviews[1]);
+    await get(`${repo}/pulls/1/reviews/999999999`).expect(404);
+  });
+
+  it('refuses a merge whose head moved on, then merges and reports it', async () => {
+    await send('put', `${repo}/pulls/1/merge`, { sha: '0'.repeat(40) }).expect(
+      409,
+    );
+    await get(`${repo}/pulls/1/merge`).expect(404);
+    const merged = (
+      await send('put', `${repo}/pulls/1/merge`, {
+        merge_method: 'squash',
+      }).expect(200)
+    ).body;
+    expect(merged).toMatchObject({ merged: true, sha: expect.any(String) });
+    await get(`${repo}/pulls/1/merge`).expect(204);
+    expect((await get(`${repo}/pulls/1`).expect(200)).body).toMatchObject({
+      state: 'closed',
+      merged: true,
+      merge_commit_sha: merged.sha,
+      merged_by: expect.objectContaining({ login: username }),
+    });
+    expect((await get(`${repo}/pulls?state=closed`).expect(200)).body).toEqual([
+      expect.objectContaining({ number: 1 }),
+    ]);
+    await send('put', `${repo}/pulls/1/merge`, {}).expect(405);
+  });
+
+  it('closes and reopens over REST, and never reopens a merged one', async () => {
+    await send('post', `${repo}/pulls`, {
+      title: 'Chore',
+      head: 'chore',
+      base: 'main',
+    }).expect(201);
+    expect(
+      (await send('patch', `${repo}/pulls/4`, { state: 'closed' }).expect(200))
+        .body,
+    ).toMatchObject({ state: 'closed', merged: false });
+    expect(
+      (await send('patch', `${repo}/pulls/4`, { state: 'open' }).expect(200))
+        .body,
+    ).toMatchObject({ state: 'open' });
+    await send('patch', `${repo}/pulls/4`, { base: 'feature' }).expect(422);
+    const { errors } = await graphql(`mutation {
+      reopenPullRequest(input: { pullRequestId: "${(await get(`${repo}/pulls/1`)).body.node_id}" }) {
+        pullRequest { state }
+      }
+    }`);
+    expect(errors[0]).toMatchObject({ type: 'UNPROCESSABLE' });
+  });
+
+  it("resolves a pull request's comment by node id", async () => {
+    const comment = (
+      await send('post', `${repo}/issues/4/comments`, {
+        body: 'On a PR',
+      }).expect(201)
+    ).body;
+    const { data } = await graphql(
+      `{ node(id: "${comment.node_id}") { ... on IssueComment { body } } }`,
+    );
+    expect(data.node).toEqual({ body: 'On a PR' });
+  });
+
+  it('refuses a pull request id where an issue is asked for, and the reverse', async () => {
+    const pull = (await get(`${repo}/pulls/4`)).body.node_id;
+    const issue = (await get(`${repo}/issues/3`)).body.node_id;
+    const closeIssue = await graphql(`mutation {
+      closeIssue(input: { issueId: "${pull}" }) { issue { id } }
+    }`);
+    expect(closeIssue.errors[0]).toMatchObject({ type: 'NOT_FOUND' });
+    const closePull = await graphql(`mutation {
+      closePullRequest(input: { pullRequestId: "${issue}" }) { pullRequest { id } }
+    }`);
+    expect(closePull.errors[0]).toMatchObject({ type: 'NOT_FOUND' });
+  });
+});

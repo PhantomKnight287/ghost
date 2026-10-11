@@ -15,6 +15,8 @@ describe('parseIssueSearch', () => {
       author: 'ada',
       assignee: 'bob',
       labels: ['bug', 'help wanted'],
+      merged: null,
+      reviewRequested: undefined,
       text: 'crash on start',
     });
   });
@@ -29,6 +31,19 @@ describe('parseIssueSearch', () => {
       isPullRequest: false,
       labels: [],
       text: 'fix',
+    });
+  });
+
+  it('reads the qualifiers gh writes for pr status', () => {
+    expect(
+      parseIssueSearch(
+        'repo:ada/tools state:open is:pr is:merged author:@me review-requested:@me',
+      ),
+    ).toMatchObject({
+      isPullRequest: true,
+      merged: true,
+      author: '@me',
+      reviewRequested: '@me',
     });
   });
 

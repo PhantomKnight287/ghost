@@ -1,3 +1,4 @@
+import type { Database } from '@ghost/db';
 import { forwardRef, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -10,7 +11,9 @@ import {
 } from '@nestjs/graphql';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
+import { DATABASE } from '../../../../database/database.module.js';
 import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
+import { pullRequestRowsOf } from '../../../../lib/github/node-lookup.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
 import {
   toIssueCommentNode,
@@ -22,6 +25,7 @@ import {
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import { IssueNotFoundError } from '../../../../lib/issues/issues.errors.js';
+import type { IssueDTO } from '../../../../resources/issues/dto/issue.dto.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
@@ -50,6 +54,7 @@ import * as repositoryResolver from '../repository/repository.resolver.js';
 @AllowAnonymous()
 export class IssueResolver {
   constructor(
+    @Inject(DATABASE) private readonly db: Database,
     private readonly issues: IssuesService,
     @Inject(forwardRef(() => repositoryResolver.RepositoryResolver))
     private readonly repositories: RepositoryResolver,
@@ -69,9 +74,8 @@ export class IssueResolver {
         number,
         requesterId: viewer?.userId,
       });
-      return issue.isPullRequest
-        ? toPullRequestNode(issue, repository)
-        : toIssueNode(issue, repository);
+      const [node] = await this.toNodes([issue], repository);
+      return node!;
     } catch (error) {
       if (error instanceof IssueNotFoundError)
         throw new CouldNotResolveError(
@@ -79,6 +83,20 @@ export class IssueResolver {
         );
       throw error;
     }
+  }
+
+  /** Issue or pull request nodes in the order given; the pull_request rows behind them are read in one query. */
+  async toNodes(issues: IssueDTO[], repository: RepositoryNode) {
+    const pulls = await pullRequestRowsOf(
+      this.db,
+      issues.filter((issue) => issue.isPullRequest).map((issue) => issue.id),
+    );
+    return issues.map((issue) => {
+      const pull = pulls.get(issue.id);
+      return pull
+        ? toPullRequestNode(issue, repository, pull)
+        : toIssueNode(issue, repository);
+    });
   }
 
   /** IssueDTO leaves the numeric id out, as Ghost's own API does not return it. */

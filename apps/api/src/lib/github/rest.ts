@@ -1,3 +1,4 @@
+import type { RepositoryNode } from '../../github/graphql/types/repository.type.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
 import { GithubValidationError } from './github.errors.js';
@@ -41,6 +42,40 @@ export function toUserRest(
 }
 
 export type RestUser = ReturnType<typeof toUserRest>;
+
+// Mapper: the repository node GraphQL already built, with its permission, in GitHub's REST shape.
+export function toRepositoryRest(
+  node: RepositoryNode,
+  { api, web }: GithubOrigins,
+) {
+  return {
+    id: node.databaseId,
+    node_id: node.id,
+    name: node.name,
+    full_name: node.nameWithOwner,
+    private: node.isPrivate,
+    visibility: node.isPrivate ? 'private' : 'public',
+    owner: { login: node.ownerLogin, html_url: `${web}/${node.ownerLogin}` },
+    html_url: node.url,
+    description: node.description,
+    fork: node.isFork,
+    url: `${api}/api/v3/repos/${node.nameWithOwner}`,
+    clone_url: `${api}/${node.nameWithOwner}.git`,
+    ssh_url: node.sshUrl,
+    default_branch: node.defaultBranch ?? 'main',
+    created_at: node.createdAt.toISOString(),
+    updated_at: node.updatedAt.toISOString(),
+    pushed_at: node.pushedAt?.toISOString() ?? null,
+    has_issues: node.hasIssuesEnabled,
+    permissions: node.viewerPermission && {
+      admin: node.viewerPermission === 'ADMIN',
+      maintain: ['ADMIN', 'MAINTAIN'].includes(node.viewerPermission),
+      push: ['ADMIN', 'MAINTAIN', 'WRITE'].includes(node.viewerPermission),
+      triage: node.viewerPermission !== 'READ',
+      pull: true,
+    },
+  };
+}
 
 /** What every issue, comment and label response links to: the repository's API URL and its page in the web app. */
 export type RestRepository = {
@@ -229,4 +264,166 @@ export function labelNamesOf(body: unknown) {
       { resource: 'Label', field: 'labels', code: 'invalid' },
     ]);
   return names as string[];
+}
+
+export type RestRepositoryObject = ReturnType<typeof toRepositoryRest>;
+
+/** What a pull request response adds to its issue: the pull_request row, its head as it stands, and both sides' repositories, null once deleted or unreadable. */
+export type PullRestSource = {
+  numericId: number;
+  state: 'open' | 'closed' | 'merged';
+  draft: boolean;
+  baseRef: string;
+  headRef: string;
+  headSha: string;
+  baseSha: string | null;
+  mergeCommitSha: string | null;
+  mergedAt: Date | null;
+  base: RestRepositoryObject;
+  head: RestRepositoryObject | null;
+};
+
+/** The figures only a single pull request's response carries, from PullRequestsService.getPullRequest. */
+export type PullRestDetail = {
+  mergeable: boolean | null;
+  conflicted: boolean;
+  commits: number;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  reviewComments: number;
+};
+
+// Mapper: the issue fields come from IssuesService as for toIssueRest; GitHub's pull request adds the two branches, merge state and its own URLs.
+export function toPullRest(
+  issue: IssueDTO,
+  pull: PullRestSource,
+  context: RestContext,
+  detail?: PullRestDetail,
+) {
+  const { apiUrl, webUrl } = context.repository;
+  const url = `${apiUrl}/pulls/${issue.number}`;
+  const issueUrl = `${apiUrl}/issues/${issue.number}`;
+  const htmlUrl = `${webUrl}/pull/${issue.number}`;
+  const user = (login: string | null) =>
+    (login && context.users.get(login)) || null;
+  const assignees = issue.assignees.flatMap((login) => user(login) ?? []);
+  const side = (
+    ref: string,
+    sha: string | null,
+    repository: RestRepositoryObject | null,
+  ) => ({
+    label: repository ? `${repository.owner.login}:${ref}` : ref,
+    ref,
+    sha,
+    // ponytail: an organization owner is not in context.users and reads as null.
+    user: repository ? user(repository.owner.login) : null,
+    repo: repository,
+  });
+  const merged = pull.state === 'merged';
+  return {
+    url,
+    id: pull.numericId,
+    node_id: encodeNodeId('PullRequest', issue.id),
+    html_url: htmlUrl,
+    diff_url: `${htmlUrl}.diff`,
+    patch_url: `${htmlUrl}.patch`,
+    issue_url: issueUrl,
+    commits_url: `${url}/commits`,
+    review_comments_url: `${url}/comments`,
+    review_comment_url: `${apiUrl}/pulls/comments{/number}`,
+    comments_url: `${issueUrl}/comments`,
+    statuses_url: `${apiUrl}/statuses/${pull.headSha}`,
+    number: issue.number,
+    state: issue.state,
+    locked: false,
+    title: issue.title,
+    user: user(issue.authorUsername),
+    body: issue.body,
+    labels: issue.labels.map((label) => toLabelRest(label, context)),
+    milestone: null,
+    active_lock_reason: null,
+    created_at: issue.createdAt,
+    updated_at: issue.updatedAt,
+    closed_at: issue.closedAt,
+    merged_at: pull.mergedAt?.toISOString() ?? null,
+    merge_commit_sha: pull.mergeCommitSha,
+    assignee: assignees[0] ?? null,
+    assignees,
+    requested_reviewers: [],
+    requested_teams: [],
+    head: side(pull.headRef, pull.headSha, pull.head),
+    base: side(pull.baseRef, pull.baseSha, pull.base),
+    _links: {
+      self: { href: url },
+      html: { href: htmlUrl },
+      issue: { href: issueUrl },
+      comments: { href: `${issueUrl}/comments` },
+      review_comments: { href: `${url}/comments` },
+      review_comment: { href: `${apiUrl}/pulls/comments{/number}` },
+      commits: { href: `${url}/commits` },
+      statuses: { href: `${apiUrl}/statuses/${pull.headSha}` },
+    },
+    author_association: authorAssociation(issue.authorUsername, context),
+    auto_merge: null,
+    draft: pull.draft,
+    ...(detail && {
+      merged,
+      mergeable: detail.mergeable,
+      rebaseable: detail.mergeable,
+      mergeable_state: pull.draft
+        ? 'draft'
+        : detail.conflicted
+          ? 'dirty'
+          : detail.mergeable
+            ? 'clean'
+            : 'unknown',
+      merged_by: merged ? user(issue.closedByUsername) : null,
+      comments: issue.commentCount,
+      review_comments: detail.reviewComments,
+      maintainer_can_modify: false,
+      commits: detail.commits,
+      additions: detail.additions,
+      deletions: detail.deletions,
+      changed_files: detail.changedFiles,
+    }),
+  };
+}
+
+/** A submitted review as GitHub's REST `pull-request-review`, from reviewsOf. */
+export type RestReviewSource = {
+  id: string;
+  numericId: number;
+  authorLogin: string;
+  state: 'commented' | 'approved' | 'changes_requested' | null;
+  body: string | null;
+  commitSha: string;
+  dismissed: boolean;
+  submittedAt: Date | null;
+};
+
+// Mapper: reviews come from reviewsOf in Ghost's shape; GitHub's embeds the author and links the pull request.
+export function toReviewRest(
+  review: RestReviewSource,
+  number: number,
+  context: RestContext,
+) {
+  const { apiUrl, webUrl } = context.repository;
+  const htmlUrl = `${webUrl}/pull/${number}#pullrequestreview-${review.id}`;
+  const pullUrl = `${apiUrl}/pulls/${number}`;
+  return {
+    id: review.numericId,
+    node_id: encodeNodeId('PullRequestReview', review.id),
+    user: context.users.get(review.authorLogin) ?? null,
+    body: review.body ?? '',
+    state: review.dismissed
+      ? 'DISMISSED'
+      : (review.state ?? 'commented').toUpperCase(),
+    html_url: htmlUrl,
+    pull_request_url: pullUrl,
+    author_association: authorAssociation(review.authorLogin, context),
+    _links: { html: { href: htmlUrl }, pull_request: { href: pullUrl } },
+    submitted_at: review.submittedAt?.toISOString() ?? null,
+    commit_id: review.commitSha,
+  };
 }

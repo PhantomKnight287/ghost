@@ -408,7 +408,7 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     expect(bodies['pull_request.reviewed']).toMatchObject({
       pullRequest: {
         number: 2,
-        htmlUrl: `https://ghost.test/${USERNAME}/app/pulls/2`,
+        htmlUrl: `https://ghost.test/${USERNAME}/app/pull/2`,
       },
       review: { id: review.id, state: 'approved', body: 'Ship it' },
     });
@@ -627,6 +627,9 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
             authorName: 'Owner',
             authorEmail: 'owner@example.com',
             committedAt: '2026-09-29T12:00:00.000Z',
+            authoredAt: '2026-09-29T12:00:00.000Z',
+            committerName: 'Owner',
+            committerEmail: 'owner@example.com',
             subject: 'Count the bell',
             body: '',
           },

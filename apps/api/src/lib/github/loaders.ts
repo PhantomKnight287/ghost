@@ -3,6 +3,7 @@ import DataLoader from 'dataloader';
 import { inArray } from 'drizzle-orm';
 
 import type { GithubRequest } from '../../github/auth/github-request.js';
+import { reviewsOf, usersByEmailOf } from './node-lookup.js';
 import type { UserRow } from './nodes.js';
 
 function byKey<Row>(rows: Row[], key: (row: Row) => string | null) {
@@ -37,6 +38,11 @@ export function createLoaders(db: Database) {
       );
       return logins.map((login) => found.get(login) ?? null);
     }),
+    /** Keyed by lowercased email; see usersByEmailOf. */
+    usersByEmail: new DataLoader<string, UserRow | null>(async (emails) => {
+      const found = await usersByEmailOf(db, [...emails]);
+      return emails.map((email) => found.get(email) ?? null);
+    }),
     issueNumericIds: new DataLoader<string, number | null>(async (ids) => {
       const found = new Map(
         (
@@ -48,8 +54,15 @@ export function createLoaders(db: Database) {
       );
       return ids.map((id) => found.get(id) ?? null);
     }),
+    /** Submitted reviews per pull_request id, oldest first; pending ones are their author's alone. */
+    reviewsByPullRequestId: new DataLoader<string, ReviewRow[]>(async (ids) => {
+      const rows = await reviewsOf(db, [...ids]);
+      return ids.map((id) => rows.filter((row) => row.pullRequestId === id));
+    }),
   };
 }
+
+export type ReviewRow = Awaited<ReturnType<typeof reviewsOf>>[number];
 
 export type Loaders = ReturnType<typeof createLoaders>;
 export type GraphqlContext = { req: GithubRequest; loaders: Loaders };

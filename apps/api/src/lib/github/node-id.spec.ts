@@ -16,6 +16,9 @@ describe('node ids', () => {
       'PullRequest',
       'IssueComment',
       'Label',
+      'PullRequestReview',
+      'PullRequestCommit',
+      'Commit',
     ] as const) {
       expect(decodeNodeId(encodeNodeId(type, 'some_id-1'))).toEqual({
         type,
@@ -37,5 +40,11 @@ describe('node ids', () => {
       `Could not resolve to a node with the global id of '${label}'`,
     );
     expect(decodeNodeIdAs(label, 'Label')).toBe('label_x');
+  });
+
+  it('accepts any of several types, as for a Labelable that is an issue or a pull request', () => {
+    const pull = encodeNodeId('PullRequest', 'issue_y');
+    expect(decodeNodeIdAs(pull, 'Issue', 'PullRequest')).toBe('issue_y');
+    expect(() => decodeNodeIdAs(pull, 'Issue')).toThrow(CouldNotResolveError);
   });
 });

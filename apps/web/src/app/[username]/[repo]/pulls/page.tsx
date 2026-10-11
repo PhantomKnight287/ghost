@@ -97,7 +97,7 @@ export default async function PullRequestsPage({
 
                   <div className="min-w-0 flex-1">
                     <Link
-                      href={`${base}/${pull.number}`}
+                      href={`/${username}/${repo}/pull/${pull.number}`}
                       className="font-medium hover:underline"
                     >
                       {pull.title}

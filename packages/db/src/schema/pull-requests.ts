@@ -84,6 +84,11 @@ export const pullRequestReview = pgTable(
       .unique()
       .notNull()
       .$defaultFn(() => `prr_${createId()}`),
+    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     pullRequestId: text()
       .references(() => pullRequest.id, { onDelete: "cascade" })
       .notNull(),

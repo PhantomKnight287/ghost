@@ -1,6 +1,8 @@
 import type { Type } from '@nestjs/common';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 
+import { keysetCursor } from '../../lib/db/keyset.js';
+
 @ObjectType('PageInfo')
 export class PageInfo {
   @Field(() => String, { nullable: true })
@@ -18,12 +20,30 @@ export class PageInfo {
 
 export type ConnectionOf<T> = {
   nodes: T[];
+  edges?: { cursor: string; node: T }[];
   pageInfo: PageInfo;
   totalCount: number;
 };
 
-/** GitHub's `<Name>Connection`. Edges are left out until a client asks for them; gh reads `nodes`. */
-export function Connection<T>(node: Type<T>, name: string) {
+/** GitHub's `<Name>Edge`. */
+export function Edge<T>(node: Type<T> | object, name: string) {
+  @ObjectType(`${name}Edge`)
+  class EdgeType {
+    @Field()
+    cursor: string;
+
+    @Field(() => node, { nullable: true })
+    node: T;
+  }
+  return EdgeType;
+}
+
+/** GitHub's `<Name>Connection`. Edges are left out unless `edges` is set, for the connections gh reads them on; elsewhere gh reads `nodes`. */
+export function Connection<T>(
+  node: Type<T> | object,
+  name: string,
+  { edges }: { edges?: boolean } = {},
+) {
   @ObjectType(`${name}Connection`)
   class ConnectionType implements ConnectionOf<T> {
     @Field(() => [node], { nullable: 'itemsAndList' })
@@ -34,6 +54,13 @@ export function Connection<T>(node: Type<T>, name: string) {
 
     @Field(() => Int)
     totalCount: number;
+  }
+  if (edges) {
+    const EdgeType = Edge(node, name);
+    Field(() => [EdgeType], { nullable: 'itemsAndList' })(
+      ConnectionType.prototype,
+      'edges',
+    );
   }
   return ConnectionType;
 }
@@ -60,17 +87,31 @@ export function sliceConnection<T>(
       ? rest.slice(rest.length - Math.max(0, last))
       : rest.slice(0, Math.max(0, first ?? rest.length));
   const end = last != null ? items.length : start + nodes.length;
+  const offsetCursor = (offset: number) =>
+    Buffer.from(String(offset)).toString('base64url');
   return {
     nodes,
+    edges: nodes.map((node, index) => ({
+      node,
+      cursor: offsetCursor(end - nodes.length + index + 1),
+    })),
     totalCount: items.length,
     pageInfo: {
       hasNextPage: end < items.length,
       hasPreviousPage: last != null ? nodes.length < rest.length : start > 0,
       startCursor: null,
-      endCursor:
-        nodes.length > 0
-          ? Buffer.from(String(end)).toString('base64url')
-          : null,
+      endCursor: nodes.length > 0 ? offsetCursor(end) : null,
     },
   };
+}
+
+/** The cursor that resumes an issue list after this issue, as IssuesService.getIssues pages it by `sort`. */
+export function issueCursor(
+  issue: { id: string; createdAt: string; updatedAt: string },
+  sort: 'created' | 'updated',
+) {
+  return keysetCursor([
+    sort === 'updated' ? issue.updatedAt : issue.createdAt,
+    issue.id,
+  ]);
 }

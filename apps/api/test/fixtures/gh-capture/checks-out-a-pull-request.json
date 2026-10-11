@@ -58,8 +58,20 @@
     ]
   },
   {
-    "command": "gh pr checkout ",
+    "command": "gh pr checkout 4",
     "requests": [
+      {
+        "method": "GET",
+        "path": "/<login>/tools.git/info/refs",
+        "query": {
+          "service": "git-upload-pack"
+        },
+        "headers": {
+          "accept": "*/*"
+        },
+        "body": null,
+        "status": 200
+      },
       {
         "method": "POST",
         "path": "/api/graphql",
@@ -71,15 +83,25 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "query": "\n\tquery PullRequestForBranch($owner: String!, $repo: String!, $headRefName: String!, $states: [PullRequestState!]) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequests(headRefName: $headRefName, states: $states, first: 30, orderBy: { field: CREATED_AT, direction: DESC }) {\n\t\t\t\tnodes {number,headRefName,headRepository{id,name,nameWithOwner},headRepositoryOwner{id,login,...on User{name}},isCrossRepository,maintainerCanModify,id,state,baseRefName}\n\t\t\t}\n\t\t\tdefaultBranchRef { name }\n\t\t}\n\t}",
+          "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {number,headRefName,headRepository{id,name,nameWithOwner},headRepositoryOwner{id,login,...on User{name}},isCrossRepository,maintainerCanModify,id}\n\t\t}\n\t}",
           "variables": {
-            "headRefName": "undefined",
             "owner": "<login>",
-            "repo": "tools",
-            "states": null
+            "pr_number": 4,
+            "repo": "tools"
           }
         },
-        "status": 400
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/<login>/tools.git/git-upload-pack",
+        "query": {},
+        "headers": {
+          "accept": "application/x-git-upload-pack-result",
+          "content-type": "application/x-git-upload-pack-request"
+        },
+        "body": null,
+        "status": 201
       }
     ]
   }

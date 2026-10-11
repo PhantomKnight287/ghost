@@ -12,7 +12,7 @@ import { ReviewDiff } from "./review-diff";
 
 export default async function PullRequestFilesPage({
   params,
-}: PageProps<"/[username]/[repo]/pulls/[number]/files">) {
+}: PageProps<"/[username]/[repo]/pull/[number]/files">) {
   const { username, repo, number } = await params;
 
   const [session, client, role] = await Promise.all([
