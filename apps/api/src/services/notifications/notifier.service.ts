@@ -428,7 +428,7 @@ export class NotifierService {
         : undefined,
     ]);
 
-    const kind = thread.isPullRequest ? 'pulls' : 'issues';
+    const kind = thread.isPullRequest ? 'pull' : 'issues';
     for (const person of people) {
       try {
         await this.mail.sendThreadEmail(person.email, {

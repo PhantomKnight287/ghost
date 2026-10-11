@@ -40,7 +40,7 @@ export default function ThreadState({ state, ...thread }: ThreadStateProps) {
 ThreadState.PreviewProps = {
   ...previewThread,
   isPullRequest: true,
-  path: '/alice/ghost/pulls/42',
+  path: '/alice/ghost/pull/42',
   reason: 'author',
   state: 'merged',
 } satisfies ThreadStateProps;

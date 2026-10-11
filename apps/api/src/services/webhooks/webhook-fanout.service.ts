@@ -145,7 +145,7 @@ export class WebhookFanoutService {
         .where(eq(schema.issue.id, event.payload.issueId));
       if (!thread) return null;
 
-      const kind = thread.isPullRequest ? 'pulls' : 'issues';
+      const kind = thread.isPullRequest ? 'pull' : 'issues';
       body[thread.isPullRequest ? 'pullRequest' : 'issue'] = {
         id: thread.id,
         number: thread.number,

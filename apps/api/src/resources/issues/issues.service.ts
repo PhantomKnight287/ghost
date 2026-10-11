@@ -26,6 +26,7 @@ import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
+  ownerNameOf,
   repositoryFullNameOf,
   type Repository,
   type RepositoryOperation,
@@ -54,6 +55,14 @@ import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 export type IssueListOptions = {
   offset?: number;
   includePullRequests?: boolean;
+  /** Lists only pull requests, narrowed by their own state and branches; overrides `includePullRequests`. */
+  pullRequests?: {
+    states?: (typeof schema.pullRequestState.enumValues)[number][];
+    baseRef?: string;
+    headRef?: string;
+    /** The login or organization owning the head repository, as in GitHub's `head=owner:branch`. */
+    headOwner?: string;
+  };
   since?: Date;
   assigned?: boolean;
 };
@@ -341,12 +350,59 @@ export class IssuesService {
       .select({ issueId: schema.issueAssignee.issueId })
       .from(schema.issueAssignee)
       .where(eq(schema.issueAssignee.issueId, schema.issue.id));
+    const pulls = options.pullRequests;
+    const pullRequest = pulls
+      ? this.db
+          .select({ issueId: schema.pullRequest.issueId })
+          .from(schema.pullRequest)
+          .where(
+            and(
+              eq(schema.pullRequest.issueId, schema.issue.id),
+              pulls.states?.length
+                ? inArray(schema.pullRequest.state, pulls.states)
+                : undefined,
+              pulls.baseRef
+                ? eq(schema.pullRequest.baseRef, pulls.baseRef)
+                : undefined,
+              pulls.headRef
+                ? eq(schema.pullRequest.headRef, pulls.headRef)
+                : undefined,
+              pulls.headOwner
+                ? inArray(
+                    schema.pullRequest.headRepositoryId,
+                    this.db
+                      .select({ id: schema.repository.id })
+                      .from(schema.repository)
+                      .innerJoin(
+                        schema.user,
+                        eq(schema.user.id, schema.repository.ownerId),
+                      )
+                      .leftJoin(
+                        schema.organization,
+                        eq(
+                          schema.organization.id,
+                          schema.repository.organizationId,
+                        ),
+                      )
+                      .where(
+                        eq(
+                          ownerNameOf(schema.user, schema.organization),
+                          pulls.headOwner,
+                        ),
+                      ),
+                  )
+                : undefined,
+            ),
+          )
+      : undefined;
     const baseClause = (forState: 'open' | 'closed' | 'all') =>
       and(
         eq(schema.issue.repositoryId, repository.id),
-        options.includePullRequests
-          ? undefined
-          : eq(schema.issue.isPullRequest, false),
+        pullRequest
+          ? exists(pullRequest)
+          : options.includePullRequests
+            ? undefined
+            : eq(schema.issue.isPullRequest, false),
         forState === 'all' ? undefined : eq(schema.issue.state, forState),
         options.since ? gte(schema.issue.updatedAt, options.since) : undefined,
         options.assigned === undefined
@@ -498,15 +554,21 @@ export class IssuesService {
     return this.expandIssue(closed, params.requesterId, base.viewerRole);
   }
 
-  async reopenIssue(params: IssueRef & { requesterId: string }) {
+  /** A pull request reopens only through PullRequestsService.reopenPullRequest, which passes `reopenPullRequest` to reopen its row in the same transaction. */
+  async reopenIssue(
+    params: IssueRef & { requesterId: string },
+    reopenPullRequest?: (tx: Executor) => Promise<void>,
+  ) {
     const { issue, base } = await this.load(params);
     if (issue.authorId !== params.requesterId) {
       await this.access.authorize({ ...params, operation: 'triage' });
     }
     if (issue.state !== 'closed') throw new IssueNotOpenError(issue.state);
-    if (issue.isPullRequest) throw new PullRequestReopenError();
+    if (issue.isPullRequest && !reopenPullRequest)
+      throw new PullRequestReopenError();
 
     const reopened = await this.db.transaction(async (tx) => {
+      await reopenPullRequest?.(tx);
       const [row] = await tx
         .update(schema.issue)
         .set({ state: 'open', closedAt: null, closedById: null })

@@ -1,0 +1,39 @@
+[
+  {
+    "command": "gh pr diff 4 -R <host>/<login>/tools",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/pulls/4",
+        "query": {},
+        "headers": {
+          "accept": "application/vnd.github.v3.diff",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {number,id}\n\t\t}\n\t}",
+          "variables": {
+            "owner": "<login>",
+            "pr_number": 4,
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      }
+    ]
+  }
+]

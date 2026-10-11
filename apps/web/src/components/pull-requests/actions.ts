@@ -34,7 +34,7 @@ export const createPullRequest = actionClient
         }),
       );
 
-      redirect(`/${username}/${repo}/pulls/${data.number}`);
+      redirect(`/${username}/${repo}/pull/${data.number}`);
     },
   );
 
@@ -60,7 +60,7 @@ export const mergePullRequest = actionClient
         ),
       );
 
-      revalidatePath(`/${username}/${repo}/pulls/${number}`);
+      revalidatePath(`/${username}/${repo}/pull/${number}`);
       return data;
     },
   );
@@ -74,7 +74,7 @@ export const closePullRequest = actionClient
       }),
     );
 
-    revalidatePath(`/${username}/${repo}/pulls/${number}`);
+    revalidatePath(`/${username}/${repo}/pull/${number}`);
   });
 
 /** Marks a draft ready for review, or turns a request back into a draft. */
@@ -92,7 +92,7 @@ export const setDraft = actionClient
       ),
     );
 
-    revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
+    revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
   });
 
 const lineComment = z.object({
@@ -140,7 +140,7 @@ export const submitReview = actionClient
         ),
       );
 
-      revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
+      revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
     },
   );
 
@@ -157,7 +157,7 @@ export const addPendingComment = actionClient
       ),
     );
 
-    revalidatePath(`/${username}/${repo}/pulls/${number}/files`);
+    revalidatePath(`/${username}/${repo}/pull/${number}/files`);
   });
 
 export const discardPendingReview = actionClient
@@ -172,7 +172,7 @@ export const discardPendingReview = actionClient
       ),
     );
 
-    revalidatePath(`/${username}/${repo}/pulls/${number}/files`);
+    revalidatePath(`/${username}/${repo}/pull/${number}/files`);
   });
 
 export const dismissReview = actionClient
@@ -198,7 +198,7 @@ export const dismissReview = actionClient
         ),
       );
 
-      revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
+      revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
     },
   );
 
@@ -214,7 +214,7 @@ export const applySuggestion = actionClient
       ),
     );
 
-    revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
+    revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
   });
 
 export const replyToReviewComment = actionClient
@@ -231,7 +231,7 @@ export const replyToReviewComment = actionClient
         ),
       );
 
-      revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
+      revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
     },
   );
 
@@ -249,7 +249,7 @@ export const updateReviewComment = actionClient
         ),
       );
 
-      revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
+      revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
     },
   );
 
@@ -265,7 +265,7 @@ export const deleteReviewComment = actionClient
       ),
     );
 
-    revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
+    revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
   });
 
 /** A review's summary is edited like a comment, so its id travels as `commentId`. */
@@ -288,7 +288,7 @@ export const updateReviewSummary = actionClient
         ),
       );
 
-      revalidatePath(`/${username}/${repo}/pulls/${number}`, "layout");
+      revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
     },
   );
 
@@ -316,5 +316,5 @@ export const updatePullRequest = actionClient
       }),
     );
 
-    revalidatePath(`/${username}/${repo}/pulls/${number}`);
+    revalidatePath(`/${username}/${repo}/pull/${number}`);
   });

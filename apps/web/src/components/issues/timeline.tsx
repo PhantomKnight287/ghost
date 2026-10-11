@@ -154,7 +154,7 @@ export function Timeline({
             <>
               {" in "}
               <Link
-                href={`/${event.sourceRepository}/pulls/${event.sourceNumber}`}
+                href={`/${event.sourceRepository}/pull/${event.sourceNumber}`}
                 className="text-foreground hover:underline"
               >
                 {event.sourceRepository === `${username}/${repo}`
@@ -195,7 +195,7 @@ export function Timeline({
         <UserLink username={item.actorUsername} /> mentioned this in
         {item.source ? (
           <Link
-            href={`${base}/${item.source.isPullRequest ? "pulls" : "issues"}/${item.source.number}`}
+            href={`${base}/${item.source.isPullRequest ? "pull" : "issues"}/${item.source.number}`}
             className="text-foreground hover:underline"
           >
             {item.source.title}{" "}

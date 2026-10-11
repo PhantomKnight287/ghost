@@ -58,6 +58,16 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 | `gh issue comment`, `gh issue edit` | |
 | `gh issue close`, `gh issue reopen` | |
 | `gh label list`, `gh label create`, `gh label edit`, `gh label delete`, `gh label clone` | |
+| `gh pr create` | |
+| `gh pr list` | |
+| `gh pr view`, `gh pr view --comments`, `gh pr view --json …` | |
+| `gh pr status` | |
+| `gh pr diff` | |
+| `gh pr checkout` | |
+| `gh pr comment`, `gh pr edit` | `gh pr edit --base` fails: Ghost cannot retarget a pull request |
+| `gh pr ready`, `gh pr ready --undo` | |
+| `gh pr close`, `gh pr reopen` | A closed pull request reopens while its head branch exists |
+| `gh pr merge` | |
 | `gh api … --paginate` | Follows the `Link` header of every REST list |
 | `gh ssh-key list`, `gh ssh-key add` | |
 
@@ -66,8 +76,9 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 GraphQL at `/api/graphql`:
 
 - Queries: `viewer`, `user`, `organization`, `repositoryOwner`, `repository`, `node`, `nodes`, `search(type: ISSUE)`
-- Types: `User`, `Organization`, `Repository`, `Ref`, `Label`, `Issue`, `IssueComment`, and `PullRequest` with its number, title, state and URL only
-- Mutations: `createIssue`, `updateIssue`, `closeIssue`, `reopenIssue`, `addComment`, `addLabelsToLabelable`, `removeLabelsFromLabelable`, `addAssigneesToAssignable`, `removeAssigneesFromAssignable`, `createRepository`
+- Types: `User`, `Organization`, `Repository`, `Ref`, `Label`, `Issue`, `IssueComment`, `PullRequest` (with `files`, `commits`, `reviews`, `latestReviews`, `reviewDecision`, `mergeable` and `mergeStateStatus`), `PullRequestReview`, `PullRequestCommit`, `Commit`, `PullRequestChangedFile`
+- `repository.pullRequests` (`states`, `headRefName`, `baseRefName`, `labels`, `orderBy`) and `repository.pullRequest(number:)`
+- Mutations: `createIssue`, `updateIssue`, `closeIssue`, `reopenIssue`, `addComment`, `addLabelsToLabelable`, `removeLabelsFromLabelable`, `addAssigneesToAssignable`, `removeAssigneesFromAssignable`, `createRepository`, `createPullRequest`, `updatePullRequest`, `closePullRequest`, `reopenPullRequest`, `mergePullRequest`, `markPullRequestReadyForReview`, `convertPullRequestToDraft`. Comments, labels and assignees take a pull request's id as they take an issue's
 
 REST at `/api/v3`:
 
@@ -85,6 +96,12 @@ Issues, comments and labels, under `/api/v3/repos/:owner/:repo`:
 - `POST`, `DELETE /issues/:number/assignees`; `GET /issues/:number/assignees/:assignee`
 - `GET /assignees`, `GET /assignees/:assignee`
 - `GET`, `POST /labels`; `GET`, `PATCH`, `DELETE /labels/:name`
+
+Pull requests, under `/api/v3/repos/:owner/:repo`:
+
+- `GET`, `POST /pulls`; `GET`, `PATCH /pulls/:number`. `GET /pulls/:number` with `Accept: application/vnd.github.diff` answers the diff as text, and with `.patch` one mailbox-style patch per commit
+- `GET /pulls/:number/commits`, `GET /pulls/:number/files`, `GET /pulls/:number/reviews`, `GET /pulls/:number/reviews/:review_id`
+- `GET`, `PUT /pulls/:number/merge`. A merge Ghost refuses, such as one with conflicts, answers 405; a `sha` the head has moved on from answers 409
 
 Lists take `page` and `per_page` (30 by default, at most 100) and send a `Link` header with `first`, `prev`, `next` and `last`. Labels named on an issue that the repository does not have yet are created with color `ededed`, as on GitHub.
 
@@ -123,10 +140,15 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - `PUT /issues/:number/labels` with a bare string body is refused: Ghost only parses JSON objects and arrays.
 - `GET /assignees` lists the owner, collaborators and organization members. `GET /assignees/:assignee` answers 204 for any user, as Ghost lets anyone be assigned.
 - `documentation_url` in REST errors always points at `https://docs.github.com/rest`.
+- Pull requests have no checks or commit statuses yet ([#61](https://github.com/PhantomKnight287/ghost/issues/61)): `statusCheckRollup` is always null and `gh pr checks` shows none.
+- No auto-merge, merge queue, review requests or branch protection: `autoMergeRequest` is null, `reviewRequests` is empty, and `reviewDecision` is `APPROVED`, `CHANGES_REQUESTED` or null, never `REVIEW_REQUIRED`.
+- `maintainerCanModify` is always false, and a pull request's base branch cannot be changed.
+- A pull request's REST `id` and `databaseId` are its issue's. GitHub gives the two different ids.
+- A commit author's `user` is the account with that verified email, primary or added, or null.
+- Not served: creating or editing reviews over REST, review comments over GraphQL, `updatePullRequestBranch`, and `gh pr checks`.
 - Not served: locking (Ghost has no locking yet, [#111](https://github.com/PhantomKnight287/ghost/issues/111)), milestones, issue types, sub-issues, issue dependencies, issue field values, comment pins, label archiving, reactions, issue events and timelines, and the cross-repository lists `/issues`, `/user/issues` and `/orgs/:org/issues`.
 
 ## Not yet supported
 
-- Pull requests
 - Releases and gists
 - GitHub Apps and fine-grained tokens

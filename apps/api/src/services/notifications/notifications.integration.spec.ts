@@ -416,7 +416,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
         state: 'changes_requested',
         body: 'Nearly.',
         commentCount: 1,
-        path: '/ntf-owner/app/pulls/1',
+        path: '/ntf-owner/app/pull/1',
       },
     });
 

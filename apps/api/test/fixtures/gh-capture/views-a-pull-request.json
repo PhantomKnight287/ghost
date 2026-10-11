@@ -1,0 +1,27 @@
+[
+  {
+    "command": "gh pr view 4 -R <host>/<login>/tools --json number,title,body,state,headRefName,baseRefName,additions,deletions,changedFiles,files,commits,reviewDecision,mergeable,url",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {number,title,body,state,headRefName,baseRefName,additions,deletions,changedFiles,files(first: 100) {nodes {additions,deletions,path,changeType}},commits(first: 100) {nodes {commit {authors(first:100) {nodes {name,email,user{id,login}}},messageHeadline,messageBody,oid,committedDate,authoredDate}}},reviewDecision,mergeable,url,id}\n\t\t}\n\t}",
+          "variables": {
+            "owner": "<login>",
+            "pr_number": 4,
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      }
+    ]
+  }
+]

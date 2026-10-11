@@ -39,6 +39,9 @@ const commit = (n: number) => ({
   authorName: 'Ada',
   authorEmail: 'ada@example.com',
   committedAt: '2026-09-30T00:00:00.000Z',
+  authoredAt: '2026-09-30T00:00:00.000Z',
+  committerName: 'Ada',
+  committerEmail: 'ada@example.com',
   subject: `Commit ${n}`,
   body: '',
 });
@@ -220,7 +223,7 @@ describe('render', () => {
 });
 
 describe('messageOf', () => {
-  const pull = { ...thread, htmlUrl: 'https://ghost.test/ada/app/pulls/7' };
+  const pull = { ...thread, htmlUrl: 'https://ghost.test/ada/app/pull/7' };
   const release = {
     id: 'release_1',
     tagName: 'v1',

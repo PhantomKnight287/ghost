@@ -59,6 +59,11 @@ export function keyset<Keys extends Record<string, AnyPgColumn>>({
   };
 }
 
+/** The cursor `keyset` would hand out for a row with these key values, for a client that resumes after any row of a page, not only the last. */
+export function keysetCursor(values: unknown[]) {
+  return encode(values);
+}
+
 function encode(values: unknown[]) {
   return Buffer.from(
     values

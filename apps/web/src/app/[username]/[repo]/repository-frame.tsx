@@ -105,10 +105,13 @@ export function RepositoryFrame({
         ]
       : []),
   ];
+  // a single pull request lives at `pull/<n>`, as on GitHub, under the pull requests tab
   const activeTab =
-    view === "pulls" || view === "issues" || view === "settings"
-      ? view
-      : "code";
+    view === "pull"
+      ? "pulls"
+      : view === "pulls" || view === "issues" || view === "settings"
+        ? view
+        : "code";
   // the root of the repository only: a file or a subdirectory has nothing to say about the repository as a whole
   const showSidebar = activeTab === "code" && view === undefined;
   const showTree = view === "blob" && rev != null;

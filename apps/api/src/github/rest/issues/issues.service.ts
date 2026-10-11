@@ -266,7 +266,8 @@ export class GithubIssuesService {
     };
   }
 
-  private async context(
+  /** The users and label ids the responses for `related` embed, loaded once. */
+  async context(
     repository: RepositoryNode,
     related: { logins: string[]; labels: LabelDTO[] },
   ): Promise<RestContext> {
@@ -300,7 +301,7 @@ export class GithubIssuesService {
     };
   }
 
-  private async issueExtras(ids: string[]) {
+  async issueExtras(ids: string[]) {
     const rows =
       ids.length > 0
         ? await this.db

@@ -51,7 +51,7 @@ export function NotificationItem({
   });
 
   const { repository, thread, unread } = notification;
-  const href = `/${repository.owner}/${repository.slug}/${thread.isPullRequest ? "pulls" : "issues"}/${thread.number}`;
+  const href = `/${repository.owner}/${repository.slug}/${thread.isPullRequest ? "pull" : "issues"}/${thread.number}`;
   const ToggleIcon = unread ? MailOpen : Mail;
 
   return (

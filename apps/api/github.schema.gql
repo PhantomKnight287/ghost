@@ -46,6 +46,65 @@ interface Assignable {
   assignees: UserConnection!
 }
 
+type AutoMergeRequest {
+  authorEmail: String
+  commitBody: String
+  commitHeadline: String
+  enabledAt: DateTime
+  enabledBy: Actor
+  mergeMethod: PullRequestMergeMethod!
+}
+
+type Bot implements Actor & Node & UniformResourceLocatable {
+  avatarUrl: URI!
+  id: ID!
+  login: String!
+  resourcePath: URI!
+  url: URI!
+}
+
+type BranchProtectionRule implements Node {
+  id: ID!
+  requiresStrictStatusChecks: Boolean!
+}
+
+enum CheckConclusionState {
+  ACTION_REQUIRED
+  CANCELLED
+  FAILURE
+  NEUTRAL
+  SKIPPED
+  STALE
+  STARTUP_FAILURE
+  SUCCESS
+  TIMED_OUT
+}
+
+type CheckRun implements Node {
+  checkSuite: CheckSuite!
+  completedAt: DateTime
+  conclusion: CheckConclusionState
+  detailsUrl: URI
+  id: ID!
+  name: String!
+  startedAt: DateTime
+  status: CheckStatusState!
+}
+
+enum CheckStatusState {
+  COMPLETED
+  IN_PROGRESS
+  PENDING
+  QUEUED
+  REQUESTED
+  WAITING
+}
+
+type CheckSuite implements Node {
+  id: ID!
+  workflowRun: WorkflowRun
+}
+
 input CloseIssueInput {
   clientMutationId: String
   issueId: ID!
@@ -57,6 +116,16 @@ type CloseIssuePayload {
   issue: Issue
 }
 
+input ClosePullRequestInput {
+  clientMutationId: String
+  pullRequestId: ID!
+}
+
+type ClosePullRequestPayload {
+  clientMutationId: String
+  pullRequest: PullRequest
+}
+
 enum CommentAuthorAssociation {
   COLLABORATOR
   CONTRIBUTOR
@@ -66,6 +135,33 @@ enum CommentAuthorAssociation {
   MEMBER
   NONE
   OWNER
+}
+
+type Commit implements Node & UniformResourceLocatable {
+  abbreviatedOid: String!
+  author: GitActor
+  authoredDate: DateTime!
+  authors(first: Int): GitActorConnection!
+  committedDate: DateTime!
+  committer: GitActor
+  id: ID!
+  message: String!
+  messageBody: String!
+  messageHeadline: String!
+  oid: GitObjectID!
+  resourcePath: URI!
+  statusCheckRollup: StatusCheckRollup
+  url: URI!
+}
+
+input ConvertPullRequestToDraftInput {
+  clientMutationId: String
+  pullRequestId: ID!
+}
+
+type ConvertPullRequestToDraftPayload {
+  clientMutationId: String
+  pullRequest: PullRequest
 }
 
 input CreateIssueInput {
@@ -83,6 +179,23 @@ input CreateIssueInput {
 type CreateIssuePayload {
   clientMutationId: String
   issue: Issue
+}
+
+input CreatePullRequestInput {
+  baseRefName: String!
+  body: String
+  clientMutationId: String
+  draft: Boolean
+  headRefName: String!
+  headRepositoryId: ID
+  maintainerCanModify: Boolean
+  repositoryId: ID!
+  title: String!
+}
+
+type CreatePullRequestPayload {
+  clientMutationId: String
+  pullRequest: PullRequest
 }
 
 input CreateRepositoryInput {
@@ -107,6 +220,21 @@ type CreateRepositoryPayload {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+type GitActor {
+  email: String
+  name: String
+  user: User
+}
+
+type GitActorConnection {
+  nodes: [GitActor]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+"""A Git object ID."""
+scalar GitObjectID
 
 """Git SSH string"""
 scalar GitSSHRemote
@@ -270,6 +398,48 @@ interface Labelable {
   labels: LabelConnection
 }
 
+input MarkPullRequestReadyForReviewInput {
+  clientMutationId: String
+  pullRequestId: ID!
+}
+
+type MarkPullRequestReadyForReviewPayload {
+  clientMutationId: String
+  pullRequest: PullRequest
+}
+
+input MergePullRequestInput {
+  authorEmail: String
+  clientMutationId: String
+  commitBody: String
+  commitHeadline: String
+  expectedHeadOid: GitObjectID
+  mergeMethod: PullRequestMergeMethod
+  pullRequestId: ID!
+}
+
+type MergePullRequestPayload {
+  clientMutationId: String
+  pullRequest: PullRequest
+}
+
+enum MergeStateStatus {
+  BEHIND
+  BLOCKED
+  CLEAN
+  DIRTY
+  DRAFT
+  HAS_HOOKS
+  UNKNOWN
+  UNSTABLE
+}
+
+enum MergeableState {
+  CONFLICTING
+  MERGEABLE
+  UNKNOWN
+}
+
 type Milestone {
   description: String
   dueOn: DateTime
@@ -283,12 +453,19 @@ type Mutation {
   addComment(input: AddCommentInput!): AddCommentPayload
   addLabelsToLabelable(input: AddLabelsToLabelableInput!): AddLabelsToLabelablePayload
   closeIssue(input: CloseIssueInput!): CloseIssuePayload
+  closePullRequest(input: ClosePullRequestInput!): ClosePullRequestPayload
+  convertPullRequestToDraft(input: ConvertPullRequestToDraftInput!): ConvertPullRequestToDraftPayload
   createIssue(input: CreateIssueInput!): CreateIssuePayload
+  createPullRequest(input: CreatePullRequestInput!): CreatePullRequestPayload
   createRepository(input: CreateRepositoryInput!): CreateRepositoryPayload
+  markPullRequestReadyForReview(input: MarkPullRequestReadyForReviewInput!): MarkPullRequestReadyForReviewPayload
+  mergePullRequest(input: MergePullRequestInput!): MergePullRequestPayload
   removeAssigneesFromAssignable(input: RemoveAssigneesFromAssignableInput!): RemoveAssigneesFromAssignablePayload
   removeLabelsFromLabelable(input: RemoveLabelsFromLabelableInput!): RemoveLabelsFromLabelablePayload
   reopenIssue(input: ReopenIssueInput!): ReopenIssuePayload
+  reopenPullRequest(input: ReopenPullRequestInput!): ReopenPullRequestPayload
   updateIssue(input: UpdateIssueInput!): UpdateIssuePayload
+  updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
 }
 
 interface Node {
@@ -318,6 +495,15 @@ type PageInfo {
   startCursor: String
 }
 
+enum PatchStatus {
+  ADDED
+  CHANGED
+  COPIED
+  DELETED
+  MODIFIED
+  RENAMED
+}
+
 type ProjectV2 {
   id: ID!
   title: String!
@@ -344,26 +530,51 @@ type ProjectV2ItemFieldSingleSelectValue {
 union ProjectV2ItemFieldValue = ProjectV2ItemFieldSingleSelectValue
 
 type PullRequest implements Assignable & Labelable & Node & UniformResourceLocatable {
+  additions: Int!
   assignees(first: Int): UserConnection!
   author: Actor
+  autoMergeRequest: AutoMergeRequest
+  baseRef: Ref
+  baseRefName: String!
+  baseRepository: Repository!
   body: String!
   bodyHTML: HTML!
   bodyText: String!
+  changedFiles: Int!
   closed: Boolean!
   closedAt: DateTime
   comments(after: String, first: Int, last: Int): IssueCommentConnection!
+  commits(after: String, first: Int, last: Int): PullRequestCommitConnection!
   createdAt: DateTime!
   databaseId: Int
+  deletions: Int!
+  files(after: String, first: Int): PullRequestChangedFileConnection
+  headRef: Ref
+  headRefName: String!
+  headRefOid: GitObjectID!
+  headRepository: Repository
+  headRepositoryOwner: RepositoryOwner
   id: ID!
   includesCreatedEdit: Boolean!
+  isCrossRepository: Boolean!
+  isDraft: Boolean!
   labels(first: Int): LabelConnection
+  latestReviews(after: String, first: Int, last: Int): PullRequestReviewConnection
   locked: Boolean!
+  maintainerCanModify: Boolean!
+  mergeStateStatus: MergeStateStatus!
+  mergeable: MergeableState!
+  merged: Boolean!
+  mergedAt: DateTime
   milestone: Milestone
   number: Int!
   projectItems(after: String, before: String, first: Int, includeArchived: Boolean = true, last: Int): ProjectV2ItemConnection!
   reactionGroups: [ReactionGroup!]
   repository: Repository!
   resourcePath: URI!
+  reviewDecision: PullRequestReviewDecision
+  reviewRequests(first: Int): ReviewRequestConnection
+  reviews(after: String, first: Int, last: Int): PullRequestReviewConnection
   state: PullRequestState!
   title: String!
   updatedAt: DateTime!
@@ -371,9 +582,94 @@ type PullRequest implements Assignable & Labelable & Node & UniformResourceLocat
   viewerCanUpdate: Boolean!
 }
 
+type PullRequestChangedFile {
+  additions: Int!
+  changeType: PatchStatus!
+  deletions: Int!
+  path: String!
+}
+
+type PullRequestChangedFileConnection {
+  nodes: [PullRequestChangedFile]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PullRequestCommit implements Node & UniformResourceLocatable {
+  commit: Commit!
+  id: ID!
+  resourcePath: URI!
+  url: URI!
+}
+
+type PullRequestCommitConnection {
+  nodes: [PullRequestCommit]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PullRequestConnection {
+  edges: [PullRequestEdge]
+  nodes: [PullRequest]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PullRequestEdge {
+  cursor: String!
+  node: PullRequest
+}
+
+enum PullRequestMergeMethod {
+  MERGE
+  REBASE
+  SQUASH
+}
+
+type PullRequestReview implements Node {
+  author: Actor
+  authorAssociation: CommentAuthorAssociation!
+  body: String!
+  commit: Commit
+  createdAt: DateTime!
+  databaseId: Int
+  id: ID!
+  includesCreatedEdit: Boolean!
+  reactionGroups: [ReactionGroup!]
+  resourcePath: URI!
+  state: PullRequestReviewState!
+  submittedAt: DateTime
+  url: URI!
+}
+
+type PullRequestReviewConnection {
+  nodes: [PullRequestReview]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+enum PullRequestReviewDecision {
+  APPROVED
+  CHANGES_REQUESTED
+  REVIEW_REQUIRED
+}
+
+enum PullRequestReviewState {
+  APPROVED
+  CHANGES_REQUESTED
+  COMMENTED
+  DISMISSED
+  PENDING
+}
+
 enum PullRequestState {
   CLOSED
   MERGED
+  OPEN
+}
+
+enum PullRequestUpdateState {
+  CLOSED
   OPEN
 }
 
@@ -411,6 +707,7 @@ type ReactionGroup {
 }
 
 type Ref implements Node {
+  branchProtectionRule: BranchProtectionRule
   id: ID!
   name: String!
   prefix: String!
@@ -448,6 +745,16 @@ type ReopenIssuePayload {
   issue: Issue
 }
 
+input ReopenPullRequestInput {
+  clientMutationId: String
+  pullRequestId: ID!
+}
+
+type ReopenPullRequestPayload {
+  clientMutationId: String
+  pullRequest: PullRequest
+}
+
 type Repository implements Node & UniformResourceLocatable {
   assignableUsers(after: String, first: Int, query: String): UserConnection!
   createdAt: DateTime!
@@ -472,6 +779,8 @@ type Repository implements Node & UniformResourceLocatable {
   nameWithOwner: String!
   owner: RepositoryOwner!
   parent: Repository
+  pullRequest(number: Int!): PullRequest
+  pullRequests(after: String, baseRefName: String, first: Int, headRefName: String, labels: [String!], orderBy: IssueOrder, states: [PullRequestState!]): PullRequestConnection!
   pushedAt: DateTime
   rebaseMergeAllowed: Boolean!
   resourcePath: URI!
@@ -505,12 +814,31 @@ enum RepositoryVisibility {
   PUBLIC
 }
 
+union RequestedReviewer = Bot | Team | User
+
+type ReviewRequest implements Node {
+  id: ID!
+  requestedReviewer: RequestedReviewer
+}
+
+type ReviewRequestConnection {
+  nodes: [ReviewRequest]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
 union SearchResultItem = Issue | PullRequest
 
 type SearchResultItemConnection {
+  edges: [SearchResultItemEdge]
   issueCount: Int!
   nodes: [SearchResultItem]
   pageInfo: PageInfo!
+}
+
+type SearchResultItemEdge {
+  cursor: String!
+  node: SearchResultItem
 }
 
 enum SearchType {
@@ -520,10 +848,48 @@ enum SearchType {
   USER
 }
 
+type StatusCheckRollup implements Node {
+  contexts(after: String, first: Int): StatusCheckRollupContextConnection!
+  id: ID!
+  state: StatusState!
+}
+
+union StatusCheckRollupContext = CheckRun | StatusContext
+
+type StatusCheckRollupContextConnection {
+  nodes: [StatusCheckRollupContext]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type StatusContext implements Node {
+  context: String!
+  createdAt: DateTime!
+  description: String
+  id: ID!
+  state: StatusState!
+  targetUrl: URI
+}
+
+enum StatusState {
+  ERROR
+  EXPECTED
+  FAILURE
+  PENDING
+  SUCCESS
+}
+
 type SubIssuesSummary {
   completed: Int!
   percentCompleted: Int!
   total: Int!
+}
+
+type Team implements Node {
+  id: ID!
+  name: String!
+  organization: Organization!
+  slug: String!
 }
 
 """An RFC 3986, RFC 3987, and RFC 6570 (level 4) compliant URI string."""
@@ -551,6 +917,25 @@ type UpdateIssuePayload {
   issue: Issue
 }
 
+input UpdatePullRequestInput {
+  assigneeIds: [ID!]
+  baseRefName: String
+  body: String
+  clientMutationId: String
+  labelIds: [ID!]
+  maintainerCanModify: Boolean
+  milestoneId: ID
+  projectIds: [ID!]
+  pullRequestId: ID!
+  state: PullRequestUpdateState
+  title: String
+}
+
+type UpdatePullRequestPayload {
+  clientMutationId: String
+  pullRequest: PullRequest
+}
+
 type User implements Actor & Node & RepositoryOwner & UniformResourceLocatable {
   avatarUrl: URI!
   createdAt: DateTime!
@@ -567,4 +952,14 @@ type UserConnection {
   nodes: [User]
   pageInfo: PageInfo!
   totalCount: Int!
+}
+
+type Workflow implements Node {
+  id: ID!
+  name: String!
+}
+
+type WorkflowRun implements Node {
+  id: ID!
+  workflow: Workflow!
 }

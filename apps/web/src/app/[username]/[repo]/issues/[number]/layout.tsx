@@ -48,8 +48,7 @@ export default async function IssueLayout({
     throw new Error(`Failed to load issue #${number}`);
   }
   // `#N` always links to `/issues/N`, whichever kind N turns out to be.
-  if (issue.data.isPullRequest)
-    redirect(`/${username}/${repo}/pulls/${number}`);
+  if (issue.data.isPullRequest) redirect(`/${username}/${repo}/pull/${number}`);
 
   // Server-computed: the author, or whoever can write to the repository.
   const canEdit = issue.data.viewerCanEdit;

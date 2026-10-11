@@ -19,6 +19,7 @@ import { publishEvent } from '../../lib/events/events.js';
 import {
   countCommits,
   listCommits,
+  readCommit,
 } from '../../lib/git/commits/list-commits.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
@@ -26,6 +27,7 @@ import {
   listDiffFiles,
   mergeBase,
   streamDiffPatch,
+  streamFormatPatch,
 } from '../../lib/git/diff/diff.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import {
@@ -73,7 +75,9 @@ import { keyset } from '../../lib/db/keyset.js';
 import {
   BranchNotFoundError,
   CommitNotFoundError,
+  RepositoryNotFoundError,
 } from '../../lib/repositories/repositories.errors.js';
+import { AuthenticationRequiredError } from '../../lib/repositories/access/repository-access.errors.js';
 import {
   CreatePullRequestRequestDTO,
   UpdatePullRequestRequestDTO,
@@ -431,19 +435,34 @@ export class PullRequestsService {
       .where(isNull(latest.dismissalMessage));
   }
 
+  /** Newest first, paged by `cursor`; with `oldestFirst`, the oldest `limit` commits, oldest first, as GitHub lists a pull request's. */
   async getCommits(
-    params: PullRequestRef & { limit?: number; cursor?: string },
+    params: PullRequestRef & {
+      limit?: number;
+      cursor?: string;
+      oldestFirst?: boolean;
+    },
   ) {
     const git = await this.open(params);
     if (!git.mergeBase) return { commits: [], total: 0, nextCursor: null };
 
     const limit = params.limit ?? DEFAULT_PAGE_SIZE;
-    const { commits, nextCursor } = await listCommits({
+    const total = await countCommits({
+      gitDir: git.baseDirectory,
+      env: git.env,
+      range: `${git.mergeBase}..${git.headSha}`,
+    });
+    const listed = await listCommits({
       gitDir: git.baseDirectory,
       env: git.env,
       ref: `${git.mergeBase}..${params.cursor ?? git.headSha}`,
       limit,
+      skip: params.oldestFirst ? Math.max(0, total - limit) : undefined,
     });
+    const commits = params.oldestFirst
+      ? listed.commits.toReversed()
+      : listed.commits;
+    const nextCursor = params.oldestFirst ? null : listed.nextCursor;
 
     // A fork's commits live in the other repository's objects, which is why the lending env has to come along for the signatures to be readable.
     const verdicts = await this.verification.verifyCommits({
@@ -457,11 +476,7 @@ export class PullRequestsService {
         ...commit,
         verification: verdicts.get(commit.sha) ?? null,
       })),
-      total: await countCommits({
-        gitDir: git.baseDirectory,
-        env: git.env,
-        range: `${git.mergeBase}..${git.headSha}`,
-      }),
+      total,
       nextCursor,
     };
   }
@@ -484,9 +499,19 @@ export class PullRequestsService {
     };
   }
 
-  async streamPatch(params: PullRequestRef & { path?: string }) {
+  /** The diff, or with `mailbox` one patch per commit as `git am` reads it; `path` narrows the diff only. */
+  async streamPatch(
+    params: PullRequestRef & { path?: string; mailbox?: boolean },
+  ) {
     const git = await this.open(params);
     if (git.headDeleted) throw new PullRequestHeadDeletedError();
+    if (params.mailbox)
+      return streamFormatPatch({
+        gitDir: git.baseDirectory,
+        alternates: git.alternates,
+        from: git.mergeBase ?? git.baseSha,
+        to: git.headSha,
+      });
     return streamDiffPatch({
       gitDir: git.baseDirectory,
       alternates: git.alternates,
@@ -813,6 +838,103 @@ export class PullRequestsService {
 
     await this.issues.closeIssue(params);
     return this.expandPullRequest((await this.load(params)).pullRequest);
+  }
+
+  /** Reopens a closed request while its head branch still exists, as GitHub does; a merged one stays merged. */
+  async reopenPullRequest(params: PullRequestRef & { requesterId: string }) {
+    const { pullRequest } = await this.load(params);
+    if (pullRequest.state !== 'closed') {
+      throw new PullRequestNotOpenError(pullRequest.state);
+    }
+    if (!pullRequest.headRepositoryId) throw new PullRequestHeadDeletedError();
+    if (
+      !(await this.branchTip(pullRequest.headRepositoryId, pullRequest.headRef))
+    )
+      throw new BranchNotFoundError(pullRequest.headRef);
+
+    await this.issues.reopenIssue(params, async (tx) => {
+      const [open] = await tx
+        .select({ number: schema.issue.number })
+        .from(schema.pullRequest)
+        .innerJoin(
+          schema.issue,
+          eq(schema.issue.id, schema.pullRequest.issueId),
+        )
+        .where(
+          and(
+            eq(
+              schema.pullRequest.baseRepositoryId,
+              pullRequest.baseRepositoryId,
+            ),
+            eq(schema.pullRequest.baseRef, pullRequest.baseRef),
+            eq(
+              schema.pullRequest.headRepositoryId,
+              pullRequest.headRepositoryId!,
+            ),
+            eq(schema.pullRequest.headRef, pullRequest.headRef),
+            eq(schema.pullRequest.state, 'open'),
+          ),
+        );
+      if (open) throw new PullRequestAlreadyOpenError(open.number);
+      await tx
+        .update(schema.pullRequest)
+        .set({ state: 'open' })
+        .where(
+          and(
+            eq(schema.pullRequest.id, pullRequest.id),
+            eq(schema.pullRequest.state, 'closed'),
+          ),
+        );
+    });
+    // Closing stopped the pull refs following the branches; they pick up again from here.
+    this.pullRefs.syncInBackground(pullRequest.id);
+    return this.expandPullRequest((await this.load(params)).pullRequest);
+  }
+
+  /** One commit of the request by sha: from the base, whose pull refs hold the head's commits, or else from the head. Null when neither has it. */
+  async readCommit(params: PullRequestRef, sha: string) {
+    const { pullRequest, base } = await this.load(params);
+    const fromBase = await readCommit({
+      gitDir: await this.materializer.open(base),
+      sha,
+    });
+    if (
+      fromBase ||
+      !pullRequest.headRepositoryId ||
+      pullRequest.headRepositoryId === base.id
+    )
+      return fromBase;
+    // The head is another repository, which the requester may not be able to read.
+    const head = await this.access
+      .authorizeById({
+        repositoryId: pullRequest.headRepositoryId,
+        requesterId: params.requesterId,
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof RepositoryNotFoundError ||
+          error instanceof AuthenticationRequiredError
+        )
+          return null;
+        throw error;
+      });
+    return head
+      ? readCommit({ gitDir: await this.materializer.open(head), sha })
+      : null;
+  }
+
+  /** A side's branch tip as it stands now, without the merge base and test merge `open` works out; null once its repository or branch is gone. */
+  async branchTip(repositoryId: string | null, branch: string) {
+    if (!repositoryId) return null;
+    const [repository] = await this.db
+      .select()
+      .from(schema.repository)
+      .where(eq(schema.repository.id, repositoryId));
+    if (!repository) return null;
+    return resolveCommit(
+      await this.materializer.open(repository),
+      toBranchRef(branch),
+    );
   }
 
   /** Marks a request ready for review, or turns it back into a draft. Asking for the state it is already in records nothing. */

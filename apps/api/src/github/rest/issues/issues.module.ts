@@ -12,5 +12,6 @@ import { LabelsController } from './labels.controller.js';
   // CommentsController first: its `issues/comments` routes must match before `issues/:number`.
   controllers: [CommentsController, LabelsController, IssuesController],
   providers: [GithubIssuesService],
+  exports: [GithubIssuesService],
 })
 export class GithubIssuesModule {}

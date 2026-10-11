@@ -4,12 +4,15 @@ import { Allow } from 'class-validator';
 import {
   IssueClosedStateReason,
   IssueState,
+  PullRequestMergeMethod,
+  PullRequestUpdateState,
   RepositoryVisibility,
 } from '../enums.js';
-import { URI } from '../scalars.js';
+import { GitObjectID, URI } from '../scalars.js';
 import { IssueCommentNode } from './issue-comment.type.js';
 import { IssueNode } from './issue.type.js';
 import { Assignable, Labelable } from './node.interface.js';
+import { PullRequestNode } from './pull-request.type.js';
 import { RepositoryNode } from './repository.type.js';
 
 // GraphQL already checks every input's types and nullability; @Allow only keeps fields through the global ValidationPipe's whitelist.
@@ -293,3 +296,171 @@ export class CreateRepositoryPayload {
   @Field(() => RepositoryNode, { nullable: true })
   repository: RepositoryNode | null;
 }
+
+@InputType('CreatePullRequestInput')
+export class CreatePullRequestInput {
+  @Allow()
+  @Field(() => ID)
+  repositoryId: string;
+
+  @Allow()
+  @Field()
+  baseRefName: string;
+
+  /** A branch of `headRepositoryId`, or `owner:branch` as gh writes it for a fork. */
+  @Allow()
+  @Field()
+  headRefName: string;
+
+  @Allow()
+  @Field(() => ID, { nullable: true })
+  headRepositoryId?: string | null;
+
+  @Allow()
+  @Field()
+  title: string;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  body?: string | null;
+
+  @Allow()
+  @Field(() => Boolean, { nullable: true })
+  draft?: boolean | null;
+
+  // Accepted and ignored: a fork's branch is never writable from the base in Ghost.
+  @Allow()
+  @Field(() => Boolean, { nullable: true })
+  maintainerCanModify?: boolean | null;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+}
+
+@InputType('UpdatePullRequestInput')
+export class UpdatePullRequestInput {
+  @Allow()
+  @Field(() => ID)
+  pullRequestId: string;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  title?: string | null;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  body?: string | null;
+
+  /** Ghost's branches never move once a request is open; any other base answers UNPROCESSABLE. */
+  @Allow()
+  @Field(() => String, { nullable: true })
+  baseRefName?: string | null;
+
+  @Allow()
+  @Field(() => PullRequestUpdateState, { nullable: true })
+  state?: PullRequestUpdateState | null;
+
+  @Allow()
+  @Field(() => [ID], { nullable: true })
+  labelIds?: string[] | null;
+
+  @Allow()
+  @Field(() => [ID], { nullable: true })
+  assigneeIds?: string[] | null;
+
+  @Allow()
+  @Field(() => ID, { nullable: true })
+  milestoneId?: string | null;
+
+  @Allow()
+  @Field(() => [ID], { nullable: true })
+  projectIds?: string[] | null;
+
+  @Allow()
+  @Field(() => Boolean, { nullable: true })
+  maintainerCanModify?: boolean | null;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+}
+
+/** The input of every mutation that names a pull request and nothing else. */
+@InputType({ isAbstract: true })
+abstract class PullRequestIdInput {
+  @Allow()
+  @Field(() => ID)
+  pullRequestId: string;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+}
+
+@InputType('ClosePullRequestInput')
+export class ClosePullRequestInput extends PullRequestIdInput {}
+
+@InputType('ReopenPullRequestInput')
+export class ReopenPullRequestInput extends PullRequestIdInput {}
+
+@InputType('MarkPullRequestReadyForReviewInput')
+export class MarkPullRequestReadyForReviewInput extends PullRequestIdInput {}
+
+@InputType('ConvertPullRequestToDraftInput')
+export class ConvertPullRequestToDraftInput extends PullRequestIdInput {}
+
+@InputType('MergePullRequestInput')
+export class MergePullRequestInput extends PullRequestIdInput {
+  @Allow()
+  @Field(() => PullRequestMergeMethod, { nullable: true })
+  mergeMethod?: PullRequestMergeMethod | null;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  commitHeadline?: string | null;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  commitBody?: string | null;
+
+  /** The merge is refused unless the head is still this commit. */
+  @Allow()
+  @Field(() => GitObjectID, { nullable: true })
+  expectedHeadOid?: string | null;
+
+  // Accepted and ignored: a merge commit is credited to the merger, a squash to the request's author.
+  @Allow()
+  @Field(() => String, { nullable: true })
+  authorEmail?: string | null;
+}
+
+@ObjectType({ isAbstract: true })
+abstract class PullRequestPayload {
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+
+  @Field(() => PullRequestNode, { nullable: true })
+  pullRequest: PullRequestNode | null;
+}
+
+@ObjectType('CreatePullRequestPayload')
+export class CreatePullRequestPayload extends PullRequestPayload {}
+
+@ObjectType('UpdatePullRequestPayload')
+export class UpdatePullRequestPayload extends PullRequestPayload {}
+
+@ObjectType('ClosePullRequestPayload')
+export class ClosePullRequestPayload extends PullRequestPayload {}
+
+@ObjectType('ReopenPullRequestPayload')
+export class ReopenPullRequestPayload extends PullRequestPayload {}
+
+@ObjectType('MergePullRequestPayload')
+export class MergePullRequestPayload extends PullRequestPayload {}
+
+@ObjectType('MarkPullRequestReadyForReviewPayload')
+export class MarkPullRequestReadyForReviewPayload extends PullRequestPayload {}
+
+@ObjectType('ConvertPullRequestToDraftPayload')
+export class ConvertPullRequestToDraftPayload extends PullRequestPayload {}

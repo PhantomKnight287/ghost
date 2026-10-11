@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
+import { IssueResolver } from '../issue/issue.resolver.js';
 import { RepositoryResolver } from '../repository/repository.resolver.js';
 import { SearchResolver } from './search.resolver.js';
 
@@ -12,6 +13,7 @@ describe('SearchResolver', () => {
         SearchResolver,
         { provide: IssuesService, useValue: {} },
         { provide: RepositoryResolver, useValue: {} },
+        { provide: IssueResolver, useValue: {} },
       ],
     }).compile();
 

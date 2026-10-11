@@ -8,10 +8,19 @@ import {
 } from '@nestjs/graphql';
 
 import { Connection } from '../connection.js';
-import { IssueTypeColor, ReactionContent } from '../enums.js';
-import { Node } from './node.interface.js';
+import {
+  CheckConclusionState,
+  CheckStatusState,
+  IssueTypeColor,
+  PullRequestMergeMethod,
+  ReactionContent,
+  StatusState,
+} from '../enums.js';
+import { URI } from '../scalars.js';
+import { Actor, Node, UniformResourceLocatable } from './node.interface.js';
+import { OrganizationNode } from './organization.type.js';
 
-/** Ghost has no milestones, reactions, issue types, projects or sub-issues. These types exist so gh's fixed queries validate; resolvers answer them empty. */
+/** Ghost has no milestones, reactions, issue types, projects, sub-issues, checks, teams, bots, auto-merge or branch protection. These types exist so gh's fixed queries validate; resolvers answer them empty. */
 
 @ObjectType('Milestone')
 export class MilestoneNode {
@@ -112,3 +121,172 @@ export const ProjectV2ItemConnection = Connection(
   ProjectV2ItemNode,
   'ProjectV2Item',
 );
+
+@ObjectType('Workflow', { implements: () => [Node] })
+export class WorkflowNode {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  name: string;
+}
+
+@ObjectType('WorkflowRun', { implements: () => [Node] })
+export class WorkflowRunNode {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => WorkflowNode)
+  workflow: WorkflowNode;
+}
+
+@ObjectType('CheckSuite', { implements: () => [Node] })
+export class CheckSuiteNode {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => WorkflowRunNode, { nullable: true })
+  workflowRun: WorkflowRunNode | null;
+}
+
+@ObjectType('CheckRun', { implements: () => [Node] })
+export class CheckRunNode {
+  kind = 'CheckRun';
+
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  name: string;
+
+  @Field(() => CheckStatusState)
+  status: CheckStatusState;
+
+  @Field(() => CheckConclusionState, { nullable: true })
+  conclusion: CheckConclusionState | null;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  startedAt: Date | null;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  completedAt: Date | null;
+
+  @Field(() => URI, { nullable: true })
+  detailsUrl: string | null;
+
+  @Field(() => CheckSuiteNode)
+  checkSuite: CheckSuiteNode;
+}
+
+@ObjectType('StatusContext', { implements: () => [Node] })
+export class StatusContextNode {
+  kind = 'StatusContext';
+
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  context: string;
+
+  @Field(() => StatusState)
+  state: StatusState;
+
+  @Field(() => URI, { nullable: true })
+  targetUrl: string | null;
+
+  @Field(() => GraphQLISODateTime)
+  createdAt: Date;
+
+  @Field(() => String, { nullable: true })
+  description: string | null;
+}
+
+export const StatusCheckRollupContext = createUnionType({
+  name: 'StatusCheckRollupContext',
+  types: () => [CheckRunNode, StatusContextNode] as const,
+  resolveType: (value: { kind: string }) => value.kind,
+});
+
+export const StatusCheckRollupContextConnection = Connection(
+  StatusCheckRollupContext,
+  'StatusCheckRollupContext',
+);
+
+/** Always null until Ghost records commit statuses (#61); StatusCheckRollupResolver gives `contexts` its arguments. */
+@ObjectType('StatusCheckRollup', { implements: () => [Node] })
+export class StatusCheckRollupNode {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => StatusState)
+  state: StatusState;
+}
+
+@ObjectType('BranchProtectionRule', { implements: () => [Node] })
+export class BranchProtectionRuleNode {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  requiresStrictStatusChecks: boolean;
+}
+
+@ObjectType('AutoMergeRequest')
+export class AutoMergeRequestNode {
+  @Field(() => String, { nullable: true })
+  authorEmail: string | null;
+
+  @Field(() => String, { nullable: true })
+  commitBody: string | null;
+
+  @Field(() => String, { nullable: true })
+  commitHeadline: string | null;
+
+  @Field(() => PullRequestMergeMethod)
+  mergeMethod: PullRequestMergeMethod;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  enabledAt: Date | null;
+
+  @Field(() => Actor, { nullable: true })
+  enabledBy: Actor | null;
+}
+
+@ObjectType('Team', { implements: () => [Node] })
+export class TeamNode {
+  kind = 'Team';
+
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  name: string;
+
+  @Field()
+  slug: string;
+
+  @Field(() => OrganizationNode)
+  organization: OrganizationNode;
+}
+
+@ObjectType('Bot', {
+  implements: () => [Node, Actor, UniformResourceLocatable],
+})
+export class BotNode {
+  kind = 'Bot';
+
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  login: string;
+
+  @Field(() => URI)
+  avatarUrl: string;
+
+  @Field(() => URI)
+  resourcePath: string;
+
+  @Field(() => URI)
+  url: string;
+}

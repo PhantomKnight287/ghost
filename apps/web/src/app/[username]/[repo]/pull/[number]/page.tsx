@@ -16,7 +16,7 @@ import { MergePanel } from "./merge-panel";
 
 export default async function PullRequestPage({
   params,
-}: PageProps<"/[username]/[repo]/pulls/[number]">) {
+}: PageProps<"/[username]/[repo]/pull/[number]">) {
   const { username, repo, number } = await params;
 
   const [session, client, role] = await Promise.all([

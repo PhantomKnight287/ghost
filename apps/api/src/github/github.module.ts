@@ -29,6 +29,9 @@ import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issu
 import { RepositoryMutationsResolver } from './graphql/resolvers/repository-mutations/repository-mutations.resolver.js';
 import { OauthModule } from './oauth/oauth.module.js';
 import { GithubIssuesModule } from './rest/issues/issues.module.js';
+import { GithubPullsModule } from './rest/pulls/pulls.module.js';
+import { PullRequestMutationsResolver } from './graphql/resolvers/pull-request-mutations/pull-request-mutations.resolver.js';
+import { PullRequestsModule } from '../resources/pull-requests/pull-requests.module.js';
 
 @Module({
   imports: [
@@ -77,9 +80,11 @@ import { GithubIssuesModule } from './rest/issues/issues.module.js';
     UsersModule,
     ReposModule,
     GithubIssuesModule,
+    GithubPullsModule,
     IssuesModule,
     RepositoriesModule,
     OauthModule,
+    PullRequestsModule,
   ],
   providers: [
     ViewerResolver,
@@ -87,6 +92,7 @@ import { GithubIssuesModule } from './rest/issues/issues.module.js';
     SearchResolver,
     IssueMutationsResolver,
     RepositoryMutationsResolver,
+    PullRequestMutationsResolver,
   ],
 })
 export class GithubModule implements NestModule {

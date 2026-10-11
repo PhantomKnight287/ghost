@@ -5,6 +5,18 @@ import { sliceConnection } from './connection.js';
 describe('sliceConnection', () => {
   const items = ['a', 'b', 'c', 'd', 'e'];
 
+  it("gives each edge a cursor that resumes after that edge's node", () => {
+    const { edges } = sliceConnection(items, { first: 3, after: null });
+    expect(edges!.map((edge) => edge.node)).toEqual(['a', 'b', 'c']);
+    expect(
+      sliceConnection(items, { first: 1, after: edges![1]!.cursor }).nodes,
+    ).toEqual(['c']);
+    const { edges: tail } = sliceConnection(items, { last: 2 });
+    expect(
+      sliceConnection(items, { first: 1, after: tail![0]!.cursor }).nodes,
+    ).toEqual(['e']);
+  });
+
   it('pages forward with the endCursor it hands out', () => {
     const first = sliceConnection(items, { first: 2 });
     expect(first).toMatchObject({

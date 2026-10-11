@@ -382,5 +382,8 @@ function commit(sha: string, subject: string) {
     authorName: 'a',
     authorEmail: 'a@example.com',
     committedAt: new Date().toISOString(),
+    authoredAt: new Date().toISOString(),
+    committerName: 'a',
+    committerEmail: 'a@example.com',
   };
 }

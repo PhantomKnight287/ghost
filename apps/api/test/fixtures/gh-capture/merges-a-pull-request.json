@@ -1,0 +1,73 @@
+[
+  {
+    "command": "gh pr merge 4 -R <host>/<login>/tools --squash",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {id,number,state,title,commits(last:1){nodes{commit{oid}}},mergeStateStatus,headRefName,baseRefName,headRefOid,isCrossRepository}\n\t\t}\n\t}",
+          "variables": {
+            "owner": "<login>",
+            "pr_number": 4,
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "mutation PullRequestMerge($input:MergePullRequestInput!){mergePullRequest(input: $input){clientMutationId}}",
+          "variables": {
+            "input": {
+              "pullRequestId": "PR_<id>",
+              "mergeMethod": "SQUASH"
+            }
+          }
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh pr view 4 -R <host>/<login>/tools --json state,mergedAt",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,mergedAt,id,number}\n\t\t}\n\t}",
+          "variables": {
+            "owner": "<login>",
+            "pr_number": 4,
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      }
+    ]
+  }
+]

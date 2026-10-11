@@ -25,7 +25,6 @@ import {
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
-import { IssueNode } from '../../types/issue.type.js';
 import { Node, RepositoryOwner } from '../../types/node.interface.js';
 import { OrganizationNode } from '../../types/organization.type.js';
 import { UserNode } from '../../types/user.type.js';
@@ -167,7 +166,7 @@ export class ViewerResolver {
       const comment = await commentOf(this.db, decoded.id);
       // Loading the issue is what checks the viewer may read the comment.
       const issue = comment && (await this.issueById(comment.issueId, viewer));
-      if (!(issue instanceof IssueNode)) return null;
+      if (!issue) return null;
       const viewerLogin = requesterId
         ? ((await loaders.usersById.load(requesterId))?.username ?? null)
         : null;

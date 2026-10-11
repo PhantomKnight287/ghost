@@ -3,7 +3,7 @@ import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 
 export default async function PullRequestCommitsPage({
   params,
-}: PageProps<"/[username]/[repo]/pulls/[number]/commits">) {
+}: PageProps<"/[username]/[repo]/pull/[number]/commits">) {
   const { username, repo, number } = await params;
 
   const client = await createServerClient();

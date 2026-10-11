@@ -10,7 +10,10 @@ import {
   GithubForbiddenError,
 } from '../../../../lib/github/github.errors.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
-import { decodeNodeIdAs } from '../../../../lib/github/node-id.js';
+import {
+  decodeNodeIdAs,
+  type NodeType,
+} from '../../../../lib/github/node-id.js';
 import {
   issueRefOf,
   labelNamesOf,
@@ -21,14 +24,16 @@ import { RepositoryForbiddenError } from '../../../../lib/repositories/access/re
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
-import { IssueNode } from '../../types/issue.type.js';
 import * as M from '../../types/mutations.type.js';
 import type { RepositoryNode } from '../../types/repository.type.js';
 import { IssueResolver } from '../issue/issue.resolver.js';
 import { RepositoryResolver } from '../repository/repository.resolver.js';
 import { requireWriteScope } from '../../../auth/require-scopes.js';
 
-type IssueRef = {
+/** Comments, labels and assignees go on pull requests as on issues. */
+const SUBJECTS: NodeType[] = ['Issue', 'PullRequest'];
+
+export type IssueRef = {
   username: string;
   repo: string;
   number: number;
@@ -178,7 +183,11 @@ export class IssueMutationsResolver {
     @Context() context: GraphqlContext,
   ) {
     const signedIn = this.require(viewer, 'AddComment');
-    const { repository, ref } = await this.issueRef(input.subjectId, signedIn);
+    const { repository, ref } = await this.issueRef(
+      input.subjectId,
+      signedIn,
+      SUBJECTS,
+    );
     requireWriteScope(signedIn, 'addComment', repository);
     const comment = await this.write(
       'AddComment',
@@ -186,12 +195,7 @@ export class IssueMutationsResolver {
       context,
       () => this.issues.createComment({ ...ref, body: input.body }),
     );
-    const issue = await this.issueOnly(
-      repository,
-      ref,
-      input.subjectId,
-      signedIn,
-    );
+    const issue = await this.subject(repository, ref, signedIn);
     return {
       clientMutationId: input.clientMutationId,
       commentEdge: {
@@ -211,10 +215,11 @@ export class IssueMutationsResolver {
     const { repository, ref } = await this.issueRef(
       input.labelableId,
       signedIn,
+      SUBJECTS,
     );
     requireWriteScope(signedIn, 'addLabelsToLabelable', repository);
     const current = (
-      await this.issueOnly(repository, ref, input.labelableId, signedIn)
+      await this.subject(repository, ref, signedIn)
     ).labelDtos.map((label) => label.name);
     const added = await this.labelNames(repository, input.labelIds);
     await this.write('AddLabelsToLabelable', signedIn.userId, context, () =>
@@ -225,12 +230,7 @@ export class IssueMutationsResolver {
     );
     return {
       clientMutationId: input.clientMutationId,
-      labelable: await this.issueOnly(
-        repository,
-        ref,
-        input.labelableId,
-        signedIn,
-      ),
+      labelable: await this.subject(repository, ref, signedIn),
     };
   }
 
@@ -244,10 +244,11 @@ export class IssueMutationsResolver {
     const { repository, ref } = await this.issueRef(
       input.labelableId,
       signedIn,
+      SUBJECTS,
     );
     requireWriteScope(signedIn, 'removeLabelsFromLabelable', repository);
     const current = (
-      await this.issueOnly(repository, ref, input.labelableId, signedIn)
+      await this.subject(repository, ref, signedIn)
     ).labelDtos.map((label) => label.name);
     const removed = new Set(await this.labelNames(repository, input.labelIds));
     await this.write(
@@ -262,12 +263,7 @@ export class IssueMutationsResolver {
     );
     return {
       clientMutationId: input.clientMutationId,
-      labelable: await this.issueOnly(
-        repository,
-        ref,
-        input.labelableId,
-        signedIn,
-      ),
+      labelable: await this.subject(repository, ref, signedIn),
     };
   }
 
@@ -281,11 +277,11 @@ export class IssueMutationsResolver {
     const { repository, ref } = await this.issueRef(
       input.assignableId,
       signedIn,
+      SUBJECTS,
     );
     requireWriteScope(signedIn, 'addAssigneesToAssignable', repository);
-    const current = (
-      await this.issueOnly(repository, ref, input.assignableId, signedIn)
-    ).assigneeLogins;
+    const current = (await this.subject(repository, ref, signedIn))
+      .assigneeLogins;
     const added = await this.usernames(input.assigneeIds);
     await this.write('AddAssigneesToAssignable', signedIn.userId, context, () =>
       this.issues.setIssueAssignees({
@@ -295,12 +291,7 @@ export class IssueMutationsResolver {
     );
     return {
       clientMutationId: input.clientMutationId,
-      assignable: await this.issueOnly(
-        repository,
-        ref,
-        input.assignableId,
-        signedIn,
-      ),
+      assignable: await this.subject(repository, ref, signedIn),
     };
   }
 
@@ -314,11 +305,11 @@ export class IssueMutationsResolver {
     const { repository, ref } = await this.issueRef(
       input.assignableId,
       signedIn,
+      SUBJECTS,
     );
     requireWriteScope(signedIn, 'removeAssigneesFromAssignable', repository);
-    const current = (
-      await this.issueOnly(repository, ref, input.assignableId, signedIn)
-    ).assigneeLogins;
+    const current = (await this.subject(repository, ref, signedIn))
+      .assigneeLogins;
     const removed = new Set(await this.usernames(input.assigneeIds));
     await this.write(
       'RemoveAssigneesFromAssignable',
@@ -332,16 +323,11 @@ export class IssueMutationsResolver {
     );
     return {
       clientMutationId: input.clientMutationId,
-      assignable: await this.issueOnly(
-        repository,
-        ref,
-        input.assignableId,
-        signedIn,
-      ),
+      assignable: await this.subject(repository, ref, signedIn),
     };
   }
 
-  private require(viewer: GithubViewer | null, mutation: string) {
+  require(viewer: GithubViewer | null, mutation: string) {
     if (!viewer)
       throw new GithubForbiddenError(
         `You must be signed in to run ${mutation}.`,
@@ -350,7 +336,7 @@ export class IssueMutationsResolver {
   }
 
   /** Ghost has no milestones or projects, so any id gh sends for one cannot resolve. */
-  private refuseMilestonesAndProjects({
+  refuseMilestonesAndProjects({
     milestoneId,
     projectIds,
   }: {
@@ -361,13 +347,13 @@ export class IssueMutationsResolver {
     if (unknown) throw this.unresolved(unknown);
   }
 
-  private unresolved(nodeId: string) {
+  unresolved(nodeId: string) {
     return new CouldNotResolveError(
       `Could not resolve to a node with the global id of '${nodeId}'`,
     );
   }
 
-  private async repositoryFor(nodeId: string, viewer: GithubViewer) {
+  async repositoryFor(nodeId: string, viewer: GithubViewer) {
     const repositoryId = decodeNodeIdAs(nodeId, 'Repository');
     const repository = await orNull(
       this.repositories.load(repositoryId, viewer),
@@ -376,12 +362,13 @@ export class IssueMutationsResolver {
     return repository;
   }
 
-  /** The issue a node id names, with the IssueRef the service methods take. */
-  private async issueRef(
+  /** The issue a node id names, with the IssueRef the service methods take; `types` widens it to pull requests for Labelable, Assignable and comment subjects. */
+  async issueRef(
     nodeId: string,
     viewer: GithubViewer,
+    types: NodeType[] = ['Issue'],
   ): Promise<{ repository: RepositoryNode; ref: IssueRef }> {
-    const found = await issueRefOf(this.db, decodeNodeIdAs(nodeId, 'Issue'));
+    const found = await issueRefOf(this.db, decodeNodeIdAs(nodeId, ...types));
     if (!found) throw this.unresolved(nodeId);
     const repository = await orNull(
       this.repositories.load(found.repositoryId, viewer),
@@ -398,23 +385,16 @@ export class IssueMutationsResolver {
     };
   }
 
-  /** Pull request mutations arrive with milestone 3, so a number that is a pull request reads as unresolved here. */
-  private async issueOnly(
+  /** The node a mutation answers with, which also carries the labels and assignees it read. */
+  private subject(
     repository: RepositoryNode,
     ref: IssueRef,
-    nodeId: string,
     viewer: GithubViewer,
   ) {
-    const found = await this.issueNodes.fromRepository(
-      repository,
-      ref.number,
-      viewer,
-    );
-    if (!(found instanceof IssueNode)) throw this.unresolved(nodeId);
-    return found;
+    return this.issueNodes.fromRepository(repository, ref.number, viewer);
   }
 
-  private async labelNames(repository: RepositoryNode, nodeIds: string[]) {
+  async labelNames(repository: RepositoryNode, nodeIds: string[]) {
     const ids = nodeIds.map((nodeId) => decodeNodeIdAs(nodeId, 'Label'));
     return this.resolveAll(
       nodeIds,
@@ -423,7 +403,7 @@ export class IssueMutationsResolver {
     );
   }
 
-  private async usernames(nodeIds: string[]) {
+  async usernames(nodeIds: string[]) {
     const ids = nodeIds.map((nodeId) => decodeNodeIdAs(nodeId, 'User'));
     return this.resolveAll(nodeIds, ids, await usernamesOf(this.db, ids));
   }
@@ -442,7 +422,7 @@ export class IssueMutationsResolver {
   }
 
   /** Runs a write; a permission refusal reads as GitHub's FORBIDDEN wording, which names the login. */
-  private async write<T>(
+  async write<T>(
     mutation: string,
     userId: string,
     { loaders }: GraphqlContext,

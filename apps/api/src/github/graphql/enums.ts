@@ -119,3 +119,95 @@ export enum IssueTypeColor {
   YELLOW = 'YELLOW',
 }
 registerEnumType(IssueTypeColor, { name: 'IssueTypeColor' });
+
+export enum MergeableState {
+  MERGEABLE = 'MERGEABLE',
+  CONFLICTING = 'CONFLICTING',
+  UNKNOWN = 'UNKNOWN',
+}
+registerEnumType(MergeableState, { name: 'MergeableState' });
+
+export enum MergeStateStatus {
+  BEHIND = 'BEHIND',
+  BLOCKED = 'BLOCKED',
+  CLEAN = 'CLEAN',
+  DIRTY = 'DIRTY',
+  DRAFT = 'DRAFT',
+  HAS_HOOKS = 'HAS_HOOKS',
+  UNKNOWN = 'UNKNOWN',
+  UNSTABLE = 'UNSTABLE',
+}
+registerEnumType(MergeStateStatus, { name: 'MergeStateStatus' });
+
+export enum PullRequestReviewDecision {
+  APPROVED = 'APPROVED',
+  CHANGES_REQUESTED = 'CHANGES_REQUESTED',
+  REVIEW_REQUIRED = 'REVIEW_REQUIRED',
+}
+registerEnumType(PullRequestReviewDecision, {
+  name: 'PullRequestReviewDecision',
+});
+
+export enum PullRequestReviewState {
+  APPROVED = 'APPROVED',
+  CHANGES_REQUESTED = 'CHANGES_REQUESTED',
+  COMMENTED = 'COMMENTED',
+  DISMISSED = 'DISMISSED',
+  PENDING = 'PENDING',
+}
+registerEnumType(PullRequestReviewState, { name: 'PullRequestReviewState' });
+
+export enum PatchStatus {
+  ADDED = 'ADDED',
+  CHANGED = 'CHANGED',
+  COPIED = 'COPIED',
+  DELETED = 'DELETED',
+  MODIFIED = 'MODIFIED',
+  RENAMED = 'RENAMED',
+}
+registerEnumType(PatchStatus, { name: 'PatchStatus' });
+
+export enum PullRequestMergeMethod {
+  MERGE = 'MERGE',
+  REBASE = 'REBASE',
+  SQUASH = 'SQUASH',
+}
+registerEnumType(PullRequestMergeMethod, { name: 'PullRequestMergeMethod' });
+
+export enum StatusState {
+  ERROR = 'ERROR',
+  EXPECTED = 'EXPECTED',
+  FAILURE = 'FAILURE',
+  PENDING = 'PENDING',
+  SUCCESS = 'SUCCESS',
+}
+registerEnumType(StatusState, { name: 'StatusState' });
+
+export enum CheckStatusState {
+  COMPLETED = 'COMPLETED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  PENDING = 'PENDING',
+  QUEUED = 'QUEUED',
+  REQUESTED = 'REQUESTED',
+  WAITING = 'WAITING',
+}
+registerEnumType(CheckStatusState, { name: 'CheckStatusState' });
+
+export enum CheckConclusionState {
+  ACTION_REQUIRED = 'ACTION_REQUIRED',
+  CANCELLED = 'CANCELLED',
+  FAILURE = 'FAILURE',
+  NEUTRAL = 'NEUTRAL',
+  SKIPPED = 'SKIPPED',
+  STALE = 'STALE',
+  STARTUP_FAILURE = 'STARTUP_FAILURE',
+  SUCCESS = 'SUCCESS',
+  TIMED_OUT = 'TIMED_OUT',
+}
+registerEnumType(CheckConclusionState, { name: 'CheckConclusionState' });
+
+export enum PullRequestUpdateState {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+}
+registerEnumType(PullRequestUpdateState, { name: 'PullRequestUpdateState' });
