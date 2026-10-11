@@ -133,6 +133,55 @@ API routes, DB schema, web pages and auth plugins.
 19. [ ] WAL checkpoints/compaction (push currently reads full log, O(history))
 20. [ ] Rate limiting, audit log, admin panel
 
-## Suggested order
-1 → 3 → 2 → 9 → 10 (status API first). Settings and collaborators unblock
-team use; webhooks then let external CI plug in.
+## Order
+
+Every open issue, in the order to take it. The tiers above say what is missing; this says what comes next. Items in the same step can run side by side.
+
+First, before anything else lands: #118 commit the gh capture fixtures and check them against what Ghost serves, so every later change is measured against what real `gh` sends.
+
+### 1. GitHub compatibility (#57)
+Tools built for GitHub working against Ghost unchanged. Milestones 1 (auth, repositories, issues over GraphQL) and 2 (REST v3 for issues, comments and labels, #112) are done.
+
+1. #114 Pull requests: `gh pr list/view/create/checkout/merge`. The gap `gh` users hit most, and merged pull requests still read as `CLOSED`.
+2. #115 Releases: `gh release`.
+3. #108 Organization OAuth app access policies. The one security gap in the OAuth work: a member's token reaches the organization's private repositories.
+4. #109 Ghost Apps, then #106 OpenID Connect, then #107 dynamic client registration.
+
+Alongside, small and independent: #116 search across repositories, #117 `updateRepository` and `gh repo edit`, #119 type `decodeNodeId`, #113 measure migration lock time.
+
+### 2. Platform and security
+5. #63 Two-factor authentication and passkeys (roadmap 11), and #121 verifying commits signed with SSH keys.
+6. #61 Commit status API (roadmap 10). Fills `statusCheckRollup` and `gh pr checks` from #114.
+7. #62 Branch protection rules. Needs #61 for required checks.
+8. #120 Report push failures over sideband (roadmap 12).
+9. #67 Rate limiting across the API and git transports.
+10. #68 WAL checkpoints and compaction. Push reads the whole log, so cost grows with history.
+11. #64 Site admin panel and sign-up controls, then #69 audit log.
+12. #65 Sign in with OIDC providers, then #79 organization security policy (needs #63 and #65).
+
+### 3. Issues and pull requests (tier 3, roadmap 14)
+13. #82 Lock conversations (#111 is a duplicate with the GitHub compatibility part).
+14. #72 Milestones.
+15. #74 Reactions.
+16. #73 Issue and pull request templates.
+17. #81 Notify people mentioned by an edit, #80 per-user notification email preferences.
+18. #89 Apply several suggestions in one commit.
+
+Each of 13 to 15 also fills a field the compatibility layer answers empty today (`locked`, `milestone`, `reactions`).
+
+### 4. Code browsing and editing (roadmap 16, 18)
+19. #71 Blame and per-file history.
+20. #70 Edit, create and upload files in the browser.
+21. #66 Download source archives.
+22. #88 Delete tags from the UI.
+23. #56 Git submodules.
+
+### 5. Organizations, later
+24. #77 Custom organization roles.
+25. #78 Block users at the organization level.
+
+### 6. Larger projects
+26. #87 CI runner and organization secrets. Builds on #61.
+27. #75 Repository mirroring.
+28. #83 Follow users and an activity feed, then #84 explore and trending.
+29. #85 Gists, #76 wiki, #86 project boards.
