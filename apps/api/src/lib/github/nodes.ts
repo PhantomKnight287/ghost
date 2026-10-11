@@ -38,7 +38,7 @@ export function toUserNode(row: UserRow, { web }: GithubOrigins) {
     avatarUrl: row.image ?? '',
     resourcePath: `/${login}`,
     url: `${web}/${login}`,
-    databaseId: null,
+    databaseId: row.numericId,
     createdAt: row.createdAt,
   });
 }
@@ -56,7 +56,7 @@ export function toOrganizationNode(
     avatarUrl: row.logo ?? '',
     resourcePath: `/${row.slug}`,
     url: `${web}/${row.slug}`,
-    databaseId: null,
+    databaseId: row.numericId,
   });
 }
 
@@ -77,7 +77,7 @@ export function toRepositoryNode(
     defaultBranch: row.defaultBranch,
     viewerRole: row.viewerRole,
     id: encodeNodeId('Repository', row.id),
-    databaseId: null,
+    databaseId: row.numericId,
     name: row.slug,
     nameWithOwner: `${ownerLogin}/${row.slug}`,
     description: row.description,
@@ -147,7 +147,6 @@ function issueOrPullRequestFields(
     labelDtos: issue.labels,
     repositoryUrl: repository.url,
     repositoryResourcePath: repository.resourcePath,
-    databaseId: null,
     number: issue.number,
     title: issue.title,
     body: issue.body ?? '',

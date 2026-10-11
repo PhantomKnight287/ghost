@@ -81,6 +81,15 @@ export class IssueResolver {
     }
   }
 
+  /** IssueDTO leaves the numeric id out, as Ghost's own API does not return it. */
+  @ResolveField(() => Int, { nullable: true })
+  databaseId(
+    @Parent() issue: IssueOrPullRequestFields,
+    @Context() { loaders }: GraphqlContext,
+  ) {
+    return loaders.issueNumericIds.load(issue.ghostId);
+  }
+
   @ResolveField(() => Actor, { nullable: true })
   async author(
     @Parent() issue: IssueOrPullRequestFields,

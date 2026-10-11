@@ -30,6 +30,14 @@ import { IssueResolver } from '../issue/issue.resolver.js';
 export class PullRequestResolver {
   constructor(private readonly issues: IssueResolver) {}
 
+  @ResolveField(() => Int, { nullable: true })
+  databaseId(
+    @Parent() pull: PullRequestNode,
+    @Context() context: GraphqlContext,
+  ) {
+    return this.issues.databaseId(pull, context);
+  }
+
   @ResolveField(() => Actor, { nullable: true })
   author(@Parent() pull: PullRequestNode, @Context() context: GraphqlContext) {
     return this.issues.author(pull, context);

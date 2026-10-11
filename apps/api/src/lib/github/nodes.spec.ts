@@ -15,6 +15,7 @@ describe('toUserNode', () => {
     const node = toUserNode(
       {
         id: 'u1',
+        numericId: 7,
         username: 'ada',
         name: 'Ada',
         image: null,
@@ -30,7 +31,7 @@ describe('toUserNode', () => {
       avatarUrl: '',
       resourcePath: '/ada',
       url: 'https://ghost.test/ada',
-      databaseId: null,
+      databaseId: 7,
       createdAt: created,
     });
     expect(node.id).toMatch(/^U_/);

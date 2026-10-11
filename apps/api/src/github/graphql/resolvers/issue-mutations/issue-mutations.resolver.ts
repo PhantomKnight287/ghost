@@ -100,6 +100,7 @@ export class IssueMutationsResolver {
     const assignees = input.assigneeIds
       ? await this.usernames(input.assigneeIds)
       : null;
+    const current = await this.issues.getIssue(ref);
     // ponytail: one transaction per changed aspect; a failure midway keeps the earlier changes. Add IssuesService.updateMany if gh users hit it.
     await this.write('UpdateIssue', signedIn.userId, context, async () => {
       if (input.title != null || input.body !== undefined)
@@ -107,8 +108,11 @@ export class IssueMutationsResolver {
           ...ref,
           body: { title: input.title ?? undefined, body: input.body },
         });
-      if (input.state === 'CLOSED') await this.issues.closeIssue(ref);
-      if (input.state === 'OPEN') await this.issues.reopenIssue(ref);
+      // Setting the state an issue already has is a no-op on GitHub; Ghost refuses it.
+      if (input.state === 'CLOSED' && current.state === 'open')
+        await this.issues.closeIssue(ref);
+      if (input.state === 'OPEN' && current.state === 'closed')
+        await this.issues.reopenIssue(ref);
       if (labels) await this.issues.setIssueLabels({ ...ref, names: labels });
       if (assignees)
         await this.issues.setIssueAssignees({ ...ref, usernames: assignees });
