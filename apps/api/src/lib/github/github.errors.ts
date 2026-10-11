@@ -44,3 +44,18 @@ export class InsufficientScopesError extends DomainError {
     );
   }
 }
+
+export type ValidationFailure = {
+  resource: string;
+  field: string;
+  code: 'missing_field' | 'invalid' | 'already_exists';
+};
+
+/** GitHub REST's 422 "Validation Failed" with the fields that failed, as `errors` in the body. */
+export class GithubValidationError extends DomainError {
+  readonly status = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(readonly errors: ValidationFailure[]) {
+    super('Validation Failed');
+  }
+}

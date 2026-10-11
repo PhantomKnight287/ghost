@@ -47,7 +47,7 @@ export class ReposController {
     const node = await this.repositoryNodes.repository(owner, repo, viewer);
     const { api, web } = githubOrigins(this.config);
     return {
-      id: null,
+      id: node.databaseId,
       node_id: node.id,
       name: node.name,
       full_name: node.nameWithOwner,

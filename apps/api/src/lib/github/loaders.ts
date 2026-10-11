@@ -37,6 +37,17 @@ export function createLoaders(db: Database) {
       );
       return logins.map((login) => found.get(login) ?? null);
     }),
+    issueNumericIds: new DataLoader<string, number | null>(async (ids) => {
+      const found = new Map(
+        (
+          await db
+            .select({ id: schema.issue.id, numericId: schema.issue.numericId })
+            .from(schema.issue)
+            .where(inArray(schema.issue.id, [...ids]))
+        ).map((row) => [row.id, row.numericId]),
+      );
+      return ids.map((id) => found.get(id) ?? null);
+    }),
   };
 }
 

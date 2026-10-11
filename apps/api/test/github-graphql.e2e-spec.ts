@@ -163,7 +163,7 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     ).expect(200);
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.repository).toMatchObject({
-      databaseId: null,
+      databaseId: expect.any(Number),
       name: 'public-repo',
       nameWithOwner: `${username}/public-repo`,
       owner: { login: username },

@@ -24,7 +24,7 @@ import {
   RequiresAuthenticationError,
 } from '../../../lib/github/github.errors.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
-import { encodeNodeId } from '../../../lib/github/node-id.js';
+import { toUserRest } from '../../../lib/github/rest.js';
 import { SshKeysService } from '../../../resources/ssh-keys/ssh-keys.service.js';
 import type { SshKeyDTO } from '../../../resources/ssh-keys/dto/ssh-key.dto.js';
 import { GithubAddKeyDTO } from './dto/add-key.dto.js';
@@ -67,16 +67,17 @@ export class UsersController {
       throw new CouldNotResolveError(
         `Could not resolve to a User or Organization with the login of '${login}'.`,
       );
-    const { api, web } = githubOrigins(this.config);
     return {
-      login: organization.slug,
-      id: null,
-      node_id: encodeNodeId('Organization', organization.id),
-      avatar_url: organization.logo ?? '',
-      url: `${api}/api/v3/users/${organization.slug}`,
-      html_url: `${web}/${organization.slug}`,
-      type: 'Organization',
-      site_admin: false,
+      ...toUserRest(
+        {
+          ghostId: organization.id,
+          numericId: organization.numericId,
+          login: organization.slug,
+          avatarUrl: organization.logo,
+        },
+        githubOrigins(this.config),
+        'Organization',
+      ),
       name: organization.name,
       created_at: organization.createdAt.toISOString(),
     };
@@ -119,16 +120,16 @@ export class UsersController {
   }
 
   private restUser(user: typeof schema.user.$inferSelect) {
-    const { api, web } = githubOrigins(this.config);
     return {
-      login: user.username,
-      id: null,
-      node_id: encodeNodeId('User', user.id),
-      avatar_url: user.image ?? '',
-      url: `${api}/api/v3/users/${user.username}`,
-      html_url: `${web}/${user.username}`,
-      type: 'User',
-      site_admin: false,
+      ...toUserRest(
+        {
+          ghostId: user.id,
+          numericId: user.numericId,
+          login: user.username ?? '',
+          avatarUrl: user.image,
+        },
+        githubOrigins(this.config),
+      ),
       name: user.name,
       created_at: user.createdAt.toISOString(),
       updated_at: user.updatedAt.toISOString(),

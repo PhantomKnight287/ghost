@@ -27,6 +27,11 @@ export const repository = pgTable(
       .unique()
       .notNull()
       .$defaultFn(() => `repo_${createId()}`),
+    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     name: text().notNull(),
     slug: text().notNull(),
     description: text(),

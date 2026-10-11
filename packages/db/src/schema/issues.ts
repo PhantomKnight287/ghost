@@ -49,6 +49,11 @@ export const issue = pgTable(
       .unique()
       .notNull()
       .$defaultFn(() => `issue_${createId()}`),
+    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     repositoryId: text()
       .references(() => repository.id, { onDelete: "cascade" })
       .notNull(),
@@ -91,6 +96,11 @@ export const issueComment = pgTable(
       .unique()
       .notNull()
       .$defaultFn(() => `ic_${createId()}`),
+    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     issueId: text()
       .references(() => issue.id, { onDelete: "cascade" })
       .notNull(),
@@ -120,6 +130,11 @@ export const label = pgTable(
       .unique()
       .notNull()
       .$defaultFn(() => `label_${createId()}`),
+    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     repositoryId: text()
       .references(() => repository.id, { onDelete: "cascade" })
       .notNull(),

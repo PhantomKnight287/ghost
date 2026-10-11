@@ -57,6 +57,8 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 | `gh issue create` | `--label`, `--assignee` |
 | `gh issue comment`, `gh issue edit` | |
 | `gh issue close`, `gh issue reopen` | |
+| `gh label list`, `gh label create`, `gh label edit`, `gh label delete`, `gh label clone` | |
+| `gh api … --paginate` | Follows the `Link` header of every REST list |
 | `gh ssh-key list`, `gh ssh-key add` | |
 
 ## What is served
@@ -75,6 +77,17 @@ REST at `/api/v3`:
 - `GET /repos/:owner/:repo`, `GET /repos/:owner/:repo/readme`
 - `POST /user/repos`, `POST /orgs/:org/repos`
 
+Issues, comments and labels, under `/api/v3/repos/:owner/:repo`:
+
+- `GET`, `POST /issues`; `GET`, `PATCH /issues/:number`. The list includes pull requests, marked with a `pull_request` key, as on GitHub
+- `GET`, `POST /issues/:number/comments`; `GET /issues/comments`; `GET`, `PATCH`, `DELETE /issues/comments/:comment_id`
+- `GET`, `POST`, `PUT`, `DELETE /issues/:number/labels`; `DELETE /issues/:number/labels/:name`
+- `POST`, `DELETE /issues/:number/assignees`; `GET /issues/:number/assignees/:assignee`
+- `GET /assignees`, `GET /assignees/:assignee`
+- `GET`, `POST /labels`; `GET`, `PATCH`, `DELETE /labels/:name`
+
+Lists take `page` and `per_page` (30 by default, at most 100) and send a `Link` header with `first`, `prev`, `next` and `last`. Labels named on an issue that the repository does not have yet are created with color `ededed`, as on GitHub.
+
 GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
 
 ## OAuth apps
@@ -91,7 +104,7 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 
 ## Known differences
 
-- `databaseId` and the REST `id` are always `null`.
+- `databaseId` and the REST `id` are integers for users, organizations, repositories, issues, pull requests, comments and labels. SSH keys still answer `null`.
 - Milestones, reactions, issue types, projects and sub-issues are always empty.
 - A closed issue's `stateReason` is always `COMPLETED`. Ghost does not record why an issue was closed.
 - A comment's `authorAssociation` is `OWNER` or `NONE`, never `MEMBER` or `COLLABORATOR`.
@@ -104,6 +117,13 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - OAuth apps always have a client secret. Public clients that authenticate with PKCE alone are not supported.
 - OAuth apps can turn on expiring user tokens with refresh tokens. GitHub offers them only to GitHub Apps. `gh`'s built-in app keeps tokens that never expire.
 - Without `repo`, a private repository answers as if it did not exist.
+- Only a comment's author can edit it. On GitHub, people with write access can too.
+- `state_reason` is accepted and not stored; a closed issue answers `completed`.
+- A comment's `html_url` ends in `#issuecomment-` and Ghost's id for the comment, not its integer id, so the link opens on the comment in Ghost.
+- `PUT /issues/:number/labels` with a bare string body is refused: Ghost only parses JSON objects and arrays.
+- `GET /assignees` lists the owner, collaborators and organization members. `GET /assignees/:assignee` answers 204 for any user, as Ghost lets anyone be assigned.
+- `documentation_url` in REST errors always points at `https://docs.github.com/rest`.
+- Not served: locking (Ghost has no locking yet, [#111](https://github.com/PhantomKnight287/ghost/issues/111)), milestones, issue types, sub-issues, issue dependencies, issue field values, comment pins, label archiving, reactions, issue events and timelines, and the cross-repository lists `/issues`, `/user/issues` and `/orgs/:org/issues`.
 
 ## Not yet supported
 

@@ -65,6 +65,7 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
     const response = await v3('/user', owner.key).expect(200);
     expect(response.body).toMatchObject({
       login: username,
+      id: expect.any(Number),
       type: 'User',
       site_admin: false,
     });
@@ -84,6 +85,7 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
       owner.key,
     ).expect(200);
     expect(response.body).toMatchObject({
+      id: expect.any(Number),
       name: 'public-repo',
       full_name: `${username}/public-repo`,
       private: false,
@@ -96,6 +98,7 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
     await v3(`/repos/${username}/secret-repo`).expect(404, {
       message: 'Not Found',
       documentation_url: 'https://docs.github.com/rest',
+      status: '404',
     });
   });
 
@@ -162,12 +165,18 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
     ]);
   });
 
-  it('names the invalid field in a REST validation error', async () => {
+  it('names the invalid field in a REST validation error, with 422 as GitHub answers', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v3/user/repos')
       .set('authorization', `token ${owner.key}`)
       .send({ private: 'yes' })
-      .expect(400);
-    expect(response.body.message).toMatch(/name/);
+      .expect(422);
+    expect(response.body).toMatchObject({
+      message: 'Validation Failed',
+      status: '422',
+    });
+    expect(response.body.errors).toContainEqual(
+      expect.objectContaining({ field: 'name', code: 'invalid' }),
+    );
   });
 });

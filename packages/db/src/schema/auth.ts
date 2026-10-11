@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -11,6 +12,11 @@ import {
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
+  // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+  numericId: bigint("numeric_id", { mode: "number" })
+    .generatedAlwaysAsIdentity()
+    .notNull()
+    .unique(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
@@ -102,6 +108,11 @@ export const organization = pgTable(
   "organization",
   {
     id: text("id").primaryKey(),
+    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    numericId: bigint("numeric_id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
     logo: text("logo"),
@@ -279,7 +290,6 @@ export const deviceCode = pgTable("device_code", {
   clientId: text("client_id"),
   scope: text("scope"),
 });
-
 
 export const userEmailRelations = relations(userEmail, ({ one }) => ({
   user: one(user, {
