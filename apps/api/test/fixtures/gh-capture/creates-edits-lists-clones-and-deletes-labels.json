@@ -108,9 +108,9 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "color": "d73a4a",
-          "description": "",
-          "name": "bug"
+          "color": "0e8a16",
+          "description": "From gh",
+          "name": "gh-edited"
         },
         "status": 201
       },
@@ -124,9 +124,9 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "color": "0e8a16",
-          "description": "From gh",
-          "name": "gh-edited"
+          "color": "d73a4a",
+          "description": "",
+          "name": "bug"
         },
         "status": 201
       }

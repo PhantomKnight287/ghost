@@ -13,10 +13,20 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "query": "\n\tquery IssueRepositoryInfo($owner: String!, $name: String!) {\n\t\trepository(owner: $owner, name: $name) {\n\t\t\tid\n\t\t\tdatabaseId\n\t\t\tname\n\t\t\towner { login }\n\t\t\thasIssuesEnabled\n\t\t\tviewerPermission\n\t\t}\n\t}",
+          "query": "\n\tmutation IssueCreate($input: CreateIssueInput!) {\n\t\tcreateIssue(input: $input) {\n\t\t\tissue {\n\t\t\t\tid\n\t\t\t\turl\n\t\t\t}\n\t\t}\n\t}",
           "variables": {
-            "name": "tools",
-            "owner": "<login>"
+            "input": {
+              "assigneeIds": [
+                "U_<id>"
+              ],
+              "body": "Body",
+              "labelIds": [
+                "LA_<id>"
+              ],
+              "projectIds": null,
+              "repositoryId": "R_<id>",
+              "title": "Made by gh"
+            }
           }
         },
         "status": 200
@@ -27,14 +37,13 @@
         "query": {},
         "headers": {
           "accept": "application/json",
-          "content-type": "application/json",
+          "content-type": "application/json; charset=utf-8",
           "graphql-features": "merge_queue",
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "query": "query RepositoryLabelList($endCursor:String$name:String!$owner:String!){repository(owner: $owner, name: $name){labels(first: 100, orderBy: {field: NAME, direction: ASC}, after: $endCursor){nodes{id,name},pageInfo{hasNextPage,endCursor}}}}",
+          "query": "\n\tquery IssueRepositoryInfo($owner: String!, $name: String!) {\n\t\trepository(owner: $owner, name: $name) {\n\t\t\tid\n\t\t\tdatabaseId\n\t\t\tname\n\t\t\towner { login }\n\t\t\thasIssuesEnabled\n\t\t\tviewerPermission\n\t\t}\n\t}",
           "variables": {
-            "endCursor": null,
             "name": "tools",
             "owner": "<login>"
           }
@@ -67,25 +76,16 @@
         "query": {},
         "headers": {
           "accept": "application/json",
-          "content-type": "application/json; charset=utf-8",
+          "content-type": "application/json",
           "graphql-features": "merge_queue",
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "query": "\n\tmutation IssueCreate($input: CreateIssueInput!) {\n\t\tcreateIssue(input: $input) {\n\t\t\tissue {\n\t\t\t\tid\n\t\t\t\turl\n\t\t\t}\n\t\t}\n\t}",
+          "query": "query RepositoryLabelList($endCursor:String$name:String!$owner:String!){repository(owner: $owner, name: $name){labels(first: 100, orderBy: {field: NAME, direction: ASC}, after: $endCursor){nodes{id,name},pageInfo{hasNextPage,endCursor}}}}",
           "variables": {
-            "input": {
-              "assigneeIds": [
-                "U_<id>"
-              ],
-              "body": "Body",
-              "labelIds": [
-                "LA_<id>"
-              ],
-              "projectIds": null,
-              "repositoryId": "R_<id>",
-              "title": "Made by gh"
-            }
+            "endCursor": null,
+            "name": "tools",
+            "owner": "<login>"
           }
         },
         "status": 200

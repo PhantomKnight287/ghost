@@ -1,6 +1,6 @@
 [
   {
-    "command": "gh ssh-key add /tmp/gh-e2e-CtsVuW/id.pub --title gh-e2e",
+    "command": "gh ssh-key add <tmp>/id.pub --title gh-e2e",
     "requests": [
       {
         "method": "GET",
@@ -26,7 +26,7 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKLPlJGQruQEIwsAAuhKJBKDzH+0RYDOs2383E+h5J9p root@ed3e8937260c\n",
+          "key": "ssh-ed25519 <key>",
           "title": "gh-e2e"
         },
         "status": 201

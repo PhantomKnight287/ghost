@@ -79,26 +79,6 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "query": "query RepositoryLabelList($endCursor:String$name:String!$owner:String!){repository(owner: $owner, name: $name){labels(first: 100, orderBy: {field: NAME, direction: ASC}, after: $endCursor){nodes{id,name},pageInfo{hasNextPage,endCursor}}}}",
-          "variables": {
-            "endCursor": null,
-            "name": "tools",
-            "owner": "<login>"
-          }
-        },
-        "status": 200
-      },
-      {
-        "method": "POST",
-        "path": "/api/graphql",
-        "query": {},
-        "headers": {
-          "accept": "application/json",
-          "content-type": "application/json",
-          "graphql-features": "merge_queue",
-          "x-github-api-version": "2022-11-28"
-        },
-        "body": {
           "query": "mutation IssueUpdate($input:UpdateIssueInput!){updateIssue(input: $input){__typename}}",
           "variables": {
             "input": {
@@ -128,6 +108,26 @@
                 "LA_<id>"
               ]
             }
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query RepositoryLabelList($endCursor:String$name:String!$owner:String!){repository(owner: $owner, name: $name){labels(first: 100, orderBy: {field: NAME, direction: ASC}, after: $endCursor){nodes{id,name},pageInfo{hasNextPage,endCursor}}}}",
+          "variables": {
+            "endCursor": null,
+            "name": "tools",
+            "owner": "<login>"
           }
         },
         "status": 200

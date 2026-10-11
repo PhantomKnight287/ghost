@@ -4,6 +4,20 @@
     "requests": [
       {
         "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query UserCurrent{viewer{login}}"
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
         "path": "/login/device/code",
         "query": {},
         "headers": {
@@ -28,20 +42,6 @@
           "client_id": "178c6fc778ccc68e1d6a",
           "device_code": "<redacted>",
           "grant_type": "urn:ietf:params:oauth:grant-type:device_code"
-        },
-        "status": 200
-      },
-      {
-        "method": "POST",
-        "path": "/api/graphql",
-        "query": {},
-        "headers": {
-          "content-type": "application/json",
-          "graphql-features": "merge_queue",
-          "x-github-api-version": "2022-11-28"
-        },
-        "body": {
-          "query": "query UserCurrent{viewer{login}}"
         },
         "status": 200
       }

@@ -91,11 +91,11 @@
     ]
   },
   {
-    "command": "gh api -X PATCH repos/<login>/tools/issues/comments/6 -f body=Edited via REST",
+    "command": "gh api -X PATCH repos/<login>/tools/issues/comments/<id> -f body=Edited via REST",
     "requests": [
       {
         "method": "PATCH",
-        "path": "/api/v3/repos/<login>/tools/issues/comments/6",
+        "path": "/api/v3/repos/<login>/tools/issues/comments/<id>",
         "query": {},
         "headers": {
           "accept": "*/*",

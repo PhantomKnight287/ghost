@@ -1,7 +1,19 @@
 [
   {
-    "command": "gh repo clone <host>/<login>/tools /tmp/gh-e2e-CtsVuW/clone",
+    "command": "gh repo clone <host>/<login>/tools <tmp>/clone",
     "requests": [
+      {
+        "method": "GET",
+        "path": "/<login>/tools.git/info/refs",
+        "query": {
+          "service": "git-upload-pack"
+        },
+        "headers": {
+          "accept": "*/*"
+        },
+        "body": null,
+        "status": 200
+      },
       {
         "method": "POST",
         "path": "/api/graphql",
@@ -19,18 +31,6 @@
             "owner": "<login>"
           }
         },
-        "status": 200
-      },
-      {
-        "method": "GET",
-        "path": "/<login>/tools.git/info/refs",
-        "query": {
-          "service": "git-upload-pack"
-        },
-        "headers": {
-          "accept": "*/*"
-        },
-        "body": null,
         "status": 200
       },
       {
