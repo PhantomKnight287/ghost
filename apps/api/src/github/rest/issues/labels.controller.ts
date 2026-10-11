@@ -294,6 +294,8 @@ export class LabelsController {
       requesterId: signedIn.userId,
     };
     const issue = await this.issues.getIssue(ref);
+    if (!this.github.canTriage(repository))
+      return this.github.labels(repository, issue.labels);
     await this.github.ensureLabels(repository, signedIn, added);
     // ponytail: read then replace; two concurrent adds can lose one. Add IssuesService.addIssueLabels if that bites.
     const { labels } = await this.issues.setIssueLabels({
