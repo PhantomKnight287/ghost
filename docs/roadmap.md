@@ -114,7 +114,7 @@ API routes, DB schema, web pages and auth plugins.
 - [ ] **Custom organization roles.** Better Auth's dynamic access control is
       on, but only the built-in roles grant repository access.
 - [ ] **Blocking users** at organization level.
-- [ ] **Organization webhooks and secrets**, with webhooks (#9) and CI (#10).
+- [x] **Organization webhooks.** Organization secrets come with the CI runner (#87).
 - [ ] **Security policy:** required two-factor for members (needs #11), SSO /
       SAML, verified domains.
 
@@ -136,8 +136,6 @@ API routes, DB schema, web pages and auth plugins.
 ## Order
 
 Every open issue, in the order to take it. The tiers above say what is missing; this says what comes next. Items in the same step can run side by side.
-
-First, before anything else lands: #118 commit the gh capture fixtures and check them against what Ghost serves, so every later change is measured against what real `gh` sends.
 
 ### 1. GitHub compatibility (#57)
 Tools built for GitHub working against Ghost unchanged. Milestones 1 (auth, repositories, issues over GraphQL) and 2 (REST v3 for issues, comments and labels, #112) are done.
