@@ -381,13 +381,14 @@ export class PullRequestResolver {
       number: pull.number,
       requesterId: viewer?.userId,
       limit: MAX_COMMITS,
+      oldestFirst: true,
     });
     const repository = {
       ghostId: pull.repositoryGhostId,
       url: pull.repositoryUrl,
       resourcePath: pull.repositoryResourcePath,
     };
-    const nodes = commits.toReversed().map((commit) => ({
+    const nodes = commits.map((commit) => ({
       id: encodeNodeId('PullRequestCommit', `${pull.ghostId}:${commit.sha}`),
       url: `${pull.url}/commits/${commit.sha}`,
       resourcePath: `${pull.resourcePath}/commits/${commit.sha}`,

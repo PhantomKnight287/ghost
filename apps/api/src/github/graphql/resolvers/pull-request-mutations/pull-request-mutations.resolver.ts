@@ -81,6 +81,11 @@ export class PullRequestMutationsResolver {
       throw new UnprocessableError(
         'Ghost cannot change the base branch of a pull request',
       );
+    if (
+      input.state === PullRequestUpdateState.OPEN &&
+      current.state === PullRequestState.MERGED
+    )
+      throw new UnprocessableError('A merged pull request cannot be reopened');
     const labels = input.labelIds
       ? await this.mutations.labelNames(repository, input.labelIds)
       : null;

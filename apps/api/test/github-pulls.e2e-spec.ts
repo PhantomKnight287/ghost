@@ -17,6 +17,7 @@ import { hasBackends, signUp, startApp } from './harness.js';
 describe.skipIf(!hasBackends)('GitHub pull requests', () => {
   let app: INestApplication;
   let work: string;
+  let pushUrl: string;
   let owner: { cookie: string; key: string; userId: string };
   let reviewer: { cookie: string; key: string; userId: string };
   const username = `ghpulls${Date.now()}`;
@@ -47,6 +48,7 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
     let origin: string;
     ({ app, origin } = await startApp());
     owner = await signUp(app, username);
+    pushUrl = `${origin.replace('://', `://${username}:${owner.key}@`)}/${username}/tools.git`;
     reviewer = await signUp(app, `${username}r`);
     // GitHub links a commit to an account by verified email only.
     await app
@@ -95,15 +97,7 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
     // The server runs in this process, so the push must not block the event loop.
     await promisify(execFile)(
       'git',
-      [
-        'push',
-        '-q',
-        `${origin.replace('://', `://${username}:${owner.key}@`)}/${username}/tools.git`,
-        'main',
-        'feature',
-        'clash',
-        'chore',
-      ],
+      ['push', '-q', pushUrl, 'main', 'feature', 'clash', 'chore'],
       { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
     );
   }, 120_000);
@@ -348,6 +342,13 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
         .body,
     ).toMatchObject({ state: 'open' });
     await send('patch', `${repo}/pulls/4`, { base: 'feature' }).expect(422);
+    await send('patch', `${repo}/pulls/1`, { state: 'open' }).expect(422);
+    const update = await graphql(`mutation {
+      updatePullRequest(input: { pullRequestId: "${(await get(`${repo}/pulls/1`)).body.node_id}", state: OPEN }) {
+        pullRequest { state }
+      }
+    }`);
+    expect(update.errors[0]).toMatchObject({ type: 'UNPROCESSABLE' });
     const { errors } = await graphql(`mutation {
       reopenPullRequest(input: { pullRequestId: "${(await get(`${repo}/pulls/1`)).body.node_id}" }) {
         pullRequest { state }
@@ -380,4 +381,43 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
     }`);
     expect(closePull.errors[0]).toMatchObject({ type: 'NOT_FOUND' });
   });
+
+  it('lists the oldest commits first when a pull request has more than one page of them', async () => {
+    // One past the 250 Ghost reads at once, so the oldest would be cut if the newest were read first.
+    const git = (...args: string[]) =>
+      execFileSync(
+        'git',
+        ['-c', 'user.name=E2E', '-c', 'user.email=e2e@example.com', ...args],
+        {
+          cwd: work,
+        },
+      );
+    git('checkout', '-q', '-b', 'long', 'main');
+    for (let n = 1; n <= 251; n++)
+      git('commit', '-q', '--allow-empty', '-m', `long ${n}`);
+    await promisify(execFile)('git', ['push', '-q', pushUrl, 'long'], {
+      cwd: work,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    });
+    const { number } = (
+      await send('post', `${repo}/pulls`, {
+        title: 'Long',
+        head: 'long',
+        base: 'main',
+      }).expect(201)
+    ).body;
+    const commits = (
+      await get(`${repo}/pulls/${number}/commits?per_page=1`).expect(200)
+    ).body;
+    expect(commits[0].commit.message).toBe('long 1');
+    const { data } = await graphql(`{
+      repository(owner: "${username}", name: "tools") {
+        pullRequest(number: ${number}) { commits(first: 1) { totalCount nodes { commit { messageHeadline } } } }
+      }
+    }`);
+    expect(data.repository.pullRequest.commits).toEqual({
+      totalCount: 251,
+      nodes: [{ commit: { messageHeadline: 'long 1' } }],
+    });
+  }, 60_000);
 });

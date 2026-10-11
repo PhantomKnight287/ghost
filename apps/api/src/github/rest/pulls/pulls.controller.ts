@@ -223,6 +223,11 @@ export class PullsController {
       await this.pulls.closePullRequest(ref);
     if (body.state === 'open' && state === 'closed')
       await this.pulls.reopenPullRequest(ref);
+    if (body.state === 'open' && state === 'merged')
+      throw new HttpException(
+        'state cannot be changed. The pull request cannot be reopened.',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
     return this.pullsRest.one(repository, signedIn, number);
   }
 
@@ -244,6 +249,7 @@ export class PullsController {
       ...this.github.ref(repository, viewer),
       number,
       limit: MAX_COMMITS,
+      oldestFirst: true,
     });
     this.github.link(request, response, page, Math.min(total, MAX_COMMITS));
     const users = await this.pullsRest.commitUsers(
@@ -252,7 +258,6 @@ export class PullsController {
     const userOf = (email: string) => users.get(email.toLowerCase()) ?? null;
     const apiUrl = `${githubOrigins(this.config).api}/api/v3/repos/${repository.nameWithOwner}`;
     return commits
-      .toReversed()
       .slice(page.offset, page.offset + page.perPage)
       .map((commit) => ({
         sha: commit.sha,

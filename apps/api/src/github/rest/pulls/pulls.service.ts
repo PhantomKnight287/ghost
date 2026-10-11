@@ -93,14 +93,15 @@ export class GithubPullsService {
       ],
       labels: issues.flatMap((issue) => issue.labels),
     });
-    const baseTip = new Map<string, string | null>();
+    // Requests sharing a base branch share one in-flight lookup.
+    const baseTip = new Map<string, Promise<string | null>>();
     return Promise.all(
       issues.map(async (issue) => {
         const row = rows.get(issue.id)!;
         if (!baseTip.has(row.baseRef))
           baseTip.set(
             row.baseRef,
-            await this.pulls.branchTip(row.baseRepositoryId, row.baseRef),
+            this.pulls.branchTip(row.baseRepositoryId, row.baseRef),
           );
         // The stored head is only refreshed on merge, so an open request reads its branch.
         const headSha =
@@ -116,7 +117,7 @@ export class GithubPullsService {
             baseRef: row.baseRef,
             headRef: row.headRef,
             headSha,
-            baseSha: baseTip.get(row.baseRef) ?? null,
+            baseSha: (await baseTip.get(row.baseRef)) ?? null,
             mergeCommitSha: row.mergeCommitSha,
             mergedAt: row.mergedAt,
             base,

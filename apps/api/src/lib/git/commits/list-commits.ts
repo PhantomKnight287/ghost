@@ -72,6 +72,7 @@ export async function listCommits({
   path,
   limit,
   cursor,
+  skip,
 }: {
   gitDir: string;
   env?: Record<string, string>;
@@ -80,6 +81,8 @@ export async function listCommits({
   path?: string;
   limit: number;
   cursor?: string;
+  /** Commits to pass over first, newest first; how a caller reaches the oldest ones, since `--reverse` only reorders after `-n` has cut. */
+  skip?: number;
 }): Promise<{ commits: Commit[]; nextCursor: string | null }> {
   const args = [
     'log',
@@ -87,6 +90,7 @@ export async function listCommits({
     // one extra row answers "is there another page" without a second walk
     '-n',
     String(limit + 1),
+    ...(skip ? [`--skip=${skip}`] : []),
     '--end-of-options',
     ...(cursor ? [cursor] : [ref].flat()),
   ];

@@ -75,7 +75,9 @@ import { keyset } from '../../lib/db/keyset.js';
 import {
   BranchNotFoundError,
   CommitNotFoundError,
+  RepositoryNotFoundError,
 } from '../../lib/repositories/repositories.errors.js';
+import { AuthenticationRequiredError } from '../../lib/repositories/access/repository-access.errors.js';
 import {
   CreatePullRequestRequestDTO,
   UpdatePullRequestRequestDTO,
@@ -433,19 +435,34 @@ export class PullRequestsService {
       .where(isNull(latest.dismissalMessage));
   }
 
+  /** Newest first, paged by `cursor`; with `oldestFirst`, the oldest `limit` commits, oldest first, as GitHub lists a pull request's. */
   async getCommits(
-    params: PullRequestRef & { limit?: number; cursor?: string },
+    params: PullRequestRef & {
+      limit?: number;
+      cursor?: string;
+      oldestFirst?: boolean;
+    },
   ) {
     const git = await this.open(params);
     if (!git.mergeBase) return { commits: [], total: 0, nextCursor: null };
 
     const limit = params.limit ?? DEFAULT_PAGE_SIZE;
-    const { commits, nextCursor } = await listCommits({
+    const total = await countCommits({
+      gitDir: git.baseDirectory,
+      env: git.env,
+      range: `${git.mergeBase}..${git.headSha}`,
+    });
+    const listed = await listCommits({
       gitDir: git.baseDirectory,
       env: git.env,
       ref: `${git.mergeBase}..${params.cursor ?? git.headSha}`,
       limit,
+      skip: params.oldestFirst ? Math.max(0, total - limit) : undefined,
     });
+    const commits = params.oldestFirst
+      ? listed.commits.toReversed()
+      : listed.commits;
+    const nextCursor = params.oldestFirst ? null : listed.nextCursor;
 
     // A fork's commits live in the other repository's objects, which is why the lending env has to come along for the signatures to be readable.
     const verdicts = await this.verification.verifyCommits({
@@ -459,11 +476,7 @@ export class PullRequestsService {
         ...commit,
         verification: verdicts.get(commit.sha) ?? null,
       })),
-      total: await countCommits({
-        gitDir: git.baseDirectory,
-        env: git.env,
-        range: `${git.mergeBase}..${git.headSha}`,
-      }),
+      total,
       nextCursor,
     };
   }
@@ -891,10 +904,20 @@ export class PullRequestsService {
       pullRequest.headRepositoryId === base.id
     )
       return fromBase;
-    const [head] = await this.db
-      .select()
-      .from(schema.repository)
-      .where(eq(schema.repository.id, pullRequest.headRepositoryId));
+    // The head is another repository, which the requester may not be able to read.
+    const head = await this.access
+      .authorizeById({
+        repositoryId: pullRequest.headRepositoryId,
+        requesterId: params.requesterId,
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof RepositoryNotFoundError ||
+          error instanceof AuthenticationRequiredError
+        )
+          return null;
+        throw error;
+      });
     return head
       ? readCommit({ gitDir: await this.materializer.open(head), sha })
       : null;
