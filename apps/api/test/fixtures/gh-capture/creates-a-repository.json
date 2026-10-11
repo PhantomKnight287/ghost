@@ -1,0 +1,44 @@
+[
+  {
+    "command": "gh repo create <host>/<login>/gh-made --private --description from gh",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v3/users/<login>",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tmutation RepositoryCreate($input: CreateRepositoryInput!) {\n\t\tcreateRepository(input: $input) {\n\t\t\trepository {\n\t\t\t\tid\n\t\t\t\tname\n\t\t\t\towner { login }\n\t\t\t\turl\n\t\t\t}\n\t\t}\n\t}\n\t",
+          "variables": {
+            "input": {
+              "name": "gh-made",
+              "description": "from gh",
+              "visibility": "PRIVATE",
+              "ownerId": "U_<id>",
+              "hasIssuesEnabled": true,
+              "hasWikiEnabled": true
+            }
+          }
+        },
+        "status": 200
+      }
+    ]
+  }
+]

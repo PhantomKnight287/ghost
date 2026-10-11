@@ -1,0 +1,19 @@
+[
+  {
+    "command": "gh api user",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v3/user",
+        "query": {},
+        "headers": {
+          "accept": "*/*",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      }
+    ]
+  }
+]

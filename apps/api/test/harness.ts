@@ -17,11 +17,12 @@ export const s3Credentials = {
 /** Suites need a throwaway Postgres and an S3 endpoint (RustFS from compose.yaml works), and are skipped without them. */
 export const hasBackends = Boolean(DATABASE_URL && S3_ENDPOINT);
 
-/** Serves the whole app on `port`, random unless given, against the database and bucket global-setup.ts prepared. `env` overrides the defaults below, such as turning the SSH transport on. */
+/** Serves the whole app on `port`, random unless given, against the database and bucket global-setup.ts prepared. `env` overrides the defaults below, such as turning the SSH transport on. `configure` runs before anything else is mounted, so middleware it adds sees every request. */
 export async function startApp(
   env: Record<string, string> = {},
   port = 0,
   httpsOptions?: { key: Buffer; cert: Buffer },
+  configure?: (app: INestApplication) => void,
 ) {
   Object.assign(process.env, {
     DATABASE_URL,
@@ -50,6 +51,7 @@ export async function startApp(
     bodyParser: false,
     httpsOptions,
   });
+  configure?.(app);
   configureApp(app);
   await app.listen(port, '127.0.0.1');
   const scheme = httpsOptions ? 'https' : 'http';
@@ -77,8 +79,14 @@ export async function signUp(app: INestApplication, username: string) {
 }
 
 /** An API key holding only `scopes`, as the device flow mints them. */
-export async function scopedKey(app: INestApplication, userId: string, scopes: string[]) {
+export async function scopedKey(
+  app: INestApplication,
+  userId: string,
+  scopes: string[],
+) {
   const auth = app.get<AuthService<Auth>>(AuthService).api;
-  const { key } = await auth.createApiKey({ body: { userId, permissions: { scopes } } });
+  const { key } = await auth.createApiKey({
+    body: { userId, permissions: { scopes } },
+  });
   return key;
 }

@@ -1,0 +1,112 @@
+[
+  {
+    "command": "gh api repos/<login>/tools/issues?state=all&per_page=1 --paginate --slurp",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/issues",
+        "query": {
+          "state": "all",
+          "per_page": "1"
+        },
+        "headers": {
+          "accept": "*/*",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/issues",
+        "query": {
+          "state": "all",
+          "per_page": "1",
+          "page": "2"
+        },
+        "headers": {
+          "accept": "*/*",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/issues",
+        "query": {
+          "state": "all",
+          "per_page": "1",
+          "page": "3"
+        },
+        "headers": {
+          "accept": "*/*",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh api repos/<login>/tools/issues?state=all&per_page=100",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/issues",
+        "query": {
+          "state": "all",
+          "per_page": "100"
+        },
+        "headers": {
+          "accept": "*/*",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh api repos/<login>/tools/issues/1/comments -f body=Via REST",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/v3/repos/<login>/tools/issues/1/comments",
+        "query": {},
+        "headers": {
+          "accept": "*/*",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "body": "Via REST"
+        },
+        "status": 201
+      }
+    ]
+  },
+  {
+    "command": "gh api -X PATCH repos/<login>/tools/issues/comments/<id> -f body=Edited via REST",
+    "requests": [
+      {
+        "method": "PATCH",
+        "path": "/api/v3/repos/<login>/tools/issues/comments/<id>",
+        "query": {},
+        "headers": {
+          "accept": "*/*",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "body": "Edited via REST"
+        },
+        "status": 200
+      }
+    ]
+  }
+]
