@@ -1,0 +1,38 @@
+[
+  {
+    "command": "gh repo view <host>/<login>/tools",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query RepositoryInfo($owner: String!, $name: String!) {\n\t\trepository(owner: $owner, name: $name) {name,owner{id,login},description}\n\t}",
+          "variables": {
+            "name": "tools",
+            "owner": "<login>"
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/readme",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      }
+    ]
+  }
+]

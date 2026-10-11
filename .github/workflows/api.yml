@@ -65,6 +65,16 @@ jobs:
       - name: End-to-end tests
         working-directory: apps/api
         run: bunx vitest run --config ./vitest.config.e2e.ts --no-file-parallelism
+        env:
+          GH_CAPTURE_DIR: ${{ runner.temp }}/gh-capture
+
+      # What real gh sent, to refresh apps/api/test/fixtures/gh-capture with `gh run download -n gh-capture`.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gh-capture
+          path: ${{ runner.temp }}/gh-capture
+          if-no-files-found: ignore
 
       - name: Committed GraphQL schema is current
         run: git diff --exit-code -- apps/api/github.schema.gql

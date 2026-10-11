@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { capturing } from './gh-capture.js';
+
 /** The hostname the gh suite serves on port 443; set in CI, where /etc/hosts maps it. The suite is skipped without it. */
 export const GH_E2E_HOST = process.env.GH_E2E_HOST;
 
@@ -40,7 +42,9 @@ export function runGh(
     input,
   }: { configDir: string; token?: string; input?: string },
 ) {
+  const stopCapturing = capturing(args);
   const child = spawn('gh', args, { env: ghEnv(configDir, token) });
+  child.on('close', stopCapturing);
   if (input !== undefined) child.stdin.end(input);
   else child.stdin.end();
 
@@ -60,7 +64,9 @@ export function startGh(
   args: string[],
   { configDir, token }: { configDir: string; token?: string },
 ) {
+  const stopCapturing = capturing(args);
   const child = spawn('gh', args, { env: ghEnv(configDir, token) });
+  child.on('close', stopCapturing);
   child.stdin.end();
   let stdout = '';
   let stderr = '';

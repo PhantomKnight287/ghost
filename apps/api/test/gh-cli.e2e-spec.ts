@@ -9,6 +9,7 @@ import request from 'supertest';
 import TestAgent from 'supertest/lib/agent.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { recordGhRequests, writeGhCapture } from './gh-capture.js';
 import { GH_E2E_HOST, runGh, startGh, tlsFiles } from './gh.js';
 import { hasBackends, scopedKey, signUp, startApp } from './harness.js';
 
@@ -36,6 +37,7 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       },
       443,
       { key, cert },
+      (app) => app.use(recordGhRequests),
     ));
     owner = await signUp(app, username);
     configDir = mkdtempSync(path.join(tmpdir(), 'gh-e2e-'));
@@ -93,6 +95,7 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   });
 
   afterAll(async () => {
+    writeGhCapture({ login: username, host: GH_E2E_HOST! });
     await app?.close();
     if (configDir) rmSync(configDir, { recursive: true, force: true });
   });

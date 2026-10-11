@@ -1,0 +1,252 @@
+[
+  {
+    "command": "gh issue comment 1 -R <host>/<login>/tools --body From gh",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery IssueByNumber($owner: String!, $repo: String!, $number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\thasIssuesEnabled\n\t\t\tissue: issueOrPullRequest(number: $number) {\n\t\t\t\t__typename\n\t\t\t\t...on Issue{id,url}\n\t\t\t\t...on PullRequest{id,url}\n\t\t\t}\n\t\t}\n\t}",
+          "variables": {
+            "number": 1,
+            "owner": "<login>",
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "mutation CommentCreate($input:AddCommentInput!){addComment(input: $input){commentEdge{node{url}}}}",
+          "variables": {
+            "input": {
+              "subjectId": "I_<id>",
+              "body": "From gh"
+            }
+          }
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh issue edit 1 -R <host>/<login>/tools --title Broken build (edited) --add-label bug",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery IssueByNumber($owner: String!, $repo: String!, $number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\thasIssuesEnabled\n\t\t\tissue: issueOrPullRequest(number: $number) {\n\t\t\t\t__typename\n\t\t\t\t...on Issue{id,number,title,body,url,labels(first:100){nodes{id,name,description,color},totalCount}}\n\t\t\t\t...on PullRequest{id,number,title,body,url,labels(first:100){nodes{id,name,description,color},totalCount}}\n\t\t\t}\n\t\t}\n\t}",
+          "variables": {
+            "number": 1,
+            "owner": "<login>",
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query RepositoryLabelList($endCursor:String$name:String!$owner:String!){repository(owner: $owner, name: $name){labels(first: 100, orderBy: {field: NAME, direction: ASC}, after: $endCursor){nodes{id,name},pageInfo{hasNextPage,endCursor}}}}",
+          "variables": {
+            "endCursor": null,
+            "name": "tools",
+            "owner": "<login>"
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "mutation IssueUpdate($input:UpdateIssueInput!){updateIssue(input: $input){__typename}}",
+          "variables": {
+            "input": {
+              "id": "I_<id>",
+              "title": "Broken build (edited)"
+            }
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "mutation LabelAdd($input:AddLabelsToLabelableInput!){addLabelsToLabelable(input: $input){__typename}}",
+          "variables": {
+            "input": {
+              "labelableId": "I_<id>",
+              "labelIds": [
+                "LA_<id>"
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh issue close 1 -R <host>/<login>/tools",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery IssueByNumber($owner: String!, $repo: String!, $number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\thasIssuesEnabled\n\t\t\tissue: issueOrPullRequest(number: $number) {\n\t\t\t\t__typename\n\t\t\t\t...on Issue{id,number,title,state}\n\t\t\t\t...on PullRequest{id,number,title,state}\n\t\t\t}\n\t\t}\n\t}",
+          "variables": {
+            "number": 1,
+            "owner": "<login>",
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "mutation IssueClose($input:CloseIssueInput!){closeIssue(input: $input){issue{id}}}",
+          "variables": {
+            "input": {
+              "issueId": "I_<id>"
+            }
+          }
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh issue view 1 -R <host>/<login>/tools --json state,title,labels",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery IssueByNumber($owner: String!, $repo: String!, $number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\thasIssuesEnabled\n\t\t\tissue: issueOrPullRequest(number: $number) {\n\t\t\t\t__typename\n\t\t\t\t...on Issue{state,title,labels(first:100){nodes{id,name,description,color},totalCount},id}\n\t\t\t\t...on PullRequest{state,title,labels(first:100){nodes{id,name,description,color},totalCount},id}\n\t\t\t}\n\t\t}\n\t}",
+          "variables": {
+            "number": 1,
+            "owner": "<login>",
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh issue reopen 1 -R <host>/<login>/tools",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery IssueByNumber($owner: String!, $repo: String!, $number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\thasIssuesEnabled\n\t\t\tissue: issueOrPullRequest(number: $number) {\n\t\t\t\t__typename\n\t\t\t\t...on Issue{id,number,title,state}\n\t\t\t\t...on PullRequest{id,number,title,state}\n\t\t\t}\n\t\t}\n\t}",
+          "variables": {
+            "number": 1,
+            "owner": "<login>",
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "mutation IssueReopen($input:ReopenIssueInput!){reopenIssue(input: $input){issue{id}}}",
+          "variables": {
+            "input": {
+              "issueId": "I_<id>"
+            }
+          }
+        },
+        "status": 200
+      }
+    ]
+  }
+]

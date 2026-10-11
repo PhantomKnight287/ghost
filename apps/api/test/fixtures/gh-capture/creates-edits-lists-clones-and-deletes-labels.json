@@ -1,0 +1,212 @@
+[
+  {
+    "command": "gh label create gh-made -R <host>/<login>/tools --color D93F0B --description From gh",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/v3/repos/<login>/tools/labels",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "color": "D93F0B",
+          "description": "From gh",
+          "name": "gh-made"
+        },
+        "status": 201
+      }
+    ]
+  },
+  {
+    "command": "gh label edit gh-made -R <host>/<login>/tools --name gh-edited --color 0E8A16",
+    "requests": [
+      {
+        "method": "PATCH",
+        "path": "/api/v3/repos/<login>/tools/labels/gh-made",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "color": "0E8A16",
+          "new_name": "gh-edited"
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh label list -R <host>/<login>/tools --json name,color,description",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "fragment label on Label{name,color,description}\n\tquery LabelList($owner: String!, $repo: String!, $limit: Int!, $endCursor: String, $query: String, $orderBy: LabelOrder) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tlabels(first: $limit, after: $endCursor, query: $query, orderBy: $orderBy) {\n\t\t\t\ttotalCount,\n\t\t\t\tnodes {\n\t\t\t\t\t...label\n\t\t\t\t}\n\t\t\t\tpageInfo {\n\t\t\t\t\thasNextPage\n\t\t\t\t\tendCursor\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}",
+          "variables": {
+            "limit": 30,
+            "orderBy": {
+              "direction": "ASC",
+              "field": "CREATED_AT"
+            },
+            "owner": "<login>",
+            "query": "",
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh label clone <host>/<login>/tools -R <host>/<login>/label-target",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "fragment label on Label{color,description,name}\n\tquery LabelList($owner: String!, $repo: String!, $limit: Int!, $endCursor: String, $query: String, $orderBy: LabelOrder) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tlabels(first: $limit, after: $endCursor, query: $query, orderBy: $orderBy) {\n\t\t\t\ttotalCount,\n\t\t\t\tnodes {\n\t\t\t\t\t...label\n\t\t\t\t}\n\t\t\t\tpageInfo {\n\t\t\t\t\thasNextPage\n\t\t\t\t\tendCursor\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}",
+          "variables": {
+            "limit": 100,
+            "orderBy": {
+              "direction": "ASC",
+              "field": "CREATED_AT"
+            },
+            "owner": "<login>",
+            "query": "",
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/v3/repos/<login>/label-target/labels",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "color": "d73a4a",
+          "description": "",
+          "name": "bug"
+        },
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/api/v3/repos/<login>/label-target/labels",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "color": "0e8a16",
+          "description": "From gh",
+          "name": "gh-edited"
+        },
+        "status": 201
+      }
+    ]
+  },
+  {
+    "command": "gh label list -R <host>/<login>/label-target --json name",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "fragment label on Label{name}\n\tquery LabelList($owner: String!, $repo: String!, $limit: Int!, $endCursor: String, $query: String, $orderBy: LabelOrder) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tlabels(first: $limit, after: $endCursor, query: $query, orderBy: $orderBy) {\n\t\t\t\ttotalCount,\n\t\t\t\tnodes {\n\t\t\t\t\t...label\n\t\t\t\t}\n\t\t\t\tpageInfo {\n\t\t\t\t\thasNextPage\n\t\t\t\t\tendCursor\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}",
+          "variables": {
+            "limit": 30,
+            "orderBy": {
+              "direction": "ASC",
+              "field": "CREATED_AT"
+            },
+            "owner": "<login>",
+            "query": "",
+            "repo": "label-target"
+          }
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh label delete gh-edited -R <host>/<login>/tools --yes",
+    "requests": [
+      {
+        "method": "DELETE",
+        "path": "/api/v3/repos/<login>/tools/labels/gh-edited",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 204
+      }
+    ]
+  },
+  {
+    "command": "gh label list -R <host>/<login>/tools --json name",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "fragment label on Label{name}\n\tquery LabelList($owner: String!, $repo: String!, $limit: Int!, $endCursor: String, $query: String, $orderBy: LabelOrder) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tlabels(first: $limit, after: $endCursor, query: $query, orderBy: $orderBy) {\n\t\t\t\ttotalCount,\n\t\t\t\tnodes {\n\t\t\t\t\t...label\n\t\t\t\t}\n\t\t\t\tpageInfo {\n\t\t\t\t\thasNextPage\n\t\t\t\t\tendCursor\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}",
+          "variables": {
+            "limit": 30,
+            "orderBy": {
+              "direction": "ASC",
+              "field": "CREATED_AT"
+            },
+            "owner": "<login>",
+            "query": "",
+            "repo": "tools"
+          }
+        },
+        "status": 200
+      }
+    ]
+  }
+]
