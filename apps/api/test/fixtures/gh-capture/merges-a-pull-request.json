@@ -1,0 +1,28 @@
+[
+  {
+    "command": "gh pr merge  -R <host>/<login>/tools --squash",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery PullRequestForBranch($owner: String!, $repo: String!, $headRefName: String!, $states: [PullRequestState!]) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequests(headRefName: $headRefName, states: $states, first: 30, orderBy: { field: CREATED_AT, direction: DESC }) {\n\t\t\t\tnodes {id,number,state,title,commits(last:1){nodes{commit{oid}}},mergeStateStatus,headRefName,baseRefName,headRefOid,isCrossRepository,headRepositoryOwner{id,login,...on User{name}}}\n\t\t\t}\n\t\t\tdefaultBranchRef { name }\n\t\t}\n\t}",
+          "variables": {
+            "headRefName": "undefined",
+            "owner": "<login>",
+            "repo": "tools",
+            "states": null
+          }
+        },
+        "status": 400
+      }
+    ]
+  }
+]

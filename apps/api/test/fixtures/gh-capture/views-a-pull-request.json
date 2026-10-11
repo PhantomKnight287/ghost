@@ -1,0 +1,28 @@
+[
+  {
+    "command": "gh pr view  -R <host>/<login>/tools --json number,title,body,state,headRefName,baseRefName,additions,deletions,changedFiles,files,commits,reviewDecision,mergeable,url",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery PullRequestForBranch($owner: String!, $repo: String!, $headRefName: String!, $states: [PullRequestState!]) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequests(headRefName: $headRefName, states: $states, first: 30, orderBy: { field: CREATED_AT, direction: DESC }) {\n\t\t\t\tnodes {number,title,body,state,headRefName,baseRefName,additions,deletions,changedFiles,files(first: 100) {nodes {additions,deletions,path,changeType}},commits(first: 100) {nodes {commit {authors(first:100) {nodes {name,email,user{id,login}}},messageHeadline,messageBody,oid,committedDate,authoredDate}}},reviewDecision,mergeable,url,id,isCrossRepository,headRepositoryOwner{id,login,...on User{name}}}\n\t\t\t}\n\t\t\tdefaultBranchRef { name }\n\t\t}\n\t}",
+          "variables": {
+            "headRefName": "undefined",
+            "owner": "<login>",
+            "repo": "tools",
+            "states": null
+          }
+        },
+        "status": 400
+      }
+    ]
+  }
+]
