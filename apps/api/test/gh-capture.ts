@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { NextFunction, Request, Response } from 'express';
 import { expect } from 'vitest';
@@ -51,9 +52,7 @@ function redact(value: unknown): unknown {
   return Object.fromEntries(
     Object.entries(value).map(([key, field]) => [
       key,
-      SECRET_FIELD.test(key) && typeof field === 'string'
-        ? '<redacted>'
-        : redact(field),
+      SECRET_FIELD.test(key) ? '<redacted>' : redact(field),
     ]),
   );
 }
@@ -93,7 +92,28 @@ export function recordGhRequests(
   next();
 }
 
-/** Writes one file per test, replacing what changes from run to run (the suite's login, host, keys and node ids) with placeholders so a refresh only shows what gh changed. */
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** What changes from run to run, or must not be written down, and the placeholder that replaces it, so a refresh only shows what gh changed. */
+const placeholders = ({ login, host }: { login: string; host: string }) =>
+  [
+    [new RegExp(escape(login), 'g'), '<login>'],
+    [new RegExp(escape(host), 'g'), '<host>'],
+    [new RegExp(`${escape(tmpdir())}/gh-e2e-[^/\\s"]+`, 'g'), '<tmp>'],
+    [/\/\/[^/\s"@:]+:[^/\s"@]+@/g, '//<credentials>@'],
+    [/ghost_pat_\w+/g, '<token>'],
+    [/\b((?:ssh|ecdsa|sk)-[a-z0-9@.-]+) AAAA[A-Za-z0-9+/=]+[^"]*/g, '$1 <key>'],
+    [/\b(U|O|R|I|PR|IC|LA)_[A-Za-z0-9_-]{8,}/g, '$1_<id>'],
+    [/issues\/comments\/\d+/g, 'issues/comments/<id>'],
+  ] as const;
+
+/** Orders a command's requests by what they ask, since gh sends some at once and their arrival order varies. */
+const byRequest = (a: CapturedRequest, b: CapturedRequest) =>
+  JSON.stringify([a.method, a.path, a.body]).localeCompare(
+    JSON.stringify([b.method, b.path, b.body]),
+  );
+
+/** Writes one file per test, with `placeholders` applied. */
 export function writeGhCapture({
   login,
   host,
@@ -107,20 +127,23 @@ export function writeGhCapture({
     const json = JSON.stringify(
       commands
         .filter((command) => command.test === test)
-        .map(({ command, requests }) => ({ command, requests })),
+        .map(({ command, requests }) => ({
+          command,
+          requests: requests.toSorted(byRequest),
+        })),
       null,
       2,
-    )
-      .replaceAll(login, '<login>')
-      .replaceAll(host, '<host>')
-      .replace(/ghost_pat_\w+/g, '<token>')
-      .replace(/\b(U|O|R|I|PR|IC|LA)_[A-Za-z0-9_-]{8,}/g, '$1_<id>');
+    );
+    const replaced = placeholders({ login, host }).reduce(
+      (text, [pattern, placeholder]) => text.replace(pattern, placeholder),
+      json,
+    );
     const name = test
       .split(' > ')
       .at(-1)!
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
-    writeFileSync(path.join(GH_CAPTURE_DIR, `${name}.json`), `${json}\n`);
+    writeFileSync(path.join(GH_CAPTURE_DIR, `${name}.json`), `${replaced}\n`);
   }
 }

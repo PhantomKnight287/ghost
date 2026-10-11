@@ -67,13 +67,12 @@ describe('gh capture', () => {
 
   describe.each(captures)('%s', (_file, capture) => {
     it('asks only for GraphQL that Ghost validates', () => {
-      for (const { command, query } of requestsIn(capture).flatMap(
-        (request) => {
-          const query =
-            request.path === '/api/graphql' ? queryOf(request.body) : null;
-          return query ? [{ command: request.command, query }] : [];
-        },
+      for (const { command, body } of requestsIn(capture).filter(
+        (request) => request.path === '/api/graphql',
       )) {
+        const query = queryOf(body);
+        if (!query)
+          throw new Error(`${command}: a GraphQL request without a query`);
         expect(
           validate(schema, parse(query), githubValidationRules).map(
             (error) => error.message,

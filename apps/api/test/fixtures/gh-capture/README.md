@@ -1,6 +1,6 @@
 # gh capture
 
-Every request real `gh` made in `test/gh-cli.e2e-spec.ts`, one file per test, recorded by `test/gh-capture.ts`. Logins, hosts, keys and node ids are replaced with placeholders, and secrets in bodies with `<redacted>`. `src/github/gh-capture.spec.ts` checks every GraphQL document here against `github.schema.gql` and every REST call against `openapi.json`, so a field or route `gh` needs and Ghost lacks fails CI.
+Every request real `gh` made in `test/gh-cli.e2e-spec.ts`, one file per test, recorded by `test/gh-capture.ts`. What changes from run to run (logins, the host, temporary paths, keys, node and comment ids) is replaced with placeholders, fields named like secrets with `<redacted>`, and each command's requests are sorted, since `gh` sends some at once. Two runs of the same `gh` give the same files. `src/github/gh-capture.spec.ts` checks every GraphQL document here against `github.schema.gql` and every REST call against `openapi.json`, so a field or route `gh` needs and Ghost lacks fails CI.
 
 ## Refreshing
 
