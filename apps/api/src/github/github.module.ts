@@ -28,6 +28,7 @@ import { SearchResolver } from './graphql/resolvers/search/search.resolver.js';
 import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issue-mutations.resolver.js';
 import { RepositoryMutationsResolver } from './graphql/resolvers/repository-mutations/repository-mutations.resolver.js';
 import { OauthModule } from './oauth/oauth.module.js';
+import { GithubIssuesModule } from './rest/issues/issues.module.js';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { OauthModule } from './oauth/oauth.module.js';
     MetaModule,
     UsersModule,
     ReposModule,
+    GithubIssuesModule,
     IssuesModule,
     RepositoriesModule,
     OauthModule,

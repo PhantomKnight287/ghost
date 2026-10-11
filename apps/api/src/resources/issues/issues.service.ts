@@ -4,10 +4,14 @@ import {
   and,
   asc,
   count,
+  desc,
   eq,
   ilike,
+  exists,
+  gte,
   inArray,
   isNotNull,
+  not,
   or,
   sql,
 } from 'drizzle-orm';
@@ -45,6 +49,14 @@ import {
 } from '../../lib/issues/issues.errors.js';
 import { touchIssue } from '../../lib/issues/touch-issue.js';
 import { canEditThread } from '../../lib/issues/can-edit-thread.js';
+
+/** Filters and paging the GitHub REST layer needs beyond Ghost's own list: offset pages, pull requests alongside issues, `since`, and any or no assignee. */
+export type IssueListOptions = {
+  offset?: number;
+  includePullRequests?: boolean;
+  since?: Date;
+  assigned?: boolean;
+};
 
 const NO_ISSUES = {
   issues: [],
@@ -231,17 +243,20 @@ export class IssuesService {
     }
   }
 
-  async getIssues({
-    username,
-    repo,
-    requesterId,
-    query,
-  }: {
-    username: string;
-    repo: string;
-    requesterId?: string;
-    query: GetIssuesQueryDTO;
-  }) {
+  async getIssues(
+    {
+      username,
+      repo,
+      requesterId,
+      query,
+    }: {
+      username: string;
+      repo: string;
+      requesterId?: string;
+      query: GetIssuesQueryDTO;
+    },
+    options: IssueListOptions = {},
+  ) {
     const repository = await this.access.authorize({
       username,
       repo,
@@ -322,11 +337,23 @@ export class IssuesService {
         )
       : undefined;
 
+    const assignment = this.db
+      .select({ issueId: schema.issueAssignee.issueId })
+      .from(schema.issueAssignee)
+      .where(eq(schema.issueAssignee.issueId, schema.issue.id));
     const baseClause = (forState: 'open' | 'closed' | 'all') =>
       and(
         eq(schema.issue.repositoryId, repository.id),
-        eq(schema.issue.isPullRequest, false),
+        options.includePullRequests
+          ? undefined
+          : eq(schema.issue.isPullRequest, false),
         forState === 'all' ? undefined : eq(schema.issue.state, forState),
+        options.since ? gte(schema.issue.updatedAt, options.since) : undefined,
+        options.assigned === undefined
+          ? undefined
+          : options.assigned
+            ? exists(assignment)
+            : not(exists(assignment)),
         authorId ? eq(schema.issue.authorId, authorId) : undefined,
         labelIssueIds ? inArray(schema.issue.id, labelIssueIds) : undefined,
         assigneeFilterIds
@@ -340,7 +367,9 @@ export class IssuesService {
       .from(schema.issue)
       .where(and(baseClause(state === 'all' ? 'all' : state), list.where))
       .orderBy(...list.orderBy)
-      .limit(list.limit);
+      .limit(list.limit)
+      // ponytail: OFFSET scans the rows it skips; REST pages deep into a huge repository get slower, keyset via a cursor in Link if that matters.
+      .offset(options.offset ?? 0);
 
     const { page, hasMore, nextCursor } = list.page(rows);
 
@@ -510,6 +539,75 @@ export class IssuesService {
       .orderBy(asc(schema.issueComment.createdAt), asc(schema.issueComment.id));
 
     return { comments };
+  }
+
+  /** One page of comments in GitHub's REST order, for one issue when `number` is given or else for the whole repository; GitHub's numeric id and the issue each belongs to come with every comment. */
+  async getCommentPage(params: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    number?: number;
+    sort: 'created' | 'updated';
+    direction: 'asc' | 'desc';
+    since?: Date;
+    offset: number;
+    limit: number;
+  }) {
+    const scope =
+      params.number === undefined
+        ? eq(
+            schema.issue.repositoryId,
+            (await this.access.authorize(params)).id,
+          )
+        : eq(
+            schema.issue.id,
+            (await this.load({ ...params, number: params.number })).issue.id,
+          );
+    const where = and(
+      scope,
+      params.since
+        ? gte(schema.issueComment.updatedAt, params.since)
+        : undefined,
+    );
+    const order = params.direction === 'desc' ? desc : asc;
+    const [comments, [total]] = await Promise.all([
+      this.db
+        .select({
+          ...commentColumnsWithAuthor,
+          numericId: schema.issueComment.numericId,
+          issueNumber: schema.issue.number,
+          isPullRequest: schema.issue.isPullRequest,
+        })
+        .from(schema.issueComment)
+        .innerJoin(
+          schema.issue,
+          eq(schema.issue.id, schema.issueComment.issueId),
+        )
+        .innerJoin(
+          schema.user,
+          eq(schema.user.id, schema.issueComment.authorId),
+        )
+        .where(where)
+        .orderBy(
+          order(
+            params.sort === 'updated'
+              ? schema.issueComment.updatedAt
+              : schema.issueComment.createdAt,
+          ),
+          order(schema.issueComment.id),
+        )
+        .limit(params.limit)
+        .offset(params.offset),
+      this.db
+        .select({ total: count() })
+        .from(schema.issueComment)
+        .innerJoin(
+          schema.issue,
+          eq(schema.issue.id, schema.issueComment.issueId),
+        )
+        .where(where),
+    ]);
+    return { comments, total: total?.total ?? 0 };
   }
 
   async createComment(

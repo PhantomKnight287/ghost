@@ -260,6 +260,96 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     await ok(['issue', 'reopen', '1', '-R', repo]);
   });
 
+  it('creates, edits, lists, clones and deletes labels', async () => {
+    const repo = `${GH_E2E_HOST}/${username}/tools`;
+    await ok([
+      'label',
+      'create',
+      'gh-made',
+      '-R',
+      repo,
+      '--color',
+      'D93F0B',
+      '--description',
+      'From gh',
+    ]);
+    await ok([
+      'label',
+      'edit',
+      'gh-made',
+      '-R',
+      repo,
+      '--name',
+      'gh-edited',
+      '--color',
+      '0E8A16',
+    ]);
+    const labels = JSON.parse(
+      await ok([
+        'label',
+        'list',
+        '-R',
+        repo,
+        '--json',
+        'name,color,description',
+      ]),
+    );
+    expect(labels).toContainEqual({
+      name: 'gh-edited',
+      color: '0e8a16',
+      description: 'From gh',
+    });
+
+    await api
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'label-target', visibility: 'public' })
+      .expect(201);
+    const target = `${GH_E2E_HOST}/${username}/label-target`;
+    await ok(['label', 'clone', repo, '-R', target]);
+    const cloned = JSON.parse(
+      await ok(['label', 'list', '-R', target, '--json', 'name']),
+    );
+    expect(cloned).toContainEqual({ name: 'gh-edited' });
+
+    await ok(['label', 'delete', 'gh-edited', '-R', repo, '--yes']);
+    const after = JSON.parse(
+      await ok(['label', 'list', '-R', repo, '--json', 'name']),
+    );
+    expect(after).not.toContainEqual({ name: 'gh-edited' });
+  });
+
+  it('pages REST issue lists with gh api --paginate and edits a comment by id', async () => {
+    const repo = `repos/${username}/tools`;
+    const all = JSON.parse(
+      await ok([
+        'api',
+        `${repo}/issues?state=all&per_page=1`,
+        '--paginate',
+        '--slurp',
+      ]),
+    );
+    const single = JSON.parse(
+      await ok(['api', `${repo}/issues?state=all&per_page=100`]),
+    );
+    expect(all.flat()).toHaveLength(single.length);
+
+    const comment = JSON.parse(
+      await ok(['api', `${repo}/issues/1/comments`, '-f', 'body=Via REST']),
+    );
+    const edited = JSON.parse(
+      await ok([
+        'api',
+        '-X',
+        'PATCH',
+        `${repo}/issues/comments/${comment.id}`,
+        '-f',
+        'body=Edited via REST',
+      ]),
+    );
+    expect(edited).toMatchObject({ id: comment.id, body: 'Edited via REST' });
+  });
+
   it('creates a repository', async () => {
     const out = await ok([
       'repo',
