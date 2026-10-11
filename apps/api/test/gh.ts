@@ -40,10 +40,11 @@ export function runGh(
     configDir,
     token,
     input,
-  }: { configDir: string; token?: string; input?: string },
+    cwd,
+  }: { configDir: string; token?: string; input?: string; cwd?: string },
 ) {
   const stopCapturing = capturing(args);
-  const child = spawn('gh', args, { env: ghEnv(configDir, token) });
+  const child = spawn('gh', args, { env: ghEnv(configDir, token), cwd });
   child.on('close', stopCapturing);
   if (input !== undefined) child.stdin.end(input);
   else child.stdin.end();

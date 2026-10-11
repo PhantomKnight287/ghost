@@ -20,10 +20,13 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   const username = `ghcli${Date.now()}`;
   let api: ReturnType<(typeof request)['agent']>;
 
-  const gh = (args: string[], input?: string) =>
-    runGh(args, { configDir, token: owner.key, input });
-  const ok = async (args: string[], input?: string) => {
-    const result = await gh(args, input);
+  const gh = (args: string[], options: { input?: string; cwd?: string } = {}) =>
+    runGh(args, { configDir, token: owner.key, ...options });
+  const ok = async (
+    args: string[],
+    options: { input?: string; cwd?: string } = {},
+  ) => {
+    const result = await gh(args, options);
     expect(result, result.stderr).toMatchObject({ code: 0 });
     return result.stdout;
   };
@@ -75,6 +78,30 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       `https://${username}:${owner.key}@${GH_E2E_HOST}/${username}/tools.git`,
       'main',
     );
+    // Two branches for the gh pr cases: one to merge, one to close and reopen.
+    for (const [branch, file] of [
+      ['feature', 'feature.txt'],
+      ['chore', 'chore.txt'],
+    ]) {
+      await git('checkout', '-q', '-b', branch, 'main');
+      writeFileSync(path.join(work, file), `${branch}\n`);
+      await git('add', '.');
+      await git(
+        '-c',
+        'user.name=E2E',
+        '-c',
+        'user.email=e2e@example.com',
+        'commit',
+        '-qm',
+        `Add ${file}`,
+      );
+      await git(
+        'push',
+        '-q',
+        `https://${username}:${owner.key}@${GH_E2E_HOST}/${username}/tools.git`,
+        branch,
+      );
+    }
     for (const title of ['Broken build', 'Docs typo']) {
       await api
         .post(`/api/repositories/${username}/tools/issues`)
@@ -351,6 +378,181 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       ]),
     );
     expect(edited).toMatchObject({ id: comment.id, body: 'Edited via REST' });
+  });
+
+  describe('gh pr', () => {
+    const repo = () => `${GH_E2E_HOST}/${username}/tools`;
+    let number: string;
+    const view = async (fields: string) =>
+      JSON.parse(
+        await ok(['pr', 'view', number, '-R', repo(), '--json', fields]),
+      );
+
+    it('creates a pull request', async () => {
+      const out = await ok([
+        'pr',
+        'create',
+        '-R',
+        repo(),
+        '--head',
+        'feature',
+        '--base',
+        'main',
+        '--title',
+        'Add a feature',
+        '--body',
+        'Body from gh',
+      ]);
+      const match = out.match(new RegExp(`/${username}/tools/pull/(\\d+)`));
+      expect(match, out).not.toBeNull();
+      number = match![1];
+    });
+
+    it('lists pull requests', async () => {
+      const list = JSON.parse(
+        await ok([
+          'pr',
+          'list',
+          '-R',
+          repo(),
+          '--json',
+          'number,title,state,headRefName,baseRefName,isDraft,author',
+        ]),
+      );
+      expect(list).toContainEqual(
+        expect.objectContaining({
+          number: Number(number),
+          title: 'Add a feature',
+          state: 'OPEN',
+          headRefName: 'feature',
+          baseRefName: 'main',
+          isDraft: false,
+          author: expect.objectContaining({ login: username }),
+        }),
+      );
+    });
+
+    it('views a pull request', async () => {
+      expect(
+        await view(
+          'number,title,body,state,headRefName,baseRefName,additions,deletions,changedFiles,files,commits,reviewDecision,mergeable,url',
+        ),
+      ).toMatchObject({
+        number: Number(number),
+        title: 'Add a feature',
+        body: 'Body from gh',
+        state: 'OPEN',
+        headRefName: 'feature',
+        baseRefName: 'main',
+        additions: 1,
+        deletions: 0,
+        changedFiles: 1,
+        files: [expect.objectContaining({ path: 'feature.txt' })],
+        commits: [
+          expect.objectContaining({ messageHeadline: 'Add feature.txt' }),
+        ],
+        url: expect.stringMatching(
+          new RegExp(`/${username}/tools/pull/${number}$`),
+        ),
+      });
+    });
+
+    it('comments on a pull request and views it with comments', async () => {
+      await ok(['pr', 'comment', number, '-R', repo(), '--body', 'Looks good']);
+      expect(
+        await ok(['pr', 'view', number, '-R', repo(), '--comments']),
+      ).toContain('Looks good');
+    });
+
+    it('shows pull request status', async () => {
+      expect(await ok(['pr', 'status', '-R', repo()])).toContain(
+        'Add a feature',
+      );
+    });
+
+    it('shows a pull request diff', async () => {
+      expect(await ok(['pr', 'diff', number, '-R', repo()])).toContain(
+        'diff --git a/feature.txt b/feature.txt',
+      );
+    });
+
+    it('edits a pull request', async () => {
+      await ok([
+        'pr',
+        'edit',
+        number,
+        '-R',
+        repo(),
+        '--title',
+        'Add a feature (edited)',
+        '--add-label',
+        'bug',
+      ]);
+      expect(await view('title,labels')).toMatchObject({
+        title: 'Add a feature (edited)',
+        labels: [expect.objectContaining({ name: 'bug' })],
+      });
+    });
+
+    it('converts a pull request to a draft and back', async () => {
+      await ok(['pr', 'ready', number, '-R', repo(), '--undo']);
+      expect(await view('isDraft')).toEqual({ isDraft: true });
+      await ok(['pr', 'ready', number, '-R', repo()]);
+      expect(await view('isDraft')).toEqual({ isDraft: false });
+    });
+
+    it('checks out a pull request', async () => {
+      const target = path.join(configDir, 'pr-checkout');
+      await ok(['repo', 'clone', repo(), target]);
+      await ok(['pr', 'checkout', number], { cwd: target });
+      const { stdout } = await promisify(execFile)(
+        'git',
+        ['rev-parse', '--abbrev-ref', 'HEAD'],
+        { cwd: target },
+      );
+      expect(stdout.trim()).toBe('feature');
+      expect(readFileSync(path.join(target, 'feature.txt'), 'utf8')).toBe(
+        'feature\n',
+      );
+    });
+
+    it('closes and reopens a pull request', async () => {
+      const out = await ok([
+        'pr',
+        'create',
+        '-R',
+        repo(),
+        '--head',
+        'chore',
+        '--base',
+        'main',
+        '--title',
+        'A chore',
+        '--body',
+        '',
+      ]);
+      const chore = out.match(/\/pull\/(\d+)/)![1];
+      await ok(['pr', 'close', chore, '-R', repo()]);
+      expect(
+        JSON.parse(
+          await ok(['pr', 'view', chore, '-R', repo(), '--json', 'state']),
+        ),
+      ).toEqual({ state: 'CLOSED' });
+      await ok(['pr', 'reopen', chore, '-R', repo()]);
+      expect(
+        JSON.parse(
+          await ok(['pr', 'view', chore, '-R', repo(), '--json', 'state']),
+        ),
+      ).toEqual({ state: 'OPEN' });
+    });
+
+    it('merges a pull request', async () => {
+      await ok(['pr', 'merge', number, '-R', repo(), '--squash']);
+      expect(await view('state,mergedAt')).toMatchObject({
+        state: 'MERGED',
+        mergedAt: expect.any(String),
+      });
+    });
   });
 
   it('creates a repository', async () => {
