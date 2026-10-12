@@ -16,6 +16,7 @@ import { RepositoryContributionService } from '../services/git/contributions/rep
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
+import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
@@ -42,6 +43,7 @@ import {
 } from '../lib/git/git.errors.js';
 import { DomainError } from '../domain/errors.js';
 import { rejectedPushReport } from '../lib/git/protocol/report-status.js';
+import { withRemoteMessages } from '../lib/git/protocol/side-band.js';
 import { errorMessage } from '../lib/error-message.js';
 
 export interface GitTransportResponse {
@@ -67,6 +69,7 @@ export class GitService {
     private readonly references: IssueReferencesService,
     private readonly pullRefs: PullRefsService,
     private readonly pullRequestPushes: PullRequestPushesService,
+    private readonly pullRequestHints: PullRequestHintsService,
     private readonly quota: StorageQuotaService,
     @Inject(DATABASE) private readonly db: Database,
   ) {}
@@ -176,6 +179,14 @@ export class GitService {
       };
     }
 
+    // ponytail: hints follow the commands, not receive-pack's report, so a ref it refuses after the log commit still gets one; read the report if that misleads anyone.
+    const hints = importing
+      ? Promise.resolve([])
+      : this.pullRequestHints.hintsFor({
+          repositoryId,
+          repoDirectory,
+          transitions,
+        });
     const result = this.packProcess.streamReceivePack({
       repoDirectory,
       input: body.open(),
@@ -236,7 +247,7 @@ export class GitService {
 
     return {
       headers: resultHeaders('git-receive-pack'),
-      body: result,
+      body: withRemoteMessages(result, { lines: await hints, capabilities }),
     };
   }
 
