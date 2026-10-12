@@ -3,10 +3,13 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import { OauthAppRestrictedError } from './organization.errors.js';
 
-/** Whether the organization's OAuth app restrictions keep the app out of its repositories: they are on, and the app is neither built into the instance, nor the organization's own, nor approved by it. */
+/** Whether the organization's OAuth app restrictions keep the app out of its repositories: they are on, and the app is neither built into the instance, nor the organization's own, nor approved by it. A null `clientId` is an app that cannot be identified, which restrictions always keep out. */
 export async function oauthAppBlocked(
   db: Pick<Database, 'select'>,
-  { clientId, organizationId }: { clientId: string; organizationId: string },
+  {
+    clientId,
+    organizationId,
+  }: { clientId: string | null; organizationId: string },
 ) {
   const [settings] = await db
     .select({

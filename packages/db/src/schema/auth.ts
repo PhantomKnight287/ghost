@@ -423,6 +423,8 @@ export const userSshKey = pgTable(
     publicKey: text("public_key").notNull(),
     // The OAuth app that added the key through the GitHub API, so organization OAuth app restrictions follow it onto SSH; null for keys added in Ghost's settings.
     oauthClientId: text("oauth_client_id"),
+    // Keys added before oauthClientId was recorded, whose provenance is unknown; organizations with OAuth app restrictions refuse them over SSH.
+    legacy: boolean("legacy").notNull().default(false),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

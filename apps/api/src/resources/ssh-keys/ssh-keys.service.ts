@@ -103,6 +103,7 @@ export class SshKeysService {
         username: schema.user.username,
         publicKey: schema.userSshKey.publicKey,
         oauthClientId: schema.userSshKey.oauthClientId,
+        legacy: schema.userSshKey.legacy,
       })
       .from(schema.userSshKey)
       .innerJoin(schema.user, eq(schema.user.id, schema.userSshKey.userId))
