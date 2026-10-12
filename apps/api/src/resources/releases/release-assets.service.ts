@@ -269,7 +269,14 @@ export class ReleaseAssetsService {
         ...(label !== undefined && { label: label.trim() || null }),
       })
       .where(mine)
-      .returning(releaseAssetColumns);
+      .returning(releaseAssetColumns)
+      .catch((error: unknown) => {
+        // A rename racing another to the same name passes the check above and loses on the unique index; drizzle wraps the driver's error as its cause.
+        const cause = (error as { cause?: { code?: string } }).cause;
+        if (fileName !== undefined && cause?.code === '23505')
+          throw new ReleaseAssetExistsError(fileName);
+        throw error;
+      });
     if (!updated) throw new ReleaseAssetNotFoundError();
     return updated;
   }
