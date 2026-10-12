@@ -1,8 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { IssuesService } from '../../../../resources/issues/issues.service.js';
-import { IssueResolver } from '../issue/issue.resolver.js';
-import { RepositoryResolver } from '../repository/repository.resolver.js';
+import { Test, type TestingModule } from '@nestjs/testing';
+
 import { SearchResolver } from './search.resolver.js';
+import { GithubSearchService } from './search.service.js';
 
 describe('SearchResolver', () => {
   let resolver: SearchResolver;
@@ -11,9 +10,7 @@ describe('SearchResolver', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SearchResolver,
-        { provide: IssuesService, useValue: {} },
-        { provide: RepositoryResolver, useValue: {} },
-        { provide: IssueResolver, useValue: {} },
+        { provide: GithubSearchService, useValue: {} },
       ],
     }).compile();
 

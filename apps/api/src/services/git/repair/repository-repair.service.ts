@@ -4,9 +4,11 @@ import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+
 import { Injectable } from '@nestjs/common';
 
 import { GitCommandFailedError } from '../../../lib/git/exec/exec.errors.js';
+import { objectTypes } from '../../../lib/git/exec/object-types.js';
 import { runGit } from '../../../lib/git/exec/run-git.js';
 import {
   bufferBody,
@@ -17,7 +19,6 @@ import {
   isWellFormedRef,
 } from '../../../lib/git/refs/is-valid-ref-name.js';
 import { createUlid } from '../../../lib/git/wal/ulid.js';
-import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
 import {
   NonFastForwardError,
   RepositoryDeletedError,
@@ -27,11 +28,11 @@ import {
   type WalLayer,
   ZERO_OID,
 } from '../../../lib/git/wal/wal.types.js';
+import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
 import { isNotFound } from '../../../lib/s3/s3.errors.js';
 import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../wal/push-transaction.service.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
-import { objectTypes } from '../../../lib/git/exec/object-types.js';
 
 // A repair that loses the index to a push starts over; a repository still being pushed to this often was never broken.
 const MAX_ATTEMPTS = 3;
@@ -67,7 +68,11 @@ export class RepositoryRepairService {
     if (!stored || stored.index.deleted) return null;
     const diagnosis = await this.diagnose(repositoryId, stored.index);
     try {
-      return isHealthy(diagnosis) ? null : report(diagnosis);
+      return diagnosis.layers.length === 0 &&
+        diagnosis.rescued.length === 0 &&
+        diagnosis.dropped.length === 0
+        ? null
+        : report(diagnosis);
     } finally {
       await rm(diagnosis.scratch, { recursive: true, force: true });
     }
@@ -80,7 +85,12 @@ export class RepositoryRepairService {
       if (!stored || stored.index.deleted) return null;
       const diagnosis = await this.diagnose(repositoryId, stored.index);
       try {
-        if (isHealthy(diagnosis)) return null;
+        if (
+          diagnosis.layers.length === 0 &&
+          diagnosis.rescued.length === 0 &&
+          diagnosis.dropped.length === 0
+        )
+          return null;
         if (await this.apply(repositoryId, stored, diagnosis)) {
           return report(diagnosis);
         }
@@ -410,10 +420,6 @@ export class RepositoryRepairService {
     await pipeline(createReadStream(pack), hash);
     return { ulid: next, packSha: hash.digest(), size };
   }
-}
-
-function isHealthy({ layers, rescued, dropped }: Diagnosis) {
-  return layers.length === 0 && rescued.length === 0 && dropped.length === 0;
 }
 
 function report({ layers, rescued, dropped }: Diagnosis): RepairReport {

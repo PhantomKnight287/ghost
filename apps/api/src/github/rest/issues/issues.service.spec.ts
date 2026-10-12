@@ -3,7 +3,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { IssuesService } from '../../../resources/issues/issues.service.js';
-import { RepositoryResolver } from '../../graphql/resolvers/repository/repository.resolver.js';
+import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
 import { GithubIssuesService } from './issues.service.js';
 
 describe('GithubIssuesService', () => {
@@ -15,7 +15,7 @@ describe('GithubIssuesService', () => {
         GithubIssuesService,
         { provide: DATABASE, useValue: {} },
         { provide: IssuesService, useValue: {} },
-        { provide: RepositoryResolver, useValue: {} },
+        { provide: RepositoryNodesService, useValue: {} },
         { provide: ConfigService, useValue: {} },
       ],
     }).compile();

@@ -88,7 +88,14 @@ export class GithubRestFilter
           : exception.status;
     if (status >= 500) this.logger.error(exception);
     // GitHub says "Not Found" for every 404, so a private repository and a missing one read the same.
-    const message = status === 404 ? 'Not Found' : this.messageOf(exception);
+    const detail =
+      exception instanceof HttpException ? this.detailOf(exception) : undefined;
+    const message =
+      status === 404
+        ? 'Not Found'
+        : typeof detail === 'string'
+          ? detail
+          : exception.message;
     if (exception instanceof InsufficientScopesError)
       response.setHeader(
         'X-Accepted-OAuth-Scopes',
@@ -129,11 +136,5 @@ export class GithubRestFilter
       'message' in response
       ? response.message
       : undefined;
-  }
-
-  private messageOf(exception: DomainError | HttpException) {
-    const detail =
-      exception instanceof HttpException ? this.detailOf(exception) : undefined;
-    return typeof detail === 'string' ? detail : exception.message;
   }
 }

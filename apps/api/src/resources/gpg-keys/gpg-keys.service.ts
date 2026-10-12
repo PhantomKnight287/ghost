@@ -6,14 +6,14 @@ import { nanoid } from 'nanoid';
 import { DATABASE } from '../../database/database.module.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import { readPublicKey } from '../../lib/gpg/openpgp.js';
-import { UsersService } from '../../services/users/users.service.js';
-import type { GpgKeyDTO, ListGpgKeysResponseDTO } from './dto/gpg-key.dto.js';
 import {
   GpgKeyAlreadyExistsError,
   GpgKeyEmailNotVerifiedError,
   GpgKeyNotFoundError,
   InvalidGpgKeyError,
 } from '../../lib/gpg-keys/gpg-keys.errors.js';
+import { UsersService } from '../../services/users/users.service.js';
+import type { GpgKeyDTO, ListGpgKeysResponseDTO } from './dto/gpg-key.dto.js';
 
 /** A key is only accepted once one of its user ids is an address the account has verified; otherwise anyone could upload a key naming someone else's address. */
 const keyColumns = {
@@ -42,7 +42,10 @@ export class GpgKeysService {
       keys: await Promise.all(
         rows.map(async ({ publicKey, ...key }) => ({
           ...key,
-          emails: await addressesOn(publicKey),
+          // Read back from the armor rather than stored twice: a key's user ids are only ever as current as the armor that was uploaded.
+          emails: await readPublicKey(publicKey)
+            .then((parsed) => parsed.emails)
+            .catch((): string[] => []),
         })),
       ),
     };
@@ -96,11 +99,4 @@ export class GpgKeysService {
 
     if (!row) throw new GpgKeyNotFoundError();
   }
-}
-
-// Read back from the armor rather than stored twice: a key's user ids are only ever as current as the armor that was uploaded.
-async function addressesOn(armoredKey: string): Promise<string[]> {
-  return readPublicKey(armoredKey)
-    .then((key) => key.emails)
-    .catch(() => []);
 }

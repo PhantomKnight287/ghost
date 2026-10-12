@@ -1,14 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { Injectable, Logger } from '@nestjs/common';
+
 import { runGit } from '../../../lib/git/exec/run-git.js';
-import { WalStoreService } from '../wal/wal-store.service.js';
-import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
+import { listRefs } from '../../../lib/git/refs/list-refs.js';
+import { headRef } from '../../../lib/git/tree/resolve-ref.js';
 import { emptyIndex, type WalIndex } from '../../../lib/git/wal/wal.types.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
-import { headRef } from '../../../lib/git/tree/resolve-ref.js';
-import { listRefs } from '../../../lib/git/refs/list-refs.js';
+import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
+import { WalStoreService } from '../wal/wal-store.service.js';
 
 const SEQ_MARKER = 'ghost-wal-seq';
 const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
@@ -78,7 +79,11 @@ export class RepositoryMaterializerService {
 
     await this.reconcileRefs(repoDirectory, index);
     await this.ensureHead(repoDirectory, index, defaultBranch);
-    await this.writeCachedSeq(repoDirectory, index.seq);
+    await writeFile(
+      path.join(repoDirectory, SEQ_MARKER),
+      `${index.seq}\n`,
+      'utf8',
+    );
     this.logger.log(
       `Materialized ${repoId} from seq ${cachedSeq} to ${index.seq}`,
     );
@@ -129,21 +134,13 @@ export class RepositoryMaterializerService {
     });
   }
 
-  private seqMarkerPath(repoDirectory: string) {
-    return path.join(repoDirectory, SEQ_MARKER);
-  }
-
   private async readCachedSeq(repoDirectory: string) {
     try {
-      const raw = await readFile(this.seqMarkerPath(repoDirectory), 'utf8');
+      const raw = await readFile(path.join(repoDirectory, SEQ_MARKER), 'utf8');
       const seq = Number.parseInt(raw.trim(), 10);
       return Number.isInteger(seq) && seq >= 0 ? seq : 0;
     } catch {
       return 0;
     }
-  }
-
-  private async writeCachedSeq(repoDirectory: string, seq: number) {
-    await writeFile(this.seqMarkerPath(repoDirectory), `${seq}\n`, 'utf8');
   }
 }

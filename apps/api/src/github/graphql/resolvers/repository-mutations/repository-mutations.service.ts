@@ -1,0 +1,80 @@
+import { type Database, schema } from '@ghost/db';
+import { Inject, Injectable } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
+
+import { DATABASE } from '../../../../database/database.module.js';
+import {
+  CouldNotResolveError,
+  GithubForbiddenError,
+} from '../../../../lib/github/github.errors.js';
+import { decodeNodeId } from '../../../../lib/github/node-id.js';
+import { RepositoriesService } from '../../../../resources/repositories/repositories.service.js';
+import type { GithubViewer } from '../../../auth/github-request.js';
+import { requireWriteScope } from '../../../auth/require-scopes.js';
+import { RepositoryVisibility } from '../../enums.js';
+import * as M from '../../types/mutations.type.js';
+import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
+
+@Injectable()
+export class RepositoryMutationsService {
+  constructor(
+    @Inject(DATABASE) private readonly db: Database,
+    private readonly repositories: RepositoriesService,
+    private readonly repositoryNodes: RepositoryNodesService,
+  ) {}
+
+  async createRepository(
+    input: M.CreateRepositoryInput,
+    viewer: GithubViewer | null,
+  ) {
+    if (!viewer)
+      throw new GithubForbiddenError(
+        'You must be signed in to run CreateRepository.',
+      );
+    const visibility =
+      input.visibility === RepositoryVisibility.PUBLIC ? 'public' : 'private';
+    requireWriteScope(viewer, 'createRepository', {
+      isPrivate: visibility === 'private',
+    });
+    const owner = input.ownerId ? decodeNodeId(input.ownerId) : null;
+    if (
+      input.ownerId &&
+      owner?.type !== 'User' &&
+      owner?.type !== 'Organization'
+    )
+      throw new CouldNotResolveError(
+        `Could not resolve to a node with the global id of '${input.ownerId}'`,
+      );
+    if (owner?.type === 'User' && owner.id !== viewer.userId)
+      throw new GithubForbiddenError(
+        'You can only create repositories for yourself or an organization you administer.',
+      );
+    const organization =
+      owner?.type === 'Organization'
+        ? await this.organizationSlug(owner.id)
+        : undefined;
+    const created = await this.repositories.createRepository(
+      {
+        name: input.name,
+        description: input.description ?? undefined,
+        visibility,
+        organization,
+      },
+      viewer.userId,
+    );
+    return {
+      clientMutationId: input.clientMutationId,
+      repository: await this.repositoryNodes.load(created.id, viewer),
+    };
+  }
+
+  private async organizationSlug(organizationId: string) {
+    const [row] = await this.db
+      .select({ slug: schema.organization.slug })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, organizationId));
+    if (!row)
+      throw new CouldNotResolveError('Could not resolve to an Organization.');
+    return row.slug;
+  }
+}

@@ -1,4 +1,5 @@
 import { createHash, createPublicKey } from 'node:crypto';
+
 import ssh2, { type ParsedKey } from 'ssh2';
 
 // ssh2 is CommonJS: a named import type-checks and then fails to resolve at runtime under ESM.
@@ -34,7 +35,11 @@ export function readPublicKey(line: string): SshPublicKey {
   }
 
   const blob = parsed.getPublicSSH();
-  if (parsed.type === 'ssh-rsa' && modulusBits(parsed) < MIN_RSA_MODULUS_BITS) {
+  if (
+    parsed.type === 'ssh-rsa' &&
+    (createPublicKey(parsed.getPublicPEM()).asymmetricKeyDetails
+      ?.modulusLength ?? 0) < MIN_RSA_MODULUS_BITS
+  ) {
     throw new Error(`RSA keys must be at least ${MIN_RSA_MODULUS_BITS} bits`);
   }
 
@@ -71,10 +76,4 @@ function algorithmOf(blob: Buffer) {
     throw new Error('key blob does not start with an algorithm name');
   }
   return blob.toString('ascii', 4, 4 + length);
-}
-
-function modulusBits(key: ParsedKey) {
-  return (
-    createPublicKey(key.getPublicPEM()).asymmetricKeyDetails?.modulusLength ?? 0
-  );
 }

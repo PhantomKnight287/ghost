@@ -5,10 +5,6 @@ import { and, eq, gt, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { DATABASE } from '../../database/database.module.js';
-import { mailConfigured } from '../../mail/mail.module.js';
-import { MailService } from '../../mail/mail.service.js';
-import { UsersService } from '../../services/users/users.service.js';
-import type { ListEmailsResponseDTO, UserEmailDTO } from './dto/email.dto.js';
 import {
   EmailAlreadyTakenError,
   EmailAlreadyVerifiedError,
@@ -18,6 +14,10 @@ import {
   MailNotConfiguredError,
   ResendTooSoonError,
 } from '../../lib/emails/emails.errors.js';
+import { mailConfigured } from '../../mail/mail.module.js';
+import { MailService } from '../../mail/mail.service.js';
+import { UsersService } from '../../services/users/users.service.js';
+import type { ListEmailsResponseDTO, UserEmailDTO } from './dto/email.dto.js';
 
 /** Long enough that a link cannot be guessed, short enough to stay pasteable. */
 const TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -191,7 +191,12 @@ export class EmailsService {
       .where(eq(schema.userEmail.id, row.id));
   }
 
-  settingsUrl(status: 'verified' | 'invalid'): string {
+  /** Where a verification link lands: the settings page, saying whether the link worked. A bad or used link is not an error to show, only an outcome. */
+  async verifyLink(token: string) {
+    const status = await this.verify(token).then(
+      () => 'verified',
+      () => 'invalid',
+    );
     return `${this.webAppUrl}/settings/account?email=${status}`;
   }
 

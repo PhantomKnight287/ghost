@@ -25,11 +25,17 @@ import { RepositoriesModule } from '../resources/repositories/repositories.modul
 import { GithubAuthMiddleware } from './auth/github-auth.middleware.js';
 import { IssueCommentResolver } from './graphql/resolvers/issue-comment/issue-comment.resolver.js';
 import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issue-mutations.resolver.js';
+import { IssueMutationsService } from './graphql/resolvers/issue-mutations/issue-mutations.service.js';
 import { PullRequestMutationsResolver } from './graphql/resolvers/pull-request-mutations/pull-request-mutations.resolver.js';
+import { PullRequestMutationsService } from './graphql/resolvers/pull-request-mutations/pull-request-mutations.service.js';
 import { RepositoryReleasesResolver } from './graphql/resolvers/release/release.resolver.js';
+import { ReleaseNodesService } from './graphql/resolvers/release/release-nodes.service.js';
 import { RepositoryMutationsResolver } from './graphql/resolvers/repository-mutations/repository-mutations.resolver.js';
+import { RepositoryMutationsService } from './graphql/resolvers/repository-mutations/repository-mutations.service.js';
 import { SearchResolver } from './graphql/resolvers/search/search.resolver.js';
+import { GithubSearchService } from './graphql/resolvers/search/search.service.js';
 import { ViewerResolver } from './graphql/resolvers/viewer/viewer.resolver.js';
+import { ViewerService } from './graphql/resolvers/viewer/viewer.service.js';
 import { OauthModule } from './oauth/oauth.module.js';
 import { GithubGitModule } from './rest/git/git.module.js';
 import { GithubIssuesModule } from './rest/issues/issues.module.js';
@@ -103,6 +109,12 @@ import { UsersModule } from './rest/users/users.module.js';
     RepositoryMutationsResolver,
     PullRequestMutationsResolver,
     RepositoryReleasesResolver,
+    ViewerService,
+    GithubSearchService,
+    IssueMutationsService,
+    RepositoryMutationsService,
+    PullRequestMutationsService,
+    ReleaseNodesService,
   ],
 })
 export class GithubModule implements NestModule {

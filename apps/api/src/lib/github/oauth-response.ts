@@ -4,8 +4,7 @@ import type { Request, Response } from 'express';
 export function sendOAuth(
   req: Request,
   res: Response,
-  status: number,
-  body: Record<string, string | number>,
+  { status, body }: OAuthReply,
 ) {
   res.status(status).setHeader('Cache-Control', 'no-store');
   if (/application\/json/.test(req.headers.accept ?? '')) return res.json(body);
@@ -36,14 +35,15 @@ const OAUTH_ERROR_DESCRIPTIONS = {
 
 export type OAuthError = keyof typeof OAUTH_ERROR_DESCRIPTIONS;
 
-export function sendOAuthError(
-  req: Request,
-  res: Response,
-  status: number,
-  error: OAuthError,
-) {
-  sendOAuth(req, res, status, {
-    error,
-    error_description: OAUTH_ERROR_DESCRIPTIONS[error],
-  });
+/** What an OAuth endpoint answers, whichever encoding the client asked for. */
+export type OAuthReply = {
+  status: number;
+  body: Record<string, string | number>;
+};
+
+export function oauthError(status: number, error: OAuthError): OAuthReply {
+  return {
+    status,
+    body: { error, error_description: OAUTH_ERROR_DESCRIPTIONS[error] },
+  };
 }

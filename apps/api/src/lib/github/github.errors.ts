@@ -59,3 +59,25 @@ export class GithubValidationError extends DomainError {
     super('Validation Failed');
   }
 }
+
+/** GitHub's REST 404, worded "Not Found" whatever was missing, so a private resource and a missing one read the same. */
+export class GithubNotFoundError extends DomainError {
+  readonly status = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('Not Found');
+  }
+}
+
+export class GithubConflictError extends DomainError {
+  readonly status = HttpStatus.CONFLICT;
+}
+
+/** GitHub answers every merge it will not make with 405. */
+export class NotMergeableError extends DomainError {
+  readonly status = HttpStatus.METHOD_NOT_ALLOWED;
+
+  constructor() {
+    super('Pull Request is not mergeable');
+  }
+}

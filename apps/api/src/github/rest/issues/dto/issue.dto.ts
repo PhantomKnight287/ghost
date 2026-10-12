@@ -12,9 +12,6 @@ import {
   MinLength,
 } from 'class-validator';
 
-const asString = ({ value }: { value: unknown }) =>
-  typeof value === 'number' ? String(value) : value;
-
 /** GitHub's issue list query; `milestone`, `mentioned`, `type` and `issue_field_values` are dropped by the whitelist, as GitHub ignores filters it cannot apply. */
 export class GithubListIssuesQueryDTO {
   @ApiPropertyOptional({ enum: ['open', 'closed', 'all'], default: 'open' })
@@ -110,7 +107,7 @@ export class GithubPageQueryDTO {
 /** GitHub's create-issue body. `milestone`, `type` and the rest are accepted; a milestone other than null is refused, as Ghost has none. */
 export class GithubCreateIssueDTO {
   @ApiProperty({ description: 'A string, or a number GitHub turns into one.' })
-  @Transform(asString)
+  @Transform(({ value }) => (typeof value === 'number' ? String(value) : value))
   @IsString()
   @MinLength(1)
   @MaxLength(256)
@@ -146,7 +143,7 @@ export class GithubCreateIssueDTO {
 export class GithubUpdateIssueDTO {
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(asString)
+  @Transform(({ value }) => (typeof value === 'number' ? String(value) : value))
   @IsString()
   @MinLength(1)
   @MaxLength(256)

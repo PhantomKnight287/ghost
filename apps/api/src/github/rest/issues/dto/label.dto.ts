@@ -9,9 +9,6 @@ import {
 } from 'class-validator';
 
 const HEX_COLOR = /^[0-9a-fA-F]{6}$/;
-const withoutHash = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.replace(/^#/, '') : value;
-
 export class GithubCreateLabelDTO {
   @ApiProperty({ example: 'bug' })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -24,7 +21,9 @@ export class GithubCreateLabelDTO {
   @IsOptional()
   @IsString()
   @Matches(HEX_COLOR)
-  @Transform(withoutHash)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.replace(/^#/, '') : value,
+  )
   color?: string;
 
   @ApiPropertyOptional()
@@ -47,7 +46,9 @@ export class GithubUpdateLabelDTO {
   @IsOptional()
   @IsString()
   @Matches(HEX_COLOR)
-  @Transform(withoutHash)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.replace(/^#/, '') : value,
+  )
   color?: string;
 
   @ApiPropertyOptional({ type: String, nullable: true })

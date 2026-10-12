@@ -1,191 +1,60 @@
-import { type Database, schema } from '@ghost/db';
-import { Inject } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Args, Context, ID, Query, Resolver } from '@nestjs/graphql';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
-import { eq } from 'drizzle-orm';
-import { view } from 'drizzle-orm/sqlite-core';
 
-import { DATABASE } from '../../../../database/database.module.js';
-import { isoTimestamp } from '../../../../lib/db/sql.js';
-import { orNull } from '../../../../lib/github/authorize.js';
-import {
-  CouldNotResolveError,
-  GithubForbiddenError,
-} from '../../../../lib/github/github.errors.js';
 import { type GraphqlContext } from '../../../../lib/github/loaders.js';
-import { decodeNodeId } from '../../../../lib/github/node-id.js';
-import { commentOf, issueRefOf } from '../../../../lib/github/node-lookup.js';
-import {
-  toIssueCommentNode,
-  toLabelNode,
-  toOrganizationNode,
-  toUserNode,
-} from '../../../../lib/github/nodes.js';
-import { githubOrigins } from '../../../../lib/github/origins.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
 import { Node, RepositoryOwner } from '../../types/node.interface.js';
 import { OrganizationNode } from '../../types/organization.type.js';
 import { UserNode } from '../../types/user.type.js';
-import { IssueResolver } from '../issue/issue.resolver.js';
-import { RepositoryResolver } from '../repository/repository.resolver.js';
+import { ViewerService } from './viewer.service.js';
 
 @Resolver()
 @AllowAnonymous()
 export class ViewerResolver {
-  constructor(
-    @Inject(DATABASE) private readonly db: Database,
-    private readonly config: ConfigService,
-    private readonly repositories: RepositoryResolver,
-    private readonly issueNodes: IssueResolver,
-  ) {}
+  constructor(private readonly viewers: ViewerService) {}
 
   @Query(() => UserNode, { description: 'The currently authenticated user.' })
-  async viewer(
+  viewer(
     @Viewer() viewer: GithubViewer | null,
     @Context() { loaders }: GraphqlContext,
   ) {
-    if (!viewer)
-      throw new GithubForbiddenError(
-        'This endpoint requires you to be authenticated.',
-      );
-    const row = await loaders.usersById.load(viewer.userId);
-    if (!row)
-      throw new GithubForbiddenError(
-        'This endpoint requires you to be authenticated.',
-      );
-    return toUserNode(row, githubOrigins(this.config));
+    return this.viewers.viewer(viewer, loaders);
   }
 
   @Query(() => UserNode, { nullable: true })
-  async user(
-    @Args('login') login: string,
-    @Context() { loaders }: GraphqlContext,
-  ) {
-    const row = await loaders.usersByLogin.load(login);
-    if (!row)
-      throw new CouldNotResolveError(
-        `Could not resolve to a User with the login of '${login}'.`,
-      );
-    return toUserNode(row, githubOrigins(this.config));
+  user(@Args('login') login: string, @Context() { loaders }: GraphqlContext) {
+    return this.viewers.user(login, loaders);
   }
 
   @Query(() => OrganizationNode, { nullable: true })
-  async organization(@Args('login') login: string) {
-    const [row] = await this.db
-      .select()
-      .from(schema.organization)
-      .where(eq(schema.organization.slug, login));
-    if (!row)
-      throw new CouldNotResolveError(
-        `Could not resolve to an Organization with the login of '${login}'.`,
-      );
-    return toOrganizationNode(row, githubOrigins(this.config));
+  organization(@Args('login') login: string) {
+    return this.viewers.organization(login);
   }
 
   @Query(() => RepositoryOwner, { nullable: true })
-  async repositoryOwner(
+  repositoryOwner(
     @Args('login') login: string,
     @Context() context: GraphqlContext,
   ) {
-    const [organization] = await this.db
-      .select()
-      .from(schema.organization)
-      .where(eq(schema.organization.slug, login));
-    if (organization)
-      return toOrganizationNode(organization, githubOrigins(this.config));
-    const user = await context.loaders.usersByLogin.load(login);
-    return user ? toUserNode(user, githubOrigins(this.config)) : null;
+    return this.viewers.repositoryOwner(login, context.loaders);
   }
 
   @Query(() => Node, { nullable: true })
-  async node(
+  node(
     @Args('id', { type: () => ID }) id: string,
-    @Context() context: GraphqlContext,
+    @Viewer() viewer: GithubViewer | null,
+    @Context() { loaders }: GraphqlContext,
   ) {
-    const found = await this.lookup(id, context);
-    if (!found)
-      throw new CouldNotResolveError(
-        `Could not resolve to a node with the global id of '${id}'`,
-      );
-    return found;
+    return this.viewers.node(id, viewer, loaders);
   }
 
   @Query(() => [Node], { nullable: 'items' })
   nodes(
     @Args('ids', { type: () => [ID] }) ids: string[],
-    @Context() context: GraphqlContext,
+    @Viewer() viewer: GithubViewer | null,
+    @Context() { loaders }: GraphqlContext,
   ) {
-    return Promise.all(ids.map((id) => this.lookup(id, context)));
-  }
-
-  /** A node the viewer cannot read resolves to null, as on GitHub. */
-  private async lookup(id: string, { loaders, req }: GraphqlContext) {
-    const decoded = decodeNodeId(id);
-    if (decoded?.type === 'User') {
-      const row = await loaders.usersById.load(decoded.id);
-      return row ? toUserNode(row, githubOrigins(this.config)) : null;
-    }
-    if (decoded?.type === 'Organization') {
-      const [row] = await this.db
-        .select()
-        .from(schema.organization)
-        .where(eq(schema.organization.id, decoded.id));
-      return row ? toOrganizationNode(row, githubOrigins(this.config)) : null;
-    }
-    const viewer = req.githubViewer;
-    const requesterId = viewer?.userId;
-    if (decoded?.type === 'Repository') {
-      return orNull(this.repositories.load(decoded.id, viewer));
-    }
-    if (decoded?.type === 'Label') {
-      const [label] = await this.db
-        .select({
-          id: schema.label.id,
-          name: schema.label.name,
-          description: schema.label.description,
-          color: schema.label.color,
-          createdAt: isoTimestamp(schema.label.createdAt),
-          updatedAt: isoTimestamp(schema.label.updatedAt),
-          repositoryId: schema.label.repositoryId,
-        })
-        .from(schema.label)
-        .where(eq(schema.label.id, decoded.id));
-      if (!label) return null;
-      const repository = await orNull(
-        this.repositories.load(label.repositoryId, viewer),
-      );
-      return repository ? toLabelNode(label, repository) : null;
-    }
-    if (decoded?.type === 'Issue' || decoded?.type === 'PullRequest') {
-      const found = await this.issueById(decoded.id, viewer);
-      return found?.kind === decoded.type ? found : null;
-    }
-    if (decoded?.type === 'IssueComment') {
-      const comment = await commentOf(this.db, decoded.id);
-      // Loading the issue is what checks the viewer may read the comment.
-      const issue = comment && (await this.issueById(comment.issueId, viewer));
-      if (!issue) return null;
-      const viewerLogin = requesterId
-        ? ((await loaders.usersById.load(requesterId))?.username ?? null)
-        : null;
-      return toIssueCommentNode(comment, issue, viewerLogin);
-    }
-    return null;
-  }
-
-  private async issueById(issueId: string, viewer?: GithubViewer | null) {
-    const ref = await issueRefOf(this.db, issueId);
-    if (!ref) return null;
-    const repository = await orNull(
-      this.repositories.load(ref.repositoryId, viewer ?? null),
-    );
-    return (
-      repository &&
-      orNull(
-        this.issueNodes.fromRepository(repository, ref.number, viewer ?? null),
-      )
-    );
+    return this.viewers.nodes(ids, viewer, loaders);
   }
 }

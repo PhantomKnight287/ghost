@@ -17,32 +17,32 @@ const { Server } = ssh2;
 type SshServer = InstanceType<typeof Server>;
 
 import { DomainError } from '../../../domain/errors.js';
+import { GitService } from '../../../git/git.service.js';
+import { errorMessage } from '../../../lib/error-message.js';
 import {
   type GitServiceName,
   toGitBinary,
 } from '../../../lib/git/protocol/git-service.js';
-import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
-import { GitService } from '../../../git/git.service.js';
 import { spoolToFile } from '../../../lib/git/protocol/spool.js';
 import { greeting, replyTo } from '../../../lib/git/ssh/easter-eggs.js';
 import {
   parseGitCommand,
   parseLfsAuthenticateCommand,
 } from '../../../lib/git/ssh/git-command.js';
-import { LfsService } from '../lfs/lfs.service.js';
 import {
   fingerprintOf,
   parseStoredKey,
 } from '../../../lib/git/ssh/public-key.js';
-import { SshKeysService } from '../../../resources/ssh-keys/ssh-keys.service.js';
-import { PackProcessService } from '../pack-process/pack-process.service.js';
-import { RefAdvertisementService } from '../ref-advertisement/ref-advertisement.service.js';
-import { RepositoryAccessService } from '../repository-access/repository-access.service.js';
 import {
   type Actor,
   type Repository,
 } from '../../../lib/repositories/access/repository-access.js';
-import { errorMessage } from '../../../lib/error-message.js';
+import { SshKeysService } from '../../../resources/ssh-keys/ssh-keys.service.js';
+import { LfsService } from '../lfs/lfs.service.js';
+import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
+import { PackProcessService } from '../pack-process/pack-process.service.js';
+import { RefAdvertisementService } from '../ref-advertisement/ref-advertisement.service.js';
+import { RepositoryAccessService } from '../repository-access/repository-access.service.js';
 
 /** 10-31. Railway already answers on 2222, and a ghost may as well keep Halloween. */
 const DEFAULT_PORT = 1031;
@@ -90,7 +90,12 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     const port = Number(this.config.get('GIT_SSH_PORT', DEFAULT_PORT));
     this.server = new Server(
       {
-        hostKeys: [readHostKey(hostKey)],
+        // One value in the environment, either PEM or the same PEM base64-encoded so it survives a single-line config field.
+        hostKeys: [
+          hostKey.includes('-----BEGIN')
+            ? hostKey.replace(/\\n/g, '\n')
+            : Buffer.from(hostKey, 'base64').toString('utf8'),
+        ],
         ident: 'ghost',
         // A clone can idle while the server packs objects, so the liveness check has to be generous enough not to cut one off.
         keepaliveInterval: 15_000,
@@ -362,11 +367,4 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
 function end(channel: ServerChannel, code: number) {
   channel.exit(code);
   channel.end();
-}
-
-/** The host key is one value in the environment, either PEM or the same PEM base64-encoded so it survives a single-line config field. */
-function readHostKey(value: string) {
-  return value.includes('-----BEGIN')
-    ? value.replace(/\\n/g, '\n')
-    : Buffer.from(value, 'base64').toString('utf8');
 }

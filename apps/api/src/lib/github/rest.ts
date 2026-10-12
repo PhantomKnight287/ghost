@@ -216,6 +216,15 @@ export function toCommentRest(
 
 export type Page = { page: number; perPage: number; offset: number };
 
+/** One page of a REST list and how many items the whole list holds; GithubRestInterceptor answers `items` and links the other pages. */
+export class RestPage<T> {
+  constructor(
+    readonly items: T[],
+    readonly page: Page,
+    readonly total: number,
+  ) {}
+}
+
 function positiveInteger(value: unknown) {
   const number = typeof value === 'string' ? Number(value) : Number.NaN;
   return Number.isInteger(number) && number > 0 ? number : null;

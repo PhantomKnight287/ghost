@@ -1,8 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { IssueResolver } from '../issue/issue.resolver.js';
-import { PullRequestsService } from '../../../../resources/pull-requests/pull-requests.service.js';
-import { RepositoryResolver } from '../repository/repository.resolver.js';
+import { Test, type TestingModule } from '@nestjs/testing';
+
+import { IssueNodesService } from '../issue/issue-nodes.service.js';
+import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
 import { PullRequestResolver } from './pull-request.resolver.js';
+import { PullRequestNodesService } from './pull-request-nodes.service.js';
 
 describe('PullRequestResolver', () => {
   let resolver: PullRequestResolver;
@@ -11,9 +12,9 @@ describe('PullRequestResolver', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PullRequestResolver,
-        { provide: IssueResolver, useValue: {} },
-        { provide: RepositoryResolver, useValue: {} },
-        { provide: PullRequestsService, useValue: {} },
+        { provide: PullRequestNodesService, useValue: {} },
+        { provide: IssueNodesService, useValue: {} },
+        { provide: RepositoryNodesService, useValue: {} },
       ],
     }).compile();
 
