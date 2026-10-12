@@ -555,6 +555,181 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     });
   });
 
+  describe('gh release', () => {
+    const repo = () => `${GH_E2E_HOST}/${username}/tools`;
+    const view = async (tag: string, fields: string) =>
+      JSON.parse(
+        await ok(['release', 'view', tag, '-R', repo(), '--json', fields]),
+      );
+    const asset = (name: string) => {
+      const file = path.join(configDir, name);
+      writeFileSync(file, `${name}\n`);
+      return file;
+    };
+
+    it('creates a release with an asset', async () => {
+      const out = await ok([
+        'release',
+        'create',
+        'v1.0',
+        asset('notes.txt'),
+        '-R',
+        repo(),
+        '--target',
+        'main',
+        '--title',
+        'First release',
+        '--notes',
+        'Notes from gh',
+      ]);
+      expect(out).toContain(`/${username}/tools/releases/tag/v1.0`);
+    });
+
+    it('lists releases', async () => {
+      expect(
+        JSON.parse(
+          await ok([
+            'release',
+            'list',
+            '-R',
+            repo(),
+            '--json',
+            'tagName,name,isDraft,isPrerelease,isLatest,publishedAt',
+          ]),
+        ),
+      ).toContainEqual(
+        expect.objectContaining({
+          tagName: 'v1.0',
+          name: 'First release',
+          isDraft: false,
+          isPrerelease: false,
+          isLatest: true,
+        }),
+      );
+    });
+
+    it('views a release', async () => {
+      expect(
+        await view(
+          'v1.0',
+          'tagName,name,body,isDraft,isPrerelease,author,assets,targetCommitish,url',
+        ),
+      ).toMatchObject({
+        tagName: 'v1.0',
+        name: 'First release',
+        body: 'Notes from gh',
+        isDraft: false,
+        isPrerelease: false,
+        author: expect.objectContaining({ login: username }),
+        assets: [expect.objectContaining({ name: 'notes.txt' })],
+        url: expect.stringMatching(
+          new RegExp(`/${username}/tools/releases/tag/v1.0$`),
+        ),
+      });
+    });
+
+    it('views the latest release', async () => {
+      expect(
+        JSON.parse(
+          await ok(['release', 'view', '-R', repo(), '--json', 'tagName']),
+        ),
+      ).toEqual({ tagName: 'v1.0' });
+    });
+
+    it('creates a draft release', async () => {
+      await ok([
+        'release',
+        'create',
+        'v2.0',
+        '-R',
+        repo(),
+        '--target',
+        'main',
+        '--draft',
+        '--notes',
+        'Not yet',
+      ]);
+      expect(await view('v2.0', 'isDraft')).toEqual({ isDraft: true });
+    });
+
+    it('uploads an asset', async () => {
+      await ok(['release', 'upload', 'v1.0', asset('extra.txt'), '-R', repo()]);
+      expect(await view('v1.0', 'assets')).toMatchObject({
+        assets: expect.arrayContaining([
+          expect.objectContaining({ name: 'extra.txt' }),
+        ]),
+      });
+    });
+
+    it('downloads an asset', async () => {
+      const dir = path.join(configDir, 'release-download');
+      await ok([
+        'release',
+        'download',
+        'v1.0',
+        '-R',
+        repo(),
+        '--pattern',
+        'notes.txt',
+        '--dir',
+        dir,
+      ]);
+      expect(readFileSync(path.join(dir, 'notes.txt'), 'utf8')).toBe(
+        'notes.txt\n',
+      );
+    });
+
+    it('deletes an asset', async () => {
+      await ok([
+        'release',
+        'delete-asset',
+        'v1.0',
+        'extra.txt',
+        '-R',
+        repo(),
+        '--yes',
+      ]);
+      expect(await view('v1.0', 'assets')).toMatchObject({
+        assets: [expect.objectContaining({ name: 'notes.txt' })],
+      });
+    });
+
+    it('edits a release', async () => {
+      await ok([
+        'release',
+        'edit',
+        'v1.0',
+        '-R',
+        repo(),
+        '--title',
+        'First release (edited)',
+        '--notes',
+        'Edited notes',
+        '--prerelease',
+      ]);
+      expect(await view('v1.0', 'name,body,isPrerelease')).toEqual({
+        name: 'First release (edited)',
+        body: 'Edited notes',
+        isPrerelease: true,
+      });
+    });
+
+    it('deletes a release and its tag', async () => {
+      await ok([
+        'release',
+        'delete',
+        'v1.0',
+        '-R',
+        repo(),
+        '--yes',
+        '--cleanup-tag',
+      ]);
+      expect(
+        (await gh(['release', 'view', 'v1.0', '-R', repo()])).code,
+      ).not.toBe(0);
+    });
+  });
+
   it('creates a repository', async () => {
     const out = await ok([
       'repo',
