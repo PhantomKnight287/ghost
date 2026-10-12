@@ -8,6 +8,7 @@ import {
   GithubForbiddenError,
 } from '../../../../lib/github/github.errors.js';
 import { decodeNodeId } from '../../../../lib/github/node-id.js';
+import { requireOauthAppAllowed } from '../../../../lib/organizations/oauth-app-access.js';
 import { RepositoriesService } from '../../../../resources/repositories/repositories.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { requireWriteScope } from '../../../auth/require-scopes.js';
@@ -53,6 +54,8 @@ export class RepositoryMutationsService {
       owner?.type === 'Organization'
         ? await this.organizationSlug(owner.id)
         : undefined;
+    if (organization && viewer.oauthClientId)
+      await requireOauthAppAllowed(this.db, viewer.oauthClientId, organization);
     const created = await this.repositories.createRepository(
       {
         name: input.name,

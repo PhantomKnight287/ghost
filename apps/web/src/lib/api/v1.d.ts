@@ -881,6 +881,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/organizations/{slug}/oauth-app-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The OAuth apps members asked for, and the answers. Admins only. */
+        get: operations["OauthAppAccessController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/oauth-app-access/{clientId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Approve or deny an OAuth app. Admins only.
+         * @description Whether or not anyone asked for it.
+         */
+        put: operations["OauthAppAccessController_decide"];
+        post?: never;
+        /**
+         * Revoke an answer about an OAuth app. Admins only.
+         * @description A revoked approval blocks the app again; a revoked denial lets members ask again.
+         */
+        delete: operations["OauthAppAccessController_revoke"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/oauth-app-access/{clientId}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the organization's admins to approve an OAuth app
+         * @description Any member may ask. An answer already given stands.
+         */
+        post: operations["OauthAppAccessController_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth-apps/{clientId}/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether an OAuth app reaches each of the account's organizations
+         * @description For the approval screen and the authorized apps page, where a member asks for a restricted app.
+         */
+        get: operations["OauthAppOrganizationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/pulls": {
         parameters: {
             query?: never;
@@ -2916,6 +2997,269 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/pulls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A repository's pull requests */
+        get: operations["PullsController_list"];
+        put?: never;
+        /** Open a pull request */
+        post: operations["PullsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A pull request, or its diff or patch */
+        get: operations["PullsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a pull request: title, body, state */
+        patch: operations["PullsController_update"];
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/commits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A pull request's commits, oldest first */
+        get: operations["PullsController_commits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A pull request's reviews, oldest first */
+        get: operations["PullsController_reviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One review of a pull request, by its integer id */
+        get: operations["PullsController_review"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The files a pull request changes */
+        get: operations["PullsController_files"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether a pull request has been merged */
+        get: operations["PullsController_merged"];
+        /** Merge a pull request */
+        put: operations["PullsController_merge"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A repository's releases, newest first */
+        get: operations["GithubReleasesController_list"];
+        put?: never;
+        /** Create a release, and its tag when the tag does not exist */
+        post: operations["GithubReleasesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/releases/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The newest published release that is not a prerelease */
+        get: operations["GithubReleasesController_latest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/releases/tags/{tag}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A published release by its tag */
+        get: operations["GithubReleasesController_byTag"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/releases/assets/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A release asset, or its bytes when asked for application/octet-stream */
+        get: operations["GithubReleasesController_asset"];
+        put?: never;
+        post?: never;
+        /** Delete a release asset */
+        delete: operations["GithubReleasesController_deleteAsset"];
+        options?: never;
+        head?: never;
+        /** Rename a release asset or set its label */
+        patch: operations["GithubReleasesController_updateAsset"];
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/releases/{release_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A release by its integer id, drafts included for writers */
+        get: operations["GithubReleasesController_get"];
+        put?: never;
+        post?: never;
+        /** Delete a release and its assets */
+        delete: operations["GithubReleasesController_delete"];
+        options?: never;
+        head?: never;
+        /** Edit a release: name, notes, draft, prerelease */
+        patch: operations["GithubReleasesController_update"];
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/releases/{release_id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A release's assets, by name */
+        get: operations["GithubReleasesController_listAssets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/repos/{owner}/{repo}/releases/{release_id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload a release asset: the raw bytes, served afterwards with the request's Content-Type */
+        post: operations["GithubUploadsController_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/git/refs/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a branch or a tag */
+        delete: operations["GithubGitController_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/oauth-apps": {
         parameters: {
             query?: never;
@@ -3635,6 +3979,8 @@ export interface components {
             membersCanCreatePrivateRepositories: boolean;
             /** @description Whether its private repositories may be forked. */
             allowPrivateForks: boolean;
+            /** @description OAuth app access restrictions: keys minted for an OAuth app reach the organization's repositories only once an admin approves the app. Apps built into Ghost, such as gh, and the organization's own apps are always allowed. */
+            oauthAppRestrictions: boolean;
             /** @description Recorded as the default branch of each new repository. */
             defaultBranch: string | null;
             description: string | null;
@@ -3647,6 +3993,7 @@ export interface components {
             membersCanCreatePublicRepositories?: boolean;
             membersCanCreatePrivateRepositories?: boolean;
             allowPrivateForks?: boolean;
+            oauthAppRestrictions?: boolean;
             defaultBranch?: string | null;
             description?: string | null;
             website?: string | null;
@@ -3756,6 +4103,49 @@ export interface components {
             repositories: components["schemas"]["TeamRepositoryDTO"][];
             /** @description Whether the viewer may change the team's members: an admin or one of its maintainers. */
             viewerCanManage: boolean;
+        };
+        OauthAppAccessDTO: {
+            clientId: string;
+            name: string;
+            logoUrl: string | null;
+            description: string | null;
+            homepageUrl: string;
+            /** @description The user or organization that registered it; null for an app built into Ghost. */
+            owner: string | null;
+            /** @description Every scope members of this organization granted the app, so admins see what approving it lets it do. */
+            scopes: string[];
+            /** @enum {string} */
+            state: "requested" | "approved" | "denied";
+            /** @description Who asked for the app; null when an admin decided first. */
+            requestedBy: string | null;
+            requestedAt: string;
+            decidedBy: string | null;
+            decidedAt: string | null;
+        };
+        ListOauthAppAccessResponseDTO: {
+            /** @description Whether the organization restricts OAuth apps at all; the answers below matter only while it does. */
+            restricted: boolean;
+            /** @description Newest request first. */
+            apps: components["schemas"]["OauthAppAccessDTO"][];
+        };
+        DecideOauthAppAccessDTO: {
+            /** @enum {string} */
+            state: "approved" | "denied";
+        };
+        OauthAppOrganizationAccessDTO: {
+            slug: string;
+            name: string;
+            restricted: boolean;
+            /** @description Whether the app's keys reach the organization's repositories now. */
+            allowed: boolean;
+            /**
+             * @description Null when nobody has asked for the app yet.
+             * @enum {string|null}
+             */
+            state: "requested" | "approved" | "denied" | null;
+        };
+        ListOauthAppOrganizationAccessResponseDTO: {
+            organizations: components["schemas"]["OauthAppOrganizationAccessDTO"][];
         };
         CreatePullRequestRequestDTO: {
             /** @example Add a rate limiter */
@@ -4775,6 +5165,85 @@ export interface components {
         };
         GithubAssigneesDTO: {
             assignees: string[];
+        };
+        GithubCreatePullDTO: {
+            title: string;
+            /** @description A branch, or `owner:branch` for a fork. */
+            head: string;
+            /** @description The fork the head branch is on. */
+            head_repo?: string;
+            base: string;
+            body?: string;
+            draft?: boolean;
+            /** @description Accepted and ignored. */
+            maintainer_can_modify?: boolean;
+        };
+        GithubUpdatePullDTO: {
+            title?: string;
+            body?: string;
+            /** @enum {string} */
+            state?: "open" | "closed";
+            /** @description Only the current base: Ghost cannot retarget a request. */
+            base?: string;
+            /** @description Accepted and ignored. */
+            maintainer_can_modify?: boolean;
+        };
+        GithubMergePullDTO: {
+            commit_title?: string;
+            commit_message?: string;
+            /** @description The head the merge must still be at. */
+            sha?: string;
+            /**
+             * @default merge
+             * @enum {string}
+             */
+            merge_method?: "merge" | "squash" | "rebase";
+        };
+        GithubCreateReleaseDTO: {
+            tag_name: string;
+            /** @description Branch or commit SHA a new tag is created from. Defaults to the default branch; unused when the tag already exists. */
+            target_commitish?: string;
+            name?: string;
+            body?: string;
+            /** @default false */
+            draft?: boolean;
+            /** @default false */
+            prerelease?: boolean;
+            /** @description Ghost has no discussions, so any category is one that does not exist: 404, as GitHub answers an unknown category. */
+            discussion_category_name?: string;
+            /**
+             * @description Ghost cannot generate notes; `true` is refused with 422.
+             * @default false
+             */
+            generate_release_notes?: boolean;
+            /**
+             * @description Accepted and ignored: Ghost computes the latest release as the newest published one that is not a prerelease.
+             * @default true
+             * @enum {string}
+             */
+            make_latest?: "true" | "false" | "legacy";
+        };
+        GithubUpdateReleaseAssetDTO: {
+            name?: string;
+            /** @description An empty label clears it. */
+            label?: string;
+        };
+        GithubUpdateReleaseDTO: {
+            /** @description Moving a release to another tag is refused with 422. */
+            tag_name?: string;
+            /** @description Unused: the tag already exists. */
+            target_commitish?: string;
+            name?: string | null;
+            body?: string | null;
+            draft?: boolean;
+            prerelease?: boolean;
+            /**
+             * @description Accepted and ignored, as on create.
+             * @enum {string}
+             */
+            make_latest?: "true" | "false" | "legacy";
+            /** @description Refused with 404, as on create. */
+            discussion_category_name?: string;
         };
         OauthAppDTO: {
             clientId: string;
@@ -6788,6 +7257,180 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppAccessController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOauthAppAccessResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppAccessController_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideOauthAppAccessDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppAccessDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppAccessController_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppAccessController_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppAccessDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OauthAppOrganizationsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListOauthAppOrganizationAccessResponseDTO"];
                 };
             };
             404: {
@@ -11666,6 +12309,544 @@ export interface operations {
                 owner: string;
                 repo: string;
                 assignee: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_list: {
+        parameters: {
+            query?: {
+                state?: "open" | "closed" | "all";
+                /** @description `owner:branch` or a bare branch. */
+                head?: string;
+                base?: string;
+                sort?: "created" | "updated" | "popularity" | "long-running";
+                direction?: "asc" | "desc";
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCreatePullDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_get: {
+        parameters: {
+            query?: never;
+            header: {
+                accept: string;
+            };
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubUpdatePullDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_commits: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_reviews: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_files: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_merged: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PullsController_merge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubMergePullDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_list: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCreateReleaseDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_latest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_byTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                tag: string[];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_asset: {
+        parameters: {
+            query?: never;
+            header: {
+                accept: string;
+            };
+            path: {
+                owner: string;
+                repo: string;
+                asset_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_deleteAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                asset_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_updateAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                asset_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubUpdateReleaseAssetDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                release_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                release_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                release_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubUpdateReleaseDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReleasesController_listAssets: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                release_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubUploadsController_upload: {
+        parameters: {
+            query: {
+                name: string;
+                label?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                release_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubGitController_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                ref: string[];
             };
             cookie?: never;
         };

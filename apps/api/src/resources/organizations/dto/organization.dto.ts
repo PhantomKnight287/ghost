@@ -1,4 +1,8 @@
 import { schema } from '@ghost/db';
+import {
+  type OrganizationRole,
+  organizationRoleHierarchy,
+} from '@ghost/permissions';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
@@ -15,11 +19,6 @@ import {
 } from 'class-validator';
 
 import type { CollaboratorRole } from '../../../lib/repositories/access/repository-access.js';
-
-import {
-  type OrganizationRole,
-  organizationRoleHierarchy,
-} from '@ghost/permissions';
 
 export class OrganizationSummaryDTO {
   @ApiProperty()
@@ -198,6 +197,12 @@ export class OrganizationSettingsDTO {
   allowPrivateForks: boolean;
 
   @ApiProperty({
+    description:
+      "OAuth app access restrictions: keys minted for an OAuth app reach the organization's repositories only once an admin approves the app. Apps built into Ghost, such as gh, and the organization's own apps are always allowed.",
+  })
+  oauthAppRestrictions: boolean;
+
+  @ApiProperty({
     type: String,
     nullable: true,
     description: 'Recorded as the default branch of each new repository.',
@@ -239,6 +244,11 @@ export class UpdateOrganizationSettingsDTO {
   @IsBoolean()
   @IsOptional()
   allowPrivateForks?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  oauthAppRestrictions?: boolean;
 
   @ApiPropertyOptional({ type: String, nullable: true })
   @ValidateIf((_, value) => value !== null)

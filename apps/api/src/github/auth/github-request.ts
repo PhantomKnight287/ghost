@@ -1,6 +1,11 @@
 import type { Request } from 'express';
 
-export type GithubViewer = { userId: string; scopes: readonly string[] };
+export type GithubViewer = {
+  userId: string;
+  scopes: readonly string[];
+  /** The OAuth app the key was minted for; null for keys made in Ghost and for a browser session. */
+  oauthClientId: string | null;
+};
 
 export type GithubRequest = Request & { githubViewer: GithubViewer | null };
 

@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { notFound, redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
 import { SettingsNav } from "@/components/repositories/settings-nav";
+import { ProfileAvatar } from "@/components/users/profile-avatar";
 import {
   createServerClient,
   getAdminOrganizations,
@@ -82,6 +82,11 @@ export default async function OrganizationSettingsLayout({
                 label: "OAuth apps",
                 icon: "oauthApps",
                 group: "Developer",
+              },
+              {
+                href: `${base}/oauth-app-access`,
+                label: "OAuth app access",
+                icon: "authorizedApps",
               },
             ]}
           />

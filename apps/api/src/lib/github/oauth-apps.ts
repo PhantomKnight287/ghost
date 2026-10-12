@@ -28,6 +28,7 @@ export const oauthAppColumns = {
     string | null
   >`${schema.oauthClient.metadata}->>'description'`,
   logoUrl: schema.oauthClient.icon,
+  homepageUrl: sql<string>`coalesce(${schema.oauthClient.uri}, '')`,
   deviceFlowEnabled: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'deviceFlow')::boolean, false)`,
   expireUserTokens: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'expireUserTokens')::boolean, false)`,
 };

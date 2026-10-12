@@ -1,20 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowLeftRight,
-  BadgeCheck,
-  BookLock,
-  Building2,
-  ExternalLink,
-  Globe,
-  KeyRound,
-  Trash2,
-  UserRound,
-} from "lucide-react";
+import { ArrowLeftRight, BadgeCheck, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { OrganizationAccess } from "@/components/oauth-apps/organization-access";
+import { ScopeList } from "@/components/oauth-apps/scope-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -28,16 +20,6 @@ import {
 } from "@/components/ui/tooltip";
 import { ProfileAvatar } from "@/components/users/profile-avatar";
 import { apiClient, unwrap } from "@/lib/api/client";
-import { describeScope, type ScopeGroup } from "@/lib/oauth-scopes";
-
-const GROUP_ICONS: Record<ScopeGroup, typeof BookLock> = {
-  repo: BookLock,
-  org: Building2,
-  user: UserRound,
-  key: KeyRound,
-  delete: Trash2,
-  other: Globe,
-};
 
 export type OauthApprovalProps = {
   /** Shown under the app, such as the device flow's user code. */
@@ -167,34 +149,8 @@ export function OauthApproval({
             ? `This will let ${name}:`
             : `${name} is asking for no extra access.`}
         </h2>
-        {scopes.length > 0 ? (
-          <ul className="flex flex-col gap-4">
-            {scopes.map((scope) => {
-              const { title, detail, group } = describeScope(scope);
-              const Icon = GROUP_ICONS[group];
-              return (
-                <li key={scope} className="flex gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
-                    <Icon aria-hidden className="size-4" />
-                  </span>
-                  <div className="flex min-w-0 flex-col">
-                    <span className="text-sm font-medium">{title}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {detail}
-                    </span>
-                    <code className="mt-0.5 font-mono text-xs text-muted-foreground/80">
-                      {scope}
-                    </code>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            It can only see information that is already public.
-          </p>
-        )}
+        <ScopeList scopes={scopes} />
+        {clientId && <OrganizationAccess clientId={clientId} />}
       </CardContent>
 
       <CardFooter className="flex flex-col gap-4 border-t px-6 py-5">

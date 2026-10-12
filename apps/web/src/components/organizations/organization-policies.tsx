@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { SettingCard } from "@/components/repositories/setting-card";
 import { RoleSelect } from "@/components/role-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
   FieldContent,
@@ -14,7 +15,6 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@/components/ui/field";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,7 +32,7 @@ type Changes = components["schemas"]["UpdateOrganizationSettingsDTO"];
 const NONE = "none";
 
 /** Saves a slice of the settings and re-renders the page from what was stored. */
-function useSaveSettings(slug: string) {
+export function useSaveSettings(slug: string) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 

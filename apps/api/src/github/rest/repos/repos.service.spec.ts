@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 
+import { DATABASE } from '../../../database/database.module.js';
 import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
 import { RepositoryMaterializerService } from '../../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
@@ -13,6 +14,7 @@ describe('GithubReposService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GithubReposService,
+        { provide: DATABASE, useValue: {} },
         { provide: RepositoryNodesService, useValue: {} },
         { provide: RepositoryMaterializerService, useValue: {} },
         { provide: RepositoriesService, useValue: {} },

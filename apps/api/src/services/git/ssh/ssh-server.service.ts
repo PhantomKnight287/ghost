@@ -1,4 +1,6 @@
+import type { Database } from '@ghost/db';
 import {
+  Inject,
   Injectable,
   Logger,
   type OnApplicationShutdown,
@@ -16,6 +18,7 @@ import ssh2, {
 const { Server } = ssh2;
 type SshServer = InstanceType<typeof Server>;
 
+import { DATABASE } from '../../../database/database.module.js';
 import { DomainError } from '../../../domain/errors.js';
 import { GitService } from '../../../git/git.service.js';
 import { errorMessage } from '../../../lib/error-message.js';
@@ -33,10 +36,12 @@ import {
   fingerprintOf,
   parseStoredKey,
 } from '../../../lib/git/ssh/public-key.js';
+import { oauthAppBlocked } from '../../../lib/organizations/oauth-app-access.js';
 import {
   type Actor,
   type Repository,
 } from '../../../lib/repositories/access/repository-access.js';
+import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
 import { SshKeysService } from '../../../resources/ssh-keys/ssh-keys.service.js';
 import { LfsService } from '../lfs/lfs.service.js';
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
@@ -58,6 +63,10 @@ interface SessionActor {
   actor: Actor;
   /** The account the key belongs to, not the login the client typed - every connection logs in as `git`. */
   username: string;
+  /** The OAuth app that added the key, whose organization restrictions the connection inherits. */
+  oauthClientId: string | null;
+  /** A key added before its OAuth app was recorded, so it may have come from any app. */
+  legacy: boolean;
 }
 
 /** The SSH transport: authenticates, then runs one of two git binaries or hands out git-lfs credentials. Nothing here is a shell: commands match a regex and git gets an argv array. */
@@ -78,6 +87,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     private readonly refAdvertisement: RefAdvertisementService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly lfs: LfsService,
+    @Inject(DATABASE) private readonly db: Database,
   ) {}
 
   onModuleInit() {
@@ -139,7 +149,12 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
   private handle(client: Connection) {
     this.clients.add(client);
     client.on('close', () => this.clients.delete(client));
-    const state: SessionActor = { actor: null, username: '' };
+    const state: SessionActor = {
+      actor: null,
+      username: '',
+      oauthClientId: null,
+      legacy: false,
+    };
     let attempts = 0;
 
     client.on('authentication', (ctx) => {
@@ -184,6 +199,8 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
 
     state.actor = { userId: row.userId };
     state.username = row.username ?? 'there';
+    state.oauthClientId = row.oauthClientId;
+    state.legacy = row.legacy;
     ctx.accept();
     this.keys
       .markUsed(row.id)
@@ -228,7 +245,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
   private async exec(
     channel: ServerChannel,
     command: string,
-    { actor, username }: SessionActor,
+    { actor, username, oauthClientId, legacy }: SessionActor,
     protocol: string | undefined,
   ) {
     this.logger.debug(`SSH exec ${command}`);
@@ -252,6 +269,16 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
           ? 'write'
           : 'read',
       });
+      // A key an OAuth app added cannot reach repositories of an organization that has not approved the app, as with its token over HTTP. A legacy key's app is unknown, so restrictions refuse it outright.
+      if (
+        (oauthClientId || legacy) &&
+        repository.organizationId &&
+        (await oauthAppBlocked(this.db, {
+          clientId: oauthClientId,
+          organizationId: repository.organizationId,
+        }))
+      )
+        throw new RepositoryNotFoundError();
       if (!('service' in parsed)) {
         const credentials = this.lfs.authenticate({
           repositoryId: repository.id,

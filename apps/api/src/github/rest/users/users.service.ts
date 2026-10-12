@@ -75,7 +75,12 @@ export class GithubUsersService {
     if (!viewer) throw new RequiresAuthenticationError();
     requireScope(viewer, 'POST /user/keys', 'write:public_key');
     return this.restKey(
-      await this.sshKeys.add(viewer.userId, body.key, body.title),
+      await this.sshKeys.add(
+        viewer.userId,
+        body.key,
+        body.title,
+        viewer.oauthClientId,
+      ),
     );
   }
 

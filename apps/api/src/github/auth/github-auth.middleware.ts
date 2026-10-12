@@ -42,7 +42,13 @@ export class GithubAuthMiddleware implements NestMiddleware {
       body: { key },
     });
     return valid && apiKey
-      ? { userId: apiKey.referenceId, scopes: scopesOfKey(apiKey.permissions) }
+      ? {
+          userId: apiKey.referenceId,
+          scopes: scopesOfKey(apiKey.permissions),
+          oauthClientId:
+            (apiKey.metadata as { oauthClientId?: string } | null)
+              ?.oauthClientId ?? null,
+        }
       : null;
   }
 
@@ -50,7 +56,9 @@ export class GithubAuthMiddleware implements NestMiddleware {
     const session = await this.auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
-    return session ? { userId: session.user.id, scopes: KNOWN_SCOPES } : null;
+    return session
+      ? { userId: session.user.id, scopes: KNOWN_SCOPES, oauthClientId: null }
+      : null;
   }
 
   private badCredentials(res: Response) {

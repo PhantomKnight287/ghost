@@ -1,12 +1,17 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import express from 'express';
 
+import { AvatarsModule } from '../../avatars/avatars.module.js';
 import {
   AVATAR_CONTENT_TYPES,
   AVATAR_MAX_BYTES,
 } from '../../lib/avatars/avatar.constants.js';
-import { AvatarsModule } from '../../avatars/avatars.module.js';
 import { UsersService } from '../../services/users/users.service.js';
+import {
+  OauthAppAccessController,
+  OauthAppOrganizationsController,
+} from './oauth-app-access.controller.js';
+import { OauthAppAccessService } from './oauth-app-access.service.js';
 import {
   OrganizationInvitationsController,
   OrganizationsController,
@@ -23,8 +28,15 @@ import { TeamsService } from './teams.service.js';
     UserOrganizationsController,
     OrganizationInvitationsController,
     OrganizationTeamsController,
+    OauthAppAccessController,
+    OauthAppOrganizationsController,
   ],
-  providers: [OrganizationsService, TeamsService, UsersService],
+  providers: [
+    OrganizationsService,
+    TeamsService,
+    UsersService,
+    OauthAppAccessService,
+  ],
 })
 export class OrganizationsModule implements NestModule {
   // Logo uploads arrive as raw image bytes, the way avatars do.

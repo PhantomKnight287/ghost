@@ -35,8 +35,6 @@ import type {
   UpdateOauthAppDTO,
 } from './dto/oauth-app.dto.js';
 
-const homepageUrl = sql<string>`coalesce(${schema.oauthClient.uri}, '')`;
-
 /** The plugin checks every redirect URI against one application type: a web client may not use http on localhost, a native one may use both shapes the DTO admits, so one app can list a production callback and a local one. */
 const APPLICATION_TYPE = 'native';
 
@@ -89,7 +87,7 @@ export class OauthAppsService {
         clientId: oauthAppColumns.clientId,
         name: oauthAppColumns.name,
         description: oauthAppColumns.description,
-        homepageUrl,
+        homepageUrl: oauthAppColumns.homepageUrl,
         logoUrl: oauthAppColumns.logoUrl,
         owner: sql<
           string | null
@@ -347,7 +345,7 @@ export class OauthAppsService {
     return this.db
       .select({
         ...oauthAppColumns,
-        homepageUrl,
+        homepageUrl: oauthAppColumns.homepageUrl,
         callbackUrls: schema.oauthClient.redirectUris,
         createdAt: isoTimestamp(schema.oauthClient.createdAt),
       })

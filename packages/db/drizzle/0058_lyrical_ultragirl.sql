@@ -1,0 +1,1 @@
+ALTER TABLE "user_ssh_key" ADD COLUMN "legacy" boolean DEFAULT true NOT NULL;

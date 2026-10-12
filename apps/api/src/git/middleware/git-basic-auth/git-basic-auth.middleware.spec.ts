@@ -2,9 +2,12 @@ import { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 
 import { signLfsToken } from '../../../lib/git/lfs/lfs-token.js';
-import { AuthenticationRequiredError, RepositoryForbiddenError } from '../../../lib/repositories/access/repository-access.errors.js';
-import { GitBasicAuthMiddleware } from './git-basic-auth.middleware.js';
+import {
+  AuthenticationRequiredError,
+  RepositoryForbiddenError,
+} from '../../../lib/repositories/access/repository-access.errors.js';
 import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
+import { GitBasicAuthMiddleware } from './git-basic-auth.middleware.js';
 
 const basic = (username: string, password: string) =>
   `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
@@ -15,15 +18,26 @@ const LFS_BATCH = '/owner/repo/info/lfs/objects/batch';
 
 function harness({
   verify = { valid: true, key: { id: 'key_1', referenceId: 'user_owner' } },
-  authorize = vi.fn().mockResolvedValue({ id: 'repo_1', visibility: 'private' }),
+  authorize = vi
+    .fn()
+    .mockResolvedValue({ id: 'repo_1', visibility: 'private' }),
+  blocked = false,
 }: {
   verify?: unknown;
   authorize?: ReturnType<typeof vi.fn>;
+  blocked?: boolean;
 } = {}) {
+  // oauthAppBlocked reads one row, there only while the organization keeps the app out.
+  const db = {
+    select: () => ({
+      from: () => ({ where: async () => (blocked ? [{ blocked: true }] : []) }),
+    }),
+  };
   const auth = { api: { verifyApiKey: vi.fn().mockResolvedValue(verify) } };
   const middleware = new GitBasicAuthMiddleware(
     auth as never,
     { authorize } as never,
+    db as never,
     new ConfigService({ BETTER_AUTH_SECRET: SECRET }),
   );
 
@@ -207,30 +221,104 @@ describe('GitBasicAuthMiddleware', () => {
   });
   it('refuses a key without repo on a private repository, and a read-only scope on a push', async () => {
     const publicOnly = harness({
-      verify: { valid: true, key: { id: 'key_1', referenceId: 'user_owner', permissions: { scopes: ['public_repo'] } } },
+      verify: {
+        valid: true,
+        key: {
+          id: 'key_1',
+          referenceId: 'user_owner',
+          permissions: { scopes: ['public_repo'] },
+        },
+      },
     });
-    await publicOnly.run({ headers: { authorization: basic('x', 'ghost_pat_k') } });
-    expect(publicOnly.next).toHaveBeenCalledWith(expect.any(RepositoryNotFoundError));
+    await publicOnly.run({
+      headers: { authorization: basic('x', 'ghost_pat_k') },
+    });
+    expect(publicOnly.next).toHaveBeenCalledWith(
+      expect.any(RepositoryNotFoundError),
+    );
 
     const readOrg = harness({
-      verify: { valid: true, key: { id: 'key_1', referenceId: 'user_owner', permissions: { scopes: ['read:org'] } } },
-      authorize: vi.fn().mockResolvedValue({ id: 'repo_1', visibility: 'public' }),
+      verify: {
+        valid: true,
+        key: {
+          id: 'key_1',
+          referenceId: 'user_owner',
+          permissions: { scopes: ['read:org'] },
+        },
+      },
+      authorize: vi
+        .fn()
+        .mockResolvedValue({ id: 'repo_1', visibility: 'public' }),
     });
-    await readOrg.run({ headers: { authorization: basic('x', 'ghost_pat_k') }, query: { service: 'git-receive-pack' } });
-    expect(readOrg.next).toHaveBeenCalledWith(expect.any(RepositoryForbiddenError));
+    await readOrg.run({
+      headers: { authorization: basic('x', 'ghost_pat_k') },
+      query: { service: 'git-receive-pack' },
+    });
+    expect(readOrg.next).toHaveBeenCalledWith(
+      expect.any(RepositoryForbiddenError),
+    );
   });
 
   it('lets public_repo push to a public repository, and a Ghost key do anything', async () => {
     const publicOnly = harness({
-      verify: { valid: true, key: { id: 'key_1', referenceId: 'user_owner', permissions: { scopes: ['public_repo'] } } },
-      authorize: vi.fn().mockResolvedValue({ id: 'repo_1', visibility: 'public' }),
+      verify: {
+        valid: true,
+        key: {
+          id: 'key_1',
+          referenceId: 'user_owner',
+          permissions: { scopes: ['public_repo'] },
+        },
+      },
+      authorize: vi
+        .fn()
+        .mockResolvedValue({ id: 'repo_1', visibility: 'public' }),
     });
-    await publicOnly.run({ headers: { authorization: basic('x', 'ghost_pat_k') }, query: { service: 'git-receive-pack' } });
+    await publicOnly.run({
+      headers: { authorization: basic('x', 'ghost_pat_k') },
+      query: { service: 'git-receive-pack' },
+    });
     expect(publicOnly.next).toHaveBeenCalledWith();
 
     const ghost = harness();
-    await ghost.run({ headers: { authorization: basic('x', 'ghost_pat_k') }, query: { service: 'git-receive-pack' } });
+    await ghost.run({
+      headers: { authorization: basic('x', 'ghost_pat_k') },
+      query: { service: 'git-receive-pack' },
+    });
     expect(ghost.next).toHaveBeenCalledWith();
   });
 
+  it('hides an organization repository from an OAuth app the organization keeps out, and lets an approved one through', async () => {
+    const appKey = {
+      valid: true,
+      key: {
+        id: 'key_1',
+        referenceId: 'user_owner',
+        metadata: { oauthClientId: 'app_1' },
+      },
+    };
+    const organizationRepository = vi
+      .fn()
+      .mockResolvedValue({
+        id: 'repo_1',
+        visibility: 'public',
+        organizationId: 'org_1',
+      });
+
+    const kept = harness({
+      verify: appKey,
+      authorize: organizationRepository,
+      blocked: true,
+    });
+    await kept.run({ headers: { authorization: basic('x', 'ghost_pat_k') } });
+    expect(kept.next).toHaveBeenCalledWith(expect.any(RepositoryNotFoundError));
+
+    const approved = harness({
+      verify: appKey,
+      authorize: organizationRepository,
+    });
+    await approved.run({
+      headers: { authorization: basic('x', 'ghost_pat_k') },
+    });
+    expect(approved.next).toHaveBeenCalledWith();
+  });
 });

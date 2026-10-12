@@ -30,6 +30,7 @@ export type AuthorizeQuery = {
   state?: string;
   code_challenge?: string;
   code_challenge_method?: string;
+  prompt?: string;
 };
 
 export type AccessTokenRequest = {
@@ -81,6 +82,8 @@ export class OauthService {
       ...(query.code_challenge_method && {
         code_challenge_method: query.code_challenge_method,
       }),
+      // `consent` asks again even after an earlier approval; the plugin reads the rest of OIDC's values too and ignores unknown ones.
+      ...(query.prompt && { prompt: query.prompt }),
     });
     return { redirect: `/api/auth/oauth2/authorize?${params}` };
   }
