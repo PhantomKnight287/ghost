@@ -3,10 +3,12 @@ import {
   RequestMethod,
   ValidationPipe,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Express } from 'express';
 
 import { DomainErrorFilter } from './filters/domain-error/domain-error.filter.js';
 import { GIT_TRANSPORT_ROUTES } from './git/git.constants.js';
+import { githubOrigins } from './lib/github/origins.js';
 
 export const OAUTH_ROUTES = [
   { path: 'login/device/code', method: RequestMethod.POST },
@@ -21,8 +23,19 @@ export function configureApp(app: INestApplication) {
   server.set('trust proxy', 'loopback, linklocal, uniquelocal');
   // Node closes idle connections after 5s, the same as gh's device-flow poll interval, so a reused connection races the close and resets; outlast clients and proxies instead.
   app.getHttpServer().keepAliveTimeout = 65_000;
+  // A clone URL opened in a browser lands on the repository's page. A plain route, registered ahead of Nest's, so `/api/<resource>` falls through: excluding `:username/:repo` from the prefix would also unprefix every `<resource>/:id` route.
+  const { web } = githubOrigins(app.get(ConfigService));
+  server.get('/:username/:repo', (req, res, next) => {
+    const { username, repo } = req.params;
+    if (username === 'api') return next();
+    res.redirect(
+      `${web}/${encodeURIComponent(username)}/${encodeURIComponent(repo.replace(/\.git$/, ''))}`,
+    );
+  });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new DomainErrorFilter());
   // offset all CRUD apis to /api prefix so it does not conflict with git's rest stuff
-  app.setGlobalPrefix('/api', { exclude: [...GIT_TRANSPORT_ROUTES,...OAUTH_ROUTES] });
+  app.setGlobalPrefix('/api', {
+    exclude: [...GIT_TRANSPORT_ROUTES, ...OAUTH_ROUTES],
+  });
 }
