@@ -1,0 +1,38 @@
+[
+  {
+    "command": "gh release create v1.0 <tmp>/notes.txt -R <host>/<login>/tools --target main --title First release --notes Notes from gh",
+    "requests": [
+      {
+        "method": "HEAD",
+        "path": "/api/v3/repos/<login>/tools/releases/tags/v1.0",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 404
+      },
+      {
+        "method": "POST",
+        "path": "/api/v3/repos/<login>/tools/releases",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "body": "Notes from gh",
+          "draft": true,
+          "name": "First release",
+          "prerelease": false,
+          "tag_name": "v1.0",
+          "target_commitish": "main"
+        },
+        "status": 404
+      }
+    ]
+  }
+]
