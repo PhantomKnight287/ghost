@@ -19,6 +19,9 @@ export const GITHUB_SIGN_IN = Boolean(process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID);
 /** `host:port` the SSH transport answers on. Empty when the instance runs without a host key, and the clone panel then offers HTTP alone. */
 export const SSH_CLONE_HOST = process.env.NEXT_PUBLIC_SSH_CLONE_HOST ?? "";
 
+export const DATABUDDY_CLIENT_ID =
+  process.env.NEXT_PUBLIC_DATABUDDY_CLIENT_ID ?? "";
+
 /** `ssh://git@host:port/owner/repo.git`, or nothing when the instance runs no SSH listener. */
 export function sshCloneUrlFor(username: string, repo: string) {
   if (!SSH_CLONE_HOST) return undefined;

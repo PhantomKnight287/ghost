@@ -17,6 +17,7 @@
     "@better-auth-ui/core": "^1.7.27",
     "@better-auth-ui/react": "^1.7.27",
     "@better-auth/api-key": "^1.7.3",
+    "@databuddy/sdk": "^3.2.1",
     "@ghost/db": "workspace:*",
     "@ghost/languages": "workspace:*",
     "@ghost/permissions": "workspace:*",

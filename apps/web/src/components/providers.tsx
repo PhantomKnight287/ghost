@@ -1,24 +1,24 @@
 "use client";
 
+import { Databuddy } from "@databuddy/sdk/react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "next-themes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { ThemeEffects } from "@/components/theme-effects";
-import { authClient } from "@/lib/auth-client";
-import { avatar } from "@/lib/auth/avatar";
-import { GITHUB_SIGN_IN, SITE_URL } from "@/lib/env";
-import { usernamePlugin } from "@/lib/auth/username-plugin";
-import { organizationPlugin } from "@/lib/auth/organization-plugin";
-import { organizationRoleLabels } from "@/lib/organization-role";
 import { apiKeyPlugin } from "@/lib/auth/api-key-plugin";
-
+import { avatar } from "@/lib/auth/avatar";
+import { deviceAuthorizationPlugin } from "@/lib/auth/device-authorization-plugin";
+import { organizationPlugin } from "@/lib/auth/organization-plugin";
+import { usernamePlugin } from "@/lib/auth/username-plugin";
+import { authClient } from "@/lib/auth-client";
+import { DATABUDDY_CLIENT_ID, GITHUB_SIGN_IN, SITE_URL } from "@/lib/env";
+import { organizationRoleLabels } from "@/lib/organization-role";
 import { getQueryClient } from "@/lib/query-client";
 import { APP_THEME_IDS } from "@/lib/themes";
-import { deviceAuthorizationPlugin } from "@/lib/auth/device-authorization-plugin";
 
 export function Providers({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -33,6 +33,17 @@ export function Providers({ children }: { children: ReactNode }) {
       themes={APP_THEME_IDS}
     >
       <ThemeEffects />
+      {DATABUDDY_CLIENT_ID ? (
+        <Databuddy
+          clientId={DATABUDDY_CLIENT_ID}
+          trackWebVitals={true}
+          trackErrors
+          trackInteractions
+          trackOutgoingLinks
+          trackHashChanges
+          trackAttributes
+        />
+      ) : null}
       <QueryClientProvider client={queryClient}>
         <AuthProvider
           authClient={authClient}
@@ -49,7 +60,7 @@ export function Providers({ children }: { children: ReactNode }) {
               roles: organizationRoleLabels,
               teams: true,
             }),
-            deviceAuthorizationPlugin()
+            deviceAuthorizationPlugin(),
           ]}
           navigate={({ to, replace }) =>
             replace ? router.replace(to) : router.push(to)
