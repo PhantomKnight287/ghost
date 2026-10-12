@@ -1,10 +1,19 @@
+import type { Readable } from 'node:stream';
+
 import { type Database, schema } from '@ghost/db';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, count, eq, isNotNull, isNull, or } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { orNull } from '../../../lib/github/authorize.js';
+import {
+  GithubConflictError,
+  GithubNotFoundError,
+  NotMergeableError,
+  UnprocessableError,
+} from '../../../lib/github/github.errors.js';
+import { encodeNodeId } from '../../../lib/github/node-id.js';
 import {
   pullRequestRowsOf,
   reviewsOf,
@@ -13,19 +22,47 @@ import {
 import { githubOrigins } from '../../../lib/github/origins.js';
 import {
   type PullRestDetail,
+  pageOf,
+  RestPage,
   type RestRepositoryObject,
   toPullRest,
   toRepositoryRest,
   toReviewRest,
   toUserRest,
 } from '../../../lib/github/rest.js';
+import {
+  NothingToMergeError,
+  PullRequestConflictError,
+  PullRequestDraftError,
+  PullRequestNotOpenError,
+} from '../../../lib/pull-requests/pull-requests.errors.js';
 import type { IssueDTO } from '../../../resources/issues/dto/issue.dto.js';
 import { IssuesService } from '../../../resources/issues/issues.service.js';
 import { PullRequestsService } from '../../../resources/pull-requests/pull-requests.service.js';
-import type { GithubViewer } from '../../auth/github-request.js';
-import { RepositoryResolver } from '../../graphql/resolvers/repository/repository.resolver.js';
+import type {
+  GithubRepositoryTarget,
+  GithubViewer,
+} from '../../auth/github-request.js';
+import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
 import type { RepositoryNode } from '../../graphql/types/repository.type.js';
+import type { GithubPageQueryDTO } from '../issues/dto/issue.dto.js';
 import { GithubIssuesService } from '../issues/issues.service.js';
+import type {
+  GithubCreatePullDTO,
+  GithubListPullsQueryDTO,
+  GithubMergePullDTO,
+  GithubUpdatePullDTO,
+} from './dto/pull.dto.js';
+
+// ponytail: a pull request's commits are listed in one page of this many, as GitHub caps the route at 250.
+const MAX_COMMITS = 250;
+
+const FILE_STATUS: Record<string, string> = {
+  A: 'added',
+  D: 'removed',
+  M: 'modified',
+  T: 'changed',
+};
 
 /** GitHub's REST pull requests over IssuesService and PullRequestsService: an issue's fields plus its pull_request row, branches and repositories. */
 @Injectable()
@@ -35,12 +72,325 @@ export class GithubPullsService {
     private readonly github: GithubIssuesService,
     private readonly issues: IssuesService,
     private readonly pulls: PullRequestsService,
-    private readonly repositories: RepositoryResolver,
+    private readonly repositories: RepositoryNodesService,
     private readonly config: ConfigService,
   ) {}
 
+  /** `head` is GitHub's `owner:branch`, or a bare branch from any owner. */
+  async listPulls(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    query: GithubListPullsQueryDTO,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    const page = pageOf(query);
+    const state = query.state ?? 'open';
+    const colon = query.head?.indexOf(':') ?? -1;
+    const list = await this.issues.getIssues(
+      {
+        ...this.github.ref(repository, viewer),
+        query: {
+          state: 'all',
+          sort: query.sort === 'updated' ? 'updated' : 'created',
+          direction: query.direction,
+          limit: page.perPage,
+        },
+      },
+      {
+        offset: page.offset,
+        pullRequests: {
+          states:
+            state === 'open'
+              ? ['open']
+              : state === 'closed'
+                ? ['closed', 'merged']
+                : undefined,
+          ...(query.head &&
+            (colon < 0
+              ? { headRef: query.head }
+              : {
+                  headOwner: query.head.slice(0, colon),
+                  headRef: query.head.slice(colon + 1) || undefined,
+                })),
+          baseRef: query.base,
+        },
+      },
+    );
+    return new RestPage(
+      await this.rest(repository, viewer, list.issues),
+      page,
+      list.total,
+    );
+  }
+
+  async createPull(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    body: GithubCreatePullDTO,
+  ) {
+    const { repository, viewer: signedIn } = await this.github.writable(
+      owner,
+      repo,
+      viewer,
+      'POST /repos/:owner/:repo/pulls',
+    );
+    const forkOwner = body.head_repo?.split('/')[0];
+    const created = await this.pulls.createPullRequest({
+      username: repository.ownerLogin,
+      repo: repository.slug,
+      requesterId: signedIn.userId,
+      body: {
+        title: body.title,
+        body: body.body,
+        base: body.base,
+        head:
+          forkOwner && !body.head.includes(':')
+            ? `${forkOwner}:${body.head}`
+            : body.head,
+        draft: body.draft,
+      },
+    });
+    return this.detailed(repository, signedIn, created.number);
+  }
+
+  async getPull(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    return this.detailed(repository, viewer, number);
+  }
+
+  /** The diff as text, or with `mailbox` one mailbox-style patch per commit, as `gh pr diff` reads it. */
+  async diff(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    mailbox: boolean,
+  ): Promise<Readable> {
+    const repository = await this.github.readable(owner, repo, viewer);
+    await this.issue(repository, viewer, number);
+    return this.pulls.streamPatch({
+      ...this.github.ref(repository, viewer),
+      number,
+      mailbox,
+    });
+  }
+
+  async updatePull(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    body: GithubUpdatePullDTO,
+  ) {
+    const { repository, viewer: signedIn } = await this.github.writable(
+      owner,
+      repo,
+      viewer,
+      'PATCH /repos/:owner/:repo/pulls/:number',
+    );
+    const ref = {
+      ...this.github.ref(repository, signedIn),
+      number,
+      requesterId: signedIn.userId,
+    };
+    const current = await this.pulls.load(ref);
+    if (body.base !== undefined && body.base !== current.pullRequest.baseRef)
+      throw new UnprocessableError(
+        'Ghost cannot change the base branch of a pull request',
+      );
+    if (body.title !== undefined || body.body !== undefined)
+      await this.pulls.updatePullRequest({
+        ...ref,
+        body: { title: body.title, body: body.body },
+      });
+    // Setting the state a request already has is a no-op on GitHub; Ghost refuses it.
+    const state = current.pullRequest.state;
+    if (body.state === 'closed' && state === 'open')
+      await this.pulls.closePullRequest(ref);
+    if (body.state === 'open' && state === 'closed')
+      await this.pulls.reopenPullRequest(ref);
+    if (body.state === 'open' && state === 'merged')
+      throw new UnprocessableError(
+        'state cannot be changed. The pull request cannot be reopened.',
+      );
+    return this.detailed(repository, signedIn, number);
+  }
+
+  async commits(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    query: GithubPageQueryDTO,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    await this.issue(repository, viewer, number);
+    const page = pageOf(query);
+    const { commits, total } = await this.pulls.getCommits({
+      ...this.github.ref(repository, viewer),
+      number,
+      limit: MAX_COMMITS,
+      oldestFirst: true,
+    });
+    const users = await this.commitUsers(
+      commits.flatMap((commit) => [commit.authorEmail, commit.committerEmail]),
+    );
+    const userOf = (email: string) => users.get(email.toLowerCase()) ?? null;
+    const apiUrl = `${githubOrigins(this.config).api}/api/v3/repos/${repository.nameWithOwner}`;
+    return new RestPage(
+      commits.slice(page.offset, page.offset + page.perPage).map((commit) => ({
+        sha: commit.sha,
+        node_id: encodeNodeId('Commit', `${repository.ghostId}:${commit.sha}`),
+        commit: {
+          author: {
+            name: commit.authorName,
+            email: commit.authorEmail,
+            date: commit.authoredAt,
+          },
+          committer: {
+            name: commit.committerName,
+            email: commit.committerEmail,
+            date: commit.committedAt,
+          },
+          message: [commit.subject, commit.body].filter(Boolean).join('\n\n'),
+          url: `${apiUrl}/git/commits/${commit.sha}`,
+          comment_count: 0,
+          verification: {
+            verified: commit.verification?.verified ?? false,
+            reason: commit.verification?.verified
+              ? 'valid'
+              : commit.verification?.keyId
+                ? 'unknown_key'
+                : 'unsigned',
+            signature: null,
+            payload: null,
+            verified_at: null,
+          },
+        },
+        url: `${apiUrl}/commits/${commit.sha}`,
+        html_url: `${repository.url}/commit/${commit.sha}`,
+        comments_url: `${apiUrl}/commits/${commit.sha}/comments`,
+        author: userOf(commit.authorEmail),
+        committer: userOf(commit.committerEmail),
+      })),
+      page,
+      Math.min(total, MAX_COMMITS),
+    );
+  }
+
+  async reviews(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    query: GithubPageQueryDTO,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    const page = pageOf(query);
+    const reviews = await this.reviewsOf(repository, viewer, number);
+    return new RestPage(
+      reviews.slice(page.offset, page.offset + page.perPage),
+      page,
+      reviews.length,
+    );
+  }
+
+  async review(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    reviewId: number,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    const review = (await this.reviewsOf(repository, viewer, number)).find(
+      (candidate) => candidate.id === reviewId,
+    );
+    if (!review) throw new GithubNotFoundError();
+    return review;
+  }
+
+  async files(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    query: GithubPageQueryDTO,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    await this.issue(repository, viewer, number);
+    const page = pageOf(query);
+    const { to, files } = await this.pulls.getFiles({
+      ...this.github.ref(repository, viewer),
+      number,
+    });
+    return new RestPage(
+      files.slice(page.offset, page.offset + page.perPage).map((file) => ({
+        filename: file.path,
+        status: FILE_STATUS[file.status] ?? 'modified',
+        additions: file.additions,
+        deletions: file.deletions,
+        changes: file.additions + file.deletions,
+        blob_url: `${repository.url}/blob/${to}/${file.path}`,
+        raw_url: `${repository.url}/raw/${to}/${file.path}`,
+      })),
+      page,
+      files.length,
+    );
+  }
+
+  /** Resolves when merged; 404 otherwise, as GitHub answers. */
+  async merged(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    const { pullRequest } = await this.pulls.load({
+      ...this.github.ref(repository, viewer),
+      number,
+    });
+    if (pullRequest.state !== 'merged') throw new GithubNotFoundError();
+  }
+
+  async merge(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    body: GithubMergePullDTO,
+  ) {
+    const { repository, viewer: signedIn } = await this.github.writable(
+      owner,
+      repo,
+      viewer,
+      'PUT /repos/:owner/:repo/pulls/:number/merge',
+    );
+    const ref = {
+      ...this.github.ref(repository, signedIn),
+      number,
+      requesterId: signedIn.userId,
+    };
+    if (body.sha) {
+      // ponytail: checked before the merge, not under its lock; a push landing in between merges the newer head.
+      const { headSha } = await this.pulls.getPullRequest(ref);
+      if (headSha !== body.sha)
+        throw new GithubConflictError(
+          'Head branch was modified. Review and try the merge again.',
+        );
+    }
+    try {
+      const { mergeCommitSha } = await this.pulls.mergePullRequest({
+        ...ref,
+        method: body.merge_method,
+        title: body.commit_title || undefined,
+        message: body.commit_message,
+      });
+      return {
+        sha: mergeCommitSha,
+        merged: true,
+        message: 'Pull Request successfully merged',
+      };
+    } catch (error) {
+      if (
+        error instanceof PullRequestConflictError ||
+        error instanceof PullRequestDraftError ||
+        error instanceof PullRequestNotOpenError ||
+        error instanceof NothingToMergeError
+      )
+        throw new NotMergeableError();
+      throw error;
+    }
+  }
+
   /** The issue behind a pull request number; 404 for an issue, as GitHub answers `/pulls/:number` for one. */
-  async issue(
+  private async issue(
     repository: RepositoryNode,
     viewer: GithubViewer | null,
     number: number,
@@ -49,12 +399,12 @@ export class GithubPullsService {
       ...this.github.ref(repository, viewer),
       number,
     });
-    if (!issue.isPullRequest) throw new NotFoundException();
+    if (!issue.isPullRequest) throw new GithubNotFoundError();
     return issue;
   }
 
   /** REST pull requests for issues that are all pull requests, in order. */
-  async list(
+  private async rest(
     repository: RepositoryNode,
     viewer: GithubViewer | null,
     issues: IssueDTO[],
@@ -133,7 +483,7 @@ export class GithubPullsService {
   }
 
   /** One pull request with the merge state and counts only GitHub's single-pull response carries. */
-  async one(
+  private async detailed(
     repository: RepositoryNode,
     viewer: GithubViewer | null,
     number: number,
@@ -145,7 +495,7 @@ export class GithubPullsService {
     });
     const open = pull.state === 'open';
     const conflicted = open && pull.conflicts.length > 0;
-    const [rest] = await this.list(repository, viewer, [issue], {
+    const [rest] = await this.rest(repository, viewer, [issue], {
       mergeable: !open
         ? null
         : conflicted
@@ -164,7 +514,7 @@ export class GithubPullsService {
   }
 
   /** A pull request's submitted reviews, oldest first. */
-  async reviews(
+  private async reviewsOf(
     repository: RepositoryNode,
     viewer: GithubViewer | null,
     number: number,
@@ -183,7 +533,7 @@ export class GithubPullsService {
   }
 
   /** The accounts behind commit emails, as GitHub's simple-user, keyed by lowercased email. */
-  async commitUsers(emails: string[]) {
+  private async commitUsers(emails: string[]) {
     const origins = githubOrigins(this.config);
     const found = await usersByEmailOf(this.db, emails);
     return new Map(

@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+
 import { buildSchema, parse, validate } from 'graphql';
 import { describe, expect, it } from 'vitest';
 
@@ -84,14 +85,16 @@ describe('gh capture', () => {
 
     it('calls only REST routes that Ghost serves', () => {
       for (const { command, method, path: route } of requestsIn(capture).filter(
-        (request) => request.path.startsWith('/api/v3'),
+        (request) => /^\/api\/(v3|uploads)\//.test(request.path),
       )) {
         const call = `${method} ${route}`;
+        // Express answers HEAD with the GET route, which OpenAPI lists alone.
+        const served = method === 'HEAD' ? 'GET' : method;
         expect(
           call in UNSERVED ||
             routes.some(
-              (served) =>
-                served.method === method && served.pattern.test(route),
+              (candidate) =>
+                candidate.method === served && candidate.pattern.test(route),
             ),
           `${command}: ${call}`,
         ).toBe(true);

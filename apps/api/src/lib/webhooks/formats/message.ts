@@ -89,7 +89,11 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
     actor,
     action,
     url,
-    excerpt: excerpt?.trim() ? truncate(excerpt.trim()) : null,
+    excerpt: !excerpt?.trim()
+      ? null
+      : excerpt.trim().length > EXCERPT_LENGTH
+        ? `${excerpt.trim().slice(0, EXCERPT_LENGTH - 1)}…`
+        : excerpt.trim(),
     commits: [],
     moreCommits: 0,
     color,
@@ -122,7 +126,11 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
 
   switch (body.event) {
     case 'push': {
-      const [kind, name] = refName(body.ref ?? '');
+      const ref = body.ref ?? '';
+      // `refs/heads/main` is the branch main, `refs/tags/v1` the tag v1.
+      const [kind, name] = ref.startsWith('refs/tags/')
+        ? ['tag', ref.slice('refs/tags/'.length)]
+        : ['branch', ref.replace(/^refs\/heads\//, '')];
       if (body.deleted) return say(`deleted ${kind} ${name}`, RED);
       if (body.created)
         return say(
@@ -251,19 +259,6 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
     case 'member.removed':
       return say(`removed ${body.member?.username} as a collaborator`, RED);
   }
-}
-
-/** `refs/heads/main` is the branch main, `refs/tags/v1` the tag v1. */
-function refName(ref: string): [kind: string, name: string] {
-  if (ref.startsWith('refs/tags/'))
-    return ['tag', ref.slice('refs/tags/'.length)];
-  return ['branch', ref.replace(/^refs\/heads\//, '')];
-}
-
-function truncate(text: string) {
-  return text.length > EXCERPT_LENGTH
-    ? `${text.slice(0, EXCERPT_LENGTH - 1)}…`
-    : text;
 }
 
 function commitCount({ commits = [] }: WebhookBody) {

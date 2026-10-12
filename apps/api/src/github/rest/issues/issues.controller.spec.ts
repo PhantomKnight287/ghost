@@ -1,6 +1,6 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 
-import { IssuesService } from '../../../resources/issues/issues.service.js';
 import { IssuesController } from './issues.controller.js';
 import { GithubIssuesService } from './issues.service.js';
 
@@ -12,7 +12,7 @@ describe('IssuesController', () => {
       controllers: [IssuesController],
       providers: [
         { provide: GithubIssuesService, useValue: {} },
-        { provide: IssuesService, useValue: {} },
+        { provide: ConfigService, useValue: {} },
       ],
     }).compile();
 

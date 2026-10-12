@@ -1,9 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { IssuesService } from '../../../../resources/issues/issues.service.js';
-import { PullRequestsService } from '../../../../resources/pull-requests/pull-requests.service.js';
-import { IssueResolver } from '../issue/issue.resolver.js';
-import { IssueMutationsResolver } from '../issue-mutations/issue-mutations.resolver.js';
+import { Test, type TestingModule } from '@nestjs/testing';
+
 import { PullRequestMutationsResolver } from './pull-request-mutations.resolver.js';
+import { PullRequestMutationsService } from './pull-request-mutations.service.js';
 
 describe('PullRequestMutationsResolver', () => {
   let resolver: PullRequestMutationsResolver;
@@ -12,10 +10,7 @@ describe('PullRequestMutationsResolver', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PullRequestMutationsResolver,
-        { provide: PullRequestsService, useValue: {} },
-        { provide: IssuesService, useValue: {} },
-        { provide: IssueMutationsResolver, useValue: {} },
-        { provide: IssueResolver, useValue: {} },
+        { provide: PullRequestMutationsService, useValue: {} },
       ],
     }).compile();
 

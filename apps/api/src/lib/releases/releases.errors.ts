@@ -1,4 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
+
 import { DomainError } from '../../domain/errors.js';
 
 export class ReleaseNotFoundError extends DomainError {
@@ -72,5 +73,13 @@ export class UploadNotOctetStreamError extends DomainError {
     super(
       'Send the file as application/octet-stream, and its own type as the `type` query parameter',
     );
+  }
+}
+
+export class TagNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor(tagName: string) {
+    super(`Tag not found: ${tagName}`);
   }
 }

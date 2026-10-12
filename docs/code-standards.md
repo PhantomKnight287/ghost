@@ -169,6 +169,45 @@ Anything that waits for data shows a skeleton while it waits. A route segment th
 If a new item to the workspace is added, the apps/*/Dockerfile needs to update else the build fails. and self hosting setup(in /docker) and docs in (apps/docker) needs to be updated too.
 
 
+## 12. Controllers pass, services do (`apps/api`)
+
+A controller, a GraphQL resolver, a git or SSH handler: each reads what its transport delivered, hands the values to a service, and responds with what the service returns. It runs no queries, makes no decisions about the domain, and does not reshape what comes back. What it may do is the transport's own part: read a header, pick the representation the client asked for (JSON or raw bytes), set a status code or a `Location` header, wrap a stream.
+
+A service takes plain values and returns plain data. It does not know whether it was called over HTTP, GraphQL, SSH or a queue: no `Request`, `Response`, headers, status codes, `HttpException`, GraphQL context or channel ever reaches it. It fails by throwing a `DomainError`, and each transport's filter turns that into its own answer.
+
+```ts
+// No: the controller decides what the domain allows and reshapes the result.
+@Patch(':id')
+async update(@Param('id') id: number, @Body() body: UpdateReleaseDTO) {
+  const current = await this.releases.byId(id);
+  if (body.tag_name !== undefined && body.tag_name !== current.tagName)
+    throw new UnprocessableEntityException('Ghost cannot move a release to another tag');
+  const updated = await this.releases.update(current.id, { name: body.name });
+  return { ...updated, html_url: `${web}/releases/tag/${updated.tagName}` };
+}
+
+// Yes: the controller passes the values on and returns the answer.
+@Patch(':id')
+update(@Param('id') id: number, @Body() body: UpdateReleaseDTO, @Viewer() viewer: Viewer) {
+  return this.releases.update({ id, body, viewer });
+}
+```
+
+## 13. No function for a line or two
+
+A function earns its name by being used in many places, by hiding real complexity, or by being tested on its own. A two-line helper declared for one or two call sites does none of that: the reader jumps away to learn what it does, then jumps back. Write it where it is used.
+
+```ts
+// No: a declaration to read for a check that fits on one line.
+function refuseDiscussion(category: string | undefined) {
+  if (category !== undefined) throw new NotFoundException();
+}
+refuseDiscussion(body.discussion_category_name);
+
+// Yes.
+if (body.discussion_category_name !== undefined) throw new DiscussionCategoryNotFoundError();
+```
+
 ## Philosophy
 
 This codebase will outlive you. Every shortcut becomes someone else's burden. Every hack compounds into technical debt that slows the whole team down.

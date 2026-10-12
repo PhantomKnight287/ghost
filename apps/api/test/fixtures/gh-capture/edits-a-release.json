@@ -1,0 +1,73 @@
+[
+  {
+    "command": "gh release edit v1.0 -R <host>/<login>/tools --title First release (edited) --notes Edited notes --prerelease",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/releases/tags/v1.0",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/v3/repos/<login>/tools/releases/<id>",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "body": "Edited notes",
+          "name": "First release (edited)",
+          "prerelease": true,
+          "tag_name": "v1.0"
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh release view v1.0 -R <host>/<login>/tools --json name,body,isPrerelease",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/releases/tags/v1.0",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query RepositoryReleaseByTag($name:String!$owner:String!$tagName:String!){repository(owner: $owner, name: $name){release(tagName: $tagName){databaseId,isDraft}}}",
+          "variables": {
+            "name": "tools",
+            "owner": "<login>",
+            "tagName": "v1.0"
+          }
+        },
+        "status": 200
+      }
+    ]
+  }
+]

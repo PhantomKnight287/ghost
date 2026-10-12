@@ -5,6 +5,7 @@ import { ImportDispatcherService } from '../../services/imports/import-dispatche
 import { ImportWriterService } from '../../services/imports/import-writer.service.js';
 import { RepositoriesModule } from '../repositories/repositories.module.js';
 import { ImporterCallbacksController } from './importer-callbacks.controller.js';
+import { ImporterCallbacksService } from './importer-callbacks.service.js';
 import { ImporterSecretGuard } from './importer-secret.guard.js';
 import { ImportsController } from './imports.controller.js';
 import { ImportsService } from './imports.service.js';
@@ -17,6 +18,7 @@ import { ImportsService } from './imports.service.js';
     ImportDispatcherService,
     ImportWriterService,
     ImporterSecretGuard,
+    ImporterCallbacksService,
     RepositoryAccessService,
   ],
 })

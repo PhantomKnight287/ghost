@@ -10,8 +10,6 @@ import {
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Public } from '@thallesp/nestjs-better-auth';
 
-import { ImportDispatcherService } from '../../services/imports/import-dispatcher.service.js';
-import { ImportWriterService } from '../../services/imports/import-writer.service.js';
 import {
   FinishImportRequestDTO,
   ImportAttemptDTO,
@@ -19,6 +17,7 @@ import {
   ImportIssuesRequestDTO,
   ImportReleasesRequestDTO,
 } from './dto/importer-callback.dto.js';
+import { ImporterCallbacksService } from './importer-callbacks.service.js';
 import { ImporterSecretGuard } from './importer-secret.guard.js';
 
 /** Called by `apps/importer` only. Each call renews the attempt's lease, so a working importer never looks silent. */
@@ -27,48 +26,42 @@ import { ImporterSecretGuard } from './importer-secret.guard.js';
 @Public()
 @UseGuards(ImporterSecretGuard)
 export class ImporterCallbacksController {
-  constructor(
-    private readonly dispatcher: ImportDispatcherService,
-    private readonly writer: ImportWriterService,
-  ) {}
+  constructor(private readonly callbacks: ImporterCallbacksService) {}
 
   @Post('heartbeat')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async heartbeat(
+  heartbeat(
     @Param('importId') importId: string,
     @Body() { attempt }: ImportAttemptDTO,
   ) {
-    await this.dispatcher.renewLease(importId, attempt);
+    return this.callbacks.heartbeat(importId, attempt);
   }
 
   @Post('releases')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async releases(
+  releases(
     @Param('importId') importId: string,
-    @Body() { attempt, releases }: ImportReleasesRequestDTO,
+    @Body() body: ImportReleasesRequestDTO,
   ) {
-    const repositoryId = await this.dispatcher.renewLease(importId, attempt);
-    await this.writer.writeReleases(repositoryId, releases);
+    return this.callbacks.releases(importId, body);
   }
 
   @Post('issues')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async issues(
+  issues(
     @Param('importId') importId: string,
-    @Body() { attempt, issues }: ImportIssuesRequestDTO,
+    @Body() body: ImportIssuesRequestDTO,
   ) {
-    const repositoryId = await this.dispatcher.renewLease(importId, attempt);
-    await this.writer.writeIssues(repositoryId, issues);
+    return this.callbacks.issues(importId, body);
   }
 
   @Post('comments')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async comments(
+  comments(
     @Param('importId') importId: string,
-    @Body() { attempt, comments }: ImportCommentsRequestDTO,
+    @Body() body: ImportCommentsRequestDTO,
   ) {
-    const repositoryId = await this.dispatcher.renewLease(importId, attempt);
-    await this.writer.writeComments(repositoryId, comments);
+    return this.callbacks.comments(importId, body);
   }
 
   @Post('finish')
@@ -77,12 +70,6 @@ export class ImporterCallbacksController {
     @Param('importId') importId: string,
     @Body() body: FinishImportRequestDTO,
   ) {
-    await this.dispatcher.settle(
-      importId,
-      body.attempt,
-      body.succeeded
-        ? { succeeded: true, defaultBranch: body.defaultBranch ?? null }
-        : { succeeded: false, error: body.error!, retryable: body.retryable! },
-    );
+    await this.callbacks.finish(importId, body);
   }
 }

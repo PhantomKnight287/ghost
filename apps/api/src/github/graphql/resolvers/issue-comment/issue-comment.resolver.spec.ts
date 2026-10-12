@@ -1,5 +1,6 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
+import { Test, type TestingModule } from '@nestjs/testing';
+
+import { IssueNodesService } from '../issue/issue-nodes.service.js';
 import { IssueCommentResolver } from './issue-comment.resolver.js';
 
 describe('IssueCommentResolver', () => {
@@ -9,7 +10,7 @@ describe('IssueCommentResolver', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IssueCommentResolver,
-        { provide: ConfigService, useValue: {} },
+        { provide: IssueNodesService, useValue: {} },
       ],
     }).compile();
 

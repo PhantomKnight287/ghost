@@ -1,9 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
-import { ConfigService } from '@nestjs/config';
-import { RepositoryResolver } from '../../graphql/resolvers/repository/repository.resolver.js';
-import { RepositoryMaterializerService } from '../../../services/git/materializer/repository-materializer.service.js';
+import { Test, type TestingModule } from '@nestjs/testing';
+
 import { ReposController } from './repos.controller.js';
+import { GithubReposService } from './repos.service.js';
 
 describe('ReposController', () => {
   let controller: ReposController;
@@ -11,12 +9,7 @@ describe('ReposController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ReposController],
-      providers: [
-        { provide: RepositoryResolver, useValue: {} },
-        { provide: RepositoryMaterializerService, useValue: {} },
-        { provide: ConfigService, useValue: {} },
-        { provide: RepositoriesService, useValue: {} },
-      ],
+      providers: [{ provide: GithubReposService, useValue: {} }],
     }).compile();
 
     controller = module.get<ReposController>(ReposController);

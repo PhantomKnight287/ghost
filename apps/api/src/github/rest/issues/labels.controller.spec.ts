@@ -1,8 +1,8 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 
-import { IssuesService } from '../../../resources/issues/issues.service.js';
 import { LabelsController } from './labels.controller.js';
-import { GithubIssuesService } from './issues.service.js';
+import { GithubLabelsService } from './labels.service.js';
 
 describe('LabelsController', () => {
   let controller: LabelsController;
@@ -11,8 +11,8 @@ describe('LabelsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [LabelsController],
       providers: [
-        { provide: GithubIssuesService, useValue: {} },
-        { provide: IssuesService, useValue: {} },
+        { provide: GithubLabelsService, useValue: {} },
+        { provide: ConfigService, useValue: {} },
       ],
     }).compile();
 

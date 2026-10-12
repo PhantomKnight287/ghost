@@ -103,8 +103,9 @@ const placeholders = ({ login, host }: { login: string; host: string }) =>
     [/\/\/[^/\s"@:]+:[^/\s"@]+@/g, '//<credentials>@'],
     [/ghost_pat_\w+/g, '<token>'],
     [/\b((?:ssh|ecdsa|sk)-[a-z0-9@.-]+) AAAA[A-Za-z0-9+/=]+[^"]*/g, '$1 <key>'],
-    [/\b(U|O|R|I|PR|IC|LA)_[A-Za-z0-9_-]{8,}/g, '$1_<id>'],
+    [/\b(U|O|R|I|PR|IC|LA|RE|RA)_[A-Za-z0-9_-]{8,}/g, '$1_<id>'],
     [/issues\/comments\/\d+/g, 'issues/comments/<id>'],
+    [/releases\/(assets\/)?\d+/g, 'releases/$1<id>'],
   ] as const;
 
 /** Orders a command's requests by what they ask, since gh sends some at once and their arrival order varies. */

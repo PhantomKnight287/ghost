@@ -16,5 +16,6 @@ import { RepositoryBranchesService } from './repository-branches.service.js';
     PushTransactionService,
     WalStoreService,
   ],
+  exports: [RepositoryBranchesService],
 })
 export class BranchesModule {}

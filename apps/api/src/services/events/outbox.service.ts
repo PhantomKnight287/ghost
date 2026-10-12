@@ -12,10 +12,10 @@ import {
   DATABASE,
   DATABASE_CONNECTION,
 } from '../../database/database.module.js';
+import { errorMessage } from '../../lib/error-message.js';
 import { OUTBOX_CHANNEL, type StoredEvent } from '../../lib/events/events.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { WebhookFanoutService } from '../webhooks/webhook-fanout.service.js';
-import { errorMessage } from '../../lib/error-message.js';
 
 const BATCH_SIZE = 20;
 // Only retries failed events: new ones arrive by NOTIFY. Longer than Railway's 10 idle minutes, so the API can sleep.
@@ -156,7 +156,10 @@ export class OutboxService
         const attempts = event.attempts + 1;
         try {
           // written by `publishEvent`, which checked the payload against its type
-          await this.dispatch(event as unknown as StoredEvent);
+          const stored = event as unknown as StoredEvent;
+          // A retry runs both again; webhook jobs are keyed by event and endpoint, so none is queued twice.
+          await this.notifier.handle(stored);
+          await this.webhooks.handle(stored);
           await tx
             .update(schema.outboxEvent)
             .set({ attempts, processedAt: new Date() })
@@ -179,11 +182,5 @@ export class OutboxService
       }
       return events.length;
     });
-  }
-
-  private async dispatch(event: StoredEvent) {
-    // A retry runs both again; webhook jobs are keyed by event and endpoint, so none is queued twice.
-    await this.notifier.handle(event);
-    await this.webhooks.handle(event);
   }
 }

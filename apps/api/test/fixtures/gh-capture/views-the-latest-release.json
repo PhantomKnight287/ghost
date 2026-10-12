@@ -1,0 +1,19 @@
+[
+  {
+    "command": "gh release view -R <host>/<login>/tools --json tagName",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/releases/latest",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      }
+    ]
+  }
+]

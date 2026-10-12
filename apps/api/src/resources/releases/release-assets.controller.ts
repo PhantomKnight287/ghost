@@ -31,6 +31,7 @@ import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { UploadNotOctetStreamError } from '../../lib/releases/releases.errors.js';
 import {
   ReleaseAssetDTO,
   UploadReleaseAssetQueryDTO,
@@ -79,6 +80,12 @@ export class ReleaseAssetsController {
     @Req() request: Request,
     @Session() session: UserSession,
   ): Promise<ReleaseAssetDTO> {
+    // JSON and form bodies are parsed before any handler runs, so their bytes are gone by the time they could be streamed
+    if (
+      request.headers['content-type']?.split(';')[0]?.trim() !==
+      'application/octet-stream'
+    )
+      throw new UploadNotOctetStreamError();
     return this.assets.upload({
       username,
       repo,
@@ -86,7 +93,6 @@ export class ReleaseAssetsController {
       releaseId,
       name: query.name,
       type: query.type,
-      bodyType: request.headers['content-type'],
       contentLength: request.headers['content-length'],
       body: request,
     });
@@ -119,8 +125,7 @@ export class ReleaseAssetsController {
       username,
       repo,
       requesterId: session?.user?.id,
-      tagName,
-      name,
+      asset: { tagName, name },
     });
 
     response.set({

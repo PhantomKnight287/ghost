@@ -1,10 +1,12 @@
+import type { Readable } from 'node:stream';
+
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { nanoid } from 'nanoid';
-import type { Readable } from 'node:stream';
 
 import {
   AVATAR_CONTENT_TYPES,
+  AVATAR_NAME_PATTERN,
   AVATAR_PREFIX,
   type AvatarContentType,
 } from '../../lib/avatars/avatar.constants.js';
@@ -71,6 +73,8 @@ export class AvatarStorageService {
   }
 
   async get(ownerId: string, name: string): Promise<AvatarObject> {
+    // Only names this service generates; nothing user-authored reaches S3.
+    if (!AVATAR_NAME_PATTERN.test(name)) throw new AvatarNotFoundError();
     try {
       const object = await this.s3.getObject({
         Bucket: this.s3.bucket,

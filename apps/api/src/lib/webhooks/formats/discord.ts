@@ -30,10 +30,11 @@ export const discord: WebhookFormat = {
           },
         }),
         // Discord's limit for an embed title
-        title: `[${message.context}] ${capitalize(message.action)}`.slice(
-          0,
-          256,
-        ),
+        title:
+          `[${message.context}] ${message.action.charAt(0).toUpperCase()}${message.action.slice(1)}`.slice(
+            0,
+            256,
+          ),
         ...(message.url && { url: message.url }),
         ...(description(message) && { description: description(message) }),
         color: message.color,
@@ -53,10 +54,6 @@ function description({ commits, moreCommits, excerpt }: WebhookMessage) {
     ),
     ...(moreCommits > 0 ? [`and ${moreCommits} more`] : []),
   ].join('\n');
-}
-
-function capitalize(text: string) {
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 // A commit subject is plain text: `*`, `_` and `[` in it must not turn into Markdown.

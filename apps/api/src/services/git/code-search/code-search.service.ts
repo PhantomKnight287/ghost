@@ -1,9 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
 
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
+import { Coalescer } from '../../../lib/coalescer.js';
+import { errorMessage } from '../../../lib/error-message.js';
 import { CodeSearchUnavailableError } from '../../../lib/git/code-search/code-search.errors.js';
 import type { IndexTarget } from '../../../lib/git/code-search/code-search.types.js';
 import {
@@ -14,10 +17,8 @@ import {
 } from '../../../lib/git/code-search/zoekt.js';
 import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
 import { isNotFound } from '../../../lib/s3/s3.errors.js';
-import { S3Service } from '../../s3/s3.service.js';
-import { errorMessage } from '../../../lib/error-message.js';
-import { Coalescer } from '../../../lib/coalescer.js';
 import { withTempDir } from '../../../lib/temp-dir.js';
+import { S3Service } from '../../s3/s3.service.js';
 
 // The search node mirrors this prefix into its index directory, so nothing but shards may live under it.
 const SHARD_PREFIX = 'zoekt/';
@@ -117,7 +118,8 @@ export class CodeSearchService {
     limit: number;
     visible: (repositoryIds: string[]) => Set<string> | Promise<Set<string>>;
   }) {
-    const url = this.requireUrl();
+    const url = this.url;
+    if (!url) throw new CodeSearchUnavailableError();
     const offset = Number(cursor ?? 0);
 
     const listed = await listMatchingFiles({ url, query });
@@ -132,11 +134,6 @@ export class CodeSearchService {
       files: await searchFiles({ url, query, files: files.slice(offset, end) }),
       nextCursor: end < files.length ? String(end) : null,
     };
-  }
-
-  private requireUrl() {
-    if (!this.url) throw new CodeSearchUnavailableError();
-    return this.url;
   }
 
   private async publish(target: IndexTarget) {

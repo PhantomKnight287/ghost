@@ -7,11 +7,11 @@ import { promisify } from 'node:util';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import TestAgent from 'supertest/lib/agent.js';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { recordGhRequests, writeGhCapture } from './gh-capture.js';
 import { GH_E2E_HOST, runGh, startGh, tlsFiles } from './gh.js';
-import { hasBackends, scopedKey, signUp, startApp } from './harness.js';
+import { recordGhRequests, writeGhCapture } from './gh-capture.js';
+import { apiKey, hasBackends, scopedKey, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   let app: INestApplication;
@@ -19,9 +19,10 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   let configDir: string;
   const username = `ghcli${Date.now()}`;
   let api: ReturnType<(typeof request)['agent']>;
+  let token: string;
 
   const gh = (args: string[], options: { input?: string; cwd?: string } = {}) =>
-    runGh(args, { configDir, token: owner.key, ...options });
+    runGh(args, { configDir, token, ...options });
   const ok = async (
     args: string[],
     options: { input?: string; cwd?: string } = {},
@@ -119,6 +120,11 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       .set('cookie', owner.cookie)
       .send({ name: 'bug', color: 'd73a4a' })
       .expect(201);
+  });
+
+  // A key allows 120 requests a minute, which the whole suite on one key would pass.
+  beforeEach(async () => {
+    token = await apiKey(app, owner.userId);
   });
 
   afterAll(async () => {
@@ -552,6 +558,181 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
         state: 'MERGED',
         mergedAt: expect.any(String),
       });
+    });
+  });
+
+  describe('gh release', () => {
+    const repo = () => `${GH_E2E_HOST}/${username}/tools`;
+    const view = async (tag: string, fields: string) =>
+      JSON.parse(
+        await ok(['release', 'view', tag, '-R', repo(), '--json', fields]),
+      );
+    const asset = (name: string) => {
+      const file = path.join(configDir, name);
+      writeFileSync(file, `${name}\n`);
+      return file;
+    };
+
+    it('creates a release with an asset', async () => {
+      const out = await ok([
+        'release',
+        'create',
+        'v1.0',
+        asset('notes.txt'),
+        '-R',
+        repo(),
+        '--target',
+        'main',
+        '--title',
+        'First release',
+        '--notes',
+        'Notes from gh',
+      ]);
+      expect(out).toContain(`/${username}/tools/releases/tag/v1.0`);
+    });
+
+    it('lists releases', async () => {
+      expect(
+        JSON.parse(
+          await ok([
+            'release',
+            'list',
+            '-R',
+            repo(),
+            '--json',
+            'tagName,name,isDraft,isPrerelease,isLatest,publishedAt',
+          ]),
+        ),
+      ).toContainEqual(
+        expect.objectContaining({
+          tagName: 'v1.0',
+          name: 'First release',
+          isDraft: false,
+          isPrerelease: false,
+          isLatest: true,
+        }),
+      );
+    });
+
+    it('views a release', async () => {
+      expect(
+        await view(
+          'v1.0',
+          'tagName,name,body,isDraft,isPrerelease,author,assets,targetCommitish,url',
+        ),
+      ).toMatchObject({
+        tagName: 'v1.0',
+        name: 'First release',
+        body: 'Notes from gh',
+        isDraft: false,
+        isPrerelease: false,
+        author: expect.objectContaining({ login: username }),
+        assets: [expect.objectContaining({ name: 'notes.txt' })],
+        url: expect.stringMatching(
+          new RegExp(`/${username}/tools/releases/tag/v1.0$`),
+        ),
+      });
+    });
+
+    it('views the latest release', async () => {
+      expect(
+        JSON.parse(
+          await ok(['release', 'view', '-R', repo(), '--json', 'tagName']),
+        ),
+      ).toEqual({ tagName: 'v1.0' });
+    });
+
+    it('creates a draft release', async () => {
+      await ok([
+        'release',
+        'create',
+        'v2.0',
+        '-R',
+        repo(),
+        '--target',
+        'main',
+        '--draft',
+        '--notes',
+        'Not yet',
+      ]);
+      expect(await view('v2.0', 'isDraft')).toEqual({ isDraft: true });
+    });
+
+    it('uploads an asset', async () => {
+      await ok(['release', 'upload', 'v1.0', asset('extra.txt'), '-R', repo()]);
+      expect(await view('v1.0', 'assets')).toMatchObject({
+        assets: expect.arrayContaining([
+          expect.objectContaining({ name: 'extra.txt' }),
+        ]),
+      });
+    });
+
+    it('downloads an asset', async () => {
+      const dir = path.join(configDir, 'release-download');
+      await ok([
+        'release',
+        'download',
+        'v1.0',
+        '-R',
+        repo(),
+        '--pattern',
+        'notes.txt',
+        '--dir',
+        dir,
+      ]);
+      expect(readFileSync(path.join(dir, 'notes.txt'), 'utf8')).toBe(
+        'notes.txt\n',
+      );
+    });
+
+    it('deletes an asset', async () => {
+      await ok([
+        'release',
+        'delete-asset',
+        'v1.0',
+        'extra.txt',
+        '-R',
+        repo(),
+        '--yes',
+      ]);
+      expect(await view('v1.0', 'assets')).toMatchObject({
+        assets: [expect.objectContaining({ name: 'notes.txt' })],
+      });
+    });
+
+    it('edits a release', async () => {
+      await ok([
+        'release',
+        'edit',
+        'v1.0',
+        '-R',
+        repo(),
+        '--title',
+        'First release (edited)',
+        '--notes',
+        'Edited notes',
+        '--prerelease',
+      ]);
+      expect(await view('v1.0', 'name,body,isPrerelease')).toEqual({
+        name: 'First release (edited)',
+        body: 'Edited notes',
+        isPrerelease: true,
+      });
+    });
+
+    it('deletes a release and its tag', async () => {
+      await ok([
+        'release',
+        'delete',
+        'v1.0',
+        '-R',
+        repo(),
+        '--yes',
+        '--cleanup-tag',
+      ]);
+      expect(
+        (await gh(['release', 'view', 'v1.0', '-R', repo()])).code,
+      ).not.toBe(0);
     });
   });
 

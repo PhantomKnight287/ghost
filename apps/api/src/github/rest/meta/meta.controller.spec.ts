@@ -1,4 +1,5 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
+
 import { MetaController } from './meta.controller.js';
 import { MetaService } from './meta.service.js';
 
@@ -8,7 +9,7 @@ describe('MetaController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MetaController],
-      providers: [MetaService],
+      providers: [{ provide: MetaService, useValue: {} }],
     }).compile();
 
     controller = module.get<MetaController>(MetaController);

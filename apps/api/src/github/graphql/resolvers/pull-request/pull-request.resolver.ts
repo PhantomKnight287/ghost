@@ -1,4 +1,3 @@
-import { ConfigService } from '@nestjs/config';
 import {
   Args,
   Context,
@@ -9,27 +8,15 @@ import {
 } from '@nestjs/graphql';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
-import { orNull } from '../../../../lib/github/authorize.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
-import { encodeNodeId } from '../../../../lib/github/node-id.js';
-import {
-  toCommitNode,
-  toPullRequestReviewNode,
-  toRefNode,
-  toUserNode,
-} from '../../../../lib/github/nodes.js';
-import { githubOrigins } from '../../../../lib/github/origins.js';
-import { PullRequestsService } from '../../../../resources/pull-requests/pull-requests.service.js';
+import { toRefNode } from '../../../../lib/github/nodes.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
 import { sliceConnection } from '../../connection.js';
 import {
   MergeableState,
   MergeStateStatus,
-  PatchStatus,
   PullRequestReviewDecision,
-  PullRequestReviewState,
-  PullRequestState,
 } from '../../enums.js';
 import { GitObjectID } from '../../scalars.js';
 import { IssueCommentConnection } from '../../types/issue-comment.type.js';
@@ -56,51 +43,31 @@ import {
 } from '../../types/pull-request.type.js';
 import { RefNode, RepositoryNode } from '../../types/repository.type.js';
 import { UserConnection, UserNode } from '../../types/user.type.js';
-import { IssueResolver } from '../issue/issue.resolver.js';
-import { RepositoryResolver } from '../repository/repository.resolver.js';
-
-// ponytail: a pull request's commits are read in one page of this many; gh asks for 100 at most.
-const MAX_COMMITS = 250;
-
-const CHANGE_TYPES: Record<string, PatchStatus> = {
-  A: PatchStatus.ADDED,
-  D: PatchStatus.DELETED,
-  M: PatchStatus.MODIFIED,
-  T: PatchStatus.CHANGED,
-};
+import { IssueNodesService } from '../issue/issue-nodes.service.js';
+import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
+import { PullRequestNodesService } from './pull-request-nodes.service.js';
 
 /** The fields a pull request shares with an issue answer exactly as the issue's do; the rest read the pull_request row, its reviews, or git. */
 @Resolver(() => PullRequestNode)
 @AllowAnonymous()
 export class PullRequestResolver {
   constructor(
-    private readonly issues: IssueResolver,
-    private readonly repositories: RepositoryResolver,
-    private readonly pulls: PullRequestsService,
+    private readonly pulls: PullRequestNodesService,
+    private readonly issues: IssueNodesService,
+    private readonly repositories: RepositoryNodesService,
   ) {}
-
-  /** getPullRequest once per node: additions, mergeable and the live head all come from the same git reads. */
-  private detail(pull: PullRequestNode, viewer: GithubViewer | null) {
-    pull.detail ??= this.pulls.getPullRequest({
-      username: pull.ownerLogin,
-      repo: pull.repoSlug,
-      number: pull.number,
-      requesterId: viewer?.userId,
-    });
-    return pull.detail;
-  }
 
   @ResolveField(() => Int, { nullable: true })
   databaseId(
     @Parent() pull: PullRequestNode,
     @Context() context: GraphqlContext,
   ) {
-    return this.issues.databaseId(pull, context);
+    return this.issues.databaseId(pull, context.loaders);
   }
 
   @ResolveField(() => Actor, { nullable: true })
   author(@Parent() pull: PullRequestNode, @Context() context: GraphqlContext) {
-    return this.issues.author(pull, context);
+    return this.issues.author(pull, context.loaders);
   }
 
   @ResolveField(() => UserConnection)
@@ -109,7 +76,7 @@ export class PullRequestResolver {
     @Context() context: GraphqlContext,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
   ) {
-    return this.issues.assignees(pull, context, first);
+    return this.issues.assignees(pull, context.loaders, first);
   }
 
   @ResolveField(() => LabelConnection, { nullable: true })
@@ -129,7 +96,14 @@ export class PullRequestResolver {
     @Args('last', { type: () => Int, nullable: true }) last?: number,
     @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
-    return this.issues.comments(pull, viewer, context, first, last, after);
+    return this.issues.comments(
+      pull,
+      viewer,
+      context.loaders,
+      first,
+      last,
+      after,
+    );
   }
 
   @ResolveField(() => RepositoryNode)
@@ -137,7 +111,7 @@ export class PullRequestResolver {
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return this.issues.repository(pull, viewer);
+    return this.repositories.load(pull.repositoryGhostId, viewer);
   }
 
   @ResolveField(() => MilestoneNode, { nullable: true })
@@ -163,7 +137,7 @@ export class PullRequestResolver {
     })
     _includeArchived?: boolean,
   ) {
-    return this.issues.projectItems();
+    return sliceConnection([], {});
   }
 
   @ResolveField(() => RefNode, { nullable: true })
@@ -173,21 +147,12 @@ export class PullRequestResolver {
 
   @ResolveField(() => RefNode, { nullable: true })
   headRef(@Parent() pull: PullRequestNode) {
-    return pull.headRepositoryGhostId
-      ? toRefNode(pull.headRepositoryGhostId, pull.headRefName)
-      : null;
+    return this.pulls.headRef(pull);
   }
 
-  /** The branch as it stands while the request is open; what was merged, or last recorded, once it is not. */
   @ResolveField(() => GitObjectID)
-  async headRefOid(@Parent() pull: PullRequestNode) {
-    if (pull.state !== PullRequestState.OPEN) return pull.storedHeadSha;
-    return (
-      (await this.pulls.branchTip(
-        pull.headRepositoryGhostId,
-        pull.headRefName,
-      )) ?? pull.storedHeadSha
-    );
+  headRefOid(@Parent() pull: PullRequestNode) {
+    return this.pulls.headRefOid(pull);
   }
 
   @ResolveField(() => RepositoryNode)
@@ -195,139 +160,94 @@ export class PullRequestResolver {
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return this.repositories.load(pull.baseRepositoryGhostId, viewer);
+    return this.pulls.baseRepository(pull, viewer);
   }
 
-  /** Null once the head repository is deleted, or when the viewer cannot read it, as on GitHub. */
   @ResolveField(() => RepositoryNode, { nullable: true })
   headRepository(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return pull.headRepositoryGhostId
-      ? orNull(this.repositories.load(pull.headRepositoryGhostId, viewer))
-      : null;
+    return this.pulls.headRepository(pull, viewer);
   }
 
   @ResolveField(() => RepositoryOwner, { nullable: true })
-  async headRepositoryOwner(
+  headRepositoryOwner(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    const head = await this.headRepository(pull, viewer);
-    return head ? this.repositories.owner(head, context) : null;
+    return this.pulls.headRepositoryOwner(pull, viewer, context.loaders);
   }
 
   @ResolveField(() => Int)
-  async additions(
+  additions(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return (await this.detail(pull, viewer)).additions;
+    return this.pulls.additions(pull, viewer);
   }
 
   @ResolveField(() => Int)
-  async deletions(
+  deletions(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return (await this.detail(pull, viewer)).deletions;
+    return this.pulls.deletions(pull, viewer);
   }
 
   @ResolveField(() => Int)
-  async changedFiles(
+  changedFiles(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    return (await this.detail(pull, viewer)).changedFiles;
+    return this.pulls.changedFiles(pull, viewer);
   }
 
-  /** GitHub answers UNKNOWN for anything not open, and for a head with nothing to merge. */
   @ResolveField(() => MergeableState)
-  async mergeable(
+  mergeable(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    if (pull.state !== PullRequestState.OPEN) return MergeableState.UNKNOWN;
-    const detail = await this.detail(pull, viewer);
-    if (detail.conflicts.length > 0) return MergeableState.CONFLICTING;
-    return detail.mergeBase && detail.mergeBase !== detail.headSha
-      ? MergeableState.MERGEABLE
-      : MergeableState.UNKNOWN;
+    return this.pulls.mergeable(pull, viewer);
   }
 
   @ResolveField(() => MergeStateStatus)
-  async mergeStateStatus(
+  mergeStateStatus(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    if (pull.state === PullRequestState.OPEN && pull.isDraft)
-      return MergeStateStatus.DRAFT;
-    const mergeable = await this.mergeable(pull, viewer);
-    return mergeable === MergeableState.MERGEABLE
-      ? MergeStateStatus.CLEAN
-      : mergeable === MergeableState.CONFLICTING
-        ? MergeStateStatus.DIRTY
-        : MergeStateStatus.UNKNOWN;
+    return this.pulls.mergeStateStatus(pull, viewer);
   }
 
-  /** Ghost never requires a review, so there is no REVIEW_REQUIRED: a request with no standing verdict has no decision. */
   @ResolveField(() => PullRequestReviewDecision, { nullable: true })
-  async reviewDecision(
+  reviewDecision(
     @Parent() pull: PullRequestNode,
     @Context() context: GraphqlContext,
   ) {
-    const verdicts = (await this.latestReviews(pull, context)).nodes
-      .map((review) => review.state)
-      .filter(
-        (state) =>
-          state === PullRequestReviewState.APPROVED ||
-          state === PullRequestReviewState.CHANGES_REQUESTED,
-      );
-    if (verdicts.includes(PullRequestReviewState.CHANGES_REQUESTED))
-      return PullRequestReviewDecision.CHANGES_REQUESTED;
-    if (verdicts.includes(PullRequestReviewState.APPROVED))
-      return PullRequestReviewDecision.APPROVED;
-    return null;
+    return this.pulls.reviewDecision(pull, context.loaders);
   }
 
   @ResolveField(() => PullRequestReviewConnection, { nullable: true })
-  async reviews(
+  reviews(
     @Parent() pull: PullRequestNode,
     @Context() { loaders }: GraphqlContext,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
     @Args('last', { type: () => Int, nullable: true }) last?: number,
     @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
-    const rows = await loaders.reviewsByPullRequestId.load(
-      pull.pullRequestGhostId,
-    );
-    return sliceConnection(
-      rows.map((row) => toPullRequestReviewNode(row, pull)),
-      { first, last, after },
-    );
+    return this.pulls.reviews(pull, loaders, first, last, after);
   }
 
-  /** Each reviewer's most recent review, in the order they were submitted. */
   @ResolveField(() => PullRequestReviewConnection, { nullable: true })
-  async latestReviews(
+  latestReviews(
     @Parent() pull: PullRequestNode,
     @Context() { loaders }: GraphqlContext,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
     @Args('last', { type: () => Int, nullable: true }) last?: number,
     @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
-    const rows = await loaders.reviewsByPullRequestId.load(
-      pull.pullRequestGhostId,
-    );
-    const latest = new Map(rows.map((row) => [row.authorLogin, row]));
-    return sliceConnection(
-      rows
-        .filter((row) => latest.get(row.authorLogin) === row)
-        .map((row) => toPullRequestReviewNode(row, pull)),
-      { first, last, after },
-    );
+    return this.pulls.latestReviews(pull, loaders, first, last, after);
   }
 
   @ResolveField(() => ReviewRequestConnection, { nullable: true })
@@ -343,61 +263,24 @@ export class PullRequestResolver {
   }
 
   @ResolveField(() => PullRequestChangedFileConnection, { nullable: true })
-  async files(
+  files(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
     @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
-    const { files } = await this.pulls.getFiles({
-      username: pull.ownerLogin,
-      repo: pull.repoSlug,
-      number: pull.number,
-      requesterId: viewer?.userId,
-    });
-    return sliceConnection(
-      files.map((file) => ({
-        path: file.path,
-        additions: file.additions,
-        deletions: file.deletions,
-        changeType: CHANGE_TYPES[file.status] ?? PatchStatus.MODIFIED,
-      })),
-      { first, after },
-    );
+    return this.pulls.files(pull, viewer, first, after);
   }
 
-  /** Oldest first, as GitHub lists them; gh reads the last one for the head's checks. */
   @ResolveField(() => PullRequestCommitConnection)
-  async commits(
+  commits(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
     @Args('first', { type: () => Int, nullable: true }) first?: number,
     @Args('last', { type: () => Int, nullable: true }) last?: number,
     @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
-    const { commits, total } = await this.pulls.getCommits({
-      username: pull.ownerLogin,
-      repo: pull.repoSlug,
-      number: pull.number,
-      requesterId: viewer?.userId,
-      limit: MAX_COMMITS,
-      oldestFirst: true,
-    });
-    const repository = {
-      ghostId: pull.repositoryGhostId,
-      url: pull.repositoryUrl,
-      resourcePath: pull.repositoryResourcePath,
-    };
-    const nodes = commits.map((commit) => ({
-      id: encodeNodeId('PullRequestCommit', `${pull.ghostId}:${commit.sha}`),
-      url: `${pull.url}/commits/${commit.sha}`,
-      resourcePath: `${pull.resourcePath}/commits/${commit.sha}`,
-      commit: toCommitNode(commit, repository),
-    }));
-    return {
-      ...sliceConnection(nodes, { first, last, after }),
-      totalCount: total,
-    };
+    return this.pulls.commits(pull, viewer, first, last, after);
   }
 }
 
@@ -423,16 +306,11 @@ export class CommitResolver {
 @Resolver(() => GitActorNode)
 @AllowAnonymous()
 export class GitActorResolver {
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly pulls: PullRequestNodesService) {}
 
   @ResolveField(() => UserNode, { nullable: true })
-  async user(
-    @Parent() actor: GitActorNode,
-    @Context() { loaders }: GraphqlContext,
-  ) {
-    if (!actor.email) return null;
-    const row = await loaders.usersByEmail.load(actor.email.toLowerCase());
-    return row ? toUserNode(row, githubOrigins(this.config)) : null;
+  user(@Parent() actor: GitActorNode, @Context() { loaders }: GraphqlContext) {
+    return this.pulls.actorUser(actor, loaders);
   }
 }
 
@@ -452,43 +330,24 @@ export class StatusCheckRollupResolver {
 @AllowAnonymous()
 export class PullRequestReviewResolver {
   constructor(
-    private readonly config: ConfigService,
-    private readonly pulls: PullRequestsService,
+    private readonly pulls: PullRequestNodesService,
+    private readonly issues: IssueNodesService,
   ) {}
 
-  /** The head the reviewer read, from git; null once no repository holds it. */
   @ResolveField(() => CommitNode, { nullable: true })
-  async commit(
+  commit(
     @Parent() review: PullRequestReviewNode,
     @Viewer() viewer: GithubViewer | null,
   ) {
-    const { pullRequest: pull } = review;
-    const commit = await this.pulls.readCommit(
-      {
-        username: pull.ownerLogin,
-        repo: pull.repoSlug,
-        number: pull.number,
-        requesterId: viewer?.userId,
-      },
-      review.commitSha,
-    );
-    return (
-      commit &&
-      toCommitNode(commit, {
-        ghostId: pull.repositoryGhostId,
-        url: pull.repositoryUrl,
-        resourcePath: pull.repositoryResourcePath,
-      })
-    );
+    return this.pulls.reviewCommit(review, viewer);
   }
 
   @ResolveField(() => Actor, { nullable: true })
-  async author(
+  author(
     @Parent() review: PullRequestReviewNode,
     @Context() { loaders }: GraphqlContext,
   ) {
-    const row = await loaders.usersByLogin.load(review.authorLogin);
-    return row ? toUserNode(row, githubOrigins(this.config)) : null;
+    return this.issues.author(review, loaders);
   }
 
   @ResolveField(() => [ReactionGroup], { nullable: true })

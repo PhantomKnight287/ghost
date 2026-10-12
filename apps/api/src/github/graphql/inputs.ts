@@ -6,6 +6,7 @@ import {
   IssueState,
   LabelOrderField,
   OrderDirection,
+  ReleaseOrderField,
 } from './enums.js';
 
 // GraphQL already checks every input's types and nullability; @Allow only keeps fields through the global ValidationPipe's whitelist.
@@ -49,6 +50,17 @@ export class LabelOrder {
   @Allow()
   @Field(() => LabelOrderField)
   field: LabelOrderField;
+
+  @Allow()
+  @Field(() => OrderDirection)
+  direction: OrderDirection;
+}
+
+@InputType('ReleaseOrder')
+export class ReleaseOrder {
+  @Allow()
+  @Field(() => ReleaseOrderField)
+  field: ReleaseOrderField;
 
   @Allow()
   @Field(() => OrderDirection)

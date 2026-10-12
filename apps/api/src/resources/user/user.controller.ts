@@ -28,8 +28,6 @@ import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { AVATAR_NAME_PATTERN } from '../../lib/avatars/avatar.constants.js';
-import { AvatarNotFoundError } from '../../lib/avatars/avatar.errors.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import { UploadAvatarResponseDTO } from './dto/avatar.dto.js';
 import {
@@ -88,9 +86,6 @@ export class UserController {
     @Param('name') name: string,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    // Only names this service generates; nothing user-authored reaches S3.
-    if (!AVATAR_NAME_PATTERN.test(name)) throw new AvatarNotFoundError();
-
     const avatar = await this.avatars.get(userId, name);
 
     response.set({

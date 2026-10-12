@@ -1,10 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { IssueResolver } from '../issue/issue.resolver.js';
-import { ConfigService } from '@nestjs/config';
-import { DATABASE } from '../../../../database/database.module.js';
-import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
-import { IssuesService } from '../../../../resources/issues/issues.service.js';
+import { Test, type TestingModule } from '@nestjs/testing';
+
 import { RepositoryResolver } from './repository.resolver.js';
+import { RepositoryNodesService } from './repository-nodes.service.js';
 
 describe('RepositoryResolver', () => {
   let resolver: RepositoryResolver;
@@ -13,11 +10,7 @@ describe('RepositoryResolver', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RepositoryResolver,
-        { provide: DATABASE, useValue: {} },
-        { provide: RepositoryAccessService, useValue: {} },
-        { provide: ConfigService, useValue: {} },
-        { provide: IssuesService, useValue: {} },
-        { provide: IssueResolver, useValue: {} },
+        { provide: RepositoryNodesService, useValue: {} },
       ],
     }).compile();
 

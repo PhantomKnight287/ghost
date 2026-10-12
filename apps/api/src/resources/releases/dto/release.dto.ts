@@ -2,18 +2,20 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsISO8601,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
-  Max,
   Matches,
+  Max,
   MaxLength,
   Min,
   MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+
+import { MEDIA_TYPE } from '../../../lib/releases/release-assets.js';
 
 export class ReleaseAssetDTO {
   @ApiProperty()
@@ -57,7 +59,7 @@ export class UploadReleaseAssetQueryDTO {
   })
   @IsString()
   @IsOptional()
-  @Matches(/^[\w.+-]+\/[\w.+-]+$/)
+  @Matches(MEDIA_TYPE)
   type?: string;
 }
 

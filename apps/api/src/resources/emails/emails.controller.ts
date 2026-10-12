@@ -63,12 +63,7 @@ export class EmailsController {
     description: 'Redirects to the web app either way; the link is single use.',
   })
   async verify(@Query('token') token: string) {
-    try {
-      await this.emails.verify(token ?? '');
-      return { url: this.emails.settingsUrl('verified') };
-    } catch {
-      return { url: this.emails.settingsUrl('invalid') };
-    }
+    return { url: await this.emails.verifyLink(token ?? '') };
   }
 
   @Post(':id/resend')

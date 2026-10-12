@@ -1,7 +1,6 @@
 import { type Database, schema } from '@ghost/db';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Request, Response } from 'express';
 import {
   and,
   asc,
@@ -16,16 +15,18 @@ import {
 import { DATABASE } from '../../../database/database.module.js';
 import { isoTimestamp } from '../../../lib/db/sql.js';
 import {
+  GithubNotFoundError,
   GithubValidationError,
   RequiresAuthenticationError,
 } from '../../../lib/github/github.errors.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
 import {
   type IssueExtras,
-  linkHeader,
-  type Page,
+  labelNamesOf,
+  pageOf,
   type RestCommentSource,
   type RestContext,
+  RestPage,
   toCommentRest,
   toIssueRest,
   toLabelRest,
@@ -35,11 +36,20 @@ import { UserNotFoundError } from '../../../lib/users/users.errors.js';
 import type { IssueDTO } from '../../../resources/issues/dto/issue.dto.js';
 import type { LabelDTO } from '../../../resources/issues/dto/label.dto.js';
 import { IssuesService } from '../../../resources/issues/issues.service.js';
-import type { GithubViewer } from '../../auth/github-request.js';
+import type {
+  GithubRepositoryTarget,
+  GithubViewer,
+} from '../../auth/github-request.js';
 import { requireWriteScope } from '../../auth/require-scopes.js';
 import { RepositoryPermission } from '../../graphql/enums.js';
-import { RepositoryResolver } from '../../graphql/resolvers/repository/repository.resolver.js';
+import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
 import type { RepositoryNode } from '../../graphql/types/repository.type.js';
+import type {
+  GithubCreateIssueDTO,
+  GithubListIssuesQueryDTO,
+  GithubPageQueryDTO,
+  GithubUpdateIssueDTO,
+} from './dto/issue.dto.js';
 
 const TRIAGE_OR_ABOVE: (RepositoryPermission | null)[] = [
   RepositoryPermission.ADMIN,
@@ -67,9 +77,263 @@ export class GithubIssuesService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly issueService: IssuesService,
-    private readonly repositories: RepositoryResolver,
+    private readonly repositories: RepositoryNodesService,
     private readonly config: ConfigService,
   ) {}
+
+  async listIssues(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    query: GithubListIssuesQueryDTO,
+  ) {
+    const repository = await this.readable(owner, repo, viewer);
+    const page = pageOf(query);
+    const state = query.state ?? 'open';
+    const anyOrNone = query.assignee === '*' || query.assignee === 'none';
+    const list = await this.issueService.getIssues(
+      {
+        ...this.ref(repository, viewer),
+        query: {
+          state,
+          labels: query.labels,
+          author: query.creator,
+          assignee: anyOrNone ? undefined : query.assignee,
+          sort: query.sort,
+          direction: query.direction,
+          limit: page.perPage,
+        },
+      },
+      {
+        offset: page.offset,
+        includePullRequests: true,
+        since: query.since ? new Date(query.since) : undefined,
+        assigned: anyOrNone ? query.assignee === '*' : undefined,
+      },
+    );
+    return new RestPage(
+      await this.issues(repository, list.issues),
+      page,
+      state === 'open'
+        ? list.openCount
+        : state === 'closed'
+          ? list.closedCount
+          : list.total,
+    );
+  }
+
+  /** Labels and assignees from someone who cannot triage are dropped, as on GitHub. */
+  async createIssue(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    body: GithubCreateIssueDTO,
+  ) {
+    const { repository, viewer: signedIn } = await this.writable(
+      owner,
+      repo,
+      viewer,
+      'POST /repos/:owner/:repo/issues',
+    );
+    if (body.milestone !== undefined && body.milestone !== null)
+      throw new GithubValidationError([
+        { resource: 'Issue', field: 'milestone', code: 'invalid' },
+      ]);
+    const triage = this.canTriage(repository);
+    const labels =
+      triage && body.labels !== undefined ? labelNamesOf(body.labels) : [];
+    await this.ensureLabels(repository, signedIn, labels);
+    const created = await this.assigning(() =>
+      this.issueService.createIssue({
+        username: repository.ownerLogin,
+        repo: repository.slug,
+        requesterId: signedIn.userId,
+        body: {
+          title: body.title,
+          body: body.body ?? undefined,
+          labels,
+          assignees: triage
+            ? [
+                ...(body.assignees ?? []),
+                ...(body.assignee ? [body.assignee] : []),
+              ]
+            : [],
+        },
+      }),
+    );
+    return this.issue(repository, created);
+  }
+
+  async getIssue(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+  ) {
+    const repository = await this.readable(owner, repo, viewer);
+    return this.issue(
+      repository,
+      await this.issueService.getIssue({
+        ...this.ref(repository, viewer),
+        number,
+      }),
+    );
+  }
+
+  async updateIssue(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    body: GithubUpdateIssueDTO,
+  ) {
+    const { repository, viewer: signedIn } = await this.writable(
+      owner,
+      repo,
+      viewer,
+      'PATCH /repos/:owner/:repo/issues/:number',
+    );
+    if (body.milestone !== undefined && body.milestone !== null)
+      throw new GithubValidationError([
+        { resource: 'Issue', field: 'milestone', code: 'invalid' },
+      ]);
+    const ref = {
+      ...this.ref(repository, signedIn),
+      number,
+      requesterId: signedIn.userId,
+    };
+    const current = await this.issueService.getIssue(ref);
+    const triage = this.canTriage(repository);
+    const labels =
+      triage && body.labels !== undefined ? labelNamesOf(body.labels) : null;
+    if (body.title !== undefined || body.body !== undefined)
+      await this.issueService.updateIssue({
+        ...ref,
+        body: { title: body.title, body: body.body },
+      });
+    // Closing a closed issue is a no-op on GitHub; Ghost refuses it.
+    if (body.state === 'closed' && current.state === 'open')
+      await this.issueService.closeIssue(ref);
+    if (body.state === 'open' && current.state === 'closed')
+      await this.issueService.reopenIssue(ref);
+    if (labels) {
+      await this.ensureLabels(repository, signedIn, labels);
+      await this.issueService.setIssueLabels({ ...ref, names: labels });
+    }
+    if (triage && (body.assignees !== undefined || body.assignee !== undefined))
+      await this.assigning(() =>
+        this.issueService.setIssueAssignees({
+          ...ref,
+          usernames: [
+            ...(body.assignees ?? []),
+            ...(body.assignee ? [body.assignee] : []),
+          ],
+        }),
+      );
+    return this.issue(repository, await this.issueService.getIssue(ref));
+  }
+
+  addAssignees(
+    target: GithubRepositoryTarget,
+    number: number,
+    logins: string[],
+  ) {
+    return this.changeAssignees(
+      target,
+      number,
+      'POST /repos/:owner/:repo/issues/:number/assignees',
+      (current) => [...current, ...logins],
+    );
+  }
+
+  removeAssignees(
+    target: GithubRepositoryTarget,
+    number: number,
+    logins: string[],
+  ) {
+    return this.changeAssignees(
+      target,
+      number,
+      'DELETE /repos/:owner/:repo/issues/:number/assignees',
+      (current) => current.filter((login) => !logins.includes(login)),
+    );
+  }
+
+  /** Add and remove are a read, then a full replacement through IssuesService. */
+  private async changeAssignees(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    route: string,
+    next: (current: string[]) => string[],
+  ) {
+    const { repository, viewer: signedIn } = await this.writable(
+      owner,
+      repo,
+      viewer,
+      route,
+    );
+    const ref = {
+      ...this.ref(repository, signedIn),
+      number,
+      requesterId: signedIn.userId,
+    };
+    const current = await this.issueService.getIssue(ref);
+    // ponytail: read then replace; two concurrent adds can lose one. Add IssuesService.addIssueAssignees if that bites.
+    if (this.canTriage(repository))
+      await this.assigning(() =>
+        this.issueService.setIssueAssignees({
+          ...ref,
+          usernames: next(current.assignees),
+        }),
+      );
+    return this.issue(repository, await this.issueService.getIssue(ref));
+  }
+
+  async canBeAssignedToIssue(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    assignee: string,
+  ) {
+    const repository = await this.readable(owner, repo, viewer);
+    await this.issueService.getIssue({
+      ...this.ref(repository, viewer),
+      number,
+    });
+    await this.requireUser(assignee);
+  }
+
+  async canBeAssigned(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    assignee: string,
+  ) {
+    await this.readable(owner, repo, viewer);
+    await this.requireUser(assignee);
+  }
+
+  /** People with access to the repository: its owner, accepted collaborators and organization members. */
+  async listAssignees(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    query: GithubPageQueryDTO,
+  ) {
+    const repository = await this.readable(owner, repo, viewer);
+    const page = pageOf(query);
+    const where = and(
+      isNotNull(schema.user.username),
+      sql`${schema.user.id} in (
+        select ${repository.ownerGhostId}::text
+        union select user_id from repository_collaborator where repository_id = ${repository.ghostId} and accepted_at is not null
+        union select user_id from member where organization_id = ${repository.organizationGhostId}
+      )`,
+    );
+    const [users, [total]] = await Promise.all([
+      this.db
+        .select(restUserColumns)
+        .from(schema.user)
+        .where(where)
+        .orderBy(asc(schema.user.username))
+        .limit(page.perPage)
+        .offset(page.offset),
+      this.db.select({ total: count() }).from(schema.user).where(where),
+    ]);
+    const origins = githubOrigins(this.config);
+    return new RestPage(
+      users.map((user) => toUserRest(user, origins)),
+      page,
+      total?.total ?? 0,
+    );
+  }
 
   /** The repository behind a REST path, as the viewer may see it: 404 when private and unreadable, or when the token lacks `repo`. */
   readable(owner: string, repo: string, viewer: GithubViewer | null) {
@@ -95,13 +359,6 @@ export class GithubIssuesService {
       repo: repository.slug,
       requesterId: viewer?.userId,
     };
-  }
-
-  /** Sets GitHub's `Link` header for a page of `total` items, linking back to the URL that was asked for. */
-  link(request: Request, response: Response, page: Page, total: number) {
-    const url = new URL(request.originalUrl, githubOrigins(this.config).api);
-    const link = linkHeader(url, page, total);
-    if (link) response.setHeader('Link', link);
   }
 
   /** GitHub drops labels and assignees sent by someone who cannot triage, where Ghost would refuse the whole write. */
@@ -172,7 +429,7 @@ export class GithubIssuesService {
       .innerJoin(schema.issue, eq(schema.issue.id, schema.issueComment.issueId))
       .innerJoin(schema.user, eq(schema.user.id, schema.issueComment.authorId))
       .where(and(condition, eq(schema.issue.repositoryId, repository.ghostId)));
-    if (!comment) throw new NotFoundException();
+    if (!comment) throw new GithubNotFoundError();
     return comment;
   }
 
@@ -182,7 +439,7 @@ export class GithubIssuesService {
       .select({ id: schema.user.id })
       .from(schema.user)
       .where(eq(schema.user.username, login));
-    if (!user) throw new NotFoundException();
+    if (!user) throw new GithubNotFoundError();
   }
 
   async labelByName(
@@ -194,7 +451,7 @@ export class GithubIssuesService {
       this.ref(repository, viewer),
     );
     const label = labels.find((candidate) => candidate.name === name);
-    if (!label) throw new NotFoundException();
+    if (!label) throw new GithubNotFoundError();
     return label;
   }
 
@@ -237,33 +494,6 @@ export class GithubIssuesService {
         ]);
       throw error;
     }
-  }
-
-  /** People with access to the repository: its owner, accepted collaborators and organization members. */
-  async assignees(repository: RepositoryNode, page: Page) {
-    const where = and(
-      isNotNull(schema.user.username),
-      sql`${schema.user.id} in (
-        select ${repository.ownerGhostId}::text
-        union select user_id from repository_collaborator where repository_id = ${repository.ghostId} and accepted_at is not null
-        union select user_id from member where organization_id = ${repository.organizationGhostId}
-      )`,
-    );
-    const [users, [total]] = await Promise.all([
-      this.db
-        .select(restUserColumns)
-        .from(schema.user)
-        .where(where)
-        .orderBy(asc(schema.user.username))
-        .limit(page.perPage)
-        .offset(page.offset),
-      this.db.select({ total: count() }).from(schema.user).where(where),
-    ]);
-    const origins = githubOrigins(this.config);
-    return {
-      users: users.map((user) => toUserRest(user, origins)),
-      total: total?.total ?? 0,
-    };
   }
 
   /** The users and label ids the responses for `related` embed, loaded once. */

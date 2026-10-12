@@ -1,3 +1,7 @@
+import path from 'node:path';
+
+import type { Database } from '@ghost/db';
+import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
 import {
   MiddlewareConsumer,
   Module,
@@ -5,33 +9,41 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
-import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
-import { DATABASE, DatabaseModule } from '../database/database.module.js';
-import type { Database } from '@ghost/db';
-import path from 'node:path';
 import type { Request, Response } from 'express';
-import { createLoaders } from '../lib/github/loaders.js';
-import { ViewerResolver } from './graphql/resolvers/viewer/viewer.resolver.js';
-import { MetaModule } from './rest/meta/meta.module.js';
-import { UsersModule } from './rest/users/users.module.js';
-import { GithubAuthMiddleware } from './auth/github-auth.middleware.js';
 import { GraphQLFormattedError } from 'graphql';
 import { GraphQLError } from 'graphql/error';
+
+import { DATABASE, DatabaseModule } from '../database/database.module.js';
 import { DomainError } from '../domain/errors.js';
 import { graphqlErrorType } from '../lib/github/error-type.js';
+import { createLoaders } from '../lib/github/loaders.js';
 import { githubValidationPlugin } from '../lib/github/validation.js';
-import { ReposModule } from './rest/repos/repos.module.js';
 import { IssuesModule } from '../resources/issues/issues.module.js';
-import { RepositoriesModule } from '../resources/repositories/repositories.module.js';
-import { IssueCommentResolver } from './graphql/resolvers/issue-comment/issue-comment.resolver.js';
-import { SearchResolver } from './graphql/resolvers/search/search.resolver.js';
-import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issue-mutations.resolver.js';
-import { RepositoryMutationsResolver } from './graphql/resolvers/repository-mutations/repository-mutations.resolver.js';
-import { OauthModule } from './oauth/oauth.module.js';
-import { GithubIssuesModule } from './rest/issues/issues.module.js';
-import { GithubPullsModule } from './rest/pulls/pulls.module.js';
-import { PullRequestMutationsResolver } from './graphql/resolvers/pull-request-mutations/pull-request-mutations.resolver.js';
 import { PullRequestsModule } from '../resources/pull-requests/pull-requests.module.js';
+import { ReleasesModule } from '../resources/releases/releases.module.js';
+import { RepositoriesModule } from '../resources/repositories/repositories.module.js';
+import { GithubAuthMiddleware } from './auth/github-auth.middleware.js';
+import { IssueCommentResolver } from './graphql/resolvers/issue-comment/issue-comment.resolver.js';
+import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issue-mutations.resolver.js';
+import { IssueMutationsService } from './graphql/resolvers/issue-mutations/issue-mutations.service.js';
+import { PullRequestMutationsResolver } from './graphql/resolvers/pull-request-mutations/pull-request-mutations.resolver.js';
+import { PullRequestMutationsService } from './graphql/resolvers/pull-request-mutations/pull-request-mutations.service.js';
+import { RepositoryReleasesResolver } from './graphql/resolvers/release/release.resolver.js';
+import { ReleaseNodesService } from './graphql/resolvers/release/release-nodes.service.js';
+import { RepositoryMutationsResolver } from './graphql/resolvers/repository-mutations/repository-mutations.resolver.js';
+import { RepositoryMutationsService } from './graphql/resolvers/repository-mutations/repository-mutations.service.js';
+import { SearchResolver } from './graphql/resolvers/search/search.resolver.js';
+import { GithubSearchService } from './graphql/resolvers/search/search.service.js';
+import { ViewerResolver } from './graphql/resolvers/viewer/viewer.resolver.js';
+import { ViewerService } from './graphql/resolvers/viewer/viewer.service.js';
+import { OauthModule } from './oauth/oauth.module.js';
+import { GithubGitModule } from './rest/git/git.module.js';
+import { GithubIssuesModule } from './rest/issues/issues.module.js';
+import { MetaModule } from './rest/meta/meta.module.js';
+import { GithubPullsModule } from './rest/pulls/pulls.module.js';
+import { GithubReleasesModule } from './rest/releases/releases.module.js';
+import { ReposModule } from './rest/repos/repos.module.js';
+import { UsersModule } from './rest/users/users.module.js';
 
 @Module({
   imports: [
@@ -85,6 +97,9 @@ import { PullRequestsModule } from '../resources/pull-requests/pull-requests.mod
     RepositoriesModule,
     OauthModule,
     PullRequestsModule,
+    ReleasesModule,
+    GithubReleasesModule,
+    GithubGitModule,
   ],
   providers: [
     ViewerResolver,
@@ -93,6 +108,13 @@ import { PullRequestsModule } from '../resources/pull-requests/pull-requests.mod
     IssueMutationsResolver,
     RepositoryMutationsResolver,
     PullRequestMutationsResolver,
+    RepositoryReleasesResolver,
+    ViewerService,
+    GithubSearchService,
+    IssueMutationsService,
+    RepositoryMutationsService,
+    PullRequestMutationsService,
+    ReleaseNodesService,
   ],
 })
 export class GithubModule implements NestModule {
@@ -103,6 +125,7 @@ export class GithubModule implements NestModule {
         { path: 'graphql', method: RequestMethod.ALL },
         { path: 'v3', method: RequestMethod.ALL },
         { path: 'v3/*path', method: RequestMethod.ALL },
+        { path: 'uploads/*path', method: RequestMethod.ALL },
       );
   }
 }

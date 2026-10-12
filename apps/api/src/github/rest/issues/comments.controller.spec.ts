@@ -1,8 +1,8 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 
-import { IssuesService } from '../../../resources/issues/issues.service.js';
 import { CommentsController } from './comments.controller.js';
-import { GithubIssuesService } from './issues.service.js';
+import { GithubCommentsService } from './comments.service.js';
 
 describe('CommentsController', () => {
   let controller: CommentsController;
@@ -11,8 +11,8 @@ describe('CommentsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CommentsController],
       providers: [
-        { provide: GithubIssuesService, useValue: {} },
-        { provide: IssuesService, useValue: {} },
+        { provide: GithubCommentsService, useValue: {} },
+        { provide: ConfigService, useValue: {} },
       ],
     }).compile();
 

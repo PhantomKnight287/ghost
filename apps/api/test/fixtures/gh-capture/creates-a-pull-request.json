@@ -3,6 +3,18 @@
     "command": "gh pr create -R <host>/<login>/tools --head feature --base main --title Add a feature --body Body from gh",
     "requests": [
       {
+        "method": "GET",
+        "path": "/api/v3/meta",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      },
+      {
         "method": "POST",
         "path": "/api/graphql",
         "query": {},
@@ -67,6 +79,21 @@
               "OPEN"
             ]
           }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query Issue_fields{Issue: __type(name: \"Issue\"){fields(includeDeprecated: true){name}}}"
         },
         "status": 200
       }

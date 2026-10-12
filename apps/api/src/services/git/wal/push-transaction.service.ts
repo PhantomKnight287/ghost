@@ -1,12 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import type { GitRequestBody } from '../../../lib/git/protocol/git-request-body.js';
+import { Injectable, Logger } from '@nestjs/common';
 
-import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
-import { WalStoreService } from './wal-store.service.js';
+import type { GitRequestBody } from '../../../lib/git/protocol/git-request-body.js';
+import {
+  directoryConflict,
+  isWellFormedRef,
+} from '../../../lib/git/refs/is-valid-ref-name.js';
+import { createUlid } from '../../../lib/git/wal/ulid.js';
 import {
   NonFastForwardError,
   RepositoryDeletedError,
@@ -14,22 +17,19 @@ import {
   WalContentionError,
 } from '../../../lib/git/wal/wal.errors.js';
 import {
-  directoryConflict,
-  isWellFormedRef,
-} from '../../../lib/git/refs/is-valid-ref-name.js';
-import {
   applyTransitions,
   emptyIndex,
-  ZERO_OID,
   type RefTransition,
   type WalIndex,
+  ZERO_OID,
 } from '../../../lib/git/wal/wal.types.js';
-import { createUlid } from '../../../lib/git/wal/ulid.js';
+import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
 import {
   pushBytesTotal,
   pushesTotal,
   refUpdatesTotal,
 } from '../../../lib/metrics.js';
+import { WalStoreService } from './wal-store.service.js';
 
 const MAX_ATTEMPTS = 8;
 const BASE_BACKOFF_MS = 50;
@@ -154,7 +154,8 @@ export class PushTransactionService {
       }
 
       this.logger.debug(`CAS lost for ${repoId}, attempt ${attempt + 1}`);
-      await sleep(backoffMs(attempt));
+      const ceiling = Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS);
+      await sleep(Math.round(ceiling * (0.5 + Math.random())));
     }
 
     throw new WalContentionError(repoId);
@@ -176,9 +177,4 @@ function seqOfLayer(index: WalIndex, ulid: string) {
     index.layers.findIndex((layer) => layer.ulid === ulid) +
     1
   );
-}
-
-function backoffMs(attempt: number) {
-  const ceiling = Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS);
-  return Math.round(ceiling * (0.5 + Math.random()));
 }

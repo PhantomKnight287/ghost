@@ -1,11 +1,19 @@
 import { randomUUID } from 'node:crypto';
+
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
+import {
+  DeliveryNotFoundError,
+  InvalidWebhookUrlError,
+  WebhookNotFoundError,
+  WebhooksNotConfiguredError,
+} from '../../lib/webhooks/webhooks.errors.js';
 import {
   newWebhookSecret,
   sealWebhookSecret,
@@ -16,14 +24,7 @@ import {
 } from '../../lib/webhooks/webhooks.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
-import { isoTimestamp } from '../../lib/db/sql.js';
 import type { DeliveryAttemptDTO } from './dto/webhook.dto.js';
-import {
-  DeliveryNotFoundError,
-  InvalidWebhookUrlError,
-  WebhookNotFoundError,
-  WebhooksNotConfiguredError,
-} from '../../lib/webhooks/webhooks.errors.js';
 
 const DELIVERY_LOG_LENGTH = 50;
 
@@ -102,7 +103,8 @@ export class WebhooksService {
     { url, events }: { url: string; events: WebhookEvent[] },
   ) {
     if (!this.key) throw new WebhooksNotConfiguredError();
-    await this.checkUrl(url);
+    const problem = await webhookUrlProblem(url, this.allowPrivate);
+    if (problem) throw new InvalidWebhookUrlError(problem);
 
     const secret = newWebhookSecret();
     const [webhook] = await this.db
@@ -125,7 +127,10 @@ export class WebhooksService {
     changes: { url?: string; events?: WebhookEvent[]; active?: boolean },
   ) {
     await this.find(owner, webhookId);
-    if (changes.url !== undefined) await this.checkUrl(changes.url);
+    if (changes.url !== undefined) {
+      const problem = await webhookUrlProblem(changes.url, this.allowPrivate);
+      if (problem) throw new InvalidWebhookUrlError(problem);
+    }
 
     const [webhook] = await this.db
       .update(schema.webhookEndpoint)
@@ -232,11 +237,6 @@ export class WebhooksService {
       .where(and(eq(schema.webhookEndpoint.id, webhookId), ownedBy(owner)));
     if (!webhook) throw new WebhookNotFoundError();
     return webhook;
-  }
-
-  private async checkUrl(url: string) {
-    const problem = await webhookUrlProblem(url, this.allowPrivate);
-    if (problem) throw new InvalidWebhookUrlError(problem);
   }
 }
 
