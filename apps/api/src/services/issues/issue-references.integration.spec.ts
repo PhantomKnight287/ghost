@@ -339,6 +339,34 @@ describe.skipIf(!CONNECTION)('issue references', () => {
     );
   });
 
+  it('reports a merged pull request as merged rather than closed', async () => {
+    const target = await open('target', null);
+    for (const state of ['merged', 'closed', 'open'] as const) {
+      const pull = await open(state, 'see #1', true);
+      await db.insert(schema.pullRequest).values({
+        issueId: pull.id,
+        baseRepositoryId: repository.id,
+        baseRef: 'main',
+        headRepositoryId: repository.id,
+        headRef: state,
+        headSha: 'dddd',
+        state,
+      });
+      if (state !== 'open')
+        await db
+          .update(schema.issue)
+          .set({ state: 'closed' })
+          .where(eq(schema.issue.id, pull.id));
+    }
+
+    const mentions = await references.mentionsOf(target.id, null);
+    expect(
+      Object.fromEntries(
+        mentions.map(({ source }) => [source?.title, source?.state]),
+      ),
+    ).toEqual({ merged: 'merged', closed: 'closed', open: 'open' });
+  });
+
   it('lists issues without pull requests', async () => {
     await open('issue', null);
     await open('pr', null, true);

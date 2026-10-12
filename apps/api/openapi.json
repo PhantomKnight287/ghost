@@ -17196,10 +17196,11 @@
             "type": "string"
           },
           "state": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/IssueState"
-              }
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "merged"
             ]
           },
           "isPullRequest": {
