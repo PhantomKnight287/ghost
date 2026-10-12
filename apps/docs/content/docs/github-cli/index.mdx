@@ -131,6 +131,7 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - Deleting an app revokes its keys for every user. Deleting an organization deletes its apps and their keys.
 - A **Verified** check on the approval page means the instance's operators vouch for the app. Only an operator sets it, through `oauth_client.metadata.verified` in the database. `gh` is verified.
 - Under **Settings → Authorized apps**, users see every app holding a key for their account, `gh` included, and revoke it. Revoking deletes their keys for that app, and the app asks for consent again next time.
+- An organization can restrict OAuth apps under `<web>/<org>/settings/oauth-app-access`, as GitHub's "OAuth app access restrictions" do. While restrictions are on, a key issued to an OAuth app reaches none of the organization's repositories, over GraphQL, REST or git, until an admin approves the app: the repository answers as if it did not exist, and creating a repository in the organization is refused. `gh`, other apps built into Ghost and the organization's own apps are always allowed, and keys made in Ghost's settings are not affected. Members ask for an app on the approval screen or under **Settings → Authorized apps**; admins approve or deny it, and revoking an approval blocks the app again on its next request, refreshed keys included.
 
 ## Known differences
 
@@ -147,6 +148,7 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - OAuth apps always have a client secret. Public clients that authenticate with PKCE alone are not supported.
 - OAuth apps can turn on expiring user tokens with refresh tokens. GitHub offers them only to GitHub Apps. `gh`'s built-in app keeps tokens that never expire.
 - Without `repo`, a private repository answers as if it did not exist.
+- An OAuth app an organization keeps out cannot read even the organization's public repositories. GitHub still lets it read public ones.
 - Only a comment's author can edit it. On GitHub, people with write access can too.
 - `state_reason` is accepted and not stored; a closed issue answers `completed`.
 - A comment's `html_url` ends in `#issuecomment-` and Ghost's id for the comment, not its integer id, so the link opens on the comment in Ghost.

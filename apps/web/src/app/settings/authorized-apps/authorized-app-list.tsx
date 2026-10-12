@@ -1,20 +1,14 @@
 "use client";
 
-import {
-  BookLock,
-  Building2,
-  Globe,
-  KeyRound,
-  ShieldCheck,
-  Trash2,
-  UserRound,
-} from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { Fragment } from "react";
 import { toast } from "sonner";
 
 import { revokeAuthorizedApp } from "@/components/oauth-apps/actions";
+import { OrganizationAccess } from "@/components/oauth-apps/organization-access";
+import { ScopeList } from "@/components/oauth-apps/scope-list";
 import {
   Accordion,
   AccordionContent,
@@ -57,15 +51,6 @@ import type { components } from "@/lib/api/v1";
 import { describeScope, ScopeGroup } from "@/lib/oauth-scopes";
 
 type AuthorizedApp = components["schemas"]["AuthorizedOauthAppDTO"];
-
-const GROUP_ICONS: Record<ScopeGroup, typeof BookLock> = {
-  repo: BookLock,
-  org: Building2,
-  user: UserRound,
-  key: KeyRound,
-  delete: Trash2,
-  other: Globe,
-};
 
 /** Apps holding a token for this account, gh included, each revocable. */
 export function AuthorizedAppList({ apps }: { apps: AuthorizedApp[] }) {
@@ -140,37 +125,16 @@ function AuthorizedAppRow({ app }: { app: AuthorizedApp }) {
               View permissions
             </AccordionTrigger>
             <AccordionContent className="pt-1.5">
-              {app.scopes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  It can only see information that is already public.
-                </p>
-              ) : (
-                <ul className="ml-1.5 flex flex-col gap-4 border-l pb-1 pl-4">
-                  {app.scopes.map((scope) => {
-                    const { title, detail, group } = describeScope(scope);
-                    const Icon = GROUP_ICONS[group];
-                    return (
-                      <li key={scope} className="flex gap-3">
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
-                          <Icon aria-hidden className="size-4" />
-                        </span>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="text-sm font-medium">{title}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {detail}
-                          </span>
-                          <code className="mt-0.5 font-mono text-xs text-muted-foreground/80">
-                            {scope}
-                          </code>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+              <ScopeList
+                scopes={app.scopes}
+                className="ml-1.5 border-l pb-1 pl-4"
+              />
             </AccordionContent>
           </AccordionItem>
         </Accordion>
+        <div className="mt-2">
+          <OrganizationAccess clientId={app.clientId} />
+        </div>
       </ItemContent>
       <ItemActions>
         <AlertDialog>

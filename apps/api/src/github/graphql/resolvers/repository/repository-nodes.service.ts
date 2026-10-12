@@ -21,6 +21,8 @@ import {
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import { hasScope } from '../../../../lib/github/scopes.js';
+import { oauthAppBlocked } from '../../../../lib/organizations/oauth-app-access.js';
+import type { AuthorizedRepository } from '../../../../lib/repositories/access/repository-access.js';
 import { ownerNameOf } from '../../../../lib/repositories/access/repository-access.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
 import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
@@ -54,15 +56,11 @@ export class RepositoryNodesService {
       name,
       requesterId: viewer?.userId,
     });
-    // A token without `repo` cannot see private repositories at all, as on GitHub: they read as missing, not forbidden.
-    if (
-      row.visibility === 'private' &&
-      viewer &&
-      !hasScope(viewer.scopes, 'repo')
-    )
-      throw new CouldNotResolveError(
-        `Could not resolve to a Repository with the name '${owner}/${name}'.`,
-      );
+    await this.refuseUnreachable(
+      row,
+      viewer,
+      `Could not resolve to a Repository with the name '${owner}/${name}'.`,
+    );
     return this.toNode(row.id, row);
   }
 
@@ -80,15 +78,31 @@ export class RepositoryNodesService {
       repositoryId,
       requesterId: viewer?.userId,
     });
-    if (
-      row.visibility === 'private' &&
-      viewer &&
-      !hasScope(viewer.scopes, 'repo')
-    )
-      throw new CouldNotResolveError(
-        `Could not resolve to a node with the global id of '${encodeNodeId('Repository', repositoryId)}'`,
-      );
+    await this.refuseUnreachable(
+      row,
+      viewer,
+      `Could not resolve to a node with the global id of '${encodeNodeId('Repository', repositoryId)}'`,
+    );
     return this.toNode(repositoryId, row);
+  }
+
+  /** What the viewer may read, the token can still miss: a token without `repo` cannot see private repositories at all, and an OAuth app an organization has not approved cannot see the organization's repositories. Both read as missing, not forbidden, as on GitHub. */
+  private async refuseUnreachable(
+    row: AuthorizedRepository,
+    viewer: GithubViewer | null,
+    message: string,
+  ) {
+    if (!viewer) return;
+    if (
+      (row.visibility === 'private' && !hasScope(viewer.scopes, 'repo')) ||
+      (viewer.oauthClientId &&
+        row.organizationId &&
+        (await oauthAppBlocked(this.db, {
+          clientId: viewer.oauthClientId,
+          organizationId: row.organizationId,
+        })))
+    )
+      throw new CouldNotResolveError(message);
   }
 
   async owner(repository: RepositoryNode, loaders: Loaders) {

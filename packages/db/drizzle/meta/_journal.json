@@ -393,6 +393,13 @@
       "when": 1791796129695,
       "tag": "0055_vengeful_blacklash",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791801414640,
+      "tag": "0056_smiling_king_cobra",
+      "breakpoints": true
     }
   ]
 }

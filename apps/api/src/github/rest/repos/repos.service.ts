@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import type { Database } from '@ghost/db';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { DATABASE } from '../../../database/database.module.js';
 import { findReadmePath } from '../../../lib/git/blob/find-readme.js';
 import { isTextBlob, readBlob } from '../../../lib/git/blob/read-blob.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
@@ -10,6 +12,7 @@ import {
 } from '../../../lib/github/github.errors.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
 import { toRepositoryRest } from '../../../lib/github/rest.js';
+import { requireOauthAppAllowed } from '../../../lib/organizations/oauth-app-access.js';
 import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
 import { RepositoryMaterializerService } from '../../../services/git/materializer/repository-materializer.service.js';
 import type {
@@ -24,6 +27,7 @@ import type { GithubCreateRepositoryDTO } from './dto/create-repository.dto.js';
 @Injectable()
 export class GithubReposService {
   constructor(
+    @Inject(DATABASE) private readonly db: Database,
     private readonly repositoryNodes: RepositoryNodesService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly repositories: RepositoriesService,
@@ -72,6 +76,8 @@ export class GithubReposService {
     requireWriteScope(viewer, route, {
       isPrivate: visibility === 'private',
     });
+    if (organization && viewer.oauthClientId)
+      await requireOauthAppAllowed(this.db, viewer.oauthClientId, organization);
     const created = await this.repositories.createRepository(
       {
         name: body.name,

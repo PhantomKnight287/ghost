@@ -1,21 +1,24 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import type { Database } from '@ghost/db';
+import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import type { NextFunction, Request, Response } from 'express';
 
+import { DATABASE } from '../../../database/database.module.js';
 import type { Auth } from '../../../lib/auth.js';
-import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
-import {
-  AuthenticationRequiredError,
-  RepositoryForbiddenError,
-} from '../../../lib/repositories/access/repository-access.errors.js';
-import { hasScope, scopesOfKey } from '../../../lib/github/scopes.js';
-import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
-import { type Actor } from '../../../lib/repositories/access/repository-access.js';
 import {
   type LfsTokenClaims,
   verifyLfsToken,
 } from '../../../lib/git/lfs/lfs-token.js';
+import { hasScope, scopesOfKey } from '../../../lib/github/scopes.js';
+import { oauthAppBlocked } from '../../../lib/organizations/oauth-app-access.js';
+import {
+  AuthenticationRequiredError,
+  RepositoryForbiddenError,
+} from '../../../lib/repositories/access/repository-access.errors.js';
+import { type Actor } from '../../../lib/repositories/access/repository-access.js';
+import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
+import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
 import { GitAuthenticatedBufferedRequest } from '../../types.js';
 
 /** Runs before the body is spooled, so a rejected push never reaches disk. */
@@ -26,6 +29,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
   constructor(
     private readonly auth: AuthService<Auth>,
     private readonly access: RepositoryAccessService,
+    @Inject(DATABASE) private readonly db: Database,
     config: ConfigService,
   ) {
     this.secret = config.getOrThrow<string>('BETTER_AUTH_SECRET');
@@ -49,7 +53,8 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
       (req.body as { operation?: unknown } | undefined)?.operation === 'upload';
 
     try {
-      const { actor, apiKeyId, scope, scopes } = await this.resolveKey(req);
+      const { actor, apiKeyId, scope, scopes, oauthClientId } =
+        await this.resolveKey(req);
       req.repository = await this.access.authorize({
         username,
         repo: repo.replace(/\.git$/, ''),
@@ -64,6 +69,16 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
         if (isPush && !hasScope(scopes, isPrivate ? 'repo' : 'public_repo'))
           throw new RepositoryForbiddenError();
       }
+      // An OAuth app the organization has not approved cannot see its repositories at all.
+      if (
+        oauthClientId &&
+        req.repository.organizationId &&
+        (await oauthAppBlocked(this.db, {
+          clientId: oauthClientId,
+          organizationId: req.repository.organizationId,
+        }))
+      )
+        throw new RepositoryNotFoundError();
       // A token from `git-lfs-authenticate` is good for the LFS API of one repository, and for writes only if it was asked for an upload.
       if (
         scope &&
@@ -90,6 +105,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     apiKeyId: string | null;
     scope?: LfsTokenClaims;
     scopes: readonly string[] | null;
+    oauthClientId?: string;
   }> {
     const anonymous = { actor: null, apiKeyId: null, scopes: null };
     const header = req.headers.authorization;
@@ -121,6 +137,8 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
           actor: { userId: apiKey.referenceId },
           apiKeyId: apiKey.id,
           scopes: scopesOfKey(apiKey.permissions),
+          oauthClientId: (apiKey.metadata as { oauthClientId?: string } | null)
+            ?.oauthClientId,
         }
       : anonymous;
   }

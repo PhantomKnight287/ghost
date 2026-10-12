@@ -51,3 +51,14 @@ export class UserNotInOrganizationError extends DomainError {
     super(`${username} is not a member here`);
   }
 }
+
+/** Worded as GitHub words it, so a tool built for GitHub shows its user the same explanation. */
+export class OauthAppRestrictedError extends DomainError {
+  status: number = HttpStatus.FORBIDDEN;
+
+  constructor(slug: string) {
+    super(
+      `Although you appear to have the correct authorization credentials, the \`${slug}\` organization has enabled OAuth App access restrictions, meaning that data access to third-parties is limited.`,
+    );
+  }
+}

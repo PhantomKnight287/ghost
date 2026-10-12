@@ -3089,6 +3089,270 @@
         ]
       }
     },
+    "/api/organizations/{slug}/oauth-app-access": {
+      "get": {
+        "operationId": "OauthAppAccessController_list",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOauthAppAccessResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The OAuth apps members asked for, and the answers. Admins only.",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/oauth-app-access/{clientId}": {
+      "put": {
+        "description": "Whether or not anyone asked for it.",
+        "operationId": "OauthAppAccessController_decide",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideOauthAppAccessDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppAccessDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Approve or deny an OAuth app. Admins only.",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "delete": {
+        "description": "A revoked approval blocks the app again; a revoked denial lets members ask again.",
+        "operationId": "OauthAppAccessController_revoke",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Revoke an answer about an OAuth app. Admins only.",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/oauth-app-access/{clientId}/request": {
+      "post": {
+        "description": "Any member may ask. An answer already given stands.",
+        "operationId": "OauthAppAccessController_request",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppAccessDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Ask the organization's admins to approve an OAuth app",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/api/oauth-apps/{clientId}/organizations": {
+      "get": {
+        "description": "For the approval screen and the authorized apps page, where a member asks for a restricted app.",
+        "operationId": "OauthAppOrganizationsController_list",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOauthAppOrganizationAccessResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Whether an OAuth app reaches each of the account's organizations",
+        "tags": [
+          "OAuth apps"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/pulls": {
       "post": {
         "operationId": "PullRequestsController_createPullRequest",
@@ -14810,6 +15074,10 @@
             "type": "boolean",
             "description": "Whether its private repositories may be forked."
           },
+          "oauthAppRestrictions": {
+            "type": "boolean",
+            "description": "OAuth app access restrictions: keys minted for an OAuth app reach the organization's repositories only once an admin approves the app. Apps built into Ghost, such as gh, and the organization's own apps are always allowed."
+          },
           "defaultBranch": {
             "type": "string",
             "nullable": true,
@@ -14837,6 +15105,7 @@
           "membersCanCreatePublicRepositories",
           "membersCanCreatePrivateRepositories",
           "allowPrivateForks",
+          "oauthAppRestrictions",
           "defaultBranch",
           "description",
           "website",
@@ -14862,6 +15131,9 @@
             "type": "boolean"
           },
           "allowPrivateForks": {
+            "type": "boolean"
+          },
+          "oauthAppRestrictions": {
             "type": "boolean"
           },
           "defaultBranch": {
@@ -15323,6 +15595,162 @@
           "members",
           "repositories",
           "viewerCanManage"
+        ]
+      },
+      "OauthAppAccessDTO": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "homepageUrl": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string",
+            "nullable": true,
+            "description": "The user or organization that registered it; null for an app built into Ghost."
+          },
+          "scopes": {
+            "description": "Every scope members of this organization granted the app, so admins see what approving it lets it do.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "approved",
+              "denied"
+            ]
+          },
+          "requestedBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "Who asked for the app; null when an admin decided first."
+          },
+          "requestedAt": {
+            "type": "string"
+          },
+          "decidedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "decidedAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "clientId",
+          "name",
+          "logoUrl",
+          "description",
+          "homepageUrl",
+          "owner",
+          "scopes",
+          "state",
+          "requestedBy",
+          "requestedAt",
+          "decidedBy",
+          "decidedAt"
+        ]
+      },
+      "ListOauthAppAccessResponseDTO": {
+        "type": "object",
+        "properties": {
+          "restricted": {
+            "type": "boolean",
+            "description": "Whether the organization restricts OAuth apps at all; the answers below matter only while it does."
+          },
+          "apps": {
+            "description": "Newest request first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OauthAppAccessDTO"
+            }
+          }
+        },
+        "required": [
+          "restricted",
+          "apps"
+        ]
+      },
+      "DecideOauthAppAccessDTO": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "denied"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "OauthAppOrganizationAccessDTO": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "restricted": {
+            "type": "boolean"
+          },
+          "allowed": {
+            "type": "boolean",
+            "description": "Whether the app's keys reach the organization's repositories now."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "approved",
+              "denied"
+            ],
+            "nullable": true,
+            "description": "Null when nobody has asked for the app yet."
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "restricted",
+          "allowed",
+          "state"
+        ]
+      },
+      "ListOauthAppOrganizationAccessResponseDTO": {
+        "type": "object",
+        "properties": {
+          "organizations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OauthAppOrganizationAccessDTO"
+            }
+          }
+        },
+        "required": [
+          "organizations"
         ]
       },
       "CreatePullRequestRequestDTO": {

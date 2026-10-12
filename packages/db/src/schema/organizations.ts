@@ -1,17 +1,19 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
   integer,
+  pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
 
 import { organization, team, user } from "./auth.js";
 import { repositoryRole } from "./collaborators.js";
+import { oauthClient } from "./oauth.js";
 import { repository } from "./repository.js";
 
 /** What Ghost knows about an organization beyond Better Auth's row: its policies and its public profile. One row per organization, written when it is created. */
@@ -24,6 +26,8 @@ export const organizationSettings = pgTable("organization_settings", {
   membersCanCreatePublicRepositories: boolean().notNull().default(true),
   membersCanCreatePrivateRepositories: boolean().notNull().default(true),
   allowPrivateForks: boolean().notNull().default(false),
+  // GitHub's "OAuth app access restrictions": keys minted for an OAuth app reach the organization's repositories only once an admin approves the app.
+  oauthAppRestrictions: boolean().notNull().default(false),
   // Recorded on each new repository, and followed once a branch by that name is pushed.
   defaultBranch: text(),
   description: text(),
@@ -110,3 +114,27 @@ export const repositoryTransfer = pgTable("repository_transfer", {
   requestedById: text().references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+export const organizationOauthAppState = pgEnum(
+  "organization_oauth_app_state",
+  ["requested", "approved", "denied"],
+);
+
+/** An organization's answer about one OAuth app, which matters only while the organization restricts OAuth apps. No row means nobody asked yet. */
+export const organizationOauthApp = pgTable(
+  "organization_oauth_app",
+  {
+    organizationId: text()
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    clientId: text()
+      .notNull()
+      .references(() => oauthClient.clientId, { onDelete: "cascade" }),
+    state: organizationOauthAppState().notNull(),
+    requestedById: text().references(() => user.id, { onDelete: "set null" }),
+    decidedById: text().references(() => user.id, { onDelete: "set null" }),
+    requestedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    decidedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.organizationId, t.clientId] })],
+);
