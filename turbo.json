@@ -4,6 +4,7 @@
   "globalDependencies": [
     ".env"
   ],
+  "concurrency": "15",
   "globalEnv": [
     "NODE_ENV",
     "PORT",

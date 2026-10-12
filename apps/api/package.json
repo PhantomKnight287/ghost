@@ -80,6 +80,8 @@
     "@nestjs/testing": "^12.0.1",
     "@octokit/graphql-schema": "^15.26.1",
     "@react-email/ui": "^6.9.5",
+    "@swc/cli": "^0.8.1",
+    "@swc/core": "^1.16.18",
     "@types/express": "^5.0.6",
     "@types/morgan": "^1.9.10",
     "@types/node": "^24.0.0",
