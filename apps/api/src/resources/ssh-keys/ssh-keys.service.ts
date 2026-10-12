@@ -41,7 +41,12 @@ export class SshKeysService {
     };
   }
 
-  async add(userId: string, line: string, title?: string): Promise<SshKeyDTO> {
+  async add(
+    userId: string,
+    line: string,
+    title?: string,
+    oauthClientId?: string | null,
+  ): Promise<SshKeyDTO> {
     const key = (() => {
       try {
         return readPublicKey(line);
@@ -60,6 +65,7 @@ export class SshKeysService {
           key.type,
         fingerprint: key.fingerprint,
         publicKey: key.blob,
+        oauthClientId,
       })
       .onConflictDoNothing()
       .returning({
@@ -96,6 +102,7 @@ export class SshKeysService {
         userId: schema.userSshKey.userId,
         username: schema.user.username,
         publicKey: schema.userSshKey.publicKey,
+        oauthClientId: schema.userSshKey.oauthClientId,
       })
       .from(schema.userSshKey)
       .innerJoin(schema.user, eq(schema.user.id, schema.userSshKey.userId))
