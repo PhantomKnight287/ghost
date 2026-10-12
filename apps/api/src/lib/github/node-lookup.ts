@@ -165,3 +165,45 @@ export function reviewsOf(db: Database, pullRequestIds: string[]) {
       asc(schema.pullRequestReview.id),
     );
 }
+
+/** The integer ids GitHub's release shapes need, which ReleasesService leaves out, keyed by Ghost id. */
+export async function releaseNumericIdsOf(db: Database, releaseIds: string[]) {
+  const rows =
+    releaseIds.length > 0
+      ? await db
+          .select({
+            id: schema.release.id,
+            numericId: schema.release.numericId,
+          })
+          .from(schema.release)
+          .where(inArray(schema.release.id, releaseIds))
+      : [];
+  return new Map(rows.map((row) => [row.id, row.numericId]));
+}
+
+/** What GitHub's release asset has and ReleasesService's asset leaves out, keyed by Ghost id. */
+export async function releaseAssetExtrasOf(db: Database, assetIds: string[]) {
+  const rows =
+    assetIds.length > 0
+      ? await db
+          .select({
+            id: schema.releaseAsset.id,
+            numericId: schema.releaseAsset.numericId,
+            label: schema.releaseAsset.label,
+            updatedAt: isoTimestamp(schema.releaseAsset.updatedAt),
+            uploaderLogin: schema.user.username,
+          })
+          .from(schema.releaseAsset)
+          .leftJoin(
+            schema.user,
+            eq(schema.user.id, schema.releaseAsset.uploaderId),
+          )
+          .where(inArray(schema.releaseAsset.id, assetIds))
+      : [];
+  return new Map(rows.map(({ id, ...extras }) => [id, extras]));
+}
+
+export type ReleaseAssetExtras =
+  Awaited<ReturnType<typeof releaseAssetExtrasOf>> extends Map<string, infer T>
+    ? T
+    : never;

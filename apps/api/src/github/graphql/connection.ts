@@ -65,6 +65,22 @@ export function Connection<T>(
   return ConnectionType;
 }
 
+/** An offset as the opaque cursor GitHub's connections hand out. */
+export function offsetCursor(offset: number) {
+  return Buffer.from(String(offset)).toString('base64url');
+}
+
+/** The offset an `offsetCursor` stands for; 0 for none or for one that is not a count. */
+export function cursorOffset(after: string | null | undefined) {
+  // The cursor comes from the client, and a negative one would slice from the end.
+  return Math.max(
+    0,
+    Math.trunc(
+      Number(after ? Buffer.from(after, 'base64url').toString() : 0),
+    ) || 0,
+  );
+}
+
 /** One page of a list that is already fully in memory, such as an issue's labels. `first`/`last` slice it as GitHub does; `after` is an offset cursor this function hands out as `endCursor`. */
 export function sliceConnection<T>(
   items: T[],
@@ -74,21 +90,13 @@ export function sliceConnection<T>(
     after,
   }: { first?: number | null; last?: number | null; after?: string | null },
 ): ConnectionOf<T> {
-  // The cursor and the page sizes come from the client, and a negative one would slice from the end.
-  const start = Math.max(
-    0,
-    Math.trunc(
-      Number(after ? Buffer.from(after, 'base64url').toString() : 0),
-    ) || 0,
-  );
+  const start = cursorOffset(after);
   const rest = items.slice(start);
   const nodes =
     last != null
       ? rest.slice(rest.length - Math.max(0, last))
       : rest.slice(0, Math.max(0, first ?? rest.length));
   const end = last != null ? items.length : start + nodes.length;
-  const offsetCursor = (offset: number) =>
-    Buffer.from(String(offset)).toString('base64url');
   return {
     nodes,
     edges: nodes.map((node, index) => ({

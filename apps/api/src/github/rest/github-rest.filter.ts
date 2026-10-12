@@ -13,11 +13,50 @@ import { DomainError } from '../../domain/errors.js';
 import {
   GithubValidationError,
   InsufficientScopesError,
+  type ValidationFailure,
 } from '../../lib/github/github.errors.js';
 import {
   LabelAlreadyExistsError,
   PullRequestReopenError,
 } from '../../lib/issues/issues.errors.js';
+import {
+  InvalidAssetNameError,
+  InvalidTagNameError,
+  ReleaseAlreadyExistsError,
+  ReleaseAssetExistsError,
+  TagTargetNotFoundError,
+} from '../../lib/releases/releases.errors.js';
+
+/** Ghost errors GitHub answers as a 422 naming the field at fault. */
+const FIELD_ERRORS: [
+  new (...args: never[]) => DomainError,
+  ValidationFailure,
+][] = [
+  [
+    LabelAlreadyExistsError,
+    { resource: 'Label', field: 'name', code: 'already_exists' },
+  ],
+  [
+    ReleaseAlreadyExistsError,
+    { resource: 'Release', field: 'tag_name', code: 'already_exists' },
+  ],
+  [
+    InvalidTagNameError,
+    { resource: 'Release', field: 'tag_name', code: 'invalid' },
+  ],
+  [
+    TagTargetNotFoundError,
+    { resource: 'Release', field: 'target_commitish', code: 'invalid' },
+  ],
+  [
+    ReleaseAssetExistsError,
+    { resource: 'ReleaseAsset', field: 'name', code: 'already_exists' },
+  ],
+  [
+    InvalidAssetNameError,
+    { resource: 'ReleaseAsset', field: 'name', code: 'invalid' },
+  ],
+];
 
 const DOCUMENTATION_URL = 'https://docs.github.com/rest';
 
@@ -62,13 +101,11 @@ export class GithubRestFilter
     });
   }
 
-  /** GitHub answers a bad field with 422 "Validation Failed" naming it; ValidationPipe's 400 and Ghost's duplicate-label 409 become that. */
+  /** GitHub answers a bad field with 422 "Validation Failed" naming it; ValidationPipe's 400 and the Ghost errors in FIELD_ERRORS become that. */
   private validationFailureOf(exception: DomainError | HttpException) {
     if (exception instanceof GithubValidationError) return exception;
-    if (exception instanceof LabelAlreadyExistsError)
-      return new GithubValidationError([
-        { resource: 'Label', field: 'name', code: 'already_exists' },
-      ]);
+    const field = FIELD_ERRORS.find(([type]) => exception instanceof type);
+    if (field) return new GithubValidationError([field[1]]);
     const detail =
       exception instanceof BadRequestException
         ? this.detailOf(exception)

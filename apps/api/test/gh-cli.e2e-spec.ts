@@ -7,11 +7,11 @@ import { promisify } from 'node:util';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import TestAgent from 'supertest/lib/agent.js';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { recordGhRequests, writeGhCapture } from './gh-capture.js';
 import { GH_E2E_HOST, runGh, startGh, tlsFiles } from './gh.js';
-import { hasBackends, scopedKey, signUp, startApp } from './harness.js';
+import { recordGhRequests, writeGhCapture } from './gh-capture.js';
+import { apiKey, hasBackends, scopedKey, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   let app: INestApplication;
@@ -19,9 +19,10 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   let configDir: string;
   const username = `ghcli${Date.now()}`;
   let api: ReturnType<(typeof request)['agent']>;
+  let token: string;
 
   const gh = (args: string[], options: { input?: string; cwd?: string } = {}) =>
-    runGh(args, { configDir, token: owner.key, ...options });
+    runGh(args, { configDir, token, ...options });
   const ok = async (
     args: string[],
     options: { input?: string; cwd?: string } = {},
@@ -119,6 +120,11 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       .set('cookie', owner.cookie)
       .send({ name: 'bug', color: 'd73a4a' })
       .expect(201);
+  });
+
+  // A key allows 120 requests a minute, which the whole suite on one key would pass.
+  beforeEach(async () => {
+    token = await apiKey(app, owner.userId);
   });
 
   afterAll(async () => {

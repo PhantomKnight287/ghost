@@ -1,16 +1,5 @@
 import type { schema } from '@ghost/db';
 
-import { OrganizationNode } from '../../github/graphql/types/organization.type.js';
-import { UserNode } from '../../github/graphql/types/user.type.js';
-import { encodeNodeId } from './node-id.js';
-import type { GithubOrigins } from './origins.js';
-
-import type { AuthorizedRepository } from '../repositories/access/repository-access.js';
-import {
-  RefNode,
-  RepositoryNode,
-} from '../../github/graphql/types/repository.type.js';
-import type { PullRequestRow } from './node-lookup.js';
 import {
   CommentAuthorAssociation,
   IssueState,
@@ -20,20 +9,33 @@ import {
   RepositoryPermission,
   RepositoryVisibility,
 } from '../../github/graphql/enums.js';
-import { repositoryPermissionOf } from './permission.js';
-import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
-import { LabelNode } from '../../github/graphql/types/label.type.js';
-import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import { IssueNode } from '../../github/graphql/types/issue.type.js';
+import { IssueCommentNode } from '../../github/graphql/types/issue-comment.type.js';
+import type { IssueOrPullRequestFields } from '../../github/graphql/types/issue-or-pull-request.type.js';
+import { LabelNode } from '../../github/graphql/types/label.type.js';
+import { OrganizationNode } from '../../github/graphql/types/organization.type.js';
 import {
   CommitNode,
   PullRequestNode,
   PullRequestReviewNode,
 } from '../../github/graphql/types/pull-request.type.js';
+import { ReleaseNode } from '../../github/graphql/types/release.type.js';
+import {
+  RefNode,
+  RepositoryNode,
+} from '../../github/graphql/types/repository.type.js';
+import { UserNode } from '../../github/graphql/types/user.type.js';
+import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
+import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
+import type { ReleaseDTO } from '../../resources/releases/dto/release.dto.js';
 import type { Commit } from '../git/commits/list-commits.js';
+import type { AuthorizedRepository } from '../repositories/access/repository-access.js';
 import type { ReviewRow } from './loaders.js';
-import type { IssueOrPullRequestFields } from '../../github/graphql/types/issue-or-pull-request.type.js';
-import { IssueCommentNode } from '../../github/graphql/types/issue-comment.type.js';
+import { encodeNodeId } from './node-id.js';
+import type { PullRequestRow } from './node-lookup.js';
+import type { GithubOrigins } from './origins.js';
+import { repositoryPermissionOf } from './permission.js';
+import { tagPath } from './rest.js';
 
 export type UserRow = typeof schema.user.$inferSelect;
 export type OrganizationRow = typeof schema.organization.$inferSelect;
@@ -331,5 +333,29 @@ export function toCommitNode(
     committedDate: new Date(commit.committedAt),
     url: `${repository.url}/commit/${commit.sha}`,
     resourcePath: `${repository.resourcePath}/commit/${commit.sha}`,
+  });
+}
+
+// Mapper: releases come from ReleasesService in Ghost's shape; the node adds the integer id releaseNumericIdsOf loads and the web URLs.
+export function toReleaseNode(
+  release: ReleaseDTO,
+  numericId: number | null,
+  repository: { url: string; resourcePath: string },
+) {
+  const path = `/releases/tag/${tagPath(release.tagName)}`;
+  return Object.assign(new ReleaseNode(), {
+    id: encodeNodeId('Release', release.id),
+    databaseId: numericId,
+    name: release.name,
+    tagName: release.tagName,
+    description: release.body,
+    isDraft: release.isDraft,
+    isLatest: release.isLatest,
+    isPrerelease: release.isPrerelease,
+    createdAt: new Date(release.createdAt),
+    publishedAt: release.publishedAt ? new Date(release.publishedAt) : null,
+    updatedAt: new Date(release.updatedAt),
+    url: `${repository.url}${path}`,
+    resourcePath: `${repository.resourcePath}${path}`,
   });
 }

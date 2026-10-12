@@ -713,6 +713,38 @@ type Ref implements Node {
   prefix: String!
 }
 
+type Release implements Node & UniformResourceLocatable {
+  createdAt: DateTime!
+  databaseId: Int
+  description: String
+  id: ID!
+  isDraft: Boolean!
+  isLatest: Boolean!
+  isPrerelease: Boolean!
+  name: String
+  publishedAt: DateTime
+  resourcePath: URI!
+  tagName: String!
+  updatedAt: DateTime!
+  url: URI!
+}
+
+type ReleaseConnection {
+  nodes: [Release]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+input ReleaseOrder {
+  direction: OrderDirection!
+  field: ReleaseOrderField!
+}
+
+enum ReleaseOrderField {
+  CREATED_AT
+  NAME
+}
+
 input RemoveAssigneesFromAssignableInput {
   assignableId: ID!
   assigneeIds: [ID!]!
@@ -783,6 +815,8 @@ type Repository implements Node & UniformResourceLocatable {
   pullRequests(after: String, baseRefName: String, first: Int, headRefName: String, labels: [String!], orderBy: IssueOrder, states: [PullRequestState!]): PullRequestConnection!
   pushedAt: DateTime
   rebaseMergeAllowed: Boolean!
+  release(tagName: String!): Release
+  releases(after: String, first: Int, orderBy: ReleaseOrder): ReleaseConnection!
   resourcePath: URI!
   squashMergeAllowed: Boolean!
   sshUrl: GitSSHRemote!

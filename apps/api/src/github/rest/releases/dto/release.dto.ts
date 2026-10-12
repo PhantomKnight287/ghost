@@ -1,0 +1,159 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsBoolean,
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
+
+const MAKE_LATEST = ['true', 'false', 'legacy'] as const;
+
+/** GitHub's create-release body. */
+export class GithubCreateReleaseDTO {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(250)
+  tag_name: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Branch or commit SHA a new tag is created from. Defaults to the default branch; unused when the tag already exists.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(250)
+  target_commitish?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100000)
+  body?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  draft?: boolean;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  prerelease?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Ghost has no discussions, so any category is one that does not exist: 404, as GitHub answers an unknown category.',
+  })
+  @IsOptional()
+  @IsString()
+  discussion_category_name?: string;
+
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Ghost cannot generate notes; `true` is refused with 422.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  generate_release_notes?: boolean;
+
+  @ApiPropertyOptional({
+    enum: MAKE_LATEST,
+    default: 'true',
+    description:
+      'Accepted and ignored: Ghost computes the latest release as the newest published one that is not a prerelease.',
+  })
+  @IsOptional()
+  @IsIn(MAKE_LATEST)
+  make_latest?: (typeof MAKE_LATEST)[number];
+}
+
+/** GitHub's update-release body. */
+export class GithubUpdateReleaseDTO {
+  @ApiPropertyOptional({
+    description: 'Moving a release to another tag is refused with 422.',
+  })
+  @IsOptional()
+  @IsString()
+  tag_name?: string;
+
+  @ApiPropertyOptional({ description: 'Unused: the tag already exists.' })
+  @IsOptional()
+  @IsString()
+  target_commitish?: string;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(200)
+  name?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(100000)
+  body?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  draft?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  prerelease?: boolean;
+
+  @ApiPropertyOptional({
+    enum: MAKE_LATEST,
+    description: 'Accepted and ignored, as on create.',
+  })
+  @IsOptional()
+  @IsIn(MAKE_LATEST)
+  make_latest?: (typeof MAKE_LATEST)[number];
+
+  @ApiPropertyOptional({ description: 'Refused with 404, as on create.' })
+  @IsOptional()
+  @IsString()
+  discussion_category_name?: string;
+}
+
+/** GitHub's upload query: the asset's file name and an optional label. */
+export class GithubUploadReleaseAssetQueryDTO {
+  @ApiProperty()
+  @IsString()
+  @MaxLength(255)
+  name: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  label?: string;
+}
+
+/** GitHub's update-release-asset body. `state` is undocumented and dropped by the whitelist. */
+export class GithubUpdateReleaseAssetDTO {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'An empty label clears it.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  label?: string;
+}

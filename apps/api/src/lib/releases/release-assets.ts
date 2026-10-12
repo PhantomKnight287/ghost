@@ -2,6 +2,9 @@ export const RELEASE_ASSET_PREFIX = 'release-assets';
 
 export const DEFAULT_RELEASE_ASSET_MAX_BYTES = 2 * 1024 ** 3;
 
+/** A bare `type/subtype`: an asset's type is served back as its `Content-Type`. */
+export const MEDIA_TYPE = /^[\w.+-]+\/[\w.+-]+$/;
+
 /** Where an asset's bytes live. A release's or a repository's assets can be removed by prefix. */
 export function releaseAssetKey(
   repositoryId: string,

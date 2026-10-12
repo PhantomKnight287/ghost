@@ -37,7 +37,7 @@
             "perPage": 30
           }
         },
-        "status": 400
+        "status": 200
       }
     ]
   }

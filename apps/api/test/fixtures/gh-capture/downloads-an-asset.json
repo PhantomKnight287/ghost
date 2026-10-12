@@ -4,6 +4,18 @@
     "requests": [
       {
         "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/releases/assets/<id>",
+        "query": {},
+        "headers": {
+          "accept": "application/octet-stream",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
         "path": "/api/v3/repos/<login>/tools/releases/tags/v1.0",
         "query": {},
         "headers": {
@@ -12,7 +24,7 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": null,
-        "status": 404
+        "status": 200
       },
       {
         "method": "POST",
@@ -32,7 +44,7 @@
             "tagName": "v1.0"
           }
         },
-        "status": 400
+        "status": 200
       }
     ]
   }

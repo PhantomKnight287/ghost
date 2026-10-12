@@ -10,6 +10,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+
 import { user } from "./auth.js";
 import { repository } from "./repository.js";
 
@@ -20,6 +21,11 @@ export const release = pgTable(
     id: text()
       .primaryKey()
       .$defaultFn(() => `release_${createId()}`),
+    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     repositoryId: text()
       .references(() => repository.id, { onDelete: "cascade" })
       .notNull(),
@@ -58,6 +64,11 @@ export const releaseAsset = pgTable(
     id: text()
       .primaryKey()
       .$defaultFn(() => `asset_${createId()}`),
+    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     releaseId: text()
       .references(() => release.id, { onDelete: "cascade" })
       .notNull(),
@@ -66,12 +77,18 @@ export const releaseAsset = pgTable(
       .references(() => repository.id, { onDelete: "cascade" })
       .notNull(),
     name: text().notNull(),
+    // GitHub's short description shown in place of the file name; null shows the name.
+    label: text(),
     contentType: text().notNull(),
     size: bigint({ mode: "number" }).notNull(),
     state: releaseAssetState().notNull().default("uploading"),
     downloadCount: integer().notNull().default(0),
     uploaderId: text().references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdateFn(() => new Date()),
   },
   (t) => [
     uniqueIndex("release_asset_release_name_idx").on(t.releaseId, t.name),

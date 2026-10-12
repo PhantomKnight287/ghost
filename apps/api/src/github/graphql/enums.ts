@@ -108,6 +108,12 @@ export enum LabelOrderField {
 }
 registerEnumType(LabelOrderField, { name: 'LabelOrderField' });
 
+export enum ReleaseOrderField {
+  CREATED_AT = 'CREATED_AT',
+  NAME = 'NAME',
+}
+registerEnumType(ReleaseOrderField, { name: 'ReleaseOrderField' });
+
 export enum IssueTypeColor {
   BLUE = 'BLUE',
   GRAY = 'GRAY',

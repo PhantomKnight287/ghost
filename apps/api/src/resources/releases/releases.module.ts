@@ -22,5 +22,6 @@ import { ReleasesService } from './releases.service.js';
     WalStoreService,
     UsersService,
   ],
+  exports: [ReleasesService, ReleaseAssetsService],
 })
 export class ReleasesModule {}

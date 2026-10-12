@@ -18,7 +18,56 @@
           "tag_name": "v2.0",
           "target_commitish": "main"
         },
+        "status": 201
+      }
+    ]
+  },
+  {
+    "command": "gh release view v2.0 -R <host>/<login>/tools --json isDraft",
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/releases/<id>",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/v3/repos/<login>/tools/releases/tags/v2.0",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": null,
         "status": 404
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query RepositoryReleaseByTag($name:String!$owner:String!$tagName:String!){repository(owner: $owner, name: $name){release(tagName: $tagName){databaseId,isDraft}}}",
+          "variables": {
+            "name": "tools",
+            "owner": "<login>",
+            "tagName": "v2.0"
+          }
+        },
+        "status": 200
       }
     ]
   }

@@ -1,34 +1,34 @@
 import type { Readable } from 'node:stream';
+
 import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, lt, sql } from 'drizzle-orm';
+import { and, eq, lt, ne, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import {
   isValidAssetName,
   releaseAssetKey,
 } from '../../lib/releases/release-assets.js';
-import { formatByteSize } from '../../lib/storage/byte-size.js';
-import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
-import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
-import {
-  storageAccountOf,
-  billedKindOf,
-} from '../../lib/storage/storage-account.js';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { S3Service } from '../../services/s3/s3.service.js';
-import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
-import { isoTimestamp } from '../../lib/db/sql.js';
 import {
   InvalidAssetNameError,
   ReleaseAssetExistsError,
   ReleaseAssetNotFoundError,
   ReleaseAssetTooLargeError,
   ReleaseNotFoundError,
-  UploadNotOctetStreamError,
 } from '../../lib/releases/releases.errors.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
+import { formatByteSize } from '../../lib/storage/byte-size.js';
+import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
+import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
+import {
+  billedKindOf,
+  storageAccountOf,
+} from '../../lib/storage/storage-account.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { S3Service } from '../../services/s3/s3.service.js';
+import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 
 type RepositoryRef = { username: string; repo: string; requesterId?: string };
 
@@ -55,8 +55,8 @@ export class ReleaseAssetsService {
   async upload({
     releaseId,
     name,
+    label,
     type,
-    bodyType,
     contentLength,
     body,
     ...target
@@ -64,21 +64,17 @@ export class ReleaseAssetsService {
     requesterId: string;
     releaseId: string;
     name: string;
+    label?: string;
     /** What the file is served as. */
     type: string | undefined;
-    /** The request's own `Content-Type`. */
-    bodyType: string | undefined;
     contentLength: string | undefined;
+    /** The raw request: the caller makes sure no body parser has read it. */
     body: Readable;
   }) {
     const repository = await this.access.authorize({
       ...target,
       operation: 'write',
     });
-    // JSON and form bodies are parsed before any handler runs, so their bytes are gone by the time they could be streamed
-    if (bodyType?.split(';')[0]?.trim() !== 'application/octet-stream') {
-      throw new UploadNotOctetStreamError();
-    }
     const fileName = name.trim();
     if (!isValidAssetName(fileName)) throw new InvalidAssetNameError(name);
 
@@ -129,6 +125,7 @@ export class ReleaseAssetsService {
             releaseId: release.id,
             repositoryId: repository.id,
             name: fileName,
+            label: label?.trim() || null,
             contentType: type || 'application/octet-stream',
             size,
             uploaderId: target.requesterId,
@@ -170,10 +167,11 @@ export class ReleaseAssetsService {
 
   /** Counts the download, then streams the bytes. A draft's assets are only for people who can write to the repository. */
   async download({
-    tagName,
-    name,
+    asset: wanted,
     ...target
-  }: RepositoryRef & { tagName: string; name: string }) {
+  }: RepositoryRef & {
+    asset: { tagName: string; name: string } | { id: string };
+  }) {
     const repository = await this.access.authorize({
       ...target,
       operation: 'read',
@@ -187,11 +185,15 @@ export class ReleaseAssetsService {
         and(
           eq(schema.release.id, schema.releaseAsset.releaseId),
           eq(schema.release.repositoryId, repository.id),
-          eq(schema.release.tagName, tagName),
+          'id' in wanted
+            ? eq(schema.releaseAsset.id, wanted.id)
+            : and(
+                eq(schema.release.tagName, wanted.tagName),
+                eq(schema.releaseAsset.name, wanted.name),
+              ),
           atLeast(repository.viewerRole, 'write')
             ? undefined
             : eq(schema.release.isDraft, false),
-          eq(schema.releaseAsset.name, name),
           eq(schema.releaseAsset.state, 'uploaded'),
         ),
       )
@@ -211,6 +213,65 @@ export class ReleaseAssetsService {
     if (!object.Body) throw new ReleaseAssetNotFoundError();
 
     return { ...asset, stream: object.Body as Readable };
+  }
+
+  /** Renames an asset or sets its label; an empty label clears it. */
+  async update({
+    assetId,
+    name,
+    label,
+    ...target
+  }: RepositoryRef & {
+    requesterId: string;
+    assetId: string;
+    name?: string;
+    label?: string;
+  }) {
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
+    const fileName = name?.trim();
+    if (fileName !== undefined && !isValidAssetName(fileName))
+      throw new InvalidAssetNameError(fileName);
+    const mine = and(
+      eq(schema.releaseAsset.id, assetId),
+      eq(schema.releaseAsset.repositoryId, repository.id),
+      eq(schema.releaseAsset.state, 'uploaded'),
+    );
+
+    if (fileName !== undefined) {
+      const [clash] = await this.db
+        .select({ id: schema.releaseAsset.id })
+        .from(schema.releaseAsset)
+        .where(
+          and(
+            eq(
+              schema.releaseAsset.releaseId,
+              this.db
+                .select({ releaseId: schema.releaseAsset.releaseId })
+                .from(schema.releaseAsset)
+                .where(mine),
+            ),
+            eq(schema.releaseAsset.name, fileName),
+            ne(schema.releaseAsset.id, assetId),
+          ),
+        );
+      if (clash) throw new ReleaseAssetExistsError(fileName);
+    }
+
+    const [updated] = await this.db
+      .update(schema.releaseAsset)
+      .set({
+        // always set, so an empty edit still finds the row instead of failing to build the query
+        updatedAt: new Date(),
+        ...(fileName !== undefined && { name: fileName }),
+        ...(label !== undefined && { label: label.trim() || null }),
+      })
+      .where(mine)
+      .returning(releaseAssetColumns);
+    if (!updated) throw new ReleaseAssetNotFoundError();
+    return updated;
   }
 
   async delete({

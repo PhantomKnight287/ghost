@@ -1,25 +1,38 @@
 import path from 'node:path';
+
 import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { keyset } from '../../lib/db/keyset.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
-import { fileBody } from '../../lib/git/protocol/git-request-body.js';
-import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
-import { createTagObject } from '../../lib/git/tags/create-tag.js';
+import {
+  bufferBody,
+  fileBody,
+} from '../../lib/git/protocol/git-request-body.js';
 import { isValidRefName } from '../../lib/git/refs/is-valid-ref-name.js';
+import { listBranches, listRefs } from '../../lib/git/refs/list-refs.js';
+import { createTagObject } from '../../lib/git/tags/create-tag.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import { resolveTargetCommit } from '../../lib/git/tree/resolve-ref.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
+import {
+  InvalidTagNameError,
+  ReleaseAlreadyExistsError,
+  ReleaseNotFoundError,
+  TagNotFoundError,
+  TagTargetNotFoundError,
+} from '../../lib/releases/releases.errors.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
+import { withTempDir } from '../../lib/temp-dir.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { isoTimestamp } from '../../lib/db/sql.js';
-import { keyset } from '../../lib/db/keyset.js';
 import type {
   CreateReleaseRequestDTO,
   GetReleasesQueryDTO,
@@ -31,14 +44,6 @@ import {
   ReleaseAssetsService,
   releaseAssetColumns,
 } from './release-assets.service.js';
-import {
-  InvalidTagNameError,
-  ReleaseAlreadyExistsError,
-  ReleaseNotFoundError,
-  TagTargetNotFoundError,
-} from '../../lib/releases/releases.errors.js';
-import { withTempDir } from '../../lib/temp-dir.js';
-import { listBranches } from '../../lib/git/refs/list-refs.js';
 
 /** What an edit can change; `release.edited` is published only when one of these differs afterwards. */
 const editableColumns = {
@@ -51,6 +56,12 @@ const editableColumns = {
 const DEFAULT_PAGE_SIZE = 10;
 
 type RepositoryRef = { username: string; repo: string; requesterId?: string };
+
+/** How the GitHub layer orders a page: by creation, or by name ignoring case, which falls back to the tag as a nameless release reads. */
+export type ReleaseOrder = {
+  field: 'created' | 'name';
+  direction: 'asc' | 'desc';
+};
 
 /** Newest published release that is neither a draft nor a prerelease. */
 function latestReleaseId(repositoryId: string) {
@@ -89,6 +100,49 @@ export class ReleasesService {
     );
 
     return { releases: await this.expand(repository, page), nextCursor };
+  }
+
+  /** Offset pages in any order, with the total, as the GitHub layer pages lists. */
+  async pageReleases({
+    offset,
+    limit,
+    order,
+    ...target
+  }: RepositoryRef & { offset: number; limit: number; order: ReleaseOrder }) {
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
+    const sort = order.direction === 'asc' ? asc : desc;
+    const [rows, [total]] = await Promise.all([
+      this.select(repository, undefined, [
+        sort(
+          order.field === 'name'
+            ? sql`lower(coalesce(${schema.release.name}, ${schema.release.tagName}))`
+            : schema.release.createdAt,
+        ),
+        sort(schema.release.id),
+      ])
+        .limit(limit)
+        // ponytail: OFFSET scans the rows it skips; fine for a repository's releases, keyset if one grows thousands.
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(schema.release)
+        .where(this.visible(repository)),
+    ]);
+    return {
+      releases: await this.expand(repository, rows),
+      total: total?.total ?? 0,
+    };
+  }
+
+  async getRelease({ id, ...target }: RepositoryRef & { id: string }) {
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'read',
+    });
+    return this.readOne(repository, eq(schema.release.id, id));
   }
 
   async getLatestRelease(target: RepositoryRef) {
@@ -286,6 +340,37 @@ export class ReleasesService {
     });
   }
 
+  /** A ref-only entry in the log, pinned to the tag's current target so a push that moved it in between wins. Releases on the tag stay, pointing at nothing. */
+  async deleteTag({
+    tagName,
+    ...target
+  }: RepositoryRef & { tagName: string; requesterId: string }) {
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
+    const ref = `refs/tags/${tagName}`;
+    // The tag object's own id, not the commit it peels to: that is what the ref holds.
+    const oid = (await listRefs(await this.materializer.open(repository))).get(
+      ref,
+    );
+    if (!oid) throw new TagNotFoundError(tagName);
+
+    await this.pushTransaction.commitPush({
+      repoId: repository.id,
+      transitions: [
+        {
+          ref,
+          oldOid: Buffer.from(oid, 'hex'),
+          newOid: ZERO_OID,
+        },
+      ],
+      body: bufferBody(Buffer.alloc(0)),
+      packOffset: 0,
+      pushedBy: target.requesterId,
+    });
+  }
+
   /** An annotated tag, as `git tag -a` makes, so the tag carries its own date and author rather than borrowing its commit's. Its one object is packed and pushed through `commitPush`. */
   private async createTag({
     repository,
@@ -368,10 +453,22 @@ export class ReleasesService {
     return release;
   }
 
-  /** Newest first. Drafts are left out for anyone who cannot write to the repository. */
-  private select(repository: AuthorizedRepository, where: SQL | undefined) {
-    const canWrite = atLeast(repository.viewerRole, 'write');
+  /** Drafts are left out for anyone who cannot write to the repository. */
+  private visible(repository: AuthorizedRepository) {
+    return and(
+      eq(schema.release.repositoryId, repository.id),
+      atLeast(repository.viewerRole, 'write')
+        ? undefined
+        : eq(schema.release.isDraft, false),
+    );
+  }
 
+  /** Newest first unless `order` says otherwise. */
+  private select(
+    repository: AuthorizedRepository,
+    where: SQL | undefined,
+    order: SQL[] = [desc(schema.release.createdAt), desc(schema.release.id)],
+  ) {
     return this.db
       .select({
         id: schema.release.id,
@@ -388,14 +485,8 @@ export class ReleasesService {
       })
       .from(schema.release)
       .leftJoin(schema.user, eq(schema.user.id, schema.release.authorId))
-      .where(
-        and(
-          eq(schema.release.repositoryId, repository.id),
-          canWrite ? undefined : eq(schema.release.isDraft, false),
-          where,
-        ),
-      )
-      .orderBy(desc(schema.release.createdAt), desc(schema.release.id));
+      .where(and(this.visible(repository), where))
+      .orderBy(...order);
   }
 
   /** Commits come from git, not the row: a tag can be moved or deleted by a push at any time. Assets still uploading are left out. */

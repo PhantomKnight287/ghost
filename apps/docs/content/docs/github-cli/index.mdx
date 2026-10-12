@@ -68,6 +68,11 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 | `gh pr ready`, `gh pr ready --undo` | |
 | `gh pr close`, `gh pr reopen` | A closed pull request reopens while its head branch exists |
 | `gh pr merge` | |
+| `gh release create` | With files, `--draft`, `--prerelease`, `--target`. `--generate-notes` and `--discussion-category` fail |
+| `gh release list`, `gh release view`, `gh release view --json …` | |
+| `gh release upload`, `gh release download`, `gh release delete-asset` | Files of any type |
+| `gh release edit` | `--tag` fails: Ghost cannot move a release to another tag |
+| `gh release delete`, `gh release delete --cleanup-tag` | |
 | `gh api … --paginate` | Follows the `Link` header of every REST list |
 | `gh ssh-key list`, `gh ssh-key add` | |
 
@@ -76,8 +81,9 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 GraphQL at `/api/graphql`:
 
 - Queries: `viewer`, `user`, `organization`, `repositoryOwner`, `repository`, `node`, `nodes`, `search(type: ISSUE)`
-- Types: `User`, `Organization`, `Repository`, `Ref`, `Label`, `Issue`, `IssueComment`, `PullRequest` (with `files`, `commits`, `reviews`, `latestReviews`, `reviewDecision`, `mergeable` and `mergeStateStatus`), `PullRequestReview`, `PullRequestCommit`, `Commit`, `PullRequestChangedFile`
+- Types: `User`, `Organization`, `Repository`, `Ref`, `Label`, `Issue`, `IssueComment`, `PullRequest` (with `files`, `commits`, `reviews`, `latestReviews`, `reviewDecision`, `mergeable` and `mergeStateStatus`), `PullRequestReview`, `PullRequestCommit`, `Commit`, `PullRequestChangedFile`, `Release`
 - `repository.pullRequests` (`states`, `headRefName`, `baseRefName`, `labels`, `orderBy`) and `repository.pullRequest(number:)`
+- `repository.releases` (`first`, `after`, `orderBy` by `CREATED_AT` or `NAME`) and `repository.release(tagName:)`, which finds drafts for people who can write to the repository
 - Mutations: `createIssue`, `updateIssue`, `closeIssue`, `reopenIssue`, `addComment`, `addLabelsToLabelable`, `removeLabelsFromLabelable`, `addAssigneesToAssignable`, `removeAssigneesFromAssignable`, `createRepository`, `createPullRequest`, `updatePullRequest`, `closePullRequest`, `reopenPullRequest`, `mergePullRequest`, `markPullRequestReadyForReview`, `convertPullRequestToDraft`. Comments, labels and assignees take a pull request's id as they take an issue's
 
 REST at `/api/v3`:
@@ -103,6 +109,13 @@ Pull requests, under `/api/v3/repos/:owner/:repo`:
 - `GET /pulls/:number/commits`, `GET /pulls/:number/files`, `GET /pulls/:number/reviews`, `GET /pulls/:number/reviews/:review_id`
 - `GET`, `PUT /pulls/:number/merge`. A merge Ghost refuses, such as one with conflicts, answers 405; a `sha` the head has moved on from answers 409
 
+Releases and their assets, under `/api/v3/repos/:owner/:repo`:
+
+- `GET`, `POST /releases`; `GET /releases/latest`; `GET /releases/tags/:tag`, which answers published releases only, as on GitHub; `GET`, `PATCH`, `DELETE /releases/:release_id`
+- `GET /releases/:release_id/assets`; `GET`, `PATCH`, `DELETE /releases/assets/:asset_id`. `GET /releases/assets/:asset_id` with `Accept: application/octet-stream` answers the file itself
+- `POST /api/uploads/repos/:owner/:repo/releases/:release_id/assets?name=…&label=…`, the `upload_url` of every release, as on GitHub Enterprise. The body is the raw file, and its `Content-Type` is the type the file is served with
+- `DELETE /git/refs/:ref`, for `heads/<branch>` and `tags/<tag>`. A branch is deleted under Ghost's rules: never the default branch or one an open pull request uses
+
 Lists take `page` and `per_page` (30 by default, at most 100) and send a `Link` header with `first`, `prev`, `next` and `last`. Labels named on an issue that the repository does not have yet are created with color `ededed`, as on GitHub.
 
 GraphiQL is at `/api/graphql` in a browser, signed in with your Ghost session.
@@ -121,7 +134,7 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 
 ## Known differences
 
-- `databaseId` and the REST `id` are integers for users, organizations, repositories, issues, pull requests, comments and labels. SSH keys still answer `null`.
+- `databaseId` and the REST `id` are integers for users, organizations, repositories, issues, pull requests, comments, labels, releases and release assets. SSH keys still answer `null`.
 - Milestones, reactions, issue types, projects and sub-issues are always empty.
 - A closed issue's `stateReason` is always `COMPLETED`. Ghost does not record why an issue was closed.
 - A comment's `authorAssociation` is `OWNER` or `NONE`, never `MEMBER` or `COLLABORATOR`.
@@ -146,9 +159,17 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - A pull request's REST `id` and `databaseId` are its issue's. GitHub gives the two different ids.
 - A commit author's `user` is the account with that verified email, primary or added, or null.
 - Not served: creating or editing reviews over REST, review comments over GraphQL, `updatePullRequestBranch`, and `gh pr checks`.
+- The latest release is the newest published release that is not a prerelease, by when it was published. `make_latest` is accepted and ignored. GitHub orders by the release commit's date and lets `make_latest` choose.
+- A release's `target_commitish` is the commit its tag points at, or the default branch once the tag is deleted. GitHub keeps the branch the tag was cut from.
+- A draft release creates its tag straight away. GitHub creates it when the draft is published.
+- `tarball_url` and `zipball_url` are null: Ghost has no source archives yet ([#66](https://github.com/PhantomKnight287/ghost/issues/66)). An asset's `digest` is null and its `state` always `uploaded`.
+- Release assets are streamed from Ghost with status 200, never redirected to storage. GitHub may do either.
+- Uploading an asset counts against the repository owner's storage quota when the instance sets one, and is refused over the per-file limit.
+- A release's `name` ordering in GraphQL ignores case; a release without a name sorts by its tag.
+- Not served: `POST /releases/generate-notes`, release reactions and discussions, and the release `body_html`, `body_text` and `mentions_count` fields.
 - Not served: locking (Ghost has no locking yet, [#111](https://github.com/PhantomKnight287/ghost/issues/111)), milestones, issue types, sub-issues, issue dependencies, issue field values, comment pins, label archiving, reactions, issue events and timelines, and the cross-repository lists `/issues`, `/user/issues` and `/orgs/:org/issues`.
 
 ## Not yet supported
 
-- Releases and gists
+- Gists
 - GitHub Apps and fine-grained tokens

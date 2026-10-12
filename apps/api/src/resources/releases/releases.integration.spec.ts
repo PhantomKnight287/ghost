@@ -2,7 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
+
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
+import { ConfigService } from '@nestjs/config';
 import { inArray } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import {
@@ -15,39 +19,38 @@ import {
   it,
 } from 'vitest';
 
-import { Readable } from 'node:stream';
-import { buffer } from 'node:stream/consumers';
-import { ConfigService } from '@nestjs/config';
+import { InvalidCursorError } from '../../lib/db/keyset.js';
 import { InMemoryWalStore } from '../../lib/git/materializer/wal-store.fake.js';
-import { InMemoryS3 } from '../../lib/s3/s3.fake.js';
-import { StorageQuotaExceededError } from '../../lib/storage/storage.errors.js';
-import type { S3Service } from '../../services/s3/s3.service.js';
-import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
-import { StorageService } from '../storage/storage.service.js';
-import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
+import { listTags } from '../../lib/git/tags/list-tags.js';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
+import {
+  InvalidAssetNameError,
+  InvalidTagNameError,
+  ReleaseAlreadyExistsError,
+  ReleaseAssetExistsError,
+  ReleaseAssetNotFoundError,
+  ReleaseAssetTooLargeError,
+  ReleaseNotFoundError,
+  TagNotFoundError,
+  TagTargetNotFoundError,
+} from '../../lib/releases/releases.errors.js';
+import { InMemoryS3 } from '../../lib/s3/s3.fake.js';
+import {
+  ContentLengthRequiredError,
+  StorageQuotaExceededError,
+} from '../../lib/storage/storage.errors.js';
+import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
-import { UsersService } from '../../services/users/users.service.js';
-import { listTags } from '../../lib/git/tags/list-tags.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
-import { InvalidCursorError } from '../../lib/db/keyset.js';
+import type { S3Service } from '../../services/s3/s3.service.js';
+import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
+import { UsersService } from '../../services/users/users.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { ReleaseAssetsService } from './release-assets.service.js';
-import { ContentLengthRequiredError } from '../../lib/storage/storage.errors.js';
-import {
-  InvalidAssetNameError,
-  ReleaseAssetExistsError,
-  ReleaseAssetNotFoundError,
-  ReleaseAssetTooLargeError,
-  UploadNotOctetStreamError,
-  InvalidTagNameError,
-  ReleaseAlreadyExistsError,
-  ReleaseNotFoundError,
-  TagTargetNotFoundError,
-} from '../../lib/releases/releases.errors.js';
 import { ReleasesService } from './releases.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
@@ -108,7 +111,6 @@ describe.skipIf(!CONNECTION)('releases', () => {
       releaseId,
       name,
       type: 'application/zip',
-      bodyType: 'application/octet-stream',
       contentLength: String(bytes.length),
       body: Readable.from([bytes]),
     });
@@ -372,6 +374,77 @@ describe.skipIf(!CONNECTION)('releases', () => {
     ).rejects.toBeInstanceOf(InvalidCursorError);
   });
 
+  it('pages by offset in either order, by creation or name, with a total that leaves drafts out for readers', async () => {
+    for (const [tagName, name] of [
+      ['a', 'Zulu'],
+      ['b', null],
+      ['c', 'Alpha'],
+    ] as const) {
+      await releases.createRelease({
+        ...owner,
+        body: { tagName, ...(name && { name }) },
+      });
+    }
+    await releases.createRelease({
+      ...owner,
+      body: { tagName: 'd', isDraft: true },
+    });
+
+    const created = await releases.pageReleases({
+      ...owner,
+      offset: 1,
+      limit: 2,
+      order: { field: 'created', direction: 'desc' },
+    });
+    expect(created.total).toBe(4);
+    expect(created.releases.map((release) => release.tagName)).toEqual([
+      'c',
+      'b',
+    ]);
+
+    // a nameless release sorts by its tag
+    const byName = await releases.pageReleases({
+      ...reader,
+      offset: 0,
+      limit: 10,
+      order: { field: 'name', direction: 'asc' },
+    });
+    expect(byName.total).toBe(3);
+    expect(byName.releases.map((release) => release.tagName)).toEqual([
+      'c',
+      'b',
+      'a',
+    ]);
+  });
+
+  it('reads a release by id, hiding a draft from readers', async () => {
+    const draft = await releases.createRelease({
+      ...owner,
+      body: { tagName: 'v1', isDraft: true },
+    });
+    await expect(
+      releases.getRelease({ ...owner, id: draft.id }),
+    ).resolves.toMatchObject({ tagName: 'v1', isDraft: true });
+    await expect(
+      releases.getRelease({ ...reader, id: draft.id }),
+    ).rejects.toBeInstanceOf(ReleaseNotFoundError);
+  });
+
+  it('deletes a tag and keeps its release, refusing a missing tag and a reader', async () => {
+    await releases.createRelease({ ...owner, body: { tagName: 'v1' } });
+    await expect(
+      releases.deleteTag({ ...reader, tagName: 'v1' }),
+    ).rejects.toThrow();
+
+    await releases.deleteTag({ ...owner, tagName: 'v1' });
+    await expect(
+      releases.getReleaseByTag({ ...owner, tagName: 'v1' }),
+    ).resolves.toMatchObject({ commitSha: null });
+    await expect(
+      releases.deleteTag({ ...owner, tagName: 'v1' }),
+    ).rejects.toBeInstanceOf(TagNotFoundError);
+  });
+
   it('keeps the tag when a release is deleted, and reports a deleted tag as no commit', async () => {
     const release = await releases.createRelease({
       ...owner,
@@ -433,8 +506,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
 
       const download = await assets.download({
         ...anonymous,
-        tagName: 'v1',
-        name: 'app.zip',
+        asset: { tagName: 'v1', name: 'app.zip' },
       });
       await expect(buffer(download.stream)).resolves.toEqual(zip);
       await expect(
@@ -444,7 +516,10 @@ describe.skipIf(!CONNECTION)('releases', () => {
       await assets.delete({ ...owner, assetId: asset.id });
       expect(s3.objects.size).toBe(0);
       await expect(
-        assets.download({ ...anonymous, tagName: 'v1', name: 'app.zip' }),
+        assets.download({
+          ...anonymous,
+          asset: { tagName: 'v1', name: 'app.zip' },
+        }),
       ).rejects.toBeInstanceOf(ReleaseAssetNotFoundError);
       await expect(
         assets.delete({ ...owner, assetId: asset.id }),
@@ -461,26 +536,10 @@ describe.skipIf(!CONNECTION)('releases', () => {
           releaseId: release.id,
           name: 'app.zip',
           type: undefined,
-          bodyType: 'application/octet-stream',
           contentLength: undefined,
           body: Readable.from([zip]),
         }),
       ).rejects.toBeInstanceOf(ContentLengthRequiredError);
-
-      // a JSON or form body has already been parsed away by the time it could be streamed
-      for (const bodyType of ['application/json', undefined]) {
-        await expect(
-          assets.upload({
-            ...owner,
-            releaseId: release.id,
-            name: 'app.zip',
-            type: 'application/json',
-            bodyType,
-            contentLength: String(zip.length),
-            body: Readable.from([zip]),
-          }),
-        ).rejects.toBeInstanceOf(UploadNotOctetStreamError);
-      }
 
       limits({ RELEASE_ASSET_MAX_BYTES: '8' });
       await expect(upload(release.id, 'app.zip', zip)).rejects.toBeInstanceOf(
@@ -591,6 +650,61 @@ describe.skipIf(!CONNECTION)('releases', () => {
       }
     });
 
+    it('labels an asset, serves it by id, and renames it unless the name is taken', async () => {
+      const asset = await assets.upload({
+        ...owner,
+        releaseId: release.id,
+        name: 'app.zip',
+        label: ' Linux build ',
+        type: 'application/zip',
+        contentLength: String(zip.length),
+        body: Readable.from([zip]),
+      });
+      const other = await upload(release.id, 'other.zip', zip);
+      const [row] = await db
+        .select({ label: schema.releaseAsset.label })
+        .from(schema.releaseAsset)
+        .where(inArray(schema.releaseAsset.id, [asset.id]));
+      expect(row).toEqual({ label: 'Linux build' });
+
+      const byId = await assets.download({
+        ...anonymous,
+        asset: { id: asset.id },
+      });
+      await expect(buffer(byId.stream)).resolves.toEqual(zip);
+
+      await expect(
+        assets.update({ ...owner, assetId: asset.id, name: 'other.zip' }),
+      ).rejects.toBeInstanceOf(ReleaseAssetExistsError);
+      await expect(
+        assets.update({ ...owner, assetId: asset.id, name: 'a/b' }),
+      ).rejects.toBeInstanceOf(InvalidAssetNameError);
+      await expect(
+        assets.update({ ...owner, assetId: 'asset_missing', label: 'x' }),
+      ).rejects.toBeInstanceOf(ReleaseAssetNotFoundError);
+      await expect(
+        assets.update({ ...reader, assetId: asset.id, label: 'x' }),
+      ).rejects.toThrow();
+
+      await expect(
+        assets.update({
+          ...owner,
+          assetId: asset.id,
+          name: 'app-linux.zip',
+          label: '',
+        }),
+      ).resolves.toMatchObject({ id: asset.id, name: 'app-linux.zip' });
+      const [renamed] = await db
+        .select({ label: schema.releaseAsset.label })
+        .from(schema.releaseAsset)
+        .where(inArray(schema.releaseAsset.id, [asset.id]));
+      expect(renamed).toEqual({ label: null });
+      // keeping its own name is not a clash
+      await expect(
+        assets.update({ ...owner, assetId: other.id, name: 'other.zip' }),
+      ).resolves.toMatchObject({ name: 'other.zip' });
+    });
+
     it('hides a draft release asset from readers', async () => {
       const draft = await releases.createRelease({
         ...owner,
@@ -599,10 +713,16 @@ describe.skipIf(!CONNECTION)('releases', () => {
       await upload(draft.id, 'app.zip', zip);
 
       await expect(
-        assets.download({ ...reader, tagName: 'v2', name: 'app.zip' }),
+        assets.download({
+          ...reader,
+          asset: { tagName: 'v2', name: 'app.zip' },
+        }),
       ).rejects.toBeInstanceOf(ReleaseAssetNotFoundError);
       await expect(
-        assets.download({ ...owner, tagName: 'v2', name: 'app.zip' }),
+        assets.download({
+          ...owner,
+          asset: { tagName: 'v2', name: 'app.zip' },
+        }),
       ).resolves.toMatchObject({ name: 'app.zip' });
     });
 

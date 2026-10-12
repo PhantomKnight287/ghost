@@ -11,6 +11,8 @@ const PREFIXES = {
   Commit: 'C',
   IssueComment: 'IC',
   Label: 'LA',
+  Release: 'RE',
+  ReleaseAsset: 'RA',
 } as const;
 
 export type NodeType = keyof typeof PREFIXES;

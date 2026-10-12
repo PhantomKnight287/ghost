@@ -1,8 +1,13 @@
 import type { RepositoryNode } from '../../github/graphql/types/repository.type.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
+import type {
+  ReleaseAssetDTO,
+  ReleaseDTO,
+} from '../../resources/releases/dto/release.dto.js';
 import { GithubValidationError } from './github.errors.js';
 import { encodeNodeId } from './node-id.js';
+import type { ReleaseAssetExtras } from './node-lookup.js';
 import type { GithubOrigins } from './origins.js';
 
 export type RestUserSource = {
@@ -425,5 +430,75 @@ export function toReviewRest(
     _links: { html: { href: htmlUrl }, pull_request: { href: pullUrl } },
     submitted_at: review.submittedAt?.toISOString() ?? null,
     commit_id: review.commitSha,
+  };
+}
+
+/** A tag as a path, each segment escaped and its slashes kept, as the web app's release routes take it. */
+export const tagPath = (tagName: string) =>
+  tagName.split('/').map(encodeURIComponent).join('/');
+
+// Mapper: assets come from ReleasesService in Ghost's shape; GitHub's adds the integer id, label, uploader and URLs, which releaseAssetExtrasOf loads.
+export function toReleaseAssetRest(
+  asset: ReleaseAssetDTO,
+  extras: ReleaseAssetExtras,
+  tagName: string,
+  context: RestContext,
+) {
+  return {
+    url: `${context.repository.apiUrl}/releases/assets/${extras.numericId}`,
+    browser_download_url: `${context.repository.webUrl}/releases/download/${tagPath(tagName)}/${encodeURIComponent(asset.name)}`,
+    id: extras.numericId,
+    node_id: encodeNodeId('ReleaseAsset', asset.id),
+    name: asset.name,
+    label: extras.label,
+    // Assets still uploading are never listed.
+    state: 'uploaded',
+    content_type: asset.contentType,
+    size: asset.size,
+    digest: null,
+    download_count: asset.downloadCount,
+    created_at: asset.createdAt,
+    updated_at: extras.updatedAt,
+    uploader:
+      (extras.uploaderLogin && context.users.get(extras.uploaderLogin)) || null,
+  };
+}
+
+export type RestReleaseAsset = ReturnType<typeof toReleaseAssetRest>;
+
+// Mapper: releases come from ReleasesService in Ghost's shape; GitHub's embeds the author and adds the integer id and URLs.
+export function toReleaseRest(
+  release: ReleaseDTO,
+  numericId: number,
+  assets: RestReleaseAsset[],
+  { uploadUrl, defaultBranch }: { uploadUrl: string; defaultBranch: string },
+  context: RestContext,
+) {
+  const url = `${context.repository.apiUrl}/releases/${numericId}`;
+  return {
+    url,
+    html_url: `${context.repository.webUrl}/releases/tag/${tagPath(release.tagName)}`,
+    assets_url: `${url}/assets`,
+    upload_url: `${uploadUrl}/releases/${numericId}/assets{?name,label}`,
+    // ponytail: no source archives until #66.
+    tarball_url: null,
+    zipball_url: null,
+    id: numericId,
+    node_id: encodeNodeId('Release', release.id),
+    tag_name: release.tagName,
+    // Ghost keeps the commit the tag points at, not the branch it was cut from; a deleted tag reads as the default branch, GitHub's default target.
+    target_commitish: release.commitSha ?? defaultBranch,
+    name: release.name,
+    body: release.body,
+    draft: release.isDraft,
+    prerelease: release.isPrerelease,
+    immutable: false,
+    created_at: release.createdAt,
+    published_at: release.publishedAt,
+    updated_at: release.updatedAt,
+    author:
+      (release.authorUsername && context.users.get(release.authorUsername)) ||
+      null,
+    assets,
   };
 }

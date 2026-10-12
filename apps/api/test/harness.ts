@@ -1,4 +1,5 @@
 import type { AddressInfo } from 'node:net';
+
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthService } from '@thallesp/nestjs-better-auth';
@@ -73,9 +74,18 @@ export async function signUp(app: INestApplication, username: string) {
     body: { email, password },
     returnHeaders: true,
   });
-  const { key } = await auth.createApiKey({ body: { userId: user.id } });
+  return {
+    cookie: headers.get('set-cookie') ?? '',
+    key: await apiKey(app, user.id),
+    userId: user.id,
+  };
+}
 
-  return { cookie: headers.get('set-cookie') ?? '', key, userId: user.id };
+/** Another API key for the same account, each with its own rate limit. */
+export async function apiKey(app: INestApplication, userId: string) {
+  const auth = app.get<AuthService<Auth>>(AuthService).api;
+  const { key } = await auth.createApiKey({ body: { userId } });
+  return key;
 }
 
 /** An API key holding only `scopes`, as the device flow mints them. */
