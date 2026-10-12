@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 
 import { IssuesController } from './issues.controller.js';
@@ -9,7 +10,10 @@ describe('IssuesController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IssuesController],
-      providers: [{ provide: GithubIssuesService, useValue: {} }],
+      providers: [
+        { provide: GithubIssuesService, useValue: {} },
+        { provide: ConfigService, useValue: {} },
+      ],
     }).compile();
 
     controller = module.get<IssuesController>(IssuesController);
