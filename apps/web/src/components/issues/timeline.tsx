@@ -1,10 +1,11 @@
-import { GitCommitHorizontal, GitPullRequest, CircleDot } from "lucide-react";
+import { GitCommitHorizontal } from "lucide-react";
 import Link from "next/link";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { CommentItem } from "@/components/issues/comments";
 import { commitRunAt, eventDescription } from "@/components/issues/common";
 import { Markdown } from "@/components/markdown";
+import { ThreadStateIcon } from "@/components/thread-state";
 import { UserLink } from "@/components/users/user-link";
 import { ReviewItem } from "@/components/pull-requests/review";
 import type { IssueTimelineItem } from "@/types/issue";
@@ -184,11 +185,11 @@ export function Timeline({
         className="flex flex-wrap items-center gap-1 px-4 text-xs text-muted-foreground"
       >
         {item.source ? (
-          item.source.isPullRequest ? (
-            <GitPullRequest className="size-3.5" />
-          ) : (
-            <CircleDot className="size-3.5" />
-          )
+          <ThreadStateIcon
+            isPullRequest={item.source.isPullRequest}
+            state={item.source.state}
+            className="size-3.5"
+          />
         ) : (
           <GitCommitHorizontal className="size-3.5" />
         )}

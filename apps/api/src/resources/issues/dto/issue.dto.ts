@@ -362,12 +362,9 @@ export class IssueReferenceSourceDTO {
   @IsString()
   title: string;
 
-  @ApiProperty({
-    enumName: 'IssueState',
-    enum: schema.issueState.enumValues,
-  })
-  @IsIn(schema.issueState.enumValues)
-  state: (typeof schema.issueState.enumValues)[number];
+  @ApiProperty({ enum: ['open', 'closed', 'merged'] })
+  @IsIn(['open', 'closed', 'merged'])
+  state: 'open' | 'closed' | 'merged';
 
   @ApiProperty()
   @IsBoolean()

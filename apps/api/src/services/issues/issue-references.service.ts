@@ -166,7 +166,9 @@ export class IssueReferencesService {
           source: {
             number: sourceIssue.number,
             title: sourceIssue.title,
-            state: sourceIssue.state,
+            state: sql<
+              'open' | 'closed' | 'merged'
+            >`case when ${schema.pullRequest.state} = 'merged' then 'merged' else ${sourceIssue.state}::text end`,
             isPullRequest: sourceIssue.isPullRequest,
           },
         },
@@ -192,6 +194,10 @@ export class IssueReferencesService {
       .leftJoin(
         sourceIssue,
         eq(sourceIssue.id, schema.issueReference.sourceIssueId),
+      )
+      .leftJoin(
+        schema.pullRequest,
+        eq(schema.pullRequest.issueId, sourceIssue.id),
       )
       .leftJoin(actor, eq(actor.id, schema.issueReference.actorId))
       .where(eq(schema.issueReference.targetIssueId, targetIssueId))

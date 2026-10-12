@@ -4599,7 +4599,8 @@ export interface components {
         IssueReferenceSourceDTO: {
             number: number;
             title: string;
-            state: components["schemas"]["IssueState"];
+            /** @enum {string} */
+            state: "open" | "closed" | "merged";
             isPullRequest: boolean;
         };
         IssueTimelineReferenceDTO: {
