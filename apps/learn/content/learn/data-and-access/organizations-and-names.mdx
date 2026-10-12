@@ -1,0 +1,57 @@
+---
+title: Organizations and names
+description: One namespace for users and organizations, base permissions, teams, transfers and redirects.
+---
+
+## One namespace
+
+The `owner` in `/owner/repo`, in git remotes and in `owner/repo#1` is an organization's slug for an organization's repository, and the owning user's username otherwise (<Adr file="0022-owners-share-one-namespace" />). Every query that names a repository computes it the same way, with <Source path="apps/api/src/lib/repositories/access/repository-access.ts" symbol="ownerNameOf" />:
+
+```ts
+sql`coalesce(${organization.slug}, ${owner.username})`
+```
+
+So a username and an organization slug can never be equal (ignoring case), and neither can be a top-level web route. Better Auth's availability checks answer across both namespaces, so a sign-up form reports the clash while you type. Repository slugs `settings` and `teams` are reserved too, since `/<owner>/settings` and `/<org>/teams` are pages.
+
+GitHub's URLs are the model users bring; a prefix like `/orgs/acme/repo` would split every route and stored reference in two.
+
+## Organization roles vs repository roles
+
+An organization role says what someone may do **to the organization**; it does not double as their repository role (<Adr file="0023-organization-access-is-a-base-permission" />):
+
+| Organization role | On every repository | Runs the organization |
+| --- | --- | --- |
+| `owner` | `owner` | everything, including deleting it |
+| `admin` | `admin` | settings, people, teams, invitations |
+| `member` | the **base permission** | nothing |
+
+The base permission (`organization_settings.basePermission`) is any repository role or none. Teams (`repository_team`) and collaborator rows raise it per repository. With base permission none, a private repository is visible only to its teams and collaborators.
+
+An organization repository's `ownerId` is still the user who created it, but that user gets nothing from it; access comes from the organization.
+
+## Around it
+
+- **Outside collaborators**: collaborators on organization repositories who are not members.
+- **Membership is private** unless a member publicizes it.
+- **Team maintainers** manage a team's members without administering the organization. Team rows are written by Ghost, since Better Auth's checks know only organization roles.
+- **Transfers** to your own account or an organization you administer happen at once; anyone else must accept (`repository_transfer`).
+- **Renames and transfers leave a `repository_redirect`**, which the access service follows when a name no longer matches a live repository, so old links and git remotes keep working.
+
+<Quiz>
+  <Question
+    prompt="An organization member has base permission none and no team or collaborator role on repository R (private). What do they see?"
+    options={["Read access", "404", "403"]}
+    answer={1}
+    explanation="Base permission none grants nothing; an unreadable repository looks absent."
+  />
+  <Question
+    prompt="Why can't a user register the username 'acme' when an organization 'acme' exists?"
+    options={[
+      "Usernames must be unique per email",
+      "Users and organizations share one owner namespace; acme/repo must mean one owner",
+      "Better Auth forbids it",
+    ]}
+    answer={1}
+    explanation="ownerNameOf coalesces organization slug and username, so they must never collide."
+  />
+</Quiz>

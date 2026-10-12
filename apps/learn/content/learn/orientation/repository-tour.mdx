@@ -1,0 +1,100 @@
+---
+title: Repository tour
+description: Every folder at the top of the repository, and inside the API, and what belongs where.
+---
+
+Ghost is one Bun workspace managed by Turborepo. The root `package.json` lists `apps/*` and `packages/*` as workspaces; `turbo.json` runs `dev`, `build`, `test`, `lint` and `check-types` across all of them.
+
+## Top level
+
+```
+apps/
+  api/        NestJS: the REST API, the git transport (HTTP and SSH), GitHub compatibility
+  web/        Next.js: everything a person clicks
+  docs/       Fumadocs: the user guide (port 3003)
+  learn/      This course (port 3005)
+  delivery/   Go: sends email and webhooks from a Postgres queue
+  importer/   Bun: imports a repository from GitHub
+  zoekt/      A Dockerfile and script running the Zoekt code search server
+packages/
+  db/           Drizzle schema, migrations, the migrator and the seed
+  permissions/  The role ladder shared by API and web
+  references/   Parses `#123`, `owner/repo#123`, `@user`, `@org/team` and closing keywords
+  languages/    Linguist-style language detection and colors
+docs/           One file per design decision (ADR), code standards, roadmap
+docker/         Self-hosting: compose file, Caddyfile, setup scripts
+.railway/       Railway infrastructure as code
+scripts/        Repository scripts: the standards checker, the version bump
+```
+
+The API is the only thing that touches git, the bucket or most of the database. The web app talks to the API over HTTP like any other client. `delivery` and `importer` are separate processes with narrow jobs; each has a lesson in the later chapters.
+
+## Inside the API
+
+`apps/api/src` is organized by **what a folder holds**, not by feature. This is a rule (<Source path="docs/code-standards.md">code standards, rule 6</Source>), and knowing it tells you where to look for anything:
+
+| Folder | Holds | Example |
+| --- | --- | --- |
+| `resources/` | REST resources: controller + DTOs + the service behind them, one folder per resource. Appears in OpenAPI. | <Source path="apps/api/src/resources/issues/" /> |
+| `services/` | `@Injectable()` classes only, grouped by domain. | <Source path="apps/api/src/services/git/wal/push-transaction.service.ts" /> |
+| `lib/` | Pure functions, types, error classes, codecs. Mirrors `services/` folder names. | <Source path="apps/api/src/lib/git/wal/wal-codec.ts" /> |
+| `git/` | The git transport edge. Not a REST resource, so not under `resources/` (<Adr file="0003-git-is-not-a-resource" />). | <Source path="apps/api/src/git/git.controller.ts" /> |
+| `github/` | The GitHub compatibility layer: GraphQL, REST v3, OAuth device flow. | <Source path="apps/api/src/github/" /> |
+| `domain/` | `DomainError`, the base class every expected failure extends. | <Source path="apps/api/src/domain/errors.ts" /> |
+| `filters/` | Turns a `DomainError` into an HTTP response. | <Source path="apps/api/src/filters/domain-error/" /> |
+| `scripts/` | One-off maintenance commands run by hand (repair, backfills, seeding `gh`). | <Source path="apps/api/src/scripts/" /> |
+| `mail/` | React Email templates. | |
+
+So: a function that parses a git packet is in `lib/git/protocol/`; the service that spawns `git receive-pack` is in `services/git/pack-process/`; the controller for `/api/repositories/:owner/:repo/issues` is in `resources/issues/`.
+
+## Errors: one pattern everywhere
+
+Expected failures are classes that extend `DomainError` and carry an HTTP status:
+
+```ts
+// apps/api/src/domain/errors.ts
+export abstract class DomainError extends Error {
+  abstract readonly status: number;
+}
+
+// apps/api/src/lib/pull-requests/pull-requests.errors.ts
+export class PullRequestNotOpenError extends DomainError {
+  status: number = HttpStatus.CONFLICT;
+  constructor(state: string) {
+    super(`This pull request is ${state}`);
+  }
+}
+```
+
+Services throw them; nothing in a service knows about HTTP. The global `DomainErrorFilter` renders the status and message. The GitHub compatibility layer has its own filter that renders GitHub's error shape instead. Error classes always live under `lib/`, never next to the service that throws them.
+
+## Packages
+
+<Source path="packages/db/src/schema/" /> is the whole data model, one file per area (`auth.ts`, `repository.ts`, `issues.ts`, `pull-requests.ts`, …). Both the API and the delivery service read the same tables; only `packages/db` defines them or migrates them.
+
+<Source path="packages/permissions/src/index.ts" /> holds `roleHierarchy` and `atLeast`. The web uses it to hide buttons, the API to decide; one ladder, two consumers.
+
+<TryIt>
+1. Open <Source path="apps/api/src/app.module.ts" /> and read the `imports` list. Each module there is one feature or one piece of infrastructure.
+2. Pick any three and find their folders using the table above.
+3. Find where `PullRequestNotOpenError` is thrown (`grep -rn PullRequestNotOpenError apps/api/src`). Notice the thrower never sets a status code.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="You write a pure function that decodes a binary header. Where does it go?"
+    options={["services/git/wal/", "lib/git/wal/", "resources/repositories/"]}
+    answer={1}
+    explanation="services/ holds only @Injectable() classes. Pure functions, codecs and types live under lib/, mirroring the services/ folder names. scripts/check-standards.ts enforces it."
+  />
+  <Question
+    prompt="Why is the git transport in src/git/ rather than src/resources/git/?"
+    options={[
+      "Historical accident",
+      "resources/ means REST with DTOs and OpenAPI; git is a binary wire protocol, and filing it there invites JSON body parsing that would eat the packfile",
+      "Nest requires it",
+    ]}
+    answer={1}
+    explanation="ADR 0003. bodyParser is off in main.ts for the same reason: express.json() would consume the pack stream before the handler sees it."
+  />
+</Quiz>

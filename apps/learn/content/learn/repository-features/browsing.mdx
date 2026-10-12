@@ -1,0 +1,57 @@
+---
+title: Browsing code
+description: Trees, files, history and the indexes that make a repository page fast.
+---
+
+Every browsing route is in <Source path="apps/api/src/resources/repositories/repositories.controller.ts" /> under `/api/repositories/:owner/:slug/…`: `contents`, `blob`, `raw`, `readme`, `commits`, `commits/:sha`, `commits/:sha/patch`, `branches`, `tags`, `languages`, `contributors`, `search`.
+
+All of them follow one pattern: authorize, `materializer.open(repository)` to get a cache current with the log, then run git through a small pure function in `lib/git/`:
+
+| Need | Function |
+| --- | --- |
+| Resolve a branch, tag or sha | <Source path="apps/api/src/lib/git/tree/resolve-ref.ts" /> |
+| List a directory | <Source path="apps/api/src/lib/git/tree/list-tree.ts" /> |
+| Read a file, detect binary, guess media type | <Source path="apps/api/src/lib/git/blob/" /> |
+| Find the README | `find-readme.ts` |
+| History, one commit | <Source path="apps/api/src/lib/git/commits/list-commits.ts" /> |
+| Diffs and patches | <Source path="apps/api/src/lib/git/diff/diff.ts" /> |
+
+Git runs through `runGit` (in `lib/git/exec/`) with an argv array, never a shell, and with `--end-of-options` before anything a user supplied, so a ref named `--upload-pack=…` cannot become an option.
+
+## "Last commit" per row
+
+A directory listing shows the newest commit that touched each entry. Asking git per row (`git log -1 -- path`) is a history walk per file. Instead <Source path="apps/api/src/services/git/path-index/repository-path-index.service.ts" /> keeps a table of the latest commit per path, per ref, and tops it up as the ref moves:
+
+- a fast-forward walks only the new commits, and the request waits for it;
+- a first build or a rewrite walks the whole history in the background, and the page renders without the column until it is ready.
+
+Every ancestor directory of a changed file is recorded too, so a directory row carries the newest commit under it.
+
+## Languages
+
+<Source path="apps/api/src/services/git/languages/repository-language.service.ts" /> computes the language bar, using `packages/languages` (Linguist's path rules and colors). Languages under half a percent are dropped.
+
+## Revisions in URLs
+
+`/owner/repo/tree/feature/x/src/index.ts` is ambiguous: is the branch `feature` or `feature/x`? The web app splits a path against the repository's branch list, longest match first (`splitRevision`). Tags resolve to their commit and are treated as detached, so they are never path-indexed.
+
+## Rendering
+
+The web app highlights code with Shiki and renders Markdown with GitHub-flavored extensions; `#123`, `@user` and `owner/repo#5` become links using `packages/references`, the same parser the API uses to record references.
+
+<TryIt>
+Request `GET /api/repositories/<you>/<repo>/contents?ref=main` from the Scalar reference at `/reference`, then compare its `commit` per entry with `git log -1 -- <path>` in a clone. Same answer, one query instead of N walks.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="Why does every browsing route call materializer.open first?"
+    options={[
+      "To check permissions",
+      "The cache may be behind the log; git must see what the log holds",
+      "To warm the CPU cache",
+    ]}
+    answer={1}
+    explanation="The cache is only trustworthy once caught up with the index."
+  />
+</Quiz>

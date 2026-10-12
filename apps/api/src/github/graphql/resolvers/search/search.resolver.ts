@@ -45,8 +45,7 @@ export class SearchResolver {
     @Args('after', { nullable: true }) after?: string,
   ) {
     const search = parseIssueSearch(query);
-    // ponytail: only repository-scoped issue search; global search across repositories needs its own query over every readable repository.
-    // Ghost has no review requests, so nobody has one pending.
+    // ponytail: only repository-scoped issue search; global search across repositories needs its own query over every readable repository. Ghost has no review requests, so `review-requested:` matches nothing.
     if (type !== SearchType.ISSUE || !search.repo || search.reviewRequested)
       return EMPTY;
     const repository = await this.repositories.repository(

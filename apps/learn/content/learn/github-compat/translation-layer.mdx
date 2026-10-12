@@ -1,0 +1,45 @@
+---
+title: A translation layer
+description: How gh comes to believe Ghost is GitHub Enterprise, and the rules for code under src/github.
+---
+
+`gh` treats any host other than github.com as GitHub Enterprise Server and calls `https://HOST/api/v3/` and `https://HOST/api/graphql`. The API host already serves `/api` and the git transport, so users point `gh` at it with `GH_HOST=api.<domain>` and `gh repo clone`, git credentials and everything else resolve against one host (<Adr file="0040-github-compatibility-is-a-translation-layer" />).
+
+<Source path="apps/api/src/github/" /> holds it:
+
+```
+github/
+  auth/        GithubAuthMiddleware: token/Bearer API keys or a session; scope checks
+  graphql/     code-first GraphQL: types, resolvers, enums, inputs, conformance test
+  rest/        REST v3 controllers: meta, users, repos, issues, pulls
+  oauth/       GitHub's OAuth paths at the API root: device flow, web flow, token exchange
+  gh-capture.spec.ts
+lib/github/    pure helpers only src/github imports: node ids, mappers, scopes, search parsing
+```
+
+## Rules
+
+- **Translate, never reimplement.** Every resolver and controller calls the existing Ghost services (`IssuesService`, `PullRequestsService`, `RepositoryAccessService`…). Permissions, numbering, events and notifications therefore stay in one place and behave identically whether you use the web app or `gh`.
+- **Mappers are allowed here and nowhere else.** `to<GitHubType>` functions in `lib/github/nodes.ts` and `lib/github/rest.ts` reshape Ghost data into GitHub's. Each carries a one-line comment saying why a query could not select GitHub's shape directly.
+- **Ghost features with no GitHub equivalent are not exposed.**
+- **What Ghost lacks answers empty**, not with an error: milestones, reactions, projects, checks, review requests. The types exist so `gh`'s fixed queries validate.
+- **Every difference is documented** on the compatibility page in `apps/docs` (`github-cli/index.mdx`).
+
+`/api/v3/meta` reports GitHub Enterprise Server 3.17.0, which keeps `gh` on the classic `search(type: ISSUE)` syntax Ghost can translate.
+
+## What works
+
+`gh auth` (token, web/device flow, refresh), `gh api`, `gh repo view/clone/create`, `gh issue list/view/create/comment/edit/close/reopen`, `gh label …`, `gh ssh-key`, and `gh pr list/view/status/create/checkout/diff/edit/ready/close/reopen/merge`. Each is exercised against a real server in CI.
+
+<Quiz>
+  <Question
+    prompt="You add a GraphQL mutation that closes an issue. Where does the closing logic go?"
+    options={[
+      "In the resolver",
+      "Nowhere new: the resolver calls IssuesService.closeIssue, which already checks permissions and publishes events",
+      "In lib/github",
+    ]}
+    answer={1}
+    explanation="The layer translates; Ghost's services own behavior."
+  />
+</Quiz>

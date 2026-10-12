@@ -1,0 +1,54 @@
+---
+title: Accounts, sessions and keys
+description: Better Auth, its plugins, and the three ways a caller proves who they are.
+---
+
+Authentication is Better Auth, configured in one function: <Source path="apps/api/src/lib/auth.ts" symbol="createAuth" />. It is mounted under `/api/auth` and its tables are in `packages/db/src/schema/auth.ts`.
+
+## Three credentials
+
+| Credential | Used by | Accepted on |
+| --- | --- | --- |
+| **Session cookie** | The web app, and GraphiQL in a browser | Ghost's `/api` and the GitHub compatibility layer |
+| **API key** (`ghost_pat_…`) | `git` (as the Basic password), `gh`, scripts, OAuth apps | git transport and the GitHub compatibility layer, **not** Ghost's own `/api` |
+| **LFS token** | git-lfs, after `git-lfs-authenticate` over SSH | One repository's LFS routes, for an hour |
+
+Keeping API keys off Ghost's own API means a leaked key can push code but cannot, say, delete your account.
+
+## Plugins in use
+
+- **username**: accounts have a unique username, used in URLs and git remotes.
+- **apiKey**: keys with metadata and `permissions.scopes`. Keys made in settings hold every scope; keys minted for `gh` or OAuth apps hold the scopes approved.
+- **organization**, with teams: organizations, members, invitations.
+- **deviceAuthorization**: the OAuth device flow `gh auth login --web` uses.
+- **oauthProvider** (with jwt): the registry of OAuth apps users and organizations register.
+- **GitHub social sign-in**, only when `GITHUB_CLIENT_ID` is set; imports use the linked GitHub account.
+
+Email verification is optional (`EMAIL_VERIFICATION_ENABLED`). Only verified addresses receive email or link commits to the account, so an instance with verification off sends none.
+
+## Multiple emails
+
+`user_email` holds extra addresses an account owns. They matter for commit attribution (contribution graph, GPG verification, linking commit authors to accounts). Only **verified** rows count, otherwise adding someone's address would claim their commits.
+
+## Name rules
+
+`createAuth` hooks refuse a username that equals an organization's slug (ignoring case) or a reserved word (`api`, `auth`, `dashboard`, `device`, `login`, …): one name means one owner, and top-level web routes must not be shadowed. The **Organizations and names** lesson covers why.
+
+## In the API
+
+- Routes require a session by default; see the request lesson for `@OptionalAuth` and `@AllowAnonymous`.
+- Git routes have their own middleware (Basic auth with API keys).
+- The GitHub layer has its own middleware accepting `token`/`Bearer` keys or a session.
+
+<TryIt>
+In <Source path="apps/api/src/lib/auth.ts" />, find `RESERVED_NAMES` and the hook that uses it. Then find where `apiKey(` is configured and what `enableMetadata` is for. (Hint: search `oauthClientId` in `apps/api/src/lib/github/`.)
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="Someone steals an API key. What can they not do with it?"
+    options={["Push to your repositories", "Call Ghost's own /api, for example to change your account settings", "Use gh as you"]}
+    answer={1}
+    explanation="API keys authenticate git and the GitHub compatibility layer only."
+  />
+</Quiz>

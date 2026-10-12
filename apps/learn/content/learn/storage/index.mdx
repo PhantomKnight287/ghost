@@ -1,0 +1,15 @@
+---
+title: Storage
+description: "The write-ahead log in object storage, the compare-and-swap commit point, and replay into the cache."
+---
+
+The heart of Ghost. Every feature that touches git depends on the rules in this chapter; read it slowly and do the exercises.
+
+<Cards>
+  <Card title="The log in the bucket" href="/storage/the-log">Two kinds of object per repository, and why each holds what it holds.</Card>
+  <Card title="The binary format" href="/storage/binary-format">Why the index and entry headers are hand-rolled bytes, and the two fields that look like overhead and are not.</Card>
+  <Card title="The commit point" href="/storage/the-commit-point">commitPush, line by line. One conditional PUT, a retry loop, and a failure table you should be able to recite.</Card>
+  <Card title="Materialization" href="/storage/materialization">How the local cache catches up with the log, why it only ever moves forward, and why the push path leaves it deliberately stale.</Card>
+  <Card title="Verifying a push before it commits" href="/storage/verification">The bug that made a repository unreadable for good, and the three checks that now run before the commit point.</Card>
+  <Card title="Deletion, repair and what is not built" href="/storage/deletion-repair-and-the-future">Tombstones, purges, the repair tool, and the storage work still ahead.</Card>
+</Cards>

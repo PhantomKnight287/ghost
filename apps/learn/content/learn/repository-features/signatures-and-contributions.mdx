@@ -1,0 +1,27 @@
+---
+title: Signatures and contributions
+description: Verified badges checked on read, Ghost's own signing key, and the contribution graph.
+---
+
+## Verified commits
+
+Users upload GPG public keys (`/api/gpg-keys`). <Source path="apps/api/src/services/gpg/commit-verification.service.ts" symbol="verifyCommits" /> checks each commit's signature **on read**, not at push: keys are added, expire and get revoked after the fact, and the cache is rebuilt from the log, so a stored verdict would go stale. A signature verifies only if the key carries an address the account has **verified** that matches the commit's author email.
+
+Signing with SSH keys is not built yet (#121).
+
+## Ghost's own commits
+
+Merges, squashes, rebases and applied suggestions are commits Ghost writes. With `COMMIT_SIGNING_KEY` (a base64 armored private key without passphrase) set, <Source path="apps/api/src/services/gpg/commit-signing.service.ts" /> signs them, like GitHub's web-flow key. Without it they are unsigned.
+
+## The contribution graph
+
+A profile's graph counts commits per day. Walking every repository's history on each profile view is not an option, so <Source path="apps/api/src/services/git/contributions/repository-contribution.service.ts" /> maintains `repository_contribution`: daily commit counts per lowercased author email on each repository's **default branch**, updated after every push. Rows store the email and, when known, the account it belongs to; readers match on both, so adding a verified email later needs no reindex. The graph counts only repositories the viewer can read.
+
+<Quiz>
+  <Question
+    prompt="Why is signature verification computed on every read instead of stored at push time?"
+    options={["Speed", "Keys can be added, expire or be revoked later; a stored verdict would go stale", "Pushes are too slow"]}
+    answer={1}
+    explanation="The verdict depends on the account's keys now."
+  />
+</Quiz>

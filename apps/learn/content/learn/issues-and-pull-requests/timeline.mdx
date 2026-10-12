@@ -1,0 +1,23 @@
+---
+title: Commits on the timeline
+description: Why a pull request's commits are rows written as each push lands, not read from git.
+---
+
+Opening a pull request and every later push that moves its head write `issue_event` rows: one `committed` row per commit the push added, and a `head_force_pushed` row first when the push rewrote the branch (<Adr file="0039-pull-request-commits-are-recorded-per-push" />). The UI groups a person's consecutive commits as "added N commits".
+
+"Added" means: commits the new head reaches that neither the old head nor the base branch does, so commits pulled in by merging or rebasing onto the base never show.
+
+<Source path="apps/api/src/services/pull-requests/pull-request-pushes.service.ts" symbol="recordPush" /> is the one place this happens. Every writer of a branch calls it after its push lands: git over HTTP and SSH, applied suggestions, and merges into a branch another request is from. Imports call it for none.
+
+The same transaction publishes `pull_request.synchronized` (with before, after, forced and up to 20 commits) for webhooks. It notifies nobody; followers hear about comments and reviews, not every push.
+
+**Why rows, not git?** Reading commits from git at render time would place them by commit date, which the author's machine sets and a rebase rewrites, and a force push would erase the old commits without a trace. Rows record when each push actually happened. A `committed` row keeps the subject and author name, so it still reads after a force push makes the commit unreachable.
+
+<Quiz>
+  <Question
+    prompt="After a force push, the old commits are unreachable. Does the timeline still show them?"
+    options={["No", "Yes: committed rows store the subject and author name, and a head_force_pushed row marks the rewrite"]}
+    answer={1}
+    explanation="That is the point of recording per push."
+  />
+</Quiz>

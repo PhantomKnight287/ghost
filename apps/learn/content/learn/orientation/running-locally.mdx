@@ -1,0 +1,107 @@
+---
+title: Running it locally
+description: From a fresh clone to pushing your first repository, and what each process is for.
+---
+
+You need Bun and Docker.
+
+<Steps>
+<Step>
+
+### Start the infrastructure
+
+```sh
+docker compose up -d
+```
+
+<Source path="compose.yaml" /> starts Postgres, RustFS (an S3-compatible store; console on `http://localhost:9001`), a one-shot container that creates the `ghost` bucket, and `lgtm` (Grafana with OpenTelemetry, see **Operations**).
+
+</Step>
+<Step>
+
+### Install and configure
+
+```sh
+bun install
+cp .env.example .env
+```
+
+Set `BETTER_AUTH_SECRET` to any long random string. The rest of `.env.example` already matches compose. Turborepo loads the root `.env` for every app, and the API's `ConfigModule` reads it too.
+
+</Step>
+<Step>
+
+### Create the tables
+
+```sh
+bun run db:migrate
+```
+
+This runs `drizzle-kit migrate` in `packages/db` against `DATABASE_URL`. It creates tables only. Once the API has built, seed `gh` as a built-in OAuth app if you want `gh auth login --web`:
+
+```sh
+node apps/api/dist/scripts/seed-github-cli-app.js
+```
+
+</Step>
+<Step>
+
+### Run everything
+
+```sh
+bun run dev
+```
+
+| Process | URL |
+| --- | --- |
+| Web | `http://localhost:3000` |
+| API (REST under `/api`, git at the root) | `http://localhost:3001` |
+| Docs | `http://localhost:3003` |
+| Course | `http://localhost:3005` |
+
+</Step>
+<Step>
+
+### Push something
+
+Sign up in the web app, create a repository, then create an API key under account settings. The key is the git password; your username is the username.
+
+```sh
+git remote add origin http://localhost:3001/<username>/<repo>.git
+git push -u origin main
+```
+
+Open the bucket in the RustFS console: you will find `repos/<repositoryId>/index` and one object under `repos/<repositoryId>/entries/` per push. That is the repository. The bare repository under the API's temp directory is only a cache.
+
+</Step>
+</Steps>
+
+## SSH, optionally
+
+```sh
+ssh-keygen -t ed25519 -N '' -f ghost_host_key
+echo "GIT_SSH_HOST_KEY=$(base64 -i ghost_host_key)" >> .env
+git remote set-url origin ssh://git@localhost:1031/<username>/<repo>.git
+```
+
+Add your public key under **Settings → Security**. Without `GIT_SSH_HOST_KEY` the SSH listener never starts; that variable doubles as the feature flag.
+
+## Optional pieces
+
+Each is off until configured, and Ghost runs without it:
+
+| Feature | Needs |
+| --- | --- |
+| Code search | `ZOEKT_URL` and the `zoekt` service |
+| Email | `MAIL_*` or `EMAIL_PROXY`, and `apps/delivery` running |
+| Webhooks | `WEBHOOK_SECRET_KEY` and `apps/delivery` |
+| GitHub import | `IMPORTER_URL`, `IMPORTER_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `apps/importer` |
+| Signed web commits | `COMMIT_SIGNING_KEY` |
+
+<Callout type="warn" title="Your dev database is not a test database">
+Never point `TEST_DATABASE_URL` at a database you care about. Some integration specs drain the whole event outbox and run migrations. Use a throwaway container; the next lesson shows how.
+</Callout>
+
+<TryIt>
+Push a repository, then stop the API, delete its cache directory (`$TMPDIR/ghost/<repositoryId>.git`, see <Source path="apps/api/src/services/git/repository-storage/repository-storage.service.ts" symbol="CACHE_ROOT" />), start it again and clone. The clone works: the API replayed the log from the bucket. You just exercised <Adr file="0004-object-storage-is-the-truth" /> and <Adr file="0012-forward-only-materialization" />.
+</TryIt>

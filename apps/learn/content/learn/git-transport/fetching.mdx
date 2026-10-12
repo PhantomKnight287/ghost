@@ -1,0 +1,39 @@
+---
+title: Fetch and clone
+description: "The read path: materialize, advertise, stream a pack back."
+---
+
+Reading is simpler than pushing, with one rule: **before git touches a repository, the cache is brought up to date with the log.**
+
+```ts
+// GitService.advertiseRefs and uploadPack
+const repoDirectory = await this.materializer.open(repository);
+```
+
+<Source path="apps/api/src/services/git/materializer/repository-materializer.service.ts" symbol="open" /> is the one door to a repository on disk: it returns the cache directory, current with the log. Everything that hands a repository to git (the transport, tree and blob browsing, diffs, merges) goes through it. How it catches up is the **Materialization** lesson in the Storage chapter; for now, treat it as "make the cache match the bucket, cheaply if it already does".
+
+## The two requests
+
+1. `GET info/refs?service=git-upload-pack` → `GitService.advertiseRefs` materializes, then streams `git upload-pack --advertise-refs` output with a `# service=` pkt-line header. `Cache-Control: no-cache`, since refs move.
+2. `POST git-upload-pack` → `GitService.uploadPack` materializes again (usually a no-op) and pipes the client's wants and haves into `git upload-pack --stateless-rpc`, streaming the pack back. Nothing is buffered.
+
+## Anonymous reads
+
+A public repository is readable with no credentials: the auth middleware passes `actor: null` and `decideAccess` allows `read` on public repositories. The web app's clone button and `git clone` without a key both rely on this. Over SSH there is no anonymous access (next lesson).
+
+## Large clones and v2
+
+With protocol v2 (`git config protocol.version 2`, the default in modern git), the client lists only the refs it wants, so `refs/pull/*` do not inflate every `git pull`. See the previous lessons for how Ghost passes v2 through safely.
+
+<Quiz>
+  <Question
+    prompt="A node has never served repository R. A clone arrives. What happens first?"
+    options={[
+      "404 until someone pushes",
+      "The materializer replays R's log from the bucket into a fresh cache, then git answers",
+      "The API proxies to another node",
+    ]}
+    answer={1}
+    explanation="Any node can serve any repository by replaying its log (ADR 0004, 0012)."
+  />
+</Quiz>

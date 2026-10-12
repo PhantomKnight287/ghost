@@ -1,0 +1,11 @@
+{
+  "title": "GitHub compatibility",
+  "pages": [
+    "index",
+    "translation-layer",
+    "graphql",
+    "rest-v3",
+    "oauth-and-scopes",
+    "testing-against-real-gh"
+  ]
+}

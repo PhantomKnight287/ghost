@@ -1,0 +1,45 @@
+---
+title: Learn Ghost
+description: How Ghost works inside, for the people who build it.
+---
+
+Ghost is a self-hosted git hosting platform: push and pull over HTTP or SSH, browse code, open issues and pull requests, review, merge. This course explains how it works inside, why it is built the way it is, and where each piece lives in the repository.
+
+It is written for two readers: whoever maintains Ghost, and anyone about to send their first change.
+
+## How to use this course
+
+Read the chapters in order the first time. Later chapters lean on earlier ones, especially **Storage**, which everything that touches git depends on.
+
+Every lesson has three kinds of material:
+
+- **Explanation**, with diagrams, and links into the code. A link like <Source path="apps/api/src/git/git.service.ts" symbol="receivePack" /> opens the file on GitHub; the name after `›` is what to search for in it.
+- **Try it** boxes. Something to run, read or change in your own checkout. Do them. Reading about a compare-and-swap teaches less than watching one fail.
+- **Check yourself** questions at the end. Answer before you click. If you get one wrong, reread the section it came from.
+
+The design decisions in [`docs/`](https://github.com/PhantomKnight287/ghost/tree/main/docs) (the ADRs) are the primary source. Lessons summarize them and link to each one; when a lesson and an ADR disagree, the ADR and the code win.
+
+## The map
+
+<Cards>
+  <Card title="Orientation" href="/orientation">What Ghost is, the repository layout, running it, testing it.</Card>
+  <Card title="Architecture" href="/architecture">The processes, how a request travels, how the API is organized.</Card>
+  <Card title="Git transport" href="/git-transport">Smart HTTP, pkt-lines, push and fetch, SSH, authentication.</Card>
+  <Card title="Storage" href="/storage">The write-ahead log in object storage, the compare-and-swap commit, replay.</Card>
+  <Card title="Data and access" href="/data-and-access">Postgres and Drizzle, accounts, the role ladder, organizations.</Card>
+  <Card title="Repository features" href="/repository-features">Browsing, branches, tags and releases, forks, LFS, quotas, search, signing.</Card>
+  <Card title="Issues and pull requests" href="/issues-and-pull-requests">Issues as rows, references, pull requests across two logs, merging, reviews.</Card>
+  <Card title="Events and delivery" href="/events-and-delivery">The outbox, notifications, webhooks, the Go delivery service.</Card>
+  <Card title="Web app" href="/web-app">The Next.js frontend, the typed API client, server actions.</Card>
+  <Card title="GitHub compatibility" href="/github-compat">How `gh` talks to Ghost: GraphQL, REST v3, OAuth.</Card>
+  <Card title="Operations" href="/operations">Configuration, self-hosting, Railway, observability, CI, the importer.</Card>
+  <Card title="Contributing" href="/contributing">Standards, ADRs, adding a feature end to end, a debugging playbook, a glossary.</Card>
+</Cards>
+
+## Running this course
+
+```sh
+bun run --filter @ghost/learn dev     # http://localhost:3005
+```
+
+Lessons are MDX files under `apps/learn/content/learn`. When the code changes in a way a lesson describes, change the lesson in the same pull request.

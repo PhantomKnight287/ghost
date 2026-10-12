@@ -1,0 +1,96 @@
+---
+title: A feature, end to end
+description: Adding one field to repositories, through every layer, in the order the work actually goes.
+---
+
+The best way to finish this course is to build something. This walkthrough adds **topics** to repositories (short tags like `cli`, `rust`) so you touch every layer once. Do it on a branch; you can throw it away.
+
+<Steps>
+<Step>
+
+### Schema
+
+In <Source path="packages/db/src/schema/repository.ts" />, add a column:
+
+```ts
+topics: text().array().notNull().default(sql`'{}'::text[]`),
+```
+
+Then, at the repository root:
+
+```sh
+bun run db:generate     # writes packages/db/drizzle/00NN_*.sql and a snapshot
+bun run db:migrate      # applies it to your dev database
+```
+
+Read the generated SQL. Never edit it by hand.
+
+</Step>
+<Step>
+
+### Service
+
+In <Source path="apps/api/src/resources/repositories/repositories.service.ts" />, find where a repository is read for the API (the select used by `getRepository`) and **select** `topics` there. Do not add a mapping function afterwards (standard 2).
+
+For writing, find the update path (`PATCH /repositories/:owner/:slug`): accept `topics`, validate (lowercase, at most 20, each at most 35 characters, matching `[a-z0-9-]`), and write them. Who may change them? The settings rung, `maintain`: it should go through the same `authorize({ operation: 'maintain' })` the other settings use.
+
+</Step>
+<Step>
+
+### DTOs and the controller
+
+Add the field to the response DTO and the update request DTO under `resources/repositories/dto/`, with `@ApiProperty` (so it reaches `openapi.json`) and class-validator decorators (`@IsArray`, `@IsString({ each: true })`, `@Matches(…, { each: true })`, `@ArrayMaxSize(20)`). The global `ValidationPipe` with `whitelist: true` strips fields a DTO does not declare, so forgetting the decorator silently drops the input.
+
+</Step>
+<Step>
+
+### Tests
+
+An e2e test in `apps/api/test/`: create a repository, `PATCH` topics as the owner (200), as a reader (403), with an invalid topic (400), then `GET` and assert. Run it against throwaway backends (see **Testing**).
+
+</Step>
+<Step>
+
+### Regenerate the client
+
+```sh
+bun run openapi         # at the root: openapi.json, then apps/web/src/lib/api/v1.d.ts
+```
+
+</Step>
+<Step>
+
+### The web app
+
+- Show topics on the repository page: find the about panel (`app/[username]/[repo]/repository-about.tsx`) and render them as badges. The data is already in the typed response.
+- Edit them in repository settings: add a field to the settings form, and a server action (next to the other settings actions) that calls `client.PATCH(…)` through `callApi` and `revalidatePath`s the repository layout.
+- Hide the editor unless `atLeast(viewerRole, 'maintain')`, knowing the API decides anyway.
+
+</Step>
+<Step>
+
+### Ripple effects
+
+Ask the questions a reviewer will:
+
+- **Search**: should topics be searchable or filterable in the repository list?
+- **GitHub compatibility**: GitHub has `repositoryTopics` in GraphQL and `topics` in REST. Exposing them is translation in `src/github/`.
+- **Webhooks**: does `repository.edited` need to carry the change?
+- **Imports**: should the importer bring GitHub's topics over?
+- **Docs**: the user guide in `apps/docs`, and this course if it described repositories in a way that is now incomplete.
+
+None of these are required for the first pull request; listing them in its description is.
+
+</Step>
+<Step>
+
+### Ship
+
+`bun run lint` and `bun run check-types` at the root, the API tests, then a pull request. CodeRabbit will review it; answer its comments in one follow-up commit, and verify each one against the code before accepting it. It is sometimes wrong.
+
+</Step>
+</Steps>
+
+## The same order for anything
+
+Schema → migration → service (select the shape) → DTO and controller → tests → `openapi` → web → ripple effects → docs. Anything touching git replaces "service" with "through `commitPush`, never around it".

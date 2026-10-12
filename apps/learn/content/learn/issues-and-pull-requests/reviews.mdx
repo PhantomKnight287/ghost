@@ -1,0 +1,41 @@
+---
+title: Reviews and suggestions
+description: Reviews pinned to the head they read, threads hanging off line comments, and suggestions applied as commits.
+---
+
+<Adr file="0026-a-review-is-pinned-to-the-head-it-read" /> defines the model; the code is <Source path="apps/api/src/resources/pull-requests/reviews.service.ts" />.
+
+## The rows
+
+- `pull_request_review`: a verdict (`commented`, `approved`, `changes_requested`), an optional summary, and the **head sha** it was submitted against.
+- `pull_request_review_comment`: a path, a side of the diff (`deletions` or `additions`), a line on that side (plus `startLine`/`startSide` for a range), and the head sha.
+- A reply has `inReplyToId` and no review; it copies its thread's path, line and sha.
+
+## Pending reviews
+
+A review with no `submittedAt` is **pending**: your unsent batch, visible to nobody else, at most one per reviewer and request (a partial unique index). "Start a review" adds to it; submitting gives it a verdict; discarding deletes it. Pending is `submittedAt is null` rather than an enum value because a partial index cannot compare an enum, and an enum value added in a migration cannot be used in the same transaction.
+
+## Pinned to the sha
+
+A comment must sit inside a hunk of the diff **as it stands** when written, on the side it names, read from `git diff` hunk headers. The files tab shows threads whose sha is the head it displays; the rest are **outdated** and stay in the conversation, showing the stored `diffHunk` (a few rows of context captured when written) without reading git again. Remapping every comment's line across pushes on every read would be expensive; pinning makes it free.
+
+## Verdicts
+
+A reviewer's standing verdict is their latest approval or request for changes. Anyone with `write` can **dismiss** it with a message; an older verdict does not come back. Verdicts do not gate merging (that is branch protection, not built). An author can comment on their own request but not approve it.
+
+## Suggestions
+
+A fenced code block whose language is `suggestion` proposes replacement text for the lines a comment covers. Applying it builds a commit on the head with a throwaway index (the cache's own index is never touched) using <Source path="apps/api/src/lib/git/tree/replace-file.ts" />, and pushes it through the **head** repository's `commitPush`. So it needs `write` on the head (for a fork, the fork), and applies only while the head is still the commit the comment was made on.
+
+## Drafts
+
+`pull_request.draft` cannot be merged. The author or `write` marks it ready or converts it back, recording `ready_for_review` / `converted_to_draft`.
+
+<Quiz>
+  <Question
+    prompt="A reviewer comments on line 40; the author pushes again and line 40 moves to 52. What does the files tab show?"
+    options={["The comment moved to line 52", "The thread as outdated, only in the conversation with its stored diff hunk", "Nothing; the comment is deleted"]}
+    answer={1}
+    explanation="Comments are pinned to the sha they were written against."
+  />
+</Quiz>

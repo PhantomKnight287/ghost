@@ -1,0 +1,14 @@
+---
+title: Git transport
+description: "How git talks to Ghost over HTTP and SSH, and the bugs that shaped how bodies are read."
+---
+
+Prerequisite: Architecture. Pairs with Storage: this chapter gets bytes in and out; Storage decides what they mean.
+
+<Cards>
+  <Card title="Git over HTTP" href="/git-transport/smart-http">What git actually sends over the wire, pkt-lines, and the three routes Ghost serves for it.</Card>
+  <Card title="Authentication for git" href="/git-transport/authentication">How a git client proves who it is, how a repository is authorized, and why a 401 must carry a specific header.</Card>
+  <Card title="Bodies, streams and the probe" href="/git-transport/bodies-and-streams">Three bugs that shaped how Ghost reads a push body, and the rules they left behind.</Card>
+  <Card title="Fetch and clone" href="/git-transport/fetching">The read path: materialize, advertise, stream a pack back.</Card>
+  <Card title="SSH" href="/git-transport/ssh">A second transport onto the same services, with the same access decision and the same commit point.</Card>
+</Cards>

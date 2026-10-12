@@ -1,0 +1,30 @@
+---
+title: Code search
+description: Zoekt shards built by the API, published through the bucket, served by a stateless node.
+---
+
+Code search uses [Zoekt](https://github.com/sourcegraph/zoekt), the trigram index behind Sourcegraph. It is off unless `ZOEKT_URL` is set.
+
+<Mermaid chart={`
+flowchart LR
+  push[push lands] --> idx[CodeSearchService.indexInBackground]
+  idx -->|zoekt-git-index on the cache| shards[shards]
+  shards -->|upload| s3[(bucket: zoekt/…)]
+  s3 -->|rclone sync every 10s| zoekt[zoekt-webserver]
+  api[API search route] -->|query + visibility filter| zoekt
+`} />
+
+- **Indexing** runs in the API after each push, in the background: <Source path="apps/api/src/services/git/code-search/code-search.service.ts" symbol="indexInBackground" />. A call while a run is in flight queues exactly one rerun, so the latest HEAD always gets indexed. A marker object (`zoekt-state/…`) records which HEAD and visibility the shards describe. The indexer binary, `zoekt-git-index`, is copied into the API's Docker image from the same Zoekt release `apps/zoekt` runs; keep the two versions in step, since they share a shard format.
+- **Publishing** goes through the bucket. The Zoekt node (<Source path="apps/zoekt/serve.sh" />) keeps no state: it syncs `zoekt/` from the bucket every ten seconds with rclone and loads only complete `*.zoekt` files.
+- **Searching**: `GET /api/search/code` across public repositories, and `/api/repositories/:owner/:slug/search` within one. The query can reach any shard, so the **visibility filter** (only repositories the caller can read) is what enforces access, and it runs before results are paged so a hidden file never counts toward a page.
+
+Deleting a repository waits out any index run in flight, then removes its shards and marker.
+
+<Quiz>
+  <Question
+    prompt="What enforces that search results never include a private repository you cannot read?"
+    options={["Zoekt's own ACLs", "The API's visibility filter applied to every query before paging", "Private repositories are never indexed"]}
+    answer={1}
+    explanation="Private repositories are indexed; the API restricts each query to repositories the caller can read."
+  />
+</Quiz>

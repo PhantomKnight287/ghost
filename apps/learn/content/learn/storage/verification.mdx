@@ -1,0 +1,56 @@
+---
+title: Verifying a push before it commits
+description: The bug that made a repository unreadable for good, and the three checks that now run before the commit point.
+---
+
+Ghost used to commit a push to the log and **then** hand it to `git receive-pack`. Every check git makes therefore ran after the commit point. One crafted request from anyone with write access broke a repository forever (<Adr file="0034-a-push-is-verified-before-the-log-commits-it" />):
+
+```
+POST /owner/repo/git-receive-pack     refs/heads/evil -> abab…ab, empty pack
+  → receive-pack: "ng refs/heads/evil unpacker error"
+  → the log: refs { …, refs/heads/evil: abab…ab }
+  → every materialize: update-ref fails, every clone: 500
+```
+
+Git could not delete the ref either: a delete names the ref's current value, and a ref the cache never holds is never advertised.
+
+## Three checks, before `commitPush`
+
+1. **Names**, at the commit point itself, so every writer is covered. Every new ref passes git's `check-ref-format` rules (checked in process by `isWellFormedRef`, and tested against real git). No ref may sit above or beneath another: `a` next to `a/b` is impossible on a filesystem. This one is checked against the index the CAS replaces, because two concurrent pushes creating `a` and `a/b` each pass a check against a stale view.
+2. **Objects**, in <Source path="apps/api/src/lib/git/protocol/verify-push.ts" symbol="withVerifiedPack" />. The pack is indexed with `--fix-thin` into a **quarantine** directory, with the cache lent as an alternate, the way git quarantines pushes itself. Every new ref must name an object the push or the repository holds, and a branch must name a commit.
+3. **Reachability**, in the same place. Every object the new refs reach beyond the existing refs must be in the quarantine, looked up there alone.
+
+## Why the third check
+
+The cache is not the log. It also holds objects the log never received: trees `merge-tree` writes on every pull request view, merge commits from failed merges, test merges refused by a size limit. Their names are computable. A ref pointing at one passes every check against the cache, and fails on the first node that rebuilds from the log.
+
+## The log stores the indexed pack
+
+A thin pack's bases come from whatever the receiving side holds, which might be objects only the cache has. So the log stores the pack `index-pack --fix-thin` wrote into the quarantine, with every borrowed base appended, not the bytes the client sent. A node replaying the log never needs a base from anywhere else. The cache still gets the original request through `receive-pack`.
+
+## What the client sees
+
+A refused push gets a 422-equivalent inside git's own report format: `! [remote rejected] refs/heads/evil (reason)`, over HTTP and SSH alike, built by `rejectedPushReport` in <Source path="apps/api/src/git/git.service.ts" symbol="receivePack" />.
+
+<Quiz>
+  <Question
+    prompt="Why is the 'a vs a/b' check done at the commit point and not in the HTTP handler?"
+    options={[
+      "The handler has no access to refs",
+      "Two concurrent pushes each pass any check against a stale view; only the index the CAS replaces is current",
+      "Performance",
+    ]}
+    answer={1}
+    explanation="Checks that depend on current refs must run inside the CAS loop, the same reason oldOid is checked there."
+  />
+  <Question
+    prompt="Why store the quarantine's pack in the log instead of the client's bytes?"
+    options={[
+      "It is smaller",
+      "The client's pack may be thin against objects only this cache holds; the indexed pack is self-contained",
+      "S3 requires an index",
+    ]}
+    answer={1}
+    explanation="Otherwise a fresh node could not resolve the deltas when replaying."
+  />
+</Quiz>

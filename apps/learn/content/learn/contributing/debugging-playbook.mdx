@@ -1,0 +1,34 @@
+---
+title: Debugging playbook
+description: Symptoms that have happened before, what caused them, and where to look first.
+---
+
+Many of Ghost's hardest bugs passed every test and appeared only at real size, real latency or real concurrency. This table is the institutional memory.
+
+| Symptom | Likely cause | Where |
+| --- | --- | --- |
+| Push fails with `no ref update commands` | The request stream was left unattended across an `await` and the command section was dropped | <Adr file="0013-raw-body-is-captured-first" />, `git-raw-body.middleware.ts` |
+| Pushes above ~1 MiB fail with `HTTP 400 … the remote end hung up` before data | The flush-only probe answered as a malformed push | <Adr file="0014-the-pre-push-probe" />, `isProbeRequest` |
+| `RangeError: data is too long` on a huge push | Something holds a pack in a Buffer past 2 GiB | <Adr file="0015-nothing-holds-a-packfile" /> |
+| Clones of one repository return 500 after a strange push | A ref in the log names an object nobody has; pre-0034 logs | <Adr file="0034-a-push-is-verified-before-the-log-commits-it" />, `repair-repositories.ts` |
+| A clone comes back empty with no error | HEAD names a branch that does not exist | `ensureHead` in the materializer |
+| A ref you wrote into a cache disappears | The next materialize reconciles refs to the snapshot | <Adr file="0012-forward-only-materialization" /> |
+| A fork's pull request reports "conflicts" that are not real | The head's objects were not lent; `merge-tree` exit 1 with stderr is an error, not a conflict | <Adr file="0016-a-pull-request-spans-two-logs" /> |
+| Dates off by a few hours | A `timestamp` without time zone | <Adr file="0018-timestamps-are-timestamptz" /> |
+| 500s under concurrent pushes that look like S3 flakiness | A `409 ConditionalRequestConflict` treated as an error instead of a retry | <Adr file="0005-single-commit-point" /> |
+| `WalContentionError` (503) | Eight lost compare-and-swaps in a row on one repository | <Adr file="0007-optimistic-concurrency" /> |
+| SSH fetch reports `remote transport reported error` though it worked | A pipe ended the channel before `exit-status` | <Adr file="0019-ssh-is-a-second-transport-not-a-second-git" /> |
+| Large SSH fetches truncated | The connection closed before the channel drained | same |
+| `gh` fails with a GraphQL validation error naming a field | The field or type is missing; check `gh-capture.spec` and the conformance test | **GitHub compatibility** |
+| `gh` can't paginate | Missing `Link` header | `linkHeader` |
+| e2e tests time out or collide | Run with `--no-file-parallelism`; check the root `.env` is not leaking config into the test app | **Testing** |
+| An integration test changed your data | It ran against your dev database. Never set `TEST_DATABASE_URL` to it | **Testing** |
+| Docker image build fails at `bun install --frozen-lockfile` | A workspace was added without copying its `package.json` in that Dockerfile | **Self-hosting** |
+
+## General moves
+
+- **Reproduce at size.** Push a real, large repository (a 2 GiB one has found two bugs). Use a remote bucket, not just RustFS on localhost, when latency could matter.
+- **Read the log.** Download `repos/<id>/index` and decode it (the Storage chapter's script). Compare refs with the cache's `git for-each-ref`. The log is the truth; if the cache disagrees, the cache is wrong.
+- **Wipe the cache.** Deleting `$TMPDIR/ghost/<id>.git` is always safe and rules the cache out.
+- **Trace it.** With `lgtm` running, Grafana's Tempo shows each request's spans down to `pg` queries and S3 calls.
+- **Search the `ponytail:` comments** near the code; known shortcuts are written there with their ceilings.

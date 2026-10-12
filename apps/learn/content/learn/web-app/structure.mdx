@@ -1,0 +1,57 @@
+---
+title: How the web app is laid out
+description: Next.js App Router routes mirrored on GitHub's URLs, server components by default, and where shared pieces go.
+---
+
+`apps/web` is Next.js 16 with the App Router, React 19, Tailwind and shadcn/ui components. It holds no data: every page is rendered from API calls made as the viewer.
+
+## Routes mirror GitHub's URLs
+
+```
+app/
+  page.tsx                          home / dashboard entry
+  [username]/page.tsx               a user or organization profile (one namespace)
+  [username]/[repo]/
+    layout.tsx                      repository chrome: header, tabs, counts
+    page.tsx                        code tab: tree at the default branch, README
+    tree/…, blob/…, raw/…           browsing at a revision
+    commits/…, commit/[sha]/        history and one commit
+    issues/, issues/[number]/       issue list and one issue
+    pulls/                          pull request list (and pulls/new)
+    pull/[number]/                  one pull request: conversation, commits, files
+    (releases)/                     releases and tags
+    settings/                       repository settings
+  settings/                         account settings: keys, tokens, security, OAuth apps, storage
+  notifications/, search/, device/, login/, auth/
+```
+
+A single pull request lives at `/<owner>/<repo>/pull/<n>`, as on GitHub, because that is the URL the API and `gh` hand out and parse back. `/pulls/<n>` redirects there (`next.config.ts`).
+
+Because users and organizations share one namespace, `[username]` serves both, and the API refuses usernames that would shadow a top-level route (`settings`, `search`, `login`, …).
+
+## Server components by default
+
+Pages and layouts are async server components that fetch with the server API client (next lesson). Client components (`"use client"`) exist where interaction needs them: forms, menus, the diff viewer, the markdown editor.
+
+Every route segment that fetches has a `loading.tsx` skeleton, and every async component inside a page has a `<Suspense>` with a real skeleton in the same file (code standard 10).
+
+## Where components go
+
+- Used by **one** route: next to that route's `page.tsx`. Example: `app/[username]/[repo]/pull/[number]/merge-panel.tsx`.
+- Used by **several** routes: `components/<domain>/`, e.g. `components/pull-requests/`, `components/issues/`.
+- Primitives: `components/ui/` (shadcn).
+
+A page file is not a family; unrelated components move to their own files (code standard 8, enforced by `scripts/check-standards.ts`).
+
+## Auth in the browser
+
+`lib/auth-client.ts` creates the Better Auth React client against `${API_URL}/api/auth`, with the same plugins the server runs (username, api keys, organizations with the shared role ladder, device authorization). Sign-in and settings screens use `@better-auth-ui`. The session cookie belongs to the API's origin; `AUTH_COOKIE_DOMAIN` makes it span web and API subdomains in production.
+
+<Quiz>
+  <Question
+    prompt="A component is used by the issue page and the pull request page. Where does it live?"
+    options={["Next to one of the pages", "components/issues/ or another domain folder under components/", "components/ui/"]}
+    answer={1}
+    explanation="Shared by more than one route: components/<domain>/. ui/ is for primitives."
+  />
+</Quiz>

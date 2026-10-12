@@ -1,0 +1,69 @@
+---
+title: The role ladder
+description: One ordering of roles, one decision function, and why an unreadable repository answers 404.
+---
+
+Every repository permission check asks one question: **is the actor's role at least the operation's?** (<Adr file="0021-access-is-a-role-ladder" />)
+
+```
+read < triage < write < maintain < admin < owner
+```
+
+| Operation | Needed for |
+| --- | --- |
+| `read` | clone a private repository, open issues, comment, review |
+| `triage` | close, label and assign other people's issues and pull requests |
+| `write` | push, merge, edit anyone's issues and comments, manage labels |
+| `maintain` | repository settings: name, description, default branch |
+| `admin` | visibility, collaborators, deleting the repository |
+
+The ladder is <Source path="packages/permissions/src/index.ts" symbol="roleHierarchy" />, with `atLeast(role, needed)`. The web app imports the same package to decide which buttons to show; the API decides for real.
+
+## Where a role comes from
+
+<Source path="apps/api/src/lib/repositories/access/repository-access.ts" symbol="roleOf" />:
+
+- A **user's** repository: its `ownerId` is `owner`. Anyone else has the role of their accepted collaborator row, or none.
+- An **organization's** repository: organization owners are `owner`, organization admins are `admin`, members get the organization's **base permission**, raised by their teams' roles and their own collaborator row. The highest wins (next lesson).
+
+A collaborator row with no `acceptedAt` is an **invitation and grants nothing**. Nobody appears on a private repository, or gets one in their account, without consenting. Invitations lapse after 7 days, computed from `createdAt`, so nothing sweeps them.
+
+## The decision
+
+<Source path="apps/api/src/lib/repositories/access/repository-access.ts" symbol="decideAccess" />:
+
+```ts
+if (repository && canAccess(repository, role, operation)) return { ...repository, viewerRole: role };
+if (!actor) throw new AuthenticationRequiredError();                         // 401: sign in
+if (canAccess(repository, role, 'read')) throw new RepositoryForbiddenError(); // 403
+throw new RepositoryNotFoundError();                                          // 404
+```
+
+Public repositories are readable by everyone, including `actor: null`.
+
+**An unreadable repository must look absent.** A 403 would confirm that a private repository by that name exists. A readable one is safe to admit to, so too-low roles get 403.
+
+## Asking efficiently
+
+`RepositoryAccessService.authorize` resolves the repository **and** the viewer's role in one query and returns `viewerRole`, so a caller needing a second decision (changing visibility needs `admin` inside a `maintain` request) does not query again. Queries listing many repositories join `acceptedCollaboration(repositoryId, actor)` and filter with `canAccess`.
+
+`authorizeById` does the same by row id, for the other side of a pull request or a node id. `canRead` answers "may this user hear about it", used by notifications rather than requests.
+
+<TryIt>
+<Source path="apps/api/src/lib/repositories/access/repository-access.spec.ts" /> tests `decideAccess` and `roleOf` with plain objects, no database. Add a case: an organization member with base permission `read`, a team granting `maintain` and a collaborator row granting `write` gets `maintain`.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="Bob has a pending collaborator invitation with role write on Alice's private repository. Can he clone it?"
+    options={["Yes", "No: a pending invitation grants nothing, and he gets 404"]}
+    answer={1}
+    explanation="Only rows with acceptedAt count, and unreadable repositories look absent."
+  />
+  <Question
+    prompt="Which status does a reader with role read get when trying to merge?"
+    options={["401", "403", "404"]}
+    answer={1}
+    explanation="They can read it, so admitting it exists leaks nothing; their role is too low."
+  />
+</Quiz>

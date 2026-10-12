@@ -1,0 +1,12 @@
+{
+  "title": "Operations",
+  "pages": [
+    "index",
+    "configuration",
+    "self-hosting",
+    "railway",
+    "observability",
+    "ci-and-releases",
+    "the-importer"
+  ]
+}

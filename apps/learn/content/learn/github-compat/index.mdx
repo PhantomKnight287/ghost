@@ -1,0 +1,14 @@
+---
+title: GitHub compatibility
+description: "How gh talks to Ghost: the translation layer, GraphQL, REST v3, OAuth and testing against real gh."
+---
+
+Ghost's services, wearing GitHub's API. Read Data and access first.
+
+<Cards>
+  <Card title="A translation layer" href="/github-compat/translation-layer">How gh comes to believe Ghost is GitHub Enterprise, and the rules for code under src/github.</Card>
+  <Card title="GraphQL" href="/github-compat/graphql">Code-first types checked against GitHub's published schema, node ids, per-request loaders, and GitHub's lenient validation.</Card>
+  <Card title="REST v3" href="/github-compat/rest-v3">GitHub's REST shapes, integer ids, page-numbered pagination with Link headers, and GitHub's error bodies.</Card>
+  <Card title="OAuth, the device flow and scopes" href="/github-compat/oauth-and-scopes">How gh gets a key, how third-party apps sign users in, and the one function that decides scopes.</Card>
+  <Card title="Testing against real gh" href="/github-compat/testing-against-real-gh">The gh e2e suite, the capture fixtures, and the spec that turns them into a to-do list.</Card>
+</Cards>

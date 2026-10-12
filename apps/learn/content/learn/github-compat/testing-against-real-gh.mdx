@@ -1,0 +1,45 @@
+---
+title: Testing against real gh
+description: The gh e2e suite, the capture fixtures, and the spec that turns them into a to-do list.
+---
+
+## The suite
+
+<Source path="apps/api/test/gh-cli.e2e-spec.ts" /> runs the real `gh` binary against a real Ghost: login, repos, issues, labels, pull requests, `gh api --paginate`, ssh keys, the device flow. Each test asserts what `gh` printed, as a user would see it.
+
+`gh` refuses a port in its host name, so the suite serves HTTPS on **443** under a name only the machine resolves. CI maps `ghost.test` to 127.0.0.1 and allows unprivileged binding of 443; `global-setup.ts` generates a self-signed certificate for whatever `GH_E2E_HOST` is.
+
+## Captures
+
+While the suite runs, <Source path="apps/api/test/gh-capture.ts" /> records every request `gh` (and the git it spawns) makes: method, path, GraphQL query and variables, status. Logins, hosts, ids and secrets are replaced with placeholders, so two runs give the same files. CI uploads them as the `gh-capture` artifact; they are committed under `test/fixtures/gh-capture/`.
+
+<Source path="apps/api/src/github/gh-capture.spec.ts" /> then checks every recorded GraphQL document against `github.schema.gql` and every REST call against `openapi.json`. When you add a `gh` command:
+
+1. add its cases to `gh-cli.e2e-spec.ts`, even though they fail;
+2. take the captures (CI artifact, or locally);
+3. `gh-capture.spec.ts` now lists every missing field and route: that list is the work;
+4. implement until it and the e2e cases pass.
+
+`gh` stops at its first failed request, so a capture only shows what `gh` asked before it failed. Expect to iterate.
+
+## Running it on macOS
+
+macOS allows unprivileged processes to bind 443 only on the wildcard address, and `localtest.me` resolves to 127.0.0.1 publicly:
+
+```sh
+# temporarily: in test/harness.ts, listen on '0.0.0.0' instead of '127.0.0.1'
+GH_E2E_HOST=localtest.me GH_CAPTURE_DIR=/tmp/cap \
+TEST_DATABASE_URL=… TEST_S3_ENDPOINT=… \
+  bunx vitest run --config ./vitest.config.e2e.ts test/gh-cli.e2e-spec.ts
+```
+
+Revert the harness change afterwards, and restore `apps/api/.gh-e2e/*.pem`, which the run regenerates. The device-flow tests time out locally (the macOS keychain); that is not a regression.
+
+<Quiz>
+  <Question
+    prompt="You implement a GraphQL field gh needs, but gh-capture.spec still lists it as missing. What did you forget?"
+    options={["To restart gh", "To regenerate github.schema.gql (boot the app in development, or run the e2e suite) and commit it", "To add a migration"]}
+    answer={1}
+    explanation="The spec validates against the committed schema file."
+  />
+</Quiz>

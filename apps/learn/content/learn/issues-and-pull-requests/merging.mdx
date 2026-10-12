@@ -1,0 +1,55 @@
+---
+title: Merging
+description: Merge, squash and rebase, all built in the base cache and landed through commitPush, and the one shortcut that would corrupt a log.
+---
+
+`POST /api/repositories/:owner/:repo/pulls/:number/merge` takes `method`: `merge` (default), `squash` or `rebase` (<Adr file="0027-squash-and-rebase-carry-the-head-along" />). All three build their result in the **base** cache, with the head lent as an alternate, then land it with `commitPush` like any push. Code: <Source path="apps/api/src/resources/pull-requests/pull-requests.service.ts" symbol="mergePullRequest" />.
+
+| Method | Builds |
+| --- | --- |
+| merge | `merge-tree` → a commit with parents base tip and head tip |
+| squash | the same tree, committed with the base tip as the only parent; author = request author, committer = merger; subject `<title> (#<n>)` |
+| rebase | each non-merge commit in `mergeBase..head` replayed with `merge-tree --merge-base=<commit>^`, keeping author, date and message |
+
+## The pack: exclude the base, never the head
+
+This is the one place a wrong shortcut is **unrecoverable**. After building the result `M`:
+
+```
+include: M and the head tip
+exclude: the base tip only
+pack-objects --revs
+```
+
+Everything reachable from `M` and not from the base tip is read through the alternate and written into the pack. Excluding the head too ("we can see it") would write an entry holding only `M` into Bob's log. Every node replaying Bob's log would then have a merge commit whose second parent does not exist, and `--fix-thin` could not help: nothing on that node holds those objects. **The exclusion set is what the target log holds, never what the current process can see.**
+
+Why include the head tip even for squash and rebase, where it becomes unreachable? A merged request reads `mergeCommit^1..headSha` from the base alone; including the head keeps the original commits, the diff, and every review comment's lines readable after the merge, for every method, with no extra column.
+
+## Concurrency
+
+The CAS's `oldOid` is the base tip the merge was built against. If someone pushes to the base meanwhile, the CAS fails with `NonFastForwardError` and the merge can be retried against the new tip. The uploaded entry is an orphan, i.e. garbage. Inside the commit, the pull request row is locked `FOR UPDATE`, so it cannot be closed or turned into a draft between the check and the push.
+
+## Conflicts vs errors
+
+`git merge-tree --write-tree` exits 1 both for a **conflict** and for a commit it **cannot read**. They are told apart by stderr: a conflict writes the tree and paths to stdout with empty stderr. Treating every exit 1 as a conflict would make a fork whose objects were never lent report "conflicts", a bug disguised as a product decision.
+
+## After landing
+
+In order: the merge is billed (the account must have room left), LFS objects the head's pointers name are copied into the base, the row becomes `merged` with `mergeCommitSha` and `mergedAt`, the issue closes with a `merged` event, references in the body and commits close what they promise (only into the default branch), pull refs resync for every other request into that base, and the timeline and events are recorded.
+
+Rebased commits lose their signatures, as with any `git rebase`. A head made only of merge commits rebases to nothing and is refused.
+
+<Quiz>
+  <Question
+    prompt="Building the merge pack for a fork's request, which objects must be excluded?"
+    options={["Base tip and head tip", "The base tip only", "Nothing"]}
+    answer={1}
+    explanation="The base log already holds the base tip's history; it does not hold the fork's commits, so they must be in the pack."
+  />
+  <Question
+    prompt="Someone pushes to main while a merge into main is being built. What happens?"
+    options={["The push is lost", "The merge's CAS fails with non-fast-forward; nothing is corrupted and the merge can be retried", "Both land"]}
+    answer={1}
+    explanation="The merge's transition names the old base tip as oldOid."
+  />
+</Quiz>

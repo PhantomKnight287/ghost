@@ -1,0 +1,54 @@
+---
+title: Storage and quotas
+description: Four kinds of usage, summed from rows, reserved under an advisory lock.
+---
+
+Every stored byte is billed to one **account**: the organization a repository belongs to, or its owner (<Adr file="0025-storage-is-billed-to-the-owning-account" />). There are four kinds (<Adr file="0035-pushes-and-forks-count-against-separate-quotas" />, <Adr file="0037-release-assets-count-against-their-own-quota" />):
+
+| Kind | Default from | Counts |
+| --- | --- | --- |
+| `repository` | `STORAGE_QUOTA_BYTES` | pushed git data and merged pull requests' heads, outside forks |
+| `fork` | `FORK_STORAGE_QUOTA_BYTES` | everything a fork holds |
+| `lfs` | `LFS_STORAGE_QUOTA_BYTES` | LFS objects outside forks |
+| `asset` | `ASSET_STORAGE_QUOTA_BYTES` | release assets outside forks, and a user's own attachments anywhere |
+
+An unset variable means unlimited, so a fresh self-hosted instance has no quotas. A `storage_limit` row overrides any of the four per account (a paid plan would be a value there).
+
+## Usage is summed, never counted
+
+There is no counter column. Usage is the sum of the rows that hold the bytes: `repository_log_entry` per push, `lfs_object`, `release_asset`, `attachment`, merged pull-ref writes. A counter would need updating from every writer and repairing whenever a write between counter and object failed. Rows cannot drift from themselves.
+
+## Reserving
+
+<Source path="apps/api/src/services/storage/storage-quota.service.ts" /> is the one place a limit is decided (`quotaOf`) and enforced (`reserve`):
+
+1. In one transaction, under `pg_advisory_xact_lock` on the **account**, sum usage, refuse if the new bytes do not fit, insert the row.
+2. Do the write (stream to the bucket, or `commitPush`).
+3. Commit, or delete the row on failure.
+
+The lock is per account, so only writes competing for the same quota wait on each other. Checking without the reservation would let two concurrent uploads each see room for one file and both store it.
+
+An upload in progress counts for a day, then stops counting. A push that writes nothing (a branch delete) goes through even past quota.
+
+## Attachments
+
+Files dropped into any Markdown field are uploaded to `POST /api/repositories/:owner/:repo/attachments`, stored at `attachments/<repositoryId>/<id>`, and linked as `/api/attachments/:id` (<Adr file="0038-attachments-are-billed-to-their-uploader" />). They bill the **uploader**, not the repository: otherwise anyone who can comment could fill an owner's quota. Nothing links an attachment to the text showing it; every hour the API deletes attachments older than a day whose id appears in no text in their repository. Served types come from a fixed list; SVG is refused; everything gets `nosniff` and a sandbox CSP.
+
+<Quiz>
+  <Question
+    prompt="Why sum rows instead of keeping a used_bytes column?"
+    options={[
+      "Faster",
+      "A counter can drift from what is actually stored whenever a write fails between the two; a sum of rows cannot",
+      "Postgres has no integers that large",
+    ]}
+    answer={1}
+    explanation="ADR 0025: one source of truth."
+  />
+  <Question
+    prompt="Who pays for an image pasted into a comment on someone else's public repository?"
+    options={["The repository's owner", "The person who uploaded it"]}
+    answer={1}
+    explanation="Attachments bill the uploader's asset quota (ADR 0038)."
+  />
+</Quiz>

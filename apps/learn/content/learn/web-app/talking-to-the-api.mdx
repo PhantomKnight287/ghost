@@ -1,0 +1,72 @@
+---
+title: Talking to the API
+description: A client typed from openapi.json, two origins, server actions, and how errors reach a form.
+---
+
+## Types from OpenAPI
+
+The API's Swagger decorators produce `apps/api/openapi.json`. The web app turns it into types:
+
+```sh
+bun run --filter @ghost/web generate     # openapi-typescript → src/lib/api/v1.d.ts
+bun run openapi                          # at the root: regenerate openapi.json, then v1.d.ts
+```
+
+`openapi-fetch` clients are typed with those `paths`, so a request to a route that does not exist, a missing parameter, or a misspelled response field is a TypeScript error. **Change an API DTO → regenerate → fix the web app's type errors.** Both generated files are committed.
+
+## Two clients, two origins
+
+| Client | Where | Origin | Credentials |
+| --- | --- | --- | --- |
+| <Source path="apps/web/src/lib/api/server.ts" symbol="createServerClient" /> | server components, server actions | `INTERNAL_API_URL` | forwards the browser's `cookie`, `x-forwarded-for`, `x-real-ip` |
+| <Source path="apps/web/src/lib/api/client.ts" symbol="apiClient" /> | client components | `NEXT_PUBLIC_API_URL` | `credentials: "include"` |
+
+`INTERNAL_API_URL` exists because in Docker the Next server reaches the API under a name the browser cannot resolve (`http://api:3001`). Forwarding the client address matters: Better Auth and code search rate-limit by it.
+
+`notFoundIfHidden(response)` turns a 404 **or 401** into Next's `notFound()`, so a page never tells an anonymous visitor which private repositories exist.
+
+## Writes go through server actions
+
+Mutations are server actions built with `next-safe-action` (<Source path="apps/web/src/lib/action-client.ts" />), validated with zod, e.g. <Source path="apps/web/src/components/pull-requests/actions.ts" />:
+
+```ts
+export const mergePullRequest = actionClient
+  .inputSchema(target.extend({ method: z.enum(mergeMethods), … }))
+  .action(async ({ parsedInput: { username, repo, number, method } }) => {
+    const data = await callApi((client) =>
+      client.POST("/api/repositories/{username}/{repo}/pulls/{number}/merge", {
+        params: { path: { username, repo, number } },
+        body: { method },
+      }),
+    );
+    revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
+    return data;
+  });
+```
+
+`callApi` throws the API's error `message`; `next-safe-action` reports it to the form that called it (`handleServerError: (error) => error.message`). So a `DomainError` message thrown deep in a NestJS service is what the user reads under the button. Write those messages for humans.
+
+Components call actions with `useAction(…)` from `next-safe-action/hooks`. A few interactive widgets (organization members, for example) use TanStack Query against the browser client instead.
+
+## Revalidation
+
+After a write, the action calls `revalidatePath` for the pages it affected (often with `"layout"` to refresh tab counts), so the next render fetches fresh data.
+
+<TryIt>
+Add a field to a DTO in the API (for example a description to a response), run `bun run openapi` at the root, and look at the diff in `apps/web/src/lib/api/v1.d.ts`. Revert when done.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="A service throws new RepositoryForbiddenError() during a server action. What does the user see?"
+    options={["A generic 500 page", "The error's message, shown by the form through next-safe-action", "Nothing"]}
+    answer={1}
+    explanation="callApi throws the API's message; handleServerError passes it to the form."
+  />
+  <Question
+    prompt="Why does the server client use INTERNAL_API_URL rather than NEXT_PUBLIC_API_URL?"
+    options={["Speed only", "Inside Docker or a private network the API's reachable name differs from the public origin", "Security"]}
+    answer={1}
+    explanation="The public origin can be this container's own localhost or an external hostname."
+  />
+</Quiz>

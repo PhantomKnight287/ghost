@@ -1,0 +1,21 @@
+---
+title: Railway
+description: The hosted deployment, declared as code.
+---
+
+The hosted instance runs on Railway, declared in <Source path=".railway/railway.ts" /> (Railway's infrastructure as code) and documented in <Source path="docs/deploy-railway.md" />.
+
+- `web`, `docs`, `api`, `delivery`, `zoekt` are services built from their Dockerfiles; Postgres is Railway's.
+- The bucket is external (Cloudflare R2, Tigris or any S3-compatible store): Railway has no S3 product.
+- The API runs `node packages/db/dist/migrate.js` as its **pre-deploy** step, so a deploy migrates before new code serves.
+- The API has **one replica**, deliberately: repository caches and deletion purges are per process (<Adr file="0020-deletion-is-a-tombstone-then-a-purge" />). Do not scale it out without solving that first.
+- No volume is needed: the repository cache under the API's temp directory is rebuilt from the bucket on demand. A volume on `/tmp` would only save re-materialization after a restart.
+
+<Quiz>
+  <Question
+    prompt="Traffic grows. Can you set the API to two replicas?"
+    options={["Yes, it is stateless", "Not safely yet: a deletion purges only its own process's cache, so the other replica could serve a deleted repository's stale cache"]}
+    answer={1}
+    explanation="ADR 0020 and docs/deploy-railway.md both call this out."
+  />
+</Quiz>

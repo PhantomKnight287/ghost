@@ -1,0 +1,30 @@
+---
+title: Forks
+description: How a fork gets its own log, and what it costs.
+---
+
+Forking (`POST /api/repositories/:owner/:slug/fork`) creates a repository row with `parentRepositoryId` and gives it **its own log**: <Source path="apps/api/src/services/git/wal/wal-store.service.ts" symbol="copyLog" /> copies every parent entry into the fork's keyspace (server-side copies, no download) and writes an index naming them.
+
+```
+before:  repos/bob/index    seq 3, refs { main: B3 }, layers [L1, L2, L3]
+fork:    repos/alice/index  seq 3, refs { main: B3 }, layers [L1, L2, L3]   same ULIDs, same bytes
+```
+
+From that instant the two logs never exchange another byte. They advance on unrelated sequence numbers. That independence is what makes pull requests from forks interesting (next chapter).
+
+Details:
+
+- `refs/pull/*` are **not** copied: they belong to the repository the requests were opened against.
+- Git LFS objects are copied too, rows and bytes, inside the fork's transaction (<Adr file="0036-lfs-objects-are-stored-per-repository" />).
+- If the copy fails, the fork's row rolls back rather than leaving a repository with no log.
+- A fork can target an organization you administer, one fork per namespace.
+- Forks bill against a separate `fork` quota, because people fork big repositories they never push to (<Adr file="0035-pushes-and-forks-count-against-separate-quotas" />). If the parent is deleted, the fork loses `parentRepositoryId` and its bytes move to the ordinary `repository` quota.
+
+<Quiz>
+  <Question
+    prompt="Bob pushes to his repository after Alice forked it. Does Alice's fork see the commit?"
+    options={["Yes, they share a log", "No: the fork's log is an independent copy made at fork time"]}
+    answer={1}
+    explanation="copyLog copies once; after that the logs are unrelated."
+  />
+</Quiz>

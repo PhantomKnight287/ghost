@@ -1,0 +1,42 @@
+---
+title: Branches, tags and releases
+description: Ref-only pushes from the API, tags that live only in git, and releases that live only in rows.
+---
+
+## Branches from the API
+
+Creating or deleting a branch in the web app is a **ref-only push**: one transition through `commitPush` with an empty pack, since every commit a branch can point at is already in the log (<Adr file="0028-branch-writes-are-ref-only-pushes" />).
+
+- Create: `refs/heads/<name>` from the zero oid to an existing commit (a branch, tag or sha; the default branch if none given).
+- Delete: from the tip it just read to the zero oid. If someone pushed in between, the compare-and-swap refuses with a conflict. Nothing is lost.
+
+Names are checked with `git check-ref-format`; a leading `-` and `HEAD` are refused. The API refuses to delete the default branch or any branch an open pull request uses. `git push --delete` still can; only the API is careful.
+
+## Tags live in git
+
+A tag is a ref, `refs/tags/<name>`, and nothing else (<Adr file="0024-tags-live-in-git-releases-in-rows" />). There is no tag table: the list comes from `for-each-ref` on the cache. A table would be a second copy that `git push --tags` bypasses.
+
+## Releases live in rows
+
+A release is a `release` row keyed by `(repositoryId, tagName)`: notes, draft and prerelease flags, author. It stores **no commit**: each read looks the tag up in git, so a release follows a moved tag, and one whose tag was deleted reports `commitSha: null`.
+
+Creating a release for a tag that does not exist creates an **annotated** tag (dated today, tagged by the requester) through `commitPush`, with a pack holding only the tag object. "Latest" is computed: the most recently published release that is neither a draft nor a prerelease. Deleting a release keeps the tag.
+
+## Release assets
+
+Files attached to a release live in the bucket under `release-assets/<repositoryId>/<releaseId>/<assetId>`, one `release_asset` row each, streamed through the API (never presigned URLs; a self-hosted bucket is often reachable only from the API). Uploads reserve quota first; see **Storage and quotas**.
+
+<Quiz>
+  <Question
+    prompt="Someone force-pushes tag v1.0 to a new commit. What does the v1.0 release show?"
+    options={["The old commit, stored on the row", "The new commit: releases read the tag from git on every request"]}
+    answer={1}
+    explanation="The row stores no commit, so it cannot go stale."
+  />
+  <Question
+    prompt="Creating a branch from the web needs which pack?"
+    options={["A pack of the branch's commits", "An empty pack: the commits are already in the log", "No log entry at all"]}
+    answer={1}
+    explanation="It is still a commitPush, so it is still one entry and one CAS."
+  />
+</Quiz>

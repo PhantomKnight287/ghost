@@ -1,0 +1,11 @@
+{
+  "title": "Git transport",
+  "pages": [
+    "index",
+    "smart-http",
+    "authentication",
+    "bodies-and-streams",
+    "fetching",
+    "ssh"
+  ]
+}

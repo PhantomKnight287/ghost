@@ -1,0 +1,62 @@
+---
+title: The outbox
+description: Events written in the same transaction as the change, then dispatched by a poller every API instance can share.
+---
+
+A change someone may want to hear about writes an `outbox_event` row **in the same transaction as the change** (<Adr file="0029-events-go-through-an-outbox" />):
+
+```ts
+await this.db.transaction(async (tx) => {
+  const [comment] = await tx.insert(schema.issueComment).values(…).returning();
+  await publishEvent(tx, {
+    type: 'issue.commented',
+    repositoryId,
+    actorId,
+    payload: { issueId, commentId: comment.id },
+  });
+});
+```
+
+<Source path="apps/api/src/lib/events/events.ts" /> declares every event type and its payload; `publishEvent` type-checks the payload against it. Payloads carry **ids**, not copies: consumers read the current rows when they run, so an event whose comment was deleted meanwhile is skipped rather than resurrected.
+
+## Why an outbox
+
+Writing the event in the change's transaction means an event exists **exactly** when its change does: no notification for a comment that rolled back, none lost to a crash between commit and send. The alternative, publishing to a broker after the commit, is a dual write: a crash between the two loses the event.
+
+One exception: `push` events are published **after** the push, outside any transaction, because refs live in the bucket and the bucket shares no transaction with Postgres. A crash in between loses the event but never invents one.
+
+## The poller
+
+<Source path="apps/api/src/services/events/outbox.service.ts" symbol="drain" />:
+
+- wakes on Postgres `LISTEN`/`NOTIFY`, with polling as a fallback;
+- claims a batch with `SELECT … FOR UPDATE SKIP LOCKED`, so several API instances could share the work without double-processing;
+- hands each event to its consumers: `NotifierService.handle`, then `WebhookFanoutService.handle`;
+- marks it processed, or records `lastError` and retries on the next drain; after five attempts it is set aside.
+
+Delivery is **at least once**. Every consumer must tolerate running twice: notification rows are upserts, webhook jobs carry idempotency keys.
+
+A known cost: a batch holds its row locks while consumers run, emails included (a `ponytail:` comment marks it, with the fix).
+
+## The event catalogue
+
+Issue events (`issue.opened`, `.edited`, `.closed`, `.reopened`, `.assigned`, `.labeled`, `.commented`, …), pull request events (`.merged`, `.reviewed`, `.review_commented`, `.synchronized`, `.ready_for_review`, …), `push`, releases, labels, stars, watches, forks, repository edits and transfers, organization membership. Pull requests share the `issue.*` events, since a pull request is an issue.
+
+<TryIt>
+Comment on an issue, then run `select type, payload, processed_at, attempts from outbox_event order by created_at desc limit 5;` against your dev database (or `bun run db:studio`). Find your event and see that its payload holds ids only.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="A comment insert succeeds but the transaction rolls back afterwards. Is anyone notified?"
+    options={["Yes, the event was already sent", "No: the event row rolled back with the comment"]}
+    answer={1}
+    explanation="That is the whole point of writing the event in the same transaction."
+  />
+  <Question
+    prompt="Why does the poller use SKIP LOCKED?"
+    options={["Speed", "So several instances can claim different rows concurrently without waiting on or double-processing each other", "Postgres requires it"]}
+    answer={1}
+    explanation="Each instance claims rows the others have not locked."
+  />
+</Quiz>

@@ -1,0 +1,10 @@
+{
+  "title": "Orientation",
+  "pages": [
+    "index",
+    "what-is-ghost",
+    "repository-tour",
+    "running-locally",
+    "testing"
+  ]
+}

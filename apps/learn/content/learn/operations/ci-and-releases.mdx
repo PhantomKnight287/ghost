@@ -1,0 +1,28 @@
+---
+title: CI and releases
+description: What runs on every push to a pull request, and how a version is cut.
+---
+
+## CI
+
+<Source path=".github/workflows/api.yml" />:
+
+1. `bun install --frozen-lockfile`
+2. Map `ghost.test` to 127.0.0.1 and allow binding port 443, for the `gh` suite
+3. `turbo run check-types --filter=@ghost/api` (builds the workspace packages it imports)
+4. Unit tests, then end-to-end tests, against Postgres and RustFS service containers, with `--no-file-parallelism`
+5. Upload the `gh-capture` artifact
+6. Fail if `apps/api/github.schema.gql` changed (it must be committed current)
+7. For `apps/delivery`: migrate a database, `go vet`, `go test`
+
+<Source path=".github/workflows/self-host-e2e.yml" /> boots the self-hosting stack and tests it.
+
+Locally, the root `bun run lint` runs <Source path="scripts/check-standards.ts" /> (concatenated strings, wrapped comments, non-services under `services/`, error classes outside `lib/`, `any`, several components in a page, `fallback={null}`) and each app's linter. CodeRabbit reviews pull requests on GitHub.
+
+## Versions
+
+```sh
+bun scripts/bump-version.ts <major|minor|patch|x.y.z>
+```
+
+sets one version on the root and every `apps/*` package, so a single tag names a release. The web app has a changelog page under `app/changelog`.

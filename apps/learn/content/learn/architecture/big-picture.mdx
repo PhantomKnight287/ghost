@@ -1,0 +1,69 @@
+---
+title: The big picture
+description: Every process, every store, and who talks to whom.
+---
+
+<Mermaid chart={`
+flowchart LR
+  browser([Browser]) --> web[apps/web<br/>Next.js]
+  gitcli([git / gh]) -->|HTTP :3001, SSH :1031| api
+  web -->|REST /api, cookie forwarded| api[apps/api<br/>NestJS]
+  api --> pg[(Postgres)]
+  api --> s3[(S3 bucket<br/>repos/*/index, entries)]
+  api --> cache[(Local disk<br/>bare repo cache)]
+  api -->|indexes, publishes shards| s3
+  zoekt[apps/zoekt] -->|pulls shards| s3
+  api -->|search queries| zoekt
+  delivery[apps/delivery<br/>Go] -->|claims delivery_job| pg
+  delivery --> smtp([SMTP / webhook endpoints])
+  api -->|POST /imports| importer[apps/importer]
+  importer -->|git push, callbacks| api
+  importer --> github([github.com])
+`} />
+
+## The stores
+
+| Store | Holds | Authority |
+| --- | --- | --- |
+| **S3 bucket** | Every repository's write-ahead log (`repos/<id>/index`, `repos/<id>/entries/<ulid>.pack`), release assets, LFS objects, attachments, avatars, Zoekt shards | The truth for git data |
+| **Postgres** | Everything that is not git: users, sessions, keys, repositories, issues, pull requests, reviews, events, notifications, delivery queue, billing rows | The truth for everything else |
+| **Local disk** | Bare repositories materialized from the log, one per repository, plus temp spools | A cache. Deletable any time |
+
+The bucket and Postgres share no transaction. Whenever a change spans both, the code picks an order so that a crash between the two leaves something harmless: an orphaned log entry, a push that is not yet billed, an event that is lost rather than invented. You will see that reasoning, written as one-line comments, throughout the git code.
+
+## The processes
+
+**`apps/api`** does almost everything. It serves the REST API under `/api`, the git smart-HTTP transport at the root (`/<owner>/<repo>.git/...`), an SSH listener, the GitHub-compatible GraphQL and REST APIs, and background work: the event outbox, pull-ref syncs, code indexing, attachment sweeps, import dispatch. It is pinned to **one replica**, because caches and purges are per process (<Adr file="0020-deletion-is-a-tombstone-then-a-purge" />).
+
+**`apps/web`** renders pages. It holds no data of its own; it calls the API with the viewer's cookie.
+
+**`apps/delivery`** is a small Go program that claims jobs from the `delivery_job` table and sends email and webhooks. It never reads domain tables (<Adr file="0031-outbound-delivery-is-its-own-service" />).
+
+**`apps/importer`** clones a GitHub repository, pushes it to Ghost like any user would, and posts issues and pull requests back to the API in batches (<Adr file="0032-github-imports-run-outside-the-api" />).
+
+**`apps/zoekt`** runs Zoekt's webserver. It keeps no state: it syncs the index shards the API published to the bucket.
+
+**`apps/docs`** and **`apps/learn`** are static documentation sites.
+
+## Why one big API
+
+Splitting the git transport, the REST API and the GitHub layer into services was considered and rejected each time for the same reason: each needs nearly every domain service (access checks, the commit point, issues, events). The pieces that *were* split out each have a property that justified it: delivery talks to hostile networks and must not share the API's event loop; imports run for minutes and must survive API deploys.
+
+<Quiz>
+  <Question
+    prompt="Where does a pull request's title live?"
+    options={["In the S3 log", "In Postgres", "In the bare repository's config"]}
+    answer={1}
+    explanation="Pull requests, issues, reviews and comments are rows. Only refs and objects live in the log."
+  />
+  <Question
+    prompt="Why does apps/delivery never read the issue or user tables?"
+    options={[
+      "It has no database access at all",
+      "The API decides who and what at fan-out time and freezes a finished message into delivery_job; delivery only decides how to get it there",
+      "Go cannot use Drizzle",
+    ]}
+    answer={1}
+    explanation="ADR 0031: fan-out needs the domain (permissions, subscriptions, templates), sending does not."
+  />
+</Quiz>

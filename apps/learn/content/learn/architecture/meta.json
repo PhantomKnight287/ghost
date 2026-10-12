@@ -1,0 +1,9 @@
+{
+  "title": "Architecture",
+  "pages": [
+    "index",
+    "big-picture",
+    "a-request-through-the-api",
+    "a-push-end-to-end"
+  ]
+}

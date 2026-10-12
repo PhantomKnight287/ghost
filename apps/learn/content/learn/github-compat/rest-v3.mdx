@@ -1,0 +1,33 @@
+---
+title: REST v3
+description: GitHub's REST shapes, integer ids, page-numbered pagination with Link headers, and GitHub's error bodies.
+---
+
+Controllers under <Source path="apps/api/src/github/rest/" /> serve `/api/v3`: `meta`, `user(s)`, `repos`, issues with comments, labels and assignees, and pull requests with commits, files, reviews and merge. They appear in `openapi.json` under the `GitHub compatibility` tag.
+
+## Shapes
+
+`lib/github/rest.ts` holds the mappers (`toUserRest`, `toRepositoryRest`, `toIssueRest`, `toPullRest`, …). Responses embed full users and labels; a shared `RestContext` loads those once per response rather than per item.
+
+## Pagination
+
+GitHub's REST uses page numbers: `page` and `per_page` (default 30, max 100). `pageOf` parses them leniently, the list query uses an offset, and `linkHeader` writes `Link: <…>; rel="next", …` with `first`, `prev`, `next`, `last`. `gh api --paginate` follows it. This is the one place Ghost uses OFFSET; a `ponytail:` comment marks the scaling ceiling.
+
+## Errors
+
+<Source path="apps/api/src/github/rest/github-rest.filter.ts" /> renders `{ message, documentation_url, status }`, and on a 422 `errors: [{ resource, field, code }]` ("Validation Failed"), turning class-validator's 400 into GitHub's 422. Every 404 says just "Not Found", so a private repository and a missing one read the same.
+
+GitHub-specific status choices are made in the controllers, e.g. a merge Ghost refuses answers 405 "Pull Request is not mergeable", a stale `sha` 409.
+
+## Media types
+
+The auth middleware rewrites GitHub's `application/vnd.github…` Accept headers to JSON (Apollo would otherwise answer 406), **except** the diff and patch types, which `GET /pulls/:number` answers as text (`gh pr diff`).
+
+<Quiz>
+  <Question
+    prompt="gh api --paginate stops after the first page. What is the most likely cause?"
+    options={["per_page too high", "The response lacks a Link header with rel=\"next\"", "gh does not support Ghost"]}
+    answer={1}
+    explanation="gh follows Link headers; linkHeader must be set by the controller."
+  />
+</Quiz>

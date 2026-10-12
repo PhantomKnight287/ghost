@@ -1,0 +1,47 @@
+---
+title: The importer
+description: GitHub imports in a separate Bun service, with the API owning retries, leases and numbering.
+---
+
+Importing a GitHub repository takes minutes and gigabytes, so it runs in `apps/importer`, a separate Bun service (<Adr file="0032-github-imports-run-outside-the-api" />). The **API decides** when an import runs and whether it is retried; the **importer only works**.
+
+<Mermaid chart={`
+sequenceDiagram
+  participant U as User
+  participant A as API
+  participant I as Importer
+  participant G as github.com
+  U->>A: POST /imports (linked GitHub account)
+  A->>A: create repository + repository_import row
+  A->>A: ImportDispatcherService claims row (SKIP LOCKED), mints a 1-day API key
+  A->>I: POST /imports (job, claim token, key)
+  I->>G: fetch heads, tags, refs/pull/*/head into a scratch repo
+  I->>A: git push over smart HTTP with the key
+  I->>A: releases, issues, PRs, comments in batches (/api/internal/imports/:id/*)
+  I->>A: heartbeat every 30 s, every call renews a 2-minute lease
+  I->>A: outcome
+`} />
+
+## Why this shape
+
+- The push goes through the **same HTTP path** as a user's push, so the log, code search and contribution counts behave exactly as for a push from a laptop. That needs a credential, hence the short-lived key.
+- Domain writes stay in the API, which owns issue numbering, comment counts and pull request invariants. The importer never touches the database.
+- Every callback carries the attempt's **claim token**. When the API starts a new attempt (the importer refused, failed retryably, or let its lease lapse), the old attempt's calls get 409 and it stops; its key is revoked. Up to six attempts, with backoff and jitter.
+
+## Details
+
+- Imported rows are authored by `ghost-importer` (a hyphenated name no person can register), crediting the GitHub author at the top of each body. Numbers are kept, so `#123` in imported text still resolves.
+- Writes are upserts keyed by tag name and issue number, so a retried attempt overwrites rather than duplicates. Opening issues or pull requests is refused while an import runs, since it owns those numbers.
+- The import's key is the only one allowed to push `refs/pull/*`.
+- Not imported: release assets, LFS objects, line comments, reactions, assignees, milestones.
+
+Code: <Source path="apps/importer/src/import-job.ts" />, and in the API `resources/imports/` and `services/imports/`.
+
+<Quiz>
+  <Question
+    prompt="An importer process hangs mid-import. What happens?"
+    options={["The import stays stuck", "Its lease lapses; the API retries with a new attempt and token, and the hung attempt's later calls get 409"]}
+    answer={1}
+    explanation="The API owns retries; leases and claim tokens fence old attempts."
+  />
+</Quiz>

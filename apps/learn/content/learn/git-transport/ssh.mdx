@@ -1,0 +1,45 @@
+---
+title: SSH
+description: A second transport onto the same services, with the same access decision and the same commit point.
+---
+
+<Adr file="0019-ssh-is-a-second-transport-not-a-second-git" /> sets three rules:
+
+1. **One access decision.** SSH calls the same `RepositoryAccessService`; it adds no permission logic.
+2. **One commit point.** A push over SSH is spooled, committed with `commitPush`, then replayed into `git receive-pack --stateless-rpc`, exactly like HTTP.
+3. **No shell, ever.** A session may run `git-upload-pack`, `git-receive-pack` or `git-lfs-authenticate`, nothing else.
+
+The listener is <Source path="apps/api/src/services/git/ssh/ssh-server.service.ts" />, built on the `ssh2` library. It starts only when `GIT_SSH_HOST_KEY` is set; the host key is configuration, never generated at boot, since a new key on every restart would warn every user of a changed host.
+
+## Keys, and only keys
+
+SSH authenticates the **connection**, before any repository or command is known. OpenSSH tries the `none` method first and offers a key only once refused, so a server that accepted `none` would never learn who the user is. Therefore: **publickey or nothing**. The key names the account; the login name is ignored, which is why every URL uses `git@`.
+
+Anonymous clone lives on HTTP, where it is cacheable and where the push probe has somewhere to happen.
+
+## Fetch and push are shaped differently
+
+- **Fetch** is a plain duplex: the channel is piped into `git upload-pack`, its output piped back. Fast and unbuffered.
+- **Push** cannot be, because the log must accept the push *before* git sees it, and the ref commands are at the front of a body that must still be replayed whole. So it is spooled, committed, and fed to `--stateless-rpc`, with the server writing the advertisement itself so the capabilities match.
+
+## Two details that each cost a debugging session
+
+- `child.stdout.pipe(channel)` ends the channel when git exits, and the `exit-status` then arrives on a closed channel: the client reports a perfectly good fetch as a transport error. Pipes use `{ end: false }`; the channel closes after `exit()`.
+- Ending the connection when the command finishes truncates whatever is still queued behind SSH flow control: invisible on small repositories, fatal on large ones. The connection closes when the channel closes.
+
+## LFS over SSH
+
+`git-lfs-authenticate <repo> <operation>` answers with the HTTPS endpoint and a `Bearer` token signed with `BETTER_AUTH_SECRET`, valid an hour for one user, one repository, one operation (<Adr file="0036-lfs-objects-are-stored-per-repository" />).
+
+<Quiz>
+  <Question
+    prompt="Why can't Ghost offer anonymous SSH clone by accepting the 'none' auth method?"
+    options={[
+      "ssh2 does not support it",
+      "OpenSSH tries 'none' first, so accepting it means signed-in users' keys are never seen",
+      "Anonymous access is insecure",
+    ]}
+    answer={1}
+    explanation="Authentication happens per connection, before the repository is known; accepting none would make every connection anonymous."
+  />
+</Quiz>

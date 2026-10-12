@@ -1,0 +1,29 @@
+---
+title: Web conventions
+description: The rules that keep 49,000 lines of UI coherent.
+---
+
+From <Source path="docs/code-standards.md" />, the ones that bite in the web app:
+
+1. **Look before you write a component** (rule 9). Search `components/` and the route folders first. If one almost fits, add a prop; two components rendering the same avatar list are a violation however far apart they live.
+2. **One file, one component family** (rule 8). `components/ui/avatar.tsx` holds `Avatar`, `AvatarImage`, `AvatarFallback`. A page is not a family.
+3. **Every suspended boundary has a real skeleton** (rule 10). `fallback={null}` is banned: the layout jumps when content arrives. The skeleton lives beside the component it stands in for (`RepositoryReadme` and `RepositoryReadmeSkeleton`).
+4. **No local builders** (rule 2). Pagination links, hrefs and the like are built once, by the component that renders them, from parts: `<CursorPagination pathname params cursor nextCursor />`, not a `hrefFor()` in every page.
+5. **Permissions come from `@ghost/permissions`.** Hide what a viewer cannot do with `atLeast(viewerRole, 'write')`, but never rely on hiding: the API decides.
+
+## Next.js here is newer than you remember
+
+`apps/web/AGENTS.md` warns that this Next.js version has breaking changes from older ones. When in doubt about an API, read the guide under `node_modules/next/dist/docs/` rather than memory. For example, route props are typed with the global `PageProps<"/[username]/[repo]/pulls">` and `LayoutProps<…>` helpers, and `params` is a Promise.
+
+## Themes
+
+Themes, including a user-defined one, are CSS variables; code is highlighted with Shiki using the Pierre themes. Diffs render with `@pierre/diffs`.
+
+<Quiz>
+  <Question
+    prompt="You need a skeleton while an async server component loads. What is wrong with fallback={null}?"
+    options={["Nothing", "The layout jumps when the content arrives; a skeleton of the same shape is required", "It throws"]}
+    answer={1}
+    explanation="Code standard 10, enforced by scripts/check-standards.ts."
+  />
+</Quiz>
