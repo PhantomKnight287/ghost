@@ -1,0 +1,76 @@
+---
+title: A push, end to end
+description: The single most important flow in Ghost, from `git push` to the bytes in the bucket and everything that happens after.
+---
+
+This lesson is the map; the **Git transport** and **Storage** chapters zoom into each step. Read it once now and again after those chapters.
+
+<Mermaid chart={`
+sequenceDiagram
+  participant Git as git push
+  participant MW as Middleware
+  participant GS as GitService.receivePack
+  participant V as withVerifiedPack
+  participant PT as PushTransactionService
+  participant S3 as Bucket
+  participant RP as git receive-pack (cache)
+  Git->>MW: GET info/refs?service=git-receive-pack
+  MW->>MW: Basic auth, authorize write
+  MW-->>Git: ref advertisement (cache materialized from log)
+  Git->>MW: POST git-receive-pack (commands + packfile)
+  MW->>MW: authorize, then spool body to a temp file
+  MW->>GS: GitRequestBody
+  GS->>GS: probe? (body is exactly 0000) → 200
+  GS->>GS: read commands from the head of the body
+  GS->>V: index pack into quarantine, check objects and reachability
+  V->>PT: commitPush(transitions, verified pack)
+  PT->>S3: PUT entries/ulid.pack (unconditional)
+  PT->>S3: read index (etag), check oldOids, PUT index If-Match
+  S3-->>PT: committed: seq N
+  GS->>RP: replay the original body into the cache
+  RP-->>Git: report-status (ok refs/heads/main)
+  GS-)GS: after close: code index, contributions, close #issues, pull refs, events
+`} />
+
+## The steps
+
+1. **Advertisement.** `git push` first asks `info/refs?service=git-receive-pack`. <Source path="apps/api/src/git/middleware/git-basic-auth/git-basic-auth.middleware.ts" /> checks the Basic credentials (username plus API key) and authorizes **write** right here, so a read-only user is refused before uploading anything. The cache is materialized from the log and `git receive-pack --advertise-refs` answers.
+2. **The upload.** The POST passes the same auth, then <Source path="apps/api/src/git/middleware/git-raw-body.middleware.ts" /> spools the body to a temp file, gunzipping if needed. Nothing ever holds a packfile in memory (<Adr file="0015-nothing-holds-a-packfile" />).
+3. **The probe.** A push over 1 MiB is preceded by a POST whose body is exactly `0000`, sent so git can handle an auth challenge before streaming. It gets a 200 and nothing else (<Adr file="0014-the-pre-push-probe" />).
+4. **Commands.** `readReceivePackHeader` reads only the start of the body: one `old new ref` line per ref, then where the packfile begins.
+5. **Refusals before the log.** Writes to `refs/pull/*` are refused (they belong to Ghost, <Adr file="0033-pull-requests-keep-refs-in-the-base-log" />), unless the key belongs to a running import.
+6. **Verification.** <Source path="apps/api/src/lib/git/protocol/verify-push.ts" symbol="withVerifiedPack" /> indexes the pack into a quarantine directory and checks every new ref names a real object the push or the log holds (<Adr file="0034-a-push-is-verified-before-the-log-commits-it" />). Inside it, the push's size is reserved against the account's quota under a per-account lock (<Adr file="0035-pushes-and-forks-count-against-separate-quotas" />).
+7. **The commit point.** <Source path="apps/api/src/services/git/wal/push-transaction.service.ts" symbol="commitPush" /> uploads the entry, then compare-and-swaps the index. This is the moment the push becomes real (<Adr file="0005-single-commit-point" />).
+8. **The cache catches up.** Only now does `git receive-pack --stateless-rpc` apply the push to the local cache and produce the report the client prints.
+9. **Afterwards**, without making the client wait: reindex code search, update contribution counts, close issues named by `fixes #12` in the new commits, resync pull request refs, record the push on pull request timelines, publish `push` events for webhooks.
+
+If any check before step 7 fails, the client gets a per-ref refusal (`! [remote rejected] main (reason)`) in git's own report format, and the log is untouched.
+
+## The orders that matter
+
+- **Log before cache.** Reversed, a failed commit would leave a ref visible locally for a push that never happened. The cache may lag the log, never lead it.
+- **Checks before the log.** `receive-pack`'s own refusals happen after step 7, too late: a ref it refuses would already be in the log forever. So Ghost does git's checks itself first.
+- **Side effects after the response.** A push must not wait for a history walk. Each side effect tolerates being lost (a later push or read redoes it).
+
+<TryIt>
+Read <Source path="apps/api/src/git/git.service.ts" symbol="receivePack" /> top to bottom with the diagram open. Then find `commitToLog` in the same file and match each line to steps 5 to 7.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="git receive-pack refuses a ref (say, an unpacker error). Why must Ghost have caught that before commitPush?"
+    options={[
+      "Because receive-pack is slow",
+      "Because by then the ref is in the log, the source of truth, and every node replaying the log would break",
+      "It does not matter; Ghost rolls the log back",
+    ]}
+    answer={1}
+    explanation="The log has no rollback. ADR 0034 records the bug: a crafted push made a repository unreadable for good. Checks moved before the commit point."
+  />
+  <Question
+    prompt="The code index fails to update after a push. Is the push lost?"
+    options={["Yes", "No: it committed at the index CAS; the next push or index run catches the search index up"]}
+    answer={1}
+    explanation="Everything after the response is best effort and repairable. Only the CAS defines whether the push happened."
+  />
+</Quiz>

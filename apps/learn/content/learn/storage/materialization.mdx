@@ -1,0 +1,68 @@
+---
+title: Materialization
+description: How the local cache catches up with the log, why it only ever moves forward, and why the push path leaves it deliberately stale.
+---
+
+<Source path="apps/api/src/services/git/materializer/repository-materializer.service.ts" /> turns the log into a bare repository git can serve (<Adr file="0012-forward-only-materialization" />).
+
+The cache lives at `$TMPDIR/ghost/<repositoryId>.git` and records how far it has replayed in a file inside it, `ghost-wal-seq`.
+
+```
+read index → compare to cached seq
+          → index-pack each missing layer, in order
+          → reconcile refs to the snapshot (one update-ref --stdin batch)
+          → point HEAD at a branch that exists
+          → write the new seq
+```
+
+If the cached seq already equals the index's, it only checks HEAD and returns: one small GET.
+
+## Forward only
+
+The cache can be behind the log, never ahead of it; that is what "log before cache" buys. So replay never undoes anything. There is no rollback path to get wrong.
+
+## Thin packs, so order matters
+
+A pushed pack may be **thin**: it contains deltas against objects the client knew the server already had, and omits those bases. Replaying such a pack into an empty repository fails. Two things make replay work:
+
+- Layers are applied **in sequence order**, never in parallel, so every base is present before the layer that needs it.
+- `git index-pack --fix-thin --stdin` completes a thin pack against objects already present (`unpack-objects` cannot).
+
+Since <Adr file="0034-a-push-is-verified-before-the-log-commits-it" />, new layers are stored self-contained, but older layers may still be thin, so both rules stay.
+
+## Refs are reconciled, not replayed
+
+Materialization ignores the entries' transitions and applies the index's **snapshot**: `update` every ref in the snapshot, `delete` every cached ref that is not in it, in one `update-ref --stdin`. Reconciling is idempotent from any starting state, so a stale or hand-edited cache heals itself. A side effect you must know: **any ref you write into a cache by hand disappears on the next materialize.** That is why there are no scratch refs in Ghost.
+
+## HEAD
+
+A bare repository whose `HEAD` names a missing branch clones as *empty, with no error*. So HEAD follows the repository's default branch while it exists, otherwise any branch that does.
+
+## The push path leaves the marker stale
+
+`receivePack` materializes, commits to the log, then lets `git receive-pack` apply the push to the cache, but does **not** advance `ghost-wal-seq`. If another node's push interleaved, the local cache is now a fork of the log; leaving the marker behind guarantees the next materialize replays over it and reconciles to the truth. The price is one redundant `index-pack` of objects already present.
+
+## Concurrency
+
+`materialize` collapses concurrent calls for one repository into one replay with an in-flight map (`inFlight.run`), so twenty simultaneous clones on one node replay once. Across nodes nothing is coordinated or needed: replay is idempotent and every node converges on the same log.
+
+`settle(repoId)` waits out a replay in flight. Deletion uses it, so a replay cannot write into a directory that is being removed.
+
+<TryIt>
+<Source path="apps/api/src/lib/git/materializer/wal-store.fake.ts" symbol="InMemoryWalStore" /> is an in-memory bucket for tests. Read the materializer's spec and find the test that pushes with real git, materializes into an empty directory, and clones. Then break it on purpose: in `replay`, iterate `index.layers` in reverse. Which test fails, and with what git error?
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="You add a ref refs/ghost/tmp to a cache for a calculation. What happens to it?"
+    options={["It stays until you delete it", "The next materialize deletes it, because the snapshot does not name it", "It is pushed to the log"]}
+    answer={1}
+    explanation="reconcileRefs deletes every cached ref the index does not carry. ADR 0016 rejected scratch refs for this reason."
+  />
+  <Question
+    prompt="Why can't layers be replayed in parallel?"
+    options={["Git locks the repository", "Older layers may be thin and need bases from earlier layers", "S3 rate limits"]}
+    answer={1}
+    explanation="index-pack --fix-thin completes a pack only against objects already present."
+  />
+</Quiz>

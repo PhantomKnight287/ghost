@@ -1,0 +1,13 @@
+---
+title: Events and delivery
+description: "The outbox, notifications, webhooks, and the Go service that sends everything out."
+---
+
+How a change becomes an inbox entry, an email or a webhook, reliably and at least once.
+
+<Cards>
+  <Card title="The outbox" href="/events-and-delivery/the-outbox">Events written in the same transaction as the change, then dispatched by a poller every API instance can share.</Card>
+  <Card title="Notifications" href="/events-and-delivery/notifications">Who hears about what, and why. The inbox, subscriptions and thread emails.</Card>
+  <Card title="Webhooks" href="/events-and-delivery/webhooks">Endpoints, fan-out into frozen jobs, signatures, and the formats Ghost speaks.</Card>
+  <Card title="The delivery service" href="/events-and-delivery/the-delivery-service">A small Go program with Postgres as its queue, leases instead of held transactions, and a dialer that checks the IP it connects to.</Card>
+</Cards>

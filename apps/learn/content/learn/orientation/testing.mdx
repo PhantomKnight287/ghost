@@ -1,0 +1,69 @@
+---
+title: Testing
+description: The three kinds of test, what each needs, and how to run them without touching real data.
+---
+
+## Three tiers
+
+| Tier | Files | Needs | Run with |
+| --- | --- | --- | --- |
+| Unit | `*.spec.ts` beside the code | Nothing, or real `git` | `bunx vitest run` in `apps/api` |
+| Integration | `*.integration.spec.ts` | Postgres (`TEST_DATABASE_URL`) | the same command |
+| End to end | `apps/api/test/*.e2e-spec.ts` | Postgres and S3 (`TEST_S3_ENDPOINT`) | `bunx vitest run --config ./vitest.config.e2e.ts` |
+
+Integration specs skip themselves when `TEST_DATABASE_URL` is unset; e2e specs skip without both backends. So a bare `vitest run` always works and simply runs less.
+
+Many "unit" tests run real git. <Source path="apps/api/src/services/git/materializer/" /> pushes real packfiles through an in-memory store and clones the result; `push-transaction.service.spec.ts` streams 2.15 GiB through the commit path to guard against a 2 GiB limit (<Adr file="0015-nothing-holds-a-packfile" />). Prefer the real thing over mocks when the real thing is cheap.
+
+## Throwaway backends
+
+```sh
+docker run -d --rm --name ghost-test-pg -e POSTGRES_PASSWORD=test -p 55433:5432 postgres:16-alpine
+docker run -d --rm --name ghost-test-s3 \
+  -e RUSTFS_ACCESS_KEY=ghost -e RUSTFS_SECRET_KEY=ghostsecret \
+  -e RUSTFS_VOLUMES=/data -e RUSTFS_ADDRESS=0.0.0.0:9000 \
+  -p 59000:9000 rustfs/rustfs:latest
+
+cd apps/api
+TEST_DATABASE_URL=postgres://postgres:test@localhost:55433/postgres \
+TEST_S3_ENDPOINT=http://localhost:59000 \
+  bunx vitest run --config ./vitest.config.e2e.ts --no-file-parallelism
+```
+
+`--no-file-parallelism` matters: several files migrate the same database, and racing migrators collide. Set the variables per command; never `export` them in a shell you will reuse.
+
+The e2e harness is <Source path="apps/api/test/harness.ts" />: `startApp()` boots the whole Nest app on a port, `signUp()` creates an account with a session cookie and an API key. Read a short e2e spec such as `test/github-pulls.e2e-spec.ts` to see the pattern: set up a repository, push with real git, call the API, assert.
+
+Note that the e2e app also loads the root `.env`. A variable set there reaches the test app, which is why one storage-limits test fails on a machine whose `.env` sets `FORK_STORAGE_QUOTA_BYTES`.
+
+## The gh suite
+
+`test/gh-cli.e2e-spec.ts` runs the real `gh` binary against Ghost. `gh` refuses a port in its host name, so the suite serves HTTPS on 443 under a name only the machine resolves (`ghost.test` in CI). It runs in CI on Linux. Every request `gh` makes is recorded to `test/fixtures/gh-capture/`, and `src/github/gh-capture.spec.ts` checks each recorded GraphQL query and REST route against what Ghost serves. That is covered in **GitHub compatibility**.
+
+## Other apps
+
+- `apps/web`: `bun test` for the few pure-function tests (`*.test.ts`).
+- `apps/delivery`: `go test ./...` (needs a migrated Postgres for the queue tests).
+- `apps/importer`: `bun test`.
+- `packages/*`: `bun test`.
+
+## What CI runs
+
+<Source path=".github/workflows/api.yml" /> type-checks the API, runs unit and e2e tests against service containers, fails if the committed `github.schema.gql` is stale, and runs `go vet` and `go test` for delivery. The root `bun run lint` also runs <Source path="scripts/check-standards.ts" />, which enforces the mechanical code standards.
+
+<TryIt>
+Run the unit suite with no backends (`cd apps/api && bunx vitest run`), note how many tests were skipped, then start the throwaway Postgres and run it again with `TEST_DATABASE_URL`. The difference is the integration tier.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="Why run e2e tests with --no-file-parallelism?"
+    options={[
+      "Vitest is faster that way",
+      "Several files migrate the same database, and concurrent migrators collide on the journal table",
+      "Git does not support parallel processes",
+    ]}
+    answer={1}
+    explanation="Each file's setup migrates the shared test database; running them at once races the migrations."
+  />
+</Quiz>

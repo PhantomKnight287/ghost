@@ -1,0 +1,14 @@
+---
+title: Observability
+description: OpenTelemetry traces, metrics and profiles, with a one-container Grafana for development.
+---
+
+Both the API and the web app speak OpenTelemetry (<Source path="docs/observability.md" />). `compose.yaml` runs `grafana/otel-lgtm`: one container with the OTLP collector, Prometheus, Tempo, Pyroscope, Loki and Grafana (`http://localhost:3100`). Nothing is exported until `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+
+- <Source path="apps/api/src/instrumentation.ts" /> is the **first import** of `main.ts`: the Node SDK must patch `http`, `express`, `pg` and the AWS SDK before Nest loads them. Filesystem spans are off, since one pack operation reads thousands of files. The SDK flushes on `SIGTERM`.
+- Tempo's metrics generator turns spans into `traces_spanmetrics_*`, so latency percentiles exist for every route without code.
+- <Source path="apps/api/src/lib/metrics.ts" /> holds application counters, recorded at the one commit point so each push counts once: `ghost_pushes_total`, `ghost_push_bytes_total`, `ghost_ref_updates_total`. Instance totals (repositories, users, issues…) are observed by `AppStatsService`.
+- `apps/delivery` exports nothing itself; its numbers come from its tables, so they exist while delivery is down, which is when they matter.
+- Pyroscope receives continuous profiles when `PYROSCOPE_SERVER_ADDRESS` is set.
+
+Logs: Nest's logger, plus `morgan` request logs in `main.ts`. The git code logs at `debug` for each spooled body and each materialization.

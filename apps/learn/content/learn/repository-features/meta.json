@@ -1,0 +1,13 @@
+{
+  "title": "Repository features",
+  "pages": [
+    "index",
+    "browsing",
+    "branches-tags-and-releases",
+    "forks",
+    "git-lfs",
+    "storage-and-quotas",
+    "code-search",
+    "signatures-and-contributions"
+  ]
+}

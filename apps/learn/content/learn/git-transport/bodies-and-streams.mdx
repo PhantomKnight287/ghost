@@ -1,0 +1,63 @@
+---
+title: Bodies, streams and the probe
+description: Three bugs that shaped how Ghost reads a push body, and the rules they left behind.
+---
+
+A push body can be gigabytes. Three real bugs taught the transport how to read one. Each is an ADR; together they are the best introduction to how subtle streaming is.
+
+## Bug 1: the missing commands (ADR 0013)
+
+`receivePack` used to materialize the cache, slow work against S3, **before** reading the body. An HTTP request stream is already running; data arriving while the handler was busy elsewhere was lost. Git writes its command section in its own socket write, so the lost chunk was exactly the ref commands, and the parser reported *"no ref update commands"*: accurate, and pointing nowhere near the cause. It reproduced only against real object storage, never in tests.
+
+> **Rule: never leave an incoming stream unattended across an `await`.** Read it, then do the slow work.
+
+The fix moved capture into middleware, ahead of handlers: <Source path="apps/api/src/git/middleware/git-raw-body.middleware.ts" />. It also unwraps `Content-Encoding: gzip`/`deflate`, which git uses at its discretion.
+
+## Bug 2: 2 GiB (ADR 0015)
+
+Pushing the Next.js repository (a 2.25 GiB pack) crashed with `RangeError: data is too long`: Node's hash cannot `update()` more than `INT_MAX` bytes at once. Every place that held a pack in a `Buffer` was a landmine. Now:
+
+- the body is **spooled to a temp file**, deleted when the response closes;
+- it travels as a `GitRequestBody`: `{ size, open(start?) }`, which can be read several times from any offset;
+- hashing, uploading and replay all stream.
+
+```ts
+// lib/git/protocol/git-request-body.ts
+export function fileBody(path: string, size: number): GitRequestBody  // production
+export function bufferBody(buffer: Buffer): GitRequestBody            // tests
+```
+
+The push path needs the body three times: the command section from the front, the packfile alone from `packOffset` for the log, and the whole thing for `receive-pack`. A single-pass `Readable` cannot do that; holding the bytes is what broke. A spec streams 2.15 GiB through `commitPush` in about a second as the regression guard.
+
+## Bug 3: the probe (ADR 0014)
+
+Pushes over 1 MiB failed with `HTTP 400 … the remote end hung up unexpectedly`. Above `http.postBuffer`, git streams with chunked encoding, which cannot be rewound to retry after a `401`. So git first sends a **probe**: a POST whose body is exactly `0000`. Ghost parsed it as a push with no commands and answered 400, killing the real push before it started.
+
+Now <Source path="apps/api/src/lib/git/protocol/receive-pack-request.ts" symbol="isProbeRequest" /> answers a flush-only body with `200` and nothing else. The probe still passes authentication first: getting challenged is the reason it exists.
+
+## What the bugs have in common
+
+Each passed every test and failed only at real size or real latency. When you work on the transport, test with a large repository and a remote bucket, not just a fixture.
+
+<TryIt>
+Find `spoolToFile` in <Source path="apps/api/src/lib/git/protocol/spool.ts" /> and `readReceivePackHeader` in <Source path="apps/api/src/lib/git/protocol/receive-pack-request.ts" />. It starts with a 64 KiB window and grows it up to a cap (`MAX_COMMAND_SECTION_BYTES`). Why does a push from an import need more than the first window, and why must there be a cap at all?
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="A push of 300 KB works, a push of 5 MB fails before any data arrives. Which ADR's bug does this smell like?"
+    options={["0013, the lost commands", "0014, the probe", "0015, 2 GiB"]}
+    answer={1}
+    explanation="The size threshold around http.postBuffer (1 MiB) and failure before data are the probe's signature."
+  />
+  <Question
+    prompt="Why is GitRequestBody { size, open(start?) } instead of a Readable?"
+    options={[
+      "Readables are slow",
+      "The push path reads the body more than once and from an offset, without holding it in memory",
+      "Nest requires it",
+    ]}
+    answer={1}
+    explanation="Commands from the front, the pack from packOffset for the log, the whole body for receive-pack: three passes, zero buffers."
+  />
+</Quiz>

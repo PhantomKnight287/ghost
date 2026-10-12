@@ -1,0 +1,70 @@
+---
+title: Authentication for git
+description: How a git client proves who it is, how a repository is authorized, and why a 401 must carry a specific header.
+---
+
+Git clients do not carry Ghost's session cookie. They send HTTP Basic credentials, and only after being challenged. <Source path="apps/api/src/git/middleware/git-basic-auth/git-basic-auth.middleware.ts" /> handles every git and LFS route.
+
+## The credential
+
+- **Username is ignored.** The password is an **API key** made under account settings (or by `gh`, the device flow, or an OAuth app).
+- The key is verified with Better Auth's api-key plugin; its owner becomes the actor.
+- A bad key is treated as **no** key, so the client is challenged again rather than failed.
+- `Authorization: Bearer …` is accepted only for LFS: a short-lived token from `git-lfs-authenticate` over SSH, scoped to one repository and one operation.
+
+## The challenge
+
+Git sends credentials only after a `401` that carries `WWW-Authenticate: Basic realm="Ghost"`. Without that header the client errors out instead of prompting. So an anonymous request to a private repository gets exactly that response, and git retries with the credential helper's password.
+
+## Read or write
+
+The middleware decides the operation before the body is read:
+
+```ts
+const isPush =
+  req.path.endsWith('/git-receive-pack') ||
+  req.query.service === 'git-receive-pack' ||   // the advertisement before a push
+  req.method === 'PUT' || …                      // LFS uploads and lock changes
+```
+
+Then one call does the rest:
+
+```ts
+req.repository = await this.access.authorize({
+  username, repo, requesterId: actor?.userId,
+  operation: isPush ? 'write' : 'read',
+});
+```
+
+Authorizing **write** on the `info/refs?service=git-receive-pack` advertisement turns a read-only user away before they upload a large pack. The authorized row is stored on the request, so `GitService` never looks the repository up again, and logs and caches are keyed by the stable row id rather than names that can be renamed.
+
+## Scopes
+
+Keys minted for `gh` or OAuth apps carry GitHub scopes. A scoped key reads a private repository only with `repo`, and pushes with `repo` (or `public_repo` on a public repository). Without the scope a private repository answers as **missing**, like GitHub. One function decides scope coverage everywhere: <Source path="apps/api/src/lib/github/scopes.ts" symbol="hasScope" />. Keys made in settings hold every scope.
+
+## Ordering with the body
+
+This middleware runs **before** the body is spooled to disk, so a refused push never reaches disk. The spool middleware is registered after it in <Source path="apps/api/src/git/git.module.ts" symbol="configure" />. The next lesson explains why the body still has to be captured before any slow work happens.
+
+<TryIt>
+`curl -i http://localhost:3001/<you>/<private-repo>.git/info/refs?service=git-upload-pack`. Note the 401 and the `WWW-Authenticate` header. Repeat with `-u anything:<your-api-key>`.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="A user clones with the wrong username but a valid API key. What happens?"
+    options={["Refused: username mismatch", "Works: the username is ignored and the key names the account", "Works only for public repositories"]}
+    answer={1}
+    explanation="The key alone identifies the account. The same rule applies over SSH, where the login name is ignored too."
+  />
+  <Question
+    prompt="Why authorize write on the advertisement GET, not just on the POST?"
+    options={[
+      "The POST has no way to check",
+      "So a read-only user is refused before git builds and uploads a pack",
+      "GitHub does it",
+    ]}
+    answer={1}
+    explanation="Git always asks for the receive-pack advertisement first; refusing there saves the whole upload."
+  />
+</Quiz>

@@ -1,0 +1,30 @@
+---
+title: References and closing keywords
+description: "#123, owner/repo#5, @user, @org/team, and fixes #12 in a commit message."
+---
+
+<Source path="packages/references/src/index.ts" /> parses references out of Markdown (ignoring code blocks and link text, exactly as the renderer does): `#123`, `owner/repo#123`, `@user`, `@org/team`, and closing keywords (`closes`, `fixes`, `resolves` and their tenses) before an issue reference. The web app uses the same package to linkify, so what you see as a link is what was recorded.
+
+<Source path="apps/api/src/services/issues/issue-references.service.ts" /> records them:
+
+- **On every write of text** (issue body, comment, review, release notes), `record` makes the stored references match what the text says now. A reference that survives an edit keeps its original timestamp. A deleted comment drops its references.
+- **On push**, references in new commit messages are recorded, attributed to whoever pushed. Commits that say `fixes #12` and land on the **default branch** close issue 12, crediting the commit. Creating or deleting the default branch closes nothing, or the first push of a whole history would close every issue it ever fixed.
+- **On merge**, the pull request's own body and every merged commit are scanned the same way.
+
+Rules worth remembering:
+
+- Pull requests are never closed by keyword.
+- A keyword cannot close an issue in a repository the actor cannot write to.
+- A repository the author cannot read resolves to nothing; an issue never references itself.
+- The "mentioned in" list on the target is filtered to sources the viewer can read.
+
+`@user` and `@org/team` mentions notify (see **Notifications**). A team mention counts only within the repository's own organization, and only from one of its members, so nobody can page a whole team from outside.
+
+<Quiz>
+  <Question
+    prompt="A commit saying 'fixes #12' is pushed to a feature branch. Is #12 closed?"
+    options={["Yes, immediately", "No: closing happens when it lands on the default branch (directly or by merge)"]}
+    answer={1}
+    explanation="Same rule as GitHub."
+  />
+</Quiz>

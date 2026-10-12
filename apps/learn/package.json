@@ -1,0 +1,31 @@
+{
+  "name": "@ghost/learn",
+  "version": "0.2.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3005",
+    "build": "next build",
+    "start": "next start --port 3005",
+    "check-types": "tsc --noEmit",
+    "test": "bun scripts/check-links.ts",
+    "format": "biome format --write ."
+  },
+  "dependencies": {
+    "fumadocs-core": "^16.15.12",
+    "fumadocs-mdx": "^15.4.3",
+    "fumadocs-ui": "^16.15.12",
+    "mermaid": "^11.17.2",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^24.0.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "^19.3.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

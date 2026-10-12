@@ -1,0 +1,31 @@
+---
+title: OAuth, the device flow and scopes
+description: How gh gets a key, how third-party apps sign users in, and the one function that decides scopes.
+---
+
+## Scopes
+
+API keys store GitHub scopes in `permissions.scopes`. Keys made in Ghost's settings, and browser sessions, hold every scope. <Source path="apps/api/src/lib/github/scopes.ts" symbol="hasScope" /> is the **one** function deciding whether granted scopes cover a need, with GitHub's implications (`repo` covers `public_repo`; `admin:org` covers `write:org` and `read:org`, …). The GraphQL layer, REST v3 and the git transport all call it. Writes need `repo` (or `public_repo` on a public repository); a private repository answers as **missing** without `repo`. Responses carry `X-OAuth-Scopes`.
+
+## The device flow (`gh auth login --web`)
+
+Better Auth's `deviceAuthorization` plugin runs it; <Source path="apps/api/src/github/oauth/" /> serves it at GitHub's paths on the API root, in GitHub's wire format: `POST /login/device/code`, then `gh` polls `POST /login/oauth/access_token`. The user approves at `<web>/device`. On approval `gh` gets a `ghost_pat_` API key named "GitHub CLI" with the requested scopes Ghost knows; the session the plugin created is deleted at once, since a full browser session would be valid for every Ghost API.
+
+## OAuth apps
+
+Users and organizations register apps (`/api/oauth-apps`, `/api/organizations/:slug/oauth-apps`) through `@better-auth/oauth-provider`. `gh` itself is a **built-in** app (client id `178c6fc778ccc68e1d6a`, no owner, no secret), inserted by `seedBuiltInRows`, not a migration.
+
+The web flow: `GET /login/oauth/authorize` checks the app and GitHub's callback rule, then the plugin handles consent at `<web>/login/oauth/authorize`. `POST /login/oauth/access_token` with a `code` exchanges it (GitHub's clients send no `grant_type`), Ghost revokes the plugin's token and mints a `ghost_pat_` key instead, tagged with the app's client id. Revoking an authorized app deletes those keys.
+
+Apps can opt into GitHub's expiring user tokens: an 8-hour key plus a 6-month `ghost_rt_` refresh token (stored as a sha256 in `oauth_app_refresh_token`).
+
+Why mint API keys instead of the plugin's tokens? One token type: API keys already verify, rate-limit, revoke and show in settings, and the compat layer and git accept only them.
+
+<Quiz>
+  <Question
+    prompt="A token holding only public_repo asks for a private repository. What does it see?"
+    options={["403", "404, as if the repository did not exist", "The repository read-only"]}
+    answer={1}
+    explanation="Without repo, private repositories read as missing, like GitHub, so a token cannot learn they exist."
+  />
+</Quiz>

@@ -1,0 +1,105 @@
+---
+title: The log in the bucket
+description: Two kinds of object per repository, and why each holds what it holds.
+---
+
+Every repository is two kinds of object in the bucket:
+
+```
+repos/<repositoryId>/index                 the only mutable object
+repos/<repositoryId>/entries/<ulid>.pack   one per push, immutable: a header, then the packfile
+```
+
+The key is the repository's **row id**, never its name, so renames and transfers move nothing.
+
+<Mermaid chart={`
+flowchart TB
+  subgraph bucket[S3 bucket]
+    idx["index<br/>seq 3<br/>refs: main→c3, dev→d1<br/>layers: [u1, u2, u3]"]
+    e1["entries/u1.pack<br/>main: 0→c1<br/>+ pack"]
+    e2["entries/u2.pack<br/>main: c1→c3, dev: 0→d1<br/>+ pack"]
+    e3["entries/u3.pack<br/>…"]
+  end
+  idx -. layer 1 .-> e1
+  idx -. layer 2 .-> e2
+  idx -. layer 3 .-> e3
+`} />
+
+## The index: a snapshot
+
+`WalIndex` (<Source path="apps/api/src/lib/git/wal/wal.types.ts" />):
+
+```ts
+interface WalIndex {
+  seq: number;                  // how many pushes have committed
+  compactedThroughSeq: number;  // reserved for compaction; always 0 today
+  refs: Map<string, Buffer>;    // the complete current ref map
+  layers: WalLayer[];           // { ulid, packSha, size } per entry, in order
+  deleted: boolean;             // a tombstone (see the deletion lesson)
+}
+```
+
+`refs` is the **result**: "what does `main` point to now?" in one GET, with no history folding. Every advertisement and every materialization needs exactly that.
+
+## Entries: transitions
+
+Each entry's header records the push's **transitions** (`ref, oldOid, newOid`), who pushed, and when; then the packfile follows. Replaying transitions reconstructs refs at any point in history, which a snapshot alone cannot (<Adr file="0009-index-holds-a-snapshot" />). Both are kept because they answer different questions.
+
+`applyTransitions` derives the next snapshot from the previous one. A zero new oid deletes the key, so a deleted ref is absent from the snapshot but its deletion stays in history.
+
+## Where each field comes from
+
+| Field | Source |
+| --- | --- |
+| transitions | Sent by the client, parsed from the command section |
+| packSha, size | Computed from the pack bytes |
+| ulid, createdAt, pushedBy | Assigned by the server |
+| seq | Assigned: previous `seq + 1`, inside the compare-and-swap |
+| refs, layers | Computed: previous value plus this push |
+
+Nothing is invented. The client says *what* changed; the server assigns *when, who, which number*; the rest is derived.
+
+## Why entries carry no sequence number
+
+An earlier design named entries `entries/<seq>-<ulid>.pack`. It could not work (<Adr file="0006-entries-carry-no-seq" />):
+
+- Two writers both read `seq = 5` and both write `entries/6-…` under different ULIDs. Both succeed. The prefix looked like a fence and was not.
+- Worse, `seq` was assigned **before** the compare-and-swap. A writer that lost at 6 and retried as 7 had already uploaded a possibly huge object claiming 6.
+
+So order lives only in the index's `layers` array: layer *i* is sequence `compactedThroughSeq + i + 1`. A lost compare-and-swap costs nothing; the retry reuses the same key and the same uploaded bytes. And the ULID doubles as the push's **idempotency key**.
+
+## Objects need no transaction
+
+Packfiles are content-addressed and immutable: uploading one twice is harmless, uploading one nobody references is garbage, not corruption. Refs are the only mutable state, and they all live in one small object. So a push writes lots of bytes with no coordination, then flips one pointer atomically. That is the whole trick.
+
+<TryIt>
+Push twice to a repository, then download its `index` from the RustFS console. In a scratch script in `apps/api`, decode it:
+
+```ts
+import { readFileSync } from 'node:fs';
+import { decodeIndex } from './src/lib/git/wal/wal-codec.js';
+const index = decodeIndex(readFileSync(process.argv[2]!));
+console.log(index.seq, [...index.refs].map(([r, o]) => `${r} ${o.toString('hex')}`), index.layers);
+```
+
+Run it with `bun scratch.ts index`. Two layers, `seq` 2, one ref.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="Which object changes on every push?"
+    options={["Every entry", "Only the index", "The index and the previous entry"]}
+    answer={1}
+    explanation="Entries are written once and never modified. The index is the only mutable object."
+  />
+  <Question
+    prompt="How would you find what main pointed to after the 37th push?"
+    options={[
+      "Read the index",
+      "Replay the transitions in entries 1 to 37 from the empty ref map",
+      "It is not recoverable",
+    ]}
+    answer={1}
+    explanation="The index only holds the latest snapshot; the entries' transitions are the history."
+  />
+</Quiz>

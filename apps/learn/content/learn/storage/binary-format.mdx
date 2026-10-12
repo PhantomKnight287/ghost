@@ -1,0 +1,61 @@
+---
+title: The binary format
+description: Why the index and entry headers are hand-rolled bytes, and the two fields that look like overhead and are not.
+---
+
+Both the index and entry headers are binary: big-endian, magic-prefixed, versioned. <Source path="apps/api/src/lib/git/wal/wal-codec.ts" /> encodes and decodes; <Source path="apps/api/src/lib/git/wal/cursor.ts" /> provides `Cursor` (writes) and `Reader` (reads).
+
+## Why not JSON
+
+The index is read on **every push and every materialization**. Object ids dominate its size, and JSON forces them to 40 hex characters where 20 raw bytes do, plus quotes and key names. Binary halves the dominant cost and removes parsing from the hot path (<Adr file="0008-binary-log-format" />).
+
+`Cursor` and `Reader` exist because the alternative, offset arithmetic at every field, reliably produces an off-by-one that corrupts a log instead of throwing.
+
+## Layouts
+
+```
+index                              entry
+─────                              ─────
+magic   u32  "GWAL"                magic      u32  "GENT"
+version u8                         version    u8
+flags   u8   bit 0 = tombstone     headerLen  u32  ← the pack starts here
+seq     u64                        ulid       16 bytes
+compactedThroughSeq u64            createdAt  u64
+refCount u32                       pushedBy   u16 length + utf8
+  ref   u16 length + utf8          transitionCount u32
+  oid   20 bytes                     ref      u16 length + utf8
+layerCount u32                       oldOid   20 bytes
+  ulid    16 bytes                   newOid   20 bytes
+  packSha 32 bytes                 <packfile bytes>
+  size    u64
+```
+
+Different magics per format: an entry read as an index fails at byte 0 instead of passing the version check and decoding garbage.
+
+`headerLen` up front buys a real capability: an entry's metadata is readable with a ranged GET of the first 64 KiB instead of downloading a 500 MB pack (`WalStoreService.readEntryHeader`).
+
+## Two fields that are not overhead
+
+- **`version`** is checked on decode; an unknown value throws `WalCorruptError`. A format that cannot be versioned cannot evolve.
+- **`flags`** carries the tombstone bit for the index, and space for the SHA-1 → SHA-256 object format switch. Retrofitting a hash-length change without a flag byte would mean rewriting every object of every repository.
+
+<Callout type="warn" title="This is an on-disk contract">
+Any change to either layout needs a version bump and a decoder that reads both versions. Logs already in buckets will not be rewritten for you.
+</Callout>
+
+<TryIt>
+Open <Source path="apps/api/src/lib/git/wal/wal-codec.spec.ts" />. Add a test asserting that the first four bytes of an encoded entry header read `GENT` in ASCII. Run `bunx vitest run src/lib/git/wal` in `apps/api`.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="Why does the entry header start with its own length?"
+    options={[
+      "Alignment",
+      "So metadata can be read with a ranged GET without downloading the pack",
+      "S3 requires it",
+    ]}
+    answer={1}
+    explanation="The pack begins at exactly headerLen, and readEntryHeader fetches only the first 64 KiB."
+  />
+</Quiz>

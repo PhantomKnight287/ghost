@@ -1,0 +1,49 @@
+---
+title: refs/pull/N/head and /merge
+description: GitHub-compatible pull request refs, kept in the base log by a background sync.
+---
+
+Every pull request keeps two refs in its **base** repository's log, named as on GitHub (<Adr file="0033-pull-requests-keep-refs-in-the-base-log" />), so `git fetch origin pull/42/head` and CI recipes work unchanged:
+
+| Ref | Holds |
+| --- | --- |
+| `refs/pull/<n>/head` | the head branch's tip, with every object it needs copied into the base log |
+| `refs/pull/<n>/merge` | a test merge of that tip into the base tip; absent while they conflict |
+
+This **supersedes** 0016's "no `refs/pull/*`" rule. The read and merge paths are unchanged; the refs are extra.
+
+## The sync
+
+<Source path="apps/api/src/services/git/pull-refs/pull-refs.service.ts" symbol="sync" /> reads both tips, builds the test merge with `merge-tree` in the base cache (head lent), packs everything the base log does not already name (excluding every base ref tip, old pull refs included, so each update carries only what is new), and commits it with `commitPush`.
+
+The test merge is dated by its later parent and authored `Ghost <noreply@ghost.local>`, so rebuilding it for an unchanged pair yields the **same commit** and a sync with nothing new writes nothing.
+
+It runs **after** the change that made the refs stale, never inside it, coalesced per request (a sync asked for while one runs becomes one rerun):
+
+- a push moves a branch that heads or bases an open request;
+- a request is opened;
+- a suggestion is committed;
+- a request merges (and every other open request into that base gets a new test merge).
+
+Reading a request also **reconciles**: if the refs disagree with the tips `openLive` just resolved, a sync starts. A sync lost to a crash lasts until the next read or push, never forever. The outbox was not used: this is the API maintaining its own state, not telling anyone anything.
+
+## Nobody else writes them
+
+`GitService.receivePack` refuses any client push under `refs/pull/` before the log, except from a running import's key (which carries GitHub's refs over). Forks copy logs without them.
+
+## Billing
+
+Each sync's pack size is recorded. Before committing, a sync writes an intent row (`pull_request_ref_write_pending`) with its ULID outside the quota transaction, so the intent survives a rollback or a crash after the commit point; later syncs reconcile intents against the index. Unmerged requests' bytes bill nobody but are capped per author (`PULL_REF_UNMERGED_MAX_BYTES`); merged ones bill the base account.
+
+## The cost
+
+Nothing pushed to a pull request can be removed from the base repository: not by a force push, by closing it, or by deleting the fork. Only deleting the base purges it. The base log grows by one layer per sync, and every push to a base branch rebuilds the test merge of every open request into it.
+
+<Quiz>
+  <Question
+    prompt="Why is the test merge commit dated by its later parent instead of now?"
+    options={["Nicer history", "So rebuilding it for an unchanged pair produces the same commit, and a no-op sync writes nothing", "Git requires it"]}
+    answer={1}
+    explanation="Deterministic commits make the sync idempotent."
+  />
+</Quiz>

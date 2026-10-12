@@ -1,0 +1,10 @@
+{
+  "title": "Contributing",
+  "pages": [
+    "index",
+    "standards-and-decisions",
+    "a-feature-end-to-end",
+    "debugging-playbook",
+    "glossary"
+  ]
+}

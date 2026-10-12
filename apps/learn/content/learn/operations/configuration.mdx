@@ -1,0 +1,51 @@
+---
+title: Configuration
+description: Every environment variable, grouped by what it turns on, and how each app reads them.
+---
+
+All apps read one root `.env` in development (Turborepo passes it through; the API's `ConfigModule` also reads `../../.env`). `.env.example` is the reference. New variables must also be added to `turbo.json`'s `globalEnv`, to the Dockerfiles that need them, and to the self-hosting files (code standard 11).
+
+## Core
+
+| Variable | Meaning |
+| --- | --- |
+| `DATABASE_URL` | Postgres |
+| `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET` | The bucket holding logs, assets, LFS, attachments, shards |
+| `BETTER_AUTH_SECRET` | Signs sessions and LFS tokens. Changing it signs everyone out |
+| `BETTER_AUTH_URL` | The API's public origin; also the clone URL's origin |
+| `WEB_APP_URL`, `NEXT_PUBLIC_WEB_APP_URL` | The web app's origin |
+| `NEXT_PUBLIC_API_URL`, `INTERNAL_API_URL` | The API as the browser and as the Next server reach it |
+| `AUTH_TRUSTED_ORIGINS`, `AUTH_COOKIE_DOMAIN` | CORS and cookie scope across web and API subdomains |
+| `API_PORT` / `PORT` | Port (PaaS platforms inject `PORT`) |
+
+## Features, each off until set
+
+| Variable | Turns on |
+| --- | --- |
+| `GIT_SSH_HOST_KEY`, `GIT_SSH_PORT`, `NEXT_PUBLIC_SSH_CLONE_HOST` | The SSH transport |
+| `ZOEKT_URL` | Code search |
+| `MAIL_*` or `EMAIL_PROXY` + `EMAIL_PROXY_SECRET`, `EMAIL_SENDER` | Email |
+| `EMAIL_VERIFICATION_ENABLED` | Requiring verified addresses at sign-up |
+| `DELIVERY_EMAIL=queue` | Thread emails through `apps/delivery` instead of inline |
+| `WEBHOOK_SECRET_KEY`, `WEBHOOK_ALLOW_PRIVATE_NETWORKS`, `WEBHOOK_HOST_CONCURRENCY` | Webhooks |
+| `COMMIT_SIGNING_KEY` | Signing commits Ghost writes |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `NEXT_PUBLIC_GITHUB_CLIENT_ID` | GitHub sign-in, required for imports |
+| `IMPORTER_URL`, `IMPORTER_SECRET` | GitHub imports |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `PYROSCOPE_SERVER_ADDRESS` | Traces, metrics, profiles |
+
+## Limits, unlimited until set
+
+`STORAGE_QUOTA_BYTES`, `FORK_STORAGE_QUOTA_BYTES`, `LFS_STORAGE_QUOTA_BYTES`, `ASSET_STORAGE_QUOTA_BYTES`, `RELEASE_ASSET_MAX_BYTES`, `PULL_REF_MAX_BYTES`, `PULL_REF_UNMERGED_MAX_BYTES`. They accept bytes or units (`1gb`); a value that does not parse stops the API at boot, rather than silently meaning unlimited.
+
+## Build-time vs run-time
+
+`NEXT_PUBLIC_*` variables are inlined into the browser bundle **at build time**. Changing one needs a rebuild of the web (or docs) image, not a restart. Dockerfiles take them as build arguments for that reason.
+
+<Quiz>
+  <Question
+    prompt="You change NEXT_PUBLIC_API_URL on a deployed web service and restart it. The browser still calls the old origin. Why?"
+    options={["Caching", "NEXT_PUBLIC_ variables are inlined at build time; the image must be rebuilt", "A bug"]}
+    answer={1}
+    explanation="Next.js replaces them in the bundle when building."
+  />
+</Quiz>

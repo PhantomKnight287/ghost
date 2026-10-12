@@ -1,0 +1,18 @@
+{
+  "title": "Learn Ghost",
+  "pages": [
+    "index",
+    "orientation",
+    "architecture",
+    "git-transport",
+    "storage",
+    "data-and-access",
+    "repository-features",
+    "issues-and-pull-requests",
+    "events-and-delivery",
+    "web-app",
+    "github-compat",
+    "operations",
+    "contributing"
+  ]
+}

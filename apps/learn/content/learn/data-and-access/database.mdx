@@ -1,0 +1,82 @@
+---
+title: The database
+description: packages/db, Drizzle conventions, migrations, and the rules every column follows.
+---
+
+Everything that is not git lives in Postgres, defined once in <Source path="packages/db/src/schema/" />. The API and the Go delivery service both read it; only `packages/db` defines or migrates it.
+
+## The schema files
+
+| File | Holds |
+| --- | --- |
+| `auth.ts` | Better Auth's tables (user, session, account, verification, apikey, organization, member, team…) plus `user_email` |
+| `repository.ts` | Repositories, contributions, path index, languages |
+| `collaborators.ts` | Collaborator invitations and roles, team access |
+| `issues.ts` | Issues, comments, labels, assignees, events, references |
+| `pull-requests.ts` | Pull requests, reviews, review comments, pull-ref billing |
+| `releases.ts`, `storage.ts` | Releases and assets; storage limits, log-entry billing, LFS, attachments |
+| `notifications.ts`, `webhooks.ts` | Outbox, notifications, subscriptions; webhook endpoints, delivery jobs and attempts |
+| `oauth.ts`, `oauth-app-refresh-token.ts` | OAuth apps (Better Auth's oauth-provider) and Ghost's refresh tokens |
+| `imports.ts`, `stars.ts` | GitHub imports; stars |
+
+## Conventions
+
+**Ids are prefixed text.**
+
+```ts
+id: text().primaryKey().$defaultFn(() => `pr_${createId()}`),
+```
+
+The prefix tells you what an id is when you see it in a log. GitHub compatibility needs integers, so a few tables also carry a `numeric_id` identity column, used only by that layer.
+
+**snake_case in the database, camelCase in TypeScript** (<Adr file="0030-columns-are-snake-case" />). Both the Drizzle client and drizzle-kit run with `casing: "snake_case"`, so `repositoryId` is the column `repository_id`. Raw SQL never spells a column by hand; it interpolates the column object (`${schema.issue.number}`), so a rename cannot leave a stale string behind.
+
+**Timestamps are `timestamptz`, always** (<Adr file="0018-timestamps-are-timestamptz" />). A bare `timestamp` stores a wall clock whose meaning depends on the session's timezone. Ghost lost a day to dates shifted by three hours because the database session ran in Istanbul time and the API in UTC. Use `timestamp({ withTimezone: true })`.
+
+**Constraints over code.** Uniqueness that matters is an index: one open pull request per branch pair is a *partial* unique index (`where state = 'open'`), and numbering races are settled by a unique index plus retry rather than a lock.
+
+## Migrations
+
+```sh
+# 1. edit packages/db/src/schema/*.ts
+bun run db:generate          # at the repository root: drizzle-kit writes SQL + a snapshot
+bun run db:migrate           # apply locally
+```
+
+Never hand-edit generated SQL or write a migration from scratch; regenerate from the schema. Review the generated SQL anyway: drizzle-kit asks whether a changed column is a rename or a drop-and-create, and choosing wrong loses data. A type conversion of timestamps needs an explicit `USING … AT TIME ZONE` (see ADR 0018).
+
+In production, <Source path="packages/db/src/migrate.ts" /> applies migrations (retrying, each batch in one transaction) and then runs `seedBuiltInRows` from <Source path="packages/db/src/seed.ts" />, which inserts rows that must exist but are defined in code, like the built-in `gh` OAuth app. The `ghost-importer` user is created by a migration instead, with a hyphenated name Better Auth's validator refuses, so no person can claim it.
+
+## Querying
+
+The API injects the Drizzle client with `@Inject(DATABASE) private readonly db: Database`. Two habits from the codebase:
+
+- **Select the shape you return.** No `to<Format>` mappers (code standard 2). The only sanctioned exception is the GitHub compatibility layer, and each mapper there carries a one-line comment saying why.
+- **Keyset pagination** with <Source path="apps/api/src/lib/db/keyset.ts" symbol="keyset" />, never `OFFSET`, except where GitHub's REST paging forces page numbers.
+
+<TryIt>
+Run `bun run db:studio` at the root (drizzle-kit studio against your dev database). Find the `pull_request` table, then its partial unique index in `packages/db/src/schema/pull-requests.ts`. Try to explain in one sentence why it is partial.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="You need a new column on issue. What do you do?"
+    options={[
+      "Write ALTER TABLE in a new file under drizzle/",
+      "Edit packages/db/src/schema/issues.ts, run bun run db:generate at the root, review the SQL, commit both",
+      "Run db:push against production",
+    ]}
+    answer={1}
+    explanation="Migrations are generated from the schema, never hand-written."
+  />
+  <Question
+    prompt="Why is the one-open-pull-request-per-branch-pair index partial (where state = 'open')?"
+    options={[
+      "Performance",
+      "Closed and merged rows are history; a full unique index would stop the same branch being proposed again",
+      "Drizzle requires it",
+    ]}
+    answer={1}
+    explanation="The constraint is only about open requests."
+  />
+</Quiz>

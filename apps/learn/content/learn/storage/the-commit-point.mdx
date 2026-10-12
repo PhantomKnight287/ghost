@@ -1,0 +1,96 @@
+---
+title: The commit point
+description: commitPush, line by line. One conditional PUT, a retry loop, and a failure table you should be able to recite.
+---
+
+A push becomes real at exactly one moment: the conditional `PUT` of `repos/<id>/index`. Before it, nothing happened. After it, everything did (<Adr file="0005-single-commit-point" />).
+
+Every writer goes through <Source path="apps/api/src/services/git/wal/push-transaction.service.ts" symbol="commitPush" />: git pushes over HTTP and SSH, merges, squashes, rebases, applied review suggestions, branches and tags created from the web, pull request refs, repairs. Nothing reaches a repository another way. When you are tempted to write a ref some other way, the answer is a `commitPush` with an empty or tiny pack.
+
+## The algorithm
+
+```
+1. check every new ref name is one git accepts
+2. hash the pack (streaming)
+3. PUT entries/<ulid>.pack                  durable, unconditional, idempotent
+4. loop, at most 8 times:
+     read index (and its etag)
+     if index.layers already has my ulid → I already committed: return
+     every transition's oldOid must equal the live ref → else NonFastForwardError
+     no new ref may sit above or below another (a vs a/b)
+     next = { seq + 1, refs with transitions applied, layers + mine }
+     PUT index If-Match: etag              ← THE COMMIT
+     won → return { seq }
+     lost → sleep with jitter, try again
+5. eight losses → WalContentionError (503)
+on a definite rejection: delete my entry again
+```
+
+Read `commitIndex` in the same file; it is about forty lines and all of them matter.
+
+## Why validation lives inside the loop
+
+Losing the compare-and-swap is not failing the push (<Adr file="0007-optimistic-concurrency" />). Each attempt re-reads the index and re-checks `oldOid`:
+
+- Someone pushed a **different** branch meanwhile → still valid → lands at the next `seq`.
+- Someone moved the **same** branch → `oldOid` no longer matches → `NonFastForwardError`, which is not retried.
+
+Checking once outside the loop is a lost-update bug that only shows under concurrency.
+
+## No locks, no counters
+
+`seq` is `index.seq + 1`, chosen by the writer. It cannot collide because choosing it and publishing it are the same atomic act. Two pushes that both want 6: one wins, the other re-reads, sees 6, and becomes 7.
+
+The cost: pushes to one repository serialize, even on different branches. Pushes are rare and short; per-ref logs would remove the contention and destroy the total order replay depends on.
+
+## The failure table
+
+| Failure | Result |
+| --- | --- |
+| Before the entry upload | Nothing happened |
+| After the upload, before the CAS | Nothing happened; one orphan entry, garbage (<Adr file="0010-orphans-are-garbage" />) |
+| CAS lost (412 or 409) | Re-read and retry |
+| CAS timed out, outcome unknown | The next attempt finds its own ULID in `layers` and reports success |
+| After CAS 200 | Committed; a client retry is idempotent |
+
+The ambiguous case is why the ULID check comes first in the loop. Without it, a PUT that landed but timed out would be retried, find `oldOid` no longer matching (it already moved it), and report non-fast-forward for a push that succeeded.
+
+## S3 details that bite
+
+- An ETag is opaque. Echo it back exactly, quotes included; never parse it.
+- `409 ConditionalRequestConflict` means two conditional writes collided: retry. `412` means the race was lost: retry. Catching only 412 produces 500s under load that look like storage flakiness.
+- The first push uses `If-None-Match: *`, closing the race where two pushes to a new repository both see "no index".
+- There is no fsync. The HTTP 200 is the flush.
+
+## Entries are uploaded once
+
+The entry goes up **before** the loop and is never re-uploaded on retry. On a definite rejection (non-fast-forward, contention, a deleted repository, a bad ref name) it is deleted again, since nobody asked to keep that data. On an *ambiguous* failure it is left alone: deleting the entry of a CAS that may have landed would corrupt the log.
+
+<TryIt>
+Open <Source path="apps/api/src/services/git/wal/push-transaction.service.spec.ts" />. Find the test where the CAS loses and the retry succeeds. Then write one more: a push whose `oldOid` is stale must reject with `NonFastForwardError` **and** call `deleteEntry` once. (Look at how the store is mocked with `vi.fn()`.)
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="Two people push to different branches at the same instant. What happens?"
+    options={[
+      "One gets non-fast-forward",
+      "Both land: one wins the CAS, the other re-reads, its oldOid still matches, and it lands at the next seq",
+      "Both land at the same seq",
+    ]}
+    answer={1}
+    explanation="Validation happens inside the loop, against the freshly read index."
+  />
+  <Question
+    prompt="An index PUT times out. The writer retries. Why might it see its own ULID already in layers?"
+    options={["A bug", "The timed-out PUT actually landed; the ULID proves the push committed", "Another node copied it"]}
+    answer={1}
+    explanation="ADR 0006: the ULID is the idempotency key that resolves the ambiguous case."
+  />
+  <Question
+    prompt="Where must a new feature that writes a branch from the web go through?"
+    options={["git update-ref on the cache", "PushTransactionService.commitPush", "A row in Postgres"]}
+    answer={1}
+    explanation="There is one commit point. Writing the cache directly would be lost on the next materialize, and would be split brain across nodes."
+  />
+</Quiz>

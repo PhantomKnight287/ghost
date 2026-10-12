@@ -1,0 +1,58 @@
+---
+title: Deletion, repair and what is not built
+description: Tombstones, purges, the repair tool, and the storage work still ahead.
+---
+
+## Deleting a repository
+
+`DELETE /api/repositories/:owner/:slug` removes everything before it answers 204 (<Adr file="0020-deletion-is-a-tombstone-then-a-purge" />):
+
+1. **Tombstone.** The index is replaced, by compare-and-swap, with an empty one whose `deleted` flag is set. From here every read and push sees the repository as gone.
+2. **Purge, in parallel.** Every entry under `repos/<id>/entries/`, the local cache (after any replay settles), and the code search shards.
+3. **Drop the row.** Issues, pull requests and the rest cascade.
+
+If any step fails, the request fails and the row stays, tombstoned and deletable again. Every step is idempotent.
+
+**Why a tombstone, not deleting the index?** A push authorized a moment before the delete would find no index and create a fresh one under the dead id. Against a tombstone, it loses its CAS, reads the repository as deleted, and removes its own entry before failing. The tombstone is never removed; it holds nothing but a flag and a seq.
+
+A repository that heads an **open** pull request into someone else's repository cannot be deleted (409). Closed and merged requests it opened keep their history in the base; a merged one even keeps its diff, because the merge copied the commits into the base log.
+
+The purge covers this process's cache only. That is one reason the API runs as one replica.
+
+## Repairing logs broken before 0034
+
+<Source path="apps/api/src/scripts/repair-repositories.ts" /> (run by hand on the API host: `node dist/scripts/repair-repositories.js [--apply]`) uses <Source path="apps/api/src/services/git/repair/repository-repair.service.ts" />:
+
+1. Replay the log into an **empty scratch repository**, never the cache, which could hide the damage. An entry that will not index is rebuilt with the cache lent for bases, or its layer is zeroed so replay skips it. Sequence numbers never move.
+2. Check every ref; rescue missing objects from the cache, or drop refs that can never replay.
+3. Commit the repair through `commitPush`, like any push, so every cache reconciles.
+
+## Not built yet
+
+From <Adr file="0011-deferred" />:
+
+- **Checkpoints and compaction.** Every push reads the whole index; replay from zero is O(history). The plan: immutable `checkpoint/<id>/<seq>` objects holding a ref map and live layers. `compactedThroughSeq` exists for this and is always 0. Compaction must account for pending pull-ref billing first (<Adr file="0033-pull-requests-keep-refs-in-the-base-log" />).
+- **Garbage collection** of orphaned entries. The trap: an entry being uploaded *right now* is legitimately unreferenced. The sweep must require "unreferenced **and** older than hours", using the ULID's timestamp.
+- **Multipart entry uploads.** An entry is one `PutObject` (5 GiB max); a failure mid-flight re-uploads everything. A throughput problem, not a correctness one.
+- **More than one API replica**, which needs caches told about deletions.
+
+JGit's DFS backend is this design built at scale (git on blob storage with a CAS ref database). Read it before building any of the above.
+
+<Quiz>
+  <Question
+    prompt="Why does a deleted repository keep a tombstone index forever?"
+    options={[
+      "For audit",
+      "So a push authorized before the delete cannot recreate the repository under the dead id",
+      "S3 cannot delete objects",
+    ]}
+    answer={1}
+    explanation="The racing push loses its CAS against the tombstone and cleans up its entry."
+  />
+  <Question
+    prompt="Why must a garbage collector not simply delete every unreferenced entry?"
+    options={["It would be slow", "An in-flight push's entry is unreferenced until its CAS lands", "Entries are referenced by Postgres"]}
+    answer={1}
+    explanation="ADR 0010: unreferenced and older than a generous grace period."
+  />
+</Quiz>

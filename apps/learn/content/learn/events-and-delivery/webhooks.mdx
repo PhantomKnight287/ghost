@@ -1,0 +1,39 @@
+---
+title: Webhooks
+description: Endpoints, fan-out into frozen jobs, signatures, and the formats Ghost speaks.
+---
+
+Users register webhook endpoints on a repository or organization, choose events, and get a secret. The resource is <Source path="apps/api/src/resources/webhooks/" />; the user guide is the `webhooks` section of `apps/docs`.
+
+## Fan-out, in the API
+
+<Source path="apps/api/src/services/webhooks/webhook-fanout.service.ts" /> is the second outbox consumer. For each event it finds the subscribed endpoints, builds the payload, and **freezes** it into a `delivery_job` row:
+
+- The body is the exact bytes the receiver gets and the signature covers, frozen at fan-out, so a retry days later sends the same thing.
+- The idempotency key is derived from the event and the endpoint, and is unique, so an outbox event handled twice enqueues once.
+- After inserting, the API runs `NOTIFY delivery` so the Go service wakes at once.
+
+Payloads come in formats: GitHub-style JSON, and message formats for Discord, Slack, Microsoft Teams and Google Chat in <Source path="apps/api/src/lib/webhooks/formats/" />. "Send test" sends a `ping`.
+
+Secrets are stored **encrypted** (with `WEBHOOK_SECRET_KEY`), not hashed, because the delivery service must read them to sign.
+
+## Sending, in Go
+
+The next lesson covers the delivery service. The receiver's view:
+
+- `X-Ghost-Delivery`: a unique id per job. Deduplicate on it; delivery is at least once.
+- An HMAC-SHA256 signature over `timestamp.body`, computed at **send** time, so a late retry carries a fresh timestamp.
+- No ordering guarantee, even per endpoint: per-endpoint order would let one failing delivery hold back every later one.
+
+<Quiz>
+  <Question
+    prompt="Why is the webhook body built at fan-out rather than at send time?"
+    options={[
+      "Go cannot read the domain tables",
+      "So every retry sends the same bytes, and the sender needs no domain knowledge",
+      "Both",
+    ]}
+    answer={2}
+    explanation="Delivery never reads domain tables (ADR 0031), and frozen bodies make retries identical."
+  />
+</Quiz>

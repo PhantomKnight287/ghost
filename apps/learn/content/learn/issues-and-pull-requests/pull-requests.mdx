@@ -1,0 +1,74 @@
+---
+title: Pull requests across two logs
+description: A pull request is a row naming two (repository, branch) pairs. Reading one lends objects between caches instead of copying them.
+---
+
+A pull request is a `pull_request` row attached to an issue, naming a **base** (repository, branch) and a **head** (repository, branch), plus the head sha it last recorded and, once merged, the merge commit (<Adr file="0016-a-pull-request-spans-two-logs" />). Everything else (merge base, commits, diff, mergeability) is **computed from git at read time**. Mergeability is never stored: it is a function of two moving tips, and a cached answer is wrong the moment either side is pushed to.
+
+Code: <Source path="apps/api/src/resources/pull-requests/pull-requests.service.ts" />.
+
+## Same repository: easy
+
+A branch `feature` off `main` in one repository lives in one log and one cache:
+
+```
+git merge-base A3 A5     → A2
+git diff --numstat A2 A5
+git log A2..A5
+```
+
+## A fork: two object stores
+
+Alice forks Bob's repository, pushes `feature`; Bob meanwhile pushes `main`. Alice's log has no `B4`; Bob's has no `A1`. Neither cache alone can run `merge-base B4 A1`.
+
+Ghost materializes both caches and runs every command **in the base's directory with the head's object store lent to it**:
+
+```
+GIT_DIR=/tmp/ghost/repo_bob.git
+GIT_ALTERNATE_OBJECT_DIRECTORIES=/tmp/ghost/repo_alice.git/objects
+
+git merge-base B4 A1        → B3
+git diff --numstat B3 A1
+git merge-tree --write-tree B4 A1
+```
+
+<Source path="apps/api/src/resources/pull-requests/pull-requests.service.ts" symbol="openLive" /> builds that environment. Zero bytes are copied and nothing is written to either repository.
+
+### Why alternates and not `git fetch`
+
+- Fetching a raw sha needs `uploadpack.allowAnySHA1InWant` on the source.
+- Fetching a ref lands in `FETCH_HEAD`, one file per repository; concurrent requests clobber each other.
+- It copies objects that already sit a directory away.
+
+And a scratch ref is worse: the next materialize deletes every ref the snapshot does not name.
+
+## Opening one
+
+`head` is `branch` within one repository, or `owner:branch` for a fork. `owner:branch` resolves only within the fork network (the base, a fork of it, or its parent), because two unrelated repositories are not a pull request. A partial unique index stops two open requests for the same branch pair. Opening one records its commits on the timeline and starts a pull-ref sync.
+
+## Reading permissions
+
+Base visibility governs every read: a request from a private fork into a public repository is readable by anyone who can read the base. Merging needs `write` on the base. Closing needs the author or `write`.
+
+## After the merge
+
+A merged request reads only the base, as `mergeCommit^1..headSha`: the merge pushed every commit it needs into the base log. So a merged request keeps its commits and diff after the head branch, or the whole head repository, is deleted.
+
+<TryIt>
+In <Source path="apps/api/src/resources/pull-requests/pull-requests.service.ts" />, follow `getPullRequest` → `open` → `openLive`. Find where `GIT_ALTERNATE_OBJECT_DIRECTORIES` is set and where a merged request takes the other branch (`openMerged`).
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="Why not store 'mergeable: true' on the pull request row?"
+    options={["It is too big", "It depends on two branch tips that move independently; a stored answer goes stale on the next push to either", "Postgres has no booleans"]}
+    answer={1}
+    explanation="It is recomputed from git on read."
+  />
+  <Question
+    prompt="How does the base's cache read objects from the fork's cache?"
+    options={["git fetch from the fork", "GIT_ALTERNATE_OBJECT_DIRECTORIES pointing at the fork's objects, for that process only", "Copying the pack files"]}
+    answer={1}
+    explanation="Process-scoped, nothing written, nothing to clean up."
+  />
+</Quiz>

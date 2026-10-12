@@ -1,0 +1,13 @@
+{
+  "title": "Issues and pull requests",
+  "pages": [
+    "index",
+    "issues",
+    "references",
+    "pull-requests",
+    "merging",
+    "pull-refs",
+    "reviews",
+    "timeline"
+  ]
+}

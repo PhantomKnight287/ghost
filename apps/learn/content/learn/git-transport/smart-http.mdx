@@ -1,0 +1,82 @@
+---
+title: Git over HTTP
+description: What git actually sends over the wire, pkt-lines, and the three routes Ghost serves for it.
+---
+
+Git's "smart HTTP" protocol is three requests. Everything else in the transport exists to serve these well.
+
+| Request | Purpose |
+| --- | --- |
+| `GET /<owner>/<repo>.git/info/refs?service=git-upload-pack` | "What refs do you have?" before a fetch or clone |
+| `POST /<owner>/<repo>.git/git-upload-pack` | "I want these commits, I have those": the server answers with a packfile |
+| `GET …/info/refs?service=git-receive-pack`, then `POST …/git-receive-pack` | The same advertisement before a push, then the push itself: ref commands followed by a packfile |
+
+Git builds these paths by appending to the clone URL, which is why they live at the root and not under `/api` (<Adr file="0001-namespace-split" />). The routes are listed once, in <Source path="apps/api/src/git/git.constants.ts" symbol="GIT_TRANSPORT_ROUTES" />, and excluded from the `/api` prefix in `app.setup.ts`.
+
+## pkt-lines
+
+Git frames everything in **pkt-lines**: four hex digits giving the total length (including the four digits themselves), then the payload.
+
+```
+001e# service=git-upload-pack\n      ← 0x1e = 30 bytes, header included
+0000                                 ← flush packet: end of a section
+```
+
+<Source path="apps/api/src/lib/git/protocol/pkt-line.ts" /> is eight lines and worth reading. A push body looks like this:
+
+```
+xxxx0000000000000000000000000000000000000000 3f2a…e1 refs/heads/main\0report-status side-band-64k
+0000
+PACK…binary packfile…
+```
+
+(`xxxx` stands for the line's length in hex.)
+
+One command per ref (`old-oid new-oid ref`, the first carrying capabilities after a NUL byte), a flush, then the pack. An all-zero old oid means "create"; an all-zero new oid means "delete".
+
+That `old-oid` is git's own compare-and-swap: "move main from X to Y, but only if it is still X". Ghost relocates exactly this check from a lock file on disk to the bucket (<Adr file="0007-optimistic-concurrency" />).
+
+## Stateless RPC
+
+Ghost runs `git upload-pack` and `git receive-pack` with `--stateless-rpc`: one process per HTTP request, reading the request body and writing the response, then exiting. `--advertise-refs` produces the `info/refs` answer. <Source path="apps/api/src/services/git/pack-process/pack-process.service.ts" /> spawns them; <Source path="apps/api/src/services/git/ref-advertisement/" /> writes the advertisement.
+
+## The controller does one thing
+
+<Source path="apps/api/src/git/git.controller.ts" /> has three handlers and no logic. Each passes the authorized repository and the request body to `GitService` and writes back what it returns:
+
+```ts
+@Post('git-receive-pack')
+async receivePack(@Req() req, @Res() res) {
+  this.send(res, await this.gitService.receivePack({
+    repository: req.repository,
+    body: req.gitBody,
+    pushedBy: req.actor?.userId ?? null,
+    apiKeyId: req.apiKeyId ?? null,
+  }));
+}
+```
+
+`GitService` returns `{ headers, body }` as data and never sees `Request` or `Response` (<Adr file="0002-streams-not-http-objects" />). That is why its tests run with no server: they pass a buffer and assert on the returned headers and stream.
+
+## Protocol v2
+
+Git can speak protocol v2, where the client asks for only the ref prefixes it needs (`ls-refs`) instead of receiving every ref first. With thousands of `refs/pull/*` refs that matters. Ghost passes `GIT_PROTOCOL=version=2` to git only when the client sent exactly `version=2` in the `Git-Protocol` header: <Source path="apps/api/src/lib/git/protocol/git-service.ts" symbol="protocolEnv" />. Nothing a client sends reaches git's environment verbatim.
+
+<TryIt>
+Watch the protocol: `GIT_TRACE_PACKET=1 GIT_CURL_VERBOSE=1 git ls-remote http://localhost:3001/<you>/<repo>.git 2>&1 | head -40`. Find the `# service=` header, a capability list, and the flush packet.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="What does the pkt-line 0009done\n contain?"
+    options={["9 bytes of payload", "5 bytes of payload: done and a newline", "A flush"]}
+    answer={1}
+    explanation="The length counts its own four hex digits. 9 − 4 = 5: 'done\n'."
+  />
+  <Question
+    prompt="A push command's old oid is all zeroes. What does the client want?"
+    options={["Delete the ref", "Create the ref, which must not exist yet", "Force-push"]}
+    answer={1}
+    explanation="Zero old oid: create. Zero new oid: delete. Ghost's applyTransitions reads a zero new oid as a delete."
+  />
+</Quiz>

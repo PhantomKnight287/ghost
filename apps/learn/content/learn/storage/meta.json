@@ -1,0 +1,12 @@
+{
+  "title": "Storage",
+  "pages": [
+    "index",
+    "the-log",
+    "binary-format",
+    "the-commit-point",
+    "materialization",
+    "verification",
+    "deletion-repair-and-the-future"
+  ]
+}

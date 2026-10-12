@@ -1,0 +1,43 @@
+---
+title: Notifications
+description: Who hears about what, and why. The inbox, subscriptions and thread emails.
+---
+
+<Source path="apps/api/src/services/notifications/notifier.service.ts" /> is the first outbox consumer. For each event it works out who to tell and the most specific reason:
+
+| Reason | Who |
+| --- | --- |
+| `assigned` | the person assigned |
+| `mentioned` | `@user` in the text the event carries |
+| `team_mentioned` | members of `@org/team`, for the repository's own organization, from one of its members |
+| `author`, `subscribed` | everyone subscribed to the thread |
+| `watching` | everyone watching the repository at `all` |
+
+## Rules
+
+- Nobody hears about their own activity.
+- Nobody hears about a repository they ignore, or one they **can no longer read** (checked with `RepositoryAccessService.canRead` at dispatch time).
+- Opening, commenting, reviewing, being mentioned and being assigned **subscribe** you to the thread. An explicit unsubscribe outlasts that, though a later mention or assignment still notifies.
+- Each person has **one** `notification` row per thread, bumped back to unread by later activity: an upsert, so the outbox's at-least-once delivery is harmless.
+- An event reads at most 50 mentions.
+
+## Email
+
+Each notification can also send a thread email, rendered from a `thread-*` React Email template in <Source path="apps/api/src/mail/templates/" />. Emails of one thread share a `References` header so mail clients group them. They go only to **verified** addresses: otherwise anyone could sign up with someone else's address and have Ghost mail them.
+
+<Source path="apps/api/src/mail/mail.service.ts" /> either sends inline (best effort) or, with `DELIVERY_EMAIL=queue`, enqueues a `delivery_job` for the Go service, which retries.
+
+Preview templates with `bun run email:dev` at the root.
+
+## Not built
+
+Editing text to add a mention does not notify yet. There is no per-user email preference; unsubscribing from a thread or ignoring a repository is the control. Processed events are never pruned.
+
+<Quiz>
+  <Question
+    prompt="Alice was mentioned on an issue in a private repository, then removed as collaborator. A new comment arrives. Is she notified?"
+    options={["Yes, she is subscribed", "No: she can no longer read the repository"]}
+    answer={1}
+    explanation="Access is checked when the event is handled, not when she subscribed."
+  />
+</Quiz>

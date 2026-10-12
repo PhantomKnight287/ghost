@@ -1,0 +1,42 @@
+---
+title: Glossary
+description: Terms that mean something specific in this codebase.
+---
+
+| Term | Meaning |
+| --- | --- |
+| **Log** / **WAL** | A repository's write-ahead log in the bucket: one index plus one entry per push |
+| **Index** | `repos/<id>/index`: the current ref snapshot, `seq`, and the ordered list of layers. The only mutable object |
+| **Entry** | `repos/<id>/entries/<ulid>.pack`: a binary header with the push's transitions, then its packfile. Immutable |
+| **Layer** | An entry as listed in the index (`ulid`, `packSha`, `size`); its position is its sequence number |
+| **Transition** | One ref change: `ref`, `oldOid`, `newOid`. Zero old = create, zero new = delete |
+| **seq** | How many pushes have committed; assigned inside the compare-and-swap |
+| **Commit point** | The conditional PUT of the index; `PushTransactionService.commitPush` |
+| **CAS** | Compare-and-swap: the `If-Match` PUT that fails if someone else wrote first |
+| **Orphan** | An entry no index names; garbage, never corruption |
+| **Tombstone** | An empty index with the deleted flag, left forever after a repository is deleted |
+| **Cache** / **materialized repository** | The bare repository on local disk, rebuilt from the log; `$TMPDIR/ghost/<id>.git` |
+| **Materialize** | Bring the cache up to the index's seq: index-pack missing layers, reconcile refs |
+| **ghost-wal-seq** | The file in a cache recording the seq it has replayed to |
+| **Quarantine** | A scratch object directory a push is indexed into before the commit point |
+| **Thin pack** | A pack with deltas against objects it omits because the receiver has them |
+| **Alternates** | `GIT_ALTERNATE_OBJECT_DIRECTORIES`: lending one cache's objects to another's git process |
+| **Probe** | The `0000`-only POST git sends before a large push |
+| **Spool** | The temp file a request body is written to before anything reads it |
+| **`GitRequestBody`** | `{ size, open(start?) }`: a body readable many times from any offset |
+| **Pull refs** | `refs/pull/<n>/head` and `/merge`, kept in the base log by a background sync |
+| **Test merge** | The deterministic merge commit behind `refs/pull/<n>/merge` |
+| **Base / head** | A pull request's target (repository, branch) and source (repository, branch) |
+| **Account** | Who a stored byte is billed to: the repository's organization, or its owner |
+| **Reservation** | Inserting a usage row under the account's advisory lock before writing bytes |
+| **Role ladder** | `read < triage < write < maintain < admin < owner` |
+| **Base permission** | An organization's default repository role for members |
+| **Outbox** | `outbox_event`: events written in the same transaction as the change |
+| **Fan-out** | The API turning an event into notifications and frozen `delivery_job` rows |
+| **Delivery job** | A finished email or webhook in the delivery queue table |
+| **Lease** / **claim token** | How the delivery and import workers fence stale workers |
+| **Compat layer** | `apps/api/src/github/`: GitHub's GraphQL and REST v3 on the API host |
+| **Node id** | `<prefix>_<base64url(id)>`, GitHub-style global ids |
+| **Capture** | A recording of every request `gh` made in the e2e suite |
+| **`ponytail:`** | A comment marking a deliberate shortcut, its ceiling and its upgrade path |
+| **ADR** | A numbered design decision in `docs/` |

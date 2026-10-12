@@ -1,0 +1,50 @@
+---
+title: Git LFS
+description: The batch API under the clone URL, per-repository objects, verified uploads, and locks.
+---
+
+Ghost speaks the Git LFS batch API and its `basic` transfer under the clone URL (<Adr file="0036-lfs-objects-are-stored-per-repository" />):
+
+| Route | Does |
+| --- | --- |
+| `POST /<owner>/<repo>.git/info/lfs/objects/batch` | Which objects to upload, or where to download each |
+| `PUT …/info/lfs/objects/<oid>` | Stores one object |
+| `GET …/info/lfs/objects/<oid>` | Serves one object |
+| `GET`, `POST …/info/lfs/locks`, `…/locks/verify`, `…/locks/<id>/unlock` | Advisory locks |
+
+The same Basic auth middleware authorizes them: uploads and lock changes need write, downloads read. The batch body is parsed *before* auth, because the operation (`upload` or `download`) is in the body. Each action href carries the request's own `Authorization` header, so git-lfs needs no second credential lookup.
+
+## Storage
+
+Objects live at `lfs/<repositoryId>/<oid>`, one `lfs_object` row each, **per repository**: an object is readable exactly where its repository is. A shared content-addressed store would save copies on fork, but would need reference counting before deleting anything, and would let anyone who knows an oid claim it without uploading.
+
+An upload is verified:
+
+1. reserve quota and insert a row under the account's lock;
+2. stream the bytes to a staging key while hashing them;
+3. only if they hash to the oid, copy to the object's key and mark it uploaded; otherwise delete the staging object and the row.
+
+Only SHA-256 oids are accepted; one object is at most 5 GiB.
+
+## Merges and forks
+
+Forking copies all objects. Merging a pull request from another repository copies the objects named by pointer files in the head's commits that the base lacks, billed to the base like the merge.
+
+## Locks and the web
+
+Locks are rows in `lfs_lock`, advisory as on GitHub. The blob and raw endpoints serve a pointer file as its object when the repository holds it, and say `lfs: stored | missing | null`.
+
+The code is in <Source path="apps/api/src/services/git/lfs/" /> and <Source path="apps/api/src/git/lfs.controller.ts" />.
+
+<Quiz>
+  <Question
+    prompt="Why are LFS objects copied on fork instead of shared?"
+    options={[
+      "Simplicity of access control and deletion: sharing needs reference counting and lets anyone claim an oid",
+      "S3 cannot share objects",
+      "git-lfs requires it",
+    ]}
+    answer={0}
+    explanation="Per-repository copies keep access identical to git's."
+  />
+</Quiz>

@@ -1,0 +1,55 @@
+---
+title: Issues
+description: Rows, not branches. Six tables, numbering without locks, and a timeline that only grows.
+---
+
+An issue is a database row naming one repository. It stores no git state: no ref, no commit, nothing to materialize (<Adr file="0017-issues-are-rows-not-branches" />). The write-ahead log never learns about issues.
+
+```
+issue            number per repository, title, markdown body, state, commentCount
+issue_comment    oldest first
+label            per repository: name, description, 6-hex color
+issue_label      issue ↔ label
+issue_assignee   issue ↔ user
+issue_event      opened, closed, reopened, renamed, labeled, assigned, … oldest first
+```
+
+A pull request **is** an issue plus a `pull_request` row (`issue.isPullRequest`). Numbers, comments, labels, assignees and events are shared, exactly as on GitHub.
+
+The code: <Source path="apps/api/src/resources/issues/issues.service.ts" /> and its controller.
+
+## Numbering without a lock
+
+`number` is `select coalesce(max(number), 0) + 1` for the repository. Two concurrent opens can read the same max; the unique index on `(repositoryId, number)` rejects the loser, and the retry reads the winner's number. A constraint plus a retry instead of a lock, the same shape as the log's compare-and-swap.
+
+## Listing
+
+`GET …/issues` filters by `state`, text `q` over title and body, `author`, `assignee`, and `labels` (comma-separated, AND: an issue must carry all of them), sorts by created, updated or comments, and paginates by keyset. It returns `total` plus `openCount` and `closedCount` for the same filters minus state: exactly what the Open/Closed tabs render.
+
+Two design choices worth knowing:
+
+- **`commentCount` is denormalized** onto the issue, so sort-by-comments is one indexed query. Writers bump it; the only cost of drift is sort order.
+- **Label AND is two queries**: first the issue ids carrying all labels (group-by-having), then the ordinary list scan with `inArray`. The main query stays shaped like every other list.
+
+## Permissions
+
+Reading, opening and commenting need `read` (anyone, on a public repository). Editing, closing, labeling and assigning need the author or `triage`. Managing the label list needs `write`.
+
+## The timeline
+
+`issue_event` rows are write-only history: no endpoint edits or deletes one. "Who renamed this and when" survives later renames and label deletions. The timeline endpoint interleaves comments, events, reviews and references oldest-first, exactly as rendered.
+
+Every change also publishes an outbox event in the same transaction (`issue.opened`, `issue.commented`, …); the **Events** chapter follows them.
+
+<Quiz>
+  <Question
+    prompt="Two people open issue #8 at the same instant. What happens?"
+    options={[
+      "Both get #8",
+      "One insert violates the unique index; its retry reads max again and takes #9",
+      "A lock serializes them",
+    ]}
+    answer={1}
+    explanation="Constraint plus retry, no lock."
+  />
+</Quiz>

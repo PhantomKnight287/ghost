@@ -1,0 +1,60 @@
+---
+title: Standards and decisions
+description: The code standards in one page, and when and how to write a design decision.
+---
+
+## The standards, condensed
+
+<Source path="docs/code-standards.md" /> is the contract. A change that breaks a rule gets sent back.
+
+| # | Rule | In one line |
+| --- | --- | --- |
+| 1 | DRY and SOLID | Write a thing once; each unit does one thing; depend on the narrow thing |
+| 2 | No reshaping functions | No `to<Format>` helpers; select the shape you return (GitHub layer excepted, with a reason) |
+| 3 | No concatenated strings for layout | One string literal, however long |
+| 4 | Comments earn their place | Why, never what. History and rejected alternatives belong in `docs/` |
+| 5 | No wrapped comments or strings | One comment is one line; editors wrap |
+| 6 | `services/` holds services | Pure functions, types, errors and codecs go in `lib/` |
+| 7 | Production quality | Every branch tested, errors actionable, no `any`, nothing commented out, no speculative abstraction |
+| 8 | One file, one component family | A page is not a family |
+| 9 | Look before you write a component | Extend with a prop rather than writing a sibling |
+| 10 | Every suspended boundary has a skeleton | Never `fallback={null}` |
+| 11 | Infra and env changes propagate | Dockerfiles, `docker/`, docs |
+
+`scripts/check-standards.ts` enforces the mechanical ones; review enforces the rest.
+
+### On comments
+
+The codebase is dense with one-line comments that state a **reason or an invariant** ("Checked against the index the CAS replaces, never a cache: …"). That density is deliberate. Before deleting a comment, ask whether it is the only place a constraint is written down. Before adding one, ask whether it says why.
+
+A `ponytail:` comment marks a **deliberate shortcut** with a known ceiling and the upgrade path, e.g. `// ponytail: rows stay locked while consumers run; a lease column would release them sooner.` Search for them when you want to know where the known limits are.
+
+## Design decisions
+
+`docs/00NN-*.md`, one file per decision, numbered in order. Write one when a change:
+
+- picks between real alternatives that a future reader will second-guess;
+- creates an invariant other code must keep (an on-disk format, an ordering, a security rule);
+- or reverses or amends an earlier decision (say so in both files' status lines).
+
+The shape every ADR follows:
+
+```md
+# 00NN — The decision, stated as a sentence
+
+**Status:** adopted (or: adopted, amends 00MM)
+
+## Decision
+What is now true, concretely, with names of the code that does it.
+
+## Why
+The problem, the bug or the constraint that forced it.
+
+## Alternatives rejected
+Each with the reason.
+
+## Consequences
+Including the bad ones and what is not built.
+```
+
+Then link it from `docs/README.md`. And if it changes something a lesson here teaches, update the lesson in the same pull request.

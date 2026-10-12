@@ -1,0 +1,68 @@
+---
+title: The delivery service
+description: A small Go program with Postgres as its queue, leases instead of held transactions, and a dialer that checks the IP it connects to.
+---
+
+`apps/delivery` sends everything that leaves Ghost over the network: queued thread emails and webhooks (<Adr file="0031-outbound-delivery-is-its-own-service" />). The API decides **what** to send; delivery decides **how** to get it there.
+
+```
+apps/delivery/
+  main.go      config, wiring, graceful shutdown
+  queue.go     claim, complete, fail, give up, backoff, LISTEN, prune
+  webhook.go   signing, sending, classifying responses, per-host limits
+  email.go     SMTP relay
+  ssrf.go      the dialer that refuses private addresses
+```
+
+## Why a separate process, in Go
+
+Delivery talks to things outside Ghost's control: mail relays, and customer endpoints that are slow, down or hostile. Isolated, a flood of retries or a hanging endpoint cannot take memory, connections or event-loop time from the API, and it can be deployed and debugged alone. Go because it idles at a fraction of a Node process's memory, and because `net.Dialer.Control` sees the resolved IP at connect time.
+
+## The queue is a table
+
+`delivery_job` holds finished messages:
+
+```ts
+type DeliveryJob =
+  | { kind: 'email'; idempotencyKey; to; subject; html; text; headers? }
+  | { kind: 'webhook'; idempotencyKey; endpointId; event; body };
+```
+
+The shape is declared in TypeScript and mirrored as a Go struct; one shared JSON fixture is decoded by tests on both sides to keep them in step.
+
+<Source path="apps/delivery/queue.go" symbol="claim" />:
+
+1. `SELECT … FOR UPDATE SKIP LOCKED` due jobs, set a **lease** (`locked_until`, 60 s) and a fresh **claim token**, and **commit** before sending. No transaction is open during a network call.
+2. Send with a whole-request deadline of 10 s (connect, TLS, request, capped response). The lease outlasts deadline plus bookkeeping, so a live worker never loses its job mid-send.
+3. Record the outcome **only where the claim token still matches**, so a worker that overran its lease cannot overwrite the result of the worker that reclaimed the job.
+4. Failures back off exponentially with full jitter until the job is `dead`.
+
+A worker that died leaves its lease to expire; another claims the job. `LISTEN delivery` wakes the service immediately; polling is the fallback, so a missed notify costs latency, never a message. Old attempts are pruned on an interval.
+
+## SSRF
+
+A webhook URL is user input pointing anywhere. <Source path="apps/delivery/ssrf.go" /> checks the IP **actually dialed** against private, loopback, link-local and metadata ranges, which closes DNS rebinding (checking the name before connecting is not enough). Redirects are not followed. The transport sets `Proxy: nil`: Go honours `HTTP_PROXY` by default, and through a proxy the dialed IP is the proxy's. `WEBHOOK_ALLOW_PRIVATE_NETWORKS` relaxes it for self-hosted setups that need it.
+
+## Rejected alternatives
+
+- **Redis pub/sub**: loses messages nobody is listening for, and publishing after the database commit is the dual write the outbox exists to avoid.
+- **Holding the claim transaction across the send**, as the API's outbox does: one slow endpoint would pin a connection and row locks for its whole timeout.
+
+<TryIt>
+`cd apps/delivery && go test ./...` with `TEST_DATABASE_URL` pointing at a migrated throwaway Postgres (the queue tests skip without it). Then read `process` in `queue.go` and find where the claim token is compared.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="Worker A claims a job, stalls past its lease, worker B reclaims and succeeds, then A finally finishes with a failure. What prevents A from marking the job failed?"
+    options={["A timeout", "The claim token: A's update matches no row because B's claim stamped a new token", "Row locks"]}
+    answer={1}
+    explanation="Outcomes are recorded only where the token still matches."
+  />
+  <Question
+    prompt="Why check the dialed IP rather than resolving the hostname first and checking that?"
+    options={["Speed", "DNS can answer differently between the check and the connect (rebinding)", "Go cannot resolve names"]}
+    answer={1}
+    explanation="Dialer.Control sees the address actually connected to."
+  />
+</Quiz>

@@ -1,0 +1,51 @@
+---
+title: Self-hosting
+description: The docker folder, the setup script, Caddy, and the end-to-end test that boots it all.
+---
+
+<Source path="docker/" /> is what an operator runs:
+
+```sh
+./docker/setup.sh            # asks for a domain, mail settings and a data directory; generates every secret you skip
+```
+
+The script is safe to re-run: existing answers become defaults and generated secrets are never regenerated. It writes a `.env` and starts <Source path="docker/compose.yaml" />:
+
+| Service | Role |
+| --- | --- |
+| `postgres`, `rustfs`, `bucket` | Database, S3-compatible storage, bucket creation |
+| `migrate` | Runs `packages/db/dist/migrate.js` (migrations + built-in rows), then exits |
+| `api`, `web`, `docs` | The apps |
+| `delivery`, `importer`, `zoekt` | Optional services |
+| `caddy` (or `caddy-http`) | TLS and routing |
+
+Caddy serves three names and issues certificates automatically once DNS points at the host:
+
+```
+{$DOMAIN}        → web:3000
+api.{$DOMAIN}    → api:3001     (REST, GraphQL, git over HTTP, gh)
+docs.{$DOMAIN}   → docs:3003
+```
+
+The API must be on 443 under its own name, because `gh` refuses a port in `GH_HOST`.
+
+## Images
+
+Each app has a Dockerfile built **from the repository root**. They share a pattern: a `deps` stage copies every workspace `package.json` and runs `bun install --frozen-lockfile`, then a build stage copies the app. Because the lockfile covers all workspaces, **adding a workspace means adding its `package.json` to every Dockerfile's `deps` stage**, or every image build fails.
+
+The API image also carries `git` and Zoekt's `zoekt-git-index`, pinned to the same Zoekt release `apps/zoekt` runs.
+
+## Testing self-hosting
+
+<Source path="docker/test/" /> and `.github/workflows/self-host-e2e.yml` run the setup non-interactively, boot the stack, and drive it end to end. Change `docker/` and run it.
+
+The user-facing guide is `apps/docs/content/docs/self-hosting/`. Keep it in step with any change here.
+
+<Quiz>
+  <Question
+    prompt="You add packages/foo as a new workspace. Which files must change for Docker builds to keep working?"
+    options={["Only packages/foo's own files", "Every app Dockerfile's deps stage, which must COPY packages/foo/package.json", "compose.yaml"]}
+    answer={1}
+    explanation="bun install --frozen-lockfile fails if the workspace list it sees differs from the lockfile."
+  />
+</Quiz>

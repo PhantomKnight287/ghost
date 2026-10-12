@@ -1,0 +1,51 @@
+---
+title: GraphQL
+description: Code-first types checked against GitHub's published schema, node ids, per-request loaders, and GitHub's lenient validation.
+---
+
+## Code-first, generated, committed
+
+Types are NestJS GraphQL classes (`@ObjectType('PullRequest')`, `@Field(() => Int)`) under <Source path="apps/api/src/github/graphql/types/" />. On boot in development, Nest writes the schema to `apps/api/github.schema.gql`, which is committed; CI fails if it is stale.
+
+<Source path="apps/api/src/github/graphql/schema-conformance.spec.ts" /> checks every type, field, argument, enum value, union member and interface in that file against `@octokit/graphql-schema`, GitHub's published schema:
+
+- a field GitHub does not have fails;
+- ours may be **stricter** than GitHub's output type (non-null where GitHub allows null), never looser;
+- enum values and union members must be subsets of GitHub's.
+
+A misspelled field or wrong nullability fails CI before `gh` hits it. Name every new type exactly as GitHub does.
+
+## Node ids
+
+`<GitHub prefix>_<base64url(Ghost id)>`: `U_`, `O_`, `R_`, `I_`, `PR_`, `IC_`, `LA_`, `PRR_`… (<Source path="apps/api/src/lib/github/node-id.ts" />). `decodeNodeIdAs(id, 'Issue', 'PullRequest')` refuses an id of another type with GitHub's wording. A pull request's node id encodes its **issue's** id, so it resolves through the issue tables.
+
+`databaseId` and REST `id` are integers from `numeric_id` identity columns. A pull request uses its issue's.
+
+## Resolvers and loaders
+
+Resolvers live in `graphql/resolvers/<type>/`. Heavy or repeated lookups go through per-request DataLoaders in <Source path="apps/api/src/lib/github/loaders.ts" /> (users by id, login and email; reviews by pull request), created fresh for every request so nothing is cached across viewers. A list of 30 pull requests asking for each author makes one query, not 30.
+
+Git-backed fields (a pull request's additions, mergeability, live head) share one `getPullRequest` call per node, kept on the node object, so asking for five of them reads git once.
+
+## Lenient validation
+
+GitHub's GraphQL accepts one response name with different types in fragments that cannot both apply: `gh` selects `state` on both `Issue` and `PullRequest`, whose `state` enums differ. graphql-js refuses that. So Ghost turns Apollo's validation off and runs <Source path="apps/api/src/lib/github/validation.ts" symbol="githubValidationRules" /> through a plugin instead: the standard rules, with the overlapping-fields rule wrapped to drop only the "conflicting types" error. Every other overlap, such as two different fields under one name, is still refused, and the first error answers 400 as Apollo would.
+
+## Errors
+
+Domain errors become GraphQL errors with GitHub's `type`: `NOT_FOUND` (404), `FORBIDDEN` (401/403), `UNPROCESSABLE` (other 4xx). `gh` branches on these.
+
+<Quiz>
+  <Question
+    prompt="Your new field is nullable on GitHub; you declare it non-null. Does the conformance test pass?"
+    options={["No", "Yes: stricter output types are allowed"]}
+    answer={1}
+    explanation="Clients that accept null also accept a value; the reverse is the dangerous direction."
+  />
+  <Question
+    prompt="Why does each request get fresh DataLoaders?"
+    options={["Memory", "A cache shared across requests would serve one viewer's permission-filtered data to another", "Nest requires it"]}
+    answer={1}
+    explanation="Per-request loaders batch within a request without leaking across viewers."
+  />
+</Quiz>

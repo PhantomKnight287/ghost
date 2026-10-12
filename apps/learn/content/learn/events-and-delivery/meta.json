@@ -1,0 +1,10 @@
+{
+  "title": "Events and delivery",
+  "pages": [
+    "index",
+    "the-outbox",
+    "notifications",
+    "webhooks",
+    "the-delivery-service"
+  ]
+}

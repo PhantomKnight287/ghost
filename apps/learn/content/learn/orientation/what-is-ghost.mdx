@@ -1,0 +1,73 @@
+---
+title: What Ghost is
+description: The product, the one idea that shapes its design, and what is deliberately not built.
+---
+
+Ghost is git hosting you run yourself. A user can:
+
+- push and pull over HTTP (with an API key as the password) or SSH (with a key on their account);
+- browse trees, files, history and branches, search code, see languages and contributors;
+- open issues and pull requests, comment, label, assign, review line by line, merge three ways;
+- work in organizations with teams and outside collaborators;
+- publish tags and releases with assets, fork repositories, store Git LFS objects;
+- get notifications and email, register webhooks, sign commits with GPG;
+- drive all of it from the GitHub CLI, `gh`, which thinks Ghost is a GitHub Enterprise server.
+
+## The one idea
+
+Most git hosts keep each repository as a bare repository on a disk. Ghost does not trust local disk with anything.
+
+> Every repository's authoritative state lives in an S3-compatible bucket as a **write-ahead log**. The bare repositories on disk are a **cache** that can be deleted at any time.
+
+A push is not real until one small object in the bucket, the repository's `index`, has been swapped by a compare-and-swap. A node that has never seen a repository rebuilds it by replaying the log. Losing a disk is an operational chore, not data loss.
+
+Almost every unusual decision in the codebase follows from this: why pushes are spooled to temp files, why the API never edits a repository except through one function, why a pull request "lends" objects between caches, why tags have no table. The **Storage** chapter is the heart of the course.
+
+<Adr file="0004-object-storage-is-the-truth" /> is where this was decided.
+
+## The stack
+
+| Layer | Choice |
+| --- | --- |
+| Web | Next.js 16, React 19, Tailwind, shadcn/ui |
+| API | NestJS, OpenAPI client generated for the web |
+| Database | Postgres through Drizzle |
+| Storage | Any S3-compatible bucket (RustFS locally, R2 or Tigris in production) |
+| Code search | Zoekt |
+| Delivery | A small Go service for email and webhooks |
+| Runtime | Bun, in a Turborepo workspace |
+
+## Not built yet
+
+Knowing what does not exist saves hours of searching for it:
+
+- CI runners and commit statuses (issue #61). The GraphQL types exist, empty, for `gh`.
+- Branch protection (#62).
+- WAL checkpoints and compaction: every push reads the whole index, and replay is O(history) (<Adr file="0011-deferred" />).
+- A garbage collector for orphaned log entries (<Adr file="0010-orphans-are-garbage" />).
+- Running more than one API replica: caches and purges assume one (<Adr file="0020-deletion-is-a-tombstone-then-a-purge" />).
+
+`docs/roadmap.md` holds the order the open issues should be taken in.
+
+<Quiz>
+  <Question
+    prompt="A node's disk is wiped while the API is running. What happens to the repositories?"
+    options={[
+      "They are lost unless a backup exists",
+      "Nothing is lost: the next read replays each repository from its log in the bucket",
+      "Pushed branches survive but issues are lost",
+    ]}
+    answer={1}
+    explanation="The disk is only a cache keyed by the log's sequence number. Issues were never on disk anyway; they live in Postgres."
+  />
+  <Question
+    prompt="Which single write makes a push real?"
+    options={[
+      "Writing the packfile to the cache with git receive-pack",
+      "Uploading the log entry to the bucket",
+      "The conditional PUT of the repository's index object",
+    ]}
+    answer={2}
+    explanation="The entry upload is unconditional and harmless on its own; an entry no index names is garbage. Only the index compare-and-swap commits."
+  />
+</Quiz>

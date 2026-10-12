@@ -1,0 +1,96 @@
+---
+title: A request through the API
+description: Follow one REST call from the browser to Postgres and back, through every layer Nest puts in the way.
+---
+
+We follow `GET /api/repositories/ada/tools/issues?state=open` as the web app makes it while rendering the issue list.
+
+<Mermaid chart={`
+sequenceDiagram
+  participant P as Next.js page (server)
+  participant M as Nest middleware
+  participant G as Better Auth guard
+  participant C as IssuesController
+  participant S as IssuesService
+  participant A as RepositoryAccessService
+  participant D as Postgres
+  P->>M: GET /api/repositories/ada/tools/issues (cookie)
+  M->>G: global prefix /api matched
+  G->>C: session resolved (or none: @OptionalAuth)
+  C->>C: ValidationPipe turns query into GetIssuesQueryDTO
+  C->>S: getIssues({ username, repo, requesterId, query })
+  S->>A: authorize({ username, repo, requesterId })
+  A->>D: one query: repository + viewer's role
+  A-->>S: AuthorizedRepository (or throws a DomainError)
+  S->>D: keyset-paginated issues
+  S-->>C: { issues, total, openCount, closedCount, nextCursor }
+  C-->>P: JSON
+`} />
+
+## 1. The web app makes the call
+
+The page is a server component. It builds a typed client with <Source path="apps/web/src/lib/api/server.ts" symbol="createServerClient" />, which forwards the browser's cookie and client address. The client's types come from `openapi.json`, so a wrong path or field is a TypeScript error in the web app.
+
+## 2. Nest's setup
+
+<Source path="apps/api/src/app.setup.ts" symbol="configureApp" /> is shared by `main.ts` and the e2e harness, so tests boot exactly what production boots:
+
+- `bodyParser: false` at creation. Git bodies must reach the transport untouched; REST controllers get JSON through Better Auth's module configuration instead.
+- `ValidationPipe({ transform: true, whitelist: true })`: query strings and bodies become DTO instances, and unknown fields are stripped.
+- `DomainErrorFilter`: any `DomainError` becomes a JSON error with its status.
+- `setGlobalPrefix('/api')`, except the git and OAuth routes (<Adr file="0001-namespace-split" />).
+
+## 3. Authentication
+
+`AuthModule` from `@thallesp/nestjs-better-auth` installs a global guard. By default **every route requires a session**. Controllers relax it per route:
+
+- `@OptionalAuth()`: a session is read if present. Public repositories are readable anonymously, so most `GET`s carry this.
+- `@AllowAnonymous()`: no session lookup at all.
+- `@Session() session: UserSession` injects the session into the handler.
+
+API keys do **not** authenticate Ghost's own `/api`. They authenticate git and the GitHub compatibility layer only (<Adr file="0040-github-compatibility-is-a-translation-layer" />).
+
+## 4. Controller → service
+
+<Source path="apps/api/src/resources/issues/issues.controller.ts" /> maps HTTP to a service call and does nothing else: no queries, no decisions. Swagger decorators (`@ApiOperation`, `@ApiOkResponse`) describe the route for `openapi.json`.
+
+## 5. Authorization
+
+The service's first act is <Source path="apps/api/src/services/git/repository-access/repository-access.service.ts" symbol="authorize" />. It finds the repository by owner name and slug, and the viewer's role, in **one query**, then calls `decideAccess`, which either returns the repository with `viewerRole` attached or throws:
+
+| Situation | Error | Status |
+| --- | --- | --- |
+| Anonymous, cannot read | `AuthenticationRequiredError` | 401 |
+| Signed in, cannot read | `RepositoryNotFoundError` | 404, so a private repository's existence never leaks |
+| Can read, role too low | `RepositoryForbiddenError` | 403 |
+
+The **Data and access** chapter covers the ladder in depth.
+
+## 6. The query
+
+Lists paginate by **keyset**, not offset: <Source path="apps/api/src/lib/db/keyset.ts" symbol="keyset" /> turns a sort order into a `WHERE (createdAt, id) < (...)` and an opaque base64url cursor. One extra row is fetched to answer "is there another page" without counting.
+
+Responses are selected in the shape the DTO needs. Code standard 2 forbids `to<Format>` helpers that rename fields after the fact; the query selects the right fields to begin with.
+
+## 7. Errors on the way back
+
+If anything throws a `DomainError`, <Source path="apps/api/src/filters/domain-error/domain-error.filter.ts" /> renders `{ statusCode, error, message, timestamp, path }` with its status. GraphQL errors are left to Apollo, which renders GitHub's error shape. Anything else is a 500 and is logged. The web app reads `message` and shows it.
+
+<TryIt>
+Open `http://localhost:3001/reference` while the API runs. That is the live OpenAPI reference (Scalar) generated from the same decorators. Find the issues list route, call it for a public repository without signing in, then for a private one: 401. Sign in in the browser (same origin cookie) and try again.
+</TryIt>
+
+<Quiz>
+  <Question
+    prompt="A controller has no decorator about auth. Who can call it?"
+    options={["Anyone", "Only signed-in users with a session", "Only API keys"]}
+    answer={1}
+    explanation="Better Auth's guard is global and requires a session unless the route opts out with @OptionalAuth or @AllowAnonymous."
+  />
+  <Question
+    prompt="A signed-in stranger asks for a private repository's issues. What do they get?"
+    options={["403 Forbidden", "404 Not Found", "An empty list"]}
+    answer={1}
+    explanation="An unreadable repository must look absent. 403 is only for repositories the actor can read but not change."
+  />
+</Quiz>
