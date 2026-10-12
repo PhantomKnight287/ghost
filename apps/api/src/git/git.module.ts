@@ -26,6 +26,7 @@ import { LFS_MEDIA_TYPE } from '../lib/git/lfs/lfs-objects.js';
 import { LfsService } from '../services/git/lfs/lfs.service.js';
 import { GitRawBodyMiddleware } from './middleware/git-raw-body.middleware.js';
 import { GitService } from './git.service.js';
+import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-auth.middleware.js';
 
@@ -40,6 +41,7 @@ import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-au
   controllers: [GitController, LfsController, LfsLocksController],
   providers: [
     GitService,
+    PullRequestHintsService,
     PackProcessService,
     RefAdvertisementService,
     RepositoryContributionService,

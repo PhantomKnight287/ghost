@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { PassThrough } from 'node:stream';
+import { PassThrough, Readable } from 'node:stream';
 import { buffer as readAll } from 'node:stream/consumers';
 
 import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
@@ -17,6 +17,7 @@ import { CodeSearchService } from '../services/git/code-search/code-search.servi
 import { IssueReferencesService } from '../services/issues/issue-references.service.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
 import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
+import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
 import {
   ProtectedRefError,
   UnsupportedGitServiceError,
@@ -57,6 +58,7 @@ describe('GitService', () => {
   const pullRequestPushes = {
     recordPush: vi.fn().mockResolvedValue(undefined),
   };
+  const pullRequestHints = { hintsFor: vi.fn().mockResolvedValue([]) };
   const references = { closeFromCommits: vi.fn().mockResolvedValue(undefined) };
   const published = vi.fn().mockResolvedValue(undefined);
   const runningImports = vi.fn().mockResolvedValue([]);
@@ -107,6 +109,7 @@ describe('GitService', () => {
         { provide: IssueReferencesService, useValue: references },
         { provide: PullRefsService, useValue: pullRefs },
         { provide: PullRequestPushesService, useValue: pullRequestPushes },
+        { provide: PullRequestHintsService, useValue: pullRequestHints },
         { provide: StorageQuotaService, useValue: quota },
         { provide: DATABASE, useValue: db },
       ],
@@ -303,6 +306,33 @@ describe('GitService', () => {
     });
 
     expect(pushTransaction.commitPush).toHaveBeenCalled();
+    expect(pullRequestHints.hintsFor).not.toHaveBeenCalled();
+  });
+
+  it('prints pull request hints ahead of the end of the reply', async () => {
+    pullRequestHints.hintsFor.mockResolvedValueOnce(['Open one']);
+    packProcess.streamReceivePack.mockReturnValueOnce(
+      Readable.from([Buffer.from('0000')]),
+    );
+
+    const { body } = await service.receivePack({
+      repository,
+      body: bufferBody(
+        receivePackBody(
+          undefined,
+          undefined,
+          'refs/heads/topic',
+          'report-status side-band-64k',
+        ),
+      ),
+    });
+
+    expect((await readAll(body)).toString()).toBe('000e\u0002Open one\n0000');
+    expect(pullRequestHints.hintsFor).toHaveBeenCalledWith({
+      repositoryId: 'repo_ghost',
+      repoDirectory: '/repos/ghost.git',
+      transitions: [expect.objectContaining({ ref: 'refs/heads/topic' })],
+    });
   });
 
   it('refuses pull request refs to a push with no key, without asking the database', async () => {
