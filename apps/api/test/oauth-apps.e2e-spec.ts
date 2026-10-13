@@ -176,17 +176,15 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
   it('deletes an app with the keys it minted for every user, and nothing else', async () => {
     const { body } = await create(owner.cookie).expect(201);
     const auth = (userId: string, clientId: string) =>
-      db
-        .insert(schema.apikey)
-        .values({
-          id: `k${clientId}${userId}`,
-          referenceId: userId,
-          key: `hash${clientId}${userId}`,
-          name: 'k',
-          metadata: JSON.stringify({ oauthClientId: clientId }),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+      db.insert(schema.apikey).values({
+        id: `k${clientId}${userId}`,
+        referenceId: userId,
+        key: `hash${clientId}${userId}`,
+        name: 'k',
+        metadata: JSON.stringify({ oauthClientId: clientId }),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     await auth(owner.userId, body.clientId);
     await auth(other.userId, body.clientId);
     await auth(owner.userId, GH);
@@ -387,20 +385,16 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
       clientId: string | null,
       scopes: string[],
     ) =>
-      db
-        .insert(schema.apikey)
-        .values({
-          id,
-          referenceId: userId,
-          key: `hash-${id}`,
-          name: 'k',
-          permissions: JSON.stringify({ scopes }),
-          metadata: clientId
-            ? JSON.stringify({ oauthClientId: clientId })
-            : null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+      db.insert(schema.apikey).values({
+        id,
+        referenceId: userId,
+        key: `hash-${id}`,
+        name: 'k',
+        permissions: JSON.stringify({ scopes }),
+        metadata: clientId ? JSON.stringify({ oauthClientId: clientId }) : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     const ids = async () =>
       (await db.select({ id: schema.apikey.id }).from(schema.apikey)).map(
         (row) => row.id,
@@ -443,16 +437,14 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
       await key(`ra-theirs${stamp}`, other.userId, a, ['repo']);
       await key(`rb-mine${stamp}`, owner.userId, b, ['repo']);
       await key(`r-ui${stamp}`, owner.userId, null, []);
-      await db
-        .insert(schema.oauthConsent)
-        .values({
-          id: `c${stamp}`,
-          clientId: a,
-          userId: owner.userId,
-          scopes: ['repo'],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+      await db.insert(schema.oauthConsent).values({
+        id: `c${stamp}`,
+        clientId: a,
+        userId: owner.userId,
+        scopes: ['repo'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       await api()
         .delete(`/api/oauth-apps/authorized/${a}`)
@@ -482,16 +474,14 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
     it('keeps an app whose key expired but whose refresh token lives, and revoking it deletes the refresh token', async () => {
       const a = (await create(other.cookie, { name: 'App R' }).expect(201)).body
         .clientId;
-      await db
-        .insert(schema.oauthAppRefreshToken)
-        .values({
-          tokenHash: `rt-${stamp}`,
-          clientId: a,
-          userId: owner.userId,
-          scopes: ['read:org', 'repo'],
-          accessKeyId: 'gone',
-          expiresAt: new Date(Date.now() + 60_000),
-        });
+      await db.insert(schema.oauthAppRefreshToken).values({
+        tokenHash: `rt-${stamp}`,
+        clientId: a,
+        userId: owner.userId,
+        scopes: ['read:org', 'repo'],
+        accessKeyId: 'gone',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
       const list = await api()
         .get('/api/oauth-apps/authorized')
         .set('cookie', owner.cookie)
@@ -525,16 +515,14 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
     it('drops an app once its last refresh token has expired', async () => {
       const a = (await create(other.cookie, { name: 'App X' }).expect(201)).body
         .clientId;
-      await db
-        .insert(schema.oauthAppRefreshToken)
-        .values({
-          tokenHash: `rx-${stamp}`,
-          clientId: a,
-          userId: owner.userId,
-          scopes: ['repo'],
-          accessKeyId: 'gone',
-          expiresAt: new Date(Date.now() - 1000),
-        });
+      await db.insert(schema.oauthAppRefreshToken).values({
+        tokenHash: `rx-${stamp}`,
+        clientId: a,
+        userId: owner.userId,
+        scopes: ['repo'],
+        accessKeyId: 'gone',
+        expiresAt: new Date(Date.now() - 1000),
+      });
       const list = await api()
         .get('/api/oauth-apps/authorized')
         .set('cookie', owner.cookie)
@@ -548,16 +536,14 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
       const a = (await create(other.cookie, { name: 'App M' }).expect(201)).body
         .clientId;
       await key(`mk${stamp}`, owner.userId, a, ['repo']);
-      await db
-        .insert(schema.oauthAppRefreshToken)
-        .values({
-          tokenHash: `rm-${stamp}`,
-          clientId: a,
-          userId: owner.userId,
-          scopes: ['gist', 'repo'],
-          accessKeyId: `mk${stamp}`,
-          expiresAt: new Date(Date.now() + 60_000),
-        });
+      await db.insert(schema.oauthAppRefreshToken).values({
+        tokenHash: `rm-${stamp}`,
+        clientId: a,
+        userId: owner.userId,
+        scopes: ['gist', 'repo'],
+        accessKeyId: `mk${stamp}`,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
       const list = await api()
         .get('/api/oauth-apps/authorized')
         .set('cookie', owner.cookie)
@@ -593,14 +579,11 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
         .expect(200);
       const token = form(
         (
-          await api()
-            .post('/login/oauth/access_token')
-            .type('form')
-            .send({
-              client_id: GH,
-              device_code: code.device_code,
-              grant_type: DEVICE_GRANT,
-            })
+          await api().post('/login/oauth/access_token').type('form').send({
+            client_id: GH,
+            device_code: code.device_code,
+            grant_type: DEVICE_GRANT,
+          })
         ).text,
       );
       await api()
@@ -754,17 +737,15 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
         headers: new Headers({ cookie: owner.cookie }),
       }))!.id;
       const { body } = await createFor(owner.cookie, slug).expect(201);
-      await db
-        .insert(schema.apikey)
-        .values({
-          id: `kgone${stamp}`,
-          referenceId: other.userId,
-          key: `hashgone${stamp}`,
-          name: 'k',
-          metadata: JSON.stringify({ oauthClientId: body.clientId }),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+      await db.insert(schema.apikey).values({
+        id: `kgone${stamp}`,
+        referenceId: other.userId,
+        key: `hashgone${stamp}`,
+        name: 'k',
+        metadata: JSON.stringify({ oauthClientId: body.clientId }),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
       await auth().deleteOrganization({
         body: { organizationId: gone },
         headers: new Headers({ cookie: owner.cookie }),

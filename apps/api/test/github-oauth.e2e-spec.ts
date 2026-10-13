@@ -21,14 +21,11 @@ describe.skipIf(!hasBackends)('GitHub OAuth device flow', () => {
       .type('form')
       .send({ client_id: clientId, scope });
   const poll = (deviceCode: string, clientId = GH) =>
-    api()
-      .post('/login/oauth/access_token')
-      .type('form')
-      .send({
-        client_id: clientId,
-        device_code: deviceCode,
-        grant_type: DEVICE_GRANT,
-      });
+    api().post('/login/oauth/access_token').type('form').send({
+      client_id: clientId,
+      device_code: deviceCode,
+      grant_type: DEVICE_GRANT,
+    });
   const form = (text: string) => Object.fromEntries(new URLSearchParams(text));
   const decide = async (userCode: string, decision: 'approve' | 'deny') => {
     await api()
@@ -138,16 +135,14 @@ describe.skipIf(!hasBackends)('GitHub OAuth device flow', () => {
   it('refuses a device code to a user app with device flow off, and runs the flow once it is on', async () => {
     const db = app.get<Database>(DATABASE);
     const clientId = `tool${Date.now()}`;
-    await db
-      .insert(schema.oauthClient)
-      .values({
-        id: clientId,
-        clientId,
-        name: 'Scoped Tool',
-        userId: owner.userId,
-        redirectUris: ['https://tool.example/callback'],
-        metadata: { deviceFlow: false },
-      });
+    await db.insert(schema.oauthClient).values({
+      id: clientId,
+      clientId,
+      name: 'Scoped Tool',
+      userId: owner.userId,
+      redirectUris: ['https://tool.example/callback'],
+      metadata: { deviceFlow: false },
+    });
     const refused = await requestCode('repo', clientId).expect(400);
     expect(form(refused.text)).toMatchObject({
       error: 'unauthorized_client',
