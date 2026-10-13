@@ -26,10 +26,15 @@ import { S3Service } from '../../services/s3/s3.service.js';
 
 type Release = { id: string; tagName: string; sourceCommitSha: string | null };
 
+// Building or counting an archive is not an edit, so `updatedAt` keeps saying when someone last changed the release.
+const untouched = { updatedAt: sql`${schema.release.updatedAt}` };
+
 /** A release's source archives, built once per commit its tag points at and kept in object storage, so a download streams stored bytes and the release page can show their size. */
 @Injectable()
 export class ReleaseArchivesService {
   private readonly logger = new Logger(ReleaseArchivesService.name);
+  /** Builds under way, by release and commit, so downloads that find the same archive missing share one build. */
+  private readonly building = new Map<string, Promise<void>>();
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -38,12 +43,19 @@ export class ReleaseArchivesService {
   ) {}
 
   /** Its caller does not wait: an archive of a large tree takes a while, and a download that finds none builds it anyway. The promise never rejects. */
-  buildInBackground(repository: AuthorizedRepository, release: Release) {
-    return this.build(repository, release).catch((error: unknown) =>
+  async buildInBackground(repository: AuthorizedRepository, release: Release) {
+    try {
+      const commit = await resolveCommit(
+        await this.materializer.open(repository),
+        `refs/tags/${release.tagName}`,
+      );
+      // a deleted tag has no source to archive
+      if (commit) await this.build(repository, release, commit);
+    } catch (error) {
       this.logger.warn(
         `Source archives for release ${release.id} failed: ${error instanceof Error ? error.message : String(error)}`,
-      ),
-    );
+      );
+    }
   }
 
   /** The release whose source archives a request for `tagName` serves, or null when it has none the viewer may see. */
@@ -67,7 +79,7 @@ export class ReleaseArchivesService {
     return release ?? null;
   }
 
-  /** Counts the download, then streams the stored archive, rebuilding it first when the tag has moved since it was built. */
+  /** Streams the stored archive, rebuilding it first from `commit` when the tag has moved since it was built. The download counts once the last byte is read, so an abandoned one does not. */
   async open(
     repository: AuthorizedRepository,
     release: Release,
@@ -75,38 +87,59 @@ export class ReleaseArchivesService {
     format: ArchiveFormat,
   ): Promise<{ stream: Readable; size?: number }> {
     if (release.sourceCommitSha !== commit) {
-      await this.build(repository, release);
+      await this.build(repository, release, commit);
     }
-    await this.db
-      .update(schema.release)
-      .set(
-        format === 'zip'
-          ? {
-              zipballDownloadCount: sql`${schema.release.zipballDownloadCount} + 1`,
-            }
-          : {
-              tarballDownloadCount: sql`${schema.release.tarballDownloadCount} + 1`,
-            },
-      )
-      .where(eq(schema.release.id, release.id));
 
     const object = await this.s3.getObject({
       Bucket: this.s3.bucket,
       Key: releaseSourceKey(repository.id, release.id, format),
     });
-    return { stream: object.Body as Readable, size: object.ContentLength };
+    const stream = object.Body as Readable;
+    stream.once('end', () => {
+      this.db
+        .update(schema.release)
+        .set({
+          ...(format === 'zip'
+            ? {
+                zipballDownloadCount: sql`${schema.release.zipballDownloadCount} + 1`,
+              }
+            : {
+                tarballDownloadCount: sql`${schema.release.tarballDownloadCount} + 1`,
+              }),
+          ...untouched,
+        })
+        .where(eq(schema.release.id, release.id))
+        .catch((error: unknown) =>
+          this.logger.warn(
+            `Download of release ${release.id} went uncounted: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+    });
+    return { stream, size: object.ContentLength };
+  }
+
+  private build(
+    repository: AuthorizedRepository,
+    release: Release,
+    commit: string,
+  ) {
+    const key = `${release.id}:${commit}`;
+    const pending =
+      this.building.get(key) ??
+      this.store(repository, release, commit).finally(() =>
+        this.building.delete(key),
+      );
+    this.building.set(key, pending);
+    return pending;
   }
 
   /** Each archive is spooled to disk first: an upload needs its length before the first byte, and git only knows it at the last. */
-  private async build(repository: AuthorizedRepository, release: Release) {
+  private async store(
+    repository: AuthorizedRepository,
+    release: Release,
+    commit: string,
+  ) {
     const directory = await this.materializer.open(repository);
-    const commit = await resolveCommit(
-      directory,
-      `refs/tags/${release.tagName}`,
-    );
-    // a deleted tag has no source to archive
-    if (!commit) return;
-
     const sizes = await withTempDir('ghost-archive-', async (scratch) => {
       const built: Partial<Record<ArchiveFormat, number>> = {};
       for (const format of ARCHIVE_FORMATS) {
@@ -138,6 +171,7 @@ export class ReleaseArchivesService {
         sourceCommitSha: commit,
         zipballSize: sizes.zip,
         tarballSize: sizes['tar.gz'],
+        ...untouched,
       })
       .where(eq(schema.release.id, release.id))
       .returning({ id: schema.release.id });

@@ -13,7 +13,7 @@ export const ARCHIVE_MEDIA_TYPES: Record<ArchiveFormat, string> = {
 /** `commit` is known before any byte is built, so a conditional request is answered without building the archive. */
 export interface SourceArchive {
   commit: string;
-  /** A tag or sha: the archive never changes. A branch moves. */
+  /** Requested by full commit sha, so the archive never changes. A branch or a tag can move. */
   immutable: boolean;
   filename: string;
   /** `size` is known only for an archive already stored. */

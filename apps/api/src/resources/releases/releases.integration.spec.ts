@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -822,10 +823,53 @@ describe.skipIf(!CONNECTION)('releases', () => {
       const bytes = await buffer(stream);
       expect(bytes.length).toBe(size);
       expect(bytes.subarray(0, 2).toString()).toBe('PK');
-      await expect(sourceOf(release.id)).resolves.toMatchObject({
-        zipball: { downloadCount: 1 },
-        tarball: { downloadCount: 0 },
+      await vi.waitFor(() =>
+        expect(sourceOf(release.id)).resolves.toMatchObject({
+          zipball: { downloadCount: 1 },
+          tarball: { downloadCount: 0 },
+        }),
+      );
+      // neither the build nor the download is an edit
+      expect(
+        (await releases.getRelease({ ...owner, id: release.id })).updatedAt,
+      ).toBe(release.updatedAt);
+    });
+
+    it('does not count a download abandoned before its last byte', async () => {
+      const release = await releases.createRelease({
+        ...owner,
+        body: { tagName: 'v1' },
       });
+      await built();
+      const repo = await authorized();
+
+      const { stream } = await archives.open(
+        repo,
+        (await archives.forTag(repo, 'v1'))!,
+        second,
+        'zip',
+      );
+      stream.destroy();
+      await once(stream, 'close');
+      expect((await sourceOf(release.id))?.zipball.downloadCount).toBe(0);
+    });
+
+    it('builds a stale archive once for downloads that find it at the same time', async () => {
+      await releases.createRelease({ ...owner, body: { tagName: 'v1' } });
+      await built();
+      const repo = await authorized();
+      const stale = {
+        ...(await archives.forTag(repo, 'v1'))!,
+        sourceCommitSha: null,
+      };
+      const uploads = vi.spyOn(s3, 'putStream');
+
+      await Promise.all([
+        archives.open(repo, stale, second, 'zip'),
+        archives.open(repo, stale, second, 'tar.gz'),
+      ]);
+      // one build uploads both formats
+      expect(uploads).toHaveBeenCalledTimes(2);
     });
 
     it('drops the size when a push moves the tag, and rebuilds on the next download', async () => {

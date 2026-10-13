@@ -25,7 +25,14 @@ export async function sendArchive(
       ? 'private, max-age=31536000, immutable'
       : 'private, no-cache',
   };
-  if (ifNoneMatch === caching.ETag) {
+  // A list of entity tags, compared weakly as RFC 9110 has If-None-Match compared; `*` matches any archive there is.
+  const candidates = ifNoneMatch?.match(/\*|(?:W\/)?"[^"]*"/g) ?? [];
+  if (
+    candidates.some(
+      (candidate) =>
+        candidate === '*' || candidate.replace(/^W\//, '') === caching.ETag,
+    )
+  ) {
     response.set(caching).status(HttpStatus.NOT_MODIFIED).end();
     return;
   }

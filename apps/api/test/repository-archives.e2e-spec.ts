@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ArchivesBusyError } from '../src/lib/repositories/repositories.errors.js';
 import { RepositoriesService } from '../src/resources/repositories/repositories.service.js';
@@ -105,14 +105,23 @@ describe.skipIf(!hasBackends)('source archives', () => {
     });
   });
 
-  it('keeps a tag forever and answers its revalidation with 304', async () => {
-    const zip = await archive('tools', { format: 'zip', ref: 'v1.0' }).expect(
+  it('keeps a full sha forever, revalidates a tag since a push can move it, and answers with 304', async () => {
+    const sha = execFileSync('git', ['rev-parse', 'v1.0^{commit}'], {
+      cwd: work,
+    })
+      .toString()
+      .trim();
+    const pinned = await archive('tools', { format: 'zip', ref: sha }).expect(
       200,
     );
-    expect(zip.headers['cache-control']).toContain('immutable');
+    expect(pinned.headers['cache-control']).toContain('immutable');
 
+    const tag = await archive('tools', { format: 'zip', ref: 'v1.0' }).expect(
+      200,
+    );
+    expect(tag.headers['cache-control']).toBe('private, no-cache');
     await archive('tools', { format: 'zip', ref: 'v1.0' })
-      .set('if-none-match', zip.headers.etag)
+      .set('if-none-match', tag.headers.etag)
       .expect(304);
   });
 
@@ -166,12 +175,15 @@ describe.skipIf(!hasBackends)('source archives', () => {
     );
     await github('tarball/v1.0').expect(200);
 
-    const { body: release } = await http()
-      .get(`/api/repositories/${username}/tools/releases/tags/v1.0`)
-      .expect(200);
-    expect(release.source).toEqual({
-      zipball: { size: (zip.body as Buffer).length, downloadCount: 1 },
-      tarball: { size: expect.any(Number), downloadCount: 1 },
+    // counted once the last byte has gone out, just after the response ends
+    await vi.waitFor(async () => {
+      const { body: release } = await http()
+        .get(`/api/repositories/${username}/tools/releases/tags/v1.0`)
+        .expect(200);
+      expect(release.source).toEqual({
+        zipball: { size: (zip.body as Buffer).length, downloadCount: 1 },
+        tarball: { size: expect.any(Number), downloadCount: 1 },
+      });
     });
   });
 

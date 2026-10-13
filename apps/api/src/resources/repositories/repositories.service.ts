@@ -1466,7 +1466,8 @@ export class RepositoriesService {
         : null;
     return {
       commit,
-      immutable: detached,
+      // only a full sha names one commit for good; a push can move a tag, and a short sha can grow ambiguous
+      immutable: commit === requestedRef?.trim(),
       filename: `${name}.${format}`,
       open: async () => {
         if (release) {

@@ -10,7 +10,7 @@ Creating a release starts the build without waiting for it. Each archive is spoo
 
 The archives bill the account that owns the repository, as the release's uploaded assets do ([0025](0025-storage-is-billed-to-the-owning-account.md), [0037](0037-release-assets-count-against-their-own-quota.md)): the `asset` limit, or the `fork` limit in a fork. Their size is unknown until they are built, so there is no reservation. Creating a release needs room left, not room enough, as a merge does: a release is refused with 413 once the account is at or past its limit, and the archives of the last one admitted may carry it past.
 
-A download of a release's tag streams the stored bytes with a `Content-Length` and counts once per full response; a 304 is not a download. A draft's archives are counted only for people who can see the draft.
+A download of a release's tag streams the stored bytes with a `Content-Length` and counts once its last byte has been read; an abandoned download and a 304 are not counted. A tag URL is revalidated rather than cached for good, since a push can move the tag; only an archive requested by full commit sha is immutable. A draft's archives are counted only for people who can see the draft.
 
 ## Why
 
@@ -22,5 +22,5 @@ Building in the background keeps creating a release as fast as tagging; the repa
 
 - Release archives for a moved tag are rebuilt on the next download; until then the release page shows them without a size.
 - A tag deleted under a release leaves its archives stored, and billed, until the release is deleted.
-- Two downloads of a stale archive at once both rebuild it; the bytes are the same, so the second upload only repeats the first.
+- Downloads that find the same archive stale share one build, keyed by release and commit, within one API process. Separate instances would each build once; the bytes are the same, so a second upload only repeats the first.
 - An account refused a release can still delete releases and assets to make room.

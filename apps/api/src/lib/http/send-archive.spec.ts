@@ -47,7 +47,7 @@ describe('sendArchive', () => {
     open: vi.fn(async () => ({ stream: open(), size })),
   });
 
-  it('streams a tag as an attachment the browser may keep', async () => {
+  it('streams a full sha as an attachment the browser may keep', async () => {
     const response = await request(serve(archive(() => Readable.from(['PK']))))
       .get('/')
       .expect(200);
@@ -91,6 +91,24 @@ describe('sendArchive', () => {
       .expect('etag', `"${commit}-zip"`);
 
     expect(tag.open).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a list', `"other", "${commit}-zip"`],
+    ['a weak tag', `W/"${commit}-zip"`],
+    ['a wildcard', '*'],
+  ])('answers %s in If-None-Match with 304', async (_, ifNoneMatch) => {
+    await request(serve(archive(() => Readable.from(['PK']))))
+      .get('/')
+      .set('if-none-match', ifNoneMatch)
+      .expect(304);
+  });
+
+  it('sends the archive when no tag in If-None-Match matches', async () => {
+    await request(serve(archive(() => Readable.from(['PK']))))
+      .get('/')
+      .set('if-none-match', `"a,b", W/"${commit}-tar.gz"`)
+      .expect(200);
   });
 
   it('marks nothing cacheable when the archive cannot be opened', async () => {
