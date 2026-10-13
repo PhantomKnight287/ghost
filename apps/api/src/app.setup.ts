@@ -24,6 +24,10 @@ export function configureApp(app: INestApplication) {
   // Node closes idle connections after 5s, the same as gh's device-flow poll interval, so a reused connection races the close and resets; outlast clients and proxies instead.
   app.getHttpServer().keepAliveTimeout = 65_000;
   // A clone URL opened in a browser lands on the repository's page. A plain route, registered ahead of Nest's, so `/api/<resource>` falls through: excluding `:username/:repo` from the prefix would also unprefix every `<resource>/:id` route.
+  // The API is for clients, not crawlers; the web app is what search engines should index.
+  server.get('/robots.txt', (_req, res) => {
+    res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+  });
   const { web } = githubOrigins(app.get(ConfigService));
   server.get('/:username/:repo', (req, res, next) => {
     const { username, repo } = req.params;
