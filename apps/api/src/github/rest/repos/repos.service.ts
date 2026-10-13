@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { DATABASE } from '../../../database/database.module.js';
+import type { ArchiveFormat } from '../../../lib/git/archive/archive.js';
 import { findReadmePath } from '../../../lib/git/blob/find-readme.js';
 import { isTextBlob, readBlob } from '../../../lib/git/blob/read-blob.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
@@ -40,6 +41,25 @@ export class GithubReposService {
   }
 
   /** The README at the default branch, base64 as GitHub returns it. */
+  /** GitHub redirects to codeload; Ghost streams from the same host, so the token still applies. */
+  async archive({
+    owner,
+    repo,
+    viewer,
+    ref,
+    format,
+  }: GithubRepositoryTarget & { ref?: string; format: ArchiveFormat }) {
+    // the GitHub-side checks, an OAuth app an organization has not approved among them
+    await this.repositoryNodes.repository(owner, repo, viewer);
+    return this.repositories.getArchive({
+      username: owner,
+      repo,
+      ref,
+      format,
+      requesterId: viewer?.userId,
+    });
+  }
+
   async readme({ owner, repo, viewer }: GithubRepositoryTarget) {
     const node = await this.repositoryNodes.repository(owner, repo, viewer);
     const gitDir = await this.materializer.open({

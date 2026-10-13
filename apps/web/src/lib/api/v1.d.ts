@@ -256,6 +256,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a source archive
+         * @description The files at a branch, tag or commit as a zip or gzipped tarball, under one top-level folder named `<repo>-<ref>`. Files stored with LFS are archived as their pointers. The ETag is the commit, so a conditional request is answered without building the archive.
+         */
+        get: operations["RepositoriesController_getArchive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{slug}/commits": {
         parameters: {
             query?: never;
@@ -568,6 +588,154 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List releases
+         * @description Newest first. Drafts are listed only for people who can write to the repository. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.
+         */
+        get: operations["ReleasesController_listReleases"];
+        put?: never;
+        /**
+         * Create a release
+         * @description Needs write access. A tag that does not exist yet is created at `target`, or at the default branch.
+         */
+        post: operations["ReleasesController_createRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/releases/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the latest release
+         * @description The most recently published release that is neither a draft nor a prerelease.
+         */
+        get: operations["ReleasesController_getLatestRelease"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/releases/tags/{tag}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a release by tag
+         * @description A tag containing `/` is sent percent-encoded.
+         */
+        get: operations["ReleasesController_getReleaseByTag"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/releases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a release
+         * @description Needs write access. The tag is kept.
+         */
+        delete: operations["ReleasesController_deleteRelease"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a release
+         * @description Needs write access. Omitted fields are left as they are.
+         */
+        patch: operations["ReleasesController_updateRelease"];
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/releases/{id}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a release asset
+         * @description Needs write access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`; the file's own type goes in `type`. The file counts against the storage quota of the repository's owner, when the instance sets one.
+         */
+        post: operations["ReleaseAssetsController_uploadReleaseAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/releases/tags/{tag}/assets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a release asset
+         * @description Always served as an attachment. A tag or name containing `/` is sent percent-encoded.
+         */
+        get: operations["ReleaseAssetsController_downloadReleaseAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/releases/assets/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a release asset
+         * @description Needs write access.
+         */
+        delete: operations["ReleaseAssetsController_deleteReleaseAsset"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1622,154 +1790,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/repositories/{username}/{repo}/releases": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List releases
-         * @description Newest first. Drafts are listed only for people who can write to the repository. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.
-         */
-        get: operations["ReleasesController_listReleases"];
-        put?: never;
-        /**
-         * Create a release
-         * @description Needs write access. A tag that does not exist yet is created at `target`, or at the default branch.
-         */
-        post: operations["ReleasesController_createRelease"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/repositories/{username}/{repo}/releases/latest": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read the latest release
-         * @description The most recently published release that is neither a draft nor a prerelease.
-         */
-        get: operations["ReleasesController_getLatestRelease"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/repositories/{username}/{repo}/releases/tags/{tag}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read a release by tag
-         * @description A tag containing `/` is sent percent-encoded.
-         */
-        get: operations["ReleasesController_getReleaseByTag"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/repositories/{username}/{repo}/releases/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete a release
-         * @description Needs write access. The tag is kept.
-         */
-        delete: operations["ReleasesController_deleteRelease"];
-        options?: never;
-        head?: never;
-        /**
-         * Edit a release
-         * @description Needs write access. Omitted fields are left as they are.
-         */
-        patch: operations["ReleasesController_updateRelease"];
-        trace?: never;
-    };
-    "/api/repositories/{username}/{repo}/releases/{id}/assets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload a release asset
-         * @description Needs write access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`; the file's own type goes in `type`. The file counts against the storage quota of the repository's owner, when the instance sets one.
-         */
-        post: operations["ReleaseAssetsController_uploadReleaseAsset"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/repositories/{username}/{repo}/releases/tags/{tag}/assets/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Download a release asset
-         * @description Always served as an attachment. A tag or name containing `/` is sent percent-encoded.
-         */
-        get: operations["ReleaseAssetsController_downloadReleaseAsset"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/repositories/{username}/{repo}/releases/assets/{assetId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete a release asset
-         * @description Needs write access.
-         */
-        delete: operations["ReleaseAssetsController_deleteReleaseAsset"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/repositories/{username}/{repo}/attachments": {
         parameters: {
             query?: never;
@@ -2722,6 +2742,40 @@ export interface paths {
         };
         /** The repository's README at the default branch, base64 as GitHub returns it */
         get: operations["ReposController_readme"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/zipball/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A zip of the repository at a ref */
+        get: operations["ReposController_zipball"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/tarball/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A gzipped tarball of the repository at a ref */
+        get: operations["ReposController_tarball"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3943,6 +3997,90 @@ export interface components {
             /** @description Release assets in repositories that are not forks, and for a user, files they attached to issues, pull requests and comments anywhere. Includes uploads in progress. */
             asset: components["schemas"]["StorageLimitUsageDTO"];
         };
+        ReleaseSourceArchiveDTO: {
+            /** @description Bytes. `null` until the archive is built from the commit the tag points at now. */
+            size: number | null;
+            downloadCount: number;
+        };
+        ReleaseSourceDTO: {
+            zipball: components["schemas"]["ReleaseSourceArchiveDTO"];
+            tarball: components["schemas"]["ReleaseSourceArchiveDTO"];
+        };
+        ReleaseAssetDTO: {
+            id: string;
+            /** @example ghost-linux-x64.tar.gz */
+            name: string;
+            /** @example application/gzip */
+            contentType: string;
+            /** @description Bytes. */
+            size: number;
+            downloadCount: number;
+            createdAt: string;
+        };
+        ReleaseDTO: {
+            id: string;
+            /**
+             * @description Tag name, without the `refs/tags/` prefix.
+             * @example v1.0.0
+             */
+            tagName: string;
+            /** @description `null` reads as the tag name. */
+            name: string | null;
+            /** @description Markdown. */
+            body: string | null;
+            /** @description Only people who can write to the repository see drafts. */
+            isDraft: boolean;
+            isPrerelease: boolean;
+            /** @description The most recently published release that is neither a draft nor a prerelease. */
+            isLatest: boolean;
+            /** @description Null once the author account is deleted. */
+            authorUsername: string | null;
+            /** @description The commit the tag points at. `null` when the tag has since been deleted. */
+            commitSha: string | null;
+            /** @description The source archives of the commit the tag points at. `null` when the tag has since been deleted. */
+            source: components["schemas"]["ReleaseSourceDTO"] | null;
+            /** @description By name. */
+            assets: components["schemas"]["ReleaseAssetDTO"][];
+            publishedAt: string | null;
+            createdAt: string;
+            updatedAt: string;
+            /** @description True when the requesting user can write to the repository. */
+            viewerCanEdit: boolean;
+        };
+        GetReleasesResponseDTO: {
+            /** @description Newest first. */
+            releases: components["schemas"]["ReleaseDTO"][];
+            nextCursor: string | null;
+        };
+        CreateReleaseRequestDTO: {
+            /**
+             * @description An existing tag, or a new one to create at `target`. Without the `refs/tags/` prefix.
+             * @example v1.0.0
+             */
+            tagName: string;
+            /**
+             * @description Branch or commit sha a new tag points at. Defaults to the default branch; ignored when the tag already exists.
+             * @example main
+             */
+            target?: string;
+            /** @example First stable release */
+            name?: string;
+            /** @description Markdown. */
+            body?: string;
+            /** @default false */
+            isDraft?: boolean;
+            /** @default false */
+            isPrerelease?: boolean;
+        };
+        UpdateReleaseRequestDTO: {
+            /** @description `null` falls back to the tag name. */
+            name?: string | null;
+            /** @description Markdown. `null` clears the notes. */
+            body?: string | null;
+            /** @description Publishing a draft stamps `publishedAt` the first time. */
+            isDraft?: boolean;
+            isPrerelease?: boolean;
+        };
         /**
          * @description Highest built-in role held; null when only custom roles are held.
          * @enum {string}
@@ -4715,79 +4853,6 @@ export interface components {
             lastError: string | null;
             createdAt: string;
             updatedAt: string;
-        };
-        ReleaseAssetDTO: {
-            id: string;
-            /** @example ghost-linux-x64.tar.gz */
-            name: string;
-            /** @example application/gzip */
-            contentType: string;
-            /** @description Bytes. */
-            size: number;
-            downloadCount: number;
-            createdAt: string;
-        };
-        ReleaseDTO: {
-            id: string;
-            /**
-             * @description Tag name, without the `refs/tags/` prefix.
-             * @example v1.0.0
-             */
-            tagName: string;
-            /** @description `null` reads as the tag name. */
-            name: string | null;
-            /** @description Markdown. */
-            body: string | null;
-            /** @description Only people who can write to the repository see drafts. */
-            isDraft: boolean;
-            isPrerelease: boolean;
-            /** @description The most recently published release that is neither a draft nor a prerelease. */
-            isLatest: boolean;
-            /** @description Null once the author account is deleted. */
-            authorUsername: string | null;
-            /** @description The commit the tag points at. `null` when the tag has since been deleted. */
-            commitSha: string | null;
-            /** @description By name. */
-            assets: components["schemas"]["ReleaseAssetDTO"][];
-            publishedAt: string | null;
-            createdAt: string;
-            updatedAt: string;
-            /** @description True when the requesting user can write to the repository. */
-            viewerCanEdit: boolean;
-        };
-        GetReleasesResponseDTO: {
-            /** @description Newest first. */
-            releases: components["schemas"]["ReleaseDTO"][];
-            nextCursor: string | null;
-        };
-        CreateReleaseRequestDTO: {
-            /**
-             * @description An existing tag, or a new one to create at `target`. Without the `refs/tags/` prefix.
-             * @example v1.0.0
-             */
-            tagName: string;
-            /**
-             * @description Branch or commit sha a new tag points at. Defaults to the default branch; ignored when the tag already exists.
-             * @example main
-             */
-            target?: string;
-            /** @example First stable release */
-            name?: string;
-            /** @description Markdown. */
-            body?: string;
-            /** @default false */
-            isDraft?: boolean;
-            /** @default false */
-            isPrerelease?: boolean;
-        };
-        UpdateReleaseRequestDTO: {
-            /** @description `null` falls back to the tag name. */
-            name?: string | null;
-            /** @description Markdown. `null` clears the notes. */
-            body?: string | null;
-            /** @description Publishing a draft stamps `publishedAt` the first time. */
-            isDraft?: boolean;
-            isPrerelease?: boolean;
         };
         AttachmentDTO: {
             id: string;
@@ -5958,6 +6023,58 @@ export interface operations {
             };
         };
     };
+    RepositoriesController_getArchive: {
+        parameters: {
+            query: {
+                format: "zip" | "tar.gz";
+                /** @description Branch, tag or commit sha to archive. Accepts `main`, `refs/heads/main`, `v1.0.0` or a commit sha. Omit for the default branch. */
+                ref?: string;
+            };
+            header: {
+                "if-none-match": string;
+            };
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     RepositoriesController_getRepositoryCommits: {
         parameters: {
             query?: {
@@ -6537,6 +6654,404 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StorageUsageDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleasesController_listReleases: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
+                cursor?: string;
+                /** @description Page size. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetReleasesResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleasesController_createRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReleaseRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseDTO"];
+                };
+            };
+            /** @description The tag name is not one git accepts. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The repository, or the target to tag, does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The tag already has a release. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleasesController_getLatestRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleasesController_getReleaseByTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                tag: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleasesController_deleteRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleasesController_updateRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateReleaseRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleaseAssetsController_uploadReleaseAsset: {
+        parameters: {
+            query: {
+                /** @description File name the asset is saved and downloaded under. */
+                name: string;
+                /** @description Media type the file is served with. The request body itself is always `application/octet-stream`. */
+                type?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseAssetDTO"];
+                };
+            };
+            /** @description The file name is not a plain file name. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The release already has an asset with this name. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The file is over the per-file limit, or would take the owner over their storage quota. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The body was not sent as `application/octet-stream`. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleaseAssetsController_downloadReleaseAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                tag: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReleaseAssetsController_deleteReleaseAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
             404: {
@@ -9166,404 +9681,6 @@ export interface operations {
             };
         };
     };
-    ReleasesController_listReleases: {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
-                cursor?: string;
-                /** @description Page size. */
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetReleasesResponseDTO"];
-                };
-            };
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    ReleasesController_createRelease: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateReleaseRequestDTO"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReleaseDTO"];
-                };
-            };
-            /** @description The tag name is not one git accepts. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            /** @description The repository, or the target to tag, does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            /** @description The tag already has a release. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    ReleasesController_getLatestRelease: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReleaseDTO"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    ReleasesController_getReleaseByTag: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-                tag: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReleaseDTO"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    ReleasesController_deleteRelease: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    ReleasesController_updateRelease: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateReleaseRequestDTO"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReleaseDTO"];
-                };
-            };
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    ReleaseAssetsController_uploadReleaseAsset: {
-        parameters: {
-            query: {
-                /** @description File name the asset is saved and downloaded under. */
-                name: string;
-                /** @description Media type the file is served with. The request body itself is always `application/octet-stream`. */
-                type?: string;
-            };
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/octet-stream": string;
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReleaseAssetDTO"];
-                };
-            };
-            /** @description The file name is not a plain file name. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            /** @description The release already has an asset with this name. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            /** @description The file is over the per-file limit, or would take the owner over their storage quota. */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            /** @description The body was not sent as `application/octet-stream`. */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    ReleaseAssetsController_downloadReleaseAsset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-                tag: string;
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/octet-stream": string;
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    ReleaseAssetsController_deleteReleaseAsset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                username: string;
-                repo: string;
-                assetId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
     AttachmentsController_uploadAttachment: {
         parameters: {
             query: {
@@ -11663,6 +11780,52 @@ export interface operations {
             path: {
                 owner: string;
                 repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReposController_zipball: {
+        parameters: {
+            query?: never;
+            header: {
+                "if-none-match": string;
+            };
+            path: {
+                owner: string;
+                repo: string;
+                ref: string[];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReposController_tarball: {
+        parameters: {
+            query?: never;
+            header: {
+                "if-none-match": string;
+            };
+            path: {
+                owner: string;
+                repo: string;
+                ref: string[];
             };
             cookie?: never;
         };

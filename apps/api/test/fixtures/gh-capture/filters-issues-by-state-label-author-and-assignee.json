@@ -19,10 +19,7 @@
             "limit": 30,
             "owner": "<login>",
             "repo": "tools",
-            "states": [
-              "OPEN",
-              "CLOSED"
-            ]
+            "states": ["OPEN", "CLOSED"]
           }
         },
         "status": 200

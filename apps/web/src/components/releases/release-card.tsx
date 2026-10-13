@@ -1,6 +1,8 @@
 import {
   Download,
+  FileArchive,
   GitCommitHorizontal,
+  type LucideIcon,
   Package,
   Pencil,
   Tag,
@@ -97,44 +99,91 @@ export function ReleaseCard({
         <p className="text-sm text-muted-foreground">No release notes.</p>
       )}
 
-      {release.assets.length > 0 && (
+      {(release.assets.length > 0 || release.source) && (
         <section className="flex flex-col gap-2">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
             Assets
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-              {release.assets.length}
+              {release.assets.length + (release.source ? 2 : 0)}
             </span>
           </h3>
           <ul className="divide-y rounded-lg border">
             {release.assets.map((asset) => (
-              <li
+              <ReleaseFile
                 key={asset.id}
-                className="flex items-center gap-3 px-3 py-2 text-sm"
-              >
-                <Package className="size-4 shrink-0 text-muted-foreground" />
-                <a
-                  href={`${releasePath(username, repo, release.tagName, "download")}/${encodeURIComponent(asset.name)}`}
-                  download
-                  className="min-w-0 flex-1 truncate font-medium text-primary hover:underline"
-                >
-                  {asset.name}
-                </a>
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {formatBytes(asset.size)}
-                </span>
-                <span
-                  className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground tabular-nums sm:flex"
-                  title="Downloads"
-                >
-                  <Download className="size-3.5" />
-                  {asset.downloadCount}
-                </span>
-              </li>
+                icon={Package}
+                href={`${releasePath(username, repo, release.tagName, "download")}/${encodeURIComponent(asset.name)}`}
+                name={asset.name}
+                size={asset.size}
+                downloadCount={asset.downloadCount}
+              />
             ))}
+            {/* a tag that is gone has no source to archive */}
+            {release.source &&
+              (
+                [
+                  ["zip", release.source.zipball],
+                  ["tar.gz", release.source.tarball],
+                ] as const
+              ).map(([format, archive]) => (
+                <ReleaseFile
+                  key={format}
+                  icon={FileArchive}
+                  href={`/${username}/${repo}/archive/${encodeURIComponent(release.tagName)}.${format}`}
+                  name={`Source code (${format})`}
+                  size={archive.size}
+                  downloadCount={archive.downloadCount}
+                  // an archive per tag is the costliest thing a crawler could fetch
+                  nofollow
+                />
+              ))}
           </ul>
         </section>
       )}
     </article>
+  );
+}
+
+function ReleaseFile({
+  icon: Icon,
+  href,
+  name,
+  size,
+  downloadCount,
+  nofollow,
+}: {
+  icon: LucideIcon;
+  href: string;
+  name: string;
+  /** Null while a source archive is being built. */
+  size: number | null;
+  downloadCount: number;
+  nofollow?: boolean;
+}) {
+  return (
+    <li className="flex items-center gap-3 px-3 py-2 text-sm">
+      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <a
+        href={href}
+        download
+        rel={nofollow ? "nofollow" : undefined}
+        className="min-w-0 flex-1 truncate font-medium text-primary hover:underline"
+      >
+        {name}
+      </a>
+      {size !== null && (
+        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+          {formatBytes(size)}
+        </span>
+      )}
+      <span
+        className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground tabular-nums sm:flex"
+        title="Downloads"
+      >
+        <Download className="size-3.5" />
+        {downloadCount}
+      </span>
+    </li>
   );
 }
 

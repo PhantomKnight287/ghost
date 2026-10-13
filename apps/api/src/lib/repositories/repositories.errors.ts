@@ -92,3 +92,11 @@ export class CommitNotFoundError extends DomainError {
     super(`Commit not found: ${sha}`);
   }
 }
+
+export class ArchivesBusyError extends DomainError {
+  status: number = HttpStatus.SERVICE_UNAVAILABLE;
+
+  constructor() {
+    super('Too many archives are being built; try again shortly');
+  }
+}

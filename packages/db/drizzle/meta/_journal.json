@@ -421,6 +421,13 @@
       "when": 1791818862396,
       "tag": "0059_previous_prowler",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1791872378802,
+      "tag": "0060_giant_betty_ross",
+      "breakpoints": true
     }
   ]
 }

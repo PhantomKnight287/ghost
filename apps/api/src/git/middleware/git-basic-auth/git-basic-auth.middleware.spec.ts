@@ -296,13 +296,11 @@ describe('GitBasicAuthMiddleware', () => {
         metadata: { oauthClientId: 'app_1' },
       },
     };
-    const organizationRepository = vi
-      .fn()
-      .mockResolvedValue({
-        id: 'repo_1',
-        visibility: 'public',
-        organizationId: 'org_1',
-      });
+    const organizationRepository = vi.fn().mockResolvedValue({
+      id: 'repo_1',
+      visibility: 'public',
+      organizationId: 'org_1',
+    });
 
     const kept = harness({
       verify: appKey,

@@ -204,9 +204,10 @@ describe.skipIf(!CONNECTION)('StorageQuotaService', () => {
     await requestHolding('open', 5000);
 
     await db.transaction((tx) =>
-      quotaWith({ STORAGE_QUOTA_BYTES: '1000' }).assertRoomToMerge(
+      quotaWith({ STORAGE_QUOTA_BYTES: '1000' }).assertRoom(
         { userId: OWNER },
         'repository',
+        MergeStorageQuotaExceededError,
         tx,
       ),
     );
@@ -217,9 +218,10 @@ describe.skipIf(!CONNECTION)('StorageQuotaService', () => {
 
     await expect(
       db.transaction((tx) =>
-        quotaWith({ STORAGE_QUOTA_BYTES: '1000' }).assertRoomToMerge(
+        quotaWith({ STORAGE_QUOTA_BYTES: '1000' }).assertRoom(
           { userId: OWNER },
           'repository',
+          MergeStorageQuotaExceededError,
           tx,
         ),
       ),
@@ -230,7 +232,12 @@ describe.skipIf(!CONNECTION)('StorageQuotaService', () => {
     await requestHolding('merged', 1_000_000);
 
     await db.transaction((tx) =>
-      quotaWith({}).assertRoomToMerge({ userId: OWNER }, 'repository', tx),
+      quotaWith({}).assertRoom(
+        { userId: OWNER },
+        'repository',
+        MergeStorageQuotaExceededError,
+        tx,
+      ),
     );
   });
 

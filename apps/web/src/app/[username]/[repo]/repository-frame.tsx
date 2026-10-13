@@ -259,6 +259,12 @@ export function RepositoryFrame({
                   <ClonePopover
                     cloneUrl={`${API_URL}/${username}/${slug}.git`}
                     sshCloneUrl={sshCloneUrlFor(username, slug)}
+                    // an empty repository has a default branch but nothing to archive
+                    archiveHref={
+                      rev && branches?.length
+                        ? `${base}/archive/${encodeURIComponent(rev)}.zip`
+                        : undefined
+                    }
                   />
                 </div>
               </div>

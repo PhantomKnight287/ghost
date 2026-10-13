@@ -114,8 +114,12 @@ describe.skipIf(!hasBackends)('GitHub releases', () => {
       draft: false,
       prerelease: false,
       immutable: false,
-      tarball_url: null,
-      zipball_url: null,
+      tarball_url: expect.stringMatching(
+        /\/repos\/[^/]+\/tools\/tarball\/v1\.0$/,
+      ),
+      zipball_url: expect.stringMatching(
+        /\/repos\/[^/]+\/tools\/zipball\/v1\.0$/,
+      ),
       published_at: expect.any(String),
       author: expect.objectContaining({ login: username }),
       assets: [],
@@ -138,6 +142,30 @@ describe.skipIf(!hasBackends)('GitHub releases', () => {
     expect((await get(`${repo}/releases/tags/v1.0`).expect(200)).body.id).toBe(
       body.id,
     );
+  });
+
+  it("serves the archives a release's zipball_url and tarball_url name", async () => {
+    const { body: release } = await get(`${repo}/releases/tags/v1.0`).expect(
+      200,
+    );
+    const zip = await http()
+      .get(new URL(release.zipball_url).pathname)
+      .set('authorization', `token ${owner.key}`)
+      .responseType('blob')
+      .expect(200);
+    expect(zip.headers['content-disposition']).toBe(
+      'attachment; filename="tools-v1.0.zip"',
+    );
+    expect((zip.body as Buffer).subarray(0, 2).toString()).toBe('PK');
+    expect((zip.body as Buffer).includes('tools-v1.0/a.txt')).toBe(true);
+
+    const tarball = await http()
+      .get(new URL(release.tarball_url).pathname)
+      .set('authorization', `token ${owner.key}`)
+      .responseType('blob')
+      .expect(200);
+    // gzip's magic number
+    expect([...(tarball.body as Buffer).subarray(0, 2)]).toEqual([0x1f, 0x8b]);
   });
 
   it('answers what Ghost cannot do, and a duplicate tag, as GitHub does', async () => {

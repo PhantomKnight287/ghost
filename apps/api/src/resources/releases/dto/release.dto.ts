@@ -43,6 +43,34 @@ export class ReleaseAssetDTO {
   createdAt: string;
 }
 
+export class ReleaseSourceArchiveDTO {
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description:
+      'Bytes. `null` until the archive is built from the commit the tag points at now.',
+  })
+  @IsInt()
+  @IsOptional()
+  size: number | null;
+
+  @ApiProperty()
+  @IsInt()
+  downloadCount: number;
+}
+
+export class ReleaseSourceDTO {
+  @ApiProperty({ type: ReleaseSourceArchiveDTO })
+  @ValidateNested()
+  @Type(() => ReleaseSourceArchiveDTO)
+  zipball: ReleaseSourceArchiveDTO;
+
+  @ApiProperty({ type: ReleaseSourceArchiveDTO })
+  @ValidateNested()
+  @Type(() => ReleaseSourceArchiveDTO)
+  tarball: ReleaseSourceArchiveDTO;
+}
+
 export class UploadReleaseAssetQueryDTO {
   @ApiProperty({
     description: 'File name the asset is saved and downloaded under.',
@@ -124,6 +152,17 @@ export class ReleaseDTO {
   @IsString()
   @IsOptional()
   commitSha: string | null;
+
+  @ApiProperty({
+    type: ReleaseSourceDTO,
+    nullable: true,
+    description:
+      'The source archives of the commit the tag points at. `null` when the tag has since been deleted.',
+  })
+  @ValidateNested()
+  @Type(() => ReleaseSourceDTO)
+  @IsOptional()
+  source: ReleaseSourceDTO | null;
 
   @ApiProperty({ type: [ReleaseAssetDTO], description: 'By name.' })
   @ValidateNested({ each: true })

@@ -6,6 +6,7 @@ import { PushTransactionService } from '../../services/git/wal/push-transaction.
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { StorageModule } from '../storage/storage.module.js';
+import { ReleaseArchivesService } from './release-archives.service.js';
 import { ReleaseAssetsController } from './release-assets.controller.js';
 import { ReleaseAssetsService } from './release-assets.service.js';
 import { ReleasesController } from './releases.controller.js';
@@ -17,11 +18,12 @@ import { ReleasesService } from './releases.service.js';
   providers: [
     ReleasesService,
     ReleaseAssetsService,
+    ReleaseArchivesService,
     RepositoryAccessService,
     PushTransactionService,
     WalStoreService,
     UsersService,
   ],
-  exports: [ReleasesService, ReleaseAssetsService],
+  exports: [ReleasesService, ReleaseAssetsService, ReleaseArchivesService],
 })
 export class ReleasesModule {}

@@ -489,9 +489,8 @@ export function toReleaseRest(
     html_url: `${context.repository.webUrl}/releases/tag/${tagPath(release.tagName)}`,
     assets_url: `${url}/assets`,
     upload_url: `${uploadUrl}/releases/${numericId}/assets{?name,label}`,
-    // ponytail: no source archives until #66.
-    tarball_url: null,
-    zipball_url: null,
+    tarball_url: `${context.repository.apiUrl}/tarball/${encodeURIComponent(release.tagName)}`,
+    zipball_url: `${context.repository.apiUrl}/zipball/${encodeURIComponent(release.tagName)}`,
     id: numericId,
     node_id: encodeNodeId('Release', release.id),
     tag_name: release.tagName,

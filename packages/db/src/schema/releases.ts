@@ -39,6 +39,12 @@ export const release = pgTable(
     authorId: text().references(() => user.id, { onDelete: "set null" }),
     // Null while a draft; set once, when it is first published.
     publishedAt: timestamp({ withTimezone: true }),
+    // The commit the stored source archives were built from. A push can move the tag, so archives whose commit no longer matches it are stale.
+    sourceCommitSha: text(),
+    zipballSize: bigint({ mode: "number" }),
+    tarballSize: bigint({ mode: "number" }),
+    zipballDownloadCount: integer().notNull().default(0),
+    tarballDownloadCount: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()

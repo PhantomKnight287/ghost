@@ -49,9 +49,7 @@
           "variables": {
             "input": {
               "labelableId": "PR_<id>",
-              "labelIds": [
-                "LA_<id>"
-              ]
+              "labelIds": ["LA_<id>"]
             }
           }
         },

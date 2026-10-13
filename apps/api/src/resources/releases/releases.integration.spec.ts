@@ -17,6 +17,8 @@ import {
   describe,
   expect,
   it,
+  type MockInstance,
+  vi,
 } from 'vitest';
 
 import { InvalidCursorError } from '../../lib/db/keyset.js';
@@ -38,6 +40,7 @@ import {
 import { InMemoryS3 } from '../../lib/s3/s3.fake.js';
 import {
   ContentLengthRequiredError,
+  ReleaseStorageQuotaExceededError,
   StorageQuotaExceededError,
 } from '../../lib/storage/storage.errors.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
@@ -50,6 +53,7 @@ import type { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { ReleaseArchivesService } from './release-archives.service.js';
 import { ReleaseAssetsService } from './release-assets.service.js';
 import { ReleasesService } from './releases.service.js';
 
@@ -80,6 +84,10 @@ describe.skipIf(!CONNECTION)('releases', () => {
   let s3: InMemoryS3;
   let quota: StorageQuotaService;
   let pushes: PushTransactionService;
+  let materializer: RepositoryMaterializerService;
+  let archives: ReleaseArchivesService;
+  // Builds run unawaited; outside the archive tests they are stubbed, so they never land in another test's usage or bucket.
+  let builds: MockInstance<ReleaseArchivesService['buildInBackground']>;
   let repository: typeof schema.repository.$inferSelect;
   let first: string;
   let second: string;
@@ -88,13 +96,23 @@ describe.skipIf(!CONNECTION)('releases', () => {
   const reader = { ...owner, requesterId: READER };
   const anonymous = { username: 'release-owner', repo: 'app' };
 
-  /** Rebuilds the quota and asset services as an instance configured with `env` would have them. */
+  /** Rebuilds the quota, asset and release services as an instance configured with `env` would have them. */
   function limits(env: Record<string, string>) {
     quota = new StorageQuotaService(db, new ConfigService(env));
     assets = new ReleaseAssetsService(
       db,
       new RepositoryAccessService(db),
       s3 as unknown as S3Service,
+      quota,
+    );
+    releases = new ReleasesService(
+      db,
+      new RepositoryAccessService(db),
+      materializer,
+      pushes,
+      new UsersService(db),
+      assets,
+      archives,
       quota,
     );
   }
@@ -159,17 +177,18 @@ describe.skipIf(!CONNECTION)('releases', () => {
     const store = new InMemoryWalStore() as unknown as WalStoreService;
     pushes = new PushTransactionService(store);
     s3 = new InMemoryS3();
-    limits({});
-    releases = new ReleasesService(
+    materializer = new RepositoryMaterializerService(store, {
+      getRepoPath: async () => cache,
+    } as unknown as RepositoryStorageService);
+    archives = new ReleaseArchivesService(
       db,
-      new RepositoryAccessService(db),
-      new RepositoryMaterializerService(store, {
-        getRepoPath: async () => cache,
-      } as unknown as RepositoryStorageService),
-      pushes,
-      new UsersService(db),
-      assets,
+      materializer,
+      s3 as unknown as S3Service,
     );
+    builds = vi
+      .spyOn(archives, 'buildInBackground')
+      .mockResolvedValue(undefined);
+    limits({});
 
     await db
       .delete(schema.user)
@@ -474,7 +493,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
 
     await expect(
       releases.getReleaseByTag({ ...owner, tagName: 'v1' }),
-    ).resolves.toMatchObject({ id: again.id, commitSha: null });
+    ).resolves.toMatchObject({ id: again.id, commitSha: null, source: null });
     await expect(
       releases.updateRelease({ ...owner, id: 'release_missing', body: {} }),
     ).rejects.toBeInstanceOf(ReleaseNotFoundError);
@@ -748,6 +767,165 @@ describe.skipIf(!CONNECTION)('releases', () => {
       await expect(
         storage.usage('release-owner', READER),
       ).rejects.toBeInstanceOf(UserNotFoundError);
+    });
+  });
+
+  describe('source archives', () => {
+    const authorized = (requesterId = OWNER) =>
+      new RepositoryAccessService(db).authorize({ ...owner, requesterId });
+    const sourceOf = async (id: string) =>
+      (await releases.getRelease({ ...owner, id })).source;
+    /** Every build a release started so far, finished. */
+    const built = () =>
+      Promise.all(builds.mock.results.map((result) => result.value));
+
+    beforeEach(() => {
+      builds.mockRestore();
+      builds = vi.spyOn(archives, 'buildInBackground');
+    });
+
+    it('builds both archives when a release is created, and shows their size', async () => {
+      const release = await releases.createRelease({
+        ...owner,
+        body: { tagName: 'v1' },
+      });
+      await built();
+
+      const zip = s3.objects.get(
+        `release-assets/${repository.id}/${release.id}/source.zip`,
+      );
+      const tarball = s3.objects.get(
+        `release-assets/${repository.id}/${release.id}/source.tar.gz`,
+      );
+      expect(zip?.subarray(0, 2).toString()).toBe('PK');
+      expect(await sourceOf(release.id)).toEqual({
+        zipball: { size: zip?.length, downloadCount: 0 },
+        tarball: { size: tarball?.length, downloadCount: 0 },
+      });
+    });
+
+    it('serves the stored bytes and counts each format on its own', async () => {
+      const release = await releases.createRelease({
+        ...owner,
+        body: { tagName: 'v1' },
+      });
+      await built();
+      const repo = await authorized();
+      const stored = await archives.forTag(repo, 'v1');
+
+      const { stream, size } = await archives.open(
+        repo,
+        stored!,
+        second,
+        'zip',
+      );
+      const bytes = await buffer(stream);
+      expect(bytes.length).toBe(size);
+      expect(bytes.subarray(0, 2).toString()).toBe('PK');
+      await expect(sourceOf(release.id)).resolves.toMatchObject({
+        zipball: { downloadCount: 1 },
+        tarball: { downloadCount: 0 },
+      });
+    });
+
+    it('drops the size when a push moves the tag, and rebuilds on the next download', async () => {
+      const release = await releases.createRelease({
+        ...owner,
+        body: { tagName: 'v1', target: first },
+      });
+      await built();
+      await pushes.commitPush({
+        repoId: repository.id,
+        transitions: [
+          {
+            ref: 'refs/tags/v1',
+            oldOid: Buffer.from(git(cache, 'rev-parse', 'refs/tags/v1'), 'hex'),
+            newOid: Buffer.from(second, 'hex'),
+          },
+        ],
+        body: bufferBody(Buffer.alloc(0)),
+        packOffset: 0,
+      });
+      expect((await sourceOf(release.id))?.zipball.size).toBeNull();
+
+      const repo = await authorized();
+      await archives.open(
+        repo,
+        (await archives.forTag(repo, 'v1'))!,
+        second,
+        'zip',
+      );
+      expect((await sourceOf(release.id))?.zipball.size).toBeGreaterThan(0);
+      const [row] = await db
+        .select({ sha: schema.release.sourceCommitSha })
+        .from(schema.release)
+        .where(inArray(schema.release.id, [release.id]));
+      expect(row.sha).toBe(second);
+    });
+
+    it('lets archives carry an account past its quota, then refuses the next release before tagging', async () => {
+      limits({ ASSET_STORAGE_QUOTA_BYTES: '1' });
+      await releases.createRelease({ ...owner, body: { tagName: 'v1' } });
+      await built();
+      expect(await quota.usageOf({ userId: OWNER }, 'asset')).toBeGreaterThan(
+        1,
+      );
+
+      await expect(
+        releases.createRelease({ ...owner, body: { tagName: 'v2' } }),
+      ).rejects.toBeInstanceOf(ReleaseStorageQuotaExceededError);
+      expect((await listTags(cache)).map((tag) => tag.name)).toEqual(['v1']);
+    });
+
+    it("bills a fork's archives to the fork limit, not the asset limit", async () => {
+      await db
+        .update(schema.repository)
+        .set({ parentRepositoryId: repository.id })
+        .where(inArray(schema.repository.id, [repository.id]));
+      await releases.createRelease({ ...owner, body: { tagName: 'v1' } });
+      await built();
+
+      expect(await quota.usageOf({ userId: OWNER }, 'fork')).toBeGreaterThan(0);
+      expect(await quota.usageOf({ userId: OWNER }, 'asset')).toBe(0);
+    });
+
+    it('keeps a draft release out of reach for readers', async () => {
+      await releases.createRelease({
+        ...owner,
+        body: { tagName: 'v1', isDraft: true },
+      });
+
+      expect(await archives.forTag(await authorized(READER), 'v1')).toBeNull();
+      expect(await archives.forTag(await authorized(), 'v1')).not.toBeNull();
+    });
+
+    it('stores nothing for a deleted tag or a deleted release, and survives a failed upload', async () => {
+      await releases.createRelease({ ...owner, body: { tagName: 'v1' } });
+      await built();
+      const repo = await authorized();
+      const before = s3.objects.size;
+
+      await archives.buildInBackground(repo, {
+        id: 'release_missing',
+        tagName: 'gone',
+        sourceCommitSha: null,
+      });
+      // built, then removed again: the row it would describe is gone
+      await archives.buildInBackground(repo, {
+        id: 'release_missing',
+        tagName: 'v1',
+        sourceCommitSha: null,
+      });
+      s3.failNextPut = true;
+      await expect(
+        archives.buildInBackground(repo, {
+          id: 'release_missing',
+          tagName: 'v1',
+          sourceCommitSha: null,
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(s3.objects.size).toBe(before);
     });
   });
 });

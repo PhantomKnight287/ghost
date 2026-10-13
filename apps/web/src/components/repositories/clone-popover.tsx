@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Code2, Copy } from "lucide-react";
+import { Check, Code2, Copy, FileArchive } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -15,15 +15,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCopy } from "@/lib/use-copy";
 
 export function ClonePopover({
   cloneUrl,
   sshCloneUrl,
+  archiveHref,
 }: {
   cloneUrl: string;
   sshCloneUrl?: string;
+  archiveHref?: string;
 }) {
   return (
     <Popover>
@@ -36,6 +39,23 @@ export function ClonePopover({
 
       <PopoverContent align="end" className="w-80">
         <CloneSection cloneUrl={cloneUrl} sshCloneUrl={sshCloneUrl} />
+        {archiveHref && (
+          <>
+            <Separator className="my-3" />
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+            >
+              {/* nofollow: an archive per ref is the costliest thing a crawler could fetch */}
+              <a href={archiveHref} download rel="nofollow">
+                <FileArchive data-icon="inline-start" />
+                Download ZIP
+              </a>
+            </Button>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );

@@ -31,15 +31,23 @@ const IMPLIES: Partial<Record<Scope, readonly Scope[]>> = {
 };
 
 export function hasScope(granted: readonly string[], needed: Scope) {
-  return granted.some((scope) => scope === needed || IMPLIES[scope as Scope]?.includes(needed));
+  return granted.some(
+    (scope) => scope === needed || IMPLIES[scope as Scope]?.includes(needed),
+  );
 }
 
 /** The known scopes in a space-separated OAuth `scope` request, in order; unknown ones are dropped, so gh asking for one Ghost lacks still logs in. */
 export function grantableScopes(requested: string) {
-  return requested.split(/\s+/).filter((scope): scope is Scope => (KNOWN_SCOPES as readonly string[]).includes(scope));
+  return requested
+    .split(/\s+/)
+    .filter((scope): scope is Scope =>
+      (KNOWN_SCOPES as readonly string[]).includes(scope),
+    );
 }
 
 /** A key's granted scopes. Keys made in Ghost carry none and hold every scope, as Ghost keys always have. */
-export function scopesOfKey(permissions: Record<string, string[]> | null | undefined): readonly string[] {
+export function scopesOfKey(
+  permissions: Record<string, string[]> | null | undefined,
+): readonly string[] {
   return permissions?.scopes ?? KNOWN_SCOPES;
 }

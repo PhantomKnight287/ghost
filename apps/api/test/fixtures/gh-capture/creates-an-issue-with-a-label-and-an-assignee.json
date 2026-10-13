@@ -28,13 +28,9 @@
           "query": "\n\tmutation IssueCreate($input: CreateIssueInput!) {\n\t\tcreateIssue(input: $input) {\n\t\t\tissue {\n\t\t\t\tid\n\t\t\t\turl\n\t\t\t}\n\t\t}\n\t}",
           "variables": {
             "input": {
-              "assigneeIds": [
-                "U_<id>"
-              ],
+              "assigneeIds": ["U_<id>"],
               "body": "Body",
-              "labelIds": [
-                "LA_<id>"
-              ],
+              "labelIds": ["LA_<id>"],
               "projectIds": null,
               "repositoryId": "R_<id>",
               "title": "Made by gh"

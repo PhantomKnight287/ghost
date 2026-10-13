@@ -1,9 +1,4 @@
 {
   "title": "Web app",
-  "pages": [
-    "index",
-    "structure",
-    "talking-to-the-api",
-    "conventions"
-  ]
+  "pages": ["index", "structure", "talking-to-the-api", "conventions"]
 }

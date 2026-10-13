@@ -233,13 +233,19 @@ type GitActorConnection {
   totalCount: Int!
 }
 
-"""A Git object ID."""
+"""
+A Git object ID.
+"""
 scalar GitObjectID
 
-"""Git SSH string"""
+"""
+Git SSH string
+"""
 scalar GitSSHRemote
 
-"""A string containing HTML code."""
+"""
+A string containing HTML code.
+"""
 scalar HTML
 
 type Issue implements Assignable & Labelable & Node & UniformResourceLocatable {
@@ -262,7 +268,13 @@ type Issue implements Assignable & Labelable & Node & UniformResourceLocatable {
   milestone: Milestone
   number: Int!
   parent: Issue
-  projectItems(after: String, before: String, first: Int, includeArchived: Boolean = true, last: Int): ProjectV2ItemConnection!
+  projectItems(
+    after: String
+    before: String
+    first: Int
+    includeArchived: Boolean = true
+    last: Int
+  ): ProjectV2ItemConnection!
   reactionGroups: [ReactionGroup!]
   repository: Repository!
   resourcePath: URI!
@@ -449,19 +461,31 @@ type Milestone {
 }
 
 type Mutation {
-  addAssigneesToAssignable(input: AddAssigneesToAssignableInput!): AddAssigneesToAssignablePayload
+  addAssigneesToAssignable(
+    input: AddAssigneesToAssignableInput!
+  ): AddAssigneesToAssignablePayload
   addComment(input: AddCommentInput!): AddCommentPayload
-  addLabelsToLabelable(input: AddLabelsToLabelableInput!): AddLabelsToLabelablePayload
+  addLabelsToLabelable(
+    input: AddLabelsToLabelableInput!
+  ): AddLabelsToLabelablePayload
   closeIssue(input: CloseIssueInput!): CloseIssuePayload
   closePullRequest(input: ClosePullRequestInput!): ClosePullRequestPayload
-  convertPullRequestToDraft(input: ConvertPullRequestToDraftInput!): ConvertPullRequestToDraftPayload
+  convertPullRequestToDraft(
+    input: ConvertPullRequestToDraftInput!
+  ): ConvertPullRequestToDraftPayload
   createIssue(input: CreateIssueInput!): CreateIssuePayload
   createPullRequest(input: CreatePullRequestInput!): CreatePullRequestPayload
   createRepository(input: CreateRepositoryInput!): CreateRepositoryPayload
-  markPullRequestReadyForReview(input: MarkPullRequestReadyForReviewInput!): MarkPullRequestReadyForReviewPayload
+  markPullRequestReadyForReview(
+    input: MarkPullRequestReadyForReviewInput!
+  ): MarkPullRequestReadyForReviewPayload
   mergePullRequest(input: MergePullRequestInput!): MergePullRequestPayload
-  removeAssigneesFromAssignable(input: RemoveAssigneesFromAssignableInput!): RemoveAssigneesFromAssignablePayload
-  removeLabelsFromLabelable(input: RemoveLabelsFromLabelableInput!): RemoveLabelsFromLabelablePayload
+  removeAssigneesFromAssignable(
+    input: RemoveAssigneesFromAssignableInput!
+  ): RemoveAssigneesFromAssignablePayload
+  removeLabelsFromLabelable(
+    input: RemoveLabelsFromLabelableInput!
+  ): RemoveLabelsFromLabelablePayload
   reopenIssue(input: ReopenIssueInput!): ReopenIssuePayload
   reopenPullRequest(input: ReopenPullRequestInput!): ReopenPullRequestPayload
   updateIssue(input: UpdateIssueInput!): UpdateIssuePayload
@@ -559,7 +583,11 @@ type PullRequest implements Assignable & Labelable & Node & UniformResourceLocat
   isCrossRepository: Boolean!
   isDraft: Boolean!
   labels(first: Int): LabelConnection
-  latestReviews(after: String, first: Int, last: Int): PullRequestReviewConnection
+  latestReviews(
+    after: String
+    first: Int
+    last: Int
+  ): PullRequestReviewConnection
   locked: Boolean!
   maintainerCanModify: Boolean!
   mergeStateStatus: MergeStateStatus!
@@ -568,7 +596,13 @@ type PullRequest implements Assignable & Labelable & Node & UniformResourceLocat
   mergedAt: DateTime
   milestone: Milestone
   number: Int!
-  projectItems(after: String, before: String, first: Int, includeArchived: Boolean = true, last: Int): ProjectV2ItemConnection!
+  projectItems(
+    after: String
+    before: String
+    first: Int
+    includeArchived: Boolean = true
+    last: Int
+  ): ProjectV2ItemConnection!
   reactionGroups: [ReactionGroup!]
   repository: Repository!
   resourcePath: URI!
@@ -679,10 +713,18 @@ type Query {
   organization(login: String!): Organization
   repository(name: String!, owner: String!): Repository
   repositoryOwner(login: String!): RepositoryOwner
-  search(after: String, first: Int, last: Int, query: String!, type: SearchType!): SearchResultItemConnection!
+  search(
+    after: String
+    first: Int
+    last: Int
+    query: String!
+    type: SearchType!
+  ): SearchResultItemConnection!
   user(login: String!): User
 
-  """The currently authenticated user."""
+  """
+  The currently authenticated user.
+  """
   viewer: User!
 }
 
@@ -803,16 +845,36 @@ type Repository implements Node & UniformResourceLocatable {
   isPrivate: Boolean!
   issue(number: Int!): Issue
   issueOrPullRequest(number: Int!): IssueOrPullRequest
-  issues(after: String, filterBy: IssueFilters, first: Int, labels: [String!], orderBy: IssueOrder, states: [IssueState!]): IssueConnection!
+  issues(
+    after: String
+    filterBy: IssueFilters
+    first: Int
+    labels: [String!]
+    orderBy: IssueOrder
+    states: [IssueState!]
+  ): IssueConnection!
   label(name: String!): Label
-  labels(after: String, first: Int, orderBy: LabelOrder, query: String): LabelConnection
+  labels(
+    after: String
+    first: Int
+    orderBy: LabelOrder
+    query: String
+  ): LabelConnection
   mergeCommitAllowed: Boolean!
   name: String!
   nameWithOwner: String!
   owner: RepositoryOwner!
   parent: Repository
   pullRequest(number: Int!): PullRequest
-  pullRequests(after: String, baseRefName: String, first: Int, headRefName: String, labels: [String!], orderBy: IssueOrder, states: [PullRequestState!]): PullRequestConnection!
+  pullRequests(
+    after: String
+    baseRefName: String
+    first: Int
+    headRefName: String
+    labels: [String!]
+    orderBy: IssueOrder
+    states: [PullRequestState!]
+  ): PullRequestConnection!
   pushedAt: DateTime
   rebaseMergeAllowed: Boolean!
   release(tagName: String!): Release
@@ -926,7 +988,9 @@ type Team implements Node {
   slug: String!
 }
 
-"""An RFC 3986, RFC 3987, and RFC 6570 (level 4) compliant URI string."""
+"""
+An RFC 3986, RFC 3987, and RFC 6570 (level 4) compliant URI string.
+"""
 scalar URI
 
 interface UniformResourceLocatable {

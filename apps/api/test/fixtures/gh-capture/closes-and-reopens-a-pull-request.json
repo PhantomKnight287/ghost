@@ -75,9 +75,7 @@
             "headRefName": "chore",
             "owner": "<login>",
             "repo": "tools",
-            "states": [
-              "OPEN"
-            ]
+            "states": ["OPEN"]
           }
         },
         "status": 200
