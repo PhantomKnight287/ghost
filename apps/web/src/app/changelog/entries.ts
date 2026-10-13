@@ -9,6 +9,96 @@ export const CHANGELOG: {
   body: string;
 }[] = [
   {
+    date: "2026-10-13",
+    title: "Download source code",
+    body: "Download any branch, tag or commit as a zip or tarball from the Code button. Every release lists its source code archives with their size and download count, and `gh release download --archive` works against Ghost.",
+  },
+  {
+    date: "2026-10-13",
+    title: "Crawler rules",
+    body: "Search engines index repositories, issues and pull requests, and skip the endless commit, file and download pages. The API asks crawlers to stay out entirely.",
+  },
+  {
+    date: "2026-10-12",
+    title: "Pull request links on push",
+    body: "Pushing a branch prints a link to open a pull request for it, and the matching `gh pr create` command; a branch that already has an open pull request links to it instead.",
+  },
+  {
+    date: "2026-10-12",
+    title: "Clone URLs open the repository",
+    body: "Opening a repository's clone URL in a browser takes you to the repository page instead of an error.",
+  },
+  {
+    date: "2026-10-12",
+    title: "Mention icons show state",
+    body: 'A "mentioned this" entry on an issue or pull request timeline is coloured by the state of the thread it came from: open, closed or merged.',
+  },
+  {
+    date: "2026-10-12",
+    title: "OAuth app access restrictions",
+    body: `Organizations can require an admin to approve an OAuth app before it reaches their repositories. Members ask for an app, and admins approve or deny it from organization settings. See [Managing access](${DOCS_URL}/oauth-apps/managing-access).`,
+  },
+  {
+    date: "2026-10-12",
+    title: "Releases from the GitHub CLI",
+    body: `\`gh release\` works against Ghost: create, edit, list, view and delete releases, and upload and download their assets. See [GitHub CLI](${DOCS_URL}/github-cli).`,
+  },
+  {
+    date: "2026-10-12",
+    title: "Learn how Ghost works",
+    body: "A new guide walks contributors through how Ghost works inside, so they can find their way around the code before making a change.",
+  },
+  {
+    date: "2026-10-11",
+    title: "Pull requests from the GitHub CLI",
+    body: `\`gh pr\` works against Ghost: list, view, create, edit, check out, merge, close and reopen pull requests, and mark them ready or draft. See [GitHub CLI](${DOCS_URL}/github-cli).`,
+  },
+  {
+    date: "2026-10-11",
+    title: "GitHub's REST API for issues",
+    body: "Ghost serves GitHub's REST routes for issues, comments, labels and assignees, with GitHub's paging, so `gh label`, `gh api --paginate` and typed SDKs such as octokit and PyGithub work against it.",
+  },
+  {
+    date: "2026-10-11",
+    title: "GitHub CLI support, checked against gh",
+    body: "Every request the GitHub CLI makes in Ghost's tests is recorded, and CI fails when gh asks for something Ghost does not serve.",
+  },
+  {
+    date: "2026-10-10",
+    title: "OAuth apps",
+    body: `Register OAuth apps in your account settings and let people sign in to them with their Ghost account, through the browser or the device flow. See [OAuth apps](${DOCS_URL}/oauth-apps).`,
+  },
+  {
+    date: "2026-10-10",
+    title: "Expiring tokens for OAuth apps",
+    body: `An OAuth app can make its tokens expire after 8 hours and hand out refresh tokens, the way GitHub does. See [Refreshing tokens](${DOCS_URL}/oauth-apps/refreshing-tokens).`,
+  },
+  {
+    date: "2026-10-10",
+    title: "Sign in to the GitHub CLI from the browser",
+    body: `\`gh auth login --web\`, \`gh auth refresh\` and \`gh auth setup-git\` work against Ghost. Tokens carry GitHub's scopes, and Ghost enforces them. See [GitHub CLI](${DOCS_URL}/github-cli).`,
+  },
+  {
+    date: "2026-10-10",
+    title: "Richer webhook payloads",
+    body: `Webhook deliveries formatted for chat carry more detail about the event. See [Webhooks](${DOCS_URL}/webhooks).`,
+  },
+  {
+    date: "2026-10-09",
+    title: "The GitHub CLI",
+    body: `Point the GitHub CLI at Ghost with \`GH_HOST\` to view, clone and create repositories, work with issues, manage SSH keys and call \`gh api\`. Ghost serves GitHub's GraphQL and REST APIs for them. See [GitHub CLI](${DOCS_URL}/github-cli).`,
+  },
+  {
+    date: "2026-10-09",
+    title: "Co-authors count as contributors",
+    body: "Everyone named in a commit's `Co-authored-by` trailers is counted as a contributor to the repository, and each commit is counted once.",
+  },
+  {
+    date: "2026-10-09",
+    title: "Fewer release webhooks",
+    body: "Editing a release sends a `release.edited` webhook only when something actually changed.",
+  },
+  {
     date: "2026-10-08",
     title: "Link previews for releases",
     body: "Sharing a repository's releases, or a single release, now shows a preview card with its name, notes, author and assets. Every preview card has a new look to match the rest of Ghost.",
