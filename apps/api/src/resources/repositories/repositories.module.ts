@@ -15,6 +15,7 @@ import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { ReleasesModule } from '../releases/releases.module.js';
 import { StorageModule } from '../storage/storage.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
@@ -27,7 +28,8 @@ import { LfsService } from '../../services/git/lfs/lfs.service.js';
   imports: [
     StorageModule,
     MaterializerModule,
-    // Only code search is guarded: it is the one endpoint whose cost a query string decides. Counters live in this process, so with N replicas a client gets N times the limit.
+    ReleasesModule,
+    // Only endpoints whose cost the caller decides are guarded: code search, the path list and source archives. Counters live in this process, so with N replicas a client gets N times the limit.
     ThrottlerModule.forRoot({
       throttlers: [
         {
@@ -37,7 +39,7 @@ import { LfsService } from '../../services/git/lfs/lfs.service.js';
         },
       ],
       getTracker: (request) => rateLimitTracker(request as Request),
-      errorMessage: 'Too many searches. Try again in a minute.',
+      errorMessage: 'Too many requests. Try again in a minute.',
     }),
   ],
   controllers: [RepositoriesController, SearchController, TransfersController],

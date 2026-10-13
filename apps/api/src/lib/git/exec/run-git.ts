@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import type { Readable } from 'node:stream';
+import { PassThrough, type Readable } from 'node:stream';
 import { StringDecoder } from 'node:string_decoder';
 
 import { GitCommandFailedError } from './exec.errors.js';
@@ -66,13 +66,33 @@ export async function runGitBuffer({
   });
 }
 
-/** git's stdout as a stream, for output too large to hold in memory. */
+/** git's stdout as a stream, for output too large to hold in memory. It ends only once git exits cleanly, and a failing git errors it instead, so output cut short is never mistaken for a whole file. A consumer that stops reading kills git. */
 export function runGitReadable({ args, gitDir, env }: RunGitOptions): Readable {
   const child = spawnGit({ args, gitDir, env });
   child.stdin.end();
-  child.on('error', (error) => child.stdout.destroy(error));
 
-  return child.stdout;
+  const output = new PassThrough();
+  const stderr: Buffer[] = [];
+  child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
+  // stdout can reach its end before git's exit status is known, so the end is held back until `close`.
+  child.stdout.pipe(output, { end: false });
+  child.on('error', (error) => output.destroy(error));
+  child.on('close', (code) => {
+    if (output.destroyed) return;
+    if (code === 0) return void output.end();
+    output.destroy(
+      new GitCommandFailedError(
+        args[0],
+        code,
+        Buffer.concat(stderr).toString('utf8').trim(),
+      ),
+    );
+  });
+  output.on('close', () => {
+    if (child.exitCode === null) child.kill('SIGTERM');
+  });
+
+  return output;
 }
 
 /** {@link runGit} that yields stdout as git produces it. A consumer that stops iterating kills git, so the exit status is only checked once the stream drains. */

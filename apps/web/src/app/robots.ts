@@ -22,6 +22,7 @@ export default function robots(): MetadataRoute.Robots {
         "/*/*/pull/*/files",
         "/*/*/pull/*/commits",
         "/*/*/releases/download/",
+        "/*/*/archive/",
         "/*/*/search",
       ],
     },

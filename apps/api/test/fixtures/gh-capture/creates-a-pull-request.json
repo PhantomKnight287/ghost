@@ -75,9 +75,7 @@
             "headRefName": "feature",
             "owner": "<login>",
             "repo": "tools",
-            "states": [
-              "OPEN"
-            ]
+            "states": ["OPEN"]
           }
         },
         "status": 200

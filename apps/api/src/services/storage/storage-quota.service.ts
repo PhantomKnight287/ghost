@@ -4,13 +4,13 @@ import { ConfigService } from '@nestjs/config';
 import { and, eq, gt, isNotNull, ne, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import type { DomainError } from '../../domain/errors.js';
 import type { Executor } from '../../lib/db/executor.js';
 import { DEFAULT_RELEASE_ASSET_MAX_BYTES } from '../../lib/releases/release-assets.js';
 import { PUT_OBJECT_MAX_BYTES } from '../../lib/s3/s3.limits.js';
 import { parseByteSize } from '../../lib/storage/byte-size.js';
 import { RESERVATION_TTL } from '../../lib/storage/reservation.js';
 import {
-  MergeStorageQuotaExceededError,
   PullRefWriteTooLargeError,
   StorageQuotaExceededError,
   UnmergedPullRefQuotaExceededError,
@@ -153,7 +153,18 @@ export class StorageQuotaService {
             ),
           ),
         );
-      used += Number(assets?.used ?? 0);
+      // Source archives Ghost builds for a release bill the repository's account like the files uploaded to it.
+      const [archives] = await executor
+        .select({
+          used: sql<string>`coalesce(sum(coalesce(${schema.release.zipballSize}, 0) + coalesce(${schema.release.tarballSize}, 0)), 0)`,
+        })
+        .from(schema.release)
+        .innerJoin(
+          schema.repository,
+          eq(schema.repository.id, schema.release.repositoryId),
+        )
+        .where(repositories);
+      used += Number(assets?.used ?? 0) + Number(archives?.used ?? 0);
     }
 
     // Attachments bill whoever uploaded them, wherever they are posted, so commenting on someone else's repository never fills the owner's quota.
@@ -276,17 +287,18 @@ export class StorageQuotaService {
     });
   }
 
-  /** Refuses a merge once `account` is at or past its quota. A merge needs room left, not room enough: the pull refs it starts billing may carry the account past its quota, and the next merge is the one refused. Run inside the merge's transaction, so merges into one account see each other. */
-  async assertRoomToMerge(
+  /** Refuses a write once `account` is at or past its quota, with `refusal` naming what was refused. It needs room left, not room enough: a merge's pull refs or a release's source archives may carry the account past its quota, and the next one is refused. Run inside the write's transaction, so writes into one account see each other. */
+  async assertRoom(
     account: StorageAccount,
     kind: StorageKind,
+    refusal: new (used: number, quota: number) => DomainError,
     tx: Executor,
   ) {
     const quota = await this.quotaOf(account, kind, tx);
     if (quota === null) return;
     await this.lockAccount(account, kind, tx);
     const used = await this.usageOf(account, kind, tx);
-    if (used >= quota) throw new MergeStorageQuotaExceededError(used, quota);
+    if (used >= quota) throw new refusal(used, quota);
   }
 
   private lockAccount(

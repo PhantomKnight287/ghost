@@ -2,14 +2,20 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
+  Logger,
   Param,
   Post,
+  Res,
   UseFilters,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import type { Response } from 'express';
 
+import type { ArchiveFormat } from '../../../lib/git/archive/archive.js';
+import { sendArchive } from '../../../lib/http/send-archive.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
@@ -21,6 +27,8 @@ import { GithubReposService } from './repos.service.js';
 @AllowAnonymous()
 @UseFilters(GithubRestFilter)
 export class ReposController {
+  private readonly logger = new Logger(ReposController.name);
+
   constructor(private readonly repos: GithubReposService) {}
 
   @Get('repos/:owner/:repo')
@@ -44,6 +52,63 @@ export class ReposController {
     @Viewer() viewer: GithubViewer | null,
   ) {
     return this.repos.readme({ owner, repo, viewer });
+  }
+
+  // A ref may hold slashes (`feat/x`, `refs/heads/feat/x`), so it is the rest of the path.
+  @Get('repos/:owner/:repo/zipball{/*ref}')
+  @ApiOperation({ summary: 'A zip of the repository at a ref' })
+  zipball(
+    @Param('owner') owner: string,
+    @Param('repo') repo: string,
+    @Param('ref') ref: string[] | undefined,
+    @Viewer() viewer: GithubViewer | null,
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @Res() response: Response,
+  ) {
+    return this.archive(
+      'zip',
+      { owner, repo, ref: ref?.join('/'), viewer, ifNoneMatch },
+      response,
+    );
+  }
+
+  @Get('repos/:owner/:repo/tarball{/*ref}')
+  @ApiOperation({ summary: 'A gzipped tarball of the repository at a ref' })
+  tarball(
+    @Param('owner') owner: string,
+    @Param('repo') repo: string,
+    @Param('ref') ref: string[] | undefined,
+    @Viewer() viewer: GithubViewer | null,
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @Res() response: Response,
+  ) {
+    return this.archive(
+      'tar.gz',
+      { owner, repo, ref: ref?.join('/'), viewer, ifNoneMatch },
+      response,
+    );
+  }
+
+  private async archive(
+    format: ArchiveFormat,
+    {
+      ifNoneMatch,
+      ...target
+    }: {
+      owner: string;
+      repo: string;
+      ref: string | undefined;
+      viewer: GithubViewer | null;
+      ifNoneMatch: string | undefined;
+    },
+    response: Response,
+  ) {
+    const archive = await this.repos.archive({ ...target, format });
+    await sendArchive(response, archive, {
+      format,
+      ifNoneMatch,
+      logger: this.logger,
+    });
   }
 
   @Post('user/repos')

@@ -12,6 +12,8 @@ describe('refresh tokens', () => {
   it('hash to a stable sha256 hex digest', () => {
     expect(hashRefreshToken('ghost_rt_x')).toBe(hashRefreshToken('ghost_rt_x'));
     expect(hashRefreshToken('ghost_rt_x')).toMatch(/^[0-9a-f]{64}$/);
-    expect(hashRefreshToken('ghost_rt_y')).not.toBe(hashRefreshToken('ghost_rt_x'));
+    expect(hashRefreshToken('ghost_rt_y')).not.toBe(
+      hashRefreshToken('ghost_rt_x'),
+    );
   });
 });

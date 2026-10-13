@@ -1,3 +1,5 @@
+import type { ArchiveFormat } from '../git/archive/archive.js';
+
 export const RELEASE_ASSET_PREFIX = 'release-assets';
 
 export const DEFAULT_RELEASE_ASSET_MAX_BYTES = 2 * 1024 ** 3;
@@ -27,4 +29,13 @@ export function isValidAssetName(name: string) {
     // no separators, no control characters
     !/[/\\\u0000-\u001f\u007f]/.test(name)
   );
+}
+
+/** Where a release's source archive lives: under the release's prefix, so it goes when the release or the repository does. Asset ids start `asset_`, so the names cannot meet. */
+export function releaseSourceKey(
+  repositoryId: string,
+  releaseId: string,
+  format: ArchiveFormat,
+) {
+  return `${releaseAssetKey(repositoryId, releaseId)}source.${format}`;
 }

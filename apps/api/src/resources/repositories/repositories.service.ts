@@ -23,6 +23,7 @@ import { GetRepositoriesQueryDTO } from './dto/get-repositories.dto.js';
 import { UpdateRepositoryRequestDTO } from './dto/update-repository.dto.js';
 import { UsersService } from '../../services/users/users.service.js';
 import {
+  ArchivesBusyError,
   BlobNotFoundError,
   BranchNotFoundError,
   CannotForkOwnRepositoryError,
@@ -69,9 +70,16 @@ import {
   normalizeTreePath,
 } from '../../lib/git/tree/tree-path.js';
 import {
+  resolveCommit,
   resolveDefaultRef,
   resolveRevision,
 } from '../../lib/git/tree/resolve-ref.js';
+import {
+  type ArchiveFormat,
+  archiveName,
+  type SourceArchive,
+  streamArchive,
+} from '../../lib/git/archive/archive.js';
 import type { GetRepositoryContentsResponseDTO } from './dto/get-repository-contents.dto.js';
 import type { GetRepositoryPathsResponseDTO } from './dto/get-repository-paths.dto.js';
 import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
@@ -120,6 +128,7 @@ import { StorageQuotaService } from '../../services/storage/storage-quota.servic
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 import { S3Service } from '../../services/s3/s3.service.js';
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
+import { ReleaseArchivesService } from '../releases/release-archives.service.js';
 import {
   LFS_POINTER_MAX_BYTES,
   parseLfsPointer,
@@ -141,10 +150,13 @@ const RESERVED_REPOSITORY_SLUGS = new Set(['settings', 'teams']);
 const DEFAULT_PAGE_SIZE = 20;
 const MIN_LANGUAGE_PERCENT = 0.5;
 const DEFAULT_SEARCH_LIMIT = 20;
+// Each archive is a git process compressing a whole tree; past this, callers are told to come back.
+const MAX_ARCHIVES_IN_FLIGHT = 2;
 
 @Injectable()
 export class RepositoriesService {
   private readonly logger = new Logger(RepositoriesService.name);
+  private archivesInFlight = 0;
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -161,6 +173,7 @@ export class RepositoriesService {
     private readonly s3: S3Service,
     private readonly quota: StorageQuotaService,
     private readonly lfs: LfsService,
+    private readonly releaseArchives: ReleaseArchivesService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -1419,6 +1432,61 @@ export class RepositoriesService {
       path,
       size: blob.size,
       content: isTextBlob(blob.content) ? blob.content.toString('utf8') : null,
+    };
+  }
+
+  async getArchive({
+    username,
+    repo,
+    requesterId,
+    ref: requestedRef,
+    format,
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    ref?: string;
+    format: ArchiveFormat;
+  }): Promise<SourceArchive> {
+    const { repository, directory, ref, detached } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: requestedRef,
+    });
+    const commit = await resolveCommit(directory, ref);
+    // an empty repository's default branch names no commit yet
+    if (!commit) throw new BranchNotFoundError(requestedRef ?? ref);
+
+    const name = archiveName(repository.slug, requestedRef?.trim() || ref);
+    // a tag is detached; one with a release has its archives stored and counted
+    const release =
+      detached && requestedRef
+        ? await this.releaseArchives.forTag(repository, requestedRef.trim())
+        : null;
+    return {
+      commit,
+      // only a full sha names one commit for good; a push can move a tag, and a short sha can grow ambiguous
+      immutable: commit === requestedRef?.trim(),
+      filename: `${name}.${format}`,
+      open: async () => {
+        if (release) {
+          return this.releaseArchives.open(repository, release, commit, format);
+        }
+        // ponytail: per-process cap; move to a shared limiter if the API runs more than one instance.
+        if (this.archivesInFlight >= MAX_ARCHIVES_IN_FLIGHT) {
+          throw new ArchivesBusyError();
+        }
+        this.archivesInFlight++;
+        const stream = streamArchive({
+          gitDir: directory,
+          commit,
+          format,
+          prefix: name,
+        });
+        stream.once('close', () => this.archivesInFlight--);
+        return { stream };
+      },
     };
   }
 

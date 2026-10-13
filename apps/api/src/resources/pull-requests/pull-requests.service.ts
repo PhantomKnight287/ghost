@@ -66,6 +66,7 @@ import {
 import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
 import type { RefTransition } from '../../lib/git/wal/wal.types.js';
 import { UsersService } from '../../services/users/users.service.js';
+import { MergeStorageQuotaExceededError } from '../../lib/storage/storage.errors.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import {
   storageAccountOf,
@@ -614,15 +615,17 @@ export class PullRequestsService {
         if (locked.state !== 'open') {
           throw new PullRequestNotOpenError(locked.state);
         }
-        await this.quota.assertRoomToMerge(
+        await this.quota.assertRoom(
           storageAccountOf(base),
           billedKindOf(base, 'repository'),
+          MergeStorageQuotaExceededError,
           tx,
         );
         if (lfsObjects.length > 0) {
-          await this.quota.assertRoomToMerge(
+          await this.quota.assertRoom(
             storageAccountOf(base),
             billedKindOf(base, 'lfs'),
+            MergeStorageQuotaExceededError,
             tx,
           );
           await this.lfs.record(tx, lfsObjects, base.id);

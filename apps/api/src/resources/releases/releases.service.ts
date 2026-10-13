@@ -28,10 +28,16 @@ import {
   TagTargetNotFoundError,
 } from '../../lib/releases/releases.errors.js';
 import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
+import { ReleaseStorageQuotaExceededError } from '../../lib/storage/storage.errors.js';
+import {
+  billedKindOf,
+  storageAccountOf,
+} from '../../lib/storage/storage-account.js';
 import { withTempDir } from '../../lib/temp-dir.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import type {
   CreateReleaseRequestDTO,
@@ -40,6 +46,7 @@ import type {
   ReleaseDTO,
   UpdateReleaseRequestDTO,
 } from './dto/release.dto.js';
+import { ReleaseArchivesService } from './release-archives.service.js';
 import {
   ReleaseAssetsService,
   releaseAssetColumns,
@@ -77,6 +84,8 @@ export class ReleasesService {
     private readonly pushTransaction: PushTransactionService,
     private readonly users: UsersService,
     private readonly assets: ReleaseAssetsService,
+    private readonly archives: ReleaseArchivesService,
+    private readonly quota: StorageQuotaService,
   ) {}
 
   async listReleases({
@@ -193,6 +202,15 @@ export class ReleasesService {
         ),
       );
     if (existing) throw new ReleaseAlreadyExistsError(body.tagName);
+    // Checked before the tag is written. Its source archives bill this account and may carry it past its quota; the next release is the one refused.
+    await this.db.transaction((tx) =>
+      this.quota.assertRoom(
+        storageAccountOf(repository),
+        billedKindOf(repository, 'asset'),
+        ReleaseStorageQuotaExceededError,
+        tx,
+      ),
+    );
 
     const directory = await this.materializer.open(repository);
     const tags = await listTags(directory);
@@ -242,6 +260,11 @@ export class ReleasesService {
         await publishEvent(tx, { type: 'release.published', ...event });
       }
       return row;
+    });
+    void this.archives.buildInBackground(repository, {
+      id: created.id,
+      tagName: body.tagName,
+      sourceCommitSha: null,
     });
 
     return this.readOne(repository, eq(schema.release.id, created.id));
@@ -479,6 +502,11 @@ export class ReleasesService {
         isPrerelease: schema.release.isPrerelease,
         isLatest: sql<boolean>`coalesce(${schema.release.id} = ${latestReleaseId(repository.id)}, false)`,
         authorUsername: schema.user.username,
+        sourceCommitSha: schema.release.sourceCommitSha,
+        zipballSize: schema.release.zipballSize,
+        tarballSize: schema.release.tarballSize,
+        zipballDownloadCount: schema.release.zipballDownloadCount,
+        tarballDownloadCount: schema.release.tarballDownloadCount,
         publishedAt: isoTimestamp(schema.release.publishedAt),
         createdAt: isoTimestamp(schema.release.createdAt),
         updatedAt: isoTimestamp(schema.release.updatedAt),
@@ -490,10 +518,17 @@ export class ReleasesService {
   }
 
   /** Commits come from git, not the row: a tag can be moved or deleted by a push at any time. Assets still uploading are left out. */
-  private async expand<T extends { id: string; tagName: string }>(
-    repository: AuthorizedRepository,
-    releases: T[],
-  ) {
+  private async expand<
+    T extends {
+      id: string;
+      tagName: string;
+      sourceCommitSha: string | null;
+      zipballSize: number | null;
+      tarballSize: number | null;
+      zipballDownloadCount: number;
+      tarballDownloadCount: number;
+    },
+  >(repository: AuthorizedRepository, releases: T[]) {
     if (releases.length === 0) return [];
 
     const [tags, assets] = await Promise.all([
@@ -518,13 +553,40 @@ export class ReleasesService {
     const shas = new Map(tags.map((tag) => [tag.name, tag.sha]));
     const viewerCanEdit = atLeast(repository.viewerRole, 'write');
 
-    return releases.map((release) => ({
-      ...release,
-      commitSha: shas.get(release.tagName) ?? null,
-      assets: assets
-        .filter((asset) => asset.releaseId === release.id)
-        .map(({ releaseId: _, ...asset }) => asset),
-      viewerCanEdit,
-    }));
+    return releases.map(
+      ({
+        sourceCommitSha,
+        zipballSize,
+        tarballSize,
+        zipballDownloadCount,
+        tarballDownloadCount,
+        ...release
+      }) => {
+        const commitSha = shas.get(release.tagName) ?? null;
+        // archives built from a commit the tag has since moved off are rebuilt on the next download, and their size is not yet known
+        const current = commitSha !== null && sourceCommitSha === commitSha;
+        return {
+          ...release,
+          commitSha,
+          source:
+            commitSha === null
+              ? null
+              : {
+                  zipball: {
+                    size: current ? zipballSize : null,
+                    downloadCount: zipballDownloadCount,
+                  },
+                  tarball: {
+                    size: current ? tarballSize : null,
+                    downloadCount: tarballDownloadCount,
+                  },
+                },
+          assets: assets
+            .filter((asset) => asset.releaseId === release.id)
+            .map(({ releaseId: _, ...asset }) => asset),
+          viewerCanEdit,
+        };
+      },
+    );
   }
 }

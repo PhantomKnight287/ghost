@@ -3,8 +3,10 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   Patch,
   Post,
@@ -31,6 +33,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
 import type { Response } from 'express';
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { sendArchive } from '../../lib/http/send-archive.js';
 import {
   CreateRepositoryRequestDTO,
   CreateRepositoryResponseDTO,
@@ -39,6 +42,7 @@ import {
   GetRepositoriesQueryDTO,
   GetRepositoriesResponseDTO,
 } from './dto/get-repositories.dto.js';
+import { GetRepositoryArchiveQueryDTO } from './dto/get-repository-archive.dto.js';
 import {
   GetRepositoryBlobQueryDTO,
   GetRepositoryBlobResponseDTO,
@@ -98,6 +102,8 @@ import { RepositoriesService } from './repositories.service.js';
 @Controller('repositories')
 @ApiTags('Repositories')
 export class RepositoriesController {
+  private readonly logger = new Logger(RepositoriesController.name);
+
   constructor(private readonly repositoriesService: RepositoriesService) {}
 
   @Post()
@@ -524,6 +530,41 @@ export class RepositoriesController {
     });
 
     return new StreamableFile(blob.stream);
+  }
+
+  @Get(':username/:slug/archive')
+  @UseGuards(ThrottlerGuard)
+  @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'Download a source archive',
+    description:
+      'The files at a branch, tag or commit as a zip or gzipped tarball, under one top-level folder named `<repo>-<ref>`. Files stored with LFS are archived as their pointers. The ETag is the commit, so a conditional request is answered without building the archive.',
+  })
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiServiceUnavailableResponse({ type: ErrorResponseDTO })
+  async getArchive(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession | undefined,
+    @Query() query: GetRepositoryArchiveQueryDTO,
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @Res() response: Response,
+  ): Promise<void> {
+    const archive = await this.repositoriesService.getArchive({
+      username,
+      repo: slug,
+      ref: query.ref,
+      format: query.format,
+      requesterId: session?.user?.id,
+    });
+
+    await sendArchive(response, archive, {
+      format: query.format,
+      ifNoneMatch,
+      logger: this.logger,
+    });
   }
 
   @Get(':username/:slug/commits')

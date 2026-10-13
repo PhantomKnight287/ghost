@@ -116,9 +116,7 @@
           "variables": {
             "input": {
               "labelableId": "I_<id>",
-              "labelIds": [
-                "LA_<id>"
-              ]
+              "labelIds": ["LA_<id>"]
             }
           }
         },

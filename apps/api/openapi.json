@@ -1005,6 +1005,108 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/archive": {
+      "get": {
+        "description": "The files at a branch, tag or commit as a zip or gzipped tarball, under one top-level folder named `<repo>-<ref>`. Files stored with LFS are archived as their pointers. The ETag is the commit, so a conditional request is answered without building the archive.",
+        "operationId": "RepositoriesController_getArchive",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "zip",
+              "type": "string",
+              "enum": [
+                "zip",
+                "tar.gz"
+              ]
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch, tag or commit sha to archive. Accepts `main`, `refs/heads/main`, `v1.0.0` or a commit sha. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          },
+          {
+            "name": "if-none-match",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download a source archive",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
     "/api/repositories/{username}/{slug}/commits": {
       "get": {
         "description": "History of a branch or commit, newest first, optionally narrowed to one path. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
@@ -2043,6 +2145,687 @@
         "summary": "Storage usage of an account",
         "tags": [
           "Storage"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/releases": {
+      "get": {
+        "description": "Newest first. Drafts are listed only for people who can write to the repository. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
+        "operationId": "ReleasesController_listReleases",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetReleasesResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List releases",
+        "tags": [
+          "Releases"
+        ]
+      },
+      "post": {
+        "description": "Needs write access. A tag that does not exist yet is created at `target`, or at the default branch.",
+        "operationId": "ReleasesController_createRelease",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReleaseRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The tag name is not one git accepts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The repository, or the target to tag, does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The tag already has a release.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a release",
+        "tags": [
+          "Releases"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/releases/latest": {
+      "get": {
+        "description": "The most recently published release that is neither a draft nor a prerelease.",
+        "operationId": "ReleasesController_getLatestRelease",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read the latest release",
+        "tags": [
+          "Releases"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/releases/tags/{tag}": {
+      "get": {
+        "description": "A tag containing `/` is sent percent-encoded.",
+        "operationId": "ReleasesController_getReleaseByTag",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a release by tag",
+        "tags": [
+          "Releases"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/releases/{id}": {
+      "patch": {
+        "description": "Needs write access. Omitted fields are left as they are.",
+        "operationId": "ReleasesController_updateRelease",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReleaseRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Edit a release",
+        "tags": [
+          "Releases"
+        ]
+      },
+      "delete": {
+        "description": "Needs write access. The tag is kept.",
+        "operationId": "ReleasesController_deleteRelease",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a release",
+        "tags": [
+          "Releases"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/releases/{id}/assets": {
+      "post": {
+        "description": "Needs write access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`; the file's own type goes in `type`. The file counts against the storage quota of the repository's owner, when the instance sets one.",
+        "operationId": "ReleaseAssetsController_uploadReleaseAsset",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "query",
+            "description": "File name the asset is saved and downloaded under.",
+            "schema": {
+              "example": "ghost-linux-x64.tar.gz",
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Media type the file is served with. The request body itself is always `application/octet-stream`.",
+            "schema": {
+              "example": "application/gzip",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseAssetDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The file name is not a plain file name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The release already has an asset with this name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is over the per-file limit, or would take the owner over their storage quota.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The body was not sent as `application/octet-stream`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload a release asset",
+        "tags": [
+          "Releases"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/releases/tags/{tag}/assets/{name}": {
+      "get": {
+        "description": "Always served as an attachment. A tag or name containing `/` is sent percent-encoded.",
+        "operationId": "ReleaseAssetsController_downloadReleaseAsset",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download a release asset",
+        "tags": [
+          "Releases"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/releases/assets/{assetId}": {
+      "delete": {
+        "description": "Needs write access.",
+        "operationId": "ReleaseAssetsController_deleteReleaseAsset",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a release asset",
+        "tags": [
+          "Releases"
         ]
       }
     },
@@ -6505,687 +7288,6 @@
         ]
       }
     },
-    "/api/repositories/{username}/{repo}/releases": {
-      "get": {
-        "description": "Newest first. Drafts are listed only for people who can write to the repository. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
-        "operationId": "ReleasesController_listReleases",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "cursor",
-            "required": false,
-            "in": "query",
-            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Page size.",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 10,
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetReleasesResponseDTO"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List releases",
-        "tags": [
-          "Releases"
-        ]
-      },
-      "post": {
-        "description": "Needs write access. A tag that does not exist yet is created at `target`, or at the default branch.",
-        "operationId": "ReleasesController_createRelease",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReleaseRequestDTO"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReleaseDTO"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The tag name is not one git accepts.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The repository, or the target to tag, does not exist.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The tag already has a release.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Create a release",
-        "tags": [
-          "Releases"
-        ]
-      }
-    },
-    "/api/repositories/{username}/{repo}/releases/latest": {
-      "get": {
-        "description": "The most recently published release that is neither a draft nor a prerelease.",
-        "operationId": "ReleasesController_getLatestRelease",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReleaseDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Read the latest release",
-        "tags": [
-          "Releases"
-        ]
-      }
-    },
-    "/api/repositories/{username}/{repo}/releases/tags/{tag}": {
-      "get": {
-        "description": "A tag containing `/` is sent percent-encoded.",
-        "operationId": "ReleasesController_getReleaseByTag",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "tag",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReleaseDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Read a release by tag",
-        "tags": [
-          "Releases"
-        ]
-      }
-    },
-    "/api/repositories/{username}/{repo}/releases/{id}": {
-      "patch": {
-        "description": "Needs write access. Omitted fields are left as they are.",
-        "operationId": "ReleasesController_updateRelease",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateReleaseRequestDTO"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReleaseDTO"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Edit a release",
-        "tags": [
-          "Releases"
-        ]
-      },
-      "delete": {
-        "description": "Needs write access. The tag is kept.",
-        "operationId": "ReleasesController_deleteRelease",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Delete a release",
-        "tags": [
-          "Releases"
-        ]
-      }
-    },
-    "/api/repositories/{username}/{repo}/releases/{id}/assets": {
-      "post": {
-        "description": "Needs write access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`; the file's own type goes in `type`. The file counts against the storage quota of the repository's owner, when the instance sets one.",
-        "operationId": "ReleaseAssetsController_uploadReleaseAsset",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "name",
-            "required": true,
-            "in": "query",
-            "description": "File name the asset is saved and downloaded under.",
-            "schema": {
-              "example": "ghost-linux-x64.tar.gz",
-              "type": "string"
-            }
-          },
-          {
-            "name": "type",
-            "required": false,
-            "in": "query",
-            "description": "Media type the file is served with. The request body itself is always `application/octet-stream`.",
-            "schema": {
-              "example": "application/gzip",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReleaseAssetDTO"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The file name is not a plain file name.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The release already has an asset with this name.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "The file is over the per-file limit, or would take the owner over their storage quota.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "The body was not sent as `application/octet-stream`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Upload a release asset",
-        "tags": [
-          "Releases"
-        ]
-      }
-    },
-    "/api/repositories/{username}/{repo}/releases/tags/{tag}/assets/{name}": {
-      "get": {
-        "description": "Always served as an attachment. A tag or name containing `/` is sent percent-encoded.",
-        "operationId": "ReleaseAssetsController_downloadReleaseAsset",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "tag",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "name",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            },
-            "description": ""
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Download a release asset",
-        "tags": [
-          "Releases"
-        ]
-      }
-    },
-    "/api/repositories/{username}/{repo}/releases/assets/{assetId}": {
-      "delete": {
-        "description": "Needs write access.",
-        "operationId": "ReleaseAssetsController_deleteReleaseAsset",
-        "parameters": [
-          {
-            "name": "username",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "assetId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDTO"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Delete a release asset",
-        "tags": [
-          "Releases"
-        ]
-      }
-    },
     "/api/repositories/{username}/{repo}/attachments": {
       "post": {
         "description": "Needs read access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`. Embed the file by linking `/api/attachments/{id}` in an issue, pull request, comment or release; one no text in the repository mentions is removed after a day. The file counts against the uploader's asset quota, when the instance sets one.",
@@ -10317,6 +10419,108 @@
           }
         },
         "summary": "The repository's README at the default branch, base64 as GitHub returns it",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/zipball/{ref}": {
+      "get": {
+        "operationId": "ReposController_zipball",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "if-none-match",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A zip of the repository at a ref",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/tarball/{ref}": {
+      "get": {
+        "operationId": "ReposController_tarball",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "if-none-match",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A gzipped tarball of the repository at a ref",
         "tags": [
           "GitHub compatibility"
         ]
@@ -14970,6 +15174,240 @@
           "asset"
         ]
       },
+      "ReleaseSourceArchiveDTO": {
+        "type": "object",
+        "properties": {
+          "size": {
+            "type": "number",
+            "nullable": true,
+            "description": "Bytes. `null` until the archive is built from the commit the tag points at now."
+          },
+          "downloadCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "size",
+          "downloadCount"
+        ]
+      },
+      "ReleaseSourceDTO": {
+        "type": "object",
+        "properties": {
+          "zipball": {
+            "$ref": "#/components/schemas/ReleaseSourceArchiveDTO"
+          },
+          "tarball": {
+            "$ref": "#/components/schemas/ReleaseSourceArchiveDTO"
+          }
+        },
+        "required": [
+          "zipball",
+          "tarball"
+        ]
+      },
+      "ReleaseAssetDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "ghost-linux-x64.tar.gz"
+          },
+          "contentType": {
+            "type": "string",
+            "example": "application/gzip"
+          },
+          "size": {
+            "type": "number",
+            "description": "Bytes."
+          },
+          "downloadCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "contentType",
+          "size",
+          "downloadCount",
+          "createdAt"
+        ]
+      },
+      "ReleaseDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tagName": {
+            "type": "string",
+            "description": "Tag name, without the `refs/tags/` prefix.",
+            "example": "v1.0.0"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "`null` reads as the tag name."
+          },
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown."
+          },
+          "isDraft": {
+            "type": "boolean",
+            "description": "Only people who can write to the repository see drafts."
+          },
+          "isPrerelease": {
+            "type": "boolean"
+          },
+          "isLatest": {
+            "type": "boolean",
+            "description": "The most recently published release that is neither a draft nor a prerelease."
+          },
+          "authorUsername": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null once the author account is deleted."
+          },
+          "commitSha": {
+            "type": "string",
+            "nullable": true,
+            "description": "The commit the tag points at. `null` when the tag has since been deleted."
+          },
+          "source": {
+            "nullable": true,
+            "description": "The source archives of the commit the tag points at. `null` when the tag has since been deleted.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReleaseSourceDTO"
+              }
+            ]
+          },
+          "assets": {
+            "description": "By name.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReleaseAssetDTO"
+            }
+          },
+          "publishedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "viewerCanEdit": {
+            "type": "boolean",
+            "description": "True when the requesting user can write to the repository."
+          }
+        },
+        "required": [
+          "id",
+          "tagName",
+          "name",
+          "body",
+          "isDraft",
+          "isPrerelease",
+          "isLatest",
+          "authorUsername",
+          "commitSha",
+          "source",
+          "assets",
+          "publishedAt",
+          "createdAt",
+          "updatedAt",
+          "viewerCanEdit"
+        ]
+      },
+      "GetReleasesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "releases": {
+            "description": "Newest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReleaseDTO"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "releases",
+          "nextCursor"
+        ]
+      },
+      "CreateReleaseRequestDTO": {
+        "type": "object",
+        "properties": {
+          "tagName": {
+            "type": "string",
+            "description": "An existing tag, or a new one to create at `target`. Without the `refs/tags/` prefix.",
+            "example": "v1.0.0"
+          },
+          "target": {
+            "type": "string",
+            "description": "Branch or commit sha a new tag points at. Defaults to the default branch; ignored when the tag already exists.",
+            "example": "main"
+          },
+          "name": {
+            "type": "string",
+            "example": "First stable release"
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown."
+          },
+          "isDraft": {
+            "type": "boolean",
+            "default": false
+          },
+          "isPrerelease": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "tagName"
+        ]
+      },
+      "UpdateReleaseRequestDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "`null` falls back to the tag name."
+          },
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown. `null` clears the notes."
+          },
+          "isDraft": {
+            "type": "boolean",
+            "description": "Publishing a draft stamps `publishedAt` the first time."
+          },
+          "isPrerelease": {
+            "type": "boolean"
+          }
+        }
+      },
       "OrganizationRole": {
         "type": "string",
         "enum": [
@@ -17591,197 +18029,6 @@
           "createdAt",
           "updatedAt"
         ]
-      },
-      "ReleaseAssetDTO": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string",
-            "example": "ghost-linux-x64.tar.gz"
-          },
-          "contentType": {
-            "type": "string",
-            "example": "application/gzip"
-          },
-          "size": {
-            "type": "number",
-            "description": "Bytes."
-          },
-          "downloadCount": {
-            "type": "number"
-          },
-          "createdAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "contentType",
-          "size",
-          "downloadCount",
-          "createdAt"
-        ]
-      },
-      "ReleaseDTO": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tagName": {
-            "type": "string",
-            "description": "Tag name, without the `refs/tags/` prefix.",
-            "example": "v1.0.0"
-          },
-          "name": {
-            "type": "string",
-            "nullable": true,
-            "description": "`null` reads as the tag name."
-          },
-          "body": {
-            "type": "string",
-            "nullable": true,
-            "description": "Markdown."
-          },
-          "isDraft": {
-            "type": "boolean",
-            "description": "Only people who can write to the repository see drafts."
-          },
-          "isPrerelease": {
-            "type": "boolean"
-          },
-          "isLatest": {
-            "type": "boolean",
-            "description": "The most recently published release that is neither a draft nor a prerelease."
-          },
-          "authorUsername": {
-            "type": "string",
-            "nullable": true,
-            "description": "Null once the author account is deleted."
-          },
-          "commitSha": {
-            "type": "string",
-            "nullable": true,
-            "description": "The commit the tag points at. `null` when the tag has since been deleted."
-          },
-          "assets": {
-            "description": "By name.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ReleaseAssetDTO"
-            }
-          },
-          "publishedAt": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          },
-          "viewerCanEdit": {
-            "type": "boolean",
-            "description": "True when the requesting user can write to the repository."
-          }
-        },
-        "required": [
-          "id",
-          "tagName",
-          "name",
-          "body",
-          "isDraft",
-          "isPrerelease",
-          "isLatest",
-          "authorUsername",
-          "commitSha",
-          "assets",
-          "publishedAt",
-          "createdAt",
-          "updatedAt",
-          "viewerCanEdit"
-        ]
-      },
-      "GetReleasesResponseDTO": {
-        "type": "object",
-        "properties": {
-          "releases": {
-            "description": "Newest first.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ReleaseDTO"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "releases",
-          "nextCursor"
-        ]
-      },
-      "CreateReleaseRequestDTO": {
-        "type": "object",
-        "properties": {
-          "tagName": {
-            "type": "string",
-            "description": "An existing tag, or a new one to create at `target`. Without the `refs/tags/` prefix.",
-            "example": "v1.0.0"
-          },
-          "target": {
-            "type": "string",
-            "description": "Branch or commit sha a new tag points at. Defaults to the default branch; ignored when the tag already exists.",
-            "example": "main"
-          },
-          "name": {
-            "type": "string",
-            "example": "First stable release"
-          },
-          "body": {
-            "type": "string",
-            "description": "Markdown."
-          },
-          "isDraft": {
-            "type": "boolean",
-            "default": false
-          },
-          "isPrerelease": {
-            "type": "boolean",
-            "default": false
-          }
-        },
-        "required": [
-          "tagName"
-        ]
-      },
-      "UpdateReleaseRequestDTO": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "nullable": true,
-            "description": "`null` falls back to the tag name."
-          },
-          "body": {
-            "type": "string",
-            "nullable": true,
-            "description": "Markdown. `null` clears the notes."
-          },
-          "isDraft": {
-            "type": "boolean",
-            "description": "Publishing a draft stamps `publishedAt` the first time."
-          },
-          "isPrerelease": {
-            "type": "boolean"
-          }
-        }
       },
       "AttachmentDTO": {
         "type": "object",

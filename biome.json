@@ -8,6 +8,7 @@
       "!**/.next",
       "!**/node_modules",
       "!**/openapi.json",
+      "!**/github.schema.gql",
       "!**/src/lib/api/v1.d.ts",
       "!**/drizzle"
     ]

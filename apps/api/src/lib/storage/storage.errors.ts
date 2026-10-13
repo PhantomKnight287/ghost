@@ -50,3 +50,13 @@ export class ContentLengthRequiredError extends DomainError {
     super('An upload must declare its Content-Length');
   }
 }
+
+export class ReleaseStorageQuotaExceededError extends DomainError {
+  status: number = HttpStatus.PAYLOAD_TOO_LARGE;
+
+  constructor(used: number, quota: number) {
+    super(
+      `Storage quota exceeded: ${formatByteSize(used)} of ${formatByteSize(quota)} used, so no more releases can be created until space is freed`,
+    );
+  }
+}
