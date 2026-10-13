@@ -5,6 +5,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  // `unauthorized()` and `forbidden()`, rendering app/unauthorized.tsx and app/forbidden.tsx.
+  experimental: { authInterrupts: true },
   // Emits `.next/standalone` with only the server and its used dependencies.
   output: "standalone",
   // The app lives in a workspace, so tracing has to start at the repo root.
