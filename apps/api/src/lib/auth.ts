@@ -1,6 +1,7 @@
 import { apiKey } from '@better-auth/api-key';
 import { tryGetCurrentAuthEndpointContext } from '@better-auth/core/context';
 import { oauthProvider } from '@better-auth/oauth-provider';
+import { passkey } from '@better-auth/passkey';
 import { type Database, schema } from '@ghost/db';
 import { ac, roles } from '@ghost/permissions';
 import {
@@ -18,6 +19,7 @@ import {
   deviceAuthorization,
   jwt,
   organization,
+  twoFactor,
   username,
 } from 'better-auth/plugins';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -338,6 +340,7 @@ export function createAuth(db: Database, config: AuthConfig) {
       .map((endpoint) => endpoint.path)
       .filter((path) => !BROWSER_OAUTH_PATHS.has(path)),
     baseURL: config.baseURL,
+    appName: 'Ghost',
     trustedOrigins: config.trustedOrigins ?? [],
     advanced: {
       ...(config.cookieDomain
@@ -537,6 +540,12 @@ export function createAuth(db: Database, config: AuthConfig) {
       }),
       jwtPlugin,
       oauthPlugin,
+      passkey({
+        // The browser registers passkeys on the web app's page, so the relying party is its host, not the API's.
+        rpID: config.webAppUrl ? new URL(config.webAppUrl).hostname : undefined,
+        rpName: 'Ghost',
+      }),
+      twoFactor({ issuer: 'Ghost' }),
     ],
   });
 }

@@ -69,6 +69,24 @@ function AuthFormFieldError() {
   return errors.length > 0 ? <FieldError errors={errors} /> : null;
 }
 
+/** Shows the form-level server error, for forms with no field to attach it to. */
+function AuthFormServerError() {
+  const form = useFormContext();
+
+  return (
+    <form.Subscribe selector={(state) => state.errorMap.onServer}>
+      {(error) => {
+        const formError =
+          error && typeof error === "object" && "form" in error
+            ? error.form
+            : error;
+        const errors = getFormFieldErrors(formError ? [formError] : []);
+        return errors.length > 0 ? <FieldError errors={errors} /> : null;
+      }}
+    </form.Subscribe>
+  );
+}
+
 function setAuthFormServerError(
   form: AnyFormApi,
   error: unknown,
@@ -101,14 +119,35 @@ function clearAuthFormFieldServerError(form: AnyFormApi, fieldName: string) {
   }));
 }
 
-async function submitAuthForm(form: AnyFormApi) {
+/** Runs a non-submit action (resend, switch method) with the form's server error handling. */
+export async function runAuthFormAction(
+  form: AnyFormApi,
+  action: () => Promise<unknown>,
+  serverErrorMessage = DEFAULT_AUTH_FORM_SERVER_ERROR,
+) {
+  clearAuthFormServerError(form);
+  try {
+    await action();
+    return true;
+  } catch (error) {
+    if (!form.state.errorMap.onServer) {
+      setAuthFormServerError(form, error, serverErrorMessage);
+    }
+    return false;
+  }
+}
+
+export async function submitAuthForm(
+  form: AnyFormApi,
+  serverErrorMessage = DEFAULT_AUTH_FORM_SERVER_ERROR,
+) {
   clearAuthFormServerError(form);
   try {
     await form.handleSubmit();
     return form.state.isValid;
   } catch (error) {
     if (!form.state.errorMap.onServer) {
-      setAuthFormServerError(form, error, DEFAULT_AUTH_FORM_SERVER_ERROR);
+      setAuthFormServerError(form, error, serverErrorMessage);
     }
     return false;
   }
@@ -386,6 +425,7 @@ export const { useAppForm: useAuthForm } = createFormHook({
   fieldContext,
   formComponents: {
     AuthFormRoot,
+    AuthFormServerError,
     AuthFormSubmitButton,
   },
   formContext,

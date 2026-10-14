@@ -428,6 +428,13 @@
       "when": 1791872378802,
       "tag": "0060_giant_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1791986367350,
+      "tag": "0061_bent_maverick",
+      "breakpoints": true
     }
   ]
 }

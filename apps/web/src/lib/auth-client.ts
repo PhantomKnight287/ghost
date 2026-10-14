@@ -1,8 +1,10 @@
 import { apiKeyClient } from "@better-auth/api-key/client";
+import { passkeyClient } from "@better-auth/passkey/client";
 import { ac, roles } from "@ghost/permissions";
 import {
   deviceAuthorizationClient,
   organizationClient,
+  twoFactorClient,
   usernameClient,
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
@@ -23,5 +25,7 @@ export const authClient = createAuthClient({
       dynamicAccessControl: { enabled: true },
     }),
     deviceAuthorizationClient(),
+    passkeyClient(),
+    twoFactorClient(),
   ],
 });

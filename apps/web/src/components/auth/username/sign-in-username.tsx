@@ -19,6 +19,7 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
+import { useSignInContinuation } from "@/lib/auth/use-sign-in-continuation";
 import { usernamePlugin } from "@/lib/auth/username-plugin";
 import { useAuthForm, usePasswordValidator } from "../auth-form";
 import { LastUsedBadge } from "../last-login-method/last-used-badge";
@@ -37,12 +38,13 @@ export function SignInUsername() {
     socialProviders,
     viewPaths,
     navigate,
+    plugins,
     Link,
   } = useAuth<UsernameAuthClient>();
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions();
   const passwordValidator = usePasswordValidator();
-  const continueSignIn = () => navigate({ to: redirectTo });
+  const continueSignIn = useSignInContinuation();
 
   const { localization: usernameLocalization } = useAuthPlugin(usernamePlugin);
 
@@ -59,9 +61,9 @@ export function SignInUsername() {
     }
     resetFetchOptions();
   };
-  const signedIn = () => {
+  const signedIn = (data: unknown) => {
     sessionStorage.removeItem("better-auth-ui.verify-email");
-    continueSignIn();
+    continueSignIn(data);
   };
 
   const { mutate: signInEmail, isPending: isSignInEmailPending } =
@@ -166,6 +168,15 @@ export function SignInUsername() {
 
                   <LastUsedBadge method={["email", "username"]} floating />
                 </form.AuthFormSubmitButton>
+
+                {plugins.flatMap((plugin) =>
+                  (plugin.authButtons ?? []).map((AuthButton, index) => (
+                    <AuthButton
+                      key={`${plugin.id}-${index.toString()}`}
+                      view="signIn"
+                    />
+                  )),
+                )}
               </FieldGroup>
             </form.AuthFormRoot>
           </form.AppForm>
