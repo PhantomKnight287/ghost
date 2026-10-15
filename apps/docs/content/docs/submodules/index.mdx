@@ -1,0 +1,38 @@
+---
+title: Git submodules
+description: Use other repositories inside a Ghost repository with git submodules.
+---
+
+A repository on Ghost can contain [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules). Add them as with any other host:
+
+```bash
+git submodule add ../lib.git vendor/lib
+git commit -m "Add lib"
+git push
+```
+
+Clone with the submodules checked out:
+
+```bash
+git clone --recurse-submodules https://ghost.example.com/octo/app.git
+```
+
+After a pull that moves a submodule, run `git submodule update`, or pull with `--recurse-submodules`.
+
+## Relative URLs
+
+Prefer a relative URL such as `../lib.git` for a submodule that lives on the same Ghost instance. Git resolves it against the URL the superproject was cloned from, so a clone over SSH fetches the submodule over SSH and a clone over HTTPS fetches it over HTTPS with the same API key. A private submodule needs no extra credentials when the person cloning can read it.
+
+## In the browser
+
+The file list shows a submodule with the commit it is pinned to, such as `lib @ 3f78685`. The name links to the repository at that commit when the URL in `.gitmodules` points at the same Ghost instance, GitHub, GitLab or Codeberg. A submodule on any other host is shown without a link, with its URL on hover.
+
+A commit or pull request that moves a submodule shows the change as `Subproject commit 3f78685…9a1b2c3`, or as added or removed, instead of a file diff.
+
+## What leaves submodules out
+
+A submodule's files belong to its own repository, so the superproject does not count them anywhere:
+
+- Source archives (`.zip` and `.tar.gz`) contain an empty folder in place of each submodule, as `git archive` writes them.
+- Language statistics and code search cover the superproject's own files.
+- The file finder lists files only, so it does not show submodules.
