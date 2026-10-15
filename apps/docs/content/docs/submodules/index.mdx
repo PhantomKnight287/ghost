@@ -25,7 +25,13 @@ Prefer a relative URL such as `../lib.git` for a submodule that lives on the sam
 
 ## In the browser
 
-The file list shows a submodule with the commit it is pinned to, such as `lib @ 3f78685`. The name links to the repository at that commit when the URL in `.gitmodules` points at the same Ghost instance, GitHub, GitLab or Codeberg. A submodule on any other host is shown without a link, with its URL on hover.
+The file list shows a submodule with the commit it is pinned to, such as `lib @ 3f78685`, and its URL from `.gitmodules` on hover. The name links to:
+
+- the repository at that commit, when the URL points at the same Ghost instance over HTTPS, SSH or a relative path;
+- the repository at that commit on a host Ghost knows the page layout of: GitHub, GitLab and the GitLab instances of Debian, GNOME, freedesktop.org, Arch Linux, KDE and Framasoft, Codeberg, git.gay, Gitea, Disroot, Bitbucket, sourcehut and Gitee;
+- the repository's page on any other host. An SSH or `git://` URL is opened over HTTPS on the same host, without its port.
+
+Links to other sites open in a new tab. A URL that names no host, such as a path on the cloning machine, is shown without a link.
 
 A commit or pull request that moves a submodule shows the change as `Subproject commit 3f78685…9a1b2c3`, or as added or removed, instead of a file diff.
 

@@ -45,19 +45,63 @@ describe('submoduleHref', () => {
       'https://gitlab.com/group/sub/lib.git',
       `https://gitlab.com/group/sub/lib/-/tree/${COMMIT}`,
     ],
-  ])('links %s to its host', (url, expected) => {
+    [
+      'https://salsa.debian.org/debian/lib.git',
+      `https://salsa.debian.org/debian/lib/-/tree/${COMMIT}`,
+    ],
+    [
+      'https://git.gay/octo/lib.git',
+      `https://git.gay/octo/lib/src/commit/${COMMIT}`,
+    ],
+    [
+      'git@bitbucket.org:octo/lib.git',
+      `https://bitbucket.org/octo/lib/src/${COMMIT}`,
+    ],
+    [
+      'https://git.sr.ht/~octo/lib',
+      `https://git.sr.ht/~octo/lib/tree/${COMMIT}`,
+    ],
+    [
+      'https://gitee.com/octo/lib.git',
+      `https://gitee.com/octo/lib/tree/${COMMIT}`,
+    ],
+  ])('links %s to its host at the commit', (url, expected) => {
     expect(href(url)).toBe(expected);
   });
 
   it.each([
-    ['an unknown host', 'https://git.example.com/octo/lib.git'],
+    [
+      'https://git.example.com/octo/lib.git',
+      'https://git.example.com/octo/lib',
+    ],
+    ['http://git.example.com:8080/lib.git', 'http://git.example.com:8080/lib'],
+    [
+      'https://user:token@git.example.com/octo/lib.git',
+      'https://git.example.com/octo/lib',
+    ],
+    [
+      'ssh://git@git.example.com:2222/srv/octo/lib.git',
+      'https://git.example.com/srv/octo/lib',
+    ],
+    ['git@git.example.com:octo/lib.git', 'https://git.example.com/octo/lib'],
+    ['https://github.com/octo/lib/extra', 'https://github.com/octo/lib/extra'],
+  ])('links %s on any other host to the repository page', (url, expected) => {
+    expect(href(url)).toBe(expected);
+  });
+
+  it.each([
     ['a path on the cloning machine', '/srv/git/lib.git'],
     ['a bare relative directory', 'lib'],
     ['a file URL', 'file:///srv/git/lib.git'],
+    ['a javascript URL', 'javascript:alert(document.cookie)'],
+    ['a data URL', 'data:text/html,<script>alert(1)</script>'],
     ['a URL that is not one', 'https://'],
+    ['a host without a repository', 'https://git.example.com/'],
+    [
+      'a path that climbs out of the repository',
+      'git@git.example.com:octo/../admin',
+    ],
     ['a repository below the superproject', './lib'],
-    ['an owner without a name', 'https://github.com/octo'],
-    ['a nested path on GitHub', 'https://github.com/octo/lib/extra'],
     ['a nested path on this instance', 'https://ghost.test/ghost/lib/extra'],
     ['a name with characters no host allows', 'https://github.com/octo/l%20ib'],
   ])('gives no link for %s', (_, url) => {
@@ -74,6 +118,6 @@ describe('submoduleHref', () => {
         repo: 'app',
         origins: { ...origins, sshHost: '' },
       }),
-    ).toBeNull();
+    ).toBe('https://ssh.ghost.test/ghost/lib');
   });
 });

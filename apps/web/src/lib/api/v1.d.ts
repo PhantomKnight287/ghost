@@ -3695,7 +3695,7 @@ export interface components {
              */
             url: string;
             /**
-             * @description Page showing the submodule at the pinned commit (`oid`): the repository on this instance, or its tree on GitHub, GitLab or Codeberg. `null` for any other host.
+             * @description Page showing the submodule: the repository on this instance or its tree on a known host such as GitHub, GitLab or Codeberg, both at the pinned commit (`oid`), or else the repository page on its host, always over http(s). `null` for a URL that names no host or no repository, such as a local path.
              * @example https://ghost.example.com/octo/lib/tree/3f786850e387550fdab836ed7e6dc881de23001b
              */
             href: string | null;
