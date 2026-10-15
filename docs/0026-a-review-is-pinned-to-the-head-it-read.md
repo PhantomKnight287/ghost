@@ -4,17 +4,17 @@
 
 ## Decision
 
-A review is a `pull_request_review` row: a verdict (`commented`, `approved`, `changes_requested`), an optional summary, and the head sha when it was submitted. Line comments are `pull_request_review_comment` rows naming a path, a side of the diff (`deletions` or `additions`), a line on that side, and the head sha they were written against. A comment on several lines adds `startLine` and `startSide`; the thread hangs off its last line.
+A review is a `pull_request_review` row: a verdict (`commented`, `approved`, `changes_requested`), an optional summary, and the sha it read. Line comments are `pull_request_review_comment` rows naming a path, a side of the diff (`deletions` or `additions`), a line on that side, and the sha they were written against. That sha is the head, unless a client of the GitHub API names an earlier commit of the request with `commit_id`; then the comment is checked against that commit's diff from its own merge base, and a commit that no longer reaches the head, such as one a force-push dropped, is refused. A comment on several lines adds `startLine` and `startSide`; the thread hangs off its last line.
 
 A review with no `submittedAt` is pending: the reviewer's unsent batch, with no verdict, visible to nobody else. There is at most one per reviewer and request, enforced by a partial unique index. "Start a review" adds a comment to it, `POST /pulls/:number/reviews` submits it with a verdict and summary, and discarding deletes it with its comments. "Add single comment" is the same submit with one comment and no pending review.
 
-A line comment starts a thread. Replies are rows with `inReplyToId` and no review: they copy the thread's path, line and sha, and a reply to a reply joins the root's thread. Pending comments take no replies until submitted.
+A line comment starts a thread. A reply is a row with `inReplyToId`, and the only comment of a submitted comment-only review of its own, as on GitHub, so every comment has a review and the GitHub API can name it. Replies copy the thread's path, line and sha, and a reply to a reply joins the root's thread. The conversation shows a reply in its thread and leaves its review out. Pending comments take no replies until submitted.
 
 Every comment must sit inside a hunk of the diff as it stands, on the side it names, read from `git diff` hunk headers; both ends of a range must, and a range on one side starts before it ends. The files tab shows threads whose sha is the head it shows; the rest are outdated and stay in the conversation. A thread's first comment also stores `diffHunk`, the rows of the diff it points at with a few rows of lead-in, taken when it is written; the conversation shows those rows above the thread, the way GitHub does, without reading git or caring where the head has moved since.
 
-A reviewer's standing verdict is their latest approval or request for changes. Anyone with `write` can dismiss it with a message, after which that reviewer has no standing verdict; an older one does not come back. Verdicts do not gate merging: that is branch protection's job.
+A reviewer's standing verdict is their latest approval or request for changes; a later comment-only review, a reply's included, leaves it in place. Anyone with `write` can dismiss it with a message, after which that reviewer has no standing verdict; an older one does not come back. Verdicts do not gate merging: that is branch protection's job.
 
-Only its author edits a comment or summary, so nobody's words are changed under their name; authors and `write` delete comments. Deleting a thread's first comment deletes its replies, and a comment-only review with nothing left to say goes with it.
+Only its author edits a comment or summary, so nobody's words are changed under their name; authors and `write` delete comments. Deleting a thread's first comment deletes its replies, and every comment-only review left with nothing to say, the replies' own included, goes with them.
 
 `#123` in a summary, line comment or reply is recorded like a comment's, keyed by the review or comment id. A pending comment's mentions are recorded when it is submitted.
 

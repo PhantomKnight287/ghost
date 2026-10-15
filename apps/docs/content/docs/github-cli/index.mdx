@@ -60,7 +60,7 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 | `gh label list`, `gh label create`, `gh label edit`, `gh label delete`, `gh label clone` | |
 | `gh pr create` | |
 | `gh pr list` | |
-| `gh pr view`, `gh pr view --comments`, `gh pr view --json …` | |
+| `gh pr view`, `gh pr view --comments`, `gh pr view --json …` | Six `--json` fields fail; see below |
 | `gh pr status` | |
 | `gh pr diff` | |
 | `gh pr checkout` | |
@@ -106,8 +106,15 @@ Issues, comments and labels, under `/api/v3/repos/:owner/:repo`:
 Pull requests, under `/api/v3/repos/:owner/:repo`:
 
 - `GET`, `POST /pulls`; `GET`, `PATCH /pulls/:number`. `GET /pulls/:number` with `Accept: application/vnd.github.diff` answers the diff as text, and with `.patch` one mailbox-style patch per commit
-- `GET /pulls/:number/commits`, `GET /pulls/:number/files`, `GET /pulls/:number/reviews`, `GET /pulls/:number/reviews/:review_id`
+- `GET /pulls/:number/commits`, `GET /pulls/:number/files`
 - `GET`, `PUT /pulls/:number/merge`. A merge Ghost refuses, such as one with conflicts, answers 405; a `sha` the head has moved on from answers 409
+
+Reviews and review comments, under `/api/v3/repos/:owner/:repo`:
+
+- `GET`, `POST /pulls/:number/reviews`; `GET`, `DELETE /pulls/:number/reviews/:review_id`; `POST /pulls/:number/reviews/:review_id/events`. A review posted without `event` is pending: only its author sees it, `/events` submits it, and `DELETE` discards it. A submitted review cannot be deleted
+- `GET /pulls/:number/reviews/:review_id/comments`
+- `GET`, `POST /pulls/:number/comments`; `GET /pulls/comments`; `GET`, `PATCH`, `DELETE /pulls/comments/:comment_id`. `POST` takes a line comment (`path`, `line`, `side`, `start_line`, `start_side`, `commit_id`) or, with `in_reply_to`, a reply in that comment's thread
+- `commit_id` may name any commit of the pull request, and the comment is placed on that commit's diff. A commit that no longer reaches the head, such as one dropped by a force-push, is refused with 422, as is a line the diff does not show
 
 Releases and their assets, under `/api/v3/repos/:owner/:repo`:
 
@@ -135,7 +142,7 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 
 ## Known differences
 
-- `databaseId` and the REST `id` are integers for users, organizations, repositories, issues, pull requests, comments, labels, releases and release assets. SSH keys still answer `null`.
+- `databaseId` and the REST `id` are integers for users, organizations, repositories, issues, pull requests, comments, labels, reviews, review comments, releases and release assets. SSH keys still answer `null`.
 - Milestones, reactions, issue types, projects and sub-issues are always empty.
 - A closed issue's `stateReason` is always `COMPLETED`. Ghost does not record why an issue was closed.
 - A comment's `authorAssociation` is `OWNER` or `NONE`, never `MEMBER` or `COLLABORATOR`.
@@ -160,7 +167,13 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - `maintainerCanModify` is always false, and a pull request's base branch cannot be changed.
 - A pull request's REST `id` and `databaseId` are its issue's. GitHub gives the two different ids.
 - A commit author's `user` is the account with that verified email, primary or added, or null.
-- Not served: creating or editing reviews over REST, review comments over GraphQL, `updatePullRequestBranch`, and `gh pr checks`.
+- Not served: `gh pr review`, which needs the `addPullRequestReview` mutation, review comments and pending reviews over GraphQL, editing a review's summary or dismissing one over REST (`PUT …/reviews/:review_id`, `PUT …/reviews/:review_id/dismissals`), `updatePullRequestBranch`, and `gh pr checks`.
+- `gh pr view --json` fails with HTTP 400 for `mergeCommit`, `mergedBy`, `baseRefOid`, `potentialMergeCommit`, `fullDatabaseId` and `closingIssuesReferences` ([#73](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/73)). REST answers `merge_commit_sha` and `merged_by`.
+- A review comment needs `line`: the legacy `position` is not supported, and `subject_type: file` comments are not served. `position`, `original_position` and `reactions` are absent from responses.
+- A reply is submitted at once as a comment-only review of its own, even when its author has a pending review; on GitHub it joins the pending review. A comment in a pending review takes no replies until the review is submitted.
+- GitHub accepts a `commit_id` that a force-push dropped and marks the comment outdated. Ghost refuses it.
+- A review comment's `html_url` ends in `#discussion_r` and Ghost's id for the comment, and opens the pull request.
+- A page of review comments past the last one answers an empty list with no `Link` header.
 - The latest release is the newest published release that is not a prerelease, by when it was published. `make_latest` is accepted and ignored. GitHub orders by the release commit's date and lets `make_latest` choose.
 - A release's `target_commitish` is the commit its tag points at, or the default branch once the tag is deleted. GitHub keeps the branch the tag was cut from.
 - A draft release creates its tag straight away. GitHub creates it when the draft is published.

@@ -138,10 +138,10 @@ API routes, DB schema, web pages and auth plugins.
 Every open issue, in the order to take it. The tiers above say what is missing; this says what comes next. Items in the same step can run side by side.
 
 ### 1. GitHub compatibility (#57)
-Tools built for GitHub working against Ghost unchanged. Milestones 1 (auth, repositories, issues over GraphQL), 2 (REST v3 for issues, comments and labels, #112) and 3 (pull requests, #114) are done.
+Tools built for GitHub working against Ghost unchanged. Milestones 1 (auth, repositories, issues over GraphQL), 2 (REST v3 for issues, comments and labels, #112), 3 (pull requests, #114) and 4 (releases, #115) are done, as are REST review comments and reviews (Ghost [#68](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/68)).
 
 1. #109 Ghost Apps, then #106 OpenID Connect, then #107 dynamic client registration.
-2. #[68](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/68) REST v3 for pull request review comments and creating reviews (`pulls/:number/comments`, `pulls/comments/:id`, `POST pulls/:number/reviews`). 
+2. Ghost [#73](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/73) The six `PullRequest` fields `gh pr view --json` cannot read, `mergeCommit` first.
 
 Alongside, small and independent: #116 search across repositories, #117 `updateRepository` and `gh repo edit`, #119 type `decodeNodeId`, #113 measure migration lock time.
 
