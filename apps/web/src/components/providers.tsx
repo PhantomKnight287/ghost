@@ -13,6 +13,8 @@ import { apiKeyPlugin } from "@/lib/auth/api-key-plugin";
 import { avatar } from "@/lib/auth/avatar";
 import { deviceAuthorizationPlugin } from "@/lib/auth/device-authorization-plugin";
 import { organizationPlugin } from "@/lib/auth/organization-plugin";
+import { passkeyPlugin } from "@/lib/auth/passkey-plugin";
+import { twoFactorPlugin } from "@/lib/auth/two-factor-plugin";
 import { usernamePlugin } from "@/lib/auth/username-plugin";
 import { authClient } from "@/lib/auth-client";
 import { DATABUDDY_CLIENT_ID, GITHUB_SIGN_IN, SITE_URL } from "@/lib/env";
@@ -61,6 +63,8 @@ export function Providers({ children }: { children: ReactNode }) {
               teams: true,
             }),
             deviceAuthorizationPlugin(),
+            passkeyPlugin(),
+            twoFactorPlugin(),
           ]}
           navigate={({ to, replace }) =>
             replace ? router.replace(to) : router.push(to)

@@ -3,6 +3,7 @@ import {
   authQueryKeys,
   getAuthErrorPresentation,
   isPasswordCompromisedError,
+  isReauthenticationRequiredError,
 } from "@better-auth-ui/core";
 import { oneTapMutationKeys } from "@better-auth-ui/core/plugins/one-tap";
 import {
@@ -13,7 +14,6 @@ import {
 import type { BetterFetchError } from "better-auth/react";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { isSessionNotFreshError } from "./is-session-not-fresh-error";
 
 export function ErrorToaster() {
   const queryClient = useQueryClient();
@@ -27,10 +27,8 @@ export function ErrorToaster() {
 
       if (!matchQuery({ queryKey: authQueryKeys.all }, query)) return;
       if (getAuthErrorPresentation(query.meta) !== "toast") return;
-      if (error.name === "SESSION_IS_NOT_FRESH") return;
-
       const err = error as BetterFetchError;
-      if (isSessionNotFreshError(error)) return;
+      if (isReauthenticationRequiredError(error)) return;
       if (err?.error) toast.error(err.error.message);
     };
 
@@ -56,7 +54,7 @@ export function ErrorToaster() {
         return;
       }
       if (getAuthErrorPresentation(mutation.meta) !== "toast") return;
-      if (isSessionNotFreshError(error)) return;
+      if (isReauthenticationRequiredError(error)) return;
       // Every form that sets a new password renders this one against the password field, so a toast would just repeat it.
       if (isPasswordCompromisedError(error)) return;
 

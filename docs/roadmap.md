@@ -140,9 +140,8 @@ Every open issue, in the order to take it. The tiers above say what is missing; 
 ### 1. GitHub compatibility (#57)
 Tools built for GitHub working against Ghost unchanged. Milestones 1 (auth, repositories, issues over GraphQL), 2 (REST v3 for issues, comments and labels, #112) and 3 (pull requests, #114) are done.
 
-1. #115 Releases: `gh release`.
-2. #108 Organization OAuth app access policies. The one security gap in the OAuth work: a member's token reaches the organization's private repositories.
-3. #109 Ghost Apps, then #106 OpenID Connect, then #107 dynamic client registration.
+1. #109 Ghost Apps, then #106 OpenID Connect, then #107 dynamic client registration.
+2. #129 REST v3 for pull request review comments and creating reviews (`pulls/:number/comments`, `pulls/comments/:id`, `POST pulls/:number/reviews`). Then the GitHub sync bot, `apps/sync`: mirrors a repository to GitHub so CodeRabbit and other GitHub-only review bots work on Ghost, and brings their reviews back (spec on `feat/github-sync`).
 
 Alongside, small and independent: #116 search across repositories, #117 `updateRepository` and `gh repo edit`, #119 type `decodeNodeId`, #113 measure migration lock time.
 

@@ -2,10 +2,12 @@ import { viewPaths } from "@better-auth-ui/core";
 import { notFound } from "next/navigation";
 
 import { Auth } from "@/components/auth/auth";
+import { twoFactorPlugin } from "@/lib/auth/two-factor-plugin";
 
 // The organization plugin adds the page an emailed invitation links to.
 const validAuthPaths = new Set([
   ...Object.values(viewPaths.auth),
+  ...Object.values(twoFactorPlugin().viewPaths?.auth ?? {}),
   "accept-invitation",
 ]);
 
