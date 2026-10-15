@@ -10,6 +10,8 @@ export type DiffFile = {
   additions?: number;
   deletions?: number;
   binary?: boolean;
+  /** Pinned commit on each side, null on a side where the path is no submodule. */
+  submodule?: { from: string | null; to: string | null } | null;
 };
 
 export type LineAnnotations = DiffLineAnnotation<ReactNode>[];

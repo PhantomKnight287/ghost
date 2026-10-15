@@ -13,7 +13,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { CommitDTO } from '../../repositories/dto/get-repository-commits.dto.js';
+import {
+  CommitDTO,
+  CommitFileDTO,
+} from '../../repositories/dto/get-repository-commits.dto.js';
 
 export class GetPullRequestCommitsQueryDTO {
   @ApiPropertyOptional({
@@ -48,15 +51,7 @@ export class GetPullRequestCommitsResponseDTO {
   nextCursor: string | null;
 }
 
-export class PullRequestFileDTO {
-  @ApiProperty({ description: '`A` added, `M` modified, `D` deleted.' })
-  @IsString()
-  status: string;
-
-  @ApiProperty()
-  @IsString()
-  path: string;
-
+export class PullRequestFileDTO extends CommitFileDTO {
   @ApiProperty()
   @IsInt()
   additions: number;

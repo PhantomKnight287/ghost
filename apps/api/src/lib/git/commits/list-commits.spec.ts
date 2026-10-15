@@ -81,7 +81,9 @@ describe('listCommits', () => {
     const commit = await readCommit({ gitDir, sha: commits[0].sha });
 
     expect(commit?.subject).toBe('third');
-    expect(commit?.files).toEqual([{ status: 'M', path: 'README.md' }]);
+    expect(commit?.files).toEqual([
+      { status: 'M', path: 'README.md', submodule: null },
+    ]);
   });
 
   it('returns null for an unknown sha', async () => {

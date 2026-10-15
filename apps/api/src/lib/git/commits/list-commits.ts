@@ -1,3 +1,4 @@
+import { type ChangedPath, parseRawChanges } from '../diff/diff.js';
 import { runGit } from '../exec/run-git.js';
 
 const RECORD = '\x1e';
@@ -24,12 +25,6 @@ export interface CommitSummary {
   subject: string;
   /** Committer timestamp, ISO 8601. */
   committedAt: string;
-}
-
-export interface CommitFile {
-  /** A for added, M for modified, D for deleted. */
-  status: string;
-  path: string;
 }
 
 /** A commit-ish a caller supplied, safe to hand git as a revision. */
@@ -112,7 +107,7 @@ export async function readCommit({
 }: {
   gitDir: string;
   sha: string;
-}): Promise<(Commit & { files: CommitFile[] }) | null> {
+}): Promise<(Commit & { files: ChangedPath[] }) | null> {
   const raw = await runGit({
     args: ['show', '-s', FORMAT, '--end-of-options', sha],
     gitDir,
@@ -124,7 +119,8 @@ export async function readCommit({
   const changes = await runGit({
     args: [
       'show',
-      '--name-status',
+      '--raw',
+      '--no-abbrev',
       '--format=',
       '-z',
       '--no-renames',
@@ -136,13 +132,7 @@ export async function readCommit({
     gitDir,
   });
 
-  const parts = changes.split('\0').filter(Boolean);
-  const files: CommitFile[] = [];
-  for (let i = 0; i + 1 < parts.length; i += 2) {
-    files.push({ status: parts[i], path: parts[i + 1] });
-  }
-
-  return { ...commit, files };
+  return { ...commit, files: parseRawChanges(changes) };
 }
 
 /** The newest commit touching `path`, or the tip of `ref` when no path is given. Null when the ref has no history. */

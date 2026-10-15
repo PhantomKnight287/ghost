@@ -69,6 +69,28 @@ export class CommitSummaryDTO {
   committedAt: string;
 }
 
+export class SubmoduleDTO {
+  @ApiProperty({
+    description:
+      'Repository URL as `.gitmodules` declares it, relative URLs left as written.',
+    example: '../lib.git',
+  })
+  @IsString()
+  url: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Page showing the submodule at the pinned commit (`oid`): the repository on this instance, or its tree on GitHub, GitLab or Codeberg. `null` for any other host.',
+    example:
+      'https://ghost.example.com/octo/lib/tree/3f786850e387550fdab836ed7e6dc881de23001b',
+  })
+  @IsString()
+  @IsOptional()
+  href: string | null;
+}
+
 export class TreeEntryDTO {
   @ApiProperty({ description: 'Entry name within the listed directory.' })
   @IsString()
@@ -93,7 +115,10 @@ export class TreeEntryDTO {
   @IsString()
   mode: string;
 
-  @ApiProperty({ description: 'Object id of the blob or tree.' })
+  @ApiProperty({
+    description:
+      'Object id of the blob or tree, or the commit a submodule is pinned to.',
+  })
   @IsString()
   oid: string;
 
@@ -116,6 +141,17 @@ export class TreeEntryDTO {
   @Type(() => CommitSummaryDTO)
   @IsOptional()
   lastCommit: CommitSummaryDTO | null;
+
+  @ApiProperty({
+    type: SubmoduleDTO,
+    nullable: true,
+    description:
+      'Where a submodule comes from. `null` for anything else, and for a submodule `.gitmodules` gives no URL.',
+  })
+  @ValidateNested()
+  @Type(() => SubmoduleDTO)
+  @IsOptional()
+  submodule: SubmoduleDTO | null;
 }
 
 export class GetRepositoryContentsResponseDTO {

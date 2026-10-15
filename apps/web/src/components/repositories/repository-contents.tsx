@@ -10,6 +10,7 @@ import type { components } from "@/lib/api/v1";
 import { revisionHref } from "@/lib/revision";
 import { cn } from "@/lib/utils";
 import { FromNowHoverCard } from "../from-now-card";
+import { SubmoduleLink } from "./submodule-link";
 
 type Contents = components["schemas"]["GetRepositoryContentsResponseDTO"];
 type TreeEntry = components["schemas"]["TreeEntryDTO"];
@@ -88,9 +89,7 @@ export function RepositoryContents({
               <EntryIcon type={entry.type} />
 
               {entry.type === "commit" ? (
-                <span title="Submodule" className="min-w-0 truncate">
-                  {entry.name}
-                </span>
+                <SubmoduleLink entry={entry} />
               ) : (
                 <Link
                   href={revisionHref(
