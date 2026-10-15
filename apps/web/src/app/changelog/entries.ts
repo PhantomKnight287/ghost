@@ -9,6 +9,11 @@ export const CHANGELOG: {
   body: string;
 }[] = [
   {
+    date: "2026-10-15",
+    title: "Git submodules",
+    body: `Submodules show the commit they are pinned to and link to their repository, at that commit on Ghost, GitHub, GitLab, Codeberg and other well-known hosts. Diffs show a moved submodule as its old and new commit, and \`git clone --recurse-submodules\` fetches private submodules on the same instance with the same credentials. See [Git submodules](${DOCS_URL}/submodules).`,
+  },
+  {
     date: "2026-10-13",
     title: "Download source code",
     body: "Download any branch, tag or commit as a zip or tarball from the Code button. Every release lists its source code archives with their size and download count, and `gh release download --archive` works against Ghost.",

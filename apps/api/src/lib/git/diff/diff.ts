@@ -3,10 +3,38 @@ import type { Readable } from 'node:stream';
 
 import { runGit, runGitReadable } from '../exec/run-git.js';
 
-export interface DiffFile {
-  /** `A` added, `M` modified, `D` deleted. */
+const GITLINK_MODE = '160000';
+
+export interface ChangedPath {
+  /** `A` added, `M` modified, `D` deleted, `T` changed type. */
   status: string;
   path: string;
+  /** The commit a submodule is pinned to on each side, null on a side where the path is no submodule. Null when neither side is one. */
+  submodule: { from: string | null; to: string | null } | null;
+}
+
+/** Parses `--raw -z --no-renames --no-abbrev`: ":<srcmode> <dstmode> <srcoid> <dstoid> <status>" then the path, one field each. */
+export function parseRawChanges(raw: string): ChangedPath[] {
+  const fields = raw.split('\0');
+  const changes: ChangedPath[] = [];
+
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+    const [srcMode, dstMode, srcOid, dstOid, status] = fields[i]
+      .slice(1)
+      .split(' ');
+    const from = srcMode === GITLINK_MODE ? srcOid : null;
+    const to = dstMode === GITLINK_MODE ? dstOid : null;
+    changes.push({
+      status,
+      path: fields[i + 1],
+      submodule: from || to ? { from, to } : null,
+    });
+  }
+
+  return changes;
+}
+
+export interface DiffFile extends ChangedPath {
   additions: number;
   deletions: number;
   binary: boolean;
@@ -65,7 +93,7 @@ export async function mergeBase({
   return raw.trim() || null;
 }
 
-/** `--no-renames` keeps both records two fields wide, so a rename reads as a delete and an add rather than needing a third parse shape. */
+/** `--no-renames` keeps every record two fields wide, so a rename reads as a delete and an add rather than needing a third parse shape. */
 export async function listDiffFiles({
   gitDir,
   alternates,
@@ -75,13 +103,13 @@ export async function listDiffFiles({
   const env = alternatesEnv(alternates);
   const range = ['--no-renames', '-z', '--end-of-options', from, to];
 
-  const [numstat, nameStatus] = await Promise.all([
+  const [numstat, raw] = await Promise.all([
     runGit({ args: ['diff', '--numstat', ...range], gitDir, env }),
-    runGit({ args: ['diff', '--name-status', ...range], gitDir, env }),
+    runGit({ args: ['diff', '--raw', '--no-abbrev', ...range], gitDir, env }),
   ]);
 
   // git writes "-\t-" for the counts of a binary file
-  const counts = new Map<string, Omit<DiffFile, 'status' | 'path'>>();
+  const counts = new Map<string, Omit<DiffFile, keyof ChangedPath>>();
   for (const record of numstat.split('\0').filter(Boolean)) {
     const [additions, deletions, changed] = record.split('\t');
     if (changed === undefined) continue;
@@ -92,21 +120,13 @@ export async function listDiffFiles({
     });
   }
 
-  const parts = nameStatus.split('\0').filter(Boolean);
-  const files: DiffFile[] = [];
-  for (let i = 0; i + 1 < parts.length; i += 2) {
-    const changed = parts[i + 1];
-    files.push({
-      status: parts[i],
-      path: changed,
-      additions: 0,
-      deletions: 0,
-      binary: false,
-      ...counts.get(changed),
-    });
-  }
-
-  return files;
+  return parseRawChanges(raw).map((change) => ({
+    ...change,
+    additions: 0,
+    deletions: 0,
+    binary: false,
+    ...counts.get(change.path),
+  }));
 }
 
 /** `git diff` of `from..to` as a patch, limited to one literal path when given. */

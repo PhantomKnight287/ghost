@@ -5,6 +5,7 @@ import { ChevronRight, File, Folder, FolderGit2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { SubmoduleLink } from "@/components/repositories/submodule-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiClient, unwrap } from "@/lib/api/client";
 import { revisionHref } from "@/lib/revision";
@@ -93,15 +94,10 @@ function TreeDirectory({
 
     if (entry.type === "commit") {
       return (
-        <li
-          key={entry.path}
-          title="Submodule"
-          className={cn(row, "text-muted-foreground")}
-          style={indent}
-        >
+        <li key={entry.path} className={row} style={indent}>
           <span className="size-3.5 shrink-0" />
-          <FolderGit2 className="size-4 shrink-0" />
-          <span className="truncate">{entry.name}</span>
+          <FolderGit2 className="size-4 shrink-0 text-muted-foreground" />
+          <SubmoduleLink entry={entry} />
         </li>
       );
     }

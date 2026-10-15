@@ -3688,6 +3688,18 @@ export interface components {
          * @enum {string}
          */
         TreeEntryType: "blob" | "tree" | "commit";
+        SubmoduleDTO: {
+            /**
+             * @description Repository URL as `.gitmodules` declares it, relative URLs left as written.
+             * @example ../lib.git
+             */
+            url: string;
+            /**
+             * @description Page showing the submodule: the repository on this instance or its tree on a known host such as GitHub, GitLab or Codeberg, both at the pinned commit (`oid`), or else the repository page on its host, always over http(s). `null` for a URL that names no host or no repository, such as a local path.
+             * @example https://ghost.example.com/octo/lib/tree/3f786850e387550fdab836ed7e6dc881de23001b
+             */
+            href: string | null;
+        };
         TreeEntryDTO: {
             /** @description Entry name within the listed directory. */
             name: string;
@@ -3700,12 +3712,14 @@ export interface components {
              * @example 100644
              */
             mode: string;
-            /** @description Object id of the blob or tree. */
+            /** @description Object id of the blob or tree, or the commit a submodule is pinned to. */
             oid: string;
             /** @description Blob size in bytes; `null` for trees and submodules. */
             size: number | null;
             /** @description Newest commit touching this entry, or anything beneath it for a tree. `null` only if the index has not caught up with the ref. */
             lastCommit: components["schemas"]["CommitSummaryDTO"] | null;
+            /** @description Where a submodule comes from. `null` for anything else, and for a submodule `.gitmodules` gives no URL. */
+            submodule: components["schemas"]["SubmoduleDTO"] | null;
         };
         GetRepositoryContentsResponseDTO: {
             /**
@@ -3841,10 +3855,18 @@ export interface components {
             /** @description Pass back as `cursor` for the next page. `null` on the last page. */
             nextCursor: string | null;
         };
+        SubmoduleChangeDTO: {
+            /** @description Commit the submodule was pinned to before. `null` when the path was no submodule. */
+            from: string | null;
+            /** @description Commit the submodule is pinned to after. `null` when the path is no longer a submodule. */
+            to: string | null;
+        };
         CommitFileDTO: {
-            /** @description `A` added, `M` modified, `D` deleted. */
+            /** @description `A` added, `M` modified, `D` deleted, `T` changed type, such as a directory replaced by a submodule. */
             status: string;
             path: string;
+            /** @description The pinned commits when either side is a submodule, whose diff is the `Subproject commit` line and nothing else. `null` for any other path. */
+            submodule: components["schemas"]["SubmoduleChangeDTO"] | null;
         };
         GetRepositoryCommitResponseDTO: {
             /** @description Full 40-character commit sha. */
@@ -4435,9 +4457,11 @@ export interface components {
             hasMore: boolean;
         };
         PullRequestFileDTO: {
-            /** @description `A` added, `M` modified, `D` deleted. */
+            /** @description `A` added, `M` modified, `D` deleted, `T` changed type, such as a directory replaced by a submodule. */
             status: string;
             path: string;
+            /** @description The pinned commits when either side is a submodule, whose diff is the `Subproject commit` line and nothing else. `null` for any other path. */
+            submodule: components["schemas"]["SubmoduleChangeDTO"] | null;
             additions: number;
             deletions: number;
             /** @description Line counts are meaningless when true. */

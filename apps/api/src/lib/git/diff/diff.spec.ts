@@ -6,6 +6,90 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { fileHunks, listDiffFiles, mergeBase, parseHunks } from './diff.js';
 
+describe('listDiffFiles with submodules', () => {
+  let root: string;
+  let gitDir: string;
+  let git: (...args: string[]) => string;
+  const pinned = (n: string) => n.repeat(40);
+
+  beforeEach(() => {
+    root = mkdtempSync(path.join(tmpdir(), 'ghost-diff-submodules-'));
+    gitDir = path.join(root, '.git');
+    const env = { ...process.env };
+    delete env.GIT_DIR;
+    git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, encoding: 'utf8', env }).trim();
+
+    execFileSync('git', ['init', '-q', '-b', 'main', root]);
+    git('config', 'user.email', 'test@example.com');
+    git('config', 'user.name', 'Test');
+  });
+
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  // a gitlink in the index is all a commit needs; the submodule's own objects never enter the superproject
+  const commit = (gitlinks: Record<string, string>, files: string[] = []) => {
+    git('read-tree', '--empty');
+    for (const [where, sha] of Object.entries(gitlinks)) {
+      git('update-index', '--add', '--cacheinfo', `160000,${sha},${where}`);
+    }
+    for (const file of files) {
+      writeFileSync(path.join(root, file), `${file}\n`);
+      git('update-index', '--add', file);
+    }
+    git('commit', '-q', '--allow-empty', '-m', 'snapshot');
+    return git('rev-parse', 'HEAD');
+  };
+
+  it('reports the pinned commit on each side of an added, moved and removed submodule', async () => {
+    const from = commit({ moved: pinned('a'), removed: pinned('b') }, [
+      'kept.txt',
+    ]);
+    const to = commit({ moved: pinned('c'), added: pinned('d') }, [
+      'kept.txt',
+      'new.txt',
+    ]);
+
+    const files = await listDiffFiles({ gitDir, from, to });
+
+    expect(files).toEqual([
+      expect.objectContaining({
+        path: 'added',
+        status: 'A',
+        submodule: { from: null, to: pinned('d') },
+      }),
+      expect.objectContaining({
+        path: 'moved',
+        status: 'M',
+        submodule: { from: pinned('a'), to: pinned('c') },
+      }),
+      expect.objectContaining({
+        path: 'new.txt',
+        status: 'A',
+        submodule: null,
+      }),
+      expect.objectContaining({
+        path: 'removed',
+        status: 'D',
+        submodule: { from: pinned('b'), to: null },
+      }),
+    ]);
+  });
+
+  it('keeps only the submodule side when a file becomes a submodule', async () => {
+    const from = commit({}, ['vendor']);
+    const to = commit({ vendor: pinned('e') });
+
+    expect(await listDiffFiles({ gitDir, from, to })).toEqual([
+      expect.objectContaining({
+        path: 'vendor',
+        status: 'T',
+        submodule: { from: null, to: pinned('e') },
+      }),
+    ]);
+  });
+});
+
 describe('listDiffFiles', () => {
   let root: string;
   let gitDir: string;

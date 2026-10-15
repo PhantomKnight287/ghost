@@ -17,6 +17,7 @@ API routes, DB schema, web pages and auth plugins.
 - [x] Branch list, commit history, single commit diff and patch
 - [x] Languages, contributors, stargazers, forks
 - [x] Code search (Zoekt, indexed on push), repository search
+- [x] Git submodules: pinned commit and link in the tree, pointer changes in diffs, recursive clones
 
 ### Issues
 - [x] Create, edit, close, reopen
@@ -170,14 +171,13 @@ Each of 13 to 15 also fills a field the compatibility layer answers empty today 
 20. #70 Edit, create and upload files in the browser.
 21. #66 Download source archives.
 22. #88 Delete tags from the UI.
-23. #56 Git submodules.
 
 ### 5. Organizations, later
-24. #77 Custom organization roles.
-25. #78 Block users at the organization level.
+23. #77 Custom organization roles.
+24. #78 Block users at the organization level.
 
 ### 6. Larger projects
-26. #87 CI runner and organization secrets. Builds on #61.
-27. #75 Repository mirroring.
-28. #83 Follow users and an activity feed, then #84 explore and trending.
-29. #85 Gists, #76 wiki, #86 project boards.
+25. #87 CI runner and organization secrets. Builds on #61.
+26. #75 Repository mirroring.
+27. #83 Follow users and an activity feed, then #84 explore and trending.
+28. #85 Gists, #76 wiki, #86 project boards.

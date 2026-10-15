@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { type Database, schema } from '@ghost/db';
 import {
   and,
@@ -47,7 +48,14 @@ import { RepositoryPathIndexService } from '../../services/git/path-index/reposi
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { runGit, runGitBuffer } from '../../lib/git/exec/run-git.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
-import { listPaths, listTree } from '../../lib/git/tree/list-tree.js';
+import { readSubmoduleUrls } from '../../lib/git/submodules/read-submodule-urls.js';
+import { submoduleHref } from '../../lib/git/submodules/submodule-href.js';
+import {
+  listPaths,
+  listTree,
+  type TreeEntry,
+} from '../../lib/git/tree/list-tree.js';
+import { githubOrigins } from '../../lib/github/origins.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import {
   countCommits,
@@ -80,7 +88,10 @@ import {
   type SourceArchive,
   streamArchive,
 } from '../../lib/git/archive/archive.js';
-import type { GetRepositoryContentsResponseDTO } from './dto/get-repository-contents.dto.js';
+import type {
+  GetRepositoryContentsResponseDTO,
+  SubmoduleDTO,
+} from './dto/get-repository-contents.dto.js';
 import type { GetRepositoryPathsResponseDTO } from './dto/get-repository-paths.dto.js';
 import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
 import type {
@@ -174,6 +185,7 @@ export class RepositoriesService {
     private readonly quota: StorageQuotaService,
     private readonly lfs: LfsService,
     private readonly releaseArchives: ReleaseArchivesService,
+    private readonly config: ConfigService,
   ) {}
 
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
@@ -1268,6 +1280,13 @@ export class RepositoriesService {
         listTree({ gitDir: directory, ref, prefix }),
         countCommits({ gitDir: directory, range: ref }),
       ]);
+      const submodules = await this.readSubmodules({
+        directory,
+        ref,
+        owner: username,
+        repo,
+        entries,
+      });
 
       return {
         ref,
@@ -1275,7 +1294,11 @@ export class RepositoriesService {
         commitCount,
         commit,
         // per-entry history would be one walk per path, which only the index makes cheap; a point-in-time listing does without it
-        entries: entries.map((entry) => ({ ...entry, lastCommit: null })),
+        entries: entries.map((entry) => ({
+          ...entry,
+          lastCommit: null,
+          submodule: submodules.get(entry.path) ?? null,
+        })),
       };
     }
 
@@ -1283,12 +1306,15 @@ export class RepositoriesService {
       listTree({ gitDir: directory, ref, prefix }),
       countCommits({ gitDir: directory, range: ref }),
     ]);
-    const commits = await this.pathIndex.lookup({
-      repositoryId: repository.id,
-      ref,
-      // the root row is the ref's tip, shown above the listing
-      paths: ['', ...entries.map((entry) => entry.path)],
-    });
+    const [commits, submodules] = await Promise.all([
+      this.pathIndex.lookup({
+        repositoryId: repository.id,
+        ref,
+        // the root row is the ref's tip, shown above the listing
+        paths: ['', ...entries.map((entry) => entry.path)],
+      }),
+      this.readSubmodules({ directory, ref, owner: username, repo, entries }),
+    ]);
 
     return {
       ref,
@@ -1298,8 +1324,45 @@ export class RepositoriesService {
       entries: entries.map((entry) => ({
         ...entry,
         lastCommit: commits.get(entry.path) ?? null,
+        submodule: submodules.get(entry.path) ?? null,
       })),
     };
+  }
+
+  /** The `.gitmodules` URL of each gitlink in `entries`, keyed by path. `.gitmodules` is read only when the listing holds a gitlink. */
+  private async readSubmodules({
+    directory,
+    ref,
+    owner,
+    repo,
+    entries,
+  }: {
+    directory: string;
+    ref: string;
+    owner: string;
+    repo: string;
+    entries: TreeEntry[];
+  }): Promise<Map<string, SubmoduleDTO>> {
+    const gitlinks = entries.filter((entry) => entry.type === 'commit');
+    if (gitlinks.length === 0) return new Map();
+
+    const urls = await readSubmoduleUrls({ gitDir: directory, ref });
+    const origins = githubOrigins(this.config);
+
+    return new Map(
+      gitlinks.flatMap((entry) => {
+        const url = urls.get(entry.path);
+        if (!url) return [];
+        const href = submoduleHref({
+          url,
+          commit: entry.oid,
+          owner,
+          repo,
+          origins,
+        });
+        return [[entry.path, { url, href }] as const];
+      }),
+    );
   }
 
   async getRepositoryPaths({

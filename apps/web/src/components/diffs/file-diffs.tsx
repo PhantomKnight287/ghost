@@ -76,9 +76,12 @@ function LazyFileDiff({
     [onLineComment, file.path],
   );
 
+  // a submodule's patch is its "Subproject commit" line, which the placeholder states without a fetch
+  const patchless = file.binary || Boolean(file.submodule);
+
   useEffect(() => {
     const node = container.current;
-    if (!node || file.binary) return;
+    if (!node || patchless) return;
 
     const controller = new AbortController();
     const observer = new IntersectionObserver(
@@ -107,7 +110,7 @@ function LazyFileDiff({
       observer.disconnect();
       controller.abort();
     };
-  }, [patchUrl, file.path, file.binary]);
+  }, [patchUrl, file.path, patchless]);
 
   return (
     <div ref={container}>
@@ -123,7 +126,9 @@ function LazyFileDiff({
           <span className="font-mono text-xs text-muted-foreground">
             {file.path}
           </span>
-          {file.binary ? (
+          {file.submodule ? (
+            <SubmoduleChange {...file.submodule} />
+          ) : file.binary ? (
             <span className="text-xs text-muted-foreground">
               Binary file not shown
             </span>
@@ -137,5 +142,26 @@ function LazyFileDiff({
         </div>
       )}
     </div>
+  );
+}
+
+function SubmoduleChange({
+  from,
+  to,
+}: {
+  from: string | null;
+  to: string | null;
+}) {
+  const short = (sha: string) => sha.slice(0, 7);
+
+  return (
+    <span className="font-mono text-xs text-muted-foreground">
+      Subproject commit{" "}
+      {from && to
+        ? `${short(from)}…${short(to)}`
+        : to
+          ? `${short(to)} added`
+          : from && `${short(from)} removed`}
+    </span>
   );
 }

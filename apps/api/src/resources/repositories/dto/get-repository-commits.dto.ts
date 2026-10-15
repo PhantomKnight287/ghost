@@ -157,14 +157,50 @@ export class GetRepositoryCommitsResponseDTO {
   nextCursor: string | null;
 }
 
+export class SubmoduleChangeDTO {
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Commit the submodule was pinned to before. `null` when the path was no submodule.',
+  })
+  @IsString()
+  @IsOptional()
+  from: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Commit the submodule is pinned to after. `null` when the path is no longer a submodule.',
+  })
+  @IsString()
+  @IsOptional()
+  to: string | null;
+}
+
 export class CommitFileDTO {
-  @ApiProperty({ description: '`A` added, `M` modified, `D` deleted.' })
+  @ApiProperty({
+    description:
+      '`A` added, `M` modified, `D` deleted, `T` changed type, such as a directory replaced by a submodule.',
+  })
   @IsString()
   status: string;
 
   @ApiProperty()
   @IsString()
   path: string;
+
+  @ApiProperty({
+    type: SubmoduleChangeDTO,
+    nullable: true,
+    description:
+      'The pinned commits when either side is a submodule, whose diff is the `Subproject commit` line and nothing else. `null` for any other path.',
+  })
+  @ValidateNested()
+  @Type(() => SubmoduleChangeDTO)
+  @IsOptional()
+  submodule: SubmoduleChangeDTO | null;
 }
 
 export class GetRepositoryCommitResponseDTO extends CommitDTO {

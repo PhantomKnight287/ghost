@@ -1,6 +1,7 @@
 import {
   File,
   Folder,
+  FolderGit2,
   GitCommitHorizontal,
   RotateCcwClock,
 } from "lucide-react";
@@ -9,12 +10,13 @@ import type { components } from "@/lib/api/v1";
 import { revisionHref } from "@/lib/revision";
 import { cn } from "@/lib/utils";
 import { FromNowHoverCard } from "../from-now-card";
+import { SubmoduleLink } from "./submodule-link";
 
 type Contents = components["schemas"]["GetRepositoryContentsResponseDTO"];
 type TreeEntry = components["schemas"]["TreeEntryDTO"];
 
 function EntryIcon({ type }: { type: TreeEntry["type"] }) {
-  const Icon = type === "blob" ? File : Folder;
+  const Icon = type === "blob" ? File : type === "commit" ? FolderGit2 : Folder;
 
   return (
     <Icon
@@ -86,17 +88,21 @@ export function RepositoryContents({
             <div className="flex min-w-0 flex-1 flex-row items-center gap-3">
               <EntryIcon type={entry.type} />
 
-              <Link
-                href={revisionHref(
-                  `/${owner}/${slug}`,
-                  entry.type === "tree" ? "tree" : "blob",
-                  branch,
-                  entry.path,
-                )}
-                className="min-w-0 truncate hover:text-primary hover:underline"
-              >
-                {entry.name}
-              </Link>
+              {entry.type === "commit" ? (
+                <SubmoduleLink entry={entry} />
+              ) : (
+                <Link
+                  href={revisionHref(
+                    `/${owner}/${slug}`,
+                    entry.type,
+                    branch,
+                    entry.path,
+                  )}
+                  className="min-w-0 truncate hover:text-primary hover:underline"
+                >
+                  {entry.name}
+                </Link>
+              )}
             </div>
 
             <div className="flex shrink-0 flex-row items-center gap-3">
