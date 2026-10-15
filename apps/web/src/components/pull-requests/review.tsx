@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { DiffHunk } from "@/components/diffs/diff-hunk";
 import { FromNowHoverCard } from "@/components/from-now-card";
-import { CommentItem } from "@/components/issues/comments";
+import { CommentItem, commentAnchor } from "@/components/issues/comments";
 import { Markdown } from "@/components/markdown";
 import { UserLink } from "@/components/users/user-link";
 import {
@@ -65,7 +65,10 @@ export function ReviewItem({
     canModerate && review.state !== "commented" && !review.dismissalMessage;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      id={`${commentAnchor.review}${review.id}`}
+      className="flex scroll-mt-20 flex-col gap-3"
+    >
       <div className="flex flex-wrap items-center gap-1.5 px-4 text-sm text-muted-foreground">
         <Icon className={`size-4 ${tone}`} />
         <UserLink
