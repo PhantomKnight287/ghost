@@ -20,6 +20,12 @@ import {
   PullRequestReopenError,
 } from '../../lib/issues/issues.errors.js';
 import {
+  EmptyReviewError,
+  InvalidLineRangeError,
+  OwnPullRequestReviewError,
+  ReviewLineNotInDiffError,
+} from '../../lib/pull-requests/pull-requests.errors.js';
+import {
   InvalidAssetNameError,
   InvalidTagNameError,
   ReleaseAlreadyExistsError,
@@ -58,6 +64,15 @@ const FIELD_ERRORS: [
   ],
 ];
 
+/** Ghost errors GitHub answers as a plain 422, where Ghost says 400 or 409. */
+const UNPROCESSABLE: (new (...args: never[]) => DomainError)[] = [
+  PullRequestReopenError,
+  ReviewLineNotInDiffError,
+  InvalidLineRangeError,
+  OwnPullRequestReviewError,
+  EmptyReviewError,
+];
+
 const DOCUMENTATION_URL = 'https://docs.github.com/rest';
 
 /** GitHub's REST error body, `{ message, documentation_url, status }` plus `errors` on a 422, for the compat controllers only; Ghost's own routes keep DomainErrorFilter. */
@@ -82,8 +97,7 @@ export class GithubRestFilter
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
-        : // GitHub refuses to reopen a merged pull request with 422, where Ghost says 409.
-          exception instanceof PullRequestReopenError
+        : UNPROCESSABLE.some((type) => exception instanceof type)
           ? HttpStatus.UNPROCESSABLE_ENTITY
           : exception.status;
     if (status >= 500) this.logger.error(exception);

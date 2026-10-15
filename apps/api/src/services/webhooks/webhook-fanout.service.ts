@@ -196,7 +196,13 @@ export class WebhookFanoutService {
           .select({
             id: schema.pullRequestReviewComment.id,
             body: schema.pullRequestReviewComment.body,
+            numericId: schema.pullRequestReviewComment.numericId,
             path: schema.pullRequestReviewComment.path,
+            side: schema.pullRequestReviewComment.side,
+            line: schema.pullRequestReviewComment.line,
+            startSide: schema.pullRequestReviewComment.startSide,
+            startLine: schema.pullRequestReviewComment.startLine,
+            inReplyToId: schema.pullRequestReviewComment.inReplyToId,
           })
           .from(schema.pullRequestReviewComment)
           .where(
@@ -211,6 +217,7 @@ export class WebhookFanoutService {
         const [review] = await this.db
           .select({
             id: schema.pullRequestReview.id,
+            numericId: schema.pullRequestReview.numericId,
             state: schema.pullRequestReview.state,
             body: schema.pullRequestReview.body,
             dismissalMessage: schema.pullRequestReview.dismissalMessage,

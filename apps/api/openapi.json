@@ -11887,6 +11887,721 @@
         ]
       }
     },
+    "/api/v3/repos/{owner}/{repo}/pulls/comments": {
+      "get": {
+        "operationId": "ReviewCommentsController_listForRepository",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "Repository-wide list only.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "Repository-wide list only; ignored without `sort`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "since",
+            "required": false,
+            "in": "query",
+            "description": "Only comments updated at or after.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Every review comment in a repository's pull requests",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/pulls/comments/{comment_id}": {
+      "get": {
+        "operationId": "ReviewCommentsController_get",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "comment_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A review comment by id",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "patch": {
+        "operationId": "ReviewCommentsController_update",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "comment_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCommentDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Edit a review comment; only its author may",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "delete": {
+        "operationId": "ReviewCommentsController_delete",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "comment_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a review comment and its replies",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/comments": {
+      "get": {
+        "operationId": "ReviewCommentsController_list",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "Repository-wide list only.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "Repository-wide list only; ignored without `sort`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "since",
+            "required": false,
+            "in": "query",
+            "description": "Only comments updated at or after.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A pull request's review comments",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "post": {
+        "operationId": "ReviewCommentsController_create",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCreateReviewCommentDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Comment on a line of a pull request, or reply",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/comments": {
+      "get": {
+        "operationId": "ReviewCommentsController_listForReview",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "review_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "Repository-wide list only.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "Repository-wide list only; ignored without `sort`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "since",
+            "required": false,
+            "in": "query",
+            "description": "Only comments updated at or after.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A review's line comments",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews": {
+      "get": {
+        "operationId": "GithubReviewsController_list",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A pull request's reviews, oldest first, then your pending one",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "post": {
+        "operationId": "GithubReviewsController_create",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCreateReviewDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Submit a review with its line comments, or start a pending one",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}": {
+      "get": {
+        "operationId": "GithubReviewsController_get",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "review_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "One review of a pull request, by its integer id",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "delete": {
+        "operationId": "GithubReviewsController_delete",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "review_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Discard your pending review and its comments",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/events": {
+      "post": {
+        "operationId": "GithubReviewsController_submit",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "review_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubSubmitReviewDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Submit your pending review",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3/repos/{owner}/{repo}/pulls": {
       "get": {
         "operationId": "PullsController_list",
@@ -12187,113 +12902,6 @@
           }
         },
         "summary": "A pull request's commits, oldest first",
-        "tags": [
-          "GitHub compatibility"
-        ]
-      }
-    },
-    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews": {
-      "get": {
-        "operationId": "PullsController_reviews",
-        "parameters": [
-          {
-            "name": "owner",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "default": 1,
-              "type": "string"
-            }
-          },
-          {
-            "name": "per_page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "maximum": 100,
-              "default": 30,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "A pull request's reviews, oldest first",
-        "tags": [
-          "GitHub compatibility"
-        ]
-      }
-    },
-    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}": {
-      "get": {
-        "operationId": "PullsController_review",
-        "parameters": [
-          {
-            "name": "owner",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "repo",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "review_id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "One review of a pull request, by its integer id",
         "tags": [
           "GitHub compatibility"
         ]
@@ -19231,6 +19839,138 @@
         },
         "required": [
           "assignees"
+        ]
+      },
+      "GithubCreateReviewCommentDTO": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "in_reply_to": {
+            "type": "number",
+            "description": "The id of the comment replied to."
+          },
+          "commit_id": {
+            "type": "string",
+            "description": "Required without `in_reply_to`; a commit of the pull request."
+          },
+          "path": {
+            "type": "string",
+            "description": "Required without `in_reply_to`."
+          },
+          "line": {
+            "type": "number",
+            "description": "Required without `in_reply_to`; the last line of a range."
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ],
+            "default": "RIGHT"
+          },
+          "start_line": {
+            "type": "number"
+          },
+          "start_side": {
+            "type": "string",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ],
+            "description": "Defaults to `side`."
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "GithubDraftReviewCommentDTO": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "line": {
+            "type": "number",
+            "description": "The last line of a range."
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ],
+            "default": "RIGHT"
+          },
+          "start_line": {
+            "type": "number"
+          },
+          "start_side": {
+            "type": "string",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ],
+            "description": "Defaults to `side`."
+          }
+        },
+        "required": [
+          "path",
+          "body",
+          "line"
+        ]
+      },
+      "GithubCreateReviewDTO": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REQUEST_CHANGES",
+              "COMMENT"
+            ],
+            "description": "Leave out to start a pending review."
+          },
+          "body": {
+            "type": "string"
+          },
+          "commit_id": {
+            "type": "string",
+            "description": "A commit of the pull request; defaults to its head."
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubDraftReviewCommentDTO"
+            }
+          }
+        }
+      },
+      "GithubSubmitReviewDTO": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REQUEST_CHANGES",
+              "COMMENT"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "description": "Replaces the pending review's summary when given."
+          }
+        },
+        "required": [
+          "event"
         ]
       },
       "GithubCreatePullDTO": {

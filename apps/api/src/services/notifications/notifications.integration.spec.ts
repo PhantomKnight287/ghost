@@ -381,10 +381,21 @@ describe.skipIf(!CONNECTION)('notifications', () => {
         body: 'ask @ntf-carol',
       })
       .returning();
+    const [replyReview] = await db
+      .insert(schema.pullRequestReview)
+      .values({
+        pullRequestId,
+        authorId: OWNER,
+        state: 'commented',
+        commitSha: 'aaaa',
+        submittedAt: new Date(),
+      })
+      .returning();
     const [reply] = await db
       .insert(schema.pullRequestReviewComment)
       .values({
         ...line,
+        reviewId: replyReview.id,
         inReplyToId: comment.id,
         authorId: OWNER,
         body: 'Done.',

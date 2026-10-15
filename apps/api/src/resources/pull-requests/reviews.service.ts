@@ -1,11 +1,19 @@
 import { type Database, schema } from '@ghost/db';
 import path from 'node:path';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  notExists,
+  sql,
+} from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { isTextBlob, readBlob } from '../../lib/git/blob/read-blob.js';
-import { fileHunks, type Hunk } from '../../lib/git/diff/diff.js';
+import { fileHunks, type Hunk, mergeBase } from '../../lib/git/diff/diff.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
@@ -30,9 +38,11 @@ import {
   EmptyReviewError,
   InvalidLineRangeError,
   OwnPullRequestReviewError,
+  PendingReviewExistsError,
   PendingReviewReplyError,
   PullRequestNotOpenError,
   ReviewCommentNotFoundError,
+  ReviewCommitNotInPullRequestError,
   ReviewLineNotInDiffError,
   ReviewNotDismissableError,
   ReviewNotFoundError,
@@ -70,29 +80,35 @@ export class ReviewsService {
     private readonly signing: CommitSigningService,
   ) {}
 
-  /** Submits the requester's pending review, or a new one, together with any further line comments. */
+  /** Submits the requester's pending review, or a new one, together with any further line comments. `separate` leaves the pending review alone and submits a new one; `commitSha` reviews an earlier commit of the request instead of its head. */
   async submitReview(
     params: PullRequestRef & {
       requesterId: string;
       body: CreateReviewRequestDTO;
+      separate?: boolean;
+      commitSha?: string;
     },
   ) {
     const git = await this.openForReview(params);
     const { pullRequest, base } = git;
     const { state, comments = [] } = params.body;
-    const body = params.body.body?.trim() || null;
     if (state !== 'commented' && pullRequest.authorId === params.requesterId) {
       throw new OwnPullRequestReviewError();
     }
-    const located = await this.locateInDiff(git, comments);
+    const commit = await this.reviewedCommit(git, params.commitSha);
+    const located = await this.locateInDiff(git, commit, comments);
 
-    const [pending] = await this.db
-      .select({
-        id: schema.pullRequestReview.id,
-        comments: sql<number>`(select count(*)::int from ${schema.pullRequestReviewComment} where ${schema.pullRequestReviewComment.reviewId} = ${schema.pullRequestReview.id})`,
-      })
-      .from(schema.pullRequestReview)
-      .where(pendingOf(pullRequest.id, params.requesterId));
+    const [pending] = params.separate
+      ? []
+      : await this.db
+          .select({
+            id: schema.pullRequestReview.id,
+            body: schema.pullRequestReview.body,
+            comments: sql<number>`(select count(*)::int from ${schema.pullRequestReviewComment} where ${schema.pullRequestReviewComment.reviewId} = ${schema.pullRequestReview.id})`,
+          })
+          .from(schema.pullRequestReview)
+          .where(pendingOf(pullRequest.id, params.requesterId));
+    const body = params.body.body?.trim() || pending?.body || null;
     if (
       state === 'commented' &&
       !body &&
@@ -109,7 +125,7 @@ export class ReviewsService {
             .set({
               state,
               body,
-              commitSha: git.headSha,
+              commitSha: commit.sha,
               submittedAt: new Date(),
             })
             .where(eq(schema.pullRequestReview.id, pending.id))
@@ -121,7 +137,7 @@ export class ReviewsService {
               authorId: params.requesterId,
               state,
               body,
-              commitSha: git.headSha,
+              commitSha: commit.sha,
               submittedAt: new Date(),
             })
             .returning({ id: schema.pullRequestReview.id });
@@ -134,7 +150,6 @@ export class ReviewsService {
             pullRequestId: pullRequest.id,
             reviewId: review.id,
             authorId: params.requesterId,
-            commitSha: git.headSha,
           })),
         );
       }
@@ -186,7 +201,8 @@ export class ReviewsService {
     },
   ) {
     const git = await this.openForReview(params);
-    const [located] = await this.locateInDiff(git, [params.body]);
+    const commit = await this.reviewedCommit(git, undefined);
+    const [located] = await this.locateInDiff(git, commit, [params.body]);
 
     await this.db.transaction(async (tx) => {
       await tx
@@ -194,7 +210,7 @@ export class ReviewsService {
         .values({
           pullRequestId: git.pullRequest.id,
           authorId: params.requesterId,
-          commitSha: git.headSha,
+          commitSha: commit.sha,
         })
         .onConflictDoNothing();
       const [pending] = await tx
@@ -208,11 +224,50 @@ export class ReviewsService {
         pullRequestId: git.pullRequest.id,
         reviewId: pending.id,
         authorId: params.requesterId,
-        commitSha: git.headSha,
       });
     });
 
     return this.getPendingReview(params);
+  }
+
+  /** Starts the requester's pending review with a summary and line comments, as GitHub's review without an event does; refuses when one is already pending. */
+  async startPendingReview(
+    params: PullRequestRef & {
+      requesterId: string;
+      body?: string;
+      comments: ReviewCommentRequestDTO[];
+      commitSha?: string;
+    },
+  ) {
+    const git = await this.openForReview(params);
+    const commit = await this.reviewedCommit(git, params.commitSha);
+    const located = await this.locateInDiff(git, commit, params.comments);
+
+    const reviewId = await this.db.transaction(async (tx) => {
+      const [review] = await tx
+        .insert(schema.pullRequestReview)
+        .values({
+          pullRequestId: git.pullRequest.id,
+          authorId: params.requesterId,
+          body: params.body?.trim() || null,
+          commitSha: commit.sha,
+        })
+        .onConflictDoNothing()
+        .returning({ id: schema.pullRequestReview.id });
+      if (!review) throw new PendingReviewExistsError();
+      if (located.length > 0) {
+        await tx.insert(schema.pullRequestReviewComment).values(
+          located.map((comment) => ({
+            ...comment,
+            pullRequestId: git.pullRequest.id,
+            reviewId: review.id,
+            authorId: params.requesterId,
+          })),
+        );
+      }
+      return review.id;
+    });
+    return this.findReview(reviewId);
   }
 
   async getPendingReview(params: PullRequestRef & { requesterId: string }) {
@@ -301,7 +356,7 @@ export class ReviewsService {
     return this.findReview(review.id);
   }
 
-  /** Replies join the thread of the comment replied to, even when that comment is itself a reply. */
+  /** Replies join the thread of the comment replied to, even when that comment is itself a reply. Each is a comment-only review of its own, as on GitHub; the conversation shows it in its thread, not as a review. */
   async replyToComment(
     params: PullRequestRef & {
       requesterId: string;
@@ -314,10 +369,22 @@ export class ReviewsService {
     if (comment.pending) throw new PendingReviewReplyError();
 
     const reply = await this.db.transaction(async (tx) => {
+      const [review] = await tx
+        .insert(schema.pullRequestReview)
+        .values({
+          pullRequestId: loaded.pullRequest.id,
+          authorId: params.requesterId,
+          state: 'commented',
+          commitSha: comment.commitSha,
+          submittedAt: new Date(),
+        })
+        .returning({ id: schema.pullRequestReview.id });
+      if (!review) throw new Error('Review insert returned no rows');
       const [row] = await tx
         .insert(schema.pullRequestReviewComment)
         .values({
           pullRequestId: loaded.pullRequest.id,
+          reviewId: review.id,
           inReplyToId: comment.inReplyToId ?? comment.id,
           authorId: params.requesterId,
           path: comment.path,
@@ -410,7 +477,7 @@ export class ReviewsService {
     };
   }
 
-  /** Deleting a thread's first comment deletes its replies. A comment-only review left with nothing to say goes with it. */
+  /** Deleting a thread's first comment deletes its replies. Comment-only reviews left with nothing to say, a reply's own among them, go with them. */
   async deleteComment(
     params: PullRequestRef & { requesterId: string; commentId: string },
   ) {
@@ -422,7 +489,10 @@ export class ReviewsService {
 
     await this.db.transaction(async (tx) => {
       const replies = await tx
-        .select({ id: schema.pullRequestReviewComment.id })
+        .select({
+          id: schema.pullRequestReviewComment.id,
+          reviewId: schema.pullRequestReviewComment.reviewId,
+        })
         .from(schema.pullRequestReviewComment)
         .where(eq(schema.pullRequestReviewComment.inReplyToId, comment.id));
       for (const { id } of [comment, ...replies]) {
@@ -432,28 +502,27 @@ export class ReviewsService {
       await tx
         .delete(schema.pullRequestReviewComment)
         .where(eq(schema.pullRequestReviewComment.id, comment.id));
-      if (comment.reviewId) {
-        await tx
-          .delete(schema.pullRequestReview)
-          .where(
-            and(
-              eq(schema.pullRequestReview.id, comment.reviewId),
-              eq(schema.pullRequestReview.state, 'commented'),
-              isNull(schema.pullRequestReview.body),
-              notExists(
-                tx
-                  .select({ id: schema.pullRequestReviewComment.id })
-                  .from(schema.pullRequestReviewComment)
-                  .where(
-                    eq(
-                      schema.pullRequestReviewComment.reviewId,
-                      comment.reviewId,
-                    ),
-                  ),
+      await tx.delete(schema.pullRequestReview).where(
+        and(
+          inArray(
+            schema.pullRequestReview.id,
+            [comment, ...replies].map((deleted) => deleted.reviewId),
+          ),
+          eq(schema.pullRequestReview.state, 'commented'),
+          isNull(schema.pullRequestReview.body),
+          notExists(
+            tx
+              .select({ id: schema.pullRequestReviewComment.id })
+              .from(schema.pullRequestReviewComment)
+              .where(
+                eq(
+                  schema.pullRequestReviewComment.reviewId,
+                  schema.pullRequestReview.id,
+                ),
               ),
-            ),
-          );
-      }
+          ),
+        ),
+      );
       await touchIssue(tx, loaded.pullRequest.issueId);
     });
     return { deleted: true };
@@ -567,8 +636,28 @@ export class ReviewsService {
     return git;
   }
 
-  /** Every comment must sit on a line the diff shows, on the side it names; each comes back with the rows of the diff it points at. */
-  private async locateInDiff(git: Opened, comments: ReviewCommentRequestDTO[]) {
+  /** The commit a review is made on and the merge base its diff starts from: the head, unless `commitSha` names an earlier commit of the request. A commit a force-push dropped no longer reaches the head, so it is refused like one that was never part of the request. */
+  private async reviewedCommit(git: Opened, commitSha: string | undefined) {
+    if (commitSha === undefined || commitSha === git.headSha) {
+      return { sha: git.headSha, from: git.mergeBase ?? git.baseSha };
+    }
+    const range = { gitDir: git.baseDirectory, alternates: git.alternates };
+    const [reached, from] = await Promise.all([
+      mergeBase({ ...range, a: commitSha, b: git.headSha }),
+      mergeBase({ ...range, a: git.baseSha, b: commitSha }),
+    ]);
+    if (reached !== commitSha || from === null || from === commitSha) {
+      throw new ReviewCommitNotInPullRequestError(commitSha);
+    }
+    return { sha: commitSha, from };
+  }
+
+  /** Every comment must sit on a line the diff shows, on the side it names; each comes back with the rows of the diff it points at and the commit it was made on. */
+  private async locateInDiff(
+    git: Opened,
+    commit: { sha: string; from: string },
+    comments: ReviewCommentRequestDTO[],
+  ) {
     const byPath = new Map<string, Hunk[]>();
     const located = [];
     for (const comment of comments) {
@@ -578,8 +667,8 @@ export class ReviewsService {
           await fileHunks({
             gitDir: git.baseDirectory,
             alternates: git.alternates,
-            from: git.mergeBase ?? git.baseSha,
-            to: git.headSha,
+            from: commit.from,
+            to: commit.sha,
             path: comment.path,
           }),
         );
@@ -598,7 +687,11 @@ export class ReviewsService {
       if (startSide === comment.side && startLine > comment.line) {
         throw new InvalidLineRangeError();
       }
-      located.push({ ...comment, diffHunk: diffHunkFor(hunks, comment) });
+      located.push({
+        ...comment,
+        commitSha: commit.sha,
+        diffHunk: diffHunkFor(hunks, comment),
+      });
     }
     return located;
   }
@@ -647,14 +740,14 @@ export class ReviewsService {
         startLine: schema.pullRequestReviewComment.startLine,
         body: schema.pullRequestReviewComment.body,
         commitSha: schema.pullRequestReviewComment.commitSha,
-        pending: sql<boolean>`${schema.pullRequestReview.id} is not null and ${schema.pullRequestReview.submittedAt} is null`,
+        pending: sql<boolean>`${schema.pullRequestReview.submittedAt} is null`,
       })
       .from(schema.pullRequestReviewComment)
       .innerJoin(
         schema.user,
         eq(schema.user.id, schema.pullRequestReviewComment.authorId),
       )
-      .leftJoin(
+      .innerJoin(
         schema.pullRequestReview,
         eq(
           schema.pullRequestReview.id,

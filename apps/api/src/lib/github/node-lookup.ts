@@ -1,7 +1,8 @@
 import { type Database, schema } from '@ghost/db';
-import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import { isoTimestamp } from '../db/sql.js';
+import { visibleReview } from '../pull-requests/reviews.js';
 import type { UserRow } from './nodes.js';
 
 /** The repository and number behind an issue's Ghost id, or null. */
@@ -134,8 +135,12 @@ export async function usersByEmailOf(db: Database, emails: string[]) {
   ]);
 }
 
-/** Submitted reviews of pull_request ids, oldest first; a pending review is its author's alone. */
-export function reviewsOf(db: Database, pullRequestIds: string[]) {
+/** Submitted reviews of pull_request ids, oldest first, then `viewerId`'s pending one: a pending review is its author's alone. */
+export function reviewsOf(
+  db: Database,
+  pullRequestIds: string[],
+  viewerId?: string,
+) {
   return db
     .select({
       id: schema.pullRequestReview.id,
@@ -157,7 +162,7 @@ export function reviewsOf(db: Database, pullRequestIds: string[]) {
     .where(
       and(
         inArray(schema.pullRequestReview.pullRequestId, pullRequestIds),
-        isNotNull(schema.pullRequestReview.submittedAt),
+        visibleReview(viewerId),
       ),
     )
     .orderBy(

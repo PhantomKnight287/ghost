@@ -170,9 +170,22 @@ export type WebhookBody = {
   createdAt: string;
   issue?: WebhookThread;
   pullRequest?: WebhookThread;
-  comment?: { id: string; body: string; path?: string };
+  /** A line comment also carries its place in the diff, its thread and `numericId`, the id GitHub's REST layer takes. */
+  comment?: {
+    id: string;
+    body: string;
+    numericId?: number;
+    path?: string;
+    side?: (typeof schema.pullRequestReviewComment.$inferSelect)['side'];
+    line?: number;
+    startSide?: (typeof schema.pullRequestReviewComment.$inferSelect)['startSide'];
+    startLine?: number | null;
+    inReplyToId?: string | null;
+  };
+  /** `numericId` is the id GitHub's REST layer takes. */
   review?: {
     id: string;
+    numericId: number;
     state: (typeof schema.pullRequestReview.$inferSelect)['state'];
     body: string | null;
     dismissalMessage: string | null;

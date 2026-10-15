@@ -160,7 +160,7 @@ export class PullRequestNodesService {
     );
   }
 
-  /** Each reviewer's most recent review, in the order they were submitted. */
+  /** Each reviewer's most recent verdict, or most recent comment when they gave none, in the order they were submitted. */
   async latestReviews(
     pull: PullRequestNode,
     loaders: Loaders,
@@ -171,7 +171,13 @@ export class PullRequestNodesService {
     const rows = await loaders.reviewsByPullRequestId.load(
       pull.pullRequestGhostId,
     );
-    const latest = new Map(rows.map((row) => [row.authorLogin, row]));
+    const latest = new Map<string, (typeof rows)[number]>();
+    for (const row of rows) {
+      const kept = latest.get(row.authorLogin);
+      // A comment, a reply's own review among them, leaves the reviewer's standing verdict in place.
+      if (!kept || row.state !== 'commented' || kept.state === 'commented')
+        latest.set(row.authorLogin, row);
+    }
     return sliceConnection(
       rows
         .filter((row) => latest.get(row.authorLogin) === row)

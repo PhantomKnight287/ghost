@@ -109,30 +109,6 @@ export class PullsController {
     return this.pulls.commits({ owner, repo, viewer }, number, query);
   }
 
-  @Get(':number/reviews')
-  @ApiOperation({ summary: "A pull request's reviews, oldest first" })
-  reviews(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
-    @Param('number', NUMBER) number: number,
-    @Query() query: GithubPageQueryDTO,
-    @Viewer() viewer: GithubViewer | null,
-  ) {
-    return this.pulls.reviews({ owner, repo, viewer }, number, query);
-  }
-
-  @Get(':number/reviews/:review_id')
-  @ApiOperation({ summary: 'One review of a pull request, by its integer id' })
-  review(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
-    @Param('number', NUMBER) number: number,
-    @Param('review_id', NUMBER) reviewId: number,
-    @Viewer() viewer: GithubViewer | null,
-  ) {
-    return this.pulls.review({ owner, repo, viewer }, number, reviewId);
-  }
-
   @Get(':number/files')
   @ApiOperation({ summary: 'The files a pull request changes' })
   files(

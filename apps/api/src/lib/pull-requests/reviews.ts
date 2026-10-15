@@ -1,5 +1,5 @@
 import { schema } from '@ghost/db';
-import { eq, type SQL, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, or, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { isoTimestamp } from '../db/sql.js';
@@ -38,12 +38,22 @@ const replies = sql`(select coalesce(json_agg(json_build_object('id', ${reply.id
 
 const threads = sql<
   ReviewThread[]
->`(select coalesce(json_agg(json_build_object('id', ${thread.id}, 'path', ${thread.path}, 'side', ${thread.side}, 'line', ${thread.line}, 'startSide', ${thread.startSide}, 'startLine', ${thread.startLine}, 'commitSha', ${thread.commitSha}, 'diffHunk', ${thread.diffHunk}, 'body', ${thread.body}, 'authorUsername', coalesce(${threadAuthor.username}, ''), 'authorImage', ${threadAuthor.image}, 'createdAt', ${isoTimestamp(thread.createdAt)}, 'updatedAt', ${isoTimestamp(thread.updatedAt)}, 'replies', ${replies}) order by ${thread.path}, ${thread.line}, ${thread.createdAt}), '[]') from ${schema.pullRequestReviewComment} ${thread} join ${schema.user} ${threadAuthor} on ${threadAuthor.id} = ${thread.authorId} where ${thread.reviewId} = ${schema.pullRequestReview.id})`;
+>`(select coalesce(json_agg(json_build_object('id', ${thread.id}, 'path', ${thread.path}, 'side', ${thread.side}, 'line', ${thread.line}, 'startSide', ${thread.startSide}, 'startLine', ${thread.startLine}, 'commitSha', ${thread.commitSha}, 'diffHunk', ${thread.diffHunk}, 'body', ${thread.body}, 'authorUsername', coalesce(${threadAuthor.username}, ''), 'authorImage', ${threadAuthor.image}, 'createdAt', ${isoTimestamp(thread.createdAt)}, 'updatedAt', ${isoTimestamp(thread.updatedAt)}, 'replies', ${replies}) order by ${thread.path}, ${thread.line}, ${thread.createdAt}), '[]') from ${schema.pullRequestReviewComment} ${thread} join ${schema.user} ${threadAuthor} on ${threadAuthor.id} = ${thread.authorId} where ${thread.reviewId} = ${schema.pullRequestReview.id} and ${thread.inReplyToId} is null)`;
+
+/** Submitted reviews, and with `viewerId` that viewer's pending one; a line comment is visible with its review. */
+export const visibleReview = (viewerId?: string) =>
+  or(
+    isNotNull(schema.pullRequestReview.submittedAt),
+    viewerId ? eq(schema.pullRequestReview.authorId, viewerId) : undefined,
+  );
+
+// A reply's own review says nothing beyond the reply, which its thread already shows.
+const notReplyOnly = sql`(${schema.pullRequestReview.state} is distinct from 'commented' or ${schema.pullRequestReview.body} is not null or exists (select 1 from ${schema.pullRequestReviewComment} where ${schema.pullRequestReviewComment.reviewId} = ${schema.pullRequestReview.id} and ${schema.pullRequestReviewComment.inReplyToId} is null))`;
 
 // A pending review has not been submitted, so it is dated by when it was started.
 const submittedAt = sql`coalesce(${schema.pullRequestReview.submittedAt}, ${schema.pullRequestReview.createdAt})`;
 
-/** Reviews exactly as the conversation renders them, oldest first: each line comment is a thread carrying its replies. */
+/** Reviews exactly as the conversation renders them, oldest first: each line comment is a thread carrying its replies, and a reply's own review is left out. */
 export function selectReviews(db: Executor, where: SQL | undefined) {
   return db
     .select({
@@ -72,6 +82,6 @@ export function selectReviews(db: Executor, where: SQL | undefined) {
       dismisser,
       eq(dismisser.id, schema.pullRequestReview.dismissedById),
     )
-    .where(where)
+    .where(and(where, notReplyOnly))
     .orderBy(submittedAt, schema.pullRequestReview.id);
 }

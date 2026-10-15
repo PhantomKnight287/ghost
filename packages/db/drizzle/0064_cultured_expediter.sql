@@ -1,0 +1,1 @@
+ALTER TABLE "pull_request_review_comment" ALTER COLUMN "review_id" SET NOT NULL;

@@ -6,10 +6,23 @@ import { GithubIssuesModule } from '../issues/issues.module.js';
 import { ReposModule } from '../repos/repos.module.js';
 import { PullsController } from './pulls.controller.js';
 import { GithubPullsService } from './pulls.service.js';
+import { ReviewCommentsController } from './review-comments.controller.js';
+import { GithubReviewCommentsService } from './review-comments.service.js';
+import { GithubReviewsController } from './reviews.controller.js';
+import { GithubReviewsService } from './reviews.service.js';
 
 @Module({
   imports: [IssuesModule, PullRequestsModule, GithubIssuesModule, ReposModule],
-  controllers: [PullsController],
-  providers: [GithubPullsService],
+  // ReviewCommentsController first: its `pulls/comments` routes must match before `pulls/:number`.
+  controllers: [
+    ReviewCommentsController,
+    GithubReviewsController,
+    PullsController,
+  ],
+  providers: [
+    GithubPullsService,
+    GithubReviewsService,
+    GithubReviewCommentsService,
+  ],
 })
 export class GithubPullsModule {}

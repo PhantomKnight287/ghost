@@ -3,7 +3,7 @@ import type { Readable } from 'node:stream';
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, count, eq, isNotNull, isNull, or } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { orNull } from '../../../lib/github/authorize.js';
@@ -16,7 +16,6 @@ import {
 import { encodeNodeId } from '../../../lib/github/node-id.js';
 import {
   pullRequestRowsOf,
-  reviewsOf,
   usersByEmailOf,
 } from '../../../lib/github/node-lookup.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
@@ -27,7 +26,6 @@ import {
   type RestRepositoryObject,
   toPullRest,
   toRepositoryRest,
-  toReviewRest,
   toUserRest,
 } from '../../../lib/github/rest.js';
 import {
@@ -36,6 +34,7 @@ import {
   PullRequestDraftError,
   PullRequestNotOpenError,
 } from '../../../lib/pull-requests/pull-requests.errors.js';
+import { visibleReview } from '../../../lib/pull-requests/reviews.js';
 import type { IssueDTO } from '../../../resources/issues/dto/issue.dto.js';
 import { IssuesService } from '../../../resources/issues/issues.service.js';
 import { PullRequestsService } from '../../../resources/pull-requests/pull-requests.service.js';
@@ -273,34 +272,6 @@ export class GithubPullsService {
     );
   }
 
-  async reviews(
-    { owner, repo, viewer }: GithubRepositoryTarget,
-    number: number,
-    query: GithubPageQueryDTO,
-  ) {
-    const repository = await this.github.readable(owner, repo, viewer);
-    const page = pageOf(query);
-    const reviews = await this.reviewsOf(repository, viewer, number);
-    return new RestPage(
-      reviews.slice(page.offset, page.offset + page.perPage),
-      page,
-      reviews.length,
-    );
-  }
-
-  async review(
-    { owner, repo, viewer }: GithubRepositoryTarget,
-    number: number,
-    reviewId: number,
-  ) {
-    const repository = await this.github.readable(owner, repo, viewer);
-    const review = (await this.reviewsOf(repository, viewer, number)).find(
-      (candidate) => candidate.id === reviewId,
-    );
-    if (!review) throw new GithubNotFoundError();
-    return review;
-  }
-
   async files(
     { owner, repo, viewer }: GithubRepositoryTarget,
     number: number,
@@ -513,25 +484,6 @@ export class GithubPullsService {
     return rest!;
   }
 
-  /** A pull request's submitted reviews, oldest first. */
-  private async reviewsOf(
-    repository: RepositoryNode,
-    viewer: GithubViewer | null,
-    number: number,
-  ) {
-    await this.issue(repository, viewer, number);
-    const { pullRequest } = await this.pulls.load({
-      ...this.github.ref(repository, viewer),
-      number,
-    });
-    const rows = await reviewsOf(this.db, [pullRequest.id]);
-    const context = await this.github.context(repository, {
-      logins: rows.map((row) => row.authorLogin),
-      labels: [],
-    });
-    return rows.map((row) => toReviewRest(row, number, context));
-  }
-
   /** The accounts behind commit emails, as GitHub's simple-user, keyed by lowercased email. */
   private async commitUsers(emails: string[]) {
     const origins = githubOrigins(this.config);
@@ -558,12 +510,11 @@ export class GithubPullsService {
     );
   }
 
-  /** Line comments others can see: those in a submitted review, and replies. */
   private async reviewCommentCount(pullRequestId: string) {
     const [row] = await this.db
       .select({ total: count() })
       .from(schema.pullRequestReviewComment)
-      .leftJoin(
+      .innerJoin(
         schema.pullRequestReview,
         eq(
           schema.pullRequestReview.id,
@@ -573,10 +524,7 @@ export class GithubPullsService {
       .where(
         and(
           eq(schema.pullRequestReviewComment.pullRequestId, pullRequestId),
-          or(
-            isNull(schema.pullRequestReviewComment.reviewId),
-            isNotNull(schema.pullRequestReview.submittedAt),
-          ),
+          visibleReview(),
         ),
       );
     return row?.total ?? 0;
