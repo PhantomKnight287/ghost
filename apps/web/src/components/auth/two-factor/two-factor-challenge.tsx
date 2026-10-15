@@ -84,7 +84,7 @@ export function TwoFactorChallenge({ className }: TwoFactorChallengeProps) {
   const isHydrated = useIsHydrated();
 
   const [methods, setMethods] = useState<TwoFactorMethod[]>(() =>
-    isHydrated ? readTwoFactorMethods() : ["totp", "otp"],
+    isHydrated ? readTwoFactorMethods() : ["totp"],
   );
   const [method, setMethod] = useState<ChallengeMethod>(
     () => methods[0] ?? "totp",

@@ -135,7 +135,7 @@ export function SignInUsername() {
                       id="email"
                       label={usernameLocalization.username}
                       type="text"
-                      autoComplete="username"
+                      autoComplete="username webauthn"
                       placeholder={
                         usernameLocalization.usernameOrEmailPlaceholder
                       }

@@ -1,6 +1,6 @@
 export type TwoFactorMethod = "totp" | "otp";
 
-const TWO_FACTOR_METHODS: TwoFactorMethod[] = ["totp", "otp"];
+const TWO_FACTOR_METHODS: TwoFactorMethod[] = ["totp"];
 
 /** Auth plugin id used by Better Auth UI's two-factor integration. */
 export const TWO_FACTOR_PLUGIN_ID = "twoFactor";
