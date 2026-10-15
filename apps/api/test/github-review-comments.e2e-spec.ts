@@ -312,13 +312,14 @@ describe.skipIf(!hasBackends)('GitHub review comments', () => {
   it('starts a pending review without an event, shows it to its author alone, then submits it', async () => {
     const { body: pending } = await send('post', `${repo}/pulls/1/reviews`, {
       body: 'Draft summary',
+      commit_id: older,
       comments: [{ path: 'a.txt', line: 3, body: 'Pending note' }],
     }).expect(200);
     expect(pending).toMatchObject({
       state: 'PENDING',
       body: 'Draft summary',
       submitted_at: null,
-      commit_id: head,
+      commit_id: older,
     });
     await send('post', `${repo}/pulls/1/reviews`, { body: 'Again' }).expect(
       422,
@@ -366,6 +367,7 @@ describe.skipIf(!hasBackends)('GitHub review comments', () => {
       state: 'COMMENTED',
       body: 'Draft summary',
       submitted_at: expect.any(String),
+      commit_id: older,
     });
     expect(await bodies(owner.key)).toContain('Pending note');
     await send('post', `${repo}/pulls/1/reviews/${pending.id}/events`, {

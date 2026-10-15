@@ -116,14 +116,19 @@ export class GithubReviewsService {
       viewer,
       'POST /repos/:owner/:repo/pulls/:number/reviews/:review_id/events',
     );
-    await this.pending(repository, signedIn, number, reviewId);
+    const pending = await this.pending(repository, signedIn, number, reviewId);
     await this.submit(
       {
         ...this.github.ref(repository, signedIn),
         requesterId: signedIn.userId,
         number,
       },
-      { event: body.event, body: body.body, comments: [] },
+      {
+        event: body.event,
+        body: body.body,
+        commitSha: pending.commit_id,
+        comments: [],
+      },
     );
     return this.byNumericId(repository, signedIn, number, reviewId);
   }
