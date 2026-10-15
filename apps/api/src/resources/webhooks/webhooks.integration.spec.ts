@@ -410,10 +410,25 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
         number: 2,
         htmlUrl: `https://ghost.test/${USERNAME}/app/pull/2`,
       },
-      review: { id: review.id, state: 'approved', body: 'Ship it' },
+      review: {
+        id: review.id,
+        numericId: review.numericId,
+        state: 'approved',
+        body: 'Ship it',
+      },
     });
     expect(bodies['pull_request.review_commented']).toMatchObject({
-      comment: { id: reviewComment.id, body: 'Nice', path: 'src/bell.ts' },
+      comment: {
+        id: reviewComment.id,
+        numericId: reviewComment.numericId,
+        body: 'Nice',
+        path: 'src/bell.ts',
+        side: 'additions',
+        line: 3,
+        startSide: null,
+        startLine: null,
+        inReplyToId: null,
+      },
     });
 
     // an event no endpoint chose queues nothing

@@ -118,7 +118,7 @@ export type IssueExtras = {
   mergedAt: Date | null;
 };
 
-function authorAssociation(login: string, context: RestContext) {
+export function authorAssociation(login: string, context: RestContext) {
   // ponytail: OWNER or NONE only, as in GraphQL; MEMBER and COLLABORATOR need a role lookup per author.
   return login === context.repository.ownerLogin ? 'OWNER' : 'NONE';
 }
@@ -404,7 +404,7 @@ export function toPullRest(
   };
 }
 
-/** A submitted review as GitHub's REST `pull-request-review`, from reviewsOf. */
+/** A review as GitHub's REST `pull-request-review`, from reviewsOf; a pending one has no state yet. */
 export type RestReviewSource = {
   id: string;
   numericId: number;
@@ -432,7 +432,7 @@ export function toReviewRest(
     body: review.body ?? '',
     state: review.dismissed
       ? 'DISMISSED'
-      : (review.state ?? 'commented').toUpperCase(),
+      : (review.state ?? 'pending').toUpperCase(),
     html_url: htmlUrl,
     pull_request_url: pullUrl,
     author_association: authorAssociation(review.authorLogin, context),

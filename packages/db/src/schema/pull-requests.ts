@@ -84,7 +84,7 @@ export const pullRequestReview = pgTable(
       .unique()
       .notNull()
       .$defaultFn(() => `prr_${createId()}`),
-    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    // Integer id for the GitHub compatibility layer (REST `id`, GraphQL `databaseId`); webhooks carry it so a receiver can call that layer, and nothing references it.
     numericId: bigint({ mode: "number" })
       .generatedAlwaysAsIdentity()
       .notNull()
@@ -113,7 +113,7 @@ export const pullRequestReview = pgTable(
   ],
 );
 
-/** A comment on a line, or on the range from `startLine` on `startSide` to `line` on `side`, of the diff at `commitSha`; outdated, not wrong, once the head moves on. A thread's first comment belongs to a review; replies carry `inReplyToId` and copy the thread's path, line and commit but not its `diffHunk`. */
+/** A comment on a line, or on the range from `startLine` on `startSide` to `line` on `side`, of the diff at `commitSha`; outdated, not wrong, once the head moves on. Every comment belongs to a review; a reply is the only comment of a comment-only review of its own, carries `inReplyToId` and copies the thread's path, line and commit but not its `diffHunk`. */
 export const pullRequestReviewComment = pgTable(
   "pull_request_review_comment",
   {
@@ -122,12 +122,17 @@ export const pullRequestReviewComment = pgTable(
       .unique()
       .notNull()
       .$defaultFn(() => `prc_${createId()}`),
+    // Integer id for the GitHub compatibility layer (REST `id`, `in_reply_to_id`); webhooks carry it so a receiver can call that layer, and nothing references it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     pullRequestId: text()
       .references(() => pullRequest.id, { onDelete: "cascade" })
       .notNull(),
-    reviewId: text().references(() => pullRequestReview.id, {
-      onDelete: "cascade",
-    }),
+    reviewId: text()
+      .references(() => pullRequestReview.id, { onDelete: "cascade" })
+      .notNull(),
     inReplyToId: text().references(
       (): AnyPgColumn => pullRequestReviewComment.id,
       { onDelete: "cascade" },

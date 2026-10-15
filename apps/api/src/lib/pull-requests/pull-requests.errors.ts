@@ -116,6 +116,22 @@ export class ReviewLineNotInDiffError extends DomainError {
   }
 }
 
+export class ReviewCommitNotInPullRequestError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(commitSha: string) {
+    super(`${commitSha} is not a commit of this pull request`);
+  }
+}
+
+export class PendingReviewExistsError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('You already have a pending review on this pull request');
+  }
+}
+
 export class InvalidLineRangeError extends DomainError {
   status: number = HttpStatus.BAD_REQUEST;
 

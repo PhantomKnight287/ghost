@@ -246,6 +246,7 @@ describe('messageOf', () => {
   const comment = { id: 'ic_1', body: 'On it' };
   const review = {
     id: 'prr_1',
+    numericId: 1,
     state: 'changes_requested' as const,
     body: 'Almost',
     dismissalMessage: 'Stale',

@@ -3051,6 +3051,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/pulls/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every review comment in a repository's pull requests */
+        get: operations["ReviewCommentsController_listForRepository"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A review comment by id */
+        get: operations["ReviewCommentsController_get"];
+        put?: never;
+        post?: never;
+        /** Delete a review comment and its replies */
+        delete: operations["ReviewCommentsController_delete"];
+        options?: never;
+        head?: never;
+        /** Edit a review comment; only its author may */
+        patch: operations["ReviewCommentsController_update"];
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A pull request's review comments */
+        get: operations["ReviewCommentsController_list"];
+        put?: never;
+        /** Comment on a line of a pull request, or reply */
+        post: operations["ReviewCommentsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A review's line comments */
+        get: operations["ReviewCommentsController_listForReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A pull request's reviews, oldest first, then your pending one */
+        get: operations["GithubReviewsController_list"];
+        put?: never;
+        /** Submit a review with its line comments, or start a pending one */
+        post: operations["GithubReviewsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One review of a pull request, by its integer id */
+        get: operations["GithubReviewsController_get"];
+        put?: never;
+        post?: never;
+        /** Discard your pending review and its comments */
+        delete: operations["GithubReviewsController_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit your pending review */
+        post: operations["GithubReviewsController_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/repos/{owner}/{repo}/pulls": {
         parameters: {
             query?: never;
@@ -3096,40 +3220,6 @@ export interface paths {
         };
         /** A pull request's commits, oldest first */
         get: operations["PullsController_commits"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A pull request's reviews, oldest first */
-        get: operations["PullsController_reviews"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One review of a pull request, by its integer id */
-        get: operations["PullsController_review"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5231,6 +5321,62 @@ export interface components {
         };
         GithubAssigneesDTO: {
             assignees: string[];
+        };
+        GithubCreateReviewCommentDTO: {
+            body: string;
+            /** @description The id of the comment replied to. */
+            in_reply_to?: number;
+            /** @description Required without `in_reply_to`; a commit of the pull request. */
+            commit_id?: string;
+            /** @description Required without `in_reply_to`. */
+            path?: string;
+            /** @description Required without `in_reply_to`; the last line of a range. */
+            line?: number;
+            /**
+             * @default RIGHT
+             * @enum {string}
+             */
+            side?: "LEFT" | "RIGHT";
+            start_line?: number;
+            /**
+             * @description Defaults to `side`.
+             * @enum {string}
+             */
+            start_side?: "LEFT" | "RIGHT";
+        };
+        GithubDraftReviewCommentDTO: {
+            path: string;
+            body: string;
+            /** @description The last line of a range. */
+            line: number;
+            /**
+             * @default RIGHT
+             * @enum {string}
+             */
+            side?: "LEFT" | "RIGHT";
+            start_line?: number;
+            /**
+             * @description Defaults to `side`.
+             * @enum {string}
+             */
+            start_side?: "LEFT" | "RIGHT";
+        };
+        GithubCreateReviewDTO: {
+            /**
+             * @description Leave out to start a pending review.
+             * @enum {string}
+             */
+            event?: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+            body?: string;
+            /** @description A commit of the pull request; defaults to its head. */
+            commit_id?: string;
+            comments?: components["schemas"]["GithubDraftReviewCommentDTO"][];
+        };
+        GithubSubmitReviewDTO: {
+            /** @enum {string} */
+            event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+            /** @description Replaces the pending review's summary when given. */
+            body?: string;
         };
         GithubCreatePullDTO: {
             title: string;
@@ -12486,6 +12632,307 @@ export interface operations {
             };
         };
     };
+    ReviewCommentsController_listForRepository: {
+        parameters: {
+            query?: {
+                /** @description Repository-wide list only. */
+                sort?: "created" | "updated";
+                /** @description Repository-wide list only; ignored without `sort`. */
+                direction?: "asc" | "desc";
+                /** @description Only comments updated at or after. */
+                since?: string;
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReviewCommentsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReviewCommentsController_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReviewCommentsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCommentDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReviewCommentsController_list: {
+        parameters: {
+            query?: {
+                /** @description Repository-wide list only. */
+                sort?: "created" | "updated";
+                /** @description Repository-wide list only; ignored without `sort`. */
+                direction?: "asc" | "desc";
+                /** @description Only comments updated at or after. */
+                since?: string;
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReviewCommentsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCreateReviewCommentDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReviewCommentsController_listForReview: {
+        parameters: {
+            query?: {
+                /** @description Repository-wide list only. */
+                sort?: "created" | "updated";
+                /** @description Repository-wide list only; ignored without `sort`. */
+                direction?: "asc" | "desc";
+                /** @description Only comments updated at or after. */
+                since?: string;
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReviewsController_list: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReviewsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCreateReviewDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReviewsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReviewsController_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubReviewsController_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubSubmitReviewDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     PullsController_list: {
         parameters: {
             query?: {
@@ -12598,52 +13045,6 @@ export interface operations {
                 owner: string;
                 repo: string;
                 number: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PullsController_reviews: {
-        parameters: {
-            query?: {
-                page?: string;
-                per_page?: string;
-            };
-            header?: never;
-            path: {
-                owner: string;
-                repo: string;
-                number: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PullsController_review: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                owner: string;
-                repo: string;
-                number: number;
-                review_id: number;
             };
             cookie?: never;
         };
