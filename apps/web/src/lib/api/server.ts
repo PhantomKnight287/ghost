@@ -27,11 +27,42 @@ export function notFoundIfHidden(response: Response) {
   if (response.status === 404 || response.status === 401) notFound();
 }
 
+/** Failures to open a connection, so the API never saw the request and sending it again is safe. */
+const CONNECT_ERRORS = new Set([
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EAI_AGAIN",
+  "UND_ERR_CONNECT_TIMEOUT",
+]);
+const ATTEMPTS = 5;
+
+/** `fetch` that retries when the API cannot be reached. On Railway's serverless mode the API sleeps with the web app, and the first request after a wake times out connecting while it boots (#70). */
+export async function fetchApi(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      // A Request's body can be read once, so each attempt sends a copy.
+      return await fetch(
+        input instanceof Request ? input.clone() : input,
+        init,
+      );
+    } catch (error) {
+      const code = (error as { cause?: { code?: string } }).cause?.code;
+      if (attempt === ATTEMPTS || !code || !CONNECT_ERRORS.has(code))
+        throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+    }
+  }
+}
+
 /** Typed API client for server components. `credentials: "include"` is a browser concept, so the incoming request's cookies are forwarded explicitly. */
 export async function createServerClient() {
   return createFetchClient<paths>({
     baseUrl: INTERNAL_API_URL,
     headers: await forwardedHeaders(),
+    fetch: fetchApi,
   });
 }
 
@@ -50,7 +81,7 @@ export const getServerSession = cache(
     const forwarded = await forwardedHeaders();
     if (!forwarded.cookie) return null;
 
-    const res = await fetch(`${INTERNAL_API_URL}/api/auth/get-session`, {
+    const res = await fetchApi(`${INTERNAL_API_URL}/api/auth/get-session`, {
       headers: forwarded,
       cache: "no-store",
     });
