@@ -1,6 +1,14 @@
 "use client";
 
-import { CircleCheck, CircleDot, Pencil, Trash2 } from "lucide-react";
+import {
+  CircleCheck,
+  CircleDot,
+  Ellipsis,
+  Link2,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import { cn } from "cn";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -21,7 +29,14 @@ import {
 } from "@/components/pull-requests/actions";
 import { MarkdownEditor } from "@/components/markdown-editor/markdown-editor";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
+import { useCopy } from "@/lib/use-copy";
 
 export function CommentBox({
   username,
@@ -149,7 +164,14 @@ const commentActions = {
   review: { update: updateReviewSummary, remove: null },
 };
 
-/** A comment with its header; Edit and Delete sit at the header's right. Line comments sit in a thread, so their header is a plain row rather than a card's top bar. */
+// The fragments GitHub uses, which the API's `html_url`s already carry, so a link copied here and one from the API land on the same comment.
+export const commentAnchor = {
+  issue: "issuecomment-",
+  "review-comment": "discussion_r",
+  review: "pullrequestreview-",
+};
+
+/** A comment with its header; a menu at the header's right copies a link to it and holds Edit and Delete. Line comments sit in a thread, so their header is a plain row rather than a card's top bar. */
 export function CommentItem({
   kind = "issue",
   username,
@@ -199,6 +221,13 @@ export function CommentItem({
       toast.error(error.serverError ?? "Could not delete this comment."),
   });
 
+  const anchor = `${commentAnchor[kind]}${commentId}`;
+  const link = useCopy(() => {
+    const url = new URL(location.href);
+    url.hash = anchor;
+    return url.toString();
+  }, "Could not copy the link.");
+
   const inThread = kind === "review-comment";
   const content = (
     <>
@@ -210,39 +239,52 @@ export function CommentItem({
         }
       >
         {header}
-        {(canEdit || (canDelete && actions.remove)) && !editing && (
-          <div className="ml-auto flex gap-1">
-            {canEdit && (
+        {!editing && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setDraft(body);
-                  setEditing(true);
+                size="icon-sm"
+                className="ml-auto"
+                disabled={remove.isExecuting}
+                aria-label="Comment actions"
+              >
+                {remove.isExecuting ? <Spinner /> : <Ellipsis />}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={async () => {
+                  if (await link.copy()) toast.success("Link copied.");
                 }}
               >
-                <Pencil data-icon="inline-start" />
-                Edit
-              </Button>
-            )}
-            {canDelete && actions.remove && (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={remove.isExecuting}
-                onClick={() =>
-                  remove.execute({ username, repo, number, commentId })
-                }
-              >
-                {remove.isExecuting ? (
-                  <Spinner />
-                ) : (
-                  <Trash2 data-icon="inline-start" />
-                )}
-                Delete
-              </Button>
-            )}
-          </div>
+                <Link2 />
+                Copy link
+              </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setDraft(body);
+                    setEditing(true);
+                  }}
+                >
+                  <Pencil />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {canDelete && actions.remove && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() =>
+                    remove.execute({ username, repo, number, commentId })
+                  }
+                >
+                  <Trash2 />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -298,9 +340,17 @@ export function CommentItem({
     </>
   );
 
-  return inThread ? (
-    content
-  ) : (
-    <div className="rounded-lg border">{content}</div>
+  // A review's own row carries its anchor, so a review without a summary can be linked too.
+  const id = kind === "review" ? undefined : anchor;
+  return (
+    <div
+      id={id}
+      className={cn(
+        "scroll-mt-20 target:bg-primary/5",
+        !inThread && "rounded-lg border",
+      )}
+    >
+      {content}
+    </div>
   );
 }
