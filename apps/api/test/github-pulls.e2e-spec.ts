@@ -393,6 +393,18 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
       mergeCommit: null,
       mergedBy: null,
     });
+    // Closed with its head branch gone, the request still names the base branch's tip.
+    await send('patch', `${repo}/pulls/2`, { state: 'closed' }).expect(200);
+    await v3()
+      .delete(`/api/v3${repo}/git/refs/heads/clash`)
+      .set('authorization', `token ${owner.key}`)
+      .expect(204);
+    const closed = await graphql(`{
+      repository(owner: "${username}", name: "tools") { pullRequest(number: 2) { baseRefOid } }
+    }`);
+    expect(closed.data.repository.pullRequest).toEqual({
+      baseRefOid: rest.merge_commit_sha,
+    });
     await vi.waitFor(async () => {
       const { data } = await graphql(`{
         repository(owner: "${username}", name: "tools") {

@@ -260,9 +260,8 @@ export class PullRequestNodesService {
     return sha && this.commit(pull, sha, viewer);
   }
 
-  /** The base as the request last saw it: the branch while it is open, the merge commit's first parent once merged, so it outlives a deleted branch. */
-  async baseRefOid(pull: PullRequestNode, viewer: GithubViewer | null) {
-    return (await this.pulls.open(this.ref(pull, viewer))).baseSha;
+  baseRefOid(pull: PullRequestNode, viewer: GithubViewer | null) {
+    return this.pulls.baseSha(this.ref(pull, viewer));
   }
 
   /** Issues in other repositories the viewer cannot read are left out, as on GitHub. */

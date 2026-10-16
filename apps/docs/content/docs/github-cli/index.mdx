@@ -169,7 +169,7 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - A commit author's `user` is the account with that verified email, primary or added, or null.
 - Not served: `gh pr review`, which needs the `addPullRequestReview` mutation, review comments and pending reviews over GraphQL, editing a review's summary or dismissing one over REST (`PUT …/reviews/:review_id`, `PUT …/reviews/:review_id/dismissals`), `updatePullRequestBranch`, and `gh pr checks`.
 - `closingIssuesReferences` lists the issues a closing keyword in the pull request's description names. Ghost cannot link an issue by hand, and pull requests named that way are left out, as they never close on merge.
-- A merged pull request's `baseRefOid` is the first parent of its merge commit, so it survives the base branch being deleted.
+- A merged pull request's `baseRefOid` is the first parent of its merge commit. Otherwise it is the base branch's tip, or once that branch is deleted, the base of the last test merge. A request with neither answers an error for the field.
 - `potentialMergeCommit` is the test merge in `refs/pull/<number>/merge`, and null while the pull request conflicts.
 - A review comment needs `line`: the legacy `position` is not supported, and `subject_type: file` comments are not served. `position`, `original_position` and `reactions` are absent from responses.
 - A reply is submitted at once as a comment-only review of its own, even when its author has a pending review; on GitHub it joins the pending review. A comment in a pending review takes no replies until the review is submitted.
