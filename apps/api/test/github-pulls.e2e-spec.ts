@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { type Database, schema } from '@ghost/db';
 import { eq } from 'drizzle-orm';
@@ -355,6 +355,69 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
       }
     }`);
     expect(errors[0]).toMatchObject({ type: 'UNPROCESSABLE' });
+  });
+
+  it('answers the merge and closing fields gh pr view --json asks for', async () => {
+    await send('patch', `${repo}/pulls/1`, { body: 'Fixes #3' }).expect(200);
+    const rest = (await get(`${repo}/pulls/1`).expect(200)).body;
+    const tip = execFileSync('git', ['rev-parse', 'main'], { cwd: work })
+      .toString()
+      .trim();
+    const { data } = await graphql(`{
+      repository(owner: "${username}", name: "tools") {
+        merged: pullRequest(number: 1) {
+          mergeCommit { oid } mergedBy { login } baseRefOid fullDatabaseId databaseId
+          closingIssuesReferences(first: 100) { nodes { number repository { name owner { login } } } pageInfo { hasNextPage } }
+        }
+        conflicting: pullRequest(number: 2) { potentialMergeCommit { oid } mergeCommit { oid } mergedBy { login } }
+      }
+    }`);
+    expect(data.repository.merged).toEqual({
+      mergeCommit: { oid: rest.merge_commit_sha },
+      mergedBy: { login: username },
+      baseRefOid: tip,
+      fullDatabaseId: String(rest.id),
+      databaseId: rest.id,
+      closingIssuesReferences: {
+        nodes: [
+          {
+            number: 3,
+            repository: { name: 'tools', owner: { login: username } },
+          },
+        ],
+        pageInfo: { hasNextPage: false },
+      },
+    });
+    expect(data.repository.conflicting).toEqual({
+      potentialMergeCommit: null,
+      mergeCommit: null,
+      mergedBy: null,
+    });
+    // Closed with its head branch gone, the request still names the base branch's tip.
+    await send('patch', `${repo}/pulls/2`, { state: 'closed' }).expect(200);
+    await v3()
+      .delete(`/api/v3${repo}/git/refs/heads/clash`)
+      .set('authorization', `token ${owner.key}`)
+      .expect(204);
+    const closed = await graphql(`{
+      repository(owner: "${username}", name: "tools") { pullRequest(number: 2) { baseRefOid } }
+    }`);
+    expect(closed.data.repository.pullRequest).toEqual({
+      baseRefOid: rest.merge_commit_sha,
+    });
+    await vi.waitFor(async () => {
+      const { data } = await graphql(`{
+        repository(owner: "${username}", name: "tools") {
+          pullRequest(number: 4) { headRefOid potentialMergeCommit { oid } }
+        }
+      }`);
+      expect(data.repository.pullRequest.potentialMergeCommit).toEqual({
+        oid: expect.stringMatching(/^[0-9a-f]{40}$/),
+      });
+      expect(data.repository.pullRequest.potentialMergeCommit.oid).not.toBe(
+        data.repository.pullRequest.headRefOid,
+      );
+    });
   });
 
   it("resolves a pull request's comment by node id", async () => {

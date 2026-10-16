@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import type { Database } from '@ghost/db';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { DATABASE } from '../../../../database/database.module.js';
 import { orNull } from '../../../../lib/github/authorize.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
 import { encodeNodeId } from '../../../../lib/github/node-id.js';
+import { closingIssueIdsOf } from '../../../../lib/github/node-lookup.js';
 import {
   toCommitNode,
   toPullRequestReviewNode,
@@ -22,6 +25,7 @@ import {
   PullRequestReviewState,
   PullRequestState,
 } from '../../enums.js';
+import { IssueNode } from '../../types/issue.type.js';
 import {
   GitActorNode,
   PullRequestNode,
@@ -42,6 +46,7 @@ const CHANGE_TYPES: Record<string, PatchStatus> = {
 @Injectable()
 export class PullRequestNodesService {
   constructor(
+    @Inject(DATABASE) private readonly db: Database,
     private readonly repositories: RepositoryNodesService,
     private readonly pulls: PullRequestsService,
     private readonly config: ConfigService,
@@ -49,12 +54,7 @@ export class PullRequestNodesService {
 
   /** getPullRequest once per node: additions, mergeable and the live head all come from the same git reads. */
   private detail(pull: PullRequestNode, viewer: GithubViewer | null) {
-    pull.detail ??= this.pulls.getPullRequest({
-      username: pull.ownerLogin,
-      repo: pull.repoSlug,
-      number: pull.number,
-      requesterId: viewer?.userId,
-    });
+    pull.detail ??= this.pulls.getPullRequest(this.ref(pull, viewer));
     return pull.detail;
   }
 
@@ -192,12 +192,7 @@ export class PullRequestNodesService {
     first?: number,
     after?: string,
   ) {
-    const { files } = await this.pulls.getFiles({
-      username: pull.ownerLogin,
-      repo: pull.repoSlug,
-      number: pull.number,
-      requesterId: viewer?.userId,
-    });
+    const { files } = await this.pulls.getFiles(this.ref(pull, viewer));
     return sliceConnection(
       files.map((file) => ({
         path: file.path,
@@ -218,10 +213,7 @@ export class PullRequestNodesService {
     after?: string,
   ) {
     const { commits, total } = await this.pulls.getCommits({
-      username: pull.ownerLogin,
-      repo: pull.repoSlug,
-      number: pull.number,
-      requesterId: viewer?.userId,
+      ...this.ref(pull, viewer),
       limit: MAX_COMMITS,
       oldestFirst: true,
     });
@@ -249,21 +241,65 @@ export class PullRequestNodesService {
     return row ? toUserNode(row, githubOrigins(this.config)) : null;
   }
 
-  /** The head the reviewer read, from git; null once no repository holds it. */
-  async reviewCommit(
-    review: PullRequestReviewNode,
+  /** The head the reviewer read; null once no repository holds it. */
+  reviewCommit(review: PullRequestReviewNode, viewer: GithubViewer | null) {
+    return this.commit(review.pullRequest, review.commitSha, viewer);
+  }
+
+  mergeCommit(pull: PullRequestNode, viewer: GithubViewer | null) {
+    return pull.mergeCommitSha
+      ? this.commit(pull, pull.mergeCommitSha, viewer)
+      : null;
+  }
+
+  async potentialMergeCommit(
+    pull: PullRequestNode,
     viewer: GithubViewer | null,
   ) {
-    const { pullRequest: pull } = review;
-    const commit = await this.pulls.readCommit(
-      {
-        username: pull.ownerLogin,
-        repo: pull.repoSlug,
-        number: pull.number,
-        requesterId: viewer?.userId,
-      },
-      review.commitSha,
+    const sha = await this.pulls.testMergeSha(this.ref(pull, viewer));
+    return sha && this.commit(pull, sha, viewer);
+  }
+
+  baseRefOid(pull: PullRequestNode, viewer: GithubViewer | null) {
+    return this.pulls.baseSha(this.ref(pull, viewer));
+  }
+
+  /** Issues in other repositories the viewer cannot read are left out, as on GitHub. */
+  async closingIssuesReferences(
+    pull: PullRequestNode,
+    viewer: GithubViewer | null,
+    first?: number,
+    after?: string,
+  ) {
+    const ids = await closingIssueIdsOf(this.db, pull.ghostId);
+    const issues = await Promise.all(
+      ids.map((id) => this.repositories.issueById(id, viewer)),
     );
+    return sliceConnection(
+      issues.filter((issue) => issue instanceof IssueNode),
+      { first, after },
+    );
+  }
+
+  private ref(
+    pull: Pick<PullRequestNode, 'ownerLogin' | 'repoSlug' | 'number'>,
+    viewer: GithubViewer | null,
+  ) {
+    return {
+      username: pull.ownerLogin,
+      repo: pull.repoSlug,
+      number: pull.number,
+      requesterId: viewer?.userId,
+    };
+  }
+
+  /** A commit of the request from git; null once no repository holds it. */
+  private async commit(
+    pull: PullRequestReviewNode['pullRequest'],
+    sha: string,
+    viewer: GithubViewer | null,
+  ) {
+    const commit = await this.pulls.readCommit(this.ref(pull, viewer), sha);
     return (
       commit &&
       toCommitNode(commit, {

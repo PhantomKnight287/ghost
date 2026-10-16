@@ -554,9 +554,18 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
 
     it('merges a pull request', async () => {
       await ok(['pr', 'merge', number, '-R', repo(), '--squash']);
-      expect(await view('state,mergedAt')).toMatchObject({
+      expect(
+        await view(
+          'state,mergedAt,mergeCommit,mergedBy,baseRefOid,potentialMergeCommit,fullDatabaseId,closingIssuesReferences',
+        ),
+      ).toMatchObject({
         state: 'MERGED',
         mergedAt: expect.any(String),
+        mergeCommit: { oid: expect.stringMatching(/^[0-9a-f]{40}$/) },
+        mergedBy: expect.objectContaining({ login: username }),
+        baseRefOid: expect.stringMatching(/^[0-9a-f]{40}$/),
+        fullDatabaseId: expect.stringMatching(/^\d+$/),
+        closingIssuesReferences: [],
       });
     });
   });

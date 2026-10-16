@@ -63,7 +63,7 @@ import {
   commitsAdded,
   recordCommitEvents,
 } from '../../lib/pull-requests/commit-events.js';
-import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
+import { pullHeadRef, pullMergeRef } from '../../lib/git/refs/pull-refs.js';
 import type { RefTransition } from '../../lib/git/wal/wal.types.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { MergeStorageQuotaExceededError } from '../../lib/storage/storage.errors.js';
@@ -938,6 +938,28 @@ export class PullRequestsService {
       await this.materializer.open(repository),
       toBranchRef(branch),
     );
+  }
+
+  /** The test merge `refs/pull/<n>/merge` holds in the base, or null when there is none, as while the request conflicts. */
+  async testMergeSha(params: PullRequestRef) {
+    const { pullRequest, base } = await this.load(params);
+    return resolveCommit(
+      await this.materializer.open(base),
+      pullMergeRef(pullRequest.number),
+    );
+  }
+
+  /** The base as the request last saw it, without reading the head: the merge commit's first parent once merged, else the branch, else the base its last test merge was made on, as a closed request keeps its pull refs. */
+  async baseSha(params: PullRequestRef) {
+    const { pullRequest, base } = await this.load(params);
+    const gitDir = await this.materializer.open(base);
+    // ponytail: a request whose base branch is gone and that never had a test merge has no base left to name; store the base tip on close if that case matters.
+    const sha = pullRequest.mergeCommitSha
+      ? await resolveCommit(gitDir, `${pullRequest.mergeCommitSha}^1`)
+      : ((await resolveCommit(gitDir, toBranchRef(pullRequest.baseRef))) ??
+        (await resolveCommit(gitDir, `${pullMergeRef(pullRequest.number)}^1`)));
+    if (!sha) throw new BranchNotFoundError(pullRequest.baseRef);
+    return sha;
   }
 
   /** Marks a request ready for review, or turns it back into a draft. Asking for the state it is already in records nothing. */

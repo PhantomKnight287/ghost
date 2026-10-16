@@ -18,7 +18,8 @@ import {
   MergeStateStatus,
   PullRequestReviewDecision,
 } from '../../enums.js';
-import { GitObjectID } from '../../scalars.js';
+import { BigIntString, GitObjectID } from '../../scalars.js';
+import { IssueConnection } from '../../types/issue.type.js';
 import { IssueCommentConnection } from '../../types/issue-comment.type.js';
 import { LabelConnection } from '../../types/label.type.js';
 import { Actor, RepositoryOwner } from '../../types/node.interface.js';
@@ -65,9 +66,28 @@ export class PullRequestResolver {
     return this.issues.databaseId(pull, context.loaders);
   }
 
+  @ResolveField(() => BigIntString, { nullable: true })
+  fullDatabaseId(
+    @Parent() pull: PullRequestNode,
+    @Context() context: GraphqlContext,
+  ) {
+    return this.issues.databaseId(pull, context.loaders);
+  }
+
   @ResolveField(() => Actor, { nullable: true })
   author(@Parent() pull: PullRequestNode, @Context() context: GraphqlContext) {
     return this.issues.author(pull, context.loaders);
+  }
+
+  @ResolveField(() => Actor, { nullable: true })
+  mergedBy(
+    @Parent() pull: PullRequestNode,
+    @Context() context: GraphqlContext,
+  ) {
+    return (
+      pull.mergedByLogin &&
+      this.issues.author({ authorLogin: pull.mergedByLogin }, context.loaders)
+    );
   }
 
   @ResolveField(() => UserConnection)
@@ -153,6 +173,40 @@ export class PullRequestResolver {
   @ResolveField(() => GitObjectID)
   headRefOid(@Parent() pull: PullRequestNode) {
     return this.pulls.headRefOid(pull);
+  }
+
+  @ResolveField(() => GitObjectID)
+  baseRefOid(
+    @Parent() pull: PullRequestNode,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.pulls.baseRefOid(pull, viewer);
+  }
+
+  @ResolveField(() => CommitNode, { nullable: true })
+  mergeCommit(
+    @Parent() pull: PullRequestNode,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.pulls.mergeCommit(pull, viewer);
+  }
+
+  @ResolveField(() => CommitNode, { nullable: true })
+  potentialMergeCommit(
+    @Parent() pull: PullRequestNode,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.pulls.potentialMergeCommit(pull, viewer);
+  }
+
+  @ResolveField(() => IssueConnection, { nullable: true })
+  closingIssuesReferences(
+    @Parent() pull: PullRequestNode,
+    @Viewer() viewer: GithubViewer | null,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
+  ) {
+    return this.pulls.closingIssuesReferences(pull, viewer, first, after);
   }
 
   @ResolveField(() => RepositoryNode)

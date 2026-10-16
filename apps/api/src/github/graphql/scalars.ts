@@ -17,3 +17,7 @@ export const URI = stringScalar(
 export const HTML = stringScalar('HTML', 'A string containing HTML code.');
 export const GitObjectID = stringScalar('GitObjectID', 'A Git object ID.');
 export const GitSSHRemote = stringScalar('GitSSHRemote', 'Git SSH string');
+export const BigIntString = stringScalar(
+  'BigInt',
+  "Represents non-fractional signed whole numeric values. Since the value may exceed the size of a 32-bit integer, it's encoded as a string.",
+);

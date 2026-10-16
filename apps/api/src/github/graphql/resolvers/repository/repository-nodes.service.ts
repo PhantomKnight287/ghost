@@ -11,6 +11,7 @@ import {
 import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
 import { encodeNodeId } from '../../../../lib/github/node-id.js';
+import { issueRefOf } from '../../../../lib/github/node-lookup.js';
 import {
   toIssueNode,
   toLabelNode,
@@ -361,6 +362,17 @@ export class RepositoryNodesService {
         `Could not resolve to a PullRequest with the number of ${number}.`,
       );
     return found;
+  }
+
+  /** The issue or pull request behind a Ghost id, or null when the viewer cannot read it. */
+  async issueById(issueId: string, viewer: GithubViewer | null) {
+    const ref = await issueRefOf(this.db, issueId);
+    if (!ref) return null;
+    const repository = await orNull(this.load(ref.repositoryId, viewer));
+    return (
+      repository &&
+      orNull(this.issueNodes.fromRepository(repository, ref.number, viewer))
+    );
   }
 
   issueOrPullRequest(
