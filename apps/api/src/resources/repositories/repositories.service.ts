@@ -238,6 +238,7 @@ export class RepositoriesService {
       await this.commitInitialFiles(newRepo, body, userId).catch(
         async (error: unknown) => {
           // Left in place, the half-made repository would take the name, and a retry would land on a suffixed slug.
+          await this.erase(newRepo.id);
           await this.db
             .delete(schema.repository)
             .where(eq(schema.repository.id, newRepo.id));
@@ -1193,17 +1194,7 @@ export class RepositoriesService {
       );
     }
 
-    await this.wal.tombstone(repository.id);
-    await Promise.all([
-      this.wal.purgeEntries(repository.id),
-      this.materializer
-        .settle(repository.id)
-        .then(() => this.storage.remove(repository.id)),
-      this.codeSearch.remove(repository.id),
-      this.s3.deleteUnder(releaseAssetKey(repository.id)),
-      this.s3.deleteUnder(attachmentKey(repository.id)),
-      this.lfs.remove(repository.id),
-    ]);
+    await this.erase(repository.id);
 
     await this.db.transaction(async (tx) => {
       // A request opened between the check above and the tombstone. Closing it keeps every open request's head repository alive.
@@ -1220,6 +1211,21 @@ export class RepositoriesService {
         .delete(schema.repository)
         .where(eq(schema.repository.id, repository.id));
     });
+  }
+
+  /** Everything of a repository but its row, which the caller deletes. */
+  private async erase(repositoryId: string) {
+    await this.wal.tombstone(repositoryId);
+    await Promise.all([
+      this.wal.purgeEntries(repositoryId),
+      this.materializer
+        .settle(repositoryId)
+        .then(() => this.storage.remove(repositoryId)),
+      this.codeSearch.remove(repositoryId),
+      this.s3.deleteUnder(releaseAssetKey(repositoryId)),
+      this.s3.deleteUnder(attachmentKey(repositoryId)),
+      this.lfs.remove(repositoryId),
+    ]);
   }
 
   /** Open requests into other repositories. Requests into this one go with it. */

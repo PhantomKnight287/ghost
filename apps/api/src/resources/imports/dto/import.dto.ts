@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, OmitType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -13,7 +13,11 @@ import { schema } from '@ghost/db';
 
 import { CreateRepositoryRequestDTO } from '../../repositories/dto/create-repository.dto.js';
 
-export class StartImportRequestDTO extends CreateRepositoryRequestDTO {
+// The import brings the history; initial files would be an unrelated root commit its push could not land on.
+export class StartImportRequestDTO extends OmitType(
+  CreateRepositoryRequestDTO,
+  ['readme', 'gitignoreTemplate', 'licenseTemplate'],
+) {
   @ApiProperty({
     description: 'The GitHub repository to import, as `owner/name`.',
     example: 'octocat/hello-world',
