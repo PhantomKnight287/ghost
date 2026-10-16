@@ -63,6 +63,7 @@ import { RepositoryPathIndexService } from '../../services/git/path-index/reposi
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { runGit, runGitBuffer } from '../../lib/git/exec/run-git.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
+import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
 import { readSubmoduleUrls } from '../../lib/git/submodules/read-submodule-urls.js';
 import { submoduleHref } from '../../lib/git/submodules/submodule-href.js';
 import {
@@ -205,6 +206,7 @@ export class RepositoriesService {
     private readonly config: ConfigService,
     private readonly signing: CommitSigningService,
     private readonly pushTransaction: PushTransactionService,
+    private readonly statuses: CommitStatusesService,
   ) {}
 
   /** A README, .gitignore or license asked for becomes the first commit on the default branch, as GitHub's `auto_init` and templates write it. */
@@ -1731,7 +1733,7 @@ export class RepositoriesService {
     requesterId?: string;
     query: GetRepositoryCommitsQueryDTO;
   }): Promise<GetRepositoryCommitsResponseDTO> {
-    const { directory, ref } = await this.openRepository({
+    const { repository, directory, ref } = await this.openRepository({
       username,
       repo,
       requesterId,
@@ -1774,10 +1776,13 @@ export class RepositoriesService {
         : 0,
     ]);
 
-    const verdicts = await this.verification.verifyCommits({
-      gitDir: directory,
-      commits,
-    });
+    const [verdicts, statuses] = await Promise.all([
+      this.verification.verifyCommits({ gitDir: directory, commits }),
+      this.statuses.combinedFor(
+        [repository.id],
+        commits.map((commit) => commit.sha),
+      ),
+    ]);
 
     return {
       ref,
@@ -1787,6 +1792,7 @@ export class RepositoriesService {
       commits: commits.map((commit) => ({
         ...commit,
         verification: verdicts.get(commit.sha) ?? null,
+        status: statuses.get(commit.sha) ?? null,
       })),
       nextCursor,
     };
@@ -1805,7 +1811,7 @@ export class RepositoriesService {
   }): Promise<GetRepositoryCommitResponseDTO> {
     if (!isSha(sha)) throw new CommitNotFoundError(sha);
 
-    const { directory } = await this.openRepository({
+    const { repository, directory } = await this.openRepository({
       username,
       repo,
       requesterId,
@@ -1814,12 +1820,16 @@ export class RepositoriesService {
     const commit = await readCommit({ gitDir: directory, sha });
     if (!commit) throw new CommitNotFoundError(sha);
 
-    const verdicts = await this.verification.verifyCommits({
-      gitDir: directory,
-      commits: [commit],
-    });
+    const [verdicts, statuses] = await Promise.all([
+      this.verification.verifyCommits({ gitDir: directory, commits: [commit] }),
+      this.statuses.combinedFor([repository.id], [commit.sha]),
+    ]);
 
-    return { ...commit, verification: verdicts.get(commit.sha) ?? null };
+    return {
+      ...commit,
+      verification: verdicts.get(commit.sha) ?? null,
+      status: statuses.get(commit.sha) ?? null,
+    };
   }
 
   async getCommitPatch({

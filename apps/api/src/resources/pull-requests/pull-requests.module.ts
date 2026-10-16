@@ -8,6 +8,7 @@ import { CommitSigningService } from '../../services/gpg/commit-signing.service.
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
 import { UsersService } from '../../services/users/users.service.js';
+import { CommitStatusesModule } from '../commit-statuses/commit-statuses.module.js';
 import { IssuesModule } from '../issues/issues.module.js';
 import { PullRefsModule } from '../../pull-refs/pull-refs.module.js';
 import { StorageModule } from '../storage/storage.module.js';
@@ -17,7 +18,13 @@ import { ReviewsController } from './reviews.controller.js';
 import { ReviewsService } from './reviews.service.js';
 
 @Module({
-  imports: [MaterializerModule, IssuesModule, PullRefsModule, StorageModule],
+  imports: [
+    MaterializerModule,
+    IssuesModule,
+    PullRefsModule,
+    StorageModule,
+    CommitStatusesModule,
+  ],
   controllers: [PullRequestsController, ReviewsController],
   providers: [
     PullRequestsService,

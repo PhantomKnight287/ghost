@@ -98,6 +98,7 @@ import {
   UnrelatedRepositoriesError,
 } from '../../lib/pull-requests/pull-requests.errors.js';
 import { withTempDir } from '../../lib/temp-dir.js';
+import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
 import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 
@@ -148,6 +149,7 @@ export class PullRequestsService {
     private readonly pullRequestPushes: PullRequestPushesService,
     private readonly quota: StorageQuotaService,
     private readonly lfs: LfsService,
+    private readonly statuses: CommitStatusesService,
   ) {}
 
   async createPullRequest({
@@ -346,6 +348,10 @@ export class PullRequestsService {
 
   async getPullRequest(params: PullRequestRef) {
     const { pullRequest, ...git } = await this.open(params);
+    const checks = await this.statuses.combinedFor(
+      await this.statusRepositoryIds(pullRequest, git.base, params.requesterId),
+      [git.headSha],
+    );
     const files = git.mergeBase
       ? await listDiffFiles({
           gitDir: git.baseDirectory,
@@ -392,6 +398,7 @@ export class PullRequestsService {
       pullRefsBlocked: pullRequest.pullRefsBlocked,
       squash: merge ? await this.squashMessage({ ...git, pullRequest }) : null,
       reviewers: await this.reviewers(pullRequest.id),
+      checks: checks.get(git.headSha) ?? null,
     };
   }
 
@@ -466,16 +473,29 @@ export class PullRequestsService {
     const nextCursor = params.oldestFirst ? null : listed.nextCursor;
 
     // A fork's commits live in the other repository's objects, which is why the lending env has to come along for the signatures to be readable.
-    const verdicts = await this.verification.verifyCommits({
-      gitDir: git.baseDirectory,
-      env: git.env,
-      commits,
-    });
+    const [verdicts, statuses] = await Promise.all([
+      this.verification.verifyCommits({
+        gitDir: git.baseDirectory,
+        env: git.env,
+        commits,
+      }),
+      this.statusRepositoryIds(
+        git.pullRequest,
+        git.base,
+        params.requesterId,
+      ).then((repositoryIds) =>
+        this.statuses.combinedFor(
+          repositoryIds,
+          commits.map((commit) => commit.sha),
+        ),
+      ),
+    ]);
 
     return {
       commits: commits.map((commit) => ({
         ...commit,
         verification: verdicts.get(commit.sha) ?? null,
+        status: statuses.get(commit.sha) ?? null,
       })),
       total,
       nextCursor,
@@ -907,12 +927,19 @@ export class PullRequestsService {
       pullRequest.headRepositoryId === base.id
     )
       return fromBase;
-    // The head is another repository, which the requester may not be able to read.
-    const head = await this.access
-      .authorizeById({
-        repositoryId: pullRequest.headRepositoryId,
-        requesterId: params.requesterId,
-      })
+    const head = await this.readableHead(
+      pullRequest.headRepositoryId,
+      params.requesterId,
+    );
+    return head
+      ? readCommit({ gitDir: await this.materializer.open(head), sha })
+      : null;
+  }
+
+  /** A head in another repository, or null when the requester cannot read it or it is gone. */
+  private readableHead(headRepositoryId: string, requesterId?: string) {
+    return this.access
+      .authorizeById({ repositoryId: headRepositoryId, requesterId })
       .catch((error: unknown) => {
         if (
           error instanceof RepositoryNotFoundError ||
@@ -921,9 +948,24 @@ export class PullRequestsService {
           return null;
         throw error;
       });
-    return head
-      ? readCommit({ gitDir: await this.materializer.open(head), sha })
-      : null;
+  }
+
+  /** Where a request's checks are read from: the base, plus a fork head the requester can read. */
+  private async statusRepositoryIds(
+    pullRequest: PullRequest,
+    base: AuthorizedRepository,
+    requesterId?: string,
+  ) {
+    if (
+      !pullRequest.headRepositoryId ||
+      pullRequest.headRepositoryId === base.id
+    )
+      return [base.id];
+    const head = await this.readableHead(
+      pullRequest.headRepositoryId,
+      requesterId,
+    );
+    return head ? [base.id, head.id] : [base.id];
   }
 
   /** A side's branch tip as it stands now, without the merge base and test merge `open` works out; null once its repository or branch is gone. */
