@@ -4,12 +4,26 @@ import type { components } from "@/lib/api/v1";
 type CombinedCommitStatus = components["schemas"]["CombinedCommitStatusDTO"];
 type CommitStatus = components["schemas"]["CommitStatusDTO"];
 
+const stateLabel = {
+  success: "Passed",
+  failure: "Failed",
+  error: "Errored",
+  pending: "Pending",
+} satisfies Record<CommitStatus["state"], string>;
+
 export function CommitStatusIcon({ state }: { state: CommitStatus["state"] }) {
-  if (state === "success")
-    return <CircleCheck className="size-4 shrink-0 text-emerald-500" />;
-  if (state === "pending")
-    return <CircleDot className="size-4 shrink-0 text-amber-500" />;
-  return <CircleX className="size-4 shrink-0 text-red-500" />;
+  return (
+    <>
+      {state === "success" ? (
+        <CircleCheck className="size-4 shrink-0 text-emerald-500" />
+      ) : state === "pending" ? (
+        <CircleDot className="size-4 shrink-0 text-amber-500" />
+      ) : (
+        <CircleX className="size-4 shrink-0 text-red-500" />
+      )}
+      <span className="sr-only">{stateLabel[state]}</span>
+    </>
+  );
 }
 
 export function CommitStatusRows({ statuses }: { statuses: CommitStatus[] }) {
@@ -20,7 +34,10 @@ export function CommitStatusRows({ statuses }: { statuses: CommitStatus[] }) {
           <CommitStatusIcon state={status.state} />
           <span className="shrink-0 font-medium">{status.context}</span>
           {status.description && (
-            <span className="min-w-0 truncate text-muted-foreground">
+            <span
+              title={status.description}
+              className="min-w-0 truncate text-muted-foreground"
+            >
               {status.description}
             </span>
           )}
@@ -29,6 +46,7 @@ export function CommitStatusRows({ statuses }: { statuses: CommitStatus[] }) {
               href={status.targetUrl}
               target="_blank"
               rel="noreferrer"
+              aria-label={`Details for ${status.context}`}
               className="ml-auto shrink-0 text-xs text-muted-foreground hover:underline"
             >
               Details
