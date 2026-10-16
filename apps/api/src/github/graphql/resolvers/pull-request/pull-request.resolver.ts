@@ -10,7 +10,6 @@ import {
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
-import { encodeNodeId } from '../../../../lib/github/node-id.js';
 import { toRefNode } from '../../../../lib/github/nodes.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
@@ -19,7 +18,6 @@ import {
   MergeableState,
   MergeStateStatus,
   PullRequestReviewDecision,
-  StatusState,
 } from '../../enums.js';
 import { BigIntString, GitObjectID } from '../../scalars.js';
 import { IssueConnection } from '../../types/issue.type.js';
@@ -356,27 +354,8 @@ export class CommitResolver {
   }
 
   @ResolveField(() => StatusCheckRollupNode, { nullable: true })
-  statusCheckRollup(
-    @Parent() commit: CommitNode,
-  ): StatusCheckRollupNode | null {
-    if (!commit.status) return null;
-    return {
-      id: encodeNodeId(
-        'StatusCheckRollup',
-        `${commit.repositoryGhostId}:${commit.oid}`,
-      ),
-      state: commit.status.state.toUpperCase() as StatusState,
-      contexts: commit.status.statuses.map((status) =>
-        Object.assign(new StatusContextNode(), {
-          id: encodeNodeId('StatusContext', status.id),
-          context: status.context,
-          state: status.state.toUpperCase() as StatusState,
-          targetUrl: status.targetUrl,
-          createdAt: new Date(status.createdAt),
-          description: status.description,
-        }),
-      ),
-    };
+  statusCheckRollup(@Parent() commit: CommitNode) {
+    return commit.statusCheckRollup;
   }
 }
 
@@ -420,6 +399,7 @@ export class StatusContextResolver {
   }
 }
 
+/** Ghost has no check runs; this exists only so gh's checks query validates. */
 @Resolver(() => CheckRunNode)
 @AllowAnonymous()
 export class CheckRunResolver {

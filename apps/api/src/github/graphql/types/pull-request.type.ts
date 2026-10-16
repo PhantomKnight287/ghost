@@ -7,7 +7,6 @@ import {
   ObjectType,
 } from '@nestjs/graphql';
 
-import type { CombinedCommitStatusDTO } from '../../../resources/commit-statuses/dto/commit-status.dto.js';
 import type { PullRequestsService } from '../../../resources/pull-requests/pull-requests.service.js';
 import { Connection } from '../connection.js';
 import {
@@ -24,7 +23,11 @@ import {
   Node,
   UniformResourceLocatable,
 } from './node.interface.js';
-import { BotNode, TeamNode } from './placeholders.type.js';
+import {
+  BotNode,
+  StatusCheckRollupNode,
+  TeamNode,
+} from './placeholders.type.js';
 import { UserNode } from './user.type.js';
 
 @ObjectType('PullRequest', {
@@ -119,10 +122,8 @@ export class CommitNode {
   @Field(() => URI)
   resourcePath: string;
 
-  repositoryGhostId: string;
-
-  /** Only commits listed on a pull request carry their statuses; the rest resolve no rollup. */
-  status: CombinedCommitStatusDTO | null;
+  /** Only commits listed on a pull request carry their statuses; the rest have no rollup. */
+  statusCheckRollup: StatusCheckRollupNode | null;
 }
 
 @ObjectType('PullRequestCommit', {

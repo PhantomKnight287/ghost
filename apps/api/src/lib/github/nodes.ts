@@ -8,12 +8,14 @@ import {
   PullRequestState,
   RepositoryPermission,
   RepositoryVisibility,
+  StatusState,
 } from '../../github/graphql/enums.js';
 import { IssueNode } from '../../github/graphql/types/issue.type.js';
 import { IssueCommentNode } from '../../github/graphql/types/issue-comment.type.js';
 import type { IssueOrPullRequestFields } from '../../github/graphql/types/issue-or-pull-request.type.js';
 import { LabelNode } from '../../github/graphql/types/label.type.js';
 import { OrganizationNode } from '../../github/graphql/types/organization.type.js';
+import { StatusContextNode } from '../../github/graphql/types/placeholders.type.js';
 import {
   CommitNode,
   PullRequestNode,
@@ -335,8 +337,25 @@ export function toCommitNode(
     committedDate: new Date(commit.committedAt),
     url: `${repository.url}/commit/${commit.sha}`,
     resourcePath: `${repository.resourcePath}/commit/${commit.sha}`,
-    repositoryGhostId: repository.ghostId,
-    status: commit.status ?? null,
+    statusCheckRollup: commit.status
+      ? {
+          id: encodeNodeId(
+            'StatusCheckRollup',
+            `${repository.ghostId}:${commit.sha}`,
+          ),
+          state: commit.status.state.toUpperCase() as StatusState,
+          contexts: commit.status.statuses.map((status) =>
+            Object.assign(new StatusContextNode(), {
+              id: encodeNodeId('StatusContext', status.id),
+              context: status.context,
+              state: status.state.toUpperCase() as StatusState,
+              targetUrl: status.targetUrl,
+              createdAt: new Date(status.createdAt),
+              description: status.description,
+            }),
+          ),
+        }
+      : null,
   });
 }
 

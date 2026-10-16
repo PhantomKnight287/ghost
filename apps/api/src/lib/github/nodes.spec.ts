@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { IssueState } from '../../github/graphql/enums.js';
-import { toIssueNode, toOrganizationNode, toUserNode } from './nodes.js';
+import { encodeNodeId } from './node-id.js';
+import {
+  toCommitNode,
+  toIssueNode,
+  toOrganizationNode,
+  toUserNode,
+} from './nodes.js';
 
 const origins = {
   api: 'https://api.ghost.test',
@@ -108,5 +114,66 @@ describe('toIssueNode', () => {
         repository,
       ).stateReason,
     ).toBeNull();
+  });
+});
+
+describe('toCommitNode', () => {
+  const commit = {
+    sha: 'a'.repeat(40),
+    authorName: 'Ada',
+    authorEmail: 'ada@ghost.test',
+    committerName: 'Ada',
+    committerEmail: 'ada@ghost.test',
+    authoredAt: '2026-01-01T00:00:00Z',
+    committedAt: '2026-01-01T00:00:00Z',
+    subject: 'Add a feature',
+    body: '',
+  };
+  const repository = {
+    ghostId: 'r1',
+    url: 'https://ghost.test/ada/tools',
+    resourcePath: '/ada/tools',
+  };
+  const status = (id: string, state: 'pending' | 'error') => ({
+    id,
+    state,
+    context: `ci/${id}`,
+    description: null,
+    targetUrl: null,
+    createdAt: '2026-01-02T00:00:00Z',
+    creator: null,
+  });
+
+  it('has no rollup without statuses', () => {
+    expect(toCommitNode(commit, repository).statusCheckRollup).toBeNull();
+  });
+
+  it('builds the rollup from the combined status', () => {
+    const rollup = toCommitNode(
+      {
+        ...commit,
+        status: {
+          sha: commit.sha,
+          state: 'failure',
+          totalCount: 2,
+          statuses: [status('s1', 'pending'), status('s2', 'error')],
+        },
+      },
+      repository,
+    ).statusCheckRollup;
+    expect(rollup).toMatchObject({
+      id: encodeNodeId('StatusCheckRollup', `r1:${commit.sha}`),
+      state: 'FAILURE',
+      contexts: [
+        {
+          id: encodeNodeId('StatusContext', 's1'),
+          context: 'ci/s1',
+          state: 'PENDING',
+          createdAt: new Date('2026-01-02T00:00:00Z'),
+        },
+        { id: encodeNodeId('StatusContext', 's2'), state: 'ERROR' },
+      ],
+    });
+    expect(rollup?.contexts).toHaveLength(2);
   });
 });
