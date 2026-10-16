@@ -54,6 +54,7 @@ export type EventPayloads = {
   'release.deleted': {
     release: { id: string; tagName: string; name: string | null };
   };
+  'commit_status.created': { statusId: string };
   'star.created': Record<string, never>;
   'star.deleted': Record<string, never>;
   /** Watching at `all`; the actor is the watcher. */

@@ -1,9 +1,6 @@
-export const COMMIT_STATUS_STATES = [
-  'pending',
-  'success',
-  'failure',
-  'error',
-] as const;
+import { schema } from '@ghost/db';
+
+export const COMMIT_STATUS_STATES = schema.commitStatusState.enumValues;
 
 export type CommitStatusState = (typeof COMMIT_STATUS_STATES)[number];
 

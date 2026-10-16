@@ -22,6 +22,7 @@ import { MailService } from './mail/mail.service.js';
 import { AttachmentsModule } from './resources/attachments/attachments.module.js';
 import { BranchesModule } from './resources/branches/branches.module.js';
 import { CollaboratorsModule } from './resources/collaborators/collaborators.module.js';
+import { CommitStatusesModule } from './resources/commit-statuses/commit-statuses.module.js';
 import { EmailsModule } from './resources/emails/emails.module.js';
 import { GpgKeysModule } from './resources/gpg-keys/gpg-keys.module.js';
 import { ImportsModule } from './resources/imports/imports.module.js';
@@ -128,6 +129,7 @@ const parses = (type: string) => (req: IncomingMessage) => {
     BranchesModule,
     NotificationsModule,
     CollaboratorsModule,
+    CommitStatusesModule,
     WebhooksModule,
     EmailsModule,
     GpgKeysModule,

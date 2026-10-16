@@ -235,6 +235,8 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
         body.release?.htmlUrl ?? `${repository.htmlUrl}/releases`,
         body.event === 'release.deleted' ? null : (body.release?.body ?? null),
       );
+    case 'commit_status.created':
+      return say(`reported a commit status on ${repository.fullName}`, GREY);
     case 'star.created':
       return say(`starred ${repository.fullName}`, GREEN);
     case 'star.deleted':
