@@ -50,6 +50,7 @@ export async function fetchApi(
       );
     } catch (error) {
       const code = (error as { cause?: { code?: string } }).cause?.code;
+      console.log({code,attempt, error})
       if (attempt === ATTEMPTS || !code || !CONNECT_ERRORS.has(code))
         throw error;
       await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
