@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { and, arrayContains, eq, inArray, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import type { StoredEvent } from '../../lib/events/events.js';
 import {
   renderWebhookBody,
@@ -287,6 +288,23 @@ export class WebhookFanoutService {
       case 'release.deleted':
         body.release = event.payload.release;
         break;
+      case 'commit_status.created': {
+        const [status] = await this.db
+          .select({
+            id: schema.commitStatus.id,
+            sha: schema.commitStatus.sha,
+            state: schema.commitStatus.state,
+            context: schema.commitStatus.context,
+            description: schema.commitStatus.description,
+            targetUrl: schema.commitStatus.targetUrl,
+            createdAt: isoTimestamp(schema.commitStatus.createdAt),
+          })
+          .from(schema.commitStatus)
+          .where(eq(schema.commitStatus.id, event.payload.statusId));
+        if (!status) return null;
+        body.status = status;
+        break;
+      }
       case 'fork.created': {
         const fork = await this.repositoryRef(event.payload.forkId);
         if (!fork) return null;

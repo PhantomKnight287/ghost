@@ -117,6 +117,27 @@ A receiver or library that already checks GitHub's `X-Hub-Signature-256` works u
 
 "Replace secret" on the webhook's page, or `POST …/webhooks/{webhookId}/secret`, makes a new secret and shows it once. The old secret stops working at once: every delivery after that, retries included, is signed with the new one. There is no overlap, so update the receiver right away; a delivery that fails in between is retried, and it can also be redelivered from the webhook's page.
 
+## Commit statuses
+
+`commit_status.created` is sent when a status is reported on a commit. The body has the usual `event`, `repository` and `sender`, plus a `status`:
+
+```json
+{
+  "event": "commit_status.created",
+  "status": {
+    "id": "cst_…",
+    "sha": "76bb6d3…",
+    "state": "failure",
+    "context": "ci/build",
+    "description": "Tests broke",
+    "targetUrl": "https://ci.example.com/builds/42",
+    "createdAt": "2026-10-16T09:30:00.000Z"
+  }
+}
+```
+
+`state` is one of `pending`, `success`, `failure` or `error`. `description` and `targetUrl` are `null` when the reporter left them out.
+
 ## Retries
 
 - A 2xx response is a success.

@@ -8515,6 +8515,152 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/statuses/{sha}": {
+      "post": {
+        "description": "Needs write access. `sha` is the full 40-character sha of a commit in the repository. Each report is a new entry; the newest per `context` is the current one.",
+        "operationId": "CommitStatusesController_createCommitStatus",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sha",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommitStatusRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitStatusDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The sha is not a commit in the repository.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Report a commit status",
+        "tags": [
+          "Commit statuses"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/commits/{ref}/status": {
+      "get": {
+        "description": "The newest status per context, and the one state they add up to.",
+        "operationId": "CommitStatusesController_getCombinedCommitStatus",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombinedCommitStatusDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read the combined status of a commit",
+        "tags": [
+          "Commit statuses"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/webhooks": {
       "get": {
         "description": "Admins only.",
@@ -19266,6 +19412,140 @@
           "role"
         ]
       },
+      "CreateCommitStatusRequestDTO": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ]
+          },
+          "targetUrl": {
+            "type": "string",
+            "description": "Where the result can be seen, such as the CI build page.",
+            "example": "https://ci.example.com/builds/42"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 140
+          },
+          "context": {
+            "type": "string",
+            "description": "Tells one reporter apart from another on the same commit.",
+            "default": "default",
+            "example": "ci/build"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "CommitStatusCreatorDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "username",
+          "image"
+        ]
+      },
+      "CommitStatusDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ]
+          },
+          "context": {
+            "type": "string",
+            "example": "ci/build"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "targetUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "creator": {
+            "nullable": true,
+            "description": "Null once the creator account is deleted.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommitStatusCreatorDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "context",
+          "description",
+          "targetUrl",
+          "createdAt",
+          "creator"
+        ]
+      },
+      "CombinedCommitStatusDTO": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ],
+            "description": "`failure` when any context failed or errored, else `pending` while any is pending or there are none, else `success`."
+          },
+          "totalCount": {
+            "type": "number",
+            "description": "Number of contexts."
+          },
+          "statuses": {
+            "description": "The newest status of each context.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitStatusDTO"
+            }
+          }
+        },
+        "required": [
+          "sha",
+          "state",
+          "totalCount",
+          "statuses"
+        ]
+      },
       "WebhookEvent": {
         "type": "string",
         "enum": [
@@ -19295,6 +19575,7 @@
           "release.published",
           "release.edited",
           "release.deleted",
+          "commit_status.created",
           "star.created",
           "star.deleted",
           "watch.started",
