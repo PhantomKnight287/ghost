@@ -9,7 +9,10 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { Auth } from '../src/lib/auth.js';
+import { RepositoriesModule } from '../src/resources/repositories/repositories.module.js';
+import { PushTransactionService } from '../src/services/git/wal/push-transaction.service.js';
 import { S3Service } from '../src/services/s3/s3.service.js';
+import { WalStoreService } from '../src/services/git/wal/wal-store.service.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 type Account = Awaited<ReturnType<typeof signUp>>;
@@ -728,6 +731,81 @@ describe.skipIf(!hasBackends)('organizations', () => {
       .set('cookie', owner.cookie)
       .expect(200);
     expect(body.defaultBranch).toBe('trunk');
+  });
+
+  it('starts a repository from templates on the organization default branch, licensed to the organization', async () => {
+    expect(
+      (await api().get('/api/repository-templates').expect(200)).body,
+    ).toMatchObject({
+      gitignore: expect.arrayContaining(['Go']),
+      licenses: expect.arrayContaining([{ key: 'mit', name: 'MIT License' }]),
+    });
+    await create(owner, {
+      name: 'templated',
+      organization: org,
+      readme: true,
+      gitignoreTemplate: 'go',
+      licenseTemplate: 'MIT',
+    }).expect(201);
+    const clone = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-org-init-'));
+    try {
+      await promisify(execFile)(
+        'git',
+        [
+          'clone',
+          '-q',
+          `${origin.replace('://', `://${ownerName}:${owner.key}@`)}/${org}/templated.git`,
+          clone,
+        ],
+        { env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+      );
+      const show = (...args: string[]) =>
+        execFileSync('git', args, { cwd: clone, encoding: 'utf8' }).trim();
+      expect(show('rev-parse', '--abbrev-ref', 'HEAD')).toBe('trunk');
+      expect(show('ls-files').split('\n')).toEqual([
+        '.gitignore',
+        'LICENSE',
+        'README.md',
+      ]);
+      expect(show('show', 'HEAD:LICENSE')).toContain(
+        `Copyright (c) ${new Date().getUTCFullYear()} Acme`,
+      );
+    } finally {
+      rmSync(clone, { recursive: true, force: true });
+    }
+    await create(owner, {
+      name: 'mistemplated',
+      organization: org,
+      gitignoreTemplate: 'NoSuchLanguage',
+    }).expect(400);
+  });
+
+  it('erases a repository whose initial commit fails after landing, freeing its name', async () => {
+    const repositories = app.select(RepositoriesModule);
+    const pushes = repositories.get(PushTransactionService, { strict: true });
+    const commitPush = pushes.commitPush.bind(pushes);
+    const purge = vi.spyOn(
+      repositories.get(WalStoreService, { strict: true }),
+      'purgeEntries',
+    );
+    let failedId = '';
+    vi.spyOn(pushes, 'commitPush').mockImplementationOnce(async (push) => {
+      failedId = push.repoId;
+      await commitPush(push);
+      throw new Error('after the push');
+    });
+    await create(owner, {
+      name: 'stillborn',
+      organization: org,
+      readme: true,
+    }).expect(500);
+    expect(purge).toHaveBeenCalledWith(failedId);
+    const { body } = await create(owner, {
+      name: 'stillborn',
+      organization: org,
+      readme: true,
+    }).expect(201);
+    expect(body.slug).toBe('stillborn');
   });
 
   it('narrows repository search to one owner with org:', async () => {

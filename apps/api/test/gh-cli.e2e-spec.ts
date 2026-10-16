@@ -757,6 +757,32 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     expect(out).toContain(`${username}/gh-made`);
   });
 
+  it('creates a repository from a README, .gitignore and license template', async () => {
+    const repo = `${GH_E2E_HOST}/${username}/gh-templated`;
+    await ok([
+      'repo',
+      'create',
+      repo,
+      '--public',
+      '--add-readme',
+      '--gitignore',
+      'Go',
+      '--license',
+      'mit',
+    ]);
+    const target = path.join(configDir, 'gh-templated');
+    await ok(['repo', 'clone', repo, target]);
+    expect(readFileSync(path.join(target, 'README.md'), 'utf8')).toBe(
+      '# gh-templated\n',
+    );
+    expect(readFileSync(path.join(target, '.gitignore'), 'utf8')).toContain(
+      '*.exe',
+    );
+    expect(readFileSync(path.join(target, 'LICENSE'), 'utf8')).toContain(
+      'MIT License',
+    );
+  });
+
   it('adds and lists SSH keys', async () => {
     // A fingerprint belongs to one account, so each run adds a fresh key.
     await promisify(execFile)('ssh-keygen', [

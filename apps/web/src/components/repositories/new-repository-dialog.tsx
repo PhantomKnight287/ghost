@@ -39,6 +39,7 @@ import { apiClient, unwrap } from "@/lib/api/client";
 import { createRepository, importRepository } from "./actions";
 import { newRepositorySchema, type NewRepositoryInput } from "./common";
 import { GitHubSourceField } from "./github-source-field";
+import { InitialFilesFields } from "./initial-files-fields";
 import { VisibilityField } from "./visibility-field";
 
 export function NewRepositoryDialog({
@@ -65,6 +66,9 @@ export function NewRepositoryDialog({
       description: "",
       visibility: "public",
       source: "",
+      readme: false,
+      gitignoreTemplate: "",
+      licenseTemplate: "",
     },
   });
 
@@ -214,6 +218,13 @@ export function NewRepositoryDialog({
                 />
               )}
             />
+
+            {!importing && (
+              <>
+                <FieldSeparator />
+                <InitialFilesFields control={control} />
+              </>
+            )}
 
             {result.serverError && (
               <FieldError>{result.serverError}</FieldError>

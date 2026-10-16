@@ -13,20 +13,40 @@ import {
   createRepositorySchema,
   forkRepositorySchema,
   importRepositorySchema,
+  initialFilesSchema,
   updateRepositorySchema,
 } from "./common";
 
 export const createRepository = actionClient
   .inputSchema(
-    createRepositorySchema.extend({ organization: z.string().optional() }),
+    createRepositorySchema
+      .extend({ organization: z.string().optional() })
+      .extend(initialFilesSchema.shape),
   )
   .action(
     async ({
-      parsedInput: { owner, name, description, visibility, organization },
+      parsedInput: {
+        owner,
+        name,
+        description,
+        visibility,
+        organization,
+        readme,
+        gitignoreTemplate,
+        licenseTemplate,
+      },
     }) => {
       const data = await callApi((client) =>
         client.POST("/api/repositories", {
-          body: { name, description, visibility, organization },
+          body: {
+            name,
+            description,
+            visibility,
+            organization,
+            readme,
+            gitignoreTemplate: gitignoreTemplate || undefined,
+            licenseTemplate: licenseTemplate || undefined,
+          },
         }),
       );
 

@@ -15,6 +15,7 @@ COPY packages/db/package.json packages/db/package.json
 COPY packages/languages/package.json packages/languages/package.json
 COPY packages/permissions/package.json packages/permissions/package.json
 COPY packages/references/package.json packages/references/package.json
+COPY packages/templates/package.json packages/templates/package.json
 RUN bun install --frozen-lockfile
 
 # Bun installs the workspace, but `next build` runs on Node: the Bun runtime

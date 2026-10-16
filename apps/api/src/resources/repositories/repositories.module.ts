@@ -5,6 +5,7 @@ import {
   rateLimitPerMinute,
   rateLimitTracker,
 } from '../../lib/http/rate-limit.js';
+import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { RepositoriesService } from './repositories.service.js';
 import { RepositoriesController } from './repositories.controller.js';
 import { SearchController } from './search.controller.js';
@@ -56,6 +57,7 @@ import { LfsService } from '../../services/git/lfs/lfs.service.js';
     CommitSigningService,
     CommitVerificationService,
     LfsService,
+    PushTransactionService,
   ],
   exports: [RepositoriesService],
 })
