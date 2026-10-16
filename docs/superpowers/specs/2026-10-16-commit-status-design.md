@@ -53,9 +53,9 @@ Cap: 1000 statuses per `(repository, sha, context)`, as GitHub does. Over the ca
 
 A status belongs to the repository it was posted to. A fork's head commit can carry statuses in two places: the fork, where CI that builds the fork posts, and the base repository, where the head is reachable through `refs/pull/<n>/head` (0033) and where the mirror bot posts.
 
-- POST works on either repository, for any sha that exists in it.
+- POST works on either repository, for any sha that exists in it. The base repository also accepts a commit of a fork that has a pull request open into it, since the fork's head lives in the fork's objects.
 - Everything that shows a pull request's checks (merge panel, PR Commits tab, `statusCheckRollup` on a PR's commits) reads both: the base repository's and the head repository's statuses for the head sha, merged.
-- When the same context exists in both, the newest row wins, the same rule as within one repository. (Claude's call.)
+- When the same context exists in both, the base repository's newest row wins, however recent the fork's is: a fork cannot override the base's checks. A context only the fork posted still shows.
 - Fork statuses are included only when the viewer can read the fork. A deleted fork contributes nothing.
 - Outside a pull request (a repository's commit list, the commit page, `commits/:ref/status`), a repository shows only its own statuses, as on GitHub.
 - For a same-repository pull request both are the same repository, so this reduces to one read.

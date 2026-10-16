@@ -22,6 +22,7 @@ describe.skipIf(!hasBackends)(
     let main: string;
     let same: string;
     let forked: string;
+    let spoof: string;
     let withStatus: number;
     const owner = `checksup${Date.now()}`;
     const contributor = `checksfork${Date.now()}`;
@@ -64,11 +65,16 @@ describe.skipIf(!hasBackends)(
         .send({ title: head, base: 'main', head })
         .expect(201)
         .then((response) => response.body.number as number);
-    const postStatus = (at: string, cookie: string, sha: string) =>
+    const postStatus = (
+      at: string,
+      cookie: string,
+      sha: string,
+      state = 'success',
+    ) =>
       api()
         .post(`${at}/statuses/${sha}`)
         .set('cookie', cookie)
-        .send({ state: 'success', context: 'ci' })
+        .send({ state, context: 'ci' })
         .expect(201);
     const checksOf = (number: number, cookie?: string) => {
       const call = api().get(`${repos}/pulls/${number}`);
@@ -107,7 +113,8 @@ describe.skipIf(!hasBackends)(
         .send({ name: 'fork', visibility: 'public' })
         .expect(201);
       forked = branch('forked');
-      await push(contributor, forker.key, 'fork', 'forked');
+      spoof = branch('spoof');
+      await push(contributor, forker.key, 'fork', 'forked', 'spoof');
     }, 120_000);
 
     afterAll(async () => {
@@ -168,6 +175,21 @@ describe.skipIf(!hasBackends)(
         .get(`${repos}/commits/${main}`)
         .expect(200);
       expect(root.status).toBeNull();
+    });
+
+    it('keeps the base repository’s status when the fork posts the same context', async () => {
+      const number = await openPull(forker.cookie, `${contributor}:spoof`);
+      await postStatus(repos, upstream.cookie, spoof, 'failure');
+      await postStatus(forkRepos, forker.cookie, spoof, 'success');
+
+      expect(await checksOf(number, upstream.cookie)).toMatchObject({
+        sha: spoof,
+        state: 'failure',
+        totalCount: 1,
+        statuses: [
+          expect.objectContaining({ context: 'ci', state: 'failure' }),
+        ],
+      });
     });
 
     it('shows a fork’s statuses only to viewers who can read the fork', async () => {

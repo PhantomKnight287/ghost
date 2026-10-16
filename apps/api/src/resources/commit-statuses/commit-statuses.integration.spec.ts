@@ -292,7 +292,7 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
     ).rejects.toThrow(TooManyStatusesError);
   });
 
-  it('merges statuses across repositories, newest per context winning', async () => {
+  it('merges statuses across repositories, the first repository winning a shared context', async () => {
     const [fork] = await db
       .insert(schema.repository)
       .values({ name: 'app-fork', slug: 'app-fork', ownerId: READER })
@@ -301,7 +301,7 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
       {
         repositoryId: repository.id,
         sha,
-        state: 'pending',
+        state: 'failure',
         context: 'ci',
         createdAt: new Date('2026-01-01T00:00:00Z'),
       },
@@ -312,6 +312,13 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
         context: 'ci',
         createdAt: new Date('2026-01-02T00:00:00Z'),
       },
+      {
+        repositoryId: fork.id,
+        sha,
+        state: 'pending',
+        context: 'lint',
+        createdAt: new Date('2026-01-02T00:00:00Z'),
+      },
     ]);
 
     const combined = await statuses.combinedFor(
@@ -320,9 +327,12 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
     );
     expect(combined.get(sha)).toMatchObject({
       sha,
-      state: 'success',
-      totalCount: 1,
-      statuses: [{ state: 'success', context: 'ci', creator: null }],
+      state: 'failure',
+      totalCount: 2,
+      statuses: [
+        { state: 'failure', context: 'ci', creator: null },
+        { state: 'pending', context: 'lint', creator: null },
+      ],
     });
   });
 });
