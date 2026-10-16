@@ -1,6 +1,7 @@
 import {
   Args,
   Context,
+  ID,
   Int,
   Parent,
   ResolveField,
@@ -9,6 +10,7 @@ import {
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
+import { encodeNodeId } from '../../../../lib/github/node-id.js';
 import { toRefNode } from '../../../../lib/github/nodes.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
@@ -17,6 +19,7 @@ import {
   MergeableState,
   MergeStateStatus,
   PullRequestReviewDecision,
+  StatusState,
 } from '../../enums.js';
 import { BigIntString, GitObjectID } from '../../scalars.js';
 import { IssueConnection } from '../../types/issue.type.js';
@@ -25,11 +28,13 @@ import { LabelConnection } from '../../types/label.type.js';
 import { Actor, RepositoryOwner } from '../../types/node.interface.js';
 import {
   AutoMergeRequestNode,
+  CheckRunNode,
   MilestoneNode,
   ProjectV2ItemConnection,
   ReactionGroup,
   StatusCheckRollupContextConnection,
   StatusCheckRollupNode,
+  StatusContextNode,
 } from '../../types/placeholders.type.js';
 import {
   CommitNode,
@@ -338,7 +343,7 @@ export class PullRequestResolver {
   }
 }
 
-/** Commit.authors takes GitHub's paging arguments; statusCheckRollup is null until Ghost records commit statuses (#61). */
+/** Commit.authors takes GitHub's paging arguments; statusCheckRollup is null for a commit without statuses. */
 @Resolver(() => CommitNode)
 @AllowAnonymous()
 export class CommitResolver {
@@ -351,8 +356,27 @@ export class CommitResolver {
   }
 
   @ResolveField(() => StatusCheckRollupNode, { nullable: true })
-  statusCheckRollup() {
-    return null;
+  statusCheckRollup(
+    @Parent() commit: CommitNode,
+  ): StatusCheckRollupNode | null {
+    if (!commit.status) return null;
+    return {
+      id: encodeNodeId(
+        'StatusCheckRollup',
+        `${commit.repositoryGhostId}:${commit.oid}`,
+      ),
+      state: commit.status.state.toUpperCase() as StatusState,
+      contexts: commit.status.statuses.map((status) =>
+        Object.assign(new StatusContextNode(), {
+          id: encodeNodeId('StatusContext', status.id),
+          context: status.context,
+          state: status.state.toUpperCase() as StatusState,
+          targetUrl: status.targetUrl,
+          createdAt: new Date(status.createdAt),
+          description: status.description,
+        }),
+      ),
+    };
   }
 }
 
@@ -373,10 +397,40 @@ export class GitActorResolver {
 export class StatusCheckRollupResolver {
   @ResolveField(() => StatusCheckRollupContextConnection)
   contexts(
-    @Args('first', { type: () => Int, nullable: true }) _first?: number,
-    @Args('after', { type: () => String, nullable: true }) _after?: string,
+    @Parent() rollup: StatusCheckRollupNode,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
-    return sliceConnection([], {});
+    return sliceConnection(rollup.contexts, { first, after });
+  }
+}
+
+/** Ghost has no branch protection, so no status or check is ever required to merge. */
+@Resolver(() => StatusContextNode)
+@AllowAnonymous()
+export class StatusContextResolver {
+  @ResolveField(() => Boolean)
+  isRequired(
+    @Args('pullRequestId', { type: () => ID, nullable: true })
+    _pullRequestId?: string,
+    @Args('pullRequestNumber', { type: () => Int, nullable: true })
+    _pullRequestNumber?: number,
+  ) {
+    return false;
+  }
+}
+
+@Resolver(() => CheckRunNode)
+@AllowAnonymous()
+export class CheckRunResolver {
+  @ResolveField(() => Boolean)
+  isRequired(
+    @Args('pullRequestId', { type: () => ID, nullable: true })
+    _pullRequestId?: string,
+    @Args('pullRequestNumber', { type: () => Int, nullable: true })
+    _pullRequestNumber?: number,
+  ) {
+    return false;
   }
 }
 

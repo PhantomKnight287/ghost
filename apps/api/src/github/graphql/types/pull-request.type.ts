@@ -7,6 +7,7 @@ import {
   ObjectType,
 } from '@nestjs/graphql';
 
+import type { CombinedCommitStatusDTO } from '../../../resources/commit-statuses/dto/commit-status.dto.js';
 import type { PullRequestsService } from '../../../resources/pull-requests/pull-requests.service.js';
 import { Connection } from '../connection.js';
 import {
@@ -117,6 +118,11 @@ export class CommitNode {
 
   @Field(() => URI)
   resourcePath: string;
+
+  repositoryGhostId: string;
+
+  /** Only commits listed on a pull request carry their statuses; the rest resolve no rollup. */
+  status: CombinedCommitStatusDTO | null;
 }
 
 @ObjectType('PullRequestCommit', {

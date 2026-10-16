@@ -25,6 +25,7 @@ import {
   RepositoryNode,
 } from '../../github/graphql/types/repository.type.js';
 import { UserNode } from '../../github/graphql/types/user.type.js';
+import type { CombinedCommitStatusDTO } from '../../resources/commit-statuses/dto/commit-status.dto.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
 import type { ReleaseDTO } from '../../resources/releases/dto/release.dto.js';
@@ -318,7 +319,7 @@ export function toPullRequestReviewNode(
 
 // Mapper: commits come from git log, in Ghost's shape; GitActor.user resolves each email to an account.
 export function toCommitNode(
-  commit: Commit,
+  commit: Commit & { status?: CombinedCommitStatusDTO | null },
   repository: { ghostId: string; url: string; resourcePath: string },
 ) {
   return Object.assign(new CommitNode(), {
@@ -334,6 +335,8 @@ export function toCommitNode(
     committedDate: new Date(commit.committedAt),
     url: `${repository.url}/commit/${commit.sha}`,
     resourcePath: `${repository.resourcePath}/commit/${commit.sha}`,
+    repositoryGhostId: repository.ghostId,
+    status: commit.status ?? null,
   });
 }
 

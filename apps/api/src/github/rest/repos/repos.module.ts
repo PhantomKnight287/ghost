@@ -11,11 +11,13 @@ import {
 } from '../../graphql/resolvers/issue/issue.resolver.js';
 import { IssueNodesService } from '../../graphql/resolvers/issue/issue-nodes.service.js';
 import {
+  CheckRunResolver,
   CommitResolver,
   GitActorResolver,
   PullRequestResolver,
   PullRequestReviewResolver,
   StatusCheckRollupResolver,
+  StatusContextResolver,
 } from '../../graphql/resolvers/pull-request/pull-request.resolver.js';
 import { PullRequestNodesService } from '../../graphql/resolvers/pull-request/pull-request-nodes.service.js';
 import {
@@ -47,6 +49,8 @@ import { GithubReposService } from './repos.service.js';
     GitActorResolver,
     PullRequestReviewResolver,
     StatusCheckRollupResolver,
+    StatusContextResolver,
+    CheckRunResolver,
     ProjectV2ItemResolver,
     RepositoryAccessService,
   ],

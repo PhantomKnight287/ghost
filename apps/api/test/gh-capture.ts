@@ -106,6 +106,7 @@ const placeholders = ({ login, host }: { login: string; host: string }) =>
     [/\b(U|O|R|I|PR|IC|LA|RE|RA)_[A-Za-z0-9_-]{8,}/g, '$1_<id>'],
     [/issues\/comments\/\d+/g, 'issues/comments/<id>'],
     [/releases\/(assets\/)?\d+/g, 'releases/$1<id>'],
+    [/statuses\/[0-9a-f]{40}/g, 'statuses/<sha>'],
   ] as const;
 
 /** Orders a command's requests by what they ask, since gh sends some at once and their arrival order varies. */

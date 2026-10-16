@@ -63,6 +63,7 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 | `gh pr view`, `gh pr view --comments`, `gh pr view --json …` | Every field `gh` offers |
 | `gh pr status` | |
 | `gh pr diff` | |
+| `gh pr checks` | Commit statuses only: Ghost has no check runs, and none is required |
 | `gh pr checkout` | |
 | `gh pr comment`, `gh pr edit` | `gh pr edit --base` fails: Ghost cannot retarget a pull request |
 | `gh pr ready`, `gh pr ready --undo` | |
@@ -163,12 +164,11 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - `PUT /issues/:number/labels` with a bare string body is refused: Ghost only parses JSON objects and arrays.
 - `GET /assignees` lists the owner, collaborators and organization members. `GET /assignees/:assignee` answers 204 for any user, as Ghost lets anyone be assigned.
 - `documentation_url` in REST errors always points at `https://docs.github.com/rest`.
-- Pull requests have no checks or commit statuses yet ([#61](https://github.com/PhantomKnight287/ghost/issues/61)): `statusCheckRollup` is always null and `gh pr checks` shows none.
 - No auto-merge, merge queue, review requests or branch protection: `autoMergeRequest` is null, `reviewRequests` is empty, and `reviewDecision` is `APPROVED`, `CHANGES_REQUESTED` or null, never `REVIEW_REQUIRED`.
 - `maintainerCanModify` is always false, and a pull request's base branch cannot be changed.
 - A pull request's REST `id` and `databaseId` are its issue's. GitHub gives the two different ids.
 - A commit author's `user` is the account with that verified email, primary or added, or null.
-- Not served: `gh pr review`, which needs the `addPullRequestReview` mutation, review comments and pending reviews over GraphQL, editing a review's summary or dismissing one over REST (`PUT …/reviews/:review_id`, `PUT …/reviews/:review_id/dismissals`), `updatePullRequestBranch`, and `gh pr checks`.
+- Not served: `gh pr review`, which needs the `addPullRequestReview` mutation, review comments and pending reviews over GraphQL, editing a review's summary or dismissing one over REST (`PUT …/reviews/:review_id`, `PUT …/reviews/:review_id/dismissals`), and `updatePullRequestBranch`.
 - `closingIssuesReferences` lists the issues a closing keyword in the pull request's description names. Ghost cannot link an issue by hand, and pull requests named that way are left out, as they never close on merge.
 - A merged pull request's `baseRefOid` is the first parent of its merge commit. Otherwise it is the base branch's tip, or once that branch is deleted, the base of the last test merge. A request with neither answers an error for the field.
 - `potentialMergeCommit` is the test merge in `refs/pull/<number>/merge`, and null while the pull request conflicts.
