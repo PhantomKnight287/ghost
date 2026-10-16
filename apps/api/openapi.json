@@ -8567,7 +8567,7 @@
             }
           },
           "400": {
-            "description": "The sha is not a commit in the repository.",
+            "description": "The body is not valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8588,6 +8588,16 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The sha is not a commit in the repository, or the commit already has 1000 statuses for this context.",
             "content": {
               "application/json": {
                 "schema": {

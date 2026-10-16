@@ -7,6 +7,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiNotFoundResponse,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -31,11 +32,16 @@ export class CommitStatusesController {
   })
   @ApiCreatedResponse({ type: CommitStatusDTO })
   @ApiBadRequestResponse({
-    description: 'The sha is not a commit in the repository.',
+    description: 'The body is not valid.',
     type: ErrorResponseDTO,
   })
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'The sha is not a commit in the repository, or the commit already has 1000 statuses for this context.',
+    type: ErrorResponseDTO,
+  })
   createCommitStatus(
     @Param('username') username: string,
     @Param('slug') slug: string,

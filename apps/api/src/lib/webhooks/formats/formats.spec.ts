@@ -440,6 +440,12 @@ describe('messageOf', () => {
       null,
     ],
     [
+      { event: 'commit_status.created' },
+      'ada reported a commit status',
+      repository.htmlUrl,
+      null,
+    ],
+    [
       { event: 'star.created' },
       'ada starred ada/app',
       repository.htmlUrl,
