@@ -26,6 +26,7 @@ export function BranchSelect({
   placeholder = "Select a branch",
   searchPlaceholder = "Find a branch",
   emptyMessage = "No branch matches",
+  inDialog = false,
   id,
   className,
 }: {
@@ -35,11 +36,14 @@ export function BranchSelect({
   placeholder?: string;
   searchPlaceholder?: string;
   emptyMessage?: string;
+  /** A modal dialog makes everything outside it inert, so the list renders beside the trigger rather than at the end of <body>, where its search could not take focus. */
+  inDialog?: boolean;
   id?: string;
   className?: string;
 }) {
   const [query, setQuery] = useState("");
   const [list, setList] = useState<HTMLDivElement | null>(null);
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
 
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -84,7 +88,8 @@ export function BranchSelect({
           <ComboboxValue placeholder={placeholder} />
         </span>
       </ComboboxTrigger>
-      <ComboboxContent className="min-w-64">
+      {inDialog && <div ref={setContainer} />}
+      <ComboboxContent className="min-w-64" container={container}>
         <ComboboxInput placeholder={searchPlaceholder} showTrigger={false} />
         <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
         <ComboboxList ref={setList}>

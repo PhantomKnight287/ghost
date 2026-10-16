@@ -67,6 +67,7 @@ export function InitialFilesFields({
                 }
                 searchPlaceholder="Find a template"
                 emptyMessage="No template matches"
+                inDialog
                 className="w-full"
               />
             )}
