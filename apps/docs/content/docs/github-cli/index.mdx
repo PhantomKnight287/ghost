@@ -60,7 +60,7 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 | `gh label list`, `gh label create`, `gh label edit`, `gh label delete`, `gh label clone` | |
 | `gh pr create` | |
 | `gh pr list` | |
-| `gh pr view`, `gh pr view --comments`, `gh pr view --json …` | Six `--json` fields fail; see below |
+| `gh pr view`, `gh pr view --comments`, `gh pr view --json …` | Every field `gh` offers |
 | `gh pr status` | |
 | `gh pr diff` | |
 | `gh pr checkout` | |
@@ -81,7 +81,7 @@ Each of these is run against a real Ghost server by the API's end-to-end suite.
 GraphQL at `/api/graphql`:
 
 - Queries: `viewer`, `user`, `organization`, `repositoryOwner`, `repository`, `node`, `nodes`, `search(type: ISSUE)`
-- Types: `User`, `Organization`, `Repository`, `Ref`, `Label`, `Issue`, `IssueComment`, `PullRequest` (with `files`, `commits`, `reviews`, `latestReviews`, `reviewDecision`, `mergeable` and `mergeStateStatus`), `PullRequestReview`, `PullRequestCommit`, `Commit`, `PullRequestChangedFile`, `Release`
+- Types: `User`, `Organization`, `Repository`, `Ref`, `Label`, `Issue`, `IssueComment`, `PullRequest` (with `files`, `commits`, `reviews`, `latestReviews`, `reviewDecision`, `mergeable`, `mergeStateStatus`, `mergeCommit`, `mergedBy`, `baseRefOid`, `potentialMergeCommit`, `fullDatabaseId` and `closingIssuesReferences`), `PullRequestReview`, `PullRequestCommit`, `Commit`, `PullRequestChangedFile`, `Release`
 - `repository.pullRequests` (`states`, `headRefName`, `baseRefName`, `labels`, `orderBy`) and `repository.pullRequest(number:)`
 - `repository.releases` (`first`, `after`, `orderBy` by `CREATED_AT` or `NAME`) and `repository.release(tagName:)`, which finds drafts for people who can write to the repository
 - Mutations: `createIssue`, `updateIssue`, `closeIssue`, `reopenIssue`, `addComment`, `addLabelsToLabelable`, `removeLabelsFromLabelable`, `addAssigneesToAssignable`, `removeAssigneesFromAssignable`, `createRepository`, `createPullRequest`, `updatePullRequest`, `closePullRequest`, `reopenPullRequest`, `mergePullRequest`, `markPullRequestReadyForReview`, `convertPullRequestToDraft`. Comments, labels and assignees take a pull request's id as they take an issue's
@@ -168,7 +168,9 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - A pull request's REST `id` and `databaseId` are its issue's. GitHub gives the two different ids.
 - A commit author's `user` is the account with that verified email, primary or added, or null.
 - Not served: `gh pr review`, which needs the `addPullRequestReview` mutation, review comments and pending reviews over GraphQL, editing a review's summary or dismissing one over REST (`PUT …/reviews/:review_id`, `PUT …/reviews/:review_id/dismissals`), `updatePullRequestBranch`, and `gh pr checks`.
-- `gh pr view --json` fails with HTTP 400 for `mergeCommit`, `mergedBy`, `baseRefOid`, `potentialMergeCommit`, `fullDatabaseId` and `closingIssuesReferences` ([#73](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/73)). REST answers `merge_commit_sha` and `merged_by`.
+- `closingIssuesReferences` lists the issues a closing keyword in the pull request's description names. Ghost cannot link an issue by hand, and pull requests named that way are left out, as they never close on merge.
+- A merged pull request's `baseRefOid` is the first parent of its merge commit, so it survives the base branch being deleted.
+- `potentialMergeCommit` is the test merge in `refs/pull/<number>/merge`, and null while the pull request conflicts.
 - A review comment needs `line`: the legacy `position` is not supported, and `subject_type: file` comments are not served. `position`, `original_position` and `reactions` are absent from responses.
 - A reply is submitted at once as a comment-only review of its own, even when its author has a pending review; on GitHub it joins the pending review. A comment in a pending review takes no replies until the review is submitted.
 - GitHub accepts a `commit_id` that a force-push dropped and marks the comment outdated. Ghost refuses it.

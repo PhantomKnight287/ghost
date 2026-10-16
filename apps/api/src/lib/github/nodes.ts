@@ -218,6 +218,7 @@ export function toPullRequestNode(
       isDraft: pull.draft,
       merged: pull.state === 'merged',
       mergedAt: pull.mergedAt,
+      mergedByLogin: pull.state === 'merged' ? issue.closedByUsername : null,
       baseRefName: pull.baseRef,
       headRefName: pull.headRef,
       isCrossRepository: pull.headRepositoryId !== pull.baseRepositoryId,

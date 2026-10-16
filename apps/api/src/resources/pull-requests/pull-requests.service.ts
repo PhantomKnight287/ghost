@@ -63,7 +63,7 @@ import {
   commitsAdded,
   recordCommitEvents,
 } from '../../lib/pull-requests/commit-events.js';
-import { pullHeadRef } from '../../lib/git/refs/pull-refs.js';
+import { pullHeadRef, pullMergeRef } from '../../lib/git/refs/pull-refs.js';
 import type { RefTransition } from '../../lib/git/wal/wal.types.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { MergeStorageQuotaExceededError } from '../../lib/storage/storage.errors.js';
@@ -937,6 +937,15 @@ export class PullRequestsService {
     return resolveCommit(
       await this.materializer.open(repository),
       toBranchRef(branch),
+    );
+  }
+
+  /** The test merge `refs/pull/<n>/merge` holds in the base, or null when there is none, as while the request conflicts. */
+  async testMergeSha(params: PullRequestRef) {
+    const { pullRequest, base } = await this.load(params);
+    return resolveCommit(
+      await this.materializer.open(base),
+      pullMergeRef(pullRequest.number),
     );
   }
 

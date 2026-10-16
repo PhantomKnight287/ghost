@@ -12,7 +12,7 @@ import {
 } from '../../../../lib/github/github.errors.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
 import { decodeNodeId } from '../../../../lib/github/node-id.js';
-import { commentOf, issueRefOf } from '../../../../lib/github/node-lookup.js';
+import { commentOf } from '../../../../lib/github/node-lookup.js';
 import {
   toIssueCommentNode,
   toLabelNode,
@@ -21,7 +21,6 @@ import {
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
-import { IssueNodesService } from '../issue/issue-nodes.service.js';
 import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
 
 @Injectable()
@@ -30,7 +29,6 @@ export class ViewerService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly config: ConfigService,
     private readonly repositories: RepositoryNodesService,
-    private readonly issueNodes: IssueNodesService,
   ) {}
 
   async viewer(viewer: GithubViewer | null, loaders: Loaders) {
@@ -133,13 +131,14 @@ export class ViewerService {
       return repository ? toLabelNode(label, repository) : null;
     }
     if (decoded?.type === 'Issue' || decoded?.type === 'PullRequest') {
-      const found = await this.issueById(decoded.id, viewer);
+      const found = await this.repositories.issueById(decoded.id, viewer);
       return found?.kind === decoded.type ? found : null;
     }
     if (decoded?.type === 'IssueComment') {
       const comment = await commentOf(this.db, decoded.id);
       // Loading the issue is what checks the viewer may read the comment.
-      const issue = comment && (await this.issueById(comment.issueId, viewer));
+      const issue =
+        comment && (await this.repositories.issueById(comment.issueId, viewer));
       if (!issue) return null;
       const viewerLogin = requesterId
         ? ((await loaders.usersById.load(requesterId))?.username ?? null)
@@ -147,19 +146,5 @@ export class ViewerService {
       return toIssueCommentNode(comment, issue, viewerLogin);
     }
     return null;
-  }
-
-  private async issueById(issueId: string, viewer?: GithubViewer | null) {
-    const ref = await issueRefOf(this.db, issueId);
-    if (!ref) return null;
-    const repository = await orNull(
-      this.repositories.load(ref.repositoryId, viewer ?? null),
-    );
-    return (
-      repository &&
-      orNull(
-        this.issueNodes.fromRepository(repository, ref.number, viewer ?? null),
-      )
-    );
   }
 }

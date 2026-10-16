@@ -17,6 +17,30 @@ export async function issueRefOf(db: Database, issueId: string) {
   return row ?? null;
 }
 
+/** The issues a pull request's body promises to close, in the order they were written; only these close on merge, so comments and other pull requests are left out. */
+export async function closingIssueIdsOf(
+  db: Database,
+  pullRequestIssueId: string,
+) {
+  const rows = await db
+    .select({ id: schema.issueReference.targetIssueId })
+    .from(schema.issueReference)
+    .innerJoin(
+      schema.issue,
+      eq(schema.issue.id, schema.issueReference.targetIssueId),
+    )
+    .where(
+      and(
+        eq(schema.issueReference.sourceType, 'issue'),
+        eq(schema.issueReference.sourceId, pullRequestIssueId),
+        eq(schema.issueReference.closing, true),
+        eq(schema.issue.isPullRequest, false),
+      ),
+    )
+    .orderBy(asc(schema.issueReference.createdAt));
+  return rows.map((row) => row.id);
+}
+
 /** A comment with its author's username and the issue it belongs to, or null. */
 export async function commentOf(db: Database, commentId: string) {
   const [row] = await db

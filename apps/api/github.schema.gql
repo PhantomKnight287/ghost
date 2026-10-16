@@ -55,6 +55,11 @@ type AutoMergeRequest {
   mergeMethod: PullRequestMergeMethod!
 }
 
+"""
+Represents non-fractional signed whole numeric values. Since the value may exceed the size of a 32-bit integer, it's encoded as a string.
+"""
+scalar BigInt
+
 type Bot implements Actor & Node & UniformResourceLocatable {
   avatarUrl: URI!
   id: ID!
@@ -536,6 +541,7 @@ type PullRequest implements Assignable & Labelable & Node & UniformResourceLocat
   autoMergeRequest: AutoMergeRequest
   baseRef: Ref
   baseRefName: String!
+  baseRefOid: GitObjectID!
   baseRepository: Repository!
   body: String!
   bodyHTML: HTML!
@@ -543,12 +549,14 @@ type PullRequest implements Assignable & Labelable & Node & UniformResourceLocat
   changedFiles: Int!
   closed: Boolean!
   closedAt: DateTime
+  closingIssuesReferences(after: String, first: Int): IssueConnection
   comments(after: String, first: Int, last: Int): IssueCommentConnection!
   commits(after: String, first: Int, last: Int): PullRequestCommitConnection!
   createdAt: DateTime!
   databaseId: Int
   deletions: Int!
   files(after: String, first: Int): PullRequestChangedFileConnection
+  fullDatabaseId: BigInt
   headRef: Ref
   headRefName: String!
   headRefOid: GitObjectID!
@@ -562,12 +570,15 @@ type PullRequest implements Assignable & Labelable & Node & UniformResourceLocat
   latestReviews(after: String, first: Int, last: Int): PullRequestReviewConnection
   locked: Boolean!
   maintainerCanModify: Boolean!
+  mergeCommit: Commit
   mergeStateStatus: MergeStateStatus!
   mergeable: MergeableState!
   merged: Boolean!
   mergedAt: DateTime
+  mergedBy: Actor
   milestone: Milestone
   number: Int!
+  potentialMergeCommit: Commit
   projectItems(after: String, before: String, first: Int, includeArchived: Boolean = true, last: Int): ProjectV2ItemConnection!
   reactionGroups: [ReactionGroup!]
   repository: Repository!

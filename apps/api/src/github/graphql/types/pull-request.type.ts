@@ -38,6 +38,7 @@ export class PullRequestNode extends IssueOrPullRequestFields {
   /** The stored head; the live one is PullRequestResolver.headRefOid. */
   storedHeadSha: string;
   mergeCommitSha: string | null;
+  mergedByLogin: string | null;
   /** PullRequestsService.getPullRequest, started by the first field that needs git, so the fields sharing it read the repository once. */
   detail?: ReturnType<PullRequestsService['getPullRequest']>;
 
