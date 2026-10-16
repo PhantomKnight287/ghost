@@ -34,7 +34,7 @@ const CONNECT_ERRORS = new Set([
   "EAI_AGAIN",
   "UND_ERR_CONNECT_TIMEOUT",
 ]);
-const ATTEMPTS = 5;
+const ATTEMPTS = 20;
 
 /** `fetch` that retries when the API cannot be reached. On Railway's serverless mode the API sleeps with the web app, and the first request after a wake times out connecting while it boots (#70). */
 export async function fetchApi(
@@ -50,7 +50,6 @@ export async function fetchApi(
       );
     } catch (error) {
       const code = (error as { cause?: { code?: string } }).cause?.code;
-      console.log({code,attempt, error})
       if (attempt === ATTEMPTS || !code || !CONNECT_ERRORS.has(code))
         throw error;
       await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
