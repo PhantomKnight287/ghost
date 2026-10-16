@@ -13649,6 +13649,84 @@
         ]
       }
     },
+    "/api/v3/gitignore/templates": {
+      "get": {
+        "operationId": "TemplatesController_gitignoreTemplates",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Names `gitignore_template` takes when creating a repository",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/gitignore/templates/{name}": {
+      "get": {
+        "operationId": "TemplatesController_gitignoreTemplate",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "One .gitignore template and its source",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/licenses": {
+      "get": {
+        "operationId": "TemplatesController_licenses",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Licenses `license_template` takes when creating a repository",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/licenses/{license}": {
+      "get": {
+        "operationId": "TemplatesController_license",
+        "parameters": [
+          {
+            "name": "license",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "One license with its full text",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/oauth-apps": {
       "get": {
         "operationId": "OauthAppsController_list",
@@ -14275,6 +14353,29 @@
           "OAuth apps"
         ]
       }
+    },
+    "/api/repository-templates": {
+      "get": {
+        "description": "What `gitignoreTemplate` and `licenseTemplate` take when creating a repository.",
+        "operationId": "RepositoryTemplatesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetRepositoryTemplatesResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List .gitignore and license templates",
+        "tags": [
+          "Repositories"
+        ]
+      }
     }
   },
   "info": {
@@ -14313,6 +14414,20 @@
                 "$ref": "#/components/schemas/RepositoryVisibility"
               }
             ]
+          },
+          "readme": {
+            "type": "boolean",
+            "description": "Starts the repository with a commit holding a README of its name and description."
+          },
+          "gitignoreTemplate": {
+            "type": "string",
+            "description": "A name from `GET /api/repository-templates`, in any case; its `.gitignore` goes in the first commit.",
+            "example": "Node"
+          },
+          "licenseTemplate": {
+            "type": "string",
+            "description": "A license key from `GET /api/repository-templates`, in any case; its text, with the owner and year filled in, goes in the first commit as `LICENSE`.",
+            "example": "mit"
           }
         },
         "required": [
@@ -18652,6 +18767,20 @@
               }
             ]
           },
+          "readme": {
+            "type": "boolean",
+            "description": "Starts the repository with a commit holding a README of its name and description."
+          },
+          "gitignoreTemplate": {
+            "type": "string",
+            "description": "A name from `GET /api/repository-templates`, in any case; its `.gitignore` goes in the first commit.",
+            "example": "Node"
+          },
+          "licenseTemplate": {
+            "type": "string",
+            "description": "A license key from `GET /api/repository-templates`, in any case; its text, with the owner and year filled in, goes in the first commit as `LICENSE`.",
+            "example": "mit"
+          },
           "source": {
             "type": "string",
             "description": "The GitHub repository to import, as `owner/name`.",
@@ -19754,15 +19883,17 @@
           },
           "auto_init": {
             "type": "boolean",
-            "description": "Accepted and ignored: Ghost cannot write an initial commit from the API yet."
+            "description": "Starts the repository with a commit holding a README."
           },
           "gitignore_template": {
             "type": "string",
-            "description": "Accepted and ignored."
+            "description": "A name from `GET /gitignore/templates`, in any case; its `.gitignore` goes in the first commit.",
+            "example": "Node"
           },
           "license_template": {
             "type": "string",
-            "description": "Accepted and ignored."
+            "description": "A key from `GET /licenses`, in any case; its text, with the owner and year filled in, goes in the first commit as `LICENSE`.",
+            "example": "mit"
           }
         },
         "required": [
@@ -20536,6 +20667,48 @@
         },
         "required": [
           "clientSecret"
+        ]
+      },
+      "LicenseTemplateDTO": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "mit"
+          },
+          "name": {
+            "type": "string",
+            "example": "MIT License"
+          }
+        },
+        "required": [
+          "key",
+          "name"
+        ]
+      },
+      "GetRepositoryTemplatesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "gitignore": {
+            "example": [
+              "Go",
+              "Node"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "licenses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LicenseTemplateDTO"
+            }
+          }
+        },
+        "required": [
+          "gitignore",
+          "licenses"
         ]
       }
     }

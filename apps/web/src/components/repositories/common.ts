@@ -32,10 +32,17 @@ export const importRepositorySchema = createRepositorySchema.extend({
   source: githubSource,
 });
 
-// The new repository form imports when a source is given and creates an empty repository when it is left blank.
-export const newRepositorySchema = createRepositorySchema.extend({
-  source: githubSource.or(z.literal("")),
+// What the first commit of a created repository holds; an empty template name means none.
+export const initialFilesSchema = z.object({
+  readme: z.boolean(),
+  gitignoreTemplate: z.string(),
+  licenseTemplate: z.string(),
 });
+
+// The new repository form imports when a source is given and creates a repository, empty unless initialFilesSchema asks for files, when it is left blank.
+export const newRepositorySchema = createRepositorySchema
+  .extend({ source: githubSource.or(z.literal("")) })
+  .extend(initialFilesSchema.shape);
 
 export type NewRepositoryInput = z.infer<typeof newRepositorySchema>;
 

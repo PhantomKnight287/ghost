@@ -1,6 +1,6 @@
 import { runGit } from '../exec/run-git.js';
 
-const FALLBACK_REF = 'refs/heads/main';
+export const FALLBACK_REF = 'refs/heads/main';
 
 /** Accepts "main" or "refs/heads/main" and always returns the full ref. */
 export const BRANCH_PREFIX = 'refs/heads/';

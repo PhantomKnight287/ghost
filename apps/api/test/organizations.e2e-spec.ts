@@ -730,6 +730,53 @@ describe.skipIf(!hasBackends)('organizations', () => {
     expect(body.defaultBranch).toBe('trunk');
   });
 
+  it('starts a repository from templates on the organization default branch, licensed to the organization', async () => {
+    expect(
+      (await api().get('/api/repository-templates').expect(200)).body,
+    ).toMatchObject({
+      gitignore: expect.arrayContaining(['Go']),
+      licenses: expect.arrayContaining([{ key: 'mit', name: 'MIT License' }]),
+    });
+    await create(owner, {
+      name: 'templated',
+      organization: org,
+      readme: true,
+      gitignoreTemplate: 'go',
+      licenseTemplate: 'MIT',
+    }).expect(201);
+    const clone = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-org-init-'));
+    try {
+      await promisify(execFile)(
+        'git',
+        [
+          'clone',
+          '-q',
+          `${origin.replace('://', `://${ownerName}:${owner.key}@`)}/${org}/templated.git`,
+          clone,
+        ],
+        { env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+      );
+      const show = (...args: string[]) =>
+        execFileSync('git', args, { cwd: clone, encoding: 'utf8' }).trim();
+      expect(show('rev-parse', '--abbrev-ref', 'HEAD')).toBe('trunk');
+      expect(show('ls-files').split('\n')).toEqual([
+        '.gitignore',
+        'LICENSE',
+        'README.md',
+      ]);
+      expect(show('show', 'HEAD:LICENSE')).toContain(
+        `Copyright (c) ${new Date().getUTCFullYear()} Acme`,
+      );
+    } finally {
+      rmSync(clone, { recursive: true, force: true });
+    }
+    await create(owner, {
+      name: 'mistemplated',
+      organization: org,
+      gitignoreTemplate: 'NoSuchLanguage',
+    }).expect(400);
+  });
+
   it('narrows repository search to one owner with org:', async () => {
     const { body } = await api()
       .get(`/api/search/repositories?q=${encodeURIComponent(`org:${org} li`)}`)

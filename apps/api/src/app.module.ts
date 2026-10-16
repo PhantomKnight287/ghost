@@ -38,6 +38,7 @@ import { WebhooksModule } from './resources/webhooks/webhooks.module.js';
 import { S3Module } from './s3/s3.module.js';
 import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
 import { AppStatsService } from './services/stats/app-stats.service.js';
+import { RepositoryTemplatesModule } from './resources/repository-templates/repository-templates.module.js';
 
 /** Body parsing for `type`, except on GitHub's asset uploads, which stream raw bytes of any type to object storage. */
 const parses = (type: string) => (req: IncomingMessage) => {
@@ -135,6 +136,7 @@ const parses = (type: string) => (req: IncomingMessage) => {
     UserModule,
     GithubModule,
     OauthAppsModule,
+    RepositoryTemplatesModule,
   ],
   controllers: [AppController],
   providers: [AppStatsService],

@@ -44,6 +44,7 @@ import { GithubPullsModule } from './rest/pulls/pulls.module.js';
 import { GithubReleasesModule } from './rest/releases/releases.module.js';
 import { ReposModule } from './rest/repos/repos.module.js';
 import { UsersModule } from './rest/users/users.module.js';
+import { TemplatesModule } from './rest/templates/templates.module.js';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { UsersModule } from './rest/users/users.module.js';
     ReleasesModule,
     GithubReleasesModule,
     GithubGitModule,
+    TemplatesModule,
   ],
   providers: [
     ViewerResolver,

@@ -1,15 +1,19 @@
 import type { INestApplication } from '@nestjs/common';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { GITIGNORE_TEMPLATES } from '@ghost/templates';
 
 import { hasBackends, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('GitHub REST v3', () => {
   let app: INestApplication;
+  let origin: string;
   let owner: { cookie: string; key: string; userId: string };
   const username = `ghrest${Date.now()}`;
   const v3 = (path: string, token?: string) => {
@@ -18,7 +22,7 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
   };
 
   beforeAll(async () => {
-    ({ app } = await startApp());
+    ({ app, origin } = await startApp());
     owner = await signUp(app, username);
     const api = request(app.getHttpServer());
     await api
@@ -110,16 +114,104 @@ describe.skipIf(!hasBackends)('GitHub REST v3', () => {
     const created = await request(app.getHttpServer())
       .post('/api/v3/user/repos')
       .set('authorization', `token ${owner.key}`)
-      .send({ name: 'rest-made', private: true, auto_init: true })
+      .send({ name: 'rest-made', private: true })
       .expect(201);
     expect(created.body).toMatchObject({
       name: 'rest-made',
       full_name: `${username}/rest-made`,
       private: true,
     });
+    await v3(`/repos/${username}/rest-made/readme`, owner.key).expect(404);
     const user = await v3(`/users/${username}`).expect(200);
     expect(user.body).toMatchObject({ login: username, type: 'User' });
     await v3('/users/nobody-xyz').expect(404);
+  });
+
+  it('starts a repository with a README, .gitignore and LICENSE in one commit', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v3/user/repos')
+      .set('authorization', `token ${owner.key}`)
+      .send({
+        name: 'templated',
+        description: 'Made from templates',
+        auto_init: true,
+        gitignore_template: 'node',
+        license_template: 'MIT',
+      })
+      .expect(201);
+    const work = mkdtempSync(path.join(tmpdir(), 'ghost-e2e-ghrest-init-'));
+    try {
+      // The server runs in this process, so the clone must not block the event loop.
+      await promisify(execFile)(
+        'git',
+        [
+          'clone',
+          '-q',
+          `${origin.replace('://', `://${username}:${owner.key}@`)}/${username}/templated.git`,
+          work,
+        ],
+        { env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+      );
+      const git = (...args: string[]) =>
+        execFileSync('git', args, { cwd: work, encoding: 'utf8' }).trim();
+      expect(git('rev-parse', '--abbrev-ref', 'HEAD')).toBe('main');
+      expect(git('log', '--format=%s')).toBe('Initial commit');
+      expect(git('ls-files').split('\n')).toEqual([
+        '.gitignore',
+        'LICENSE',
+        'README.md',
+      ]);
+      expect(readFileSync(path.join(work, 'README.md'), 'utf8')).toBe(
+        '# templated\nMade from templates\n',
+      );
+      expect(readFileSync(path.join(work, '.gitignore'), 'utf8')).toBe(
+        GITIGNORE_TEMPLATES.Node,
+      );
+      const license = readFileSync(path.join(work, 'LICENSE'), 'utf8');
+      expect(license).toContain(
+        `Copyright (c) ${new Date().getUTCFullYear()} E2E`,
+      );
+      expect(license).not.toContain('[fullname]');
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+    const readme = await v3(`/repos/${username}/templated/readme`, owner.key);
+    expect(readme.status).toBe(200);
+  });
+
+  it('refuses a template GitHub does not list, creating nothing', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/v3/user/repos')
+      .set('authorization', `token ${owner.key}`)
+      .send({ name: 'untemplated', license_template: 'nope' })
+      .expect(422);
+    expect(response.body.errors).toContainEqual(
+      expect.objectContaining({ field: 'license_template' }),
+    );
+    await v3(`/repos/${username}/untemplated`, owner.key).expect(404);
+  });
+
+  it('serves the .gitignore and license templates gh repo create offers', async () => {
+    const names = (await v3('/gitignore/templates').expect(200)).body;
+    expect(names).toContain('Node');
+    expect((await v3('/gitignore/templates/Node').expect(200)).body).toEqual({
+      name: 'Node',
+      source: GITIGNORE_TEMPLATES.Node,
+    });
+    await v3('/gitignore/templates/constructor').expect(404);
+    const licenses = (await v3('/licenses').expect(200)).body;
+    expect(licenses).toContainEqual({
+      key: 'mit',
+      name: 'MIT License',
+      spdx_id: 'MIT',
+      url: expect.stringMatching(/\/api\/v3\/licenses\/mit$/),
+      node_id: expect.any(String),
+    });
+    expect((await v3('/licenses/MIT').expect(200)).body).toMatchObject({
+      key: 'mit',
+      body: expect.stringContaining('[fullname]'),
+    });
+    await v3('/licenses/nope').expect(404);
   });
 
   it('lists and adds SSH keys in GitHub shape', async () => {

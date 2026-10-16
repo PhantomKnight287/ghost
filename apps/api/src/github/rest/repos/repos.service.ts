@@ -104,6 +104,9 @@ export class GithubReposService {
         description: body.description,
         visibility,
         organization,
+        readme: body.auto_init,
+        gitignoreTemplate: body.gitignore_template,
+        licenseTemplate: body.license_template,
       },
       viewer.userId,
     );

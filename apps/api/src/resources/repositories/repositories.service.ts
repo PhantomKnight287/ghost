@@ -17,7 +17,22 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
+import path from 'node:path';
+
+import {
+  fillLicense,
+  findGitignoreTemplate,
+  findLicense,
+} from '@ghost/templates';
+
 import { DATABASE } from '../../database/database.module.js';
+import { fileBody } from '../../lib/git/protocol/git-request-body.js';
+import { packRange } from '../../lib/git/merge/merge.js';
+import { rootCommit } from '../../lib/git/tree/root-commit.js';
+import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
+import { withTempDir } from '../../lib/temp-dir.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
+import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { CreateRepositoryRequestDTO } from './dto/create-repository.dto.js';
 import { GetRepositoriesQueryDTO } from './dto/get-repositories.dto.js';
@@ -78,6 +93,8 @@ import {
   normalizeTreePath,
 } from '../../lib/git/tree/tree-path.js';
 import {
+  FALLBACK_REF,
+  toBranchRef,
   resolveCommit,
   resolveDefaultRef,
   resolveRevision,
@@ -186,8 +203,11 @@ export class RepositoriesService {
     private readonly lfs: LfsService,
     private readonly releaseArchives: ReleaseArchivesService,
     private readonly config: ConfigService,
+    private readonly signing: CommitSigningService,
+    private readonly pushTransaction: PushTransactionService,
   ) {}
 
+  /** A README, .gitignore or license asked for becomes the first commit on the default branch, as GitHub's `auto_init` and templates write it. */
   async createRepository(body: CreateRepositoryRequestDTO, userId: string) {
     const visibility = body.visibility ?? 'private';
     const organization = body.organization
@@ -214,10 +234,97 @@ export class RepositoriesService {
       })
       .returning();
 
+    if (body.readme || body.gitignoreTemplate || body.licenseTemplate)
+      await this.commitInitialFiles(newRepo, body, userId).catch(
+        async (error: unknown) => {
+          // Left in place, the half-made repository would take the name, and a retry would land on a suffixed slug.
+          await this.db
+            .delete(schema.repository)
+            .where(eq(schema.repository.id, newRepo.id));
+          throw error;
+        },
+      );
+
     return {
       id: newRepo.id,
       slug: newRepo.slug,
     };
+  }
+
+  private async commitInitialFiles(
+    repository: {
+      id: string;
+      name: string;
+      description: string | null;
+      defaultBranch: string | null;
+      organizationId: string | null;
+    },
+    { readme, gitignoreTemplate, licenseTemplate }: CreateRepositoryRequestDTO,
+    userId: string,
+  ) {
+    const gitDir = await this.materializer.open(repository);
+    const author = await this.usersService.getUserById(userId);
+    const license = licenseTemplate && findLicense(licenseTemplate);
+    const files = {
+      ...(readme && {
+        'README.md': `# ${repository.name}\n${repository.description ? `${repository.description}\n` : ''}`,
+      }),
+      ...(gitignoreTemplate && {
+        '.gitignore': findGitignoreTemplate(gitignoreTemplate)!.source,
+      }),
+      ...(license && {
+        // GitHub names the organization as the holder of its repositories' licenses.
+        LICENSE: fillLicense(
+          license,
+          repository.organizationId
+            ? await this.organizationName(repository.organizationId)
+            : author.name,
+          new Date().getUTCFullYear(),
+        ),
+      }),
+    };
+    const sha = await rootCommit({
+      gitDir,
+      files,
+      message: 'Initial commit',
+      author: { name: author.name, email: author.email },
+      sign: this.signing.signer,
+    });
+    await withTempDir('ghost-init-', async (directory) => {
+      const pack = await packRange({
+        gitDir,
+        include: [sha],
+        exclude: [],
+        prefix: path.join(directory, 'init'),
+      });
+      await this.pushTransaction.commitPush({
+        repoId: repository.id,
+        transitions: [
+          {
+            ref: repository.defaultBranch
+              ? toBranchRef(repository.defaultBranch)
+              : FALLBACK_REF,
+            oldOid: ZERO_OID,
+            newOid: Buffer.from(sha, 'hex'),
+          },
+        ],
+        body: fileBody(pack.path, pack.size),
+        packOffset: 0,
+        pushedBy: userId,
+      });
+    });
+    await this.db
+      .update(schema.repository)
+      .set({ lastPushedAt: new Date() })
+      .where(eq(schema.repository.id, repository.id));
+  }
+
+  private async organizationName(organizationId: string) {
+    const [row] = await this.db
+      .select({ name: schema.organization.name })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, organizationId));
+    return row!.name;
   }
 
   async getRepositories(

@@ -3404,6 +3404,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/gitignore/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Names `gitignore_template` takes when creating a repository */
+        get: operations["TemplatesController_gitignoreTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/gitignore/templates/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One .gitignore template and its source */
+        get: operations["TemplatesController_gitignoreTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/licenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Licenses `license_template` takes when creating a repository */
+        get: operations["TemplatesController_licenses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/licenses/{license}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One license with its full text */
+        get: operations["TemplatesController_license"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/oauth-apps": {
         parameters: {
             query?: never;
@@ -3566,6 +3634,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repository-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List .gitignore and license templates
+         * @description What `gitignoreTemplate` and `licenseTemplate` take when creating a repository.
+         */
+        get: operations["RepositoryTemplatesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3578,6 +3666,18 @@ export interface components {
             /** @description Slug of the organization to create the repository in; the requester's own account when omitted. Needs admin in the organization. */
             organization?: string;
             visibility?: components["schemas"]["RepositoryVisibility"];
+            /** @description Starts the repository with a commit holding a README of its name and description. */
+            readme?: boolean;
+            /**
+             * @description A name from `GET /api/repository-templates`, in any case; its `.gitignore` goes in the first commit.
+             * @example Node
+             */
+            gitignoreTemplate?: string;
+            /**
+             * @description A license key from `GET /api/repository-templates`, in any case; its text, with the owner and year filled in, goes in the first commit as `LICENSE`.
+             * @example mit
+             */
+            licenseTemplate?: string;
         };
         CreateRepositoryResponseDTO: {
             id: string;
@@ -4950,6 +5050,18 @@ export interface components {
             /** @description Slug of the organization to create the repository in; the requester's own account when omitted. Needs admin in the organization. */
             organization?: string;
             visibility?: components["schemas"]["RepositoryVisibility"];
+            /** @description Starts the repository with a commit holding a README of its name and description. */
+            readme?: boolean;
+            /**
+             * @description A name from `GET /api/repository-templates`, in any case; its `.gitignore` goes in the first commit.
+             * @example Node
+             */
+            gitignoreTemplate?: string;
+            /**
+             * @description A license key from `GET /api/repository-templates`, in any case; its text, with the owner and year filled in, goes in the first commit as `LICENSE`.
+             * @example mit
+             */
+            licenseTemplate?: string;
             /**
              * @description The GitHub repository to import, as `owner/name`.
              * @example octocat/hello-world
@@ -5286,11 +5398,17 @@ export interface components {
             private?: boolean;
             /** @enum {string} */
             visibility?: "public" | "private";
-            /** @description Accepted and ignored: Ghost cannot write an initial commit from the API yet. */
+            /** @description Starts the repository with a commit holding a README. */
             auto_init?: boolean;
-            /** @description Accepted and ignored. */
+            /**
+             * @description A name from `GET /gitignore/templates`, in any case; its `.gitignore` goes in the first commit.
+             * @example Node
+             */
             gitignore_template?: string;
-            /** @description Accepted and ignored. */
+            /**
+             * @description A key from `GET /licenses`, in any case; its text, with the owner and year filled in, goes in the first commit as `LICENSE`.
+             * @example mit
+             */
             license_template?: string;
         };
         GithubCommentDTO: {
@@ -5588,6 +5706,22 @@ export interface components {
         OauthAppSecretDTO: {
             /** @description The new secret, shown only now. The previous one stops working at once. */
             clientSecret: string;
+        };
+        LicenseTemplateDTO: {
+            /** @example mit */
+            key: string;
+            /** @example MIT License */
+            name: string;
+        };
+        GetRepositoryTemplatesResponseDTO: {
+            /**
+             * @example [
+             *       "Go",
+             *       "Node"
+             *     ]
+             */
+            gitignore: string[];
+            licenses: components["schemas"]["LicenseTemplateDTO"][];
         };
     };
     responses: never;
@@ -13449,6 +13583,78 @@ export interface operations {
             };
         };
     };
+    TemplatesController_gitignoreTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TemplatesController_gitignoreTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TemplatesController_licenses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TemplatesController_license: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                license: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     OauthAppsController_list: {
         parameters: {
             query?: never;
@@ -13901,6 +14107,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryTemplatesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetRepositoryTemplatesResponseDTO"];
                 };
             };
         };

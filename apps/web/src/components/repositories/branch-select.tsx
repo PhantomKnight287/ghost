@@ -18,12 +18,14 @@ import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT = 32;
 
-/** A branch picker that stays fast with thousands of branches: the list is searched, and only the rows in view are rendered. */
+/** A branch picker that stays fast with thousands of branches: the list is searched, and only the rows in view are rendered. Any long list of names, such as .gitignore templates, can use it with its own wording. */
 export function BranchSelect({
   branches,
   value,
   onValueChange,
   placeholder = "Select a branch",
+  searchPlaceholder = "Find a branch",
+  emptyMessage = "No branch matches",
   id,
   className,
 }: {
@@ -31,6 +33,8 @@ export function BranchSelect({
   value: string;
   onValueChange: (branch: string) => void;
   placeholder?: string;
+  searchPlaceholder?: string;
+  emptyMessage?: string;
   id?: string;
   className?: string;
 }) {
@@ -81,8 +85,8 @@ export function BranchSelect({
         </span>
       </ComboboxTrigger>
       <ComboboxContent className="min-w-64">
-        <ComboboxInput placeholder="Find a branch" showTrigger={false} />
-        <ComboboxEmpty>No branch matches</ComboboxEmpty>
+        <ComboboxInput placeholder={searchPlaceholder} showTrigger={false} />
+        <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
         <ComboboxList ref={setList}>
           {matches.length > 0 && (
             <div
