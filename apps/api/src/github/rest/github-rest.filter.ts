@@ -11,8 +11,13 @@ import type { Response } from 'express';
 
 import { DomainError } from '../../domain/errors.js';
 import {
+  InvalidStatusShaError,
+  TooManyStatusesError,
+} from '../../lib/commit-statuses/commit-statuses.errors.js';
+import {
   GithubValidationError,
   InsufficientScopesError,
+  NoCommitFoundError,
   type ValidationFailure,
 } from '../../lib/github/github.errors.js';
 import {
@@ -62,6 +67,14 @@ const FIELD_ERRORS: [
     InvalidAssetNameError,
     { resource: 'ReleaseAsset', field: 'name', code: 'invalid' },
   ],
+  [
+    InvalidStatusShaError,
+    { resource: 'Status', field: 'sha', code: 'invalid' },
+  ],
+  [
+    TooManyStatusesError,
+    { resource: 'Status', field: 'context', code: 'invalid' },
+  ],
 ];
 
 /** Ghost errors GitHub answers as a plain 422, where Ghost says 400 or 409. */
@@ -101,11 +114,11 @@ export class GithubRestFilter
           ? HttpStatus.UNPROCESSABLE_ENTITY
           : exception.status;
     if (status >= 500) this.logger.error(exception);
-    // GitHub says "Not Found" for every 404, so a private repository and a missing one read the same.
+    // GitHub says "Not Found" for every 404 but a missing commit, so a private repository and a missing one read the same.
     const detail =
       exception instanceof HttpException ? this.detailOf(exception) : undefined;
     const message =
-      status === 404
+      status === 404 && !(exception instanceof NoCommitFoundError)
         ? 'Not Found'
         : typeof detail === 'string'
           ? detail

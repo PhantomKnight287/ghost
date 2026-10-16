@@ -14,6 +14,8 @@ const PREFIXES = {
   Label: 'LA',
   Release: 'RE',
   ReleaseAsset: 'RA',
+  StatusContext: 'SC',
+  StatusCheckRollup: 'SCR',
 } as const;
 
 export type NodeType = keyof typeof PREFIXES;
