@@ -54,6 +54,7 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
   let statuses: CommitStatusesService;
   let repository: typeof schema.repository.$inferSelect;
   let sha: string;
+  let tagSha: string;
 
   const owner = { username: 'status-owner', repo: 'app', requesterId: OWNER };
   const reader = { ...owner, requesterId: READER };
@@ -113,6 +114,8 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
     git(source, 'add', '-A');
     git(source, 'commit', '-m', 'first');
     sha = git(source, 'rev-parse', 'HEAD');
+    git(source, 'tag', '-a', 'v1', '-m', 'release');
+    tagSha = git(source, 'rev-parse', 'v1');
     await new PushTransactionService(store).commitPush({
       repoId: repository.id,
       transitions: [
@@ -125,7 +128,7 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
       body: bufferBody(
         execFileSync('git', ['pack-objects', '--stdout', '--revs'], {
           cwd: source,
-          input: 'HEAD\n',
+          input: 'HEAD\nrefs/tags/v1\n',
         }),
       ),
       packOffset: 0,
@@ -255,6 +258,12 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
         sha: 'f'.repeat(40),
         body: { state: 'success' },
       }),
+    ).rejects.toThrow(InvalidStatusShaError);
+  });
+
+  it('refuses the sha of an annotated tag object', async () => {
+    await expect(
+      statuses.create({ ...owner, sha: tagSha, body: { state: 'success' } }),
     ).rejects.toThrow(InvalidStatusShaError);
   });
 

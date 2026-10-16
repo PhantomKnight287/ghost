@@ -71,9 +71,12 @@ export class CommitStatusesService {
       operation: 'write',
     });
     if (!/^[0-9a-f]{40}$/.test(sha)) throw new InvalidStatusShaError(sha);
-    if (!(await resolveCommit(await this.materializer.open(repository), sha))) {
-      throw new InvalidStatusShaError(sha);
-    }
+    // resolveCommit peels tags, so a tag object's sha resolves to another oid.
+    const oid = await resolveCommit(
+      await this.materializer.open(repository),
+      sha,
+    );
+    if (oid !== sha) throw new InvalidStatusShaError(sha);
 
     const context = body.context ?? DEFAULT_STATUS_CONTEXT;
     const id = await this.db.transaction(async (tx) => {

@@ -4,6 +4,7 @@ import {
   IsIn,
   IsInt,
   IsISO8601,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
@@ -44,6 +45,8 @@ export class CreateCommitStatusRequestDTO {
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
   context?: string;
 }
 

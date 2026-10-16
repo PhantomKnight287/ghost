@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsIn,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
@@ -41,5 +42,7 @@ export class GithubCreateStatusDTO {
   @ApiPropertyOptional({ default: DEFAULT_STATUS_CONTEXT })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
   context?: string;
 }

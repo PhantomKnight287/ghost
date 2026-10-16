@@ -8,7 +8,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { hasBackends, signUp, startApp } from './harness.js';
+import { hasBackends, scopedKey, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('GitHub commit statuses', () => {
   let app: INestApplication;
@@ -108,6 +108,35 @@ describe.skipIf(!hasBackends)('GitHub commit statuses', () => {
     expect(description.body.errors).toEqual([
       expect.objectContaining({ field: 'description' }),
     ]);
+  });
+
+  it('refuses an empty context and one past 255 characters with 422', async () => {
+    for (const context of ['', 'x'.repeat(256)]) {
+      const { body } = await post(main, { state: 'success', context }).expect(
+        422,
+      );
+      expect(body).toMatchObject({
+        message: 'Validation Failed',
+        errors: [expect.objectContaining({ field: 'context' })],
+      });
+    }
+  });
+
+  it('refuses a write from an anonymous caller and from a key without a repo scope', async () => {
+    await http()
+      .post(`/api/v3${repo}/statuses/${main}`)
+      .send({ state: 'success' })
+      .expect(401);
+    const key = await scopedKey(app, owner.userId, ['read:user']);
+    await http()
+      .post(`/api/v3${repo}/statuses/${main}`)
+      .set('authorization', `token ${key}`)
+      .send({ state: 'success' })
+      .expect(403);
+  });
+
+  it('answers the combined status of a public repository to an anonymous caller', async () => {
+    await http().get(`/api/v3${repo}/commits/main/status`).expect(200);
   });
 
   it('refuses a sha that is not a commit in the repository with 422', async () => {
