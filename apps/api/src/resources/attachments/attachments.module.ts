@@ -9,5 +9,6 @@ import { AttachmentsService } from './attachments.service.js';
   imports: [StorageModule],
   controllers: [AttachmentsController],
   providers: [AttachmentsService, RepositoryAccessService],
+  exports: [AttachmentsService],
 })
 export class AttachmentsModule {}

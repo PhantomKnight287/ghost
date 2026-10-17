@@ -20,6 +20,7 @@ import {
   RequiresAuthenticationError,
 } from '../../../lib/github/github.errors.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
+import { WRITE_OR_ABOVE } from '../../../lib/github/permission.js';
 import {
   type IssueExtras,
   labelNamesOf,
@@ -56,12 +57,6 @@ const TRIAGE_OR_ABOVE: (RepositoryPermission | null)[] = [
   RepositoryPermission.MAINTAIN,
   RepositoryPermission.WRITE,
   RepositoryPermission.TRIAGE,
-];
-
-const WRITE_OR_ABOVE: (RepositoryPermission | null)[] = [
-  RepositoryPermission.ADMIN,
-  RepositoryPermission.MAINTAIN,
-  RepositoryPermission.WRITE,
 ];
 
 const restUserColumns = {

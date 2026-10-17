@@ -44,6 +44,7 @@ import { MetaModule } from './rest/meta/meta.module.js';
 import { GithubPullsModule } from './rest/pulls/pulls.module.js';
 import { GithubReleasesModule } from './rest/releases/releases.module.js';
 import { GithubStatusesModule } from './rest/statuses/statuses.module.js';
+import { GithubUserAttachmentsModule } from './rest/attachments/user-attachments.module.js';
 import { ReposModule } from './rest/repos/repos.module.js';
 import { UsersModule } from './rest/users/users.module.js';
 import { TemplatesModule } from './rest/templates/templates.module.js';
@@ -104,6 +105,7 @@ import { TemplatesModule } from './rest/templates/templates.module.js';
     ReleasesModule,
     GithubReleasesModule,
     GithubStatusesModule,
+    GithubUserAttachmentsModule,
     GithubGitModule,
     TemplatesModule,
   ],
