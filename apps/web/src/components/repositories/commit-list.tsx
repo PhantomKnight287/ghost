@@ -8,10 +8,10 @@ import {
 } from "@/components/repositories/commit-checks";
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { components } from "@/lib/api/v1";
 
 type Commit = {
@@ -69,19 +69,23 @@ export function CommitList({
             </p>
           </div>
           {commit.status && (
-            <HoverCard>
-              <HoverCardTrigger asChild>
-                <button type="button" className="flex shrink-0 items-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={statusTitle[commit.status.state]}
+                  className="flex shrink-0 items-center"
+                >
                   <CommitStatusIcon state={commit.status.state} />
                 </button>
-              </HoverCardTrigger>
-              <HoverCardContent className="flex w-80 flex-col gap-2">
+              </PopoverTrigger>
+              <PopoverContent className="flex w-80 flex-col gap-2">
                 <p className="font-medium">
                   {statusTitle[commit.status.state]}
                 </p>
                 <CommitStatusRows statuses={commit.status.statuses} />
-              </HoverCardContent>
-            </HoverCard>
+              </PopoverContent>
+            </Popover>
           )}
           <CommitVerificationBadge verification={commit.verification} />
           <Link
