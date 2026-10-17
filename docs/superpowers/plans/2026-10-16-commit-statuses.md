@@ -18,7 +18,7 @@
 - Combined state: newest row per context; `failure` if any is `failure` or `error`, else `pending` if any is `pending`, else `success`. No statuses: REST `pending` with an empty list; GraphQL `statusCheckRollup` null; web shows nothing.
 - POST: unknown sha, bad state, too-long description, or over the cap → 422. Write access plus `requireWriteScope`.
 - Reads: read access; anonymous on public repositories.
-- Fork pull requests merge base and head repository statuses; same context in both → newest wins; fork included only when the viewer can read it.
+- Fork pull requests merge base and head repository statuses; same context in both → the base repository's newest wins, so a fork cannot override the base's checks; fork included only when the viewer can read it.
 - Only event: `commit_status.created`. No live updates in the web app.
 - Follow `docs/code-standards.md`: no `to<Format>` reshapers outside `lib/github/`, one-line comments, `lib/` for pure code, `services/` for injectables.
 - Never hand-edit drizzle SQL: run `bun db:generate` at the repo root.
@@ -89,7 +89,7 @@
 Approach:
 - `create` authorizes with `operation: 'write'` and rejects anything not matching `/^[0-9a-f]{40}$/` with `InvalidStatusShaError`. It confirms the commit with `resolveCommit(await materializer.open(repository), sha)`; when that returns null, it throws `InvalidStatusShaError`. It counts existing rows for `(repository, sha, context)` and throws `TooManyStatusesError` at 1000. It inserts and calls `publishEvent(tx, { type: 'commit_status.created', statusId })` in one transaction.
 - `ref` resolves as `ReleasesService` does: `resolveTargetCommit` with `listBranches` and `listTags`. No match → the existing `CommitNotFoundError`.
-- `combinedFor` uses one `selectDistinctOn([sha, context])` ordered `createdAt desc` over `repositoryId in (...)` and `sha in (...)`. That gives fork merging and newest-wins across repositories for free. It then groups by sha and applies `combinedState`.
+- `combinedFor` uses one `selectDistinctOn([sha, context])` over `repositoryId in (...)` and `sha in (...)`, ordered by the repository's position in `repositoryIds`, then `createdAt desc`. That merges forks with the first repository (the base) winning a shared context. It then groups by sha and applies `combinedState`.
 
 - [ ] **Step 1: Write the failing integration tests** (skipped without `TEST_DATABASE_URL`, set up like `releases.integration.spec.ts`):
   - `create` stores a status and publishes one `commit_status.created` outbox row carrying its id
@@ -100,7 +100,7 @@ Approach:
   - POST with an abbreviated sha → `InvalidStatusShaError`; with an unknown 40-hex sha → `InvalidStatusShaError`
   - a reader without write access → the access service's forbidden error
   - the 1001st status on one context → `TooManyStatusesError`. Insert 1000 rows directly to seed it.
-  - `combinedFor([base, fork], [sha])`, with `ci` pending in base (older) and `ci` success in fork (newer) → state `success`, one status
+  - `combinedFor([base, fork], [sha])`, with `ci` failure in base (older) and `ci` success in fork (newer) → state `failure`, one `ci` status: the base's
 - [ ] **Step 2:** Run `TEST_DATABASE_URL=… bun run test src/resources/commit-statuses`. Expected: FAIL.
 - [ ] **Step 3:** Add the schema, run `bun db:generate` at the root, then implement the DTOs, service, module and event.
 - [ ] **Step 4:** Rerun. Expected: PASS.
