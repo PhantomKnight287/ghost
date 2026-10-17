@@ -42,6 +42,35 @@ describe("additionRanges", () => {
   });
 });
 
+describe("additionRanges with names git quotes", () => {
+  const quoted = [
+    "diff --git a/my file.txt b/my file.txt",
+    "--- a/my file.txt\t",
+    "+++ b/my file.txt\t",
+    "@@ -1 +1,2 @@",
+    'diff --git "a/caf\\303\\251.txt" "b/caf\\303\\251.txt"',
+    '--- "a/caf\\303\\251.txt"',
+    '+++ "b/caf\\303\\251.txt"',
+    "@@ -1 +1,2 @@",
+    'diff --git "a/tab\\tx \\"q\\".txt" "b/tab\\tx \\"q\\".txt"',
+    '--- "a/tab\\tx \\"q\\".txt"',
+    '+++ "b/tab\\tx \\"q\\".txt"',
+    "@@ -1 +1,2 @@",
+  ].join("\n");
+
+  it("drops the tab git appends to a name with a space", () => {
+    expect(additionRanges(quoted).get("my file.txt")).toEqual([[1, 2]]);
+  });
+
+  it("decodes a quoted name's octal bytes as UTF-8", () => {
+    expect(additionRanges(quoted).get("café.txt")).toEqual([[1, 2]]);
+  });
+
+  it("unescapes a quoted name's tab and quotes", () => {
+    expect(additionRanges(quoted).get('tab\tx "q".txt')).toEqual([[1, 2]]);
+  });
+});
+
 describe("placeThreads", () => {
   const at = (
     path: string,
