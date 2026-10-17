@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { FileDiffs } from "@/components/diffs/file-diffs";
 import { ReviewThread, ThreadCard } from "@/components/pull-requests/review";
@@ -29,14 +28,14 @@ export default async function PullRequestCommitPage({
     getViewerRole(username, repo),
   ]);
   const path = { username, repo, number: Number(number) };
-  const [pull, commits, timeline, pending] = await Promise.all([
+  const [pull, position, timeline, pending] = await Promise.all([
     client.GET("/api/repositories/{username}/{repo}/pulls/{number}", {
       params: { path },
     }),
-    // ponytail: first 100 commits only; page through when a request outgrows it.
-    client.GET("/api/repositories/{username}/{repo}/pulls/{number}/commits", {
-      params: { path, query: { limit: 100 } },
-    }),
+    client.GET(
+      "/api/repositories/{username}/{repo}/pulls/{number}/commits/{sha}",
+      { params: { path: { ...path, sha } } },
+    ),
     client.GET("/api/repositories/{username}/{repo}/issues/{number}/timeline", {
       params: { path },
     }),
@@ -49,12 +48,10 @@ export default async function PullRequestCommitPage({
   ]);
 
   notFoundIfHidden(pull.response);
-  if (!pull.data || !commits.data) {
+  notFoundIfHidden(position.response);
+  if (!pull.data || !position.data) {
     throw new Error(`Failed to read pull request #${number}`);
   }
-  const list = commits.data.commits;
-  const index = list.findIndex((commit) => commit.sha === sha);
-  if (index === -1) notFound();
 
   // These commits are reachable in the head repository, which is a different repository - and a different object store - whenever the request is a fork. A merge copied them into the base, which is all that is left once the head repository is deleted.
   const { head } = pull.data;
@@ -116,8 +113,7 @@ export default async function PullRequestCommitPage({
   }
 
   const base = `/${username}/${repo}/pull/${number}/commits`;
-  const older = list[index + 1];
-  const newer = list[index - 1];
+  const { previousSha, nextSha, total } = position.data;
 
   return (
     <div className="flex flex-col gap-4">
@@ -125,16 +121,16 @@ export default async function PullRequestCommitPage({
         commit={commit.data}
         browseHref={`/${owner}/${slug}/tree/${sha}`}
       >
-        {older ? (
-          <Link href={`${base}/${older.sha}`} className="hover:underline">
+        {previousSha ? (
+          <Link href={`${base}/${previousSha}`} className="hover:underline">
             ← Previous
           </Link>
         ) : null}
         <span>
-          Commit {list.length - index} of {list.length}
+          Commit {position.data.position} of {total}
         </span>
-        {newer ? (
-          <Link href={`${base}/${newer.sha}`} className="hover:underline">
+        {nextSha ? (
+          <Link href={`${base}/${nextSha}`} className="hover:underline">
             Next →
           </Link>
         ) : null}

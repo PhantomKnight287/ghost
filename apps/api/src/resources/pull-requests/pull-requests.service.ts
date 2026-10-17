@@ -18,6 +18,7 @@ import { DATABASE } from '../../database/database.module.js';
 import { publishEvent } from '../../lib/events/events.js';
 import {
   countCommits,
+  listCommitShas,
   listCommits,
   readCommit,
 } from '../../lib/git/commits/list-commits.js';
@@ -499,6 +500,26 @@ export class PullRequestsService {
       })),
       total,
       nextCursor,
+    };
+  }
+
+  /** Where `sha` falls among the commits the pull request adds, in the order getCommits lists them. */
+  async locateCommit(params: PullRequestRef & { sha: string }) {
+    const git = await this.open(params);
+    const shas = git.mergeBase
+      ? await listCommitShas({
+          gitDir: git.baseDirectory,
+          env: git.env,
+          range: `${git.mergeBase}..${git.headSha}`,
+        })
+      : [];
+    const index = shas.indexOf(params.sha);
+    if (index === -1) throw new CommitNotFoundError(params.sha);
+    return {
+      position: shas.length - index,
+      total: shas.length,
+      previousSha: shas[index + 1] ?? null,
+      nextSha: shas[index - 1] ?? null,
     };
   }
 

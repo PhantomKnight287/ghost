@@ -159,6 +159,24 @@ export async function readCommitSummary({
   };
 }
 
+/** Every sha in `range`, in the order `git log` lists them: newest first. */
+export async function listCommitShas({
+  gitDir,
+  range,
+  env,
+}: {
+  gitDir: string;
+  range: string;
+  env?: Record<string, string>;
+}) {
+  const shas = await runGit({
+    args: ['rev-list', '--end-of-options', range],
+    gitDir,
+    env,
+  });
+  return shas.split('\n').filter(Boolean);
+}
+
 export async function countCommits({
   gitDir,
   range,

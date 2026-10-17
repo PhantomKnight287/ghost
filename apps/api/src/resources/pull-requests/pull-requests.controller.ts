@@ -39,6 +39,7 @@ import {
 import {
   GetPullRequestCommitsQueryDTO,
   GetPullRequestCommitsResponseDTO,
+  PullRequestCommitPositionDTO,
   GetPullRequestFilesResponseDTO,
   GetPullRequestPatchQueryDTO,
   MergePullRequestRequestDTO,
@@ -169,6 +170,30 @@ export class PullRequestsController {
       requesterId: session?.user?.id,
       limit: query.limit,
       cursor: query.cursor,
+    });
+  }
+
+  @Get(':number/commits/:sha')
+  @OptionalAuth()
+  @ApiOperation({
+    summary:
+      "Where a commit falls among a pull request's commits, with its neighbours",
+  })
+  @ApiOkResponse({ type: PullRequestCommitPositionDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  locateCommit(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Param('sha') sha: string,
+    @Session() session: UserSession,
+  ) {
+    return this.pullRequests.locateCommit({
+      username,
+      repo,
+      number,
+      sha,
+      requesterId: session?.user?.id,
     });
   }
 
