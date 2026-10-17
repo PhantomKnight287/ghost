@@ -83,13 +83,6 @@ export default async function PullRequestPage({
         />
       </DiffsProvider>
 
-      <CommentBox
-        username={username}
-        repo={repo}
-        number={Number(number)}
-        signedIn={Boolean(viewer)}
-      />
-
       <MergePanel
         username={username}
         repo={repo}
@@ -105,6 +98,15 @@ export default async function PullRequestPage({
         reviewers={pull.data.reviewers}
         pullRefsBlocked={pull.data.pullRefsBlocked}
         checks={pull.data.checks}
+        baseRef={pull.data.base.ref}
+        headRef={pull.data.head.ref}
+      />
+
+      <CommentBox
+        username={username}
+        repo={repo}
+        number={Number(number)}
+        signedIn={Boolean(viewer)}
       />
     </div>
   );

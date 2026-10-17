@@ -5,6 +5,7 @@ import { FromNowHoverCard } from "@/components/from-now-card";
 import {
   CommitStatusIcon,
   CommitStatusRows,
+  statusTitle,
 } from "@/components/repositories/commit-checks";
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import {
@@ -22,16 +23,6 @@ type Commit = {
   verification: ComponentProps<typeof CommitVerificationBadge>["verification"];
   status: components["schemas"]["CombinedCommitStatusDTO"] | null;
 };
-
-const statusTitle = {
-  success: "All checks have passed",
-  failure: "Some checks were not successful",
-  error: "Some checks were not successful",
-  pending: "Some checks haven't completed yet",
-} satisfies Record<
-  components["schemas"]["CombinedCommitStatusDTO"]["state"],
-  string
->;
 
 /** One row per commit, each linking to the commit under `commitBase`, the `/owner/repo` its objects live in. */
 export function CommitList({

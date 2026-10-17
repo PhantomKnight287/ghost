@@ -1,6 +1,15 @@
 "use client";
 
-import { CircleCheck, CircleX, GitMerge, TriangleAlert } from "lucide-react";
+import { cn } from "cn";
+import {
+  CircleCheck,
+  CircleX,
+  GitMerge,
+  GitPullRequestClosed,
+  GitPullRequestDraft,
+  TriangleAlert,
+} from "lucide-react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -29,6 +38,8 @@ export function MergePanel({
   reviewers,
   pullRefsBlocked,
   checks,
+  baseRef,
+  headRef,
 }: {
   username: string;
   repo: string;
@@ -51,6 +62,8 @@ export function MergePanel({
   pullRefsBlocked: string | null;
   /** Statuses on the head commit, or null when it has none. */
   checks: components["schemas"]["CombinedCommitStatusDTO"] | null;
+  baseRef: string;
+  headRef: string;
 }) {
   const router = useRouter();
 
@@ -76,60 +89,74 @@ export function MergePanel({
       toast.error(error.serverError ?? "Could not close this pull request."),
   });
 
+  const checksSection = checks && (
+    <CommitChecks status={checks} className="rounded-none border-0 px-4 py-3" />
+  );
+
   if (state === "merged") {
     return (
-      <div className="flex flex-col gap-3">
-        <CommitChecks status={checks} />
-        <div className="rounded-lg border px-4 py-3 text-sm">
-          <p className="flex items-center gap-2 font-medium text-violet-500">
-            <GitMerge className="size-4" />
-            Merged
-          </p>
+      <div className="divide-y overflow-hidden rounded-lg border">
+        {checksSection}
+        <Section
+          icon={<GitMerge className="size-4" />}
+          tone="bg-violet-500 text-white"
+          title="Pull request successfully merged and closed"
+        >
+          <Branch name={headRef} /> was merged into <Branch name={baseRef} />
           {mergeCommitSha && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Merged as{" "}
+            <>
+              {" "}
+              as{" "}
               <Link
                 href={`/${username}/${repo}/commit/${mergeCommitSha}`}
-                className="font-mono hover:underline"
+                className="font-mono text-foreground hover:underline"
               >
                 {mergeCommitSha.slice(0, 7)}
               </Link>
-            </p>
+            </>
           )}
-        </div>
+          .
+        </Section>
       </div>
     );
   }
 
   if (state === "closed") {
     return (
-      <div className="flex flex-col gap-3">
-        <CommitChecks status={checks} />
-        <div className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
-          This pull request was closed without merging.
-        </div>
+      <div className="divide-y overflow-hidden rounded-lg border">
+        {checksSection}
+        <Section
+          icon={<GitPullRequestClosed className="size-4" />}
+          tone="bg-red-500 text-white"
+          title="Closed with unmerged commits"
+        >
+          This pull request was closed without merging <Branch name={headRef} />{" "}
+          into <Branch name={baseRef} />.
+        </Section>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border px-4 py-3">
+    <div className="divide-y overflow-hidden rounded-lg border">
       {pullRefsBlocked && (
-        <Alert>
-          <TriangleAlert />
-          <AlertTitle>
-            <code>refs/pull/{number}/head</code> is not following this branch
-          </AlertTitle>
-          <AlertDescription>
-            {pullRefsBlocked} A fetch of <code>pull/{number}/head</code> or{" "}
-            <code>pull/{number}/merge</code> gets the branch as of the last
-            update that fit, or fails if no update has fit yet.
-          </AlertDescription>
-        </Alert>
+        <div className="px-4 py-3">
+          <Alert>
+            <TriangleAlert />
+            <AlertTitle>
+              <code>refs/pull/{number}/head</code> is not following this branch
+            </AlertTitle>
+            <AlertDescription>
+              {pullRefsBlocked} A fetch of <code>pull/{number}/head</code> or{" "}
+              <code>pull/{number}/merge</code> gets the branch as of the last
+              update that fit, or fails if no update has fit yet.
+            </AlertDescription>
+          </Alert>
+        </div>
       )}
 
       {reviewers.length > 0 && (
-        <ul className="flex flex-col gap-1 text-sm">
+        <ul className="flex flex-col gap-1 px-4 py-3 text-sm">
           {reviewers.map((reviewer) => (
             <li key={reviewer.username} className="flex items-center gap-2">
               {reviewer.state === "approved" ? (
@@ -152,84 +179,142 @@ export function MergePanel({
         </ul>
       )}
 
-      <CommitChecks status={checks} />
+      {checksSection}
 
-      <p className="text-sm">
-        {draft
-          ? "This pull request is still a draft and cannot be merged."
-          : mergeable
-            ? "This branch has no conflicts with the base branch."
-            : "This branch has conflicts that must be resolved locally."}
-      </p>
-
-      {conflicts.length > 0 && (
-        <ul className="flex flex-col gap-1 rounded-md border bg-muted/40 px-3 py-2 font-mono text-xs">
-          {conflicts.map((path) => (
-            <li key={path} className="truncate">
-              {path}
-            </li>
-          ))}
-        </ul>
+      {draft ? (
+        <Section
+          icon={<GitPullRequestDraft className="size-4" />}
+          tone="bg-muted text-muted-foreground"
+          title="This pull request is still a draft"
+        >
+          Mark it ready for review to merge it.
+        </Section>
+      ) : mergeable ? (
+        <Section
+          icon={<CircleCheck className="size-4" />}
+          tone="bg-emerald-500 text-white"
+          title="This branch has no conflicts with the base branch"
+        >
+          Merging <Branch name={headRef} /> into <Branch name={baseRef} /> can
+          be performed automatically.
+        </Section>
+      ) : (
+        <Section
+          icon={<CircleX className="size-4" />}
+          tone="bg-red-500 text-white"
+          title="This branch has conflicts that must be resolved"
+        >
+          Resolve them locally, then push to <Branch name={headRef} />.
+          {conflicts.length > 0 && (
+            <ul className="mt-2 flex flex-col gap-1 rounded-md border bg-muted/40 px-3 py-2 font-mono text-xs text-foreground">
+              {conflicts.map((path) => (
+                <li key={path} className="truncate">
+                  {path}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
       )}
 
-      <div className="flex flex-wrap items-start gap-2">
-        <div className="flex min-w-0 flex-1">
-          {draft
-            ? (canMerge || isAuthor) && (
+      {(canMerge || isAuthor) && (
+        <div className="flex flex-wrap items-start gap-2 bg-muted/30 px-4 py-3">
+          <div className="flex min-w-0 flex-1">
+            {draft
+              ? (canMerge || isAuthor) && (
+                  <Button
+                    size="sm"
+                    disabled={draftToggle.isExecuting}
+                    onClick={() =>
+                      draftToggle.execute({
+                        username,
+                        repo,
+                        number,
+                        draft: false,
+                      })
+                    }
+                  >
+                    {draftToggle.isExecuting && <Spinner />}
+                    Ready for review
+                  </Button>
+                )
+              : canMerge && (
+                  <MergeButton
+                    username={username}
+                    repo={repo}
+                    number={number}
+                    disabled={!mergeable}
+                    squash={squash}
+                  />
+                )}
+          </div>
+
+          {(canMerge || isAuthor) && (
+            <div className="flex gap-2">
+              {!draft && (
                 <Button
                   size="sm"
+                  variant="ghost"
                   disabled={draftToggle.isExecuting}
                   onClick={() =>
-                    draftToggle.execute({
-                      username,
-                      repo,
-                      number,
-                      draft: false,
-                    })
+                    draftToggle.execute({ username, repo, number, draft: true })
                   }
                 >
                   {draftToggle.isExecuting && <Spinner />}
-                  Ready for review
+                  Convert to draft
                 </Button>
-              )
-            : canMerge && (
-                <MergeButton
-                  username={username}
-                  repo={repo}
-                  number={number}
-                  disabled={!mergeable}
-                  squash={squash}
-                />
               )}
-        </div>
-
-        {(canMerge || isAuthor) && (
-          <div className="flex gap-2">
-            {!draft && (
               <Button
                 size="sm"
-                variant="ghost"
-                disabled={draftToggle.isExecuting}
-                onClick={() =>
-                  draftToggle.execute({ username, repo, number, draft: true })
-                }
+                variant="outline"
+                disabled={close.isExecuting}
+                onClick={() => close.execute({ username, repo, number })}
               >
-                {draftToggle.isExecuting && <Spinner />}
-                Convert to draft
+                {close.isExecuting && <Spinner />}
+                Close pull request
               </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={close.isExecuting}
-              onClick={() => close.execute({ username, repo, number })}
-            >
-              {close.isExecuting && <Spinner />}
-              Close pull request
-            </Button>
-          </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One row of the merge box: a round state badge, a title, and a line of detail under it. */
+function Section({
+  icon,
+  tone,
+  title,
+  children,
+}: {
+  icon: ReactNode;
+  tone: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3 px-4 py-3">
+      <span
+        className={cn(
+          "flex size-8 shrink-0 items-center justify-center rounded-full",
+          tone,
         )}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{title}</p>
+        <div className="text-xs text-muted-foreground">{children}</div>
       </div>
     </div>
+  );
+}
+
+function Branch({ name }: { name: string }) {
+  return (
+    <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
+      {name}
+    </code>
   );
 }
