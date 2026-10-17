@@ -1,10 +1,6 @@
-import { GitCommitHorizontal } from "lucide-react";
-import Link from "next/link";
-
 import { FileDiffs } from "@/components/diffs/file-diffs";
 import { CommitChecks } from "@/components/repositories/commit-checks";
-import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
-import { FromNowHoverCard } from "@/components/from-now-card";
+import { CommitHeader } from "@/components/repositories/commit-header";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
@@ -26,33 +22,10 @@ export default async function RepositoryCommitPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg border">
-        <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-sm">
-          <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate font-medium">{commit.data.subject}</span>
-          <CommitVerificationBadge verification={commit.data.verification} />
-          <Link
-            href={`/${username}/${repo}/tree/${commit.data.sha}`}
-            className="ml-auto shrink-0 text-xs text-muted-foreground hover:underline"
-          >
-            Browse files at {commit.data.sha.slice(0, 7)}
-          </Link>
-        </div>
-
-        <div className="px-4 py-2.5 text-xs text-muted-foreground">
-          {commit.data.authorName} committed{" "}
-          <FromNowHoverCard date={commit.data.committedAt} />
-          {" · "}
-          {commit.data.files.length} changed file
-          {commit.data.files.length === 1 ? "" : "s"}
-        </div>
-
-        {commit.data.body && (
-          <pre className="border-t px-4 py-2.5 text-xs whitespace-pre-wrap">
-            {commit.data.body}
-          </pre>
-        )}
-      </div>
+      <CommitHeader
+        commit={commit.data}
+        browseHref={`/${username}/${repo}/tree/${commit.data.sha}`}
+      />
 
       <CommitChecks status={commit.data.status} />
 

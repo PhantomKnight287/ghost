@@ -54,7 +54,7 @@ export default async function RepositoryCommitsPage({
 
         <CommitList
           commits={commits.data.commits}
-          commitBase={`/${username}/${repo}`}
+          commitHref={`/${username}/${repo}/commit`}
           empty={`Nothing has been pushed to ${revision} yet.`}
         />
       </div>

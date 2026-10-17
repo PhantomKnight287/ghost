@@ -24,14 +24,14 @@ type Commit = {
   status: components["schemas"]["CombinedCommitStatusDTO"] | null;
 };
 
-/** One row per commit, each linking to the commit under `commitBase`, the `/owner/repo` its objects live in. */
+/** One row per commit, each linking to `${commitHref}/<sha>`. */
 export function CommitList({
   commits,
-  commitBase,
+  commitHref,
   empty,
 }: {
   commits: Commit[];
-  commitBase: string;
+  commitHref: string;
   empty: string;
 }) {
   if (commits.length === 0) {
@@ -49,7 +49,7 @@ export function CommitList({
         >
           <div className="min-w-0 flex-1">
             <Link
-              href={`${commitBase}/commit/${commit.sha}`}
+              href={`${commitHref}/${commit.sha}`}
               className="truncate font-medium hover:underline"
             >
               {commit.subject}
@@ -80,7 +80,7 @@ export function CommitList({
           )}
           <CommitVerificationBadge verification={commit.verification} />
           <Link
-            href={`${commitBase}/commit/${commit.sha}`}
+            href={`${commitHref}/${commit.sha}`}
             className="shrink-0 font-mono text-xs text-muted-foreground hover:underline"
           >
             {commit.sha.slice(0, 7)}
