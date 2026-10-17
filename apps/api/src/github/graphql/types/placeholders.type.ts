@@ -215,6 +215,8 @@ export const StatusCheckRollupContextConnection = Connection(
 /** A commit's combined commit statuses; null when it has none. StatusCheckRollupResolver pages `contexts`. */
 @ObjectType('StatusCheckRollup', { implements: () => [Node] })
 export class StatusCheckRollupNode {
+  kind = 'StatusCheckRollup';
+
   @Field(() => ID)
   id: string;
 

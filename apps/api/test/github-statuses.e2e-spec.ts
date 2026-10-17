@@ -8,6 +8,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { decodeNodeId, encodeNodeId } from '../src/lib/github/node-id.js';
 import { hasBackends, scopedKey, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('GitHub commit statuses', () => {
@@ -200,5 +201,38 @@ describe.skipIf(!hasBackends)('GitHub commit statuses', () => {
     const { body } = await get(`${repo}/commits/nope/status`).expect(404);
     expect(body.message).toBe('No commit found for SHA: nope');
     await get(`${repo}/commits/nope/statuses`).expect(404);
+  });
+
+  it('resolves a status and its commit rollup through node(id:) and nodes(ids:)', async () => {
+    const { body: status } = await post(feature, {
+      state: 'failure',
+      context: 'ci/node',
+    }).expect(201);
+    const { body: repository } = await get(repo).expect(200);
+    const rollupId = encodeNodeId(
+      'StatusCheckRollup',
+      `${decodeNodeId(repository.node_id)?.id}:${feature}`,
+    );
+    const { body } = await http()
+      .post('/api/graphql')
+      .set('authorization', `token ${owner.key}`)
+      .send({
+        query: `query($ids: [ID!]!, $id: ID!) {
+          node(id: $id) { __typename ... on StatusContext { context state } }
+          nodes(ids: $ids) { __typename id ... on StatusCheckRollup { state } }
+        }`,
+        variables: { id: status.node_id, ids: [rollupId, status.node_id] },
+      })
+      .expect(200);
+    expect(body.errors).toBeUndefined();
+    expect(body.data.node).toEqual({
+      __typename: 'StatusContext',
+      context: 'ci/node',
+      state: 'FAILURE',
+    });
+    expect(body.data.nodes).toEqual([
+      { __typename: 'StatusCheckRollup', id: rollupId, state: 'FAILURE' },
+      { __typename: 'StatusContext', id: status.node_id },
+    ]);
   });
 });

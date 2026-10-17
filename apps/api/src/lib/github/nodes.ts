@@ -15,7 +15,10 @@ import { IssueCommentNode } from '../../github/graphql/types/issue-comment.type.
 import type { IssueOrPullRequestFields } from '../../github/graphql/types/issue-or-pull-request.type.js';
 import { LabelNode } from '../../github/graphql/types/label.type.js';
 import { OrganizationNode } from '../../github/graphql/types/organization.type.js';
-import { StatusContextNode } from '../../github/graphql/types/placeholders.type.js';
+import {
+  StatusCheckRollupNode,
+  StatusContextNode,
+} from '../../github/graphql/types/placeholders.type.js';
 import {
   CommitNode,
   PullRequestNode,
@@ -27,7 +30,10 @@ import {
   RepositoryNode,
 } from '../../github/graphql/types/repository.type.js';
 import { UserNode } from '../../github/graphql/types/user.type.js';
-import type { CombinedCommitStatusDTO } from '../../resources/commit-statuses/dto/commit-status.dto.js';
+import type {
+  CombinedCommitStatusDTO,
+  CommitStatusDTO,
+} from '../../resources/commit-statuses/dto/commit-status.dto.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
 import type { ReleaseDTO } from '../../resources/releases/dto/release.dto.js';
@@ -338,24 +344,30 @@ export function toCommitNode(
     url: `${repository.url}/commit/${commit.sha}`,
     resourcePath: `${repository.resourcePath}/commit/${commit.sha}`,
     statusCheckRollup: commit.status
-      ? {
-          id: encodeNodeId(
-            'StatusCheckRollup',
-            `${repository.ghostId}:${commit.sha}`,
-          ),
-          state: commit.status.state.toUpperCase() as StatusState,
-          contexts: commit.status.statuses.map((status) =>
-            Object.assign(new StatusContextNode(), {
-              id: encodeNodeId('StatusContext', status.id),
-              context: status.context,
-              state: status.state.toUpperCase() as StatusState,
-              targetUrl: status.targetUrl,
-              createdAt: new Date(status.createdAt),
-              description: status.description,
-            }),
-          ),
-        }
+      ? toStatusCheckRollupNode(commit.status, repository.ghostId)
       : null,
+  });
+}
+
+export function toStatusCheckRollupNode(
+  status: CombinedCommitStatusDTO,
+  repositoryId: string,
+) {
+  return Object.assign(new StatusCheckRollupNode(), {
+    id: encodeNodeId('StatusCheckRollup', `${repositoryId}:${status.sha}`),
+    state: status.state.toUpperCase() as StatusState,
+    contexts: status.statuses.map(toStatusContextNode),
+  });
+}
+
+export function toStatusContextNode(status: CommitStatusDTO) {
+  return Object.assign(new StatusContextNode(), {
+    id: encodeNodeId('StatusContext', status.id),
+    context: status.context,
+    state: status.state.toUpperCase() as StatusState,
+    targetUrl: status.targetUrl,
+    createdAt: new Date(status.createdAt),
+    description: status.description,
   });
 }
 

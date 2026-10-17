@@ -19,6 +19,7 @@ import { graphqlErrorType } from '../lib/github/error-type.js';
 import { createLoaders } from '../lib/github/loaders.js';
 import { githubValidationPlugin } from '../lib/github/validation.js';
 import { IssuesModule } from '../resources/issues/issues.module.js';
+import { CommitStatusesModule } from '../resources/commit-statuses/commit-statuses.module.js';
 import { PullRequestsModule } from '../resources/pull-requests/pull-requests.module.js';
 import { ReleasesModule } from '../resources/releases/releases.module.js';
 import { RepositoriesModule } from '../resources/repositories/repositories.module.js';
@@ -99,6 +100,7 @@ import { TemplatesModule } from './rest/templates/templates.module.js';
     RepositoriesModule,
     OauthModule,
     PullRequestsModule,
+    CommitStatusesModule,
     ReleasesModule,
     GithubReleasesModule,
     GithubStatusesModule,

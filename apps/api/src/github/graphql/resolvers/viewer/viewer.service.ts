@@ -17,10 +17,13 @@ import {
   toIssueCommentNode,
   toLabelNode,
   toOrganizationNode,
+  toStatusCheckRollupNode,
+  toStatusContextNode,
   toUserNode,
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
+import { CommitStatusesService } from '../../../../resources/commit-statuses/commit-statuses.service.js';
 import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
 
 @Injectable()
@@ -29,6 +32,7 @@ export class ViewerService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly config: ConfigService,
     private readonly repositories: RepositoryNodesService,
+    private readonly statuses: CommitStatusesService,
   ) {}
 
   async viewer(viewer: GithubViewer | null, loaders: Loaders) {
@@ -144,6 +148,25 @@ export class ViewerService {
         ? ((await loaders.usersById.load(requesterId))?.username ?? null)
         : null;
       return toIssueCommentNode(comment, issue, viewerLogin);
+    }
+    if (decoded?.type === 'StatusContext') {
+      const status = await this.statuses.findById(decoded.id);
+      if (!status) return null;
+      const repository = await orNull(
+        this.repositories.load(status.repositoryId, viewer),
+      );
+      return repository ? toStatusContextNode(status) : null;
+    }
+    if (decoded?.type === 'StatusCheckRollup') {
+      const [repositoryId, sha] = decoded.id.split(':');
+      if (!repositoryId || !sha) return null;
+      if (!(await orNull(this.repositories.load(repositoryId, viewer))))
+        return null;
+      // ponytail: the repository's own statuses only; a pull request's rollup also folds in its fork's, which this id does not name.
+      const status = (
+        await this.statuses.combinedFor([repositoryId], [sha])
+      ).get(sha);
+      return status ? toStatusCheckRollupNode(status, repositoryId) : null;
     }
     return null;
   }

@@ -209,6 +209,19 @@ export class CommitStatusesService {
     );
   }
 
+  /** One status by id with its repository, unauthorized: callers check the viewer may read that repository. */
+  async findById(id: string) {
+    const [status] = await this.db
+      .select({
+        repositoryId: schema.commitStatus.repositoryId,
+        ...statusColumns,
+      })
+      .from(schema.commitStatus)
+      .leftJoin(schema.user, eq(schema.user.id, schema.commitStatus.creatorId))
+      .where(eq(schema.commitStatus.id, id));
+    return status ?? null;
+  }
+
   /** Whether `sha` is a commit of the repository, or of a fork with a pull request open into it: a fork's head lives in the fork's objects, and the base's CI reports on it here. */
   private async holdsCommit(
     repository: { id: string; defaultBranch: string | null },
