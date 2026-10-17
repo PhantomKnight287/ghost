@@ -69,6 +69,15 @@ export class GithubNotFoundError extends DomainError {
   }
 }
 
+/** GitHub's 404 for a ref that names no commit, the one 404 it words otherwise than "Not Found". */
+export class NoCommitFoundError extends DomainError {
+  readonly status = HttpStatus.NOT_FOUND;
+
+  constructor(ref: string) {
+    super(`No commit found for SHA: ${ref}`);
+  }
+}
+
 export class GithubConflictError extends DomainError {
   readonly status = HttpStatus.CONFLICT;
 }

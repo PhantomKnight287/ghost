@@ -1,4 +1,8 @@
 import type { RepositoryNode } from '../../github/graphql/types/repository.type.js';
+import type {
+  CombinedCommitStatusDTO,
+  CommitStatusDTO,
+} from '../../resources/commit-statuses/dto/commit-status.dto.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
 import type {
@@ -508,5 +512,51 @@ export function toReleaseRest(
       (release.authorUsername && context.users.get(release.authorUsername)) ||
       null,
     assets,
+  };
+}
+
+// Mapper: statuses come from CommitStatusesService in Ghost's shape; GitHub's embeds the creator and adds the integer id and URLs.
+export function toStatusRest(
+  status: CommitStatusDTO,
+  numericId: number,
+  sha: string,
+  context: RestContext,
+) {
+  const creator =
+    (status.creator && context.users.get(status.creator.username)) || null;
+  return {
+    url: `${context.repository.apiUrl}/statuses/${sha}`,
+    avatar_url: creator?.avatar_url ?? '',
+    id: numericId,
+    node_id: encodeNodeId('StatusContext', status.id),
+    state: status.state,
+    description: status.description,
+    target_url: status.targetUrl,
+    context: status.context,
+    created_at: status.createdAt,
+    // Statuses are never edited, each report is a new one.
+    updated_at: status.createdAt,
+    creator,
+  };
+}
+
+export type RestStatus = ReturnType<typeof toStatusRest>;
+
+// Mapper: the combined status comes from CommitStatusesService in Ghost's shape; GitHub's embeds the repository and adds URLs.
+export function toCombinedStatusRest(
+  combined: CombinedCommitStatusDTO,
+  statuses: RestStatus[],
+  repository: RestRepositoryObject,
+  context: RestContext,
+) {
+  const commitUrl = `${context.repository.apiUrl}/commits/${combined.sha}`;
+  return {
+    state: combined.state,
+    statuses,
+    sha: combined.sha,
+    total_count: combined.totalCount,
+    repository,
+    commit_url: commitUrl,
+    url: `${commitUrl}/status`,
   };
 }

@@ -463,6 +463,44 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       });
     });
 
+    it('lists pull request checks', async () => {
+      const { headRefOid } = await view('headRefOid');
+      await ok([
+        'api',
+        '-X',
+        'POST',
+        `repos/${username}/tools/statuses/${headRefOid}`,
+        '-f',
+        'state=success',
+        '-f',
+        'context=ci/test',
+        '-f',
+        'description=ok',
+        '-f',
+        'target_url=https://ci.example/1',
+      ]);
+      expect(
+        JSON.parse(
+          await ok([
+            'pr',
+            'checks',
+            number,
+            '-R',
+            repo(),
+            '--json',
+            'name,state,bucket,link',
+          ]),
+        ),
+      ).toEqual([
+        {
+          name: 'ci/test',
+          state: 'SUCCESS',
+          bucket: 'pass',
+          link: 'https://ci.example/1',
+        },
+      ]);
+    });
+
     it('comments on a pull request and views it with comments', async () => {
       await ok(['pr', 'comment', number, '-R', repo(), '--body', 'Looks good']);
       expect(

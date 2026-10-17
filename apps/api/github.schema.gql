@@ -91,6 +91,7 @@ type CheckRun implements Node {
   conclusion: CheckConclusionState
   detailsUrl: URI
   id: ID!
+  isRequired(pullRequestId: ID, pullRequestNumber: Int): Boolean!
   name: String!
   startedAt: DateTime
   status: CheckStatusState!
@@ -912,6 +913,7 @@ type StatusContext implements Node {
   createdAt: DateTime!
   description: String
   id: ID!
+  isRequired(pullRequestId: ID, pullRequestNumber: Int): Boolean!
   state: StatusState!
   targetUrl: URI
 }

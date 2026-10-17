@@ -19,6 +19,7 @@ import { graphqlErrorType } from '../lib/github/error-type.js';
 import { createLoaders } from '../lib/github/loaders.js';
 import { githubValidationPlugin } from '../lib/github/validation.js';
 import { IssuesModule } from '../resources/issues/issues.module.js';
+import { CommitStatusesModule } from '../resources/commit-statuses/commit-statuses.module.js';
 import { PullRequestsModule } from '../resources/pull-requests/pull-requests.module.js';
 import { ReleasesModule } from '../resources/releases/releases.module.js';
 import { RepositoriesModule } from '../resources/repositories/repositories.module.js';
@@ -42,6 +43,7 @@ import { GithubIssuesModule } from './rest/issues/issues.module.js';
 import { MetaModule } from './rest/meta/meta.module.js';
 import { GithubPullsModule } from './rest/pulls/pulls.module.js';
 import { GithubReleasesModule } from './rest/releases/releases.module.js';
+import { GithubStatusesModule } from './rest/statuses/statuses.module.js';
 import { ReposModule } from './rest/repos/repos.module.js';
 import { UsersModule } from './rest/users/users.module.js';
 import { TemplatesModule } from './rest/templates/templates.module.js';
@@ -98,8 +100,10 @@ import { TemplatesModule } from './rest/templates/templates.module.js';
     RepositoriesModule,
     OauthModule,
     PullRequestsModule,
+    CommitStatusesModule,
     ReleasesModule,
     GithubReleasesModule,
+    GithubStatusesModule,
     GithubGitModule,
     TemplatesModule,
   ],

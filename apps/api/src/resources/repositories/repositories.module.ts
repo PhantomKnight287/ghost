@@ -16,6 +16,7 @@ import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
 import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { CommitStatusesModule } from '../commit-statuses/commit-statuses.module.js';
 import { ReleasesModule } from '../releases/releases.module.js';
 import { StorageModule } from '../storage/storage.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
@@ -30,6 +31,7 @@ import { LfsService } from '../../services/git/lfs/lfs.service.js';
     StorageModule,
     MaterializerModule,
     ReleasesModule,
+    CommitStatusesModule,
     // Only endpoints whose cost the caller decides are guarded: code search, the path list and source archives. Counters live in this process, so with N replicas a client gets N times the limit.
     ThrottlerModule.forRoot({
       throttlers: [

@@ -231,6 +231,15 @@ describe('messageOf', () => {
     body: 'Notes',
     htmlUrl: 'https://ghost.test/ada/app/releases/tag/v1',
   };
+  const status = {
+    id: 'cst_1',
+    sha: '76bb6d3'.padEnd(40, '0'),
+    state: 'failure' as const,
+    context: 'ci',
+    description: 'Tests broke',
+    targetUrl: 'https://ci.example.com/builds/42' as string | null,
+    createdAt: '2026-09-30T00:00:00.000Z',
+  };
   const label = {
     id: 'label_1',
     name: 'bug',
@@ -416,6 +425,27 @@ describe('messageOf', () => {
       null,
     ],
     [
+      { event: 'commit_status.created', status },
+      'ada set ci to failure on 76bb6d3',
+      status.targetUrl,
+      'Tests broke',
+    ],
+    [
+      {
+        event: 'commit_status.created',
+        status: { ...status, targetUrl: null, description: null },
+      },
+      'ada set ci to failure on 76bb6d3',
+      `${repository.htmlUrl}/commit/${status.sha}`,
+      null,
+    ],
+    [
+      { event: 'commit_status.created' },
+      'ada reported a commit status',
+      repository.htmlUrl,
+      null,
+    ],
+    [
       { event: 'star.created' },
       'ada starred ada/app',
       repository.htmlUrl,
@@ -528,6 +558,19 @@ describe('messageOf', () => {
     expect(summaryOf(message)).toBe(summary);
     expect(message.url).toBe(url);
     expect(message.excerpt).toBe(excerpt);
+  });
+
+  it.each([
+    ['success', 0x1f883d],
+    ['failure', 0xcf222e],
+    ['error', 0xcf222e],
+    ['pending', 0x59636e],
+  ] as const)('colours a %s status', (state, color) => {
+    expect(
+      messageOf(
+        body({ event: 'commit_status.created', status: { ...status, state } }),
+      ).color,
+    ).toBe(color);
   });
 
   it('lists the first commits of a big push and counts the rest', () => {

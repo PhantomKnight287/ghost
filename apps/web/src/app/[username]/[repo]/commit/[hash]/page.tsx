@@ -2,6 +2,7 @@ import { GitCommitHorizontal } from "lucide-react";
 import Link from "next/link";
 
 import { FileDiffs } from "@/components/diffs/file-diffs";
+import { CommitChecks } from "@/components/repositories/commit-checks";
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
@@ -52,6 +53,8 @@ export default async function RepositoryCommitPage({
           </pre>
         )}
       </div>
+
+      <CommitChecks status={commit.data.status} />
 
       {commit.data.files.length === 0 ? (
         <Empty className="border border-dashed">

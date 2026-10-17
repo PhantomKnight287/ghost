@@ -235,6 +235,20 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
         body.release?.htmlUrl ?? `${repository.htmlUrl}/releases`,
         body.event === 'release.deleted' ? null : (body.release?.body ?? null),
       );
+    case 'commit_status.created': {
+      const { status } = body;
+      if (!status) return say(`reported a commit status`, GREY);
+      return say(
+        `set ${status.context} to ${status.state} on ${status.sha.slice(0, 7)}`,
+        status.state === 'success'
+          ? GREEN
+          : status.state === 'pending'
+            ? GREY
+            : RED,
+        status.targetUrl ?? `${repository.htmlUrl}/commit/${status.sha}`,
+        status.description,
+      );
+    }
     case 'star.created':
       return say(`starred ${repository.fullName}`, GREEN);
     case 'star.deleted':

@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { closePullRequest, setDraft } from "@/components/pull-requests/actions";
+import { CommitChecks } from "@/components/repositories/commit-checks";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { UserLink } from "@/components/users/user-link";
+import type { components } from "@/lib/api/v1";
 import { MergeButton } from "./merge-button";
 
 export function MergePanel({
@@ -26,6 +28,7 @@ export function MergePanel({
   squash,
   reviewers,
   pullRefsBlocked,
+  checks,
 }: {
   username: string;
   repo: string;
@@ -46,6 +49,8 @@ export function MergePanel({
   }[];
   /** Why `refs/pull/<number>/*` stopped following the branches, or null while they are current. */
   pullRefsBlocked: string | null;
+  /** Statuses on the head commit, or null when it has none. */
+  checks: components["schemas"]["CombinedCommitStatusDTO"] | null;
 }) {
   const router = useRouter();
 
@@ -73,30 +78,36 @@ export function MergePanel({
 
   if (state === "merged") {
     return (
-      <div className="rounded-lg border px-4 py-3 text-sm">
-        <p className="flex items-center gap-2 font-medium text-violet-500">
-          <GitMerge className="size-4" />
-          Merged
-        </p>
-        {mergeCommitSha && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Merged as{" "}
-            <Link
-              href={`/${username}/${repo}/commit/${mergeCommitSha}`}
-              className="font-mono hover:underline"
-            >
-              {mergeCommitSha.slice(0, 7)}
-            </Link>
+      <div className="flex flex-col gap-3">
+        <CommitChecks status={checks} />
+        <div className="rounded-lg border px-4 py-3 text-sm">
+          <p className="flex items-center gap-2 font-medium text-violet-500">
+            <GitMerge className="size-4" />
+            Merged
           </p>
-        )}
+          {mergeCommitSha && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Merged as{" "}
+              <Link
+                href={`/${username}/${repo}/commit/${mergeCommitSha}`}
+                className="font-mono hover:underline"
+              >
+                {mergeCommitSha.slice(0, 7)}
+              </Link>
+            </p>
+          )}
+        </div>
       </div>
     );
   }
 
   if (state === "closed") {
     return (
-      <div className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
-        This pull request was closed without merging.
+      <div className="flex flex-col gap-3">
+        <CommitChecks status={checks} />
+        <div className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
+          This pull request was closed without merging.
+        </div>
       </div>
     );
   }
@@ -140,6 +151,8 @@ export function MergePanel({
           ))}
         </ul>
       )}
+
+      <CommitChecks status={checks} />
 
       <p className="text-sm">
         {draft

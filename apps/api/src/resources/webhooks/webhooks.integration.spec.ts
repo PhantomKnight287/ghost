@@ -447,6 +447,7 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
         'label.deleted',
         'release.published',
         'release.deleted',
+        'commit_status.created',
         'fork.created',
         'member.added',
         'star.created',
@@ -460,6 +461,17 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     const [release] = await db
       .insert(schema.release)
       .values({ repositoryId: repository.id, tagName: 'v1/rc', name: 'One' })
+      .returning();
+    const [status] = await db
+      .insert(schema.commitStatus)
+      .values({
+        repositoryId: repository.id,
+        sha: 'a'.repeat(40),
+        state: 'success',
+        context: 'ci',
+        description: 'Passed',
+        targetUrl: 'https://ci.example.com/1',
+      })
       .returning();
     const [fork] = await db
       .insert(schema.repository)
@@ -505,6 +517,7 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     await send('release_deleted', 'release.deleted', {
       release: { id: 'release_x', tagName: 'v0', name: null },
     });
+    await send('status', 'commit_status.created', { statusId: status.id });
     await send('forked', 'fork.created', { forkId: fork.id });
     await send('member_added', 'member.added', { userId: MEMBER });
     await send('starred', 'star.created', {});
@@ -517,6 +530,9 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     await send('release_gone', 'release.published', {
       releaseId: 'release_gone',
     });
+    await send('status_gone', 'commit_status.created', {
+      statusId: 'cst_gone',
+    });
     await send('fork_gone', 'fork.created', { forkId: 'repo_gone' });
     await send('member_gone', 'member.added', { userId: 'user_gone' });
 
@@ -527,6 +543,7 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       ]),
     );
     expect(Object.keys(bodies).sort()).toEqual([
+      'commit_status.created',
       'fork.created',
       'issue.comment_deleted',
       'issue.labeled',
@@ -563,6 +580,15 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       id: 'release_x',
       tagName: 'v0',
       name: null,
+    });
+    expect(bodies['commit_status.created'].status).toEqual({
+      id: status.id,
+      sha: 'a'.repeat(40),
+      state: 'success',
+      context: 'ci',
+      description: 'Passed',
+      targetUrl: 'https://ci.example.com/1',
+      createdAt: status.createdAt.toISOString(),
     });
     expect(bodies['fork.created']).toMatchObject({
       repository: { fullName: `${USERNAME}/app` },

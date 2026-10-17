@@ -23,7 +23,11 @@ import {
   Node,
   UniformResourceLocatable,
 } from './node.interface.js';
-import { BotNode, TeamNode } from './placeholders.type.js';
+import {
+  BotNode,
+  StatusCheckRollupNode,
+  TeamNode,
+} from './placeholders.type.js';
 import { UserNode } from './user.type.js';
 
 @ObjectType('PullRequest', {
@@ -117,6 +121,9 @@ export class CommitNode {
 
   @Field(() => URI)
   resourcePath: string;
+
+  /** Only commits listed on a pull request carry their statuses; the rest have no rollup. */
+  statusCheckRollup: StatusCheckRollupNode | null;
 }
 
 @ObjectType('PullRequestCommit', {

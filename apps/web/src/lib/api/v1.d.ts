@@ -741,6 +741,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/statuses/{sha}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report a commit status
+         * @description Needs write access. `sha` is the full 40-character sha of a commit in the repository. Each report is a new entry; the newest per `context` is the current one.
+         */
+        post: operations["CommitStatusesController_createCommitStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/commits/{ref}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the combined status of a commit
+         * @description The newest status per context, and the one state they add up to.
+         */
+        get: operations["CommitStatusesController_getCombinedCommitStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/organizations": {
         parameters: {
             query?: never;
@@ -3387,6 +3427,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/statuses/{sha}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report a status on a commit, by its full sha */
+        post: operations["GithubStatusesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}/statuses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every status on a ref's commit, newest first */
+        get: operations["GithubStatusesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The combined status of a ref's commit: the newest status of each context */
+        get: operations["GithubStatusesController_combined"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/repos/{owner}/{repo}/git/refs/{ref}": {
         parameters: {
             query?: never;
@@ -3915,6 +4006,34 @@ export interface components {
             /** @description Long key id the signature names, lowercase hex. */
             keyId: string;
         };
+        CommitStatusCreatorDTO: {
+            username: string;
+            image: string | null;
+        };
+        CommitStatusDTO: {
+            id: string;
+            /** @enum {string} */
+            state: "pending" | "success" | "failure" | "error";
+            /** @example ci/build */
+            context: string;
+            description: string | null;
+            targetUrl: string | null;
+            createdAt: string;
+            /** @description Null once the creator account is deleted. */
+            creator: components["schemas"]["CommitStatusCreatorDTO"] | null;
+        };
+        CombinedCommitStatusDTO: {
+            sha: string;
+            /**
+             * @description `failure` when any context failed or errored, else `pending` while any is pending or there are none, else `success`.
+             * @enum {string}
+             */
+            state: "pending" | "success" | "failure" | "error";
+            /** @description Number of contexts. */
+            totalCount: number;
+            /** @description The newest status of each context. */
+            statuses: components["schemas"]["CommitStatusDTO"][];
+        };
         CommitDTO: {
             /** @description Full 40-character commit sha. */
             sha: string;
@@ -3928,6 +4047,8 @@ export interface components {
             committedAt: string;
             /** @description Signature status, or `null` when the commit carries none. */
             verification: components["schemas"]["CommitVerificationDTO"] | null;
+            /** @description Combined status of the commit, or `null` when it has none. */
+            status: components["schemas"]["CombinedCommitStatusDTO"] | null;
         };
         GetRepositoryCommitsResponseDTO: {
             /**
@@ -3981,6 +4102,8 @@ export interface components {
             committedAt: string;
             /** @description Signature status, or `null` when the commit carries none. */
             verification: components["schemas"]["CommitVerificationDTO"] | null;
+            /** @description Combined status of the commit, or `null` when it has none. */
+            status: components["schemas"]["CombinedCommitStatusDTO"] | null;
             /** @description Paths this commit changed, against its first parent. */
             files: components["schemas"]["CommitFileDTO"][];
         };
@@ -4292,6 +4415,22 @@ export interface components {
             /** @description Publishing a draft stamps `publishedAt` the first time. */
             isDraft?: boolean;
             isPrerelease?: boolean;
+        };
+        CreateCommitStatusRequestDTO: {
+            /** @enum {string} */
+            state: "pending" | "success" | "failure" | "error";
+            /**
+             * @description Where the result can be seen, such as the CI build page.
+             * @example https://ci.example.com/builds/42
+             */
+            targetUrl?: string;
+            description?: string;
+            /**
+             * @description Tells one reporter apart from another on the same commit.
+             * @default default
+             * @example ci/build
+             */
+            context?: string;
         };
         /**
          * @description Highest built-in role held; null when only custom roles are held.
@@ -4625,6 +4764,8 @@ export interface components {
             /** @description What a squash merge commits unless the merger rewrites it. Null when there is nothing to merge. */
             squash: components["schemas"]["SquashMessageDTO"] | null;
             reviewers: components["schemas"]["ReviewerDTO"][];
+            /** @description Combined status of the head commit, or `null` when it has none. A fork head's statuses count only when the requester can read the fork. */
+            checks: components["schemas"]["CombinedCommitStatusDTO"] | null;
             /** @description True when the requesting user is the author or can write to the base repository. */
             viewerCanEdit: boolean;
         };
@@ -5201,7 +5342,7 @@ export interface components {
             role: components["schemas"]["RepositoryRole"];
         };
         /** @enum {string} */
-        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
+        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "commit_status.created" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
         WebhookDTO: {
             id: string;
             url: string;
@@ -5586,6 +5727,14 @@ export interface components {
             make_latest?: "true" | "false" | "legacy";
             /** @description Refused with 404, as on create. */
             discussion_category_name?: string;
+        };
+        GithubCreateStatusDTO: {
+            /** @enum {string} */
+            state: "pending" | "success" | "failure" | "error";
+            target_url?: string | null;
+            description?: string | null;
+            /** @default default */
+            context?: string;
         };
         OauthAppDTO: {
             clientId: string;
@@ -7344,6 +7493,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CommitStatusesController_createCommitStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+                sha: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCommitStatusRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitStatusDTO"];
+                };
+            };
+            /** @description The body is not valid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The sha is not a commit in the repository, or the commit already has 1000 statuses for this context. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CommitStatusesController_getCombinedCommitStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CombinedCommitStatusDTO"];
                 };
             };
             404: {
@@ -13543,6 +13784,76 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubStatusesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                sha: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCreateStatusDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubStatusesController_list: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                ref: string[];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubStatusesController_combined: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                ref: string[];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

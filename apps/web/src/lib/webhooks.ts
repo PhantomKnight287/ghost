@@ -26,6 +26,7 @@ export const webhookEventLabels: Record<WebhookEvent, string> = {
   "pull_request.review_dismissed": "A pull request review is dismissed",
   "pull_request.review_commented": "Someone comments on a pull request's code",
   "pull_request.merged": "A pull request is merged",
+  "commit_status.created": "A commit status is reported",
   "label.created": "A label is created",
   "label.edited": "A label is edited",
   "label.deleted": "A label is deleted",

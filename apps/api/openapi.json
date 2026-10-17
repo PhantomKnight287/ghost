@@ -2829,6 +2829,162 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/statuses/{sha}": {
+      "post": {
+        "description": "Needs write access. `sha` is the full 40-character sha of a commit in the repository. Each report is a new entry; the newest per `context` is the current one.",
+        "operationId": "CommitStatusesController_createCommitStatus",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sha",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommitStatusRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitStatusDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The sha is not a commit in the repository, or the commit already has 1000 statuses for this context.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Report a commit status",
+        "tags": [
+          "Commit statuses"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/commits/{ref}/status": {
+      "get": {
+        "description": "The newest status per context, and the one state they add up to.",
+        "operationId": "CommitStatusesController_getCombinedCommitStatus",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombinedCommitStatusDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read the combined status of a commit",
+        "tags": [
+          "Commit statuses"
+        ]
+      }
+    },
     "/api/organizations": {
       "get": {
         "description": "Organizations the signed-in user belongs to, with the user's role in each.",
@@ -13606,6 +13762,161 @@
         ]
       }
     },
+    "/api/v3/repos/{owner}/{repo}/statuses/{sha}": {
+      "post": {
+        "operationId": "GithubStatusesController_create",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sha",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCreateStatusDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Report a status on a commit, by its full sha",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}/statuses": {
+      "get": {
+        "operationId": "GithubStatusesController_list",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Every status on a ref's commit, newest first",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}/status": {
+      "get": {
+        "operationId": "GithubStatusesController_combined",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "The combined status of a ref's commit: the newest status of each context",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3/repos/{owner}/{repo}/git/refs/{ref}": {
       "delete": {
         "operationId": "GithubGitController_delete",
@@ -15112,6 +15423,108 @@
           "keyId"
         ]
       },
+      "CommitStatusCreatorDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "username",
+          "image"
+        ]
+      },
+      "CommitStatusDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ]
+          },
+          "context": {
+            "type": "string",
+            "example": "ci/build"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "targetUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "creator": {
+            "nullable": true,
+            "description": "Null once the creator account is deleted.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommitStatusCreatorDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "context",
+          "description",
+          "targetUrl",
+          "createdAt",
+          "creator"
+        ]
+      },
+      "CombinedCommitStatusDTO": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ],
+            "description": "`failure` when any context failed or errored, else `pending` while any is pending or there are none, else `success`."
+          },
+          "totalCount": {
+            "type": "number",
+            "description": "Number of contexts."
+          },
+          "statuses": {
+            "description": "The newest status of each context.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitStatusDTO"
+            }
+          }
+        },
+        "required": [
+          "sha",
+          "state",
+          "totalCount",
+          "statuses"
+        ]
+      },
       "CommitDTO": {
         "type": "object",
         "properties": {
@@ -15146,6 +15559,16 @@
                 "$ref": "#/components/schemas/CommitVerificationDTO"
               }
             ]
+          },
+          "status": {
+            "nullable": true,
+            "description": "Combined status of the commit, or `null` when it has none.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CombinedCommitStatusDTO"
+              }
+            ]
           }
         },
         "required": [
@@ -15155,7 +15578,8 @@
           "authorName",
           "authorEmail",
           "committedAt",
-          "verification"
+          "verification",
+          "status"
         ]
       },
       "GetRepositoryCommitsResponseDTO": {
@@ -15284,6 +15708,16 @@
               }
             ]
           },
+          "status": {
+            "nullable": true,
+            "description": "Combined status of the commit, or `null` when it has none.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CombinedCommitStatusDTO"
+              }
+            ]
+          },
           "files": {
             "description": "Paths this commit changed, against its first parent.",
             "type": "array",
@@ -15300,6 +15734,7 @@
           "authorEmail",
           "committedAt",
           "verification",
+          "status",
           "files"
         ]
       },
@@ -16191,6 +16626,38 @@
             "type": "boolean"
           }
         }
+      },
+      "CreateCommitStatusRequestDTO": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ]
+          },
+          "targetUrl": {
+            "type": "string",
+            "description": "Where the result can be seen, such as the CI build page.",
+            "example": "https://ci.example.com/builds/42"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 140
+          },
+          "context": {
+            "type": "string",
+            "description": "Tells one reporter apart from another on the same commit.",
+            "default": "default",
+            "example": "ci/build"
+          }
+        },
+        "required": [
+          "state"
+        ]
       },
       "OrganizationRole": {
         "type": "string",
@@ -17363,6 +17830,16 @@
               "$ref": "#/components/schemas/ReviewerDTO"
             }
           },
+          "checks": {
+            "nullable": true,
+            "description": "Combined status of the head commit, or `null` when it has none. A fork head's statuses count only when the requester can read the fork.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CombinedCommitStatusDTO"
+              }
+            ]
+          },
           "viewerCanEdit": {
             "type": "boolean",
             "description": "True when the requesting user is the author or can write to the base repository."
@@ -17393,6 +17870,7 @@
           "pullRefsBlocked",
           "squash",
           "reviewers",
+          "checks",
           "viewerCanEdit"
         ]
       },
@@ -19295,6 +19773,7 @@
           "release.published",
           "release.edited",
           "release.deleted",
+          "commit_status.created",
           "star.created",
           "star.deleted",
           "watch.started",
@@ -20345,6 +20824,36 @@
             "description": "Refused with 404, as on create."
           }
         }
+      },
+      "GithubCreateStatusDTO": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ]
+          },
+          "target_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 140
+          },
+          "context": {
+            "type": "string",
+            "default": "default"
+          }
+        },
+        "required": [
+          "state"
+        ]
       },
       "OauthAppDTO": {
         "type": "object",

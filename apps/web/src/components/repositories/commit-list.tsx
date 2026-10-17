@@ -2,7 +2,17 @@ import Link from "next/link";
 import type { ComponentProps } from "react";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
+import {
+  CommitStatusIcon,
+  CommitStatusRows,
+} from "@/components/repositories/commit-checks";
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import type { components } from "@/lib/api/v1";
 
 type Commit = {
   sha: string;
@@ -10,7 +20,18 @@ type Commit = {
   authorName: string;
   committedAt: string;
   verification: ComponentProps<typeof CommitVerificationBadge>["verification"];
+  status: components["schemas"]["CombinedCommitStatusDTO"] | null;
 };
+
+const statusTitle = {
+  success: "All checks have passed",
+  failure: "Some checks were not successful",
+  error: "Some checks were not successful",
+  pending: "Some checks haven't completed yet",
+} satisfies Record<
+  components["schemas"]["CombinedCommitStatusDTO"]["state"],
+  string
+>;
 
 /** One row per commit, each linking to the commit under `commitBase`, the `/owner/repo` its objects live in. */
 export function CommitList({
@@ -47,6 +68,25 @@ export function CommitList({
               <FromNowHoverCard date={commit.committedAt} />
             </p>
           </div>
+          {commit.status && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={statusTitle[commit.status.state]}
+                  className="flex shrink-0 items-center"
+                >
+                  <CommitStatusIcon state={commit.status.state} />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="flex w-80 flex-col gap-2">
+                <p className="font-medium">
+                  {statusTitle[commit.status.state]}
+                </p>
+                <CommitStatusRows statuses={commit.status.statuses} />
+              </PopoverContent>
+            </Popover>
+          )}
           <CommitVerificationBadge verification={commit.verification} />
           <Link
             href={`${commitBase}/commit/${commit.sha}`}

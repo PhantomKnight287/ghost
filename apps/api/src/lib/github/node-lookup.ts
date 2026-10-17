@@ -210,6 +210,24 @@ export async function releaseNumericIdsOf(db: Database, releaseIds: string[]) {
   return new Map(rows.map((row) => [row.id, row.numericId]));
 }
 
+/** The integer ids GitHub's status shape needs, which CommitStatusesService leaves out, keyed by Ghost id. */
+export async function commitStatusNumericIdsOf(
+  db: Database,
+  statusIds: string[],
+) {
+  const rows =
+    statusIds.length > 0
+      ? await db
+          .select({
+            id: schema.commitStatus.id,
+            numericId: schema.commitStatus.numericId,
+          })
+          .from(schema.commitStatus)
+          .where(inArray(schema.commitStatus.id, statusIds))
+      : [];
+  return new Map(rows.map((row) => [row.id, row.numericId]));
+}
+
 /** What GitHub's release asset has and ReleasesService's asset leaves out, keyed by Ghost id. */
 export async function releaseAssetExtrasOf(db: Database, assetIds: string[]) {
   const rows =

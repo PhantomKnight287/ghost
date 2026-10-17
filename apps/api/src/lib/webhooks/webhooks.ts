@@ -35,6 +35,7 @@ export const webhookEvents = [
   'release.published',
   'release.edited',
   'release.deleted',
+  'commit_status.created',
   'star.created',
   'star.deleted',
   'watch.started',
@@ -208,6 +209,15 @@ export type WebhookBody = {
     isPrerelease?: boolean;
     publishedAt?: Date | null;
     htmlUrl?: string;
+  };
+  status?: {
+    id: string;
+    sha: string;
+    state: (typeof schema.commitStatus.$inferSelect)['state'];
+    context: string;
+    description: string | null;
+    targetUrl: string | null;
+    createdAt: string;
   };
   fork?: WebhookRepository;
   /** The previous owner of a transferred repository. */

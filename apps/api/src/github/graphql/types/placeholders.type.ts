@@ -20,7 +20,7 @@ import { URI } from '../scalars.js';
 import { Actor, Node, UniformResourceLocatable } from './node.interface.js';
 import { OrganizationNode } from './organization.type.js';
 
-/** Ghost has no milestones, reactions, issue types, projects, sub-issues, checks, teams, bots, auto-merge or branch protection. These types exist so gh's fixed queries validate; resolvers answer them empty. */
+/** Ghost has no milestones, reactions, issue types, projects, sub-issues, check runs, teams, bots, auto-merge or branch protection. These types exist so gh's fixed queries validate; resolvers answer them empty. */
 
 @ObjectType('Milestone')
 export class MilestoneNode {
@@ -212,14 +212,18 @@ export const StatusCheckRollupContextConnection = Connection(
   'StatusCheckRollupContext',
 );
 
-/** Always null until Ghost records commit statuses (#61); StatusCheckRollupResolver gives `contexts` its arguments. */
+/** A commit's combined commit statuses; null when it has none. StatusCheckRollupResolver pages `contexts`. */
 @ObjectType('StatusCheckRollup', { implements: () => [Node] })
 export class StatusCheckRollupNode {
+  kind = 'StatusCheckRollup';
+
   @Field(() => ID)
   id: string;
 
   @Field(() => StatusState)
   state: StatusState;
+
+  contexts: StatusContextNode[];
 }
 
 @ObjectType('BranchProtectionRule', { implements: () => [Node] })
