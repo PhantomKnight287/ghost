@@ -123,6 +123,10 @@ Releases and their assets, under `/api/v3/repos/:owner/:repo`:
 - `GET`, `POST /releases`; `GET /releases/latest`; `GET /releases/tags/:tag`, which answers published releases only, as on GitHub; `GET`, `PATCH`, `DELETE /releases/:release_id`
 - `GET /releases/:release_id/assets`; `GET`, `PATCH`, `DELETE /releases/assets/:asset_id`. `GET /releases/assets/:asset_id` with `Accept: application/octet-stream` answers the file itself
 - `POST /api/uploads/repos/:owner/:repo/releases/:release_id/assets?name=…&label=…`, the `upload_url` of every release, as on GitHub Enterprise. The body is the raw file, and its `Content-Type` is the type the file is served with
+Attachments for issue, pull request, comment and release text:
+
+- `POST /api/uploads/user-attachments/assets?name=…&content_type=…&repository_id=…`, the route `gh issue create --attach` and `gh issue comment --attach` upload to on github.com. The body is the raw file as `application/octet-stream`. `repository_id` is the repository's numeric REST `id`. The answer is `201` with `url`, which you embed as `![alt](url)`. It needs write access to the repository: without it the route answers 404, as on GitHub.
+
 - `DELETE /git/refs/:ref`, for `heads/<branch>` and `tags/<tag>`. A branch is deleted under Ghost's rules: never the default branch or one an open pull request uses
 
 Lists take `page` and `per_page` (30 by default, at most 100) and send a `Link` header with `first`, `prev`, `next` and `last`. Labels named on an issue that the repository does not have yet are created with color `ededed`, as on GitHub.
@@ -144,6 +148,14 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 
 ## Known differences
 
+- `gh issue create --attach` and `gh issue comment --attach` fail with "attaching files is not supported on GitHub Enterprise Server". `gh` refuses `--attach` itself on every host other than github.com, `*.ghe.com` and localhost, before sending anything. Ghost serves the same upload route, so `--attach` works once `gh` allows other hosts. Until then, upload with `gh api` and paste the returned `url` into the body. Give `gh api` the full URL: it puts `/api/v3/` in front of a relative path.
+
+  ```sh
+  gh api -X POST "https://api.<domain>/api/uploads/user-attachments/assets?name=shot.png&repository_id=42" \
+    -H "Content-Type: application/octet-stream" --input shot.png --jq .url
+  ```
+
+- An attachment takes the types and size limit of Ghost's attachments, not GitHub's, and is served with the type its extension names: `content_type` is accepted and ignored. Its `id` is a string, and an attachment nothing in the repository mentions is removed after a day.
 - `databaseId` and the REST `id` are integers for users, organizations, repositories, issues, pull requests, comments, labels, reviews, review comments, releases and release assets. SSH keys still answer `null`.
 - Milestones, reactions, issue types, projects and sub-issues are always empty.
 - A closed issue's `stateReason` is always `COMPLETED`. Ghost does not record why an issue was closed.
