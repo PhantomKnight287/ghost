@@ -52,7 +52,9 @@ export class RepositoryMaterializerService {
     repoDirectory: string,
     defaultBranch: string | null,
   ): Promise<WalIndex> {
+    const started = performance.now();
     const stored = await this.store.readIndex(repoId);
+    const indexRead = performance.now() - started;
     if (!stored) return emptyIndex();
 
     const { index } = stored;
@@ -63,17 +65,26 @@ export class RepositoryMaterializerService {
       return index;
     }
 
+    let replayed = 0;
+    let opening = 0;
+    let indexing = 0;
     for (const [offset, layer] of index.layers.entries()) {
       const seq = index.compactedThroughSeq + offset + 1;
       if (seq <= cachedSeq) continue;
 
       // Pushes since 0034 store self-contained packs, but older layers may be thin, with deltas against objects from earlier layers, which is why replay must stay in sequence order.
       if (layer.size > 0) {
+        const opened = performance.now();
+        const input = await this.store.openEntryPack(repoId, layer.ulid);
+        const indexed = performance.now();
         await runGit({
           args: ['index-pack', '--fix-thin', '--stdin'],
           gitDir: repoDirectory,
-          input: await this.store.openEntryPack(repoId, layer.ulid),
+          input,
         });
+        replayed++;
+        opening += indexed - opened;
+        indexing += performance.now() - indexed;
       }
     }
 
@@ -84,8 +95,10 @@ export class RepositoryMaterializerService {
       `${index.seq}\n`,
       'utf8',
     );
+    // Opening a layer is its two round trips to the store; indexing includes streaming the pack body, which index-pack reads as it goes.
+    const ms = (value: number) => `${Math.round(value)}ms`;
     this.logger.log(
-      `Materialized ${repoId} from seq ${cachedSeq} to ${index.seq}`,
+      `Materialized ${repoId} from seq ${cachedSeq} to ${index.seq} in ${ms(performance.now() - started)}: index read ${ms(indexRead)}, ${replayed} layers opened in ${ms(opening)} and indexed in ${ms(indexing)}`,
     );
 
     return index;
