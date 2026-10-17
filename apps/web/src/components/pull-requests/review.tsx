@@ -119,28 +119,49 @@ export function ReviewItem({
           )}
 
           {review.comments.map((thread) => (
-            <div key={thread.id} className="overflow-hidden rounded-lg border">
-              <div className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-4 py-2 font-mono text-xs">
-                <span className="text-foreground">{thread.path}</span>
-                <span className="text-muted-foreground">
-                  {thread.startLine
-                    ? `lines ${thread.startLine}–${thread.line}`
-                    : `line ${thread.line}`}
-                </span>
-                {thread.commitSha !== headSha && (
-                  <Badge variant="outline">Outdated</Badge>
-                )}
-              </div>
-              {thread.diffHunk && (
-                <div className="border-b">
-                  <DiffHunk path={thread.path} hunk={thread.diffHunk} />
-                </div>
-              )}
-              <ReviewThread {...viewing} thread={thread} />
-            </div>
+            <ThreadCard
+              key={thread.id}
+              {...viewing}
+              thread={thread}
+              headSha={headSha}
+            />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** A line comment thread as a card of its own: where it sits, the lines it was left on, then the thread. */
+export function ThreadCard({
+  thread,
+  headSha,
+  pending = false,
+  ...viewing
+}: Viewing & {
+  thread: ReviewThreadData;
+  headSha: string;
+  pending?: boolean;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      <div className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-4 py-2 font-mono text-xs">
+        <span className="text-foreground">{thread.path}</span>
+        <span className="text-muted-foreground">
+          {thread.startLine
+            ? `lines ${thread.startLine}–${thread.line}`
+            : `line ${thread.line}`}
+        </span>
+        {thread.commitSha !== headSha && (
+          <Badge variant="outline">Outdated</Badge>
+        )}
+      </div>
+      {thread.diffHunk && (
+        <div className="border-b">
+          <DiffHunk path={thread.path} hunk={thread.diffHunk} />
+        </div>
+      )}
+      <ReviewThread {...viewing} thread={thread} pending={pending} />
     </div>
   );
 }

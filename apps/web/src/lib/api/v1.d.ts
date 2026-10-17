@@ -1257,6 +1257,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/pulls/{number}/commits/{sha}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where a commit falls among a pull request's commits, with its neighbours */
+        get: operations["PullRequestsController_locateCommit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/pulls/{number}/files": {
         parameters: {
             query?: never;
@@ -3478,6 +3495,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/uploads/user-attachments/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach a file to embed in an issue, pull request, comment or release, as `gh --attach` does on github.com */
+        post: operations["GithubUserAttachmentsController_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/repos/{owner}/{repo}/git/refs/{ref}": {
         parameters: {
             query?: never;
@@ -4775,6 +4809,15 @@ export interface components {
             total: number;
             nextCursor: string | null;
         };
+        PullRequestCommitPositionDTO: {
+            /** @description Where the commit falls among the pull request's commits, counting from 1 at the oldest. */
+            position: number;
+            total: number;
+            /** @description The commit listed just before it, older; null for the oldest. */
+            previousSha: string | null;
+            /** @description The commit listed just after it, newer; null for the head. */
+            nextSha: string | null;
+        };
         GetPullRequestFilesResponseDTO: {
             /** @description Commit the diff is taken from, the merge base of the two branches. */
             from: string;
@@ -5735,6 +5778,14 @@ export interface components {
             description?: string | null;
             /** @default default */
             context?: string;
+        };
+        GithubUserAttachmentDTO: {
+            id: string;
+            name: string;
+            size: number;
+            content_type: string;
+            /** @description Where the repository serves the file; embed it in any issue, pull request, comment or release of that repository. */
+            url: string;
         };
         OauthAppDTO: {
             clientId: string;
@@ -8729,6 +8780,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetPullRequestCommitsResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PullRequestsController_locateCommit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                sha: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestCommitPositionDTO"];
                 };
             };
             404: {
@@ -13858,6 +13941,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    GithubUserAttachmentsController_upload: {
+        parameters: {
+            query: {
+                name: string;
+                content_type?: string;
+                /** @description The numeric REST id of the repository the file is attached in. */
+                repository_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubUserAttachmentDTO"];
+                };
             };
         };
     };

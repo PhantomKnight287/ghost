@@ -51,6 +51,38 @@ export class GetPullRequestCommitsResponseDTO {
   nextCursor: string | null;
 }
 
+export class PullRequestCommitPositionDTO {
+  @ApiProperty({
+    description:
+      "Where the commit falls among the pull request's commits, counting from 1 at the oldest.",
+  })
+  @IsInt()
+  position: number;
+
+  @ApiProperty()
+  @IsInt()
+  total: number;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The commit listed just before it, older; null for the oldest.',
+  })
+  @IsString()
+  @IsOptional()
+  previousSha: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'The commit listed just after it, newer; null for the head.',
+  })
+  @IsString()
+  @IsOptional()
+  nextSha: string | null;
+}
+
 export class PullRequestFileDTO extends CommitFileDTO {
   @ApiProperty()
   @IsInt()

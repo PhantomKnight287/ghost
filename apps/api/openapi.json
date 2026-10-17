@@ -4777,6 +4777,71 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/pulls/{number}/commits/{sha}": {
+      "get": {
+        "operationId": "PullRequestsController_locateCommit",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sha",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestCommitPositionDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Where a commit falls among a pull request's commits, with its neighbours",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/pulls/{number}/files": {
       "get": {
         "operationId": "PullRequestsController_getFiles",
@@ -13917,6 +13982,65 @@
         ]
       }
     },
+    "/api/uploads/user-attachments/assets": {
+      "post": {
+        "operationId": "GithubUserAttachmentsController_upload",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "content_type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository_id",
+            "required": true,
+            "in": "query",
+            "description": "The numeric REST id of the repository the file is attached in.",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubUserAttachmentDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Attach a file to embed in an issue, pull request, comment or release, as `gh --attach` does on github.com",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3/repos/{owner}/{repo}/git/refs/{ref}": {
       "delete": {
         "operationId": "GithubGitController_delete",
@@ -17898,6 +18022,34 @@
           "nextCursor"
         ]
       },
+      "PullRequestCommitPositionDTO": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "description": "Where the commit falls among the pull request's commits, counting from 1 at the oldest."
+          },
+          "total": {
+            "type": "number"
+          },
+          "previousSha": {
+            "type": "string",
+            "nullable": true,
+            "description": "The commit listed just before it, older; null for the oldest."
+          },
+          "nextSha": {
+            "type": "string",
+            "nullable": true,
+            "description": "The commit listed just after it, newer; null for the head."
+          }
+        },
+        "required": [
+          "position",
+          "total",
+          "previousSha",
+          "nextSha"
+        ]
+      },
       "GetPullRequestFilesResponseDTO": {
         "type": "object",
         "properties": {
@@ -20853,6 +21005,34 @@
         },
         "required": [
           "state"
+        ]
+      },
+      "GithubUserAttachmentDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "Where the repository serves the file; embed it in any issue, pull request, comment or release of that repository."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "size",
+          "content_type",
+          "url"
         ]
       },
       "OauthAppDTO": {

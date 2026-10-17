@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { listCommits, readCommit } from './list-commits.js';
+import { listCommitShas, listCommits, readCommit } from './list-commits.js';
 
 describe('listCommits', () => {
   let root: string;
@@ -37,6 +37,14 @@ describe('listCommits', () => {
   });
 
   afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('lists every sha of a range in the order the log lists the commits', async () => {
+    const { commits } = await listCommits({ gitDir, ref: 'main', limit: 10 });
+    expect(await listCommitShas({ gitDir, range: 'main~2..main' })).toEqual(
+      commits.slice(0, 2).map((c) => c.sha),
+    );
+    expect(await listCommitShas({ gitDir, range: 'main..main' })).toEqual([]);
+  });
 
   it('lists newest first', async () => {
     const { commits, nextCursor } = await listCommits({
