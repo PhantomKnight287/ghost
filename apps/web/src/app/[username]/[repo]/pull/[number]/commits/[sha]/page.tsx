@@ -61,15 +61,10 @@ export default async function PullRequestCommitPage({
   const owner = head.username ?? username;
   const slug = head.username ? (head.slug ?? repo) : repo;
   const commitPath = { username: owner, slug, sha };
-  const [commit, patch] = await Promise.all([
-    client.GET("/api/repositories/{username}/{slug}/commits/{sha}", {
-      params: { path: commitPath },
-    }),
-    client.GET("/api/repositories/{username}/{slug}/commits/{sha}/patch", {
-      params: { path: commitPath },
-      parseAs: "text",
-    }),
-  ]);
+  const commit = await client.GET(
+    "/api/repositories/{username}/{slug}/commits/{sha}",
+    { params: { path: commitPath } },
+  );
   notFoundIfHidden(commit.response);
   if (!commit.data) throw new Error(`Failed to read commit ${sha}`);
 
@@ -90,7 +85,19 @@ export default async function PullRequestCommitPage({
   ].filter((thread) => thread.commitSha === sha);
   const isPending = (id: string) =>
     pendingReview?.comments.some((thread) => thread.id === id) ?? false;
-  const { placed, unplaced } = placeThreads(threads, patch.data ?? "");
+  // Only the files threads sit on: a commit's whole patch can run to megabytes, which is why FileDiffs fetches one file at a time.
+  const patches = await Promise.all(
+    [...new Set(threads.map((thread) => thread.path))].map((file) =>
+      client.GET("/api/repositories/{username}/{slug}/commits/{sha}/patch", {
+        params: { path: commitPath, query: { path: file } },
+        parseAs: "text",
+      }),
+    ),
+  );
+  const { placed, unplaced } = placeThreads(
+    threads,
+    patches.map((patch) => patch.data ?? "").join("\n"),
+  );
 
   const annotations: Record<string, LineAnnotations> = {};
   for (const thread of placed) {
