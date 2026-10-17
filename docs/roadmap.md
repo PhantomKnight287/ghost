@@ -97,10 +97,11 @@ API routes, DB schema, web pages and auth plugins.
    ([0029](0029-events-go-through-an-outbox.md)); push events are not
    published yet. Sent by `apps/delivery`
    ([0031](0031-outbound-delivery-is-its-own-service.md)).
-10. [ ] **CI / Actions.** Runner, job logs, commit status checks. Start with a
-    commit status API (`POST /statuses/:sha`) so external CI can report; a
-    runner is a much larger project.
-11. [ ] **2FA / passkeys.** `apps/web/src/lib/auth/two-factor-methods.ts`
+10. [ ] **CI / Actions.** Runner, job logs, commit status checks. The commit
+    status API is done (#61): external CI reports through
+    `POST /statuses/:sha`, and pull requests, commits and `gh pr checks` show
+    the results. The runner and job logs remain (#87).
+11. [x] **2FA / passkeys.** `apps/web/src/lib/auth/two-factor-methods.ts`
     exists, but the API's Better Auth has no `twoFactor` plugin. No OAuth
     login (GitHub/Google).
 12. [ ] **Push errors over sideband.** Failures render as JSON, so the git CLI
@@ -139,17 +140,15 @@ API routes, DB schema, web pages and auth plugins.
 Every open issue, in the order to take it. The tiers above say what is missing; this says what comes next. Items in the same step can run side by side.
 
 ### 1. GitHub compatibility (#57)
-Tools built for GitHub working against Ghost unchanged. Milestones 1 (auth, repositories, issues over GraphQL), 2 (REST v3 for issues, comments and labels, #112), 3 (pull requests, #114) and 4 (releases, #115) are done, as are REST review comments and reviews (Ghost [#68](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/68)).
+Tools built for GitHub working against Ghost unchanged. Milestones 1 (auth, repositories, issues over GraphQL), 2 (REST v3 for issues, comments and labels, #112), 3 (pull requests, #114) and 4 (releases, #115) are done, as are REST review comments and reviews (Ghost [#68](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/68)), commit statuses with `gh pr checks` (#61), and token uploads on GitHub's user-attachments route (Ghost [#82](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/82)).
 
 1. #109 Ghost Apps, then #106 OpenID Connect, then #107 dynamic client registration.
-2. Ghost [#73](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/73) The six `PullRequest` fields `gh pr view --json` cannot read, `mergeCommit` first.
 
 Alongside, small and independent: #116 search across repositories, #117 `updateRepository` and `gh repo edit`, #119 type `decodeNodeId`, #113 measure migration lock time.
 
 ### 2. Platform and security
-5. #63 Two-factor authentication and passkeys (roadmap 11), and #121 verifying commits signed with SSH keys.
-6. #61 Commit status API (roadmap 10). Fills `statusCheckRollup` and `gh pr checks` from #114.
-7. #62 Branch protection rules. Needs #61 for required checks.
+
+7. #62 Branch protection rules. Required checks can build on the commit status API (#61, done).
 8. #120 Report push failures over sideband (roadmap 12).
 9. #67 Rate limiting across the API and git transports.
 10. #68 WAL checkpoints and compaction. Push reads the whole log, so cost grows with history.
