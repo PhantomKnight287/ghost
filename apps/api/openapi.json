@@ -4551,6 +4551,15 @@
               "default": 20,
               "type": "number"
             }
+          },
+          {
+            "name": "reviewRequested",
+            "required": false,
+            "in": "query",
+            "description": "Only pull requests asking this username, or `@me`, for a review, directly or through a team.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5384,6 +5393,49 @@
           }
         },
         "summary": "Turn a pull request back into a draft",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
+    "/api/user/review-requests": {
+      "get": {
+        "description": "Requests to the user directly or to one of their teams, in every repository the user can read.",
+        "operationId": "ViewerPullRequestsController_getReviewRequests",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPullRequestsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Open pull requests asking the signed-in user for a review",
         "tags": [
           "Pull requests"
         ]

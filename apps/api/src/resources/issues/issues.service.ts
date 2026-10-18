@@ -11,7 +11,6 @@ import {
   gte,
   inArray,
   isNotNull,
-  isNull,
   not,
   or,
   sql,
@@ -23,6 +22,10 @@ import { publishEvent } from '../../lib/events/events.js';
 import { assertNotImporting } from '../../lib/imports/importing.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
 import type { Executor } from '../../lib/db/executor.js';
+import {
+  pendingReviewRequestFor,
+  type ReviewRequested,
+} from '../../lib/pull-requests/review-requested.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
@@ -34,7 +37,6 @@ import {
 } from '../../lib/repositories/access/repository-access.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
 import { keyset } from '../../lib/db/keyset.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
@@ -66,8 +68,8 @@ export type IssueListOptions = {
   };
   since?: Date;
   assigned?: boolean;
-  /** Pull requests with a pending review request; `direct` false also matches requests to the user's teams. */
-  reviewRequested?: { userId: string; direct: boolean } | { teamId: string };
+  /** Pull requests with a pending review request. */
+  reviewRequested?: ReviewRequested;
 };
 
 const NO_ISSUES = {
@@ -308,13 +310,13 @@ export class IssuesService {
     }
 
     const authorId = query.author
-      ? await this.optionalUserId(query.author)
+      ? await this.users.findUserId(query.author)
       : undefined;
     if (query.author && !authorId) {
       return NO_ISSUES;
     }
     const assigneeId = query.assignee
-      ? await this.optionalUserId(query.assignee)
+      ? await this.users.findUserId(query.assignee)
       : undefined;
     if (query.assignee && !assigneeId) {
       return NO_ISSUES;
@@ -413,24 +415,7 @@ export class IssuesService {
           .where(
             and(
               eq(schema.pullRequest.issueId, schema.issue.id),
-              isNull(schema.pullRequestReviewRequest.clearedAt),
-              'teamId' in wanted
-                ? eq(schema.pullRequestReviewRequest.reviewerTeamId, wanted.teamId)
-                : or(
-                    eq(
-                      schema.pullRequestReviewRequest.reviewerUserId,
-                      wanted.userId,
-                    ),
-                    wanted.direct
-                      ? undefined
-                      : inArray(
-                          schema.pullRequestReviewRequest.reviewerTeamId,
-                          this.db
-                            .select({ id: schema.teamMember.teamId })
-                            .from(schema.teamMember)
-                            .where(eq(schema.teamMember.userId, wanted.userId)),
-                        ),
-                  ),
+              pendingReviewRequestFor(this.db, wanted),
             ),
           )
       : undefined;
@@ -1445,15 +1430,6 @@ export class IssuesService {
     return Promise.all(
       usernames.map((username) => this.users.getUserByUsername(username)),
     );
-  }
-
-  private async optionalUserId(username: string) {
-    try {
-      return (await this.users.getUserByUsername(username)).id;
-    } catch (error) {
-      if (error instanceof UserNotFoundError) return null;
-      throw error;
-    }
   }
 }
 

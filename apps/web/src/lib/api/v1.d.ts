@@ -1416,6 +1416,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/user/review-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open pull requests asking the signed-in user for a review
+         * @description Requests to the user directly or to one of their teams, in every repository the user can read.
+         */
+        get: operations["ViewerPullRequestsController_getReviewRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/pulls/{number}/reviews": {
         parameters: {
             query?: never;
@@ -8843,6 +8863,8 @@ export interface operations {
                 state?: components["schemas"]["PullRequestStateFilter"];
                 cursor?: string;
                 limit?: number;
+                /** @description Only pull requests asking this username, or `@me`, for a review, directly or through a team. */
+                reviewRequested?: string;
             };
             header?: never;
             path: {
@@ -9339,6 +9361,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ViewerPullRequestsController_getReviewRequests: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetPullRequestsResponseDTO"];
                 };
             };
         };

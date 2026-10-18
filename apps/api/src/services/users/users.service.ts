@@ -70,4 +70,13 @@ export class UsersService {
     if (!user) throw new UserNotFoundError(username);
     return user;
   }
+
+  /** The id of the user called `username`, or null when there is none: a filter on someone who does not exist matches nothing rather than failing. */
+  async findUserId(username: string) {
+    const [user] = await this.database
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.username, username));
+    return user?.id ?? null;
+  }
 }

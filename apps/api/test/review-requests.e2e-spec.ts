@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
 import type { Auth } from '../src/lib/auth.js';
+import { teamIdOf } from '../src/lib/github/node-lookup.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 type Account = Awaited<ReturnType<typeof signUp>>;
@@ -41,15 +42,14 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
       { cwd: work, encoding: 'utf8' },
     ).trim();
   // The server runs in this process, so anything that talks to it must not block the event loop.
-  const push = (to: string) =>
+  const push = (to: string, branches = ['main', 'feature']) =>
     promisify(execFile)(
       'git',
       [
         'push',
         '-q',
         `${origin.replace('://', `://${ownerName}:${owner.key}@`)}/${to}.git`,
-        'main',
-        'feature',
+        ...branches,
       ],
       { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
     );
@@ -436,6 +436,107 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
       )
       .where(eq(schema.pullRequestReview.id, review.id));
     expect(onBehalf.map((row) => row.teamId).sort()).toEqual([...teams].sort());
+  });
+
+  it("filters a repository's pull requests to those requesting a review, directly or through a team", async () => {
+    const db = app.get<Database>(DATABASE);
+    git('checkout', '-q', '-b', 'other', 'main');
+    writeFileSync(path.join(work, 'b.txt'), 'other\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'other');
+    git('checkout', '-q', 'feature');
+    await push(`${ownerName}/${repo}`, ['other']);
+    await api()
+      .post(`/api/repositories/${ownerName}/${repo}/pulls`)
+      .set('cookie', owner.cookie)
+      .send({ title: 'Other', base: 'main', head: 'other' })
+      .expect(201);
+    const numbers = async (
+      at: string,
+      reviewRequested: string,
+      as = collaborator,
+    ) =>
+      (
+        await api()
+          .get(`/api/repositories/${at}/pulls`)
+          .query({ reviewRequested })
+          .set('cookie', as.cookie)
+          .expect(200)
+      ).body.pullRequests.map((pull: { number: number }) => pull.number);
+
+    expect(await numbers(`${ownerName}/${repo}`, '@me')).toEqual([1]);
+    expect(
+      await numbers(`${ownerName}/${repo}`, collaboratorName, owner),
+    ).toEqual([1]);
+    expect(await numbers(`${ownerName}/${repo}`, '@me', owner)).toEqual([]);
+    const signedOut = await api()
+      .get(`/api/repositories/${ownerName}/${repo}/pulls`)
+      .query({ reviewRequested: '@me' })
+      .expect(200);
+    expect(signedOut.body.pullRequests).toEqual([]);
+    expect(await numbers(`${ownerName}/${repo}`, `nobody${stamp}`)).toEqual([]);
+
+    const at = `${org}/widget`;
+    expect(await numbers(at, '@me')).toEqual([]);
+    const [{ id: organizationId }] = await db
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(eq(schema.organization.slug, org));
+    await auth().addTeamMember({
+      body: {
+        teamId: (await teamIdOf(db, org, 'core'))!,
+        userId: collaborator.userId,
+        organizationId: organizationId!,
+      },
+      headers: new Headers({ cookie: owner.cookie }),
+    });
+    expect(await numbers(at, '@me')).toEqual([1]);
+  });
+
+  it('lists open pull requests requesting the viewer across the repositories they can read', async () => {
+    const listed = async () =>
+      (
+        await api()
+          .get('/api/user/review-requests')
+          .set('cookie', collaborator.cookie)
+          .expect(200)
+      ).body.pullRequests
+        .map(
+          (pull: {
+            base: { username: string; slug: string };
+            number: number;
+          }) => `${pull.base.username}/${pull.base.slug}#${pull.number}`,
+        )
+        .sort();
+    expect(await listed()).toEqual(
+      [`${org}/widget#1`, `${ownerName}/${repo}#1`].sort(),
+    );
+
+    const db = app.get<Database>(DATABASE);
+    const [membership] = await db
+      .select({
+        id: schema.member.id,
+        organizationId: schema.member.organizationId,
+      })
+      .from(schema.member)
+      .innerJoin(
+        schema.organization,
+        eq(schema.organization.id, schema.member.organizationId),
+      )
+      .where(
+        and(
+          eq(schema.organization.slug, org),
+          eq(schema.member.userId, collaborator.userId),
+        ),
+      );
+    await auth().removeMember({
+      body: {
+        memberIdOrEmail: membership!.id,
+        organizationId: membership!.organizationId,
+      },
+      headers: new Headers({ cookie: owner.cookie }),
+    });
+    expect(await listed()).toEqual([`${ownerName}/${repo}#1`]);
   });
 
   it('refuses requests on a closed pull request', async () => {
