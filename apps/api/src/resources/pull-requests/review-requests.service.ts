@@ -95,7 +95,6 @@ export class ReviewRequestsService {
         pullRequestId: pullRequest.id,
         issueId: pullRequest.issueId,
         repositoryId: base.id,
-        organizationId: base.organizationId,
         authorId: pullRequest.authorId,
         actorId: params.requesterId,
         userIds,
@@ -153,7 +152,6 @@ export class ReviewRequestsService {
       pullRequestId: string;
       issueId: string;
       repositoryId: string;
-      organizationId: string | null;
       authorId: string;
       actorId: string;
       userIds: string[];

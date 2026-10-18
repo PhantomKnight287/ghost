@@ -159,9 +159,12 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
     await requestReviewers({ users: [`nobody${stamp}`] }).expect(422);
     // A user's repository has no teams to request.
     await requestReviewers({ teams: ['core'] }).expect(422);
-    await requestReviewers({
+    const tooMany = await requestReviewers({
       users: Array.from({ length: 16 }, (_, i) => `user${i}${stamp}`),
     }).expect(422);
+    expect(tooMany.body.message).toBe(
+      'At most 15 reviewers can be requested at once',
+    );
   });
 
   it('lets only triage and above request reviews', async () => {
