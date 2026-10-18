@@ -27,6 +27,8 @@ export type LazyFileDiffsProps = {
   files: DiffFile[];
   /** Rendered under the lines they point at, keyed by path. */
   annotations?: Record<string, LineAnnotations>;
+  /** Shown in each file's header, keyed by path. */
+  headers?: Record<string, ReactNode>;
   /** Shows a comment button in the gutter and receives the lines it picked. */
   onLineComment?: LineCommentHandler;
 };
@@ -35,5 +37,6 @@ export type LazyFileDiffProps = {
   patchUrl: string;
   file: DiffFile;
   annotations?: LineAnnotations;
+  header?: ReactNode;
   onLineComment?: LineCommentHandler;
 };

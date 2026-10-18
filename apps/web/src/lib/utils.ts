@@ -17,3 +17,10 @@ export function formatBytes(bytes: number) {
   }
   return unit === 0 ? `${bytes} B` : `${value.toFixed(1)} ${BYTE_UNITS[unit]}`;
 }
+
+/** `items` in runs of at most `size`, in order. */
+export function chunk<T>(items: T[], size: number): T[][] {
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, i) =>
+    items.slice(i * size, (i + 1) * size),
+  );
+}

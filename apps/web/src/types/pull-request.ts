@@ -10,7 +10,7 @@ export type ReviewComment = components["schemas"]["ReviewCommentRequestDTO"];
 
 export type DiffViewProps = Pick<
   LazyFileDiffsProps,
-  "annotations" | "onLineComment"
+  "annotations" | "headers" | "onLineComment"
 > & {
   from: string;
   to: string;
