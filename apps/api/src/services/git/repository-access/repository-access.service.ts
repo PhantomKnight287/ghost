@@ -96,6 +96,16 @@ export class RepositoryAccessService {
     );
   }
 
+  /** The role granted to `userId`, leaving out the read access a public repository gives everyone. */
+  async explicitRole(repositoryId: string, userId: string) {
+    const actor = { userId };
+    const [row] = await this.lookup(
+      actor,
+      eq(schema.repository.id, repositoryId),
+    );
+    return row ? roleOf(row.repository, row, actor) : null;
+  }
+
   private lookup(actor: Actor, where: SQL | undefined) {
     return this.database
       .select({

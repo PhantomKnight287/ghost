@@ -203,6 +203,10 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
         GREY,
         body.review?.dismissalMessage ?? null,
       );
+    case 'pull_request.review_requested':
+      return onThread(`requested a review on ${about}`, BLUE);
+    case 'pull_request.review_request_removed':
+      return onThread(`removed a request for review on ${about}`, GREY);
     case 'pull_request.review_commented':
       return onThread(
         `commented on ${body.comment?.path ?? 'the code'} in ${about}`,

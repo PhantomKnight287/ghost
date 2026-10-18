@@ -857,6 +857,9 @@ export class IssuesService {
             beforeSha: schema.issueEvent.beforeSha,
             commitMessage: schema.issueEvent.commitMessage,
             commitAuthorName: schema.issueEvent.commitAuthorName,
+            requestedReviewerUsername:
+              schema.issueEvent.requestedReviewerUsername,
+            requestedTeamSlug: schema.issueEvent.requestedTeamSlug,
             // `owner/repo`, so a pull request in another repository that closed this one still links
             sourceRepository: sql<
               string | null

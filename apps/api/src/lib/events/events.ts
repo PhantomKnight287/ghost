@@ -37,6 +37,16 @@ export type EventPayloads = {
   'pull_request.reviewed': { issueId: string; reviewId: string };
   'pull_request.review_dismissed': { issueId: string; reviewId: string };
   'pull_request.review_commented': { issueId: string; commentId: string };
+  'pull_request.review_requested': {
+    issueId: string;
+    requestedUserId?: string;
+    requestedTeamId?: string;
+  };
+  'pull_request.review_request_removed': {
+    issueId: string;
+    requestedUserId?: string;
+    requestedTeamId?: string;
+  };
   'label.created': { labelId: string };
   'label.edited': { labelId: string };
   'label.deleted': {

@@ -1,0 +1,98 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Session,
+} from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnprocessableEntityResponse,
+} from '@nestjs/swagger';
+import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+
+import { ErrorResponseDTO } from '../../domain/http.js';
+import {
+  RequestedReviewersDTO,
+  ReviewRequestsBodyDTO,
+} from './dto/review-requests.dto.js';
+import { ReviewRequestsService } from './review-requests.service.js';
+
+@Controller('repositories/:username/:repo/pulls')
+@ApiTags('Pull request reviews')
+export class ReviewRequestsController {
+  constructor(private readonly reviewRequests: ReviewRequestsService) {}
+
+  @Get(':number/requested-reviewers')
+  @OptionalAuth()
+  @ApiOperation({ summary: 'Users and teams asked to review a pull request' })
+  @ApiOkResponse({ type: RequestedReviewersDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  listRequestedReviewers(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Session() session: UserSession,
+  ) {
+    return this.reviewRequests.list({
+      username,
+      repo,
+      number,
+      requesterId: session?.user?.id,
+    });
+  }
+
+  @Post(':number/requested-reviewers')
+  @ApiOperation({ summary: 'Request reviews from users and teams' })
+  @ApiCreatedResponse({ type: RequestedReviewersDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
+  requestReviewers(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Body() body: ReviewRequestsBodyDTO,
+    @Session() session: UserSession,
+  ) {
+    return this.reviewRequests.request({
+      username,
+      repo,
+      number,
+      requesterId: session.user.id,
+      users: body.users ?? [],
+      teams: body.teams ?? [],
+    });
+  }
+
+  @Delete(':number/requested-reviewers')
+  @ApiOperation({ summary: 'Remove requests for review' })
+  @ApiOkResponse({ type: RequestedReviewersDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
+  removeRequestedReviewers(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Body() body: ReviewRequestsBodyDTO,
+    @Session() session: UserSession,
+  ) {
+    return this.reviewRequests.remove({
+      username,
+      repo,
+      number,
+      requesterId: session.user.id,
+      users: body.users ?? [],
+      teams: body.teams ?? [],
+    });
+  }
+}
