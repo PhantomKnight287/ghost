@@ -12,7 +12,6 @@ const example = [
   'apps/ @octocat',
   '/docs/',
   '**/logs @logs-owner',
-  '\\#file @hash-owner',
 ].join('\n');
 
 describe('codeowners', () => {
@@ -21,7 +20,7 @@ describe('codeowners', () => {
 
   it('parses the documented example without errors', () => {
     expect(errors).toEqual([]);
-    expect(rules).toHaveLength(10);
+    expect(rules).toHaveLength(9);
     expect(rules[0]).toMatchObject({ line: 3, pattern: '*', ownerColumns: [9, 24] });
     expect(rules[1].owners).toEqual([{ kind: 'user', username: 'js-owner' }]);
     expect(rules[2].owners).toEqual([{ kind: 'email', email: 'docs@example.com' }]);
@@ -60,17 +59,14 @@ describe('codeowners', () => {
     for (const path of ['logs', 'a/logs', 'a/b/logs/c']) expect(ownersOf(path)).toEqual([{ kind: 'user', username: 'logs-owner' }]);
   });
 
-  it('matches an escaped hash', () => {
-    expect(ownersOf('#file')).toEqual([{ kind: 'user', username: 'hash-owner' }]);
-  });
-
   it('reports invalid patterns and owners', () => {
-    const { rules: none, errors: found } = parseCodeowners('!foo @a\nfoo[ab] @a\nfoo alice', 'docs/CODEOWNERS');
+    const { rules: none, errors: found } = parseCodeowners('!foo @a\nfoo[ab] @a\nfoo alice\n\\#file @a', 'docs/CODEOWNERS');
     expect(none).toEqual([]);
     expect(found).toEqual([
       { line: 1, column: 1, kind: 'Invalid pattern', source: '!foo @a', suggestion: null, message: 'Invalid pattern on line 1', path: 'docs/CODEOWNERS' },
       { line: 2, column: 1, kind: 'Invalid pattern', source: 'foo[ab] @a', suggestion: null, message: 'Invalid pattern on line 2', path: 'docs/CODEOWNERS' },
       { line: 3, column: 5, kind: 'Invalid owner', source: 'foo alice', suggestion: null, message: 'Invalid owner on line 3', path: 'docs/CODEOWNERS' },
+      { line: 4, column: 1, kind: 'Invalid pattern', source: '\\#file @a', suggestion: null, message: 'Invalid pattern on line 4', path: 'docs/CODEOWNERS' },
     ]);
   });
 });

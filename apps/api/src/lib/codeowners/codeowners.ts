@@ -45,8 +45,8 @@ export function parseCodeowners(text: string, path: string): { rules: Codeowners
       errors.push({ line, column, kind, source, suggestion: null, message: `${kind} on line ${line}`, path });
 
     const [{ text: pattern }, ...rest] = tokens;
-    // GitHub supports neither negation nor character ranges, and ignore would accept both.
-    if (pattern.startsWith('!') || /[[\]]/.test(pattern)) return fail('Invalid pattern', 1);
+    // GitHub supports neither negation, character ranges nor an escaped leading #, and ignore would accept all three.
+    if (pattern.startsWith('!') || pattern.startsWith('\\#') || /[[\]]/.test(pattern)) return fail('Invalid pattern', 1);
 
     const comment = rest.findIndex((token) => token.text.startsWith('#'));
     const ownerTokens = comment === -1 ? rest : rest.slice(0, comment);
