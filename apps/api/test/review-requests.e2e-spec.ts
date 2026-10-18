@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -64,6 +64,14 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
       .post(pull('/requested-reviewers', at))
       .set('cookie', as.cookie)
       .send(body);
+  const outboxCount = async (type: string) =>
+    (
+      await app
+        .get<Database>(DATABASE)
+        .select({ id: schema.outboxEvent.id })
+        .from(schema.outboxEvent)
+        .where(eq(schema.outboxEvent.type, type))
+    ).length;
   const timelineEvents = async (type: string) =>
     (
       await api()
@@ -261,6 +269,143 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
       owner,
       `${org}/widget`,
     ).expect(422);
+  });
+
+  it('leaves a request pending while the review is unsubmitted', async () => {
+    const db = app.get<Database>(DATABASE);
+    const [request] = await db
+      .select({ pullRequestId: schema.pullRequestReviewRequest.pullRequestId })
+      .from(schema.pullRequestReviewRequest)
+      .where(
+        and(
+          eq(
+            schema.pullRequestReviewRequest.reviewerUserId,
+            collaborator.userId,
+          ),
+          isNull(schema.pullRequestReviewRequest.clearedAt),
+        ),
+      );
+    const [pending] = await db
+      .insert(schema.pullRequestReview)
+      .values({
+        pullRequestId: request!.pullRequestId,
+        authorId: collaborator.userId,
+        commitSha: git('rev-parse', 'HEAD'),
+      })
+      .returning({ id: schema.pullRequestReview.id });
+    expect(
+      (await api().get(pull('/requested-reviewers'))).body.users,
+    ).toHaveLength(1);
+    await db
+      .delete(schema.pullRequestReview)
+      .where(eq(schema.pullRequestReview.id, pending!.id));
+  });
+
+  it('answers a user request when the review is submitted, and a re-request is new', async () => {
+    const db = app.get<Database>(DATABASE);
+    const removedBefore = await outboxCount(
+      'pull_request.review_request_removed',
+    );
+    await api()
+      .post(pull('/reviews'))
+      .set('cookie', collaborator.cookie)
+      .send({ state: 'commented', body: 'Looking' })
+      .expect(201);
+    expect(
+      (await api().get(pull('/requested-reviewers')).expect(200)).body.users,
+    ).toEqual([]);
+
+    const rows = await db
+      .select()
+      .from(schema.pullRequestReviewRequest)
+      .where(
+        eq(schema.pullRequestReviewRequest.reviewerUserId, collaborator.userId),
+      );
+    expect(rows.filter((row) => row.clearedReason === 'reviewed')).toHaveLength(
+      1,
+    );
+    expect(await outboxCount('pull_request.review_request_removed')).toBe(
+      removedBefore,
+    );
+
+    await requestReviewers({ users: [collaboratorName] }).expect(201);
+    const after = await db
+      .select()
+      .from(schema.pullRequestReviewRequest)
+      .where(
+        and(
+          eq(
+            schema.pullRequestReviewRequest.reviewerUserId,
+            collaborator.userId,
+          ),
+          isNull(schema.pullRequestReviewRequest.clearedAt),
+        ),
+      );
+    expect(after).toHaveLength(1);
+  });
+
+  it('answers every requested team the reviewer belongs to', async () => {
+    const db = app.get<Database>(DATABASE);
+    const at = `${org}/widget`;
+    const { id: organizationId } = (
+      await db
+        .select({ id: schema.organization.id })
+        .from(schema.organization)
+        .where(eq(schema.organization.slug, org))
+    )[0]!;
+    await auth().addMember({
+      body: { userId: collaborator.userId, role: 'member', organizationId },
+    });
+    const teams = [];
+    for (const name of ['Docs', 'Platform']) {
+      const created = (await auth().createTeam({
+        body: { name, organizationId },
+        headers: new Headers({ cookie: owner.cookie }),
+      }))!;
+      await auth().addTeamMember({
+        body: {
+          teamId: created.id,
+          userId: collaborator.userId,
+          organizationId,
+        },
+        headers: new Headers({ cookie: owner.cookie }),
+      });
+      await api()
+        .put(`/api/repositories/${at}/teams/${created.id}`)
+        .set('cookie', owner.cookie)
+        .send({ role: 'write' })
+        .expect(204);
+      teams.push(created.id);
+    }
+    await requestReviewers({ teams: ['docs', 'platform'] }, owner, at).expect(
+      201,
+    );
+
+    const { body: review } = await api()
+      .post(pull('/reviews', at))
+      .set('cookie', collaborator.cookie)
+      .send({ state: 'approved' })
+      .expect(201);
+    expect(
+      (
+        await api()
+          .get(pull('/requested-reviewers', at))
+          .set('cookie', owner.cookie)
+          .expect(200)
+      ).body.teams.map((team: { slug: string }) => team.slug),
+    ).toEqual(['core']);
+    const onBehalf = await db
+      .select({ teamId: schema.pullRequestReviewOnBehalfOf.teamId })
+      .from(schema.pullRequestReviewOnBehalfOf)
+      .innerJoin(
+        schema.pullRequestReview,
+        eq(
+          schema.pullRequestReview.id,
+          schema.pullRequestReviewOnBehalfOf.reviewId,
+        ),
+      )
+      .where(eq(schema.pullRequestReview.id, review.id));
+    expect(onBehalf.map((row) => row.teamId).sort()).toEqual([...teams].sort());
   });
 
   it('refuses requests on a closed pull request', async () => {

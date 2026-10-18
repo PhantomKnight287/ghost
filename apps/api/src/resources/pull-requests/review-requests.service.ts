@@ -195,6 +195,38 @@ export class ReviewRequestsService {
     };
   }
 
+  /** The reviewer's own request and their teams' requests are answered by the review; teams are recorded on it as the ones it was submitted for. */
+  async clearForReview(
+    tx: Executor,
+    args: { pullRequestId: string; reviewerId: string; reviewId: string },
+  ): Promise<void> {
+    const cleared = await tx
+      .update(schema.pullRequestReviewRequest)
+      .set({ clearedAt: new Date(), clearedReason: 'reviewed' })
+      .where(
+        and(
+          eq(schema.pullRequestReviewRequest.pullRequestId, args.pullRequestId),
+          isNull(schema.pullRequestReviewRequest.clearedAt),
+          or(
+            eq(schema.pullRequestReviewRequest.reviewerUserId, args.reviewerId),
+            inArray(
+              schema.pullRequestReviewRequest.reviewerTeamId,
+              tx
+                .select({ id: schema.teamMember.teamId })
+                .from(schema.teamMember)
+                .where(eq(schema.teamMember.userId, args.reviewerId)),
+            ),
+          ),
+        ),
+      )
+      .returning({ teamId: schema.pullRequestReviewRequest.reviewerTeamId });
+    const teamIds = cleared.flatMap((row) => row.teamId ?? []);
+    if (teamIds.length === 0) return;
+    await tx
+      .insert(schema.pullRequestReviewOnBehalfOf)
+      .values(teamIds.map((teamId) => ({ reviewId: args.reviewId, teamId })));
+  }
+
   private async pending(pullRequestId: string): Promise<RequestedReviewers> {
     const pending = and(
       eq(schema.pullRequestReviewRequest.pullRequestId, pullRequestId),
