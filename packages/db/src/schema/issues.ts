@@ -32,6 +32,8 @@ export const issueEventType = pgEnum("issue_event_type", [
   // a commit a push added to a pull request's head, and a push that rewrote it
   "committed",
   "head_force_pushed",
+  "review_requested",
+  "review_request_removed",
 ]);
 
 export const issueReferenceSource = pgEnum("issue_reference_source", [
@@ -205,6 +207,9 @@ export const issueEvent = pgTable(
     beforeSha: text(),
     commitMessage: text(),
     commitAuthorName: text(),
+    // a `review_requested` or `review_request_removed` event names a user or a team, kept as written since either can be renamed or deleted later
+    requestedReviewerUsername: text(),
+    requestedTeamSlug: text(),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

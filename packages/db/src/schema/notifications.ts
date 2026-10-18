@@ -52,6 +52,7 @@ export const notificationReason = pgEnum("notification_reason", [
   "author",
   "subscribed",
   "watching",
+  "review_requested",
 ]);
 
 /** One row per user and thread; later activity on the thread bumps the same row back to unread. */
