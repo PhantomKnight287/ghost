@@ -132,7 +132,7 @@ export default async function PullRequestPage({
             author: pull.data.authorUsername,
           })}
           teams={requested.data?.teams ?? []}
-          canEdit={atLeast(role, "triage")}
+          canEdit={pull.data.state === "open" && atLeast(role, "triage")}
         />
       </aside>
     </div>
