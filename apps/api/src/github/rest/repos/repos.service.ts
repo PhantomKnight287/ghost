@@ -84,6 +84,24 @@ export class GithubReposService {
     };
   }
 
+  /** 404 when the ref has no CODEOWNERS file, as on GitHub. */
+  async codeownersErrors({
+    owner,
+    repo,
+    viewer,
+    ref,
+  }: GithubRepositoryTarget & { ref?: string }) {
+    await this.repositoryNodes.repository(owner, repo, viewer);
+    const { path, errors } = await this.repositories.getCodeowners({
+      username: owner,
+      repo,
+      ref,
+      requesterId: viewer?.userId,
+    });
+    if (!path) throw new GithubNotFoundError();
+    return { errors };
+  }
+
   /** For the viewer, or in `organization`; `route` names the REST route in a missing-scope error. */
   async create(
     viewer: GithubViewer | null,

@@ -25,6 +25,7 @@ import {
   RepositoryResolver,
 } from '../../graphql/resolvers/repository/repository.resolver.js';
 import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
+import { GithubCodeownersController } from './codeowners.controller.js';
 import { ReposController } from './repos.controller.js';
 import { GithubReposService } from './repos.service.js';
 
@@ -35,7 +36,7 @@ import { GithubReposService } from './repos.service.js';
     RepositoriesModule,
     PullRequestsModule,
   ],
-  controllers: [ReposController],
+  controllers: [ReposController, GithubCodeownersController],
   providers: [
     GithubReposService,
     RepositoryNodesService,

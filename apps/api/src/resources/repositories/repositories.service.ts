@@ -132,6 +132,11 @@ import type {
 import type { GetRepositoryBlobResponseDTO } from './dto/get-repository-blob.dto.js';
 import type { GetRepositoryReadmeResponseDTO } from './dto/get-repository-readme.dto.js';
 import type {
+  GetCodeownersOwnersResponseDTO,
+  GetCodeownersResponseDTO,
+} from './dto/codeowners.dto.js';
+import { CodeownersService } from '../../services/codeowners/codeowners.service.js';
+import type {
   GetRepositoryCommitResponseDTO,
   GetRepositoryCommitsQueryDTO,
   GetRepositoryCommitsResponseDTO,
@@ -207,6 +212,7 @@ export class RepositoriesService {
     private readonly signing: CommitSigningService,
     private readonly pushTransaction: PushTransactionService,
     private readonly statuses: CommitStatusesService,
+    private readonly codeowners: CodeownersService,
   ) {}
 
   /** A README, .gitignore or license asked for becomes the first commit on the default branch, as GitHub's `auto_init` and templates write it. */
@@ -1573,6 +1579,66 @@ export class RepositoriesService {
       content: file.content?.toString(text ? 'utf8' : 'base64') ?? null,
       lfs: pointer ? (object ? 'stored' : 'missing') : null,
       commit: lastCommit ?? commits.get(filePath) ?? null,
+    };
+  }
+
+  async getCodeowners({
+    username,
+    repo,
+    requesterId,
+    ref: requestedRef,
+  }: {
+    username: string;
+    repo: string;
+    requesterId?: string;
+    ref?: string;
+  }): Promise<GetCodeownersResponseDTO> {
+    const { repository, directory, ref } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: requestedRef,
+    });
+    const loaded = await this.codeowners.load(repository, directory, ref);
+    return { path: loaded?.path ?? null, errors: loaded?.errors ?? [] };
+  }
+
+  async getCodeownersOwners({
+    username,
+    repo,
+    paths,
+    requesterId,
+    ref: requestedRef,
+  }: {
+    username: string;
+    repo: string;
+    paths: string[];
+    requesterId?: string;
+    ref?: string;
+  }): Promise<GetCodeownersOwnersResponseDTO> {
+    const filePaths = paths.map(normalizeBlobPath);
+    const { repository, directory, ref } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: requestedRef,
+    });
+    const loaded = await this.codeowners.load(repository, directory, ref);
+    return {
+      owners: Object.fromEntries(
+        filePaths.map((filePath) => [
+          filePath,
+          loaded
+            ? this.codeowners
+                .ownersOf(loaded, filePath)
+                .map((owner) =>
+                  owner.kind === 'user'
+                    ? `@${owner.username}`
+                    : `@${owner.organization}/${owner.slug}`,
+                )
+            : [],
+        ]),
+      ),
     };
   }
 

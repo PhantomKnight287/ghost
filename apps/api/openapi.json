@@ -2106,6 +2106,151 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/codeowners": {
+      "get": {
+        "description": "The CODEOWNERS file in effect at a ref and every error in it: bad syntax, and owners that are unknown or lack write access.",
+        "operationId": "CodeownersController_getCodeowners",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch, tag or commit sha to read the CODEOWNERS file from. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCodeownersResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Check the CODEOWNERS file",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/codeowners/owners": {
+      "get": {
+        "description": "The owners of each file under the CODEOWNERS file in effect at a ref, leaving out owners that are unknown or lack write access.",
+        "operationId": "CodeownersController_getCodeownersOwners",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch, tag or commit sha to read the CODEOWNERS file from. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": true,
+            "in": "query",
+            "description": "Files to name the owners of, relative to the repository root. Repeat the parameter for each file.",
+            "schema": {
+              "example": [
+                "src/main.ts"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCodeownersOwnersResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A `path` is not a repository-relative file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Name the code owners of files",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
     "/api/storage/{owner}": {
       "get": {
         "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps against each of its quotas: pushed git data and merged pull requests' heads, Git LFS objects, release assets and the user's attachments, and forks, which hold everything but attachments under one quota.",
@@ -11033,6 +11178,46 @@
         ]
       }
     },
+    "/api/v3/repos/{owner}/{repo}/codeowners/errors": {
+      "get": {
+        "operationId": "GithubCodeownersController_errors",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Errors in the CODEOWNERS file at a ref, the default branch when none is given",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3/repos/{owner}/{repo}/issues/comments": {
       "get": {
         "operationId": "CommentsController_listForRepository",
@@ -16810,6 +16995,94 @@
         },
         "required": [
           "transfers"
+        ]
+      },
+      "CodeownersErrorDTO": {
+        "type": "object",
+        "properties": {
+          "line": {
+            "type": "number",
+            "example": 4
+          },
+          "column": {
+            "type": "number",
+            "example": 7
+          },
+          "kind": {
+            "type": "string",
+            "example": "Unknown owner"
+          },
+          "source": {
+            "type": "string",
+            "description": "The whole line as written.",
+            "example": "docs/ @alcie"
+          },
+          "suggestion": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Unknown owner on line 4: make sure @alcie exists and has write access to the repository"
+          },
+          "path": {
+            "type": "string",
+            "example": ".github/CODEOWNERS"
+          }
+        },
+        "required": [
+          "line",
+          "column",
+          "kind",
+          "source",
+          "suggestion",
+          "message",
+          "path"
+        ]
+      },
+      "GetCodeownersResponseDTO": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The CODEOWNERS file in effect, or null when the ref has none or it is over 3 MB.",
+            "nullable": true,
+            "example": ".github/CODEOWNERS"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeownersErrorDTO"
+            }
+          }
+        },
+        "required": [
+          "path",
+          "errors"
+        ]
+      },
+      "GetCodeownersOwnersResponseDTO": {
+        "type": "object",
+        "properties": {
+          "owners": {
+            "type": "object",
+            "description": "Owners with write access of each requested file, keyed by its normalized path. Users read `@login`, teams `@organization/team`.",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": {
+              "src/main.ts": [
+                "@alice",
+                "@acme/infra"
+              ]
+            }
+          }
+        },
+        "required": [
+          "owners"
         ]
       },
       "StorageLimitUsageDTO": {

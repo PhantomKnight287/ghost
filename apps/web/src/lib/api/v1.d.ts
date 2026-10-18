@@ -573,6 +573,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/codeowners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check the CODEOWNERS file
+         * @description The CODEOWNERS file in effect at a ref and every error in it: bad syntax, and owners that are unknown or lack write access.
+         */
+        get: operations["CodeownersController_getCodeowners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/codeowners/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Name the code owners of files
+         * @description The owners of each file under the CODEOWNERS file in effect at a ref, leaving out owners that are unknown or lack write access.
+         */
+        get: operations["CodeownersController_getCodeownersOwners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/storage/{owner}": {
         parameters: {
             query?: never;
@@ -2894,6 +2934,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/codeowners/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Errors in the CODEOWNERS file at a ref, the default branch when none is given */
+        get: operations["GithubCodeownersController_errors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/repos/{owner}/{repo}/issues/comments": {
         parameters: {
             query?: never;
@@ -4383,6 +4440,46 @@ export interface components {
         };
         ListIncomingTransfersResponseDTO: {
             transfers: components["schemas"]["IncomingTransferDTO"][];
+        };
+        CodeownersErrorDTO: {
+            /** @example 4 */
+            line: number;
+            /** @example 7 */
+            column: number;
+            /** @example Unknown owner */
+            kind: string;
+            /**
+             * @description The whole line as written.
+             * @example docs/ @alcie
+             */
+            source: string;
+            suggestion: string | null;
+            /** @example Unknown owner on line 4: make sure @alcie exists and has write access to the repository */
+            message: string;
+            /** @example .github/CODEOWNERS */
+            path: string;
+        };
+        GetCodeownersResponseDTO: {
+            /**
+             * @description The CODEOWNERS file in effect, or null when the ref has none or it is over 3 MB.
+             * @example .github/CODEOWNERS
+             */
+            path: string | null;
+            errors: components["schemas"]["CodeownersErrorDTO"][];
+        };
+        GetCodeownersOwnersResponseDTO: {
+            /**
+             * @description Owners with write access of each requested file, keyed by its normalized path. Users read `@login`, teams `@organization/team`.
+             * @example {
+             *       "src/main.ts": [
+             *         "@alice",
+             *         "@acme/infra"
+             *       ]
+             *     }
+             */
+            owners: {
+                [key: string]: string[];
+            };
         };
         StorageLimitUsageDTO: {
             /** @description Bytes counted against this limit. */
@@ -7201,6 +7298,83 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CodeownersController_getCodeowners: {
+        parameters: {
+            query?: {
+                /** @description Branch, tag or commit sha to read the CODEOWNERS file from. Omit for the default branch. */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetCodeownersResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CodeownersController_getCodeownersOwners: {
+        parameters: {
+            query: {
+                /** @description Branch, tag or commit sha to read the CODEOWNERS file from. Omit for the default branch. */
+                ref?: string;
+                /** @description Files to name the owners of, relative to the repository root. Repeat the parameter for each file. */
+                path: string[];
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetCodeownersOwnersResponseDTO"];
+                };
+            };
+            /** @description A `path` is not a repository-relative file. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
             };
             404: {
                 headers: {
@@ -12708,6 +12882,28 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubCodeownersController_errors: {
+        parameters: {
+            query: {
+                ref: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
