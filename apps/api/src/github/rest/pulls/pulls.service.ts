@@ -166,11 +166,29 @@ export class GithubPullsService {
     number: number,
   ) {
     const repository = await this.github.readable(owner, repo, viewer);
-    const pull = await this.detailed(repository, viewer, number);
-    return { users: pull.requested_reviewers, teams: pull.requested_teams };
+    const issue = await this.issue(repository, viewer, number);
+    const [pull] = await this.rest(repository, viewer, [issue]);
+    return { users: pull!.requested_reviewers, teams: pull!.requested_teams };
   }
 
-  async requestReviewers(
+  requestReviewers(
+    target: GithubRepositoryTarget,
+    number: number,
+    body: GithubRequestedReviewersDTO,
+  ) {
+    return this.changeReviewers('request', target, number, body);
+  }
+
+  removeReviewers(
+    target: GithubRepositoryTarget,
+    number: number,
+    body: GithubRequestedReviewersDTO,
+  ) {
+    return this.changeReviewers('remove', target, number, body);
+  }
+
+  private async changeReviewers(
+    operation: 'request' | 'remove',
     { owner, repo, viewer }: GithubRepositoryTarget,
     number: number,
     body: GithubRequestedReviewersDTO,
@@ -179,30 +197,9 @@ export class GithubPullsService {
       owner,
       repo,
       viewer,
-      'POST /repos/:owner/:repo/pulls/:number/requested_reviewers',
+      `${operation === 'request' ? 'POST' : 'DELETE'} /repos/:owner/:repo/pulls/:number/requested_reviewers`,
     );
-    await this.reviewRequests.request({
-      ...this.github.ref(repository, signedIn),
-      requesterId: signedIn.userId,
-      number,
-      users: body.reviewers ?? [],
-      teams: body.team_reviewers ?? [],
-    });
-    return this.detailed(repository, signedIn, number);
-  }
-
-  async removeReviewers(
-    { owner, repo, viewer }: GithubRepositoryTarget,
-    number: number,
-    body: GithubRequestedReviewersDTO,
-  ) {
-    const { repository, viewer: signedIn } = await this.github.writable(
-      owner,
-      repo,
-      viewer,
-      'DELETE /repos/:owner/:repo/pulls/:number/requested_reviewers',
-    );
-    await this.reviewRequests.remove({
+    await this.reviewRequests[operation]({
       ...this.github.ref(repository, signedIn),
       requesterId: signedIn.userId,
       number,

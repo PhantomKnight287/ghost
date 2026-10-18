@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +12,7 @@ import { type Database, schema } from '@ghost/db';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE } from '../src/database/database.module.js';
+import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 /** The pull request routes and fields gh's own suite (gh-cli.e2e-spec.ts) does not reach: REST pulls, reviews, reopening and merge refusals. */
@@ -385,6 +387,60 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
       reviewers: [`${username}r`],
     }).expect(422);
   });
+
+  it('requests a team of an organization repository by slug', async () => {
+    const org = `${username}o`;
+    const auth = app.get<AuthService<Auth>>(AuthService).api;
+    const headers = new Headers({ cookie: owner.cookie });
+    const { id: organizationId } = (await auth.createOrganization({
+      body: { name: 'Pulls Org', slug: org },
+      headers,
+    }))!;
+    await v3()
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'widget', organization: org, visibility: 'private' })
+      .expect(201);
+    const core = await auth.createTeam({
+      body: { name: 'Core', organizationId },
+      headers,
+    });
+    await v3()
+      .put(`/api/repositories/${org}/widget/teams/${core!.id}`)
+      .set('cookie', owner.cookie)
+      .send({ role: 'read' })
+      .expect(204);
+    await promisify(execFile)(
+      'git',
+      [
+        'push',
+        '-q',
+        pushUrl.replace(`/${username}/tools.git`, `/${org}/widget.git`),
+        'main',
+        'feature',
+      ],
+      { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+    );
+    const orgRepo = `/repos/${org}/widget`;
+    await send('post', `${orgRepo}/pulls`, {
+      title: 'Feature',
+      head: 'feature',
+      base: 'main',
+    }).expect(201);
+
+    const { body } = await send(
+      'post',
+      `${orgRepo}/pulls/1/requested_reviewers`,
+      { team_reviewers: ['core'] },
+    ).expect(201);
+    expect(body.requested_teams).toEqual([
+      expect.objectContaining({
+        slug: 'core',
+        name: 'Core',
+        node_id: expect.stringMatching(/^T_/),
+      }),
+    ]);
+  }, 60_000);
 
   it('closes and reopens over REST, and never reopens a merged one', async () => {
     await send('post', `${repo}/pulls`, {
