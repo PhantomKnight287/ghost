@@ -13,6 +13,7 @@ import {
 } from 'vitest';
 
 import { publishEvent } from '../../lib/events/events.js';
+import type { CodeownerRequestsService } from '../codeowners/codeowner-requests.service.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
 import type { MailService } from '../../mail/mail.service.js';
 import { IssuesService } from '../../resources/issues/issues.service.js';
@@ -28,6 +29,9 @@ const CONNECTION = process.env.TEST_DATABASE_URL;
 const noWebhooks = {
   handle: async () => {},
 } as unknown as WebhookFanoutService;
+const noCodeownerRequests = {
+  handle: async () => {},
+} as unknown as CodeownerRequestsService;
 const MIGRATIONS = path.resolve(
   import.meta.dirname,
   '../../../../../packages/db/drizzle',
@@ -105,7 +109,9 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     notifier = new NotifierService(db, access, {
       sendThreadEmail,
     } as unknown as MailService);
-    outbox = new OutboxService(db, notifier, noWebhooks, { pool });
+    outbox = new OutboxService(db, notifier, noWebhooks, noCodeownerRequests, {
+      pool,
+    });
     inbox = new NotificationsService(db, access, issues);
 
     await db.delete(schema.user).where(inArray(schema.user.id, USERS));
@@ -745,6 +751,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
         handle: () => Promise.reject(new Error('mail server on fire')),
       } as unknown as NotifierService,
       noWebhooks,
+      noCodeownerRequests,
       { pool },
     );
     const issue = await open(null);
@@ -781,6 +788,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
             : Promise.resolve(),
       } as unknown as NotifierService,
       noWebhooks,
+      noCodeownerRequests,
       { pool },
     );
 

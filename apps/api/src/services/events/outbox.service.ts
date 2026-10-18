@@ -14,6 +14,7 @@ import {
 } from '../../database/database.module.js';
 import { errorMessage } from '../../lib/error-message.js';
 import { OUTBOX_CHANNEL, type StoredEvent } from '../../lib/events/events.js';
+import { CodeownerRequestsService } from '../codeowners/codeowner-requests.service.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { WebhookFanoutService } from '../webhooks/webhook-fanout.service.js';
 
@@ -46,6 +47,7 @@ export class OutboxService
     @Inject(DATABASE) private readonly db: Database,
     private readonly notifier: NotifierService,
     private readonly webhooks: WebhookFanoutService,
+    private readonly codeownerRequests: CodeownerRequestsService,
     @Inject(DATABASE_CONNECTION)
     private readonly connection: { pool: Pool },
   ) {}
@@ -157,9 +159,10 @@ export class OutboxService
         try {
           // written by `publishEvent`, which checked the payload against its type
           const stored = event as unknown as StoredEvent;
-          // A retry runs both again; webhook jobs are keyed by event and endpoint, so none is queued twice.
+          // A retry runs them all again; webhook jobs are keyed by event and endpoint, so none is queued twice, and nobody is requested twice.
           await this.notifier.handle(stored);
           await this.webhooks.handle(stored);
+          await this.codeownerRequests.handle(stored);
           await tx
             .update(schema.outboxEvent)
             .set({ attempts, processedAt: new Date() })
