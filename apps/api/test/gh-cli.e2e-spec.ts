@@ -582,9 +582,25 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     });
 
     it('removes and adds a reviewer', async () => {
-      await ok(['pr', 'edit', number, '-R', repo(), '--remove-reviewer', reviewerName]);
+      await ok([
+        'pr',
+        'edit',
+        number,
+        '-R',
+        repo(),
+        '--remove-reviewer',
+        reviewerName,
+      ]);
       expect(await view('reviewRequests')).toEqual({ reviewRequests: [] });
-      await ok(['pr', 'edit', number, '-R', repo(), '--add-reviewer', reviewerName]);
+      await ok([
+        'pr',
+        'edit',
+        number,
+        '-R',
+        repo(),
+        '--add-reviewer',
+        reviewerName,
+      ]);
       expect(await view('reviewRequests')).toEqual({
         reviewRequests: [expect.objectContaining({ login: reviewerName })],
       });

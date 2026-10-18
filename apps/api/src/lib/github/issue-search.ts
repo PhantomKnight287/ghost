@@ -62,7 +62,8 @@ export function parseIssueSearch(query: string) {
         break;
       case 'team-review-requested': {
         const [organization, slug] = value.split('/');
-        if (organization && slug) result.reviewRequested = { organization, slug };
+        if (organization && slug)
+          result.reviewRequested = { organization, slug };
         break;
       }
       case 'label':
