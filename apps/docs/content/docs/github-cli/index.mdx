@@ -93,6 +93,7 @@ REST at `/api/v3`:
 - `GET /user`, `GET /users/:login`
 - `GET /user/keys`, `POST /user/keys`
 - `GET /repos/:owner/:repo`, `GET /repos/:owner/:repo/readme`
+- `GET /repos/:owner/:repo/codeowners/errors?ref=…`, the problems in the repository's CODEOWNERS file, 404 when it has none
 - `POST /user/repos`, `POST /orgs/:org/repos`. `auto_init` writes a README, and `gitignore_template` and `license_template` add a `.gitignore` and `LICENSE`, all in one `Initial commit` on the default branch. Template names match in any case, so `--gitignore go` and `--license MIT` work
 - `GET /gitignore/templates`, `GET /gitignore/templates/:name`, `GET /licenses`, `GET /licenses/:license`
 
@@ -109,7 +110,6 @@ Pull requests, under `/api/v3/repos/:owner/:repo`:
 
 - `GET`, `POST /pulls`; `GET`, `PATCH /pulls/:number`. `GET /pulls/:number` with `Accept: application/vnd.github.diff` answers the diff as text, and with `.patch` one mailbox-style patch per commit
 - `GET /pulls/:number/commits`, `GET /pulls/:number/files`
-- `GET /codeowners/errors?ref=…`, the problems in the repository's CODEOWNERS file, 404 when it has none
 - `GET`, `POST`, `DELETE /pulls/:number/requested_reviewers`, with `reviewers` and `team_reviewers`. An unknown or ineligible reviewer answers 422
 - `GET`, `PUT /pulls/:number/merge`. A merge Ghost refuses, such as one with conflicts, answers 405; a `sha` the head has moved on from answers 409
 
@@ -204,7 +204,7 @@ The tool sends users to `https://api.<domain>/login/oauth/authorize` and exchang
 - `gh pr edit --add-reviewer` and `--remove-reviewer` fail with 422 when a pending user reviewer has a display name set. On hosts other than github.com, `gh` 2.102 reads the pending reviewers as `login (Name)` and sends that back as a login. GitHub Enterprise Server fails the same way. Clear the display name or request through the web or `gh api`.
 - `gh pr create --reviewer org/team` fails: `gh` looks the team up through GraphQL `organization.teams`, which Ghost does not serve yet. Request the team on the pull request page or with `gh api`.
 - Requesting a review needs the triage role, a person must have an explicit role on the repository to be requested, and one call takes at most 15 reviewers.
-- A review a code owner is required to give is not enforced: the "require review from code owners" rule waits for branch protection.
+- A review a code owner is required to give is not enforced: the "require review from code owners" rule waits for branch protection rulesets.
 
 ## Not yet supported
 

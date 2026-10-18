@@ -28,7 +28,7 @@ API routes, DB schema, web pages and auth plugins.
 - [x] Compare branches, create, view commits/files/patch
 - [x] Merge: merge commit, squash, rebase
 - [x] Closing issues from pull requests
-- [x] Review requests for users and teams, and CODEOWNERS (`.ghost/CODEOWNERS` first). The "require review from code owners" rule waits for rulesets (#17)
+- [x] Review requests for users and teams, and CODEOWNERS (`.ghost/CODEOWNERS` first). The "require review from code owners" rule waits for branch protection rulesets (#62)
 
 ### Users and accounts
 - [x] Profile, contribution graph, avatar

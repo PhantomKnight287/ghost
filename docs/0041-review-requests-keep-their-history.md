@@ -21,4 +21,4 @@ Reading ownership from the head would let a pull request edit CODEOWNERS to remo
 - The review-request table grows with every re-request. Rows go with the pull request.
 - An owner added to CODEOWNERS after a pull request opened is requested on the next push that touches their files, not before.
 - A pull request that changes CODEOWNERS does not change who is requested for it until it merges.
-- The "require review from code owners" rule will check CODEOWNERS on the base branch at merge time. It waits for rulesets (#17).
+- The "require review from code owners" rule will check CODEOWNERS on the base branch at merge time. It waits for branch protection rulesets (#62).
