@@ -8,7 +8,7 @@ import { administers } from "@ghost/permissions";
 import { unwrap } from "@/lib/api/client";
 import { INTERNAL_API_URL } from "@/lib/env";
 import { splitRevision } from "@/lib/revision";
-import { chunk } from "@/lib/utils";
+import { codeownersBatches } from "@/lib/codeowners";
 
 import type { paths } from "@/lib/api/v1";
 
@@ -153,9 +153,6 @@ export async function resolveRevisionPath(
   );
 }
 
-// The API caps `path` at 500 per request, below the 1,000 query keys Express keeps.
-const CODEOWNERS_PATHS_PER_REQUEST = 500;
-
 /** Code owners of each path under the CODEOWNERS file in effect at `ref`. A path the API could not answer for reads as ownerless, so a page never fails over ownership. */
 export async function getCodeOwners(
   username: string,
@@ -165,7 +162,7 @@ export async function getCodeOwners(
 ): Promise<Record<string, string[]>> {
   const client = await createServerClient();
   const answers = await Promise.all(
-    chunk(paths, CODEOWNERS_PATHS_PER_REQUEST).map((path) =>
+    codeownersBatches(paths).map((path) =>
       client.GET("/api/repositories/{username}/{slug}/codeowners/owners", {
         params: { path: { username, slug }, query: { ref, path } },
       }),
