@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import type { components } from "@/lib/api/v1";
+import type { IssueTimelineItem } from "@/types/issue";
+
 export const pullRequestStates = ["open", "closed", "merged"] as const;
 export const pullRequestFilters = [...pullRequestStates, "all"] as const;
 
@@ -52,3 +55,44 @@ export const createPullRequestSchema = z.object({
 });
 
 export type CreatePullRequestInput = z.infer<typeof createPullRequestSchema>;
+
+export type ReviewerRow = {
+  username: string;
+  image: string | null;
+  state: "pending" | components["schemas"]["PullRequestReviewState"];
+  asCodeOwner: boolean;
+};
+
+/** One row per person requested or who reviewed, as GitHub's sidebar lists them: a pending request wins over a past review, a standing verdict over a comment-only review. */
+export function reviewerRows({
+  requested,
+  verdicts,
+  timeline,
+  author,
+}: {
+  requested: components["schemas"]["RequestedUserDTO"][];
+  verdicts: components["schemas"]["ReviewerDTO"][];
+  timeline: IssueTimelineItem[];
+  author: string;
+}): ReviewerRow[] {
+  const rows = new Map<string, ReviewerRow>();
+  for (const item of timeline) {
+    if (item.kind === "review" && item.state && item.authorUsername !== author)
+      rows.set(item.authorUsername, {
+        username: item.authorUsername,
+        image: item.authorImage,
+        state: "commented",
+        asCodeOwner: false,
+      });
+  }
+  for (const verdict of verdicts)
+    rows.set(verdict.username, { ...verdict, asCodeOwner: false });
+  for (const user of requested)
+    rows.set(user.username, {
+      username: user.username,
+      image: user.image,
+      state: "pending",
+      asCodeOwner: user.asCodeOwner,
+    });
+  return [...rows.values()];
+}

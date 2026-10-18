@@ -12,7 +12,10 @@ import {
 } from "@/lib/api/server";
 import { atLeast } from "@ghost/permissions";
 
+import { reviewerRows } from "@/components/pull-requests/common";
+
 import { MergePanel } from "./merge-panel";
+import { ReviewerEditor } from "./reviewer-editor";
 
 export default async function PullRequestPage({
   params,
@@ -26,13 +29,17 @@ export default async function PullRequestPage({
   ]);
 
   const path = { username, repo, number: Number(number) };
-  const [pull, timeline] = await Promise.all([
+  const [pull, timeline, requested] = await Promise.all([
     client.GET("/api/repositories/{username}/{repo}/pulls/{number}", {
       params: { path },
     }),
     client.GET("/api/repositories/{username}/{repo}/issues/{number}/timeline", {
       params: { path },
     }),
+    client.GET(
+      "/api/repositories/{username}/{repo}/pulls/{number}/requested-reviewers",
+      { params: { path } },
+    ),
   ]);
 
   notFoundIfHidden(pull.response);
@@ -43,71 +50,92 @@ export default async function PullRequestPage({
   const canEdit = pull.data.viewerCanEdit;
 
   return (
-    <div className="flex flex-col gap-4">
-      <EditableField
-        username={username}
-        repo={repo}
-        number={Number(number)}
-        noun="pull request"
-        field="body"
-        value={pull.data.body ?? ""}
-        canEdit={canEdit}
-        header={
-          <>
-            <UserLink
-              username={pull.data.authorUsername}
-              image={pull.data.authorImage}
-              avatar="sm"
-            />
-            commented
-          </>
-        }
-      >
-        {pull.data.body ? (
-          <Markdown repository={{ username, repo }}>{pull.data.body}</Markdown>
-        ) : (
-          <p className="text-muted-foreground">No description provided.</p>
-        )}
-      </EditableField>
-
-      <DiffsProvider>
-        <Timeline
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="flex min-w-0 flex-col gap-4">
+        <EditableField
           username={username}
           repo={repo}
           number={Number(number)}
-          viewer={viewer}
-          canModerate={atLeast(role, "write")}
-          items={timeline.data?.timeline ?? []}
           noun="pull request"
-          headSha={pull.data.headSha}
+          field="body"
+          value={pull.data.body ?? ""}
+          canEdit={canEdit}
+          header={
+            <>
+              <UserLink
+                username={pull.data.authorUsername}
+                image={pull.data.authorImage}
+                avatar="sm"
+              />
+              commented
+            </>
+          }
+        >
+          {pull.data.body ? (
+            <Markdown repository={{ username, repo }}>
+              {pull.data.body}
+            </Markdown>
+          ) : (
+            <p className="text-muted-foreground">No description provided.</p>
+          )}
+        </EditableField>
+
+        <DiffsProvider>
+          <Timeline
+            username={username}
+            repo={repo}
+            number={Number(number)}
+            viewer={viewer}
+            canModerate={atLeast(role, "write")}
+            items={timeline.data?.timeline ?? []}
+            noun="pull request"
+            headSha={pull.data.headSha}
+          />
+        </DiffsProvider>
+
+        <MergePanel
+          username={username}
+          repo={repo}
+          number={Number(number)}
+          state={pull.data.state}
+          mergeable={pull.data.mergeable}
+          conflicts={pull.data.conflicts}
+          canMerge={atLeast(role, "write")}
+          isAuthor={viewer === pull.data.authorUsername}
+          mergeCommitSha={pull.data.mergeCommitSha}
+          squash={pull.data.squash}
+          draft={pull.data.draft}
+          reviewers={pull.data.reviewers}
+          pullRefsBlocked={pull.data.pullRefsBlocked}
+          checks={pull.data.checks}
+          baseRef={pull.data.base.ref}
+          headRef={pull.data.head.ref}
         />
-      </DiffsProvider>
 
-      <MergePanel
-        username={username}
-        repo={repo}
-        number={Number(number)}
-        state={pull.data.state}
-        mergeable={pull.data.mergeable}
-        conflicts={pull.data.conflicts}
-        canMerge={atLeast(role, "write")}
-        isAuthor={viewer === pull.data.authorUsername}
-        mergeCommitSha={pull.data.mergeCommitSha}
-        squash={pull.data.squash}
-        draft={pull.data.draft}
-        reviewers={pull.data.reviewers}
-        pullRefsBlocked={pull.data.pullRefsBlocked}
-        checks={pull.data.checks}
-        baseRef={pull.data.base.ref}
-        headRef={pull.data.head.ref}
-      />
+        <CommentBox
+          username={username}
+          repo={repo}
+          number={Number(number)}
+          signedIn={Boolean(viewer)}
+        />
+      </div>
 
-      <CommentBox
-        username={username}
-        repo={repo}
-        number={Number(number)}
-        signedIn={Boolean(viewer)}
-      />
+      <aside className="flex flex-col gap-4">
+        <ReviewerEditor
+          username={username}
+          repo={repo}
+          number={Number(number)}
+          author={pull.data.authorUsername}
+          rows={reviewerRows({
+            requested: requested.data?.users ?? [],
+            verdicts: pull.data.reviewers,
+            timeline: timeline.data?.timeline ?? [],
+            author: pull.data.authorUsername,
+          })}
+          teams={requested.data?.teams ?? []}
+          canEdit={atLeast(role, "triage")}
+        />
+      </aside>
     </div>
   );
 }
