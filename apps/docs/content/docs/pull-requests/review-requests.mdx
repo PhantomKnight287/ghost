@@ -1,0 +1,71 @@
+---
+title: Review requests and CODEOWNERS
+description: Ask people and teams to review a pull request, and let a CODEOWNERS file do it for you.
+---
+
+## Request a review
+
+Open a pull request and use **Reviewers** in the sidebar. Choose people and teams, up to 15 at a time. Each reviewer shows whether the request is pending, or the review they gave: approved, changes requested or commented. Once someone has reviewed, the refresh button beside them asks again.
+
+- You need the triage role or higher on the repository. A pull request's author without it cannot request reviews, forks included.
+- You can request people who have an explicit role on the repository: the owner, collaborators, members of teams on it, and organization members through the base permission. Public visibility alone is not enough. The author cannot be requested.
+- On an organization repository you can also request a team that has been added to the repository.
+- Closed and merged pull requests take no requests. Drafts do.
+
+A request clears when the person submits a review of any kind. A review that is still pending does not clear it. When a member of a requested team reviews, the team's request clears and the review is marked as given on behalf of the team.
+
+Requested reviewers get a notification and an email. Find your requests with `review-requested:@me` in the pull request list, or under **Review requests** on your dashboard.
+
+## CODEOWNERS
+
+A CODEOWNERS file assigns owners to paths. Owners of the files a pull request changes are requested automatically, and show with a shield icon on the files they own.
+
+Ghost reads the first of these that exists, and ignores the others:
+
+1. `.ghost/CODEOWNERS`
+2. `.github/CODEOWNERS`
+3. `CODEOWNERS`
+4. `docs/CODEOWNERS`
+
+For a pull request it reads the file on the base branch, so a pull request cannot change its own owners. A file over 3 MB is ignored. Open an ignored CODEOWNERS file and Ghost tells you which file takes precedence.
+
+### Syntax
+
+The syntax is GitHub's:
+
+```text
+# Everything is owned by the platform team
+*               @acme/platform
+
+# Last matching line wins
+/docs/          @alice
+*.sql           @bob alice@example.com
+
+# A line with no owners leaves the path unowned
+/docs/internal/
+```
+
+- Each line is a pattern, then owners separated by spaces. `#` starts a comment.
+- Patterns follow gitignore rules, except that `!` negation and `[ ]` ranges are not supported. A line using them is an error. A leading `\#` is not an escape either, and is an error.
+- Owners are `@user`, `@org/team` or an email address of a verified email.
+- An owner needs write access to the repository. A team must belong to the repository's organization and have write access.
+
+### Automatic requests
+
+Owners are requested, marked as code owners, when:
+
+- a pull request is opened, unless it is a draft;
+- a draft is marked ready for review;
+- a push to an open pull request changes files whose owners have never been requested on it.
+
+Someone who already reviewed is not asked again, and a code owner request you removed does not come back. The author is never requested. The requests are attributed to the pull request's author. You can remove a code owner request by hand.
+
+### Errors
+
+A line that can never request anyone is an error. Open the file in the repository: a banner above it counts the errors, and each bad line is marked, with the reason on hover. For example `Unknown owner on line 4: make sure @alcie exists and has write access to the repository`.
+
+The same list is served as `GET /api/v3/repos/:owner/:repo/codeowners/errors?ref=<ref>`, with `ref` defaulting to the default branch. It answers 404 when the repository has no CODEOWNERS file.
+
+### Required code owner review
+
+The "require review from code owners" rule is not available yet. It comes with branch protection.

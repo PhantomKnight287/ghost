@@ -54,7 +54,7 @@ New table `pull_request_review_request` in `packages/db/src/schema/pull-requests
 - `id`, prefixed like other tables.
 - `pull_request_id` (or the issue id, following what `pullRequestReview` keys on), cascade on delete.
 - `reviewer_user_id` nullable, `reviewer_team_id` nullable; exactly one set (check constraint). Cascade on delete.
-- `requested_by_id`: the actor, set null on delete. For CODEOWNERS requests, the actor whose action triggered them (who opened the PR, marked it ready, or pushed).
+- `requested_by_id`: the actor, set null on delete. For CODEOWNERS requests, the pull request's author, as on GitHub.
 - `as_code_owner` boolean, default false.
 - `created_at`.
 
@@ -92,6 +92,7 @@ Ghost's own API, beside the existing pull request routes:
 - `GET /repositories/:owner/:repo/pulls/:number/requested-reviewers`
 - `POST` same path with `{ users: string[], teams: string[] }` (usernames, team slugs)
 - `DELETE` same path with the same body
+- `GET /repositories/:owner/:repo/pulls/:number/requestable-reviewers?q=` lists the users and teams the picker offers, filtered by `q`
 
 Copy the shape of the issue assignees routes (`issues.controller.ts` `PUT :number/assignees`) for naming and validation.
 
@@ -133,7 +134,7 @@ For a pull request, the ref is the **base branch**, so a pull request cannot gra
 
 Exactly GitHub's:
 
-- One rule per line: a pattern, then zero or more owners, whitespace separated. `#` starts a comment; `\#` is a literal `#`. Blank lines ignored.
+- One rule per line: a pattern, then zero or more owners, whitespace separated. `#` starts a comment. GitHub does not support escaping a leading `#`, so a line that starts with `\#` is an `Invalid pattern` error. Blank lines ignored.
 - Patterns follow gitignore rules, except: no `!` negation, no `[ ]` character ranges. Those lines are errors.
 - The **last** matching line wins. A matching line with no owners means the path has no owners.
 - Owners: `@user`, `@org/team`, or an email address. An email resolves to the user with that verified email.
@@ -163,7 +164,7 @@ Owners of the pull request's changed files are requested, with `as_code_owner = 
 
 Never request the pull request's author, an owner who is already pending, or an owner who fails the write-access check. A team owner is requested as the team. "Changed files" means the pull request's diff against its merge base, the same set the files tab shows.
 
-These run off the existing outbox events (`issue.opened` for pull requests, `pull_request.ready_for_review`, `pull_request.synchronized`) or inline in the same code paths; builder's call. Either way, a failure to read or parse CODEOWNERS must never fail the pull request operation itself. The requests then follow Part 1: timeline, notifications, webhooks, all as if the actor had requested them.
+These run off the existing outbox events (`issue.opened` for pull requests, `pull_request.ready_for_review`, `pull_request.synchronized`) or inline in the same code paths; builder's call. Either way, a failure to read or parse CODEOWNERS must never fail the pull request operation itself. The requests then follow Part 1: timeline, notifications, webhooks, all as if the pull request's author had requested them.
 
 A manual request for someone who is also a code owner is not a code-owner request. Removing a code-owner request is allowed, as on GitHub.
 

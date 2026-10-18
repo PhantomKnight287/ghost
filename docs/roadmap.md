@@ -28,6 +28,7 @@ API routes, DB schema, web pages and auth plugins.
 - [x] Compare branches, create, view commits/files/patch
 - [x] Merge: merge commit, squash, rebase
 - [x] Closing issues from pull requests
+- [x] Review requests for users and teams, and CODEOWNERS (`.ghost/CODEOWNERS` first). The "require review from code owners" rule waits for rulesets (#17)
 
 ### Users and accounts
 - [x] Profile, contribution graph, avatar
@@ -121,7 +122,7 @@ API routes, DB schema, web pages and auth plugins.
       SAML, verified domains.
 
 ### Branches, later
-- [ ] **Branch protection.** Deferred from #7: required reviews (needs #5),
+- [ ] **Branch protection.** Deferred from #7: required reviews (needs #5) and the code owner review rule (CODEOWNERS is done),
       required status checks (needs #10), no force push, no deletion.
 
 ### Tier 3: nice to have
@@ -140,7 +141,7 @@ API routes, DB schema, web pages and auth plugins.
 Every open issue, in the order to take it. The tiers above say what is missing; this says what comes next. Items in the same step can run side by side.
 
 ### 1. GitHub compatibility (#57)
-Tools built for GitHub working against Ghost unchanged. Milestones 1 (auth, repositories, issues over GraphQL), 2 (REST v3 for issues, comments and labels, #112), 3 (pull requests, #114) and 4 (releases, #115) are done, as are REST review comments and reviews (Ghost [#68](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/68)), commit statuses with `gh pr checks` (#61), and token uploads on GitHub's user-attachments route (Ghost [#82](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/82)).
+Tools built for GitHub working against Ghost unchanged. Milestones 1 (auth, repositories, issues over GraphQL), 2 (REST v3 for issues, comments and labels, #112), 3 (pull requests, #114) and 4 (releases, #115) are done, as are REST review comments and reviews (Ghost [#68](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/68)), commit statuses with `gh pr checks` (#61), and token uploads on GitHub's user-attachments route (Ghost [#82](https://web.ghost.procrastinator.fyi/ghost/ghost/issues/82)). Review requests and CODEOWNERS are served too; two `gh` gaps remain: `gh pr edit --add-reviewer/--remove-reviewer` fails with 422 on hosts other than github.com while a pending user reviewer has a display name set (`gh` sends `login (Name)` back as a login), and `gh pr create --reviewer org/team` needs GraphQL `organization.teams`, which Ghost does not have yet.
 
 1. #109 Ghost Apps, then #106 OpenID Connect, then #107 dynamic client registration.
 
