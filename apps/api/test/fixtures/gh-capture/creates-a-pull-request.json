@@ -1,6 +1,6 @@
 [
   {
-    "command": "gh pr create -R <host>/<login>/tools --head feature --base main --title Add a feature --body Body from gh",
+    "command": "gh pr create -R <host>/<login>/tools --head feature --base main --title Add a feature --body Body from gh --reviewer <login>r",
     "requests": [
       {
         "method": "GET",
@@ -51,6 +51,30 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": {
+          "query": "\n\t\tmutation PullRequestCreateRequestReviews($input: RequestReviewsInput!) {\n\t\t\trequestReviews(input: $input) { clientMutationId }\n\t\t}",
+          "variables": {
+            "input": {
+              "pullRequestId": "PR_<id>",
+              "union": true,
+              "userIds": [
+                "U_<id>"
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
           "query": "\n\tfragment repo on Repository {\n\t\tid\n\t\tdatabaseId\n\t\tname\n\t\towner { login }\n\t\tsshUrl\n\t\thasIssuesEnabled\n\t\tdescription\n\t\thasWikiEnabled\n\t\tviewerPermission\n\t\tdefaultBranchRef {\n\t\t\tname\n\t\t}\n\t}\n\n\tquery RepositoryInfo($owner: String!, $name: String!) {\n\t\trepository(owner: $owner, name: $name) {\n\t\t\t...repo\n\t\t\tparent {\n\t\t\t\t...repo\n\t\t\t}\n\t\t\tmergeCommitAllowed\n\t\t\trebaseMergeAllowed\n\t\t\tsquashMergeAllowed\n\t\t}\n\t}",
           "variables": {
             "name": "tools",
@@ -75,7 +99,9 @@
             "headRefName": "feature",
             "owner": "<login>",
             "repo": "tools",
-            "states": ["OPEN"]
+            "states": [
+              "OPEN"
+            ]
           }
         },
         "status": 200
@@ -92,6 +118,66 @@
         },
         "body": {
           "query": "query Issue_fields{Issue: __type(name: \"Issue\"){fields(includeDeprecated: true){name}}}"
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query RepositoryAssignableUsers($endCursor:String$name:String!$owner:String!){repository(owner: $owner, name: $name){assignableUsers(first: 100, after: $endCursor){nodes{id,login,name},pageInfo{hasNextPage,endCursor}}}}",
+          "variables": {
+            "endCursor": null,
+            "name": "tools",
+            "owner": "<login>"
+          }
+        },
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "query UserCurrent{viewer{login}}"
+        },
+        "status": 200
+      }
+    ]
+  },
+  {
+    "command": "gh pr view 4 -R <host>/<login>/tools --json reviewRequests",
+    "requests": [
+      {
+        "method": "POST",
+        "path": "/api/graphql",
+        "query": {},
+        "headers": {
+          "accept": "application/json",
+          "content-type": "application/json; charset=utf-8",
+          "graphql-features": "merge_queue",
+          "x-github-api-version": "2022-11-28"
+        },
+        "body": {
+          "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {reviewRequests(first: 100) {nodes {requestedReviewer {__typename,...on User{login,name},...on Bot{login},...on Team{organization{login}name,slug}}}},id,number}\n\t\t}\n\t}",
+          "variables": {
+            "owner": "<login>",
+            "pr_number": 4,
+            "repo": "tools"
+          }
         },
         "status": 200
       }

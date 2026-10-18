@@ -15,6 +15,7 @@ import {
 import {
   issueRefOf,
   labelNamesOf,
+  teamSlugsOf,
   usernamesOf,
 } from '../../../../lib/github/node-lookup.js';
 import { toIssueCommentNode } from '../../../../lib/github/nodes.js';
@@ -393,6 +394,15 @@ export class IssueMutationsService {
   async usernames(nodeIds: string[]) {
     const ids = nodeIds.map((nodeId) => decodeNodeIdAs(nodeId, 'User'));
     return this.resolveAll(nodeIds, ids, await usernamesOf(this.db, ids));
+  }
+
+  async teamSlugs(repository: RepositoryNode, nodeIds: string[]) {
+    const ids = nodeIds.map((nodeId) => decodeNodeIdAs(nodeId, 'Team'));
+    return this.resolveAll(
+      nodeIds,
+      ids,
+      await teamSlugsOf(this.db, repository.ghostId, ids),
+    );
   }
 
   /** The value for each id in order; the first id with none fails as GitHub fails an unresolvable node. */

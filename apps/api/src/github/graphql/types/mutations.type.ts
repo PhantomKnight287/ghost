@@ -435,6 +435,22 @@ export class MergePullRequestInput extends PullRequestIdInput {
   authorEmail?: string | null;
 }
 
+@InputType('RequestReviewsInput')
+export class RequestReviewsInput extends PullRequestIdInput {
+  @Allow()
+  @Field(() => [ID], { nullable: true })
+  userIds?: string[] | null;
+
+  @Allow()
+  @Field(() => [ID], { nullable: true })
+  teamIds?: string[] | null;
+
+  /** Adds to the pending requests when true; otherwise the pending requests become exactly these. */
+  @Allow()
+  @Field(() => Boolean, { nullable: true, defaultValue: false })
+  union?: boolean | null;
+}
+
 @ObjectType({ isAbstract: true })
 abstract class PullRequestPayload {
   @Field(() => String, { nullable: true })
@@ -464,3 +480,6 @@ export class MarkPullRequestReadyForReviewPayload extends PullRequestPayload {}
 
 @ObjectType('ConvertPullRequestToDraftPayload')
 export class ConvertPullRequestToDraftPayload extends PullRequestPayload {}
+
+@ObjectType('RequestReviewsPayload')
+export class RequestReviewsPayload extends PullRequestPayload {}

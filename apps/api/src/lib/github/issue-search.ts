@@ -10,7 +10,11 @@ export function parseIssueSearch(query: string) {
     merged: null as boolean | null,
     author: undefined as string | undefined,
     assignee: undefined as string | undefined,
-    reviewRequested: undefined as string | undefined,
+    /** `direct` false also matches requests to the user's teams, as `review-requested:` does. */
+    reviewRequested: undefined as
+      | { login: string; direct: boolean }
+      | { organization: string; slug: string }
+      | undefined,
     labels: [] as string[],
     text: '',
   };
@@ -50,8 +54,17 @@ export function parseIssueSearch(query: string) {
         result.assignee = value;
         break;
       case 'review-requested':
-        result.reviewRequested = value;
+      case 'user-review-requested':
+        result.reviewRequested = {
+          login: value,
+          direct: key === 'user-review-requested',
+        };
         break;
+      case 'team-review-requested': {
+        const [organization, slug] = value.split('/');
+        if (organization && slug) result.reviewRequested = { organization, slug };
+        break;
+      }
       case 'label':
         result.labels.push(value);
         break;

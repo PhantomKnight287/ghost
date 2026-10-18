@@ -11,6 +11,7 @@ import {
   gte,
   inArray,
   isNotNull,
+  isNull,
   not,
   or,
   sql,
@@ -65,6 +66,8 @@ export type IssueListOptions = {
   };
   since?: Date;
   assigned?: boolean;
+  /** Pull requests with a pending review request; `direct` false also matches requests to the user's teams. */
+  reviewRequested?: { userId: string; direct: boolean } | { teamId: string };
 };
 
 const NO_ISSUES = {
@@ -395,6 +398,42 @@ export class IssuesService {
             ),
           )
       : undefined;
+    const wanted = options.reviewRequested;
+    const reviewRequest = wanted
+      ? this.db
+          .select({ id: schema.pullRequestReviewRequest.id })
+          .from(schema.pullRequestReviewRequest)
+          .innerJoin(
+            schema.pullRequest,
+            eq(
+              schema.pullRequest.id,
+              schema.pullRequestReviewRequest.pullRequestId,
+            ),
+          )
+          .where(
+            and(
+              eq(schema.pullRequest.issueId, schema.issue.id),
+              isNull(schema.pullRequestReviewRequest.clearedAt),
+              'teamId' in wanted
+                ? eq(schema.pullRequestReviewRequest.reviewerTeamId, wanted.teamId)
+                : or(
+                    eq(
+                      schema.pullRequestReviewRequest.reviewerUserId,
+                      wanted.userId,
+                    ),
+                    wanted.direct
+                      ? undefined
+                      : inArray(
+                          schema.pullRequestReviewRequest.reviewerTeamId,
+                          this.db
+                            .select({ id: schema.teamMember.teamId })
+                            .from(schema.teamMember)
+                            .where(eq(schema.teamMember.userId, wanted.userId)),
+                        ),
+                  ),
+            ),
+          )
+      : undefined;
     const baseClause = (forState: 'open' | 'closed' | 'all') =>
       and(
         eq(schema.issue.repositoryId, repository.id),
@@ -411,6 +450,7 @@ export class IssuesService {
             ? exists(assignment)
             : not(exists(assignment)),
         authorId ? eq(schema.issue.authorId, authorId) : undefined,
+        reviewRequest ? exists(reviewRequest) : undefined,
         labelIssueIds ? inArray(schema.issue.id, labelIssueIds) : undefined,
         assigneeFilterIds
           ? inArray(schema.issue.id, assigneeFilterIds)

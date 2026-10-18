@@ -43,8 +43,22 @@ describe('parseIssueSearch', () => {
       isPullRequest: true,
       merged: true,
       author: '@me',
-      reviewRequested: '@me',
+      reviewRequested: { login: '@me', direct: false },
     });
+  });
+
+  it('reads a review request for a user alone, or for a team by organization and slug', () => {
+    expect(
+      parseIssueSearch('repo:ada/tools user-review-requested:bob'),
+    ).toMatchObject({ reviewRequested: { login: 'bob', direct: true } });
+    expect(
+      parseIssueSearch('repo:ada/tools team-review-requested:acme/infra'),
+    ).toMatchObject({
+      reviewRequested: { organization: 'acme', slug: 'infra' },
+    });
+    expect(
+      parseIssueSearch('repo:ada/tools team-review-requested:infra'),
+    ).toMatchObject({ reviewRequested: undefined });
   });
 
   it('defaults to every state and both kinds', () => {

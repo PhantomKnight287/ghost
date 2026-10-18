@@ -10,6 +10,7 @@ const PREFIXES = {
   PullRequestReview: 'PRR',
   PullRequestReviewComment: 'PRRC',
   PullRequestCommit: 'PURC',
+  ReviewRequest: 'RR',
   Commit: 'C',
   IssueComment: 'IC',
   Label: 'LA',

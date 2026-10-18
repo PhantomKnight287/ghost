@@ -4,6 +4,7 @@ import { UnprocessableError } from '../../../../lib/github/github.errors.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
 import { PullRequestsService } from '../../../../resources/pull-requests/pull-requests.service.js';
+import { ReviewRequestsService } from '../../../../resources/pull-requests/review-requests.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { requireWriteScope } from '../../../auth/require-scopes.js';
 import { PullRequestState, PullRequestUpdateState } from '../../enums.js';
@@ -20,6 +21,7 @@ import {
 export class PullRequestMutationsService {
   constructor(
     private readonly pulls: PullRequestsService,
+    private readonly reviewRequests: ReviewRequestsService,
     private readonly issues: IssuesService,
     private readonly mutations: IssueMutationsService,
     private readonly issueNodes: IssueNodesService,
@@ -204,13 +206,48 @@ export class PullRequestMutationsService {
     );
   }
 
+  requestReviews(
+    input: M.RequestReviewsInput,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+  ) {
+    return this.change(
+      'RequestReviews',
+      input,
+      viewer,
+      loaders,
+      async (ref, repository) => {
+        const users = await this.mutations.usernames(input.userIds ?? []);
+        const teams = await this.mutations.teamSlugs(
+          repository,
+          input.teamIds ?? [],
+        );
+        const pending = await this.reviewRequests.request({
+          ...ref,
+          users,
+          teams,
+        });
+        if (input.union) return;
+        await this.reviewRequests.remove({
+          ...ref,
+          users: pending.users
+            .map((user) => user.username)
+            .filter((username) => !users.includes(username)),
+          teams: pending.teams
+            .map((team) => team.slug)
+            .filter((slug) => !teams.includes(slug)),
+        });
+      },
+    );
+  }
+
   /** A mutation that names one pull request, runs `run` on it, and answers with it as it then stands. */
   private async change(
     mutation: string,
     input: { pullRequestId: string; clientMutationId?: string | null },
     viewer: GithubViewer | null,
     loaders: Loaders,
-    run: (ref: IssueRef) => Promise<unknown>,
+    run: (ref: IssueRef, repository: RepositoryNode) => Promise<unknown>,
   ) {
     const signedIn = this.mutations.require(viewer, mutation);
     const { repository, ref } = await this.mutations.issueRef(
@@ -221,7 +258,7 @@ export class PullRequestMutationsService {
     const field = mutation[0]!.toLowerCase() + mutation.slice(1);
     requireWriteScope(signedIn, field, repository);
     await this.mutations.write(mutation, signedIn.userId, loaders, () =>
-      run(ref),
+      run(ref, repository),
     );
     return {
       clientMutationId: input.clientMutationId,

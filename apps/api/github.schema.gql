@@ -470,6 +470,7 @@ type Mutation {
   removeLabelsFromLabelable(input: RemoveLabelsFromLabelableInput!): RemoveLabelsFromLabelablePayload
   reopenIssue(input: ReopenIssueInput!): ReopenIssuePayload
   reopenPullRequest(input: ReopenPullRequestInput!): ReopenPullRequestPayload
+  requestReviews(input: RequestReviewsInput!): RequestReviewsPayload
   updateIssue(input: UpdateIssueInput!): UpdateIssuePayload
   updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
 }
@@ -585,7 +586,7 @@ type PullRequest implements Assignable & Labelable & Node & UniformResourceLocat
   repository: Repository!
   resourcePath: URI!
   reviewDecision: PullRequestReviewDecision
-  reviewRequests(first: Int): ReviewRequestConnection
+  reviewRequests(after: String, first: Int): ReviewRequestConnection
   reviews(after: String, first: Int, last: Int): PullRequestReviewConnection
   state: PullRequestState!
   title: String!
@@ -647,6 +648,7 @@ type PullRequestReview implements Node {
   databaseId: Int
   id: ID!
   includesCreatedEdit: Boolean!
+  onBehalfOf(after: String, first: Int): TeamConnection!
   reactionGroups: [ReactionGroup!]
   resourcePath: URI!
   state: PullRequestReviewState!
@@ -860,9 +862,23 @@ enum RepositoryVisibility {
   PUBLIC
 }
 
+input RequestReviewsInput {
+  clientMutationId: String
+  pullRequestId: ID!
+  teamIds: [ID!]
+  union: Boolean = false
+  userIds: [ID!]
+}
+
+type RequestReviewsPayload {
+  clientMutationId: String
+  pullRequest: PullRequest
+}
+
 union RequestedReviewer = Bot | Team | User
 
 type ReviewRequest implements Node {
+  asCodeOwner: Boolean!
   id: ID!
   requestedReviewer: RequestedReviewer
 }
@@ -937,6 +953,12 @@ type Team implements Node {
   name: String!
   organization: Organization!
   slug: String!
+}
+
+type TeamConnection {
+  nodes: [Team]
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 """An RFC 3986, RFC 3987, and RFC 6570 (level 4) compliant URI string."""
