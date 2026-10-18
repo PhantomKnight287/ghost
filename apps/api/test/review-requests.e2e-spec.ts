@@ -512,30 +512,30 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
       [`${org}/widget#1`, `${ownerName}/${repo}#1`].sort(),
     );
 
+    // The collaborator stays in `core`, so the request still matches them, but nothing grants them `widget` any more.
     const db = app.get<Database>(DATABASE);
-    const [membership] = await db
-      .select({
-        id: schema.member.id,
-        organizationId: schema.member.organizationId,
-      })
-      .from(schema.member)
-      .innerJoin(
-        schema.organization,
-        eq(schema.organization.id, schema.member.organizationId),
-      )
-      .where(
-        and(
-          eq(schema.organization.slug, org),
-          eq(schema.member.userId, collaborator.userId),
-        ),
-      );
-    await auth().removeMember({
-      body: {
-        memberIdOrEmail: membership!.id,
-        organizationId: membership!.organizationId,
-      },
-      headers: new Headers({ cookie: owner.cookie }),
-    });
+    await api()
+      .patch(`/api/organizations/${org}/settings`)
+      .set('cookie', owner.cookie)
+      .send({ basePermission: null })
+      .expect(200);
+    for (const slug of ['core', 'docs', 'platform']) {
+      await api()
+        .delete(
+          `/api/repositories/${org}/widget/teams/${await teamIdOf(db, org, slug)}`,
+        )
+        .set('cookie', owner.cookie)
+        .expect(204);
+    }
+    expect(
+      (
+        await api()
+          .get(`/api/repositories/${org}/widget/pulls`)
+          .query({ reviewRequested: collaboratorName })
+          .set('cookie', owner.cookie)
+          .expect(200)
+      ).body.pullRequests.map((pull: { number: number }) => pull.number),
+    ).toEqual([1]);
     expect(await listed()).toEqual([`${ownerName}/${repo}#1`]);
   });
 
