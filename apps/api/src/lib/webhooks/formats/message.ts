@@ -124,6 +124,8 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
     excerpt: string | null = null,
   ) => say(action, color, thread?.htmlUrl ?? repository.htmlUrl, excerpt);
 
+  const reviewer = body.requestedReviewer?.username ?? body.requestedTeam?.name;
+
   switch (body.event) {
     case 'push': {
       const ref = body.ref ?? '';
@@ -204,9 +206,12 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
         body.review?.dismissalMessage ?? null,
       );
     case 'pull_request.review_requested':
-      return onThread(`requested a review on ${about}`, BLUE);
+      return onThread(`requested a review from ${reviewer} on ${about}`, BLUE);
     case 'pull_request.review_request_removed':
-      return onThread(`removed a request for review on ${about}`, GREY);
+      return onThread(
+        `removed a request for review from ${reviewer} on ${about}`,
+        GREY,
+      );
     case 'pull_request.review_commented':
       return onThread(
         `commented on ${body.comment?.path ?? 'the code'} in ${about}`,

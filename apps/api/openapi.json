@@ -5997,6 +5997,233 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/pulls/{number}/requested-reviewers": {
+      "get": {
+        "operationId": "ReviewRequestsController_listRequestedReviewers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestedReviewersDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Users and teams asked to review a pull request",
+        "tags": [
+          "Pull request reviews"
+        ]
+      },
+      "post": {
+        "operationId": "ReviewRequestsController_requestReviewers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequestsBodyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestedReviewersDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Request reviews from users and teams",
+        "tags": [
+          "Pull request reviews"
+        ]
+      },
+      "delete": {
+        "operationId": "ReviewRequestsController_removeRequestedReviewers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequestsBodyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestedReviewersDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove requests for review",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/issues": {
       "post": {
         "operationId": "IssuesController_createIssue",
@@ -18474,6 +18701,108 @@
           "commitSha"
         ]
       },
+      "RequestedUserDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          },
+          "asCodeOwner": {
+            "type": "boolean",
+            "description": "Requested by CODEOWNERS rather than a person."
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name",
+          "image",
+          "asCodeOwner"
+        ]
+      },
+      "RequestedTeamDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "example": "core"
+          },
+          "name": {
+            "type": "string"
+          },
+          "asCodeOwner": {
+            "type": "boolean",
+            "description": "Requested by CODEOWNERS rather than a person."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "asCodeOwner"
+        ]
+      },
+      "RequestedReviewersDTO": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestedUserDTO"
+            }
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestedTeamDTO"
+            }
+          }
+        },
+        "required": [
+          "users",
+          "teams"
+        ]
+      },
+      "ReviewRequestsBodyDTO": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "description": "Usernames.",
+            "example": [
+              "octocat"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "teams": {
+            "description": "Slugs of the organization's teams.",
+            "example": [
+              "core"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "CreateIssueRequestDTO": {
         "type": "object",
         "properties": {
@@ -18905,7 +19234,9 @@
           "ready_for_review",
           "converted_to_draft",
           "committed",
-          "head_force_pushed"
+          "head_force_pushed",
+          "review_requested",
+          "review_request_removed"
         ]
       },
       "IssueTimelineEventDTO": {
@@ -18965,6 +19296,16 @@
             "nullable": true,
             "description": "A `committed` event's commit author, as git recorded the name."
           },
+          "requestedReviewerUsername": {
+            "type": "string",
+            "nullable": true,
+            "description": "The user a `review_requested` or `review_request_removed` event names."
+          },
+          "requestedTeamSlug": {
+            "type": "string",
+            "nullable": true,
+            "description": "The team a `review_requested` or `review_request_removed` event names."
+          },
           "sourceRepository": {
             "type": "string",
             "nullable": true,
@@ -18992,6 +19333,8 @@
           "beforeSha",
           "commitMessage",
           "commitAuthorName",
+          "requestedReviewerUsername",
+          "requestedTeamSlug",
           "sourceRepository",
           "sourceNumber",
           "createdAt"
@@ -19574,7 +19917,8 @@
               "team_mentioned",
               "author",
               "subscribed",
-              "watching"
+              "watching",
+              "review_requested"
             ],
             "description": "Why the viewer is notified, the most specific that applies."
           },
@@ -19918,6 +20262,8 @@
           "pull_request.reviewed",
           "pull_request.review_dismissed",
           "pull_request.review_commented",
+          "pull_request.review_requested",
+          "pull_request.review_request_removed",
           "label.created",
           "label.edited",
           "label.deleted",

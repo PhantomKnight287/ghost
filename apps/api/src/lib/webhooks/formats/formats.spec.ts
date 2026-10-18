@@ -364,14 +364,22 @@ describe('messageOf', () => {
       'Almost',
     ],
     [
-      { event: 'pull_request.review_requested', pullRequest: pull },
-      'ada requested a review on pull request #7: Bell count',
+      {
+        event: 'pull_request.review_requested',
+        pullRequest: pull,
+        requestedReviewer: bob,
+      },
+      'ada requested a review from bob on pull request #7: Bell count',
       pull.htmlUrl,
       null,
     ],
     [
-      { event: 'pull_request.review_request_removed', pullRequest: pull },
-      'ada removed a request for review on pull request #7: Bell count',
+      {
+        event: 'pull_request.review_request_removed',
+        pullRequest: pull,
+        requestedTeam: { id: 'team1', name: 'Reviewers', slug: 'reviewers' },
+      },
+      'ada removed a request for review from Reviewers on pull request #7: Bell count',
       pull.htmlUrl,
       null,
     ],

@@ -1514,6 +1514,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/pulls/{number}/requested-reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Users and teams asked to review a pull request */
+        get: operations["ReviewRequestsController_listRequestedReviewers"];
+        put?: never;
+        /** Request reviews from users and teams */
+        post: operations["ReviewRequestsController_requestReviewers"];
+        /** Remove requests for review */
+        delete: operations["ReviewRequestsController_removeRequestedReviewers"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/issues": {
         parameters: {
             query?: never;
@@ -4953,6 +4972,43 @@ export interface components {
             /** @description The commit pushed to the head branch. */
             commitSha: string;
         };
+        RequestedUserDTO: {
+            id: string;
+            username: string;
+            name: string | null;
+            /** @description Avatar URL. */
+            image: string | null;
+            /** @description Requested by CODEOWNERS rather than a person. */
+            asCodeOwner: boolean;
+        };
+        RequestedTeamDTO: {
+            id: string;
+            /** @example core */
+            slug: string;
+            name: string;
+            /** @description Requested by CODEOWNERS rather than a person. */
+            asCodeOwner: boolean;
+        };
+        RequestedReviewersDTO: {
+            users: components["schemas"]["RequestedUserDTO"][];
+            teams: components["schemas"]["RequestedTeamDTO"][];
+        };
+        ReviewRequestsBodyDTO: {
+            /**
+             * @description Usernames.
+             * @example [
+             *       "octocat"
+             *     ]
+             */
+            users?: string[];
+            /**
+             * @description Slugs of the organization's teams.
+             * @example [
+             *       "core"
+             *     ]
+             */
+            teams?: string[];
+        };
         CreateIssueRequestDTO: {
             /** @example Login fails with 500 on Safari */
             title: string;
@@ -5087,7 +5143,7 @@ export interface components {
             updatedAt: string;
         };
         /** @enum {string} */
-        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft" | "committed" | "head_force_pushed";
+        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft" | "committed" | "head_force_pushed" | "review_requested" | "review_request_removed";
         IssueTimelineEventDTO: {
             id: string;
             type: components["schemas"]["IssueEventType"];
@@ -5106,6 +5162,10 @@ export interface components {
             commitMessage: string | null;
             /** @description A `committed` event's commit author, as git recorded the name. */
             commitAuthorName: string | null;
+            /** @description The user a `review_requested` or `review_request_removed` event names. */
+            requestedReviewerUsername: string | null;
+            /** @description The team a `review_requested` or `review_request_removed` event names. */
+            requestedTeamSlug: string | null;
             /**
              * @description Repository of the pull request that closed the issue.
              * @example octocat/ghost
@@ -5297,7 +5357,7 @@ export interface components {
              * @description Why the viewer is notified, the most specific that applies.
              * @enum {string}
              */
-            reason: "assigned" | "mentioned" | "team_mentioned" | "author" | "subscribed" | "watching";
+            reason: "assigned" | "mentioned" | "team_mentioned" | "author" | "subscribed" | "watching" | "review_requested";
             /**
              * @description The latest event on the thread.
              * @example issue.commented
@@ -5385,7 +5445,7 @@ export interface components {
             role: components["schemas"]["RepositoryRole"];
         };
         /** @enum {string} */
-        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "commit_status.created" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
+        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "pull_request.review_requested" | "pull_request.review_request_removed" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "commit_status.created" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
         WebhookDTO: {
             id: string;
             url: string;
@@ -9444,6 +9504,139 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewRequestsController_listRequestedReviewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestedReviewersDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewRequestsController_requestReviewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequestsBodyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestedReviewersDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewRequestsController_removeRequestedReviewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequestsBodyDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestedReviewersDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -24,6 +24,7 @@ const REASONS: Record<Notification["reason"], string> = {
   author: "Author",
   subscribed: "Subscribed",
   watching: "Watching",
+  review_requested: "Review requested",
 };
 
 const VERBS: Record<string, string> = {
@@ -35,6 +36,7 @@ const VERBS: Record<string, string> = {
   "pull_request.merged": "merged this",
   "pull_request.reviewed": "reviewed this",
   "pull_request.review_commented": "replied to a review",
+  "pull_request.review_requested": "requested your review",
 };
 
 export function NotificationItem({
