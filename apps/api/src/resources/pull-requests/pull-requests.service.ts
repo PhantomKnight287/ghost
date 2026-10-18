@@ -1117,10 +1117,39 @@ export class PullRequestsService {
     };
   }
 
+  /** The open, ready request on issue `issueId`, resolved as `open` does but without an actor to authorize, for work done on nobody's behalf. Null when there is none. */
+  async openReady(issueId: string) {
+    const [row] = await this.db
+      .select({
+        pullRequest: pullRequestColumns,
+        base: getTableColumns(schema.repository),
+      })
+      .from(schema.pullRequest)
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
+      .innerJoin(
+        schema.repository,
+        eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
+      )
+      .where(
+        and(
+          eq(schema.pullRequest.issueId, issueId),
+          eq(schema.pullRequest.state, 'open'),
+          eq(schema.pullRequest.draft, false),
+        ),
+      );
+    if (!row) return null;
+    // An open request always has its head: a repository heading one cannot be deleted.
+    return this.openLive(
+      row.pullRequest,
+      row.base,
+      row.pullRequest.headRepositoryId!,
+    );
+  }
+
   /** Materializes both sides and resolves the branches as they stand now. */
-  async openLive(
+  async openLive<Base extends Repository>(
     pullRequest: PullRequest,
-    base: AuthorizedRepository,
+    base: Base,
     headRepositoryId: string,
   ) {
     const [head] = await this.db

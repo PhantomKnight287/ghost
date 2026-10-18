@@ -382,4 +382,71 @@ describe.skipIf(!hasBackends)('automatic code-owner review requests', () => {
     expect(failed).toEqual([]);
     warn.mockRestore();
   });
+
+  // Last: the repository turns private.
+  it('credits the author, in a private repository, with an event nobody is credited with', async () => {
+    branch('deploy-key');
+    commit({ 'a.txt': 'a\ndeploy-key\n' });
+    await push('deploy-key');
+    const number = await openPull('deploy-key', { draft: true });
+    await settle();
+    const [pullRequest] = await db()
+      .select({ issueId: schema.pullRequest.issueId })
+      .from(schema.pullRequest)
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
+      .where(
+        and(
+          eq(schema.issue.repositoryId, repositoryId),
+          eq(schema.issue.number, number),
+        ),
+      );
+    await db()
+      .update(schema.pullRequest)
+      .set({ draft: false })
+      .where(eq(schema.pullRequest.issueId, pullRequest.issueId));
+    await db()
+      .update(schema.repository)
+      .set({ visibility: 'private' })
+      .where(eq(schema.repository.id, repositoryId));
+
+    await app.get(CodeownerRequestsService).handle({
+      id: 'deploy-key-push',
+      createdAt: new Date(),
+      type: 'pull_request.synchronized',
+      repositoryId,
+      actorId: null,
+      payload: {
+        issueId: pullRequest.issueId,
+        before: '0'.repeat(40),
+        after: git('rev-parse', 'HEAD'),
+        forced: false,
+        commits: [],
+      },
+    });
+    await settle();
+    const { body } = await api()
+      .get(pull(number, '/requested-reviewers'))
+      .set('cookie', owner.cookie)
+      .expect(200);
+    expect(body.users).toEqual([
+      expect.objectContaining({ username: reviewerName, asCodeOwner: true }),
+    ]);
+    const timeline = (
+      await api()
+        .get(`/api/repositories/${repo}/issues/${number}/timeline`)
+        .set('cookie', owner.cookie)
+        .expect(200)
+    ).body.timeline.filter(
+      (entry: { event?: { type: string } }) =>
+        entry.event?.type === 'review_requested',
+    );
+    expect(timeline).toEqual([
+      expect.objectContaining({
+        event: expect.objectContaining({
+          actorUsername: ownerName,
+          requestedReviewerUsername: reviewerName,
+        }),
+      }),
+    ]);
+  });
 });

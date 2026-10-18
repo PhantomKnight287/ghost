@@ -153,7 +153,7 @@ export class ReviewRequestsService {
       issueId: string;
       repositoryId: string;
       authorId: string;
-      actorId: string | null;
+      actorId: string;
       userIds: string[];
       teamIds: string[];
       asCodeOwner: boolean;
@@ -362,7 +362,7 @@ export class ReviewRequestsService {
     action: 'review_requested' | 'review_request_removed',
     rows: { reviewerUserId: string | null; reviewerTeamId: string | null }[],
     names: Reviewers,
-    context: { issueId: string; repositoryId: string; actorId: string | null },
+    context: { issueId: string; repositoryId: string; actorId: string },
   ) {
     for (const row of rows) {
       await tx.insert(schema.issueEvent).values({
