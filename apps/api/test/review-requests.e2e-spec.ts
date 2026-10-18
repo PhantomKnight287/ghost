@@ -175,6 +175,26 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
     );
   });
 
+  it('offers people with a role of their own, other than the author, filtered by `q`', async () => {
+    const requestable = async (q = '') =>
+      (
+        await api()
+          .get(pull('/requestable-reviewers'))
+          .query({ q })
+          .set('cookie', bystander.cookie)
+          .expect(200)
+      ).body;
+    const everyone = await requestable();
+    expect(
+      everyone.users.map((user: { username: string }) => user.username),
+    ).toEqual([collaboratorName]);
+    expect(everyone.teams).toEqual([]);
+    expect(
+      (await requestable(collaboratorName.slice(0, 6))).users,
+    ).toHaveLength(1);
+    expect((await requestable(`nobody${stamp}`)).users).toEqual([]);
+  });
+
   it('lets only triage and above request reviews', async () => {
     const { status } = await requestReviewers(
       { users: [collaboratorName] },
@@ -269,6 +289,16 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
       owner,
       `${org}/widget`,
     ).expect(422);
+  });
+
+  it('offers only the teams an organization repository is shared with', async () => {
+    const { body } = await api()
+      .get(pull('/requestable-reviewers', `${org}/widget`))
+      .set('cookie', owner.cookie)
+      .expect(200);
+    expect(body.teams).toEqual([
+      { id: expect.any(String), slug: 'core', name: 'Core' },
+    ]);
   });
 
   it('leaves a request pending while the review is unsubmitted', async () => {

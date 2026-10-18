@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   Session,
 } from '@nestjs/common';
 import {
@@ -20,7 +21,9 @@ import {
 import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { SuggestionQueryDTO } from '../issues/dto/suggestion.dto.js';
 import {
+  RequestableReviewersDTO,
   RequestedReviewersDTO,
   ReviewRequestsBodyDTO,
 } from './dto/review-requests.dto.js';
@@ -47,6 +50,31 @@ export class ReviewRequestsController {
       repo,
       number,
       requesterId: session?.user?.id,
+    });
+  }
+
+  @Get(':number/requestable-reviewers')
+  @OptionalAuth()
+  @ApiOperation({
+    summary: 'Users and teams a review can be requested from',
+    description:
+      'Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it.',
+  })
+  @ApiOkResponse({ type: RequestableReviewersDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  listRequestableReviewers(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Query() query: SuggestionQueryDTO,
+    @Session() session: UserSession,
+  ) {
+    return this.reviewRequests.requestable({
+      username,
+      repo,
+      number,
+      requesterId: session?.user?.id,
+      q: query.q,
     });
   }
 

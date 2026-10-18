@@ -125,7 +125,6 @@ export default async function PullRequestPage({
           username={username}
           repo={repo}
           number={Number(number)}
-          author={pull.data.authorUsername}
           rows={reviewerRows({
             requested: requested.data?.users ?? [],
             verdicts: pull.data.reviewers,

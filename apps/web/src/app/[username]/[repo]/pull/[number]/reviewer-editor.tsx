@@ -16,13 +16,13 @@ import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { PeoplePicker } from "@/components/issues/people-picker";
 import { SidebarSectionHeader } from "@/components/issues/sidebar-section-header";
 import {
   removeReviewers,
   requestReviewers,
 } from "@/components/pull-requests/actions";
 import type { ReviewerRow } from "@/components/pull-requests/common";
-import { ReviewerPicker } from "@/components/pull-requests/reviewer-picker";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -69,7 +69,6 @@ export function ReviewerEditor({
   username,
   repo,
   number,
-  author,
   rows,
   teams,
   canEdit,
@@ -77,7 +76,6 @@ export function ReviewerEditor({
   username: string;
   repo: string;
   number: number;
-  author: string;
   rows: ReviewerRow[];
   /** Teams with a pending request. */
   teams: components["schemas"]["RequestedTeamDTO"][];
@@ -129,10 +127,10 @@ export function ReviewerEditor({
         }}
       >
         <SidebarSectionHeader title="Reviewers" />
-        <ReviewerPicker
+        <PeoplePicker
           username={username}
           repo={repo}
-          author={author}
+          pullRequest={number}
           value={draft}
           onChange={setDraft}
           disabled={busy}

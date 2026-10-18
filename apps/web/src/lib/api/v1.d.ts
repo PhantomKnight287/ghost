@@ -1573,6 +1573,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/pulls/{number}/requestable-reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Users and teams a review can be requested from
+         * @description Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it.
+         */
+        get: operations["ReviewRequestsController_listRequestableReviewers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/issues": {
         parameters: {
             query?: never;
@@ -5108,6 +5128,23 @@ export interface components {
         RequestedReviewersDTO: {
             users: components["schemas"]["RequestedUserDTO"][];
             teams: components["schemas"]["RequestedTeamDTO"][];
+        };
+        RequestableUserDTO: {
+            id: string;
+            username: string;
+            name: string | null;
+            /** @description Avatar URL. */
+            image: string | null;
+        };
+        RequestableTeamDTO: {
+            id: string;
+            /** @example core */
+            slug: string;
+            name: string;
+        };
+        RequestableReviewersDTO: {
+            users: components["schemas"]["RequestableUserDTO"][];
+            teams: components["schemas"]["RequestableTeamDTO"][];
         };
         ReviewRequestsBodyDTO: {
             /**
@@ -9834,6 +9871,40 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewRequestsController_listRequestableReviewers: {
+        parameters: {
+            query?: {
+                /** @description What has been typed so far. Empty suggests the people or issues most likely meant. */
+                q?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestableReviewersDTO"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

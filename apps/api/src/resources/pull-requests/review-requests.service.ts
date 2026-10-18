@@ -1,9 +1,10 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Executor } from '../../lib/db/executor.js';
+import { escapeLike } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { touchIssue } from '../../lib/issues/touch-issue.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
@@ -41,7 +42,18 @@ type Reviewers = {
   teams: { id: string; slug: string }[];
 };
 
+export type RequestableReviewers = {
+  users: {
+    id: string;
+    username: string;
+    name: string | null;
+    image: string | null;
+  }[];
+  teams: { id: string; slug: string; name: string }[];
+};
+
 const MAX_REVIEWERS = 15;
+const REQUESTABLE_LIMIT = 20;
 
 /** Who is asked to review a pull request. A request stays pending until it is answered or removed; a cleared row is kept so CODEOWNERS can tell who was ever asked. */
 @Injectable()
@@ -55,6 +67,49 @@ export class ReviewRequestsService {
   async list(params: PullRequestRef): Promise<RequestedReviewers> {
     const { pullRequest } = await this.pullRequests.load(params);
     return this.pending(pullRequest.id);
+  }
+
+  /** Who a request may name, for the reviewer picker: users whose username starts with `q`, teams whose slug contains it. */
+  async requestable({
+    q,
+    ...params
+  }: PullRequestRef & { q?: string }): Promise<RequestableReviewers> {
+    const { pullRequest, base } = await this.pullRequests.load(params);
+    const typed = q?.trim().toLowerCase() ?? '';
+    // Everyone who may hold a role of their own; `eligible` decides who does.
+    // ponytail: candidates are capped before `eligible` filters them, so organization members without access can crowd out ones with it; push the role check into SQL if a large organization notices.
+    const [users, teams] = await Promise.all([
+      this.db
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(
+          and(
+            ilike(schema.user.username, `${escapeLike(typed)}%`),
+            sql`${schema.user.id} in (
+              select ${base.ownerId}::text
+              union select user_id from repository_collaborator where repository_id = ${base.id} and accepted_at is not null
+              union select user_id from member where organization_id = ${base.organizationId}
+              union select tm.user_id from team_member tm join repository_team rt on rt.team_id = tm.team_id where rt.repository_id = ${base.id}
+            )`,
+          ),
+        )
+        .orderBy(asc(schema.user.username))
+        .limit(REQUESTABLE_LIMIT),
+      this.db
+        .select({ id: schema.repositoryTeam.teamId })
+        .from(schema.repositoryTeam)
+        .where(eq(schema.repositoryTeam.repositoryId, base.id)),
+    ]);
+    const eligible = await this.eligible(this.db, {
+      repositoryId: base.id,
+      authorId: pullRequest.authorId,
+      userIds: users.map((user) => user.id),
+      teamIds: teams.map((team) => team.id),
+    });
+    return {
+      users: eligible.users,
+      teams: eligible.teams.filter((team) => team.slug.includes(typed)),
+    };
   }
 
   async request(params: ReviewersRef): Promise<RequestedReviewers> {
@@ -321,12 +376,14 @@ export class ReviewRequestsService {
       userIds: string[];
       teamIds: string[];
     },
-  ): Promise<Reviewers> {
+  ): Promise<RequestableReviewers> {
     const [users, teams] = await Promise.all([
       db
         .select({
           id: schema.user.id,
           username: sql<string>`coalesce(${schema.user.username}, '')`,
+          name: schema.user.name,
+          image: schema.user.image,
         })
         .from(schema.user)
         .where(
@@ -334,7 +391,8 @@ export class ReviewRequestsService {
             inArray(schema.user.id, args.userIds),
             ne(schema.user.id, args.authorId),
           ),
-        ),
+        )
+        .orderBy(asc(schema.user.username)),
       db
         .select({ id: schema.team.id, name: schema.team.name })
         .from(schema.team)
@@ -345,14 +403,18 @@ export class ReviewRequestsService {
             eq(schema.repositoryTeam.repositoryId, args.repositoryId),
           ),
         )
-        .where(inArray(schema.team.id, args.teamIds)),
+        .where(inArray(schema.team.id, args.teamIds))
+        .orderBy(asc(schema.team.name)),
     ]);
     const roles = await Promise.all(
       users.map((user) => this.access.explicitRole(args.repositoryId, user.id)),
     );
     return {
       users: users.filter((_, index) => roles[index] !== null),
-      teams: teams.map((team) => ({ id: team.id, slug: teamSlug(team.name) })),
+      teams: teams.map((team) => ({
+        ...team,
+        slug: teamSlug(team.name),
+      })),
     };
   }
 

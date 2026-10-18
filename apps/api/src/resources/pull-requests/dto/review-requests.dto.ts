@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class ReviewRequestsBodyDTO {
@@ -57,4 +57,20 @@ export class RequestedReviewersDTO {
 
   @ApiProperty({ type: [RequestedTeamDTO] })
   teams: RequestedTeamDTO[];
+}
+
+export class RequestableUserDTO extends OmitType(RequestedUserDTO, [
+  'asCodeOwner',
+]) {}
+
+export class RequestableTeamDTO extends OmitType(RequestedTeamDTO, [
+  'asCodeOwner',
+]) {}
+
+export class RequestableReviewersDTO {
+  @ApiProperty({ type: [RequestableUserDTO] })
+  users: RequestableUserDTO[];
+
+  @ApiProperty({ type: [RequestableTeamDTO] })
+  teams: RequestableTeamDTO[];
 }

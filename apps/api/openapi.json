@@ -6370,6 +6370,73 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/pulls/{number}/requestable-reviewers": {
+      "get": {
+        "description": "Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it.",
+        "operationId": "ReviewRequestsController_listRequestableReviewers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "What has been typed so far. Empty suggests the people or issues most likely meant.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestableReviewersDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Users and teams a review can be requested from",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/issues": {
       "post": {
         "operationId": "IssuesController_createIssue",
@@ -19180,6 +19247,73 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RequestedTeamDTO"
+            }
+          }
+        },
+        "required": [
+          "users",
+          "teams"
+        ]
+      },
+      "RequestableUserDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name",
+          "image"
+        ]
+      },
+      "RequestableTeamDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "example": "core"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ]
+      },
+      "RequestableReviewersDTO": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestableUserDTO"
+            }
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestableTeamDTO"
             }
           }
         },
