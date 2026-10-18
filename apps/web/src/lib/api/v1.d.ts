@@ -1602,7 +1602,7 @@ export interface paths {
         };
         /**
          * Users and teams a review can be requested from
-         * @description Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it.
+         * @description Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it; `q` written `org/team` matches teams by the part after the slash. Needs the triage role, as requesting does.
          */
         get: operations["ReviewRequestsController_listRequestableReviewers"];
         put?: never;
@@ -9946,6 +9946,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RequestableReviewersDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
             404: {

@@ -1,19 +1,37 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, ilike, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Executor } from '../../lib/db/executor.js';
 import { escapeLike } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { touchIssue } from '../../lib/issues/touch-issue.js';
-import { teamSlug } from '../../lib/organizations/team-slug.js';
+import {
+  organizationTeams,
+  teamSlug,
+} from '../../lib/organizations/team-slug.js';
 import {
   PullRequestNotOpenError,
   ReviewerNotEligibleError,
   ReviewerNotFoundError,
   TooManyReviewersError,
 } from '../../lib/pull-requests/pull-requests.errors.js';
+import {
+  basePermissionOf,
+  holdsOrganizationRole,
+} from '../../lib/repositories/access/repository-access.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
   type PullRequestRef,
@@ -69,15 +87,17 @@ export class ReviewRequestsService {
     return this.pending(pullRequest.id);
   }
 
-  /** Who a request may name, for the reviewer picker: users whose username starts with `q`, teams whose slug contains it. */
+  /** Who a request may name, for the reviewer picker: users whose username starts with `q`, teams whose slug contains it. Only those who may request see it, since it names the repository's collaborators. */
   async requestable({
     q,
     ...params
   }: PullRequestRef & { q?: string }): Promise<RequestableReviewers> {
-    const { pullRequest, base } = await this.pullRequests.load(params);
+    const { pullRequest, base } = await this.pullRequests.load({
+      ...params,
+      operation: 'triage',
+    });
     const typed = q?.trim().toLowerCase() ?? '';
-    // Everyone who may hold a role of their own; `eligible` decides who does.
-    // ponytail: candidates are capped before `eligible` filters them, so organization members without access can crowd out ones with it; push the role check into SQL if a large organization notices.
+    // The same grants `eligible` reads, narrowed in SQL so the cap is not spent on people `eligible` drops; `eligible` still decides.
     const [users, teams] = await Promise.all([
       this.db
         .select({ id: schema.user.id })
@@ -85,12 +105,62 @@ export class ReviewRequestsService {
         .where(
           and(
             ilike(schema.user.username, `${escapeLike(typed)}%`),
-            sql`${schema.user.id} in (
-              select ${base.ownerId}::text
-              union select user_id from repository_collaborator where repository_id = ${base.id} and accepted_at is not null
-              union select user_id from member where organization_id = ${base.organizationId}
-              union select tm.user_id from team_member tm join repository_team rt on rt.team_id = tm.team_id where rt.repository_id = ${base.id}
-            )`,
+            ne(schema.user.id, pullRequest.authorId),
+            or(
+              base.organizationId
+                ? undefined
+                : eq(schema.user.id, base.ownerId),
+              inArray(
+                schema.user.id,
+                this.db
+                  .select({ id: schema.repositoryCollaborator.userId })
+                  .from(schema.repositoryCollaborator)
+                  .where(
+                    and(
+                      eq(schema.repositoryCollaborator.repositoryId, base.id),
+                      isNotNull(schema.repositoryCollaborator.acceptedAt),
+                    ),
+                  ),
+              ),
+              inArray(
+                schema.user.id,
+                this.db
+                  .select({ id: schema.teamMember.userId })
+                  .from(schema.teamMember)
+                  .innerJoin(
+                    schema.repositoryTeam,
+                    eq(schema.repositoryTeam.teamId, schema.teamMember.teamId),
+                  )
+                  .where(eq(schema.repositoryTeam.repositoryId, base.id)),
+              ),
+              base.organizationId
+                ? inArray(
+                    schema.user.id,
+                    this.db
+                      .select({ id: schema.member.userId })
+                      .from(schema.member)
+                      .where(
+                        and(
+                          eq(schema.member.organizationId, base.organizationId),
+                          or(
+                            holdsOrganizationRole(schema.member.role, [
+                              'owner',
+                              'admin',
+                            ]),
+                            and(
+                              holdsOrganizationRole(schema.member.role, [
+                                'member',
+                              ]),
+                              isNotNull(
+                                basePermissionOf(schema.member.organizationId),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  )
+                : undefined,
+            ),
           ),
         )
         .orderBy(asc(schema.user.username))
@@ -108,7 +178,10 @@ export class ReviewRequestsService {
     });
     return {
       users: eligible.users,
-      teams: eligible.teams.filter((team) => team.slug.includes(typed)),
+      // The picker writes teams `org/team`, so the slug is what follows a slash.
+      teams: eligible.teams.filter((team) =>
+        team.slug.includes(typed.slice(typed.indexOf('/') + 1)),
+      ),
     };
   }
 
@@ -127,7 +200,11 @@ export class ReviewRequestsService {
       throw new TooManyReviewersError();
     }
 
-    const named = await this.resolve(base.id, params.users, params.teams);
+    const named = await this.resolve(
+      base.organizationId,
+      params.users,
+      params.teams,
+    );
     const userIds = named.users.map((user) => user.id);
     const teamIds = named.teams.map((team) => team.id);
     const eligible = await this.eligible(this.db, {
@@ -165,7 +242,11 @@ export class ReviewRequestsService {
       ...params,
       operation: 'triage',
     });
-    const named = await this.resolve(base.id, params.users, params.teams);
+    const named = await this.resolve(
+      base.organizationId,
+      params.users,
+      params.teams,
+    );
 
     await this.db.transaction(async (tx) => {
       const removed = await tx
@@ -323,9 +404,9 @@ export class ReviewRequestsService {
     };
   }
 
-  /** Users by username and the repository's organization's teams by slug, failing on the first name that matches nothing. */
+  /** Users by username and the repository's organization's teams by slug, both without regard to case as on GitHub, failing on the first name that matches nothing. */
   private async resolve(
-    repositoryId: string,
+    organizationId: string | null,
     usernames: string[],
     slugs: string[],
   ): Promise<Reviewers> {
@@ -336,33 +417,32 @@ export class ReviewRequestsService {
           username: sql<string>`coalesce(${schema.user.username}, '')`,
         })
         .from(schema.user)
-        .where(inArray(schema.user.username, usernames)),
-      // A user's repository has no organization, so it joins no teams.
-      this.db
-        .select({ id: schema.team.id, name: schema.team.name })
-        .from(schema.team)
-        .innerJoin(
-          schema.repository,
-          eq(schema.repository.organizationId, schema.team.organizationId),
-        )
-        .where(eq(schema.repository.id, repositoryId)),
+        .where(
+          inArray(
+            sql`lower(${schema.user.username})`,
+            usernames.map((username) => username.toLowerCase()),
+          ),
+        ),
+      // A user's repository has no organization, so it has no teams.
+      organizationId ? organizationTeams(this.db, organizationId) : [],
     ]);
 
     const missingUser = usernames.find(
-      (username) => !users.some((user) => user.username === username),
+      (username) =>
+        !users.some(
+          (user) => user.username.toLowerCase() === username.toLowerCase(),
+        ),
     );
     if (missingUser !== undefined) throw new ReviewerNotFoundError(missingUser);
-    const named = slugs.map((slug) => ({
-      slug,
-      team: teams.find((team) => teamSlug(team.name) === slug),
-    }));
-    const missingTeam = named.find(({ team }) => !team);
-    if (missingTeam) throw new ReviewerNotFoundError(missingTeam.slug);
+    const missingTeam = slugs.find(
+      (slug) => !teams.some((team) => team.slug === slug.toLowerCase()),
+    );
+    if (missingTeam !== undefined) throw new ReviewerNotFoundError(missingTeam);
 
     return {
       users,
-      teams: named.flatMap(({ slug, team }) =>
-        team ? [{ id: team.id, slug }] : [],
+      teams: teams.filter((team) =>
+        slugs.some((slug) => slug.toLowerCase() === team.slug),
       ),
     };
   }
@@ -406,11 +486,12 @@ export class ReviewRequestsService {
         .where(inArray(schema.team.id, args.teamIds))
         .orderBy(asc(schema.team.name)),
     ]);
-    const roles = await Promise.all(
-      users.map((user) => this.access.explicitRole(args.repositoryId, user.id)),
+    const roles = await this.access.explicitRoles(
+      args.repositoryId,
+      users.map((user) => user.id),
     );
     return {
-      users: users.filter((_, index) => roles[index] !== null),
+      users: users.filter((user) => roles.has(user.id)),
       teams: teams.map((team) => ({
         ...team,
         slug: teamSlug(team.name),

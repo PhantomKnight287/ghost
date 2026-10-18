@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DATABASE } from '../../../../database/database.module.js';
 import { parseIssueSearch } from '../../../../lib/github/issue-search.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
-import { teamIdOf } from '../../../../lib/github/node-lookup.js';
+import { organizationTeams } from '../../../../lib/organizations/team-slug.js';
 import {
   type IssueListOptions,
   IssuesService,
@@ -66,8 +66,17 @@ export class GithubSearchService {
         ? { userId: reviewer.id, direct: wanted.direct }
         : undefined;
     } else if (wanted) {
-      const teamId = await teamIdOf(this.db, wanted.organization, wanted.slug);
-      reviewRequested = teamId ? { teamId } : undefined;
+      // Only the repository's own organization's teams can be requested on it.
+      const teams =
+        repository.organizationGhostId &&
+        wanted.organization.toLowerCase() ===
+          repository.ownerLogin.toLowerCase()
+          ? await organizationTeams(this.db, repository.organizationGhostId)
+          : [];
+      const team = teams.find(
+        (team) => team.slug === wanted.slug.toLowerCase(),
+      );
+      reviewRequested = team ? { teamId: team.id } : undefined;
     }
     // A user or team that does not exist has no review requests.
     if (wanted && !reviewRequested) return EMPTY;

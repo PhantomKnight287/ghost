@@ -324,8 +324,9 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
       .set('cookie', reviewer.cookie)
       .expect(204);
 
+    // Logins match without regard to case, as on GitHub.
     const requested = await send('post', api, {
-      reviewers: [reviewerName],
+      reviewers: [reviewerName.toUpperCase()],
     }).expect(201);
     expect(requested.body).toMatchObject({
       number: 1,
@@ -431,7 +432,7 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
     const { body } = await send(
       'post',
       `${orgRepo}/pulls/1/requested_reviewers`,
-      { team_reviewers: ['core'] },
+      { team_reviewers: ['Core'] },
     ).expect(201);
     expect(body.requested_teams).toEqual([
       expect.objectContaining({

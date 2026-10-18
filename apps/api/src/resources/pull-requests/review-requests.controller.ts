@@ -54,13 +54,13 @@ export class ReviewRequestsController {
   }
 
   @Get(':number/requestable-reviewers')
-  @OptionalAuth()
   @ApiOperation({
     summary: 'Users and teams a review can be requested from',
     description:
-      'Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it.',
+      'Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it; `q` written `org/team` matches teams by the part after the slash. Needs the triage role, as requesting does.',
   })
   @ApiOkResponse({ type: RequestableReviewersDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   listRequestableReviewers(
     @Param('username') username: string,
@@ -73,7 +73,7 @@ export class ReviewRequestsController {
       username,
       repo,
       number,
-      requesterId: session?.user?.id,
+      requesterId: session.user.id,
       q: query.q,
     });
   }

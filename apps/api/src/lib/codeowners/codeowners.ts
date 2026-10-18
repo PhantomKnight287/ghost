@@ -44,6 +44,13 @@ export type LoadedCodeowners = {
   resolve(owner: CodeownersOwner): ResolvedOwner | null;
 };
 
+/** An owner as CODEOWNERS spells it: `@login`, `@org/team` or an email address. */
+export function ownerToken(owner: CodeownersOwner | ResolvedOwner) {
+  if (owner.kind === 'user') return `@${owner.username}`;
+  if (owner.kind === 'team') return `@${owner.organization}/${owner.slug}`;
+  return owner.email;
+}
+
 const compiled = new WeakMap<CodeownersRule, ReturnType<typeof ignore>>();
 
 function parseOwner(token: string): CodeownersOwner | null {

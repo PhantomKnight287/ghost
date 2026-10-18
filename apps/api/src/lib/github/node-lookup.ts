@@ -2,7 +2,6 @@ import { type Database, schema } from '@ghost/db';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import { isoTimestamp } from '../db/sql.js';
-import { teamSlug } from '../organizations/team-slug.js';
 import { visibleReview } from '../pull-requests/reviews.js';
 import type { UserRow } from './nodes.js';
 
@@ -90,42 +89,6 @@ export async function usernamesOf(db: Database, userIds: string[]) {
       row.username ? [[row.id, row.username] as const] : [],
     ),
   );
-}
-
-/** Team slugs by id, for teams of the organization owning the repository; other organizations' teams are left out. */
-export async function teamSlugsOf(
-  db: Database,
-  repositoryId: string,
-  teamIds: string[],
-) {
-  if (teamIds.length === 0) return new Map<string, string>();
-  const rows = await db
-    .select({ id: schema.team.id, name: schema.team.name })
-    .from(schema.team)
-    .innerJoin(
-      schema.repository,
-      eq(schema.repository.organizationId, schema.team.organizationId),
-    )
-    .where(
-      and(
-        eq(schema.repository.id, repositoryId),
-        inArray(schema.team.id, teamIds),
-      ),
-    );
-  return new Map(rows.map((row) => [row.id, teamSlug(row.name)]));
-}
-
-/** The id of the team named `slug` in an organization, or null. */
-export async function teamIdOf(db: Database, organization: string, slug: string) {
-  const teams = await db
-    .select({ id: schema.team.id, name: schema.team.name })
-    .from(schema.team)
-    .innerJoin(
-      schema.organization,
-      eq(schema.organization.id, schema.team.organizationId),
-    )
-    .where(eq(schema.organization.slug, organization));
-  return teams.find((team) => teamSlug(team.name) === slug)?.id ?? null;
 }
 
 /** The pull_request rows behind issue ids, keyed by issue id; issues that are not pull requests are left out. */

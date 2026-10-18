@@ -12,7 +12,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
 import type { Auth } from '../src/lib/auth.js';
-import { teamIdOf } from '../src/lib/github/node-lookup.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 type Account = Awaited<ReturnType<typeof signUp>>;
@@ -72,6 +71,20 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
         .from(schema.outboxEvent)
         .where(eq(schema.outboxEvent.type, type))
     ).length;
+  const teamIdOf = async (name: string) =>
+    (
+      await app
+        .get<Database>(DATABASE)
+        .select({ id: schema.team.id })
+        .from(schema.team)
+        .innerJoin(
+          schema.organization,
+          eq(schema.organization.id, schema.team.organizationId),
+        )
+        .where(
+          and(eq(schema.organization.slug, org), eq(schema.team.name, name)),
+        )
+    )[0]!.id;
   const timelineEvents = async (type: string) =>
     (
       await api()
@@ -181,7 +194,7 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
         await api()
           .get(pull('/requestable-reviewers'))
           .query({ q })
-          .set('cookie', bystander.cookie)
+          .set('cookie', owner.cookie)
           .expect(200)
       ).body;
     const everyone = await requestable();
@@ -193,6 +206,14 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
       (await requestable(collaboratorName.slice(0, 6))).users,
     ).toHaveLength(1);
     expect((await requestable(`nobody${stamp}`)).users).toEqual([]);
+  });
+
+  it('shows who can be requested only to triage and above', async () => {
+    await api()
+      .get(pull('/requestable-reviewers'))
+      .set('cookie', bystander.cookie)
+      .expect(403);
+    await api().get(pull('/requestable-reviewers')).expect(401);
   });
 
   it('lets only triage and above request reviews', async () => {
@@ -299,6 +320,15 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
     expect(body.teams).toEqual([
       { id: expect.any(String), slug: 'core', name: 'Core' },
     ]);
+    // The picker writes teams `org/team`, so what is typed may start with the organization.
+    const typed = await api()
+      .get(pull('/requestable-reviewers', `${org}/widget`))
+      .query({ q: `${org}/co` })
+      .set('cookie', owner.cookie)
+      .expect(200);
+    expect(typed.body.teams.map((team: { slug: string }) => team.slug)).toEqual(
+      ['core'],
+    );
   });
 
   it('leaves a request pending while the review is unsubmitted', async () => {
@@ -438,6 +468,42 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
     expect(onBehalf.map((row) => row.teamId).sort()).toEqual([...teams].sort());
   });
 
+  it("leaves the author's teams pending when the author comments on their own pull request", async () => {
+    const db = app.get<Database>(DATABASE);
+    const at = `${org}/widget`;
+    const [{ id: organizationId }] = await db
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(eq(schema.organization.slug, org));
+    await auth().addTeamMember({
+      body: {
+        teamId: await teamIdOf('Core'),
+        userId: owner.userId,
+        organizationId: organizationId!,
+      },
+      headers: new Headers({ cookie: owner.cookie }),
+    });
+    const { body: review } = await api()
+      .post(pull('/reviews', at))
+      .set('cookie', owner.cookie)
+      .send({ state: 'commented', body: 'Notes to self' })
+      .expect(201);
+    expect(
+      (
+        await api()
+          .get(pull('/requested-reviewers', at))
+          .set('cookie', owner.cookie)
+          .expect(200)
+      ).body.teams.map((team: { slug: string }) => team.slug),
+    ).toEqual(['core']);
+    expect(
+      await db
+        .select()
+        .from(schema.pullRequestReviewOnBehalfOf)
+        .where(eq(schema.pullRequestReviewOnBehalfOf.reviewId, review.id)),
+    ).toEqual([]);
+  });
+
   it("filters a repository's pull requests to those requesting a review, directly or through a team", async () => {
     const db = app.get<Database>(DATABASE);
     git('checkout', '-q', '-b', 'other', 'main');
@@ -484,7 +550,7 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
       .where(eq(schema.organization.slug, org));
     await auth().addTeamMember({
       body: {
-        teamId: (await teamIdOf(db, org, 'core'))!,
+        teamId: await teamIdOf('Core'),
         userId: collaborator.userId,
         organizationId: organizationId!,
       },
@@ -513,17 +579,14 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
     );
 
     // The collaborator stays in `core`, so the request still matches them, but nothing grants them `widget` any more.
-    const db = app.get<Database>(DATABASE);
     await api()
       .patch(`/api/organizations/${org}/settings`)
       .set('cookie', owner.cookie)
       .send({ basePermission: null })
       .expect(200);
-    for (const slug of ['core', 'docs', 'platform']) {
+    for (const name of ['Core', 'Docs', 'Platform']) {
       await api()
-        .delete(
-          `/api/repositories/${org}/widget/teams/${await teamIdOf(db, org, slug)}`,
-        )
+        .delete(`/api/repositories/${org}/widget/teams/${await teamIdOf(name)}`)
         .set('cookie', owner.cookie)
         .expect(204);
     }
@@ -537,6 +600,66 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
       ).body.pullRequests.map((pull: { number: number }) => pull.number),
     ).toEqual([1]);
     expect(await listed()).toEqual([`${ownerName}/${repo}#1`]);
+  });
+
+  it('offers a collaborator of an organization repository past more than a page of members without access', async () => {
+    const db = app.get<Database>(DATABASE);
+    const at = `${org}/widget`;
+    const prefix = `rrmany${stamp}`;
+    const [{ id: organizationId }] = await db
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(eq(schema.organization.slug, org));
+    await api()
+      .patch(`/api/organizations/${org}/settings`)
+      .set('cookie', owner.cookie)
+      .send({ basePermission: null })
+      .expect(200);
+    const members = await db
+      .insert(schema.user)
+      .values(
+        Array.from({ length: 21 }, (_, i) => ({
+          id: `${prefix}a${i}`,
+          name: `${prefix}a${i}`,
+          email: `${prefix}a${i}@example.com`,
+          username: `${prefix}a${String(i).padStart(2, '0')}`,
+        })),
+      )
+      .returning({ id: schema.user.id });
+    await db.insert(schema.member).values(
+      members.map((member) => ({
+        id: member.id,
+        organizationId: organizationId!,
+        userId: member.id,
+        role: 'member',
+        createdAt: new Date(),
+      })),
+    );
+    const helper = await signUp(app, `${prefix}z`);
+    await api()
+      .put(`/api/repositories/${at}/collaborators/${prefix}z`)
+      .set('cookie', owner.cookie)
+      .send({ role: 'read' })
+      .expect(200);
+    const invitation = (
+      await api()
+        .get('/api/invitations')
+        .set('cookie', helper.cookie)
+        .expect(200)
+    ).body.invitations[0];
+    await api()
+      .post(`/api/invitations/${invitation.id}/accept`)
+      .set('cookie', helper.cookie)
+      .expect(204);
+
+    const { body } = await api()
+      .get(pull('/requestable-reviewers', at))
+      .query({ q: prefix })
+      .set('cookie', owner.cookie)
+      .expect(200);
+    expect(
+      body.users.map((user: { username: string }) => user.username),
+    ).toEqual([`${prefix}z`]);
   });
 
   it('refuses requests on a closed pull request', async () => {

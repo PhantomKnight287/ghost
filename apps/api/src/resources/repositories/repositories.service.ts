@@ -135,6 +135,7 @@ import type {
   GetCodeownersOwnersResponseDTO,
   GetCodeownersResponseDTO,
 } from './dto/codeowners.dto.js';
+import { ownerToken } from '../../lib/codeowners/codeowners.js';
 import { CodeownersService } from '../../services/codeowners/codeowners.service.js';
 import type {
   GetRepositoryCommitResponseDTO,
@@ -1629,13 +1630,7 @@ export class RepositoriesService {
         filePaths.map((filePath) => [
           filePath,
           loaded
-            ? this.codeowners
-                .ownersOf(loaded, filePath)
-                .map((owner) =>
-                  owner.kind === 'user'
-                    ? `@${owner.username}`
-                    : `@${owner.organization}/${owner.slug}`,
-                )
+            ? this.codeowners.ownersOf(loaded, filePath).map(ownerToken)
             : [],
         ]),
       ),

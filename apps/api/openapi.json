@@ -6424,7 +6424,7 @@
     },
     "/api/repositories/{username}/{repo}/pulls/{number}/requestable-reviewers": {
       "get": {
-        "description": "Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it.",
+        "description": "Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it; `q` written `org/team` matches teams by the part after the slash. Needs the triage role, as requesting does.",
         "operationId": "ReviewRequestsController_listRequestableReviewers",
         "parameters": [
           {
@@ -6468,6 +6468,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RequestableReviewersDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
                 }
               }
             }

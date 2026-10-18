@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -98,7 +98,7 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
     await db()
       .update(schema.user)
       .set({ emailVerified: true })
-      .where(eq(schema.user.id, writer.userId));
+      .where(inArray(schema.user.id, [writer.userId, reader.userId]));
     await db()
       .insert(schema.userEmail)
       .values({
@@ -149,7 +149,7 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
       '.ghost/CODEOWNERS': [
         '# Owners',
         `* @${ownerName}`,
-        `*.md ${writerName}@example.com ${writerName}-alt@example.com ${namelessName}@example.com`,
+        `*.md ${writerName}@example.com ${writerName}-alt@example.com ${namelessName}@example.com ${readerName}@example.com`,
         `docs/ @alcie @${readerName} @${writerName}`,
         `src/ @${org}/core @${org}/readers @${org}/nope @elsewhere/core`,
         'vendor/',
@@ -179,6 +179,7 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
     ).toEqual([
       [3, 'Unknown owner'],
       [3, 'Unknown owner'],
+      [3, 'Unknown owner'],
       [4, 'Unknown owner'],
       [4, 'Owner without write access'],
       [5, 'Team without write access'],
@@ -186,7 +187,12 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
       [5, 'Unknown team'],
       [7, 'Invalid pattern'],
     ]);
-    expect(body.errors[2]).toEqual({
+    // An address is unknown whether no verified account has it or its account cannot write, so the errors do not tell which addresses have accounts.
+    expect(body.errors[2]).toMatchObject({
+      kind: 'Unknown owner',
+      message: `Unknown owner on line 3: make sure ${readerName}@example.com is verified and has write access to the repository`,
+    });
+    expect(body.errors[3]).toEqual({
       line: 4,
       column: 7,
       kind: 'Unknown owner',
@@ -240,8 +246,8 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
       .get(`/api/v3/repos/${org}/widget/codeowners/errors`)
       .set('authorization', `token ${owner.key}`)
       .expect(200);
-    expect(body.errors).toHaveLength(8);
-    expect(body.errors[2].message).toBe(
+    expect(body.errors).toHaveLength(9);
+    expect(body.errors[3].message).toBe(
       'Unknown owner on line 4: make sure @alcie exists and has write access to the repository',
     );
 

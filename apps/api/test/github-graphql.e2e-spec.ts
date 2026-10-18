@@ -879,6 +879,13 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
         requestedReviewer: expect.objectContaining({ slug: 'core' }),
       }),
     ]);
+    // Without union the call replaces the set, so the pending team goes too.
+    expect(await requestReviews({ userIds: [userId] })).toEqual([
+      expect.objectContaining({
+        requestedReviewer: { __typename: 'User', login: reviewerName },
+      }),
+    ]);
+    await requestReviews({ teamIds: [teamId] });
 
     const search = async (qualifier: string) => {
       const response = await graphql(

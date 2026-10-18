@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import {
@@ -11,13 +11,14 @@ import {
   type LoadedCodeowners,
   MAX_CODEOWNERS_BYTES,
   matchingRule,
+  ownerToken,
   parseCodeowners,
   type ResolvedOwner,
 } from '../../lib/codeowners/codeowners.js';
 import { statBlob } from '../../lib/git/blob/read-blob.js';
 import { runGitBuffer } from '../../lib/git/exec/run-git.js';
 import { usersByEmailOf } from '../../lib/github/node-lookup.js';
-import { teamSlug } from '../../lib/organizations/team-slug.js';
+import { organizationTeams } from '../../lib/organizations/team-slug.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
 
 /** The CODEOWNERS file of a repository at a ref, its owners checked against users, teams and write access. */
@@ -51,70 +52,54 @@ export class CodeownersService {
     const emails = owners.flatMap((owner) =>
       owner.kind === 'email' ? [owner.email] : [],
     );
-    const [users, byEmail, teams] = await Promise.all([
+    const organizationId = owners.some((owner) => owner.kind === 'team')
+      ? repository.organizationId
+      : null;
+    const [users, byEmail, teams, shared, organization] = await Promise.all([
       this.db
         .select({ id: schema.user.id, username: schema.user.username })
         .from(schema.user)
         .where(inArray(sql`lower(${schema.user.username})`, usernames)),
       usersByEmailOf(this.db, emails),
-      repository.organizationId && owners.some((owner) => owner.kind === 'team')
+      organizationId ? organizationTeams(this.db, organizationId) : [],
+      organizationId
         ? this.db
             .select({
-              id: schema.team.id,
-              name: schema.team.name,
-              organization: schema.organization.slug,
+              teamId: schema.repositoryTeam.teamId,
               role: schema.repositoryTeam.role,
             })
-            .from(schema.team)
-            .innerJoin(
-              schema.organization,
-              eq(schema.organization.id, schema.team.organizationId),
-            )
-            .leftJoin(
-              schema.repositoryTeam,
-              and(
-                eq(schema.repositoryTeam.teamId, schema.team.id),
-                eq(schema.repositoryTeam.repositoryId, repository.id),
-              ),
-            )
-            .where(eq(schema.team.organizationId, repository.organizationId))
+            .from(schema.repositoryTeam)
+            .where(eq(schema.repositoryTeam.repositoryId, repository.id))
+        : [],
+      organizationId
+        ? this.db
+            .select({ slug: schema.organization.slug })
+            .from(schema.organization)
+            .where(eq(schema.organization.id, organizationId))
         : [],
     ]);
-    const candidates = [...users, ...byEmail.values()];
-    const writers = new Set(
-      (
-        await Promise.all(
-          [...new Set(candidates.map((user) => user.id))].map(async (id) =>
-            atLeast(await this.access.explicitRole(repository.id, id), 'write')
-              ? [id]
-              : [],
-          ),
-        )
-      ).flat(),
-    );
+    const roles = await this.access.explicitRoles(repository.id, [
+      ...new Set([...users, ...byEmail.values()].map((user) => user.id)),
+    ]);
 
-    const tokenOf = (owner: CodeownersOwner) =>
-      owner.kind === 'user'
-        ? `@${owner.username}`
-        : owner.kind === 'team'
-          ? `@${owner.organization}/${owner.slug}`
-          : owner.email;
     /** The owner, or the kind of error it is reported as. */
     const check = (owner: CodeownersOwner): ResolvedOwner | string => {
       if (owner.kind === 'team') {
-        const team = teams.find(
-          (candidate) =>
-            candidate.organization.toLowerCase() ===
-              owner.organization.toLowerCase() &&
-            teamSlug(candidate.name) === owner.slug.toLowerCase(),
-        );
+        const team =
+          owner.organization.toLowerCase() ===
+          organization[0]?.slug.toLowerCase()
+            ? teams.find(
+                (candidate) => candidate.slug === owner.slug.toLowerCase(),
+              )
+            : undefined;
         if (!team) return 'Unknown team';
-        if (!atLeast(team.role, 'write')) return 'Team without write access';
+        const role = shared.find((row) => row.teamId === team.id)?.role ?? null;
+        if (!atLeast(role, 'write')) return 'Team without write access';
         return {
           kind: 'team',
           teamId: team.id,
-          slug: teamSlug(team.name),
-          organization: team.organization,
+          slug: team.slug,
+          organization: organization[0]!.slug,
         };
       }
       const user =
@@ -126,19 +111,29 @@ export class CodeownersService {
             )
           : byEmail.get(owner.email.toLowerCase());
       if (!user?.username) return 'Unknown owner';
-      if (!writers.has(user.id)) return 'Owner without write access';
-      return { kind: 'user', userId: user.id, username: user.username };
+      if (atLeast(roles.get(user.id) ?? null, 'write')) {
+        return { kind: 'user', userId: user.id, username: user.username };
+      }
+      // An address of an account that cannot write reads as one nobody has, so the errors do not tell who has an account.
+      return owner.kind === 'email'
+        ? 'Unknown owner'
+        : 'Owner without write access';
     };
     const checked = new Map(
-      owners.map((owner) => [tokenOf(owner).toLowerCase(), check(owner)]),
+      owners.map((owner) => [ownerToken(owner).toLowerCase(), check(owner)]),
     );
 
     const lines = text.split(/\r?\n/);
     const ownerErrors = rules.flatMap((rule) =>
       rule.owners.flatMap((owner, index): CodeownersError[] => {
-        const kind = checked.get(tokenOf(owner).toLowerCase());
+        const kind = checked.get(ownerToken(owner).toLowerCase());
         if (typeof kind !== 'string') return [];
-        const needs = kind.startsWith('Unknown') ? 'exists and has' : 'has';
+        const needs =
+          owner.kind === 'email'
+            ? 'is verified and has'
+            : kind.startsWith('Unknown')
+              ? 'exists and has'
+              : 'has';
         return [
           {
             line: rule.line,
@@ -146,7 +141,7 @@ export class CodeownersService {
             kind,
             source: lines[rule.line - 1],
             suggestion: null,
-            message: `${kind} on line ${rule.line}: make sure ${tokenOf(owner)} ${needs} write access to the repository`,
+            message: `${kind} on line ${rule.line}: make sure ${ownerToken(owner)} ${needs} write access to the repository`,
             path: file.path,
           },
         ];
@@ -160,7 +155,7 @@ export class CodeownersService {
         (a, b) => a.line - b.line || a.column - b.column,
       ),
       resolve: (owner) => {
-        const found = checked.get(tokenOf(owner).toLowerCase());
+        const found = checked.get(ownerToken(owner).toLowerCase());
         return typeof found === 'object' ? found : null;
       },
     };

@@ -11,7 +11,10 @@ import {
   TeamNotFoundError,
   UserNotInOrganizationError,
 } from '../../lib/organizations/organization.errors.js';
-import { teamSlug } from '../../lib/organizations/team-slug.js';
+import {
+  organizationTeams,
+  teamSlug,
+} from '../../lib/organizations/team-slug.js';
 import { UsersService } from '../../services/users/users.service.js';
 
 /** Better Auth's own dedupe key for a team membership, so rows written here are found by its lookups too. */
@@ -87,7 +90,7 @@ export class TeamsService {
     return {
       id: found.id,
       name: found.name,
-      slug: teamSlug(found.name),
+      slug: found.slug,
       members,
       repositories,
       viewerCanManage: administers(role) || Boolean(maintainer),
@@ -199,11 +202,9 @@ export class TeamsService {
       slug,
       requesterId,
     );
-    const teams = await this.db
-      .select({ id: schema.team.id, name: schema.team.name })
-      .from(schema.team)
-      .where(eq(schema.team.organizationId, organizationId));
-    const found = teams.find((candidate) => teamSlug(candidate.name) === team);
+    const found = (await organizationTeams(this.db, organizationId)).find(
+      (candidate) => candidate.slug === team.toLowerCase(),
+    );
     if (!found) throw new TeamNotFoundError();
     return { found, role, organizationId };
   }

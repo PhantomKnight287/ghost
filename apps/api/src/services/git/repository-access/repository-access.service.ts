@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
-import { and, eq, type SQL, sql } from 'drizzle-orm';
+import type { Role } from '@ghost/permissions';
+import { and, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import {
@@ -96,14 +97,39 @@ export class RepositoryAccessService {
     );
   }
 
-  /** The role granted to `userId`, leaving out the read access a public repository gives everyone. */
-  async explicitRole(repositoryId: string, userId: string) {
-    const actor = { userId };
-    const [row] = await this.lookup(
-      actor,
-      eq(schema.repository.id, repositoryId),
+  /** The role granted to each of `userIds`, leaving out the read access a public repository gives everyone; users granted nothing are left out. */
+  async explicitRoles(repositoryId: string, userIds: string[]) {
+    if (userIds.length === 0) return new Map<string, Role>();
+    const actor = { userId: schema.user.id };
+    const rows = await this.database
+      .select({
+        userId: schema.user.id,
+        repository: {
+          ownerId: schema.repository.ownerId,
+          organizationId: schema.repository.organizationId,
+        },
+        collaboratorRole: schema.repositoryCollaborator.role,
+        memberRole: schema.member.role,
+        teamRole: teamRoleOf(schema.repository.id, actor),
+        basePermission: basePermissionOf(schema.repository.organizationId),
+      })
+      .from(schema.repository)
+      .innerJoin(schema.user, inArray(schema.user.id, userIds))
+      .leftJoin(
+        schema.repositoryCollaborator,
+        acceptedCollaboration(schema.repository.id, actor),
+      )
+      .leftJoin(
+        schema.member,
+        organizationMembership(schema.repository.organizationId, actor),
+      )
+      .where(eq(schema.repository.id, repositoryId));
+    return new Map(
+      rows.flatMap((row) => {
+        const role = roleOf(row.repository, row, { userId: row.userId });
+        return role ? [[row.userId, role] as const] : [];
+      }),
     );
-    return row ? roleOf(row.repository, row, actor) : null;
   }
 
   private lookup(actor: Actor, where: SQL | undefined) {
