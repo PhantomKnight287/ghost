@@ -1,8 +1,9 @@
 import { type Database, schema } from '@ghost/db';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { DomainError } from '../../domain/errors.js';
 import { errorMessage } from '../../lib/error-message.js';
 import type { StoredEvent } from '../../lib/events/events.js';
 import { listDiffFiles } from '../../lib/git/diff/diff.js';
@@ -22,7 +23,7 @@ export class CodeownerRequestsService {
     private readonly reviewRequests: ReviewRequestsService,
   ) {}
 
-  /** Never throws: a broken CODEOWNERS file must not send the event round again. */
+  /** Something gone by the time the event is handled, such as the head branch, is logged and let through; any other failure throws so the outbox tries again, which asks only owners not yet asked. */
   async handle(event: StoredEvent) {
     if (
       event.type !== 'issue.opened' &&
@@ -33,6 +34,11 @@ export class CodeownerRequestsService {
     try {
       await this.request(event.payload.issueId);
     } catch (error) {
+      if (
+        !(error instanceof DomainError && error.status === HttpStatus.NOT_FOUND)
+      ) {
+        throw error;
+      }
       this.logger.warn(
         `Code-owner requests for event ${event.id} (${event.type}) failed: ${errorMessage(error)}`,
       );

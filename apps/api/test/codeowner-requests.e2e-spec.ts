@@ -14,6 +14,7 @@ import { DATABASE } from '../src/database/database.module.js';
 import type { Auth } from '../src/lib/auth.js';
 import type { StoredEvent } from '../src/lib/events/events.js';
 import { CodeownerRequestsService } from '../src/services/codeowners/codeowner-requests.service.js';
+import { CodeownersService } from '../src/services/codeowners/codeowners.service.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 type Account = Awaited<ReturnType<typeof signUp>>;
@@ -353,7 +354,7 @@ describe.skipIf(!hasBackends)('automatic code-owner review requests', () => {
     expect(await requested(number)).toEqual([[reviewerName, true]]);
   });
 
-  it('logs, and lets the event through, when the pull request cannot be read', async () => {
+  it('logs, and lets the event through, when the head branch is gone', async () => {
     const warn = vi.spyOn(Logger.prototype, 'warn');
     branch('vanishing');
     commit({ 'a.txt': 'a\nvanishing\n' });
@@ -381,6 +382,38 @@ describe.skipIf(!hasBackends)('automatic code-owner review requests', () => {
       );
     expect(failed).toEqual([]);
     warn.mockRestore();
+  });
+
+  it('lets any other failure through, so the outbox tries the event again', async () => {
+    branch('transient');
+    commit({ 'a.txt': 'a\ntransient\n' });
+    await push('transient');
+    const number = await openPull('transient');
+    await settle();
+    const [pullRequest] = await db()
+      .select({ issueId: schema.pullRequest.issueId })
+      .from(schema.pullRequest)
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
+      .where(
+        and(
+          eq(schema.issue.repositoryId, repositoryId),
+          eq(schema.issue.number, number),
+        ),
+      );
+    const load = vi
+      .spyOn(app.get(CodeownersService), 'load')
+      .mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
+    await expect(
+      app.get(CodeownerRequestsService).handle({
+        id: 'transient',
+        createdAt: new Date(),
+        type: 'pull_request.ready_for_review',
+        repositoryId,
+        actorId: owner.userId,
+        payload: { issueId: pullRequest!.issueId },
+      }),
+    ).rejects.toThrow('Connection terminated unexpectedly');
+    load.mockRestore();
   });
 
   // Last: the repository turns private.
