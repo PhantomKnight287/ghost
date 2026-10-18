@@ -28,6 +28,7 @@ import {
   EmptyReviewError,
   InvalidLineRangeError,
   OwnPullRequestReviewError,
+  PullRequestNotOpenError,
   ReviewLineNotInDiffError,
 } from '../../lib/pull-requests/pull-requests.errors.js';
 import {
@@ -84,6 +85,7 @@ const UNPROCESSABLE: (new (...args: never[]) => DomainError)[] = [
   InvalidLineRangeError,
   OwnPullRequestReviewError,
   EmptyReviewError,
+  PullRequestNotOpenError,
 ];
 
 const DOCUMENTATION_URL = 'https://docs.github.com/rest';

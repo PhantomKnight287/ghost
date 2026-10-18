@@ -303,6 +303,59 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
     await get(`${repo}/pulls/1/reviews/999999999`).expect(404);
   });
 
+  it('requests, lists and removes reviewers, and refuses an unknown login', async () => {
+    const api = `${repo}/pulls/1/requested_reviewers`;
+    const reviewerName = `${username}r`;
+    await v3()
+      .put(`/api/repositories/${username}/tools/collaborators/${reviewerName}`)
+      .set('cookie', owner.cookie)
+      .send({ role: 'write' })
+      .expect(200);
+    const invitation = (
+      await v3()
+        .get('/api/invitations')
+        .set('cookie', reviewer.cookie)
+        .expect(200)
+    ).body.invitations[0];
+    await v3()
+      .post(`/api/invitations/${invitation.id}/accept`)
+      .set('cookie', reviewer.cookie)
+      .expect(204);
+
+    const requested = await send('post', api, {
+      reviewers: [reviewerName],
+    }).expect(201);
+    expect(requested.body).toMatchObject({
+      number: 1,
+      requested_reviewers: [{ login: reviewerName }],
+    });
+    expect((await get(api).expect(200)).body).toMatchObject({
+      users: [{ login: reviewerName }],
+      teams: [],
+    });
+    expect(
+      (await get(`${repo}/pulls/1`).expect(200)).body.requested_reviewers[0]
+        .login,
+    ).toBe(reviewerName);
+
+    const unknown = await send('post', api, {
+      reviewers: ['nobody-here'],
+    }).expect(422);
+    expect(unknown.body).toMatchObject({
+      message: expect.stringContaining('nobody-here'),
+      documentation_url: expect.any(String),
+      status: '422',
+    });
+
+    const removed = await v3()
+      .delete(`/api/v3${api}`)
+      .set('authorization', `token ${owner.key}`)
+      .send({ reviewers: [reviewerName] })
+      .expect(200);
+    expect(removed.body.requested_reviewers).toEqual([]);
+    expect((await get(api).expect(200)).body.users).toEqual([]);
+  });
+
   it('refuses a merge whose head moved on, then merges and reports it', async () => {
     await send('put', `${repo}/pulls/1/merge`, { sha: '0'.repeat(40) }).expect(
       409,
@@ -325,6 +378,12 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
       expect.objectContaining({ number: 1 }),
     ]);
     await send('put', `${repo}/pulls/1/merge`, {}).expect(405);
+  });
+
+  it('answers 422 to a review request on a merged pull request', async () => {
+    await send('post', `${repo}/pulls/1/requested_reviewers`, {
+      reviewers: [`${username}r`],
+    }).expect(422);
   });
 
   it('closes and reopens over REST, and never reopens a merged one', async () => {

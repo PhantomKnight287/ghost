@@ -3251,6 +3251,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/requested_reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Users and teams asked to review a pull request */
+        get: operations["RequestedReviewersController_list"];
+        put?: never;
+        /** Request reviews from users and teams */
+        post: operations["RequestedReviewersController_request"];
+        /** Remove requested reviewers */
+        delete: operations["RequestedReviewersController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/repos/{owner}/{repo}/pulls": {
         parameters: {
             query?: never;
@@ -5751,6 +5770,10 @@ export interface components {
             event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
             /** @description Replaces the pending review's summary when given. */
             body?: string;
+        };
+        GithubRequestedReviewersDTO: {
+            reviewers?: string[];
+            team_reviewers?: string[];
         };
         GithubCreatePullDTO: {
             title: string;
@@ -13585,6 +13608,77 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["GithubSubmitReviewDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RequestedReviewersController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RequestedReviewersController_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubRequestedReviewersDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RequestedReviewersController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubRequestedReviewersDTO"];
             };
         };
         responses: {

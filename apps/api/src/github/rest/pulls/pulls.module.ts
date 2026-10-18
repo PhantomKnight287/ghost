@@ -6,6 +6,7 @@ import { GithubIssuesModule } from '../issues/issues.module.js';
 import { ReposModule } from '../repos/repos.module.js';
 import { PullsController } from './pulls.controller.js';
 import { GithubPullsService } from './pulls.service.js';
+import { RequestedReviewersController } from './requested-reviewers.controller.js';
 import { ReviewCommentsController } from './review-comments.controller.js';
 import { GithubReviewCommentsService } from './review-comments.service.js';
 import { GithubReviewsController } from './reviews.controller.js';
@@ -17,6 +18,7 @@ import { GithubReviewsService } from './reviews.service.js';
   controllers: [
     ReviewCommentsController,
     GithubReviewsController,
+    RequestedReviewersController,
     PullsController,
   ],
   providers: [

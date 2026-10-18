@@ -3,6 +3,7 @@ import { CouldNotResolveError } from './github.errors.js';
 const PREFIXES = {
   User: 'U',
   Organization: 'O',
+  Team: 'T',
   Repository: 'R',
   Issue: 'I',
   PullRequest: 'PR',
