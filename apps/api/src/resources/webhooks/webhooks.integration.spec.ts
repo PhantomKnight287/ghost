@@ -384,7 +384,7 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       issueId: pullIssue.id,
       requestedUserId: 'user_gone',
     });
-    await send('requested_team_gone', 'pull_request.review_requested', {
+    await send('requested_team_gone', 'pull_request.review_request_removed', {
       issueId: pullIssue.id,
       requestedTeamId: 'team_gone',
     });
@@ -408,6 +408,14 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       issueId: 'issue_gone',
       commentId: comment.id,
     });
+
+    const sent = (await eventsFor(webhook.id)).filter((event) =>
+      event.startsWith('pull_request.review_request'),
+    );
+    expect(sent.sort()).toEqual([
+      'pull_request.review_request_removed',
+      'pull_request.review_requested',
+    ]);
 
     const bodies = Object.fromEntries(
       (await jobsFor(webhook.id)).map((job) => [
