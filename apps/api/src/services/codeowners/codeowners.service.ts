@@ -104,7 +104,8 @@ export class CodeownersService {
       if (owner.kind === 'team') {
         const team = teams.find(
           (candidate) =>
-            candidate.organization === owner.organization.toLowerCase() &&
+            candidate.organization.toLowerCase() ===
+              owner.organization.toLowerCase() &&
             teamSlug(candidate.name) === owner.slug.toLowerCase(),
         );
         if (!team) return 'Unknown team';

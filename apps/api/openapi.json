@@ -2203,6 +2203,7 @@
             "in": "query",
             "description": "Files to name the owners of, relative to the repository root. Repeat the parameter for each file.",
             "schema": {
+              "maxItems": 500,
               "example": [
                 "src/main.ts"
               ],

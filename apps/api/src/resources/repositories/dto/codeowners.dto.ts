@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsOptional,
   IsString,
@@ -10,6 +11,9 @@ import {
 
 import { MAX_TREE_PATH_LENGTH } from '../../../lib/git/tree/tree-path.js';
 import { SafeTreePathConstraint } from './get-repository-contents.dto.js';
+
+// Express parses at most 1,000 query keys and drops the rest silently, so the cap sits well below that to answer 400 rather than a short list.
+export const MAX_CODEOWNERS_PATHS = 500;
 
 export class GetCodeownersQueryDTO {
   @ApiPropertyOptional({
@@ -28,10 +32,12 @@ export class GetCodeownersOwnersQueryDTO extends GetCodeownersQueryDTO {
       'Files to name the owners of, relative to the repository root. Repeat the parameter for each file.',
     example: ['src/main.ts'],
     type: [String],
+    maxItems: MAX_CODEOWNERS_PATHS,
   })
   // One `path=` arrives as a string, several as an array.
   @Transform(({ value }: { value: unknown }) => [value].flat())
   @IsArray()
+  @ArrayMaxSize(MAX_CODEOWNERS_PATHS)
   @IsString({ each: true })
   @MaxLength(MAX_TREE_PATH_LENGTH, { each: true })
   @Validate(SafeTreePathConstraint, { each: true })

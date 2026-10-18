@@ -28,7 +28,9 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
   const ownerName = `coowner${stamp}`;
   const writerName = `cowriter${stamp}`;
   const readerName = `coreader${stamp}`;
-  const org = `coorg${stamp}`;
+  const namelessName = `conameless${stamp}`;
+  // Organization slugs are stored as typed; only the web dialog lowercases them.
+  const org = `CoOrg${stamp}`;
 
   const api = () => request(app.getHttpServer());
   const auth = () => app.get<AuthService<Auth>>(AuthService).api;
@@ -87,6 +89,12 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
     owner = await signUp(app, ownerName);
     writer = await signUp(app, writerName);
     reader = await signUp(app, readerName);
+    // An account without a username has no login to name it by, even with a verified email.
+    const nameless = await signUp(app, namelessName);
+    await db()
+      .update(schema.user)
+      .set({ username: null, emailVerified: true })
+      .where(eq(schema.user.id, nameless.userId));
     await db()
       .update(schema.user)
       .set({ emailVerified: true })
@@ -141,7 +149,7 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
       '.ghost/CODEOWNERS': [
         '# Owners',
         `* @${ownerName}`,
-        `*.md ${writerName}@example.com ${writerName}-alt@example.com`,
+        `*.md ${writerName}@example.com ${writerName}-alt@example.com ${namelessName}@example.com`,
         `docs/ @alcie @${readerName} @${writerName}`,
         `src/ @${org}/core @${org}/readers @${org}/nope @elsewhere/core`,
         'vendor/',
@@ -170,6 +178,7 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
       ]),
     ).toEqual([
       [3, 'Unknown owner'],
+      [3, 'Unknown owner'],
       [4, 'Unknown owner'],
       [4, 'Owner without write access'],
       [5, 'Team without write access'],
@@ -177,7 +186,7 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
       [5, 'Unknown team'],
       [7, 'Invalid pattern'],
     ]);
-    expect(body.errors[1]).toEqual({
+    expect(body.errors[2]).toEqual({
       line: 4,
       column: 7,
       kind: 'Unknown owner',
@@ -212,6 +221,11 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
       .query('path=../x')
       .set('cookie', owner.cookie)
       .expect(400);
+    await api()
+      .get(`/api/repositories/${org}/widget/codeowners/owners`)
+      .query(Array.from({ length: 501 }, (_, i) => `path=f${i}`).join('&'))
+      .set('cookie', owner.cookie)
+      .expect(400);
   });
 
   it('needs read access to the repository', async () => {
@@ -226,8 +240,8 @@ describe.skipIf(!hasBackends)('CODEOWNERS', () => {
       .get(`/api/v3/repos/${org}/widget/codeowners/errors`)
       .set('authorization', `token ${owner.key}`)
       .expect(200);
-    expect(body.errors).toHaveLength(7);
-    expect(body.errors[1].message).toBe(
+    expect(body.errors).toHaveLength(8);
+    expect(body.errors[2].message).toBe(
       'Unknown owner on line 4: make sure @alcie exists and has write access to the repository',
     );
 
