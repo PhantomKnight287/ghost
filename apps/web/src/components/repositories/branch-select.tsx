@@ -71,8 +71,12 @@ export function BranchSelect({
       }}
       inputValue={query}
       onInputValueChange={setQuery}
-      onItemHighlighted={(_, { reason, index }) => {
-        if (reason === "keyboard") virtualizer.scrollToIndex(index);
+      onItemHighlighted={(branch, { reason, index }) => {
+        // "none" is the selected branch being highlighted as the list opens;
+        // wait a tick so the freshly mounted list can be scrolled
+        if (branch && (reason === "keyboard" || reason === "none")) {
+          queueMicrotask(() => virtualizer.scrollToIndex(index));
+        }
       }}
     >
       <ComboboxTrigger
@@ -89,7 +93,8 @@ export function BranchSelect({
         </span>
       </ComboboxTrigger>
       {inDialog && <div ref={setContainer} />}
-      <ComboboxContent className="min-w-64" container={container}>
+      {/* null makes Base UI wait for a container that never comes, so fall back to <body> */}
+      <ComboboxContent className="min-w-64" container={container ?? undefined}>
         <ComboboxInput placeholder={searchPlaceholder} showTrigger={false} />
         <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
         <ComboboxList ref={setList}>
