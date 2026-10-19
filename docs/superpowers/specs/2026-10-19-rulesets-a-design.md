@@ -87,7 +87,7 @@ Notes:
 | `Team` | the team id | members of that team |
 | `OrganizationAdmin` | ignored (GitHub sends `1`) | organization administrators (`administers`) |
 
-GitHub identifies repository roles by number (`1` maintain, `2` write, `5` admin). Accept and return GitHub's numbers in the REST API, and map them to Ghost's roles.
+GitHub identifies the built-in repository roles by number (`2` maintain, `4` write, `5` admin, as GitHub's API and the Terraform provider use them; verify against a live GitHub response before release). Accept and return these numbers in the REST API, and map them to Ghost's roles. Teams are identified by a numeric id in REST, so `team` gains a `numeric_id` like `organization` has.
 
 The repository owner of a personal repository counts as `admin`.
 
@@ -229,3 +229,63 @@ A **Rules** section in repository settings, admins only:
 - The matcher implementation, as long as it passes GitHub's examples.
 - Exact UI layout, within GitHub's patterns.
 - Where the actor's role, teams and organization admin status are resolved, as long as it is once per write.
+
+## Contract fixed by the tests
+
+The failing tests written before the build pin these names and shapes. Change them only together with the tests.
+
+### Modules
+
+- `apps/api/src/lib/rulesets/ref-pattern.ts`: `normalizeRefPattern(target, pattern)` returns the stored form, and `refTargeted({ target, include, exclude }, ref, defaultBranch)` returns a boolean.
+- `apps/api/src/lib/rulesets/evaluate-rulesets.ts`: `evaluateRulesets({ rulesets, actor, write, transitions, facts, defaultBranch })` returns `Violation[]`. `facts` is a `Map<ref, RefFacts>`. A rule that needs facts which were not supplied counts as broken (fail closed).
+- `apps/api/src/lib/rulesets/rulesets.types.ts`:
+  - `RuleType`: the five rule names.
+  - `Ruleset`: `{ id, name, target, enforcement, include, exclude, bypassActors, rules: { type, parameters? }[] }`.
+  - `BypassActor`: `{ actorType: 'RepositoryRole', role: 'write' | 'maintain' | 'admin', bypassMode }`, `{ actorType: 'Team', teamId, bypassMode }`, or `{ actorType: 'OrganizationAdmin', bypassMode }`. `bypassMode` is `'always'` or `'pull_request'`.
+  - `RulesetActor`: `{ role: Role | null, teamIds: string[], organizationAdmin: boolean }`. A personal repository's owner resolves to `admin`.
+  - `RefFacts`: `{ isFastForward, introducesMergeCommit }`.
+  - `Violation`: `{ ref, rulesetId, rulesetName, rule, message }`.
+- `apps/api/src/lib/rulesets/rulesets.errors.ts`: `RulesetVerdictRequiredError` and `RulesetViolationError`. `RulesetViolationError` carries `violations` and maps to 422.
+- `commitPush` takes `actor: { userId, verdict: { transitions, violations } } | 'system'`. A missing actor, a user actor without a verdict, or a verdict for transitions other than exactly the ones being written throws `RulesetVerdictRequiredError` before anything is stored. "Exactly" means the same set of ref, old oid and new oid. A verdict with violations throws `RulesetViolationError`. The acting user is recorded as the pusher.
+- The only message wording pinned is the force-push one, `Cannot force-push to this branch`. Take the others from GitHub, as above.
+
+### Messages
+
+- A refused push prints `GH013: Repository rule violations found for <ref>`, then each violation, and each violation names its ruleset. Report-status reason: `push declined due to repository rule violations`.
+- A refused API write answers 422, and its `message` names the ruleset.
+
+### Ghost API
+
+Under `/api/repositories/:owner/:repo`:
+
+| Endpoint | Who | Answers |
+|---|---|---|
+| `GET /rulesets` | read | `{ rulesets }` |
+| `POST /rulesets` | admin | 201 with the ruleset |
+| `GET /rulesets/:id` | read | the ruleset |
+| `PUT /rulesets/:id` | admin | 200, replaces the whole ruleset |
+| `DELETE /rulesets/:id` | admin | 204 |
+| `POST /rulesets/preview` | admin | `{ target, include, exclude }` gives `{ refs }`: the existing full refs it targets, sorted |
+| `GET /protected-refs?target=branch\|tag` | read | `{ refs: { [ref]: { rules, bypass } } }`, where `rules` are the active rule types and `bypass` is `always`, `pull_requests_only` or `never` for the viewer |
+
+- A ruleset is `{ id, name, target, enforcement, include, exclude, bypassActors, rules, createdAt, updatedAt }`, with patterns in stored form. `bypassActors` is left out for viewers who are not admins.
+- Status codes:
+  - 400 for a malformed body: empty name, unknown target, enforcement, rule type, actor type, role or mode; a duplicate rule type; a role below `write`.
+  - 422 for a team that is not on the owning organization, or a Team or OrganizationAdmin actor on a personal repository.
+  - 409 for a name that is already taken.
+  - 401 when signed out, 403 for non-admins making changes, 404 for a ruleset of another repository.
+- Outbox events `repository_ruleset.created`, `repository_ruleset.edited` and `repository_ruleset.deleted` carry `rulesetId` in their payload.
+
+### GitHub REST
+
+- `id` and team `actor_id` are numeric. The ruleset needs a numeric id, and `team` gains `numeric_id`.
+- `OrganizationAdmin` uses `actor_id` `1`.
+- `PUT` updates only the fields it is given.
+- Every invalid body answers 422 with a `message`.
+- `current_user_can_bypass` is `always`, `pull_requests_only` or `never`.
+- The list returns summaries: no rules, conditions or bypass actors.
+- `_links.html` points at `/<owner>/<repo>/rules/<id>`.
+
+### Existing tests
+
+Existing tests that call `commitPush` directly (the branches, releases and commit-status integration specs, and `push-transaction.service.spec.ts`) need an `actor` argument once it is required. That is the only change allowed to them: pass `'system'` or a clean verdict, and leave their assertions alone.
