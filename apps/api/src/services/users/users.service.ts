@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
 
@@ -71,12 +71,12 @@ export class UsersService {
     return user;
   }
 
-  /** The id of the user called `username`, or null when there is none: a filter on someone who does not exist matches nothing rather than failing. */
+  /** The id of the user called `username` in any case, or null when there is none: a filter on someone who does not exist matches nothing rather than failing. */
   async findUserId(username: string) {
     const [user] = await this.database
       .select({ id: schema.user.id })
       .from(schema.user)
-      .where(eq(schema.user.username, username));
+      .where(sql`lower(${schema.user.username}) = lower(${username})`);
     return user?.id ?? null;
   }
 }

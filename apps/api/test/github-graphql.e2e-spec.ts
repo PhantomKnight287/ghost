@@ -898,6 +898,9 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
     };
     const widget = [{ title: 'Widget feature' }];
     expect(await search(`review-requested:${reviewerName}`)).toEqual(widget);
+    expect(
+      await search(`review-requested:${reviewerName.toUpperCase()}`),
+    ).toEqual(widget);
     expect(await search(`user-review-requested:${reviewerName}`)).toEqual([]);
     expect(await search(`team-review-requested:${org}/core`)).toEqual(widget);
     expect(await search(`team-review-requested:${org}/nobody`)).toEqual([]);

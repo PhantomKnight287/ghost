@@ -534,6 +534,13 @@ describe.skipIf(!hasBackends)('pull request review requests', () => {
     expect(
       await numbers(`${ownerName}/${repo}`, collaboratorName, owner),
     ).toEqual([1]);
+    expect(
+      await numbers(
+        `${ownerName}/${repo}`,
+        collaboratorName.toUpperCase(),
+        owner,
+      ),
+    ).toEqual([1]);
     expect(await numbers(`${ownerName}/${repo}`, '@me', owner)).toEqual([]);
     const signedOut = await api()
       .get(`/api/repositories/${ownerName}/${repo}/pulls`)

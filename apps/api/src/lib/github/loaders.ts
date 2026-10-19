@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import DataLoader from 'dataloader';
-import { inArray } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 
 import type { GithubRequest } from '../../github/auth/github-request.js';
 import { reviewsOf, usersByEmailOf } from './node-lookup.js';
@@ -28,15 +28,21 @@ export function createLoaders(db: Database) {
       );
       return ids.map((id) => found.get(id) ?? null);
     }),
+    /** Logins match without regard to case, as on GitHub. */
     usersByLogin: new DataLoader<string, UserRow | null>(async (logins) => {
       const found = byKey(
         await db
           .select()
           .from(schema.user)
-          .where(inArray(schema.user.username, [...logins])),
-        (row) => row.username,
+          .where(
+            inArray(
+              sql`lower(${schema.user.username})`,
+              logins.map((login) => login.toLowerCase()),
+            ),
+          ),
+        (row) => row.username?.toLowerCase() ?? null,
       );
-      return logins.map((login) => found.get(login) ?? null);
+      return logins.map((login) => found.get(login.toLowerCase()) ?? null);
     }),
     /** Keyed by lowercased email; see usersByEmailOf. */
     usersByEmail: new DataLoader<string, UserRow | null>(async (emails) => {
