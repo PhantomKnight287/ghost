@@ -191,3 +191,27 @@ export class PendingReviewReplyError extends DomainError {
     super('Submit your review before replying to its comments');
   }
 }
+
+export class ReviewerNotFoundError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(name: string) {
+    super(`Could not resolve to a user or team named ${name}`);
+  }
+}
+
+export class ReviewerNotEligibleError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(name: string) {
+    super(`${name} cannot be requested to review this pull request`);
+  }
+}
+
+export class TooManyReviewersError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('At most 15 reviewers can be requested at once');
+  }
+}

@@ -1,8 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import type { Database } from '@ghost/db';
+import { Inject, Injectable } from '@nestjs/common';
 
+import { DATABASE } from '../../../../database/database.module.js';
 import { parseIssueSearch } from '../../../../lib/github/issue-search.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
-import { IssuesService } from '../../../../resources/issues/issues.service.js';
+import { organizationTeams } from '../../../../lib/organizations/team-slug.js';
+import {
+  type IssueListOptions,
+  IssuesService,
+} from '../../../../resources/issues/issues.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { issueCursor } from '../../connection.js';
 import { SearchType } from '../../enums.js';
@@ -24,6 +30,7 @@ const EMPTY = {
 @Injectable()
 export class GithubSearchService {
   constructor(
+    @Inject(DATABASE) private readonly db: Database,
     private readonly issues: IssuesService,
     private readonly repositories: RepositoryNodesService,
     private readonly issueNodes: IssueNodesService,
@@ -39,9 +46,8 @@ export class GithubSearchService {
     after?: string,
   ) {
     const search = parseIssueSearch(query);
-    // ponytail: only repository-scoped issue search; global search across repositories needs its own query over every readable repository. Ghost has no review requests, so `review-requested:` matches nothing.
-    if (type !== SearchType.ISSUE || !search.repo || search.reviewRequested)
-      return EMPTY;
+    // ponytail: only repository-scoped issue search; global search across repositories needs its own query over every readable repository.
+    if (type !== SearchType.ISSUE || !search.repo) return EMPTY;
     const repository = await this.repositories.repository(
       search.repo.owner,
       search.repo.name,
@@ -52,6 +58,28 @@ export class GithubSearchService {
       : undefined;
     const me = (login: string | undefined) =>
       login === '@me' ? (viewerLogin ?? '') : login;
+    const wanted = search.reviewRequested;
+    let reviewRequested: IssueListOptions['reviewRequested'];
+    if (wanted && 'login' in wanted) {
+      const reviewer = await loaders.usersByLogin.load(me(wanted.login)!);
+      reviewRequested = reviewer
+        ? { userId: reviewer.id, direct: wanted.direct }
+        : undefined;
+    } else if (wanted) {
+      // Only the repository's own organization's teams can be requested on it.
+      const teams =
+        repository.organizationGhostId &&
+        wanted.organization.toLowerCase() ===
+          repository.ownerLogin.toLowerCase()
+          ? await organizationTeams(this.db, repository.organizationGhostId)
+          : [];
+      const team = teams.find(
+        (team) => team.slug === wanted.slug.toLowerCase(),
+      );
+      reviewRequested = team ? { teamId: team.id } : undefined;
+    }
+    // A user or team that does not exist has no review requests.
+    if (wanted && !reviewRequested) return EMPTY;
     const page = await this.issues.getIssues(
       {
         username: repository.ownerLogin,
@@ -69,6 +97,7 @@ export class GithubSearchService {
       },
       search.isPullRequest === true
         ? {
+            reviewRequested,
             pullRequests: {
               states:
                 search.merged === null
@@ -78,7 +107,10 @@ export class GithubSearchService {
                     : ['open', 'closed'],
             },
           }
-        : { includePullRequests: search.isPullRequest === null },
+        : {
+            reviewRequested,
+            includePullRequests: search.isPullRequest === null,
+          },
     );
     const nodes = await this.issueNodes.toNodes(page.issues, repository);
     return {

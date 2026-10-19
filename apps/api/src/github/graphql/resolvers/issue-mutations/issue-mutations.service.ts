@@ -18,6 +18,7 @@ import {
   usernamesOf,
 } from '../../../../lib/github/node-lookup.js';
 import { toIssueCommentNode } from '../../../../lib/github/nodes.js';
+import { organizationTeams } from '../../../../lib/organizations/team-slug.js';
 import { RepositoryForbiddenError } from '../../../../lib/repositories/access/repository-access.errors.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
@@ -393,6 +394,20 @@ export class IssueMutationsService {
   async usernames(nodeIds: string[]) {
     const ids = nodeIds.map((nodeId) => decodeNodeIdAs(nodeId, 'User'));
     return this.resolveAll(nodeIds, ids, await usernamesOf(this.db, ids));
+  }
+
+  /** Only the repository's organization's teams resolve; another organization's team fails as an unresolvable node. */
+  async teamSlugs(repository: RepositoryNode, nodeIds: string[]) {
+    const ids = nodeIds.map((nodeId) => decodeNodeIdAs(nodeId, 'Team'));
+    const teams =
+      repository.organizationGhostId && ids.length > 0
+        ? await organizationTeams(this.db, repository.organizationGhostId)
+        : [];
+    return this.resolveAll(
+      nodeIds,
+      ids,
+      new Map(teams.map((team) => [team.id, team.slug])),
+    );
   }
 
   /** The value for each id in order; the first id with none fails as GitHub fails an unresolvable node. */

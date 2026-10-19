@@ -12,8 +12,13 @@ import { CommitStatusesModule } from '../commit-statuses/commit-statuses.module.
 import { IssuesModule } from '../issues/issues.module.js';
 import { PullRefsModule } from '../../pull-refs/pull-refs.module.js';
 import { StorageModule } from '../storage/storage.module.js';
-import { PullRequestsController } from './pull-requests.controller.js';
+import {
+  PullRequestsController,
+  ViewerPullRequestsController,
+} from './pull-requests.controller.js';
 import { PullRequestsService } from './pull-requests.service.js';
+import { ReviewRequestsController } from './review-requests.controller.js';
+import { ReviewRequestsService } from './review-requests.service.js';
 import { ReviewsController } from './reviews.controller.js';
 import { ReviewsService } from './reviews.service.js';
 
@@ -25,10 +30,16 @@ import { ReviewsService } from './reviews.service.js';
     StorageModule,
     CommitStatusesModule,
   ],
-  controllers: [PullRequestsController, ReviewsController],
+  controllers: [
+    PullRequestsController,
+    ViewerPullRequestsController,
+    ReviewsController,
+    ReviewRequestsController,
+  ],
   providers: [
     PullRequestsService,
     ReviewsService,
+    ReviewRequestsService,
     UsersService,
     RepositoryAccessService,
     PushTransactionService,
@@ -37,6 +48,6 @@ import { ReviewsService } from './reviews.service.js';
     CommitSigningService,
     CommitVerificationService,
   ],
-  exports: [PullRequestsService, ReviewsService],
+  exports: [PullRequestsService, ReviewsService, ReviewRequestsService],
 })
 export class PullRequestsModule {}

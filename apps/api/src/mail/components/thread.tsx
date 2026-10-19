@@ -15,6 +15,7 @@ const BECAUSE: Record<NotificationReason, string> = {
   author: 'you opened it',
   subscribed: 'you are subscribed',
   watching: 'you are watching this repository',
+  review_requested: 'your review was requested',
 };
 
 /** The thread every notification email is about, and why its reader got it. */

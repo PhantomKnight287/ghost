@@ -5,6 +5,7 @@ import type {
 } from '../../resources/commit-statuses/dto/commit-status.dto.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
+import type { RequestedReviewers } from '../../resources/pull-requests/review-requests.service.js';
 import type {
   ReleaseAssetDTO,
   ReleaseDTO,
@@ -299,6 +300,7 @@ export type PullRestSource = {
   mergedAt: Date | null;
   base: RestRepositoryObject;
   head: RestRepositoryObject | null;
+  reviewers: RequestedReviewers;
 };
 
 /** The figures only a single pull request's response carries, from PullRequestsService.getPullRequest. */
@@ -368,8 +370,19 @@ export function toPullRest(
     merge_commit_sha: pull.mergeCommitSha,
     assignee: assignees[0] ?? null,
     assignees,
-    requested_reviewers: [],
-    requested_teams: [],
+    requested_reviewers: pull.reviewers.users.flatMap(
+      (reviewer) => user(reviewer.username) ?? [],
+    ),
+    // ponytail: teams carry no numeric id, as Ghost keeps none for them.
+    requested_teams: pull.reviewers.teams.map((team) => ({
+      node_id: encodeNodeId('Team', team.id),
+      name: team.name,
+      slug: team.slug,
+      description: null,
+      privacy: 'closed',
+      permission: 'pull',
+      parent: null,
+    })),
     head: side(pull.headRef, pull.headSha, pull.head),
     base: side(pull.baseRef, pull.baseSha, pull.base),
     _links: {

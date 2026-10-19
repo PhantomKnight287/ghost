@@ -54,6 +54,7 @@ import {
   type PullRequestRef,
   PullRequestsService,
 } from './pull-requests.service.js';
+import { ReviewRequestsService } from './review-requests.service.js';
 import { touchIssue } from '../../lib/issues/touch-issue.js';
 import { withTempDir } from '../../lib/temp-dir.js';
 
@@ -75,6 +76,7 @@ export class ReviewsService {
     private readonly access: RepositoryAccessService,
     private readonly references: IssueReferencesService,
     private readonly pullRequests: PullRequestsService,
+    private readonly reviewRequests: ReviewRequestsService,
     private readonly users: UsersService,
     private readonly pushTransaction: PushTransactionService,
     private readonly signing: CommitSigningService,
@@ -180,6 +182,14 @@ export class ReviewsService {
         );
       }
 
+      // The author is never requested, so their review answers nothing, not even their teams' requests.
+      if (params.requesterId !== pullRequest.authorId) {
+        await this.reviewRequests.clearForReview(tx, {
+          pullRequestId: pullRequest.id,
+          reviewerId: params.requesterId,
+          reviewId: review.id,
+        });
+      }
       await publishEvent(tx, {
         type: 'pull_request.reviewed',
         repositoryId: base.id,

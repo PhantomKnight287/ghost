@@ -1,5 +1,5 @@
 import { schema } from '@ghost/db';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -227,7 +227,20 @@ export class GetPullRequestsQueryDTO {
   @Max(100)
   @IsOptional()
   limit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Only pull requests asking this username, or `@me`, for a review, directly or through a team.',
+  })
+  @IsString()
+  @IsOptional()
+  reviewRequested?: string;
 }
+
+export class GetReviewRequestsQueryDTO extends PickType(
+  GetPullRequestsQueryDTO,
+  ['cursor', 'limit'],
+) {}
 
 export class GetPullRequestsResponseDTO {
   @ApiProperty({ type: [PullRequestDTO] })

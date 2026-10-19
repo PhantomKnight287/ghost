@@ -44,6 +44,7 @@ import {
   PullRequestReviewConnection,
   PullRequestReviewNode,
   ReviewRequestConnection,
+  TeamConnection,
 } from '../../types/pull-request.type.js';
 import { RefNode, RepositoryNode } from '../../types/repository.type.js';
 import { UserConnection, UserNode } from '../../types/user.type.js';
@@ -309,9 +310,13 @@ export class PullRequestResolver {
 
   @ResolveField(() => ReviewRequestConnection, { nullable: true })
   reviewRequests(
-    @Args('first', { type: () => Int, nullable: true }) _first?: number,
+    @Parent() pull: PullRequestNode,
+    @Viewer() viewer: GithubViewer | null,
+    @Context() { loaders }: GraphqlContext,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
-    return sliceConnection([], {});
+    return this.pulls.reviewRequests(pull, viewer, loaders, first, after);
   }
 
   @ResolveField(() => AutoMergeRequestNode, { nullable: true })
@@ -436,6 +441,17 @@ export class PullRequestReviewResolver {
     @Context() { loaders }: GraphqlContext,
   ) {
     return this.issues.author(review, loaders);
+  }
+
+  @ResolveField(() => TeamConnection)
+  onBehalfOf(
+    @Parent() review: PullRequestReviewNode,
+    @Viewer() viewer: GithubViewer | null,
+    @Context() { loaders }: GraphqlContext,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
+  ) {
+    return this.pulls.onBehalfOf(review, viewer, loaders, first, after);
   }
 
   @ResolveField(() => [ReactionGroup], { nullable: true })

@@ -4,11 +4,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
 import request from 'supertest';
 import TestAgent from 'supertest/lib/agent.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { DATABASE } from '../src/database/database.module.js';
 import { GH_E2E_HOST, runGh, startGh, tlsFiles } from './gh.js';
 import { recordGhRequests, writeGhCapture } from './gh-capture.js';
 import { apiKey, hasBackends, scopedKey, signUp, startApp } from './harness.js';
@@ -16,8 +19,10 @@ import { apiKey, hasBackends, scopedKey, signUp, startApp } from './harness.js';
 describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
   let app: INestApplication;
   let owner: { cookie: string; key: string; userId: string };
+  let reviewer: { cookie: string; key: string; userId: string };
   let configDir: string;
   const username = `ghcli${Date.now()}`;
+  const reviewerName = `${username}r`;
   let api: ReturnType<(typeof request)['agent']>;
   let token: string;
 
@@ -120,6 +125,29 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       .set('cookie', owner.cookie)
       .send({ name: 'bug', color: 'd73a4a' })
       .expect(201);
+    // A collaborator to request reviews from: only users with a role on the repository can be asked.
+    reviewer = await signUp(app, reviewerName);
+    // gh 2.102 edits reviewers on an enterprise host by sending back each pending reviewer's display name, `login (Name)`, as a login; only a reviewer without a name survives that.
+    await app
+      .get<Database>(DATABASE)
+      .update(schema.user)
+      .set({ name: '' })
+      .where(eq(schema.user.id, reviewer.userId));
+    await api
+      .put(`/api/repositories/${username}/tools/collaborators/${reviewerName}`)
+      .set('cookie', owner.cookie)
+      .send({ role: 'write' })
+      .expect(200);
+    const invitation = (
+      await api
+        .get('/api/invitations')
+        .set('cookie', reviewer.cookie)
+        .expect(200)
+    ).body.invitations[0];
+    await api
+      .post(`/api/invitations/${invitation.id}/accept`)
+      .set('cookie', reviewer.cookie)
+      .expect(204);
   });
 
   // A key allows 120 requests a minute, which the whole suite on one key would pass.
@@ -408,10 +436,17 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
         'Add a feature',
         '--body',
         'Body from gh',
+        '--reviewer',
+        reviewerName,
       ]);
       const match = out.match(new RegExp(`/${username}/tools/pull/(\\d+)`));
       expect(match, out).not.toBeNull();
       number = match![1];
+      expect(await view('reviewRequests')).toEqual({
+        reviewRequests: [
+          expect.objectContaining({ __typename: 'User', login: reviewerName }),
+        ],
+      });
     });
 
     it('lists pull requests', async () => {
@@ -512,6 +547,14 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       expect(await ok(['pr', 'status', '-R', repo()])).toContain(
         'Add a feature',
       );
+      const asReviewer = await runGh(['pr', 'status', '-R', repo()], {
+        configDir,
+        token: await apiKey(app, reviewer.userId),
+      });
+      expect(asReviewer, asReviewer.stderr).toMatchObject({ code: 0 });
+      expect(asReviewer.stdout).toMatch(
+        /Requesting a code review from you\s+#\d+\s+Add a feature/,
+      );
     });
 
     it('shows a pull request diff', async () => {
@@ -535,6 +578,31 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       expect(await view('title,labels')).toMatchObject({
         title: 'Add a feature (edited)',
         labels: [expect.objectContaining({ name: 'bug' })],
+      });
+    });
+
+    it('removes and adds a reviewer', async () => {
+      await ok([
+        'pr',
+        'edit',
+        number,
+        '-R',
+        repo(),
+        '--remove-reviewer',
+        reviewerName,
+      ]);
+      expect(await view('reviewRequests')).toEqual({ reviewRequests: [] });
+      await ok([
+        'pr',
+        'edit',
+        number,
+        '-R',
+        repo(),
+        '--add-reviewer',
+        reviewerName,
+      ]);
+      expect(await view('reviewRequests')).toEqual({
+        reviewRequests: [expect.objectContaining({ login: reviewerName })],
       });
     });
 

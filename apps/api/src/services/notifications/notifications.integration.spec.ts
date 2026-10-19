@@ -13,6 +13,7 @@ import {
 } from 'vitest';
 
 import { publishEvent } from '../../lib/events/events.js';
+import type { CodeownerRequestsService } from '../codeowners/codeowner-requests.service.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
 import type { MailService } from '../../mail/mail.service.js';
 import { IssuesService } from '../../resources/issues/issues.service.js';
@@ -28,6 +29,9 @@ const CONNECTION = process.env.TEST_DATABASE_URL;
 const noWebhooks = {
   handle: async () => {},
 } as unknown as WebhookFanoutService;
+const noCodeownerRequests = {
+  handle: async () => {},
+} as unknown as CodeownerRequestsService;
 const MIGRATIONS = path.resolve(
   import.meta.dirname,
   '../../../../../packages/db/drizzle',
@@ -105,7 +109,9 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     notifier = new NotifierService(db, access, {
       sendThreadEmail,
     } as unknown as MailService);
-    outbox = new OutboxService(db, notifier, noWebhooks, { pool });
+    outbox = new OutboxService(db, notifier, noWebhooks, noCodeownerRequests, {
+      pool,
+    });
     inbox = new NotificationsService(db, access, issues);
 
     await db.delete(schema.user).where(inArray(schema.user.id, USERS));
@@ -533,6 +539,134 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     expect(await notified(fromOutsider.id)).toEqual({});
   });
 
+  const openPull = (authorId: string) =>
+    issues.open(
+      {
+        repository,
+        title: 'Bell\nring',
+        body: null,
+        authorId,
+        isPullRequest: true,
+      },
+      async (tx, row) => {
+        await tx.insert(schema.pullRequest).values({
+          issueId: row.id,
+          baseRepositoryId: repository.id,
+          baseRef: 'main',
+          headRepositoryId: repository.id,
+          headRef: 'bell',
+          headSha: 'aaaa',
+        });
+      },
+    );
+
+  it('notifies a requested reviewer, subscribes them and says nothing about a removed request', async () => {
+    const pull = await openPull(ALICE);
+    await publishEvent(db, {
+      type: 'pull_request.review_requested',
+      repositoryId: repository.id,
+      actorId: OWNER,
+      payload: { issueId: pull.id, requestedUserId: BOB },
+    });
+    await outbox.drain();
+    expect(await notified(pull.id)).toEqual({
+      [BOB]: {
+        reason: 'review_requested',
+        eventType: 'pull_request.review_requested',
+        unread: true,
+      },
+      [ALICE]: {
+        reason: 'author',
+        eventType: 'pull_request.review_requested',
+        unread: true,
+      },
+    });
+    const subscription = await db
+      .select({ subscribed: schema.issueSubscription.subscribed })
+      .from(schema.issueSubscription)
+      .where(
+        and(
+          eq(schema.issueSubscription.issueId, pull.id),
+          eq(schema.issueSubscription.userId, BOB),
+        ),
+      );
+    expect(subscription).toEqual([{ subscribed: true }]);
+    const calls = Object.fromEntries(
+      sendThreadEmail.mock.calls.map(([to, email]) => [to, email]),
+    );
+    expect(calls['ntf-bob@example.com']).toMatchObject({
+      template: 'thread-review-requested',
+      subject: '@ntf-owner requested your review on: Bell ring (#1)',
+      context: { reviewer: 'ntf-bob' },
+    });
+    expect(calls['ntf-alice@example.com'].subject).toBe(
+      '[ntf-owner/app] Bell ring (#1)',
+    );
+
+    sendThreadEmail.mockClear();
+    await publishEvent(db, {
+      type: 'pull_request.review_request_removed',
+      repositoryId: repository.id,
+      actorId: OWNER,
+      payload: { issueId: pull.id, requestedUserId: BOB },
+    });
+    await outbox.drain();
+    expect(sendThreadEmail).not.toHaveBeenCalled();
+  });
+
+  it('notifies every member of a requested team except the actor and the author', async () => {
+    await db.insert(schema.organization).values({
+      id: ORGANIZATION,
+      name: 'Acme',
+      slug: 'ntf-acme',
+      createdAt: new Date(),
+    });
+    await db.insert(schema.team).values({
+      id: 'team_ntf',
+      name: 'Core Team',
+      organizationId: ORGANIZATION,
+      createdAt: new Date(),
+    });
+    await db.insert(schema.teamMember).values(
+      [ALICE, BOB, CAROL].map((userId) => ({
+        id: `tm_ntf_${userId}`,
+        teamId: 'team_ntf',
+        userId,
+      })),
+    );
+    const pull = await openPull(ALICE);
+    await publishEvent(db, {
+      type: 'pull_request.review_requested',
+      repositoryId: repository.id,
+      actorId: CAROL,
+      payload: { issueId: pull.id, requestedTeamId: 'team_ntf' },
+    });
+    await outbox.drain();
+    expect(Object.keys(await notified(pull.id)).sort()).toEqual(
+      [ALICE, BOB].sort(),
+    );
+    expect((await notified(pull.id))[BOB].reason).toBe('review_requested');
+    expect((await notified(pull.id))[ALICE].reason).toBe('author');
+  });
+
+  it('skips a review request whose reviewer or team is gone', async () => {
+    const pull = await openPull(ALICE);
+    for (const payload of [
+      { requestedUserId: 'user_gone' },
+      { requestedTeamId: 'team_gone' },
+      {},
+    ]) {
+      await publishEvent(db, {
+        type: 'pull_request.review_requested',
+        repositoryId: repository.id,
+        actorId: OWNER,
+        payload: { issueId: pull.id, ...payload },
+      });
+    }
+    await outbox.drain();
+    expect(await notified(pull.id)).toEqual({});
+  });
+
   it('skips an event whose comment was deleted before it was handled', async () => {
     const issue = await open(null);
     const comment = await issues.createComment({
@@ -617,6 +751,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
         handle: () => Promise.reject(new Error('mail server on fire')),
       } as unknown as NotifierService,
       noWebhooks,
+      noCodeownerRequests,
       { pool },
     );
     const issue = await open(null);
@@ -653,6 +788,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
             : Promise.resolve(),
       } as unknown as NotifierService,
       noWebhooks,
+      noCodeownerRequests,
       { pool },
     );
 

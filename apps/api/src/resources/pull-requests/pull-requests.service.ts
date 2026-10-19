@@ -6,11 +6,13 @@ import {
   count,
   desc,
   eq,
+  exists,
   type GetColumnData,
   getTableColumns,
   inArray,
   isNull,
   ne,
+  type SQL,
   sql,
 } from 'drizzle-orm';
 
@@ -51,7 +53,10 @@ import { IssuesService } from '../issues/issues.service.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
+  acceptedCollaboration,
+  organizationMembership,
   ownerNameOf,
+  readableBy,
   type Repository,
   type RepositoryOperation,
 } from '../../lib/repositories/access/repository-access.js';
@@ -64,6 +69,7 @@ import {
   commitsAdded,
   recordCommitEvents,
 } from '../../lib/pull-requests/commit-events.js';
+import { pendingReviewRequestFor } from '../../lib/pull-requests/review-requested.js';
 import { pullHeadRef, pullMergeRef } from '../../lib/git/refs/pull-refs.js';
 import type { RefTransition } from '../../lib/git/wal/wal.types.js';
 import { UsersService } from '../../services/users/users.service.js';
@@ -84,7 +90,10 @@ import {
   CreatePullRequestRequestDTO,
   UpdatePullRequestRequestDTO,
 } from './dto/create-pull-request.dto.js';
-import { GetPullRequestsQueryDTO } from './dto/pull-request.dto.js';
+import {
+  GetPullRequestsQueryDTO,
+  GetReviewRequestsQueryDTO,
+} from './dto/pull-request.dto.js';
 import type { MergeMethod } from './dto/pull-request-changes.dto.js';
 import {
   NothingToMergeError,
@@ -305,7 +314,76 @@ export class PullRequestsService {
     query: GetPullRequestsQueryDTO;
   }) {
     const base = await this.access.authorize({ username, repo, requesterId });
+    const reviewer = query.reviewRequested
+      ? query.reviewRequested === '@me'
+        ? (requesterId ?? null)
+        : await this.users.findUserId(query.reviewRequested)
+      : undefined;
+    // A reviewer who does not exist, or `@me` signed out, has no review requests.
+    if (reviewer === null) {
+      return { pullRequests: [], total: 0, nextCursor: null, hasMore: false };
+    }
+    return this.listPullRequests(
+      query,
+      and(
+        eq(schema.pullRequest.baseRepositoryId, base.id),
+        reviewer ? exists(this.pendingReviewRequests(reviewer)) : undefined,
+      ),
+    );
+  }
 
+  /** Open pull requests asking the viewer for a review, directly or through a team, in every repository the viewer can read. */
+  getReviewRequests({
+    requesterId,
+    query,
+  }: {
+    requesterId: string;
+    query: GetReviewRequestsQueryDTO;
+  }) {
+    const viewer = { userId: requesterId };
+    return this.listPullRequests(
+      { ...query, state: 'open' },
+      and(
+        exists(this.pendingReviewRequests(requesterId)),
+        inArray(
+          schema.pullRequest.baseRepositoryId,
+          this.db
+            .select({ id: schema.repository.id })
+            .from(schema.repository)
+            .leftJoin(
+              schema.repositoryCollaborator,
+              acceptedCollaboration(schema.repository.id, viewer),
+            )
+            .leftJoin(
+              schema.member,
+              organizationMembership(schema.repository.organizationId, viewer),
+            )
+            .where(readableBy(viewer)),
+        ),
+      ),
+    );
+  }
+
+  /** Pending requests for the pull request in the outer query asking `userId`, directly or through a team. */
+  private pendingReviewRequests(userId: string) {
+    return this.db
+      .select({ id: schema.pullRequestReviewRequest.id })
+      .from(schema.pullRequestReviewRequest)
+      .where(
+        and(
+          eq(
+            schema.pullRequestReviewRequest.pullRequestId,
+            schema.pullRequest.id,
+          ),
+          pendingReviewRequestFor(this.db, { userId, direct: false }),
+        ),
+      );
+  }
+
+  private async listPullRequests(
+    query: Pick<GetPullRequestsQueryDTO, 'state' | 'cursor' | 'limit'>,
+    where: SQL | undefined,
+  ) {
     const list = keyset({
       cursor: query.cursor,
       limit: query.limit ?? DEFAULT_PAGE_SIZE,
@@ -313,17 +391,15 @@ export class PullRequestsService {
     });
 
     const state = query.state ?? 'open';
+    const matching = and(
+      where,
+      state === 'all' ? undefined : eq(schema.pullRequest.state, state),
+    );
     const rows = await this.db
       .select(pullRequestColumns)
       .from(schema.pullRequest)
       .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
-      .where(
-        and(
-          eq(schema.pullRequest.baseRepositoryId, base.id),
-          state === 'all' ? undefined : eq(schema.pullRequest.state, state),
-          list.where,
-        ),
-      )
+      .where(and(matching, list.where))
       .orderBy(...list.orderBy)
       .limit(list.limit);
 
@@ -332,12 +408,7 @@ export class PullRequestsService {
     const [totals] = await this.db
       .select({ total: count() })
       .from(schema.pullRequest)
-      .where(
-        and(
-          eq(schema.pullRequest.baseRepositoryId, base.id),
-          state === 'all' ? undefined : eq(schema.pullRequest.state, state),
-        ),
-      );
+      .where(matching);
 
     return {
       pullRequests: await this.expandPullRequests(page),
@@ -1117,10 +1188,39 @@ export class PullRequestsService {
     };
   }
 
+  /** The open, ready request on issue `issueId`, resolved as `open` does but without an actor to authorize, for work done on nobody's behalf. Null when there is none. */
+  async openReady(issueId: string) {
+    const [row] = await this.db
+      .select({
+        pullRequest: pullRequestColumns,
+        base: getTableColumns(schema.repository),
+      })
+      .from(schema.pullRequest)
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
+      .innerJoin(
+        schema.repository,
+        eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
+      )
+      .where(
+        and(
+          eq(schema.pullRequest.issueId, issueId),
+          eq(schema.pullRequest.state, 'open'),
+          eq(schema.pullRequest.draft, false),
+        ),
+      );
+    if (!row) return null;
+    // An open request always has its head: a repository heading one cannot be deleted.
+    return this.openLive(
+      row.pullRequest,
+      row.base,
+      row.pullRequest.headRepositoryId!,
+    );
+  }
+
   /** Materializes both sides and resolves the branches as they stand now. */
-  async openLive(
+  async openLive<Base extends Repository>(
     pullRequest: PullRequest,
-    base: AuthorizedRepository,
+    base: Base,
     headRepositoryId: string,
   ) {
     const [head] = await this.db

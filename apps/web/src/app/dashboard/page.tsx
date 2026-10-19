@@ -9,6 +9,7 @@ import { BookMarked, GitBranch, Plus, Search, Users } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { CreateOrganizationDialog } from "@/components/auth/organization/create-organization-dialog";
 import { Invitations } from "./invitations";
+import { ReviewRequests } from "./review-requests";
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
 import type { Repository } from "@/components/repository-card";
 import { useAuthenticate } from "@/lib/auth/use-authenticate";
@@ -162,6 +163,8 @@ export default function DashboardPage() {
           </div>
 
           <Invitations />
+
+          <ReviewRequests />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <NewRepositoryDialog owners={owners} defaultOwner={username}>

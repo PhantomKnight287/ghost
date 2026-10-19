@@ -47,6 +47,7 @@ export function ReviewDiff({
   canReview,
   isAuthor,
   blobUrl,
+  headers,
   ...viewing
 }: Viewing & {
   from: string;
@@ -55,6 +56,8 @@ export function ReviewDiff({
   blobUrl: string | null;
   patchUrl: string;
   files: PullRequestFile[];
+  /** Shown in each file's header, keyed by path. */
+  headers: Record<string, ReactNode>;
   /** Submitted reviews. Threads on another head are outdated and stay in the conversation. */
   reviews: PullRequestReview[];
   /** The viewer's unsubmitted review. */
@@ -137,6 +140,7 @@ export function ReviewDiff({
         patchUrl={patchUrl}
         files={files}
         annotations={annotations}
+        headers={headers}
         onLineComment={canReview ? onLineComment : undefined}
       />
     </div>

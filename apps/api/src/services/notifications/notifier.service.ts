@@ -27,6 +27,7 @@ const notifyingEvents = [
   'pull_request.merged',
   'pull_request.reviewed',
   'pull_request.review_commented',
+  'pull_request.review_requested',
 ] as const satisfies readonly EventType[];
 
 type ThreadEvent = Extract<
@@ -56,6 +57,7 @@ type Activity = {
   /** Text whose `@user` and `@org/team` mentions notify, and subscribe, whoever they name. */
   text: string | null;
   assigneeIds: string[];
+  reviewRequestedIds: string[];
   /** Whether the actor joined the conversation, and so subscribes to it. */
   participates: boolean;
   template: ThreadTemplate;
@@ -152,6 +154,7 @@ export class NotifierService {
         return {
           text: thread.body,
           assigneeIds: assignees.map((row) => row.userId),
+          reviewRequestedIds: [],
           participates: true,
           template: 'thread-opened',
           context: { body: thread.body && excerpt(thread.body) },
@@ -166,6 +169,7 @@ export class NotifierService {
         return {
           text: comment.body,
           assigneeIds: [],
+          reviewRequestedIds: [],
           participates: true,
           template: 'thread-comment',
           context: { body: excerpt(comment.body), file: null },
@@ -185,6 +189,7 @@ export class NotifierService {
         return {
           text: comment.body,
           assigneeIds: [],
+          reviewRequestedIds: [],
           participates: true,
           template: 'thread-comment',
           context: { body: excerpt(comment.body), file: comment.path },
@@ -213,6 +218,7 @@ export class NotifierService {
             '\n\n',
           ),
           assigneeIds: [],
+          reviewRequestedIds: [],
           participates: true,
           template: 'thread-review',
           context: {
@@ -231,9 +237,48 @@ export class NotifierService {
         return {
           text: null,
           assigneeIds: [event.payload.assigneeId],
+          reviewRequestedIds: [],
           participates: false,
           template: 'thread-assigned',
           context: { assignee: assignee.username },
+        };
+      }
+      case 'pull_request.review_requested': {
+        const { requestedUserId, requestedTeamId } = event.payload;
+        if (requestedUserId) {
+          const [reviewer] = await this.db
+            .select({ username: schema.user.username })
+            .from(schema.user)
+            .where(eq(schema.user.id, requestedUserId));
+          if (!reviewer) return null;
+          return {
+            text: null,
+            assigneeIds: [],
+            reviewRequestedIds: [requestedUserId],
+            participates: false,
+            template: 'thread-review-requested',
+            context: { reviewer: reviewer.username },
+          };
+        }
+        if (!requestedTeamId) return null;
+        const [team] = await this.db
+          .select({ name: schema.team.name })
+          .from(schema.team)
+          .where(eq(schema.team.id, requestedTeamId));
+        if (!team) return null;
+        const members = await this.db
+          .select({ userId: schema.teamMember.userId })
+          .from(schema.teamMember)
+          .where(eq(schema.teamMember.teamId, requestedTeamId));
+        return {
+          text: null,
+          assigneeIds: [],
+          reviewRequestedIds: members
+            .map((member) => member.userId)
+            .filter((userId) => userId !== thread.authorId),
+          participates: false,
+          template: 'thread-review-requested',
+          context: { reviewer: team.name },
         };
       }
       case 'issue.closed':
@@ -242,6 +287,7 @@ export class NotifierService {
         return {
           text: null,
           assigneeIds: [],
+          reviewRequestedIds: [],
           participates: false,
           template: 'thread-state',
           context: { state: STATES[event.type] },
@@ -257,6 +303,9 @@ export class NotifierService {
   ) {
     const direct = new Map<string, NotificationReason>();
     for (const userId of activity.assigneeIds) direct.set(userId, 'assigned');
+    for (const userId of activity.reviewRequestedIds) {
+      if (!direct.has(userId)) direct.set(userId, 'review_requested');
+    }
     const mentions = await this.mentionsIn(
       activity.text,
       thread,
@@ -429,6 +478,7 @@ export class NotifierService {
     ]);
 
     const kind = thread.isPullRequest ? 'pull' : 'issues';
+    const title = thread.title.replace(/[\r\n]+/g, ' ');
     for (const person of people) {
       try {
         await this.mail.sendThreadEmail(person.email, {
@@ -436,7 +486,10 @@ export class NotifierService {
           threadId: thread.id,
           idempotencyKey: `${event.id}:${person.id}`,
           // a title is user input, and a line break in a header would start a new one
-          subject: `[${thread.repository}] ${thread.title.replace(/[\r\n]+/g, ' ')} (#${thread.number})`,
+          subject:
+            recipients.get(person.id) === 'review_requested'
+              ? `@${actor ?? 'Someone'} requested your review on: ${title} (#${thread.number})`
+              : `[${thread.repository}] ${title} (#${thread.number})`,
           context: {
             ...activity.context,
             repository: thread.repository,

@@ -17,7 +17,7 @@ import { LabelForm } from "@/components/issues/label-form";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { IssueLabel } from "@/types/issue";
-import { SidebarSectionHeader } from "./sidebar-section-header";
+import { SidebarSectionHeader } from "@/components/issues/sidebar-section-header";
 
 export function LabelEditor({
   username,

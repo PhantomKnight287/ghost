@@ -299,6 +299,7 @@ export function toPullRequestReviewNode(
 ) {
   const anchor = `#pullrequestreview-${review.id}`;
   return Object.assign(new PullRequestReviewNode(), {
+    ghostId: review.id,
     authorLogin: review.authorLogin,
     commitSha: review.commitSha,
     pullRequest: pull,

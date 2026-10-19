@@ -8,6 +8,7 @@ export function DiffView({
   files,
   patchUrl,
   annotations,
+  headers,
   onLineComment,
 }: DiffViewProps) {
   const additions = files.reduce((total, file) => total + file.additions, 0);
@@ -37,6 +38,7 @@ export function DiffView({
           patchUrl={patchUrl}
           files={files}
           annotations={annotations}
+          headers={headers}
           onLineComment={onLineComment}
         />
       )}

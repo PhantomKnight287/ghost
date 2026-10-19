@@ -6,7 +6,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 
-import { AssigneePicker } from "@/components/issues/assignee-picker";
+import { PeoplePicker } from "@/components/issues/people-picker";
 import { MarkdownEditor } from "@/components/markdown-editor/markdown-editor";
 import { Button } from "@/components/ui/button";
 import {
@@ -119,7 +119,7 @@ export function CreateIssueForm({
         <aside className="flex flex-col gap-6">
           <Field>
             <FieldLabel htmlFor="issue-assignees">Assignees</FieldLabel>
-            <AssigneePicker
+            <PeoplePicker
               id="issue-assignees"
               username={username}
               repo={repo}

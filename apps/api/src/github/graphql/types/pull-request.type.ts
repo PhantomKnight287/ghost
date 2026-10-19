@@ -171,6 +171,7 @@ export const PullRequestChangedFileConnection = Connection(
 @ObjectType('PullRequestReview', { implements: () => [Node] })
 export class PullRequestReviewNode {
   kind = 'PullRequestReview';
+  ghostId: string;
   authorLogin: string;
   commitSha: string;
   /** The request it reviews, for reading the reviewed commit. */
@@ -226,11 +227,13 @@ export const RequestedReviewer = createUnionType({
   resolveType: (value: { kind: string }) => value.kind,
 });
 
-/** Ghost has no review requests; the connection is always empty. */
 @ObjectType('ReviewRequest', { implements: () => [Node] })
 export class ReviewRequestNode {
   @Field(() => ID)
   id: string;
+
+  @Field()
+  asCodeOwner: boolean;
 
   @Field(() => RequestedReviewer, { nullable: true })
   requestedReviewer: UserNode | TeamNode | BotNode | null;
@@ -240,6 +243,8 @@ export const ReviewRequestConnection = Connection(
   ReviewRequestNode,
   'ReviewRequest',
 );
+
+export const TeamConnection = Connection(TeamNode, 'Team');
 
 export const PullRequestConnection = Connection(
   PullRequestNode,

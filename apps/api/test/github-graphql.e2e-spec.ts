@@ -4,9 +4,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import type { Auth } from '../src/lib/auth.js';
+import { encodeNodeId } from '../src/lib/github/node-id.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
@@ -15,6 +18,7 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
   let stranger: { cookie: string; key: string; userId: string };
   const username = `ghgql${Date.now()}`;
   let work: string;
+  let origin: string;
   let pullRequestNumber: number;
 
   const graphql = (query: string, variables: object = {}, token?: string) => {
@@ -25,7 +29,6 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
   };
 
   beforeAll(async () => {
-    let origin: string;
     ({ app, origin } = await startApp());
     owner = await signUp(app, username);
     const api = request(app.getHttpServer());
@@ -783,4 +786,142 @@ describe.skipIf(!hasBackends)('GitHub GraphQL', () => {
       nodes: [],
     });
   });
+
+  it('requests reviews through requestReviews, lists them in reviewRequests, searches by them, and names the teams a review answered', async () => {
+    const org = `${username}o`;
+    const reviewerName = `${username}r`;
+    const reviewer = await signUp(app, reviewerName);
+    const auth = app.get<AuthService<Auth>>(AuthService).api;
+    const headers = new Headers({ cookie: owner.cookie });
+    const api = request(app.getHttpServer());
+    const { id: organizationId } = (await auth.createOrganization({
+      body: { name: 'Review Org', slug: org },
+      headers,
+    }))!;
+    await auth.addMember({
+      body: { userId: reviewer.userId, role: 'member', organizationId },
+    });
+    const core = (await auth.createTeam({
+      body: { name: 'Core', organizationId },
+      headers,
+    }))!;
+    await auth.addTeamMember({
+      body: { teamId: core.id, userId: reviewer.userId, organizationId },
+      headers,
+    });
+    await api
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'widget', organization: org, visibility: 'private' })
+      .expect(201);
+    await api
+      .put(`/api/repositories/${org}/widget/teams/${core.id}`)
+      .set('cookie', owner.cookie)
+      .send({ role: 'write' })
+      .expect(204);
+    await promisify(execFile)(
+      'git',
+      [
+        'push',
+        '-q',
+        `${origin.replace('://', `://${username}:${owner.key}@`)}/${org}/widget.git`,
+        'main',
+        'feature',
+      ],
+      { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+    );
+    await api
+      .post(`/api/repositories/${org}/widget/pulls`)
+      .set('cookie', owner.cookie)
+      .send({ title: 'Widget feature', base: 'main', head: 'feature' })
+      .expect(201);
+
+    const found = await graphql(
+      'query($o: String!, $login: String!) { repository(owner: $o, name: "widget") { pullRequest(number: 1) { id } } user(login: $login) { id } }',
+      { o: org, login: reviewerName },
+      owner.key,
+    ).expect(200);
+    const pullRequestId = found.body.data.repository.pullRequest.id;
+    const userId = found.body.data.user.id;
+    const teamId = encodeNodeId('Team', core.id);
+    // What gh pr create sends to an enterprise host for --reviewer.
+    const requestReviews = async (input: object) => {
+      const response = await graphql(
+        'mutation($input: RequestReviewsInput!) { requestReviews(input: $input) { clientMutationId pullRequest { reviewRequests(first: 100) { nodes { asCodeOwner requestedReviewer { __typename ...on User { login } ...on Team { slug organization { login } } } } } } } }',
+        { input: { pullRequestId, ...input } },
+        owner.key,
+      ).expect(200);
+      expect(response.body.errors).toBeUndefined();
+      return response.body.data.requestReviews.pullRequest.reviewRequests.nodes;
+    };
+
+    expect(await requestReviews({ userIds: [userId], union: true })).toEqual([
+      {
+        asCodeOwner: false,
+        requestedReviewer: { __typename: 'User', login: reviewerName },
+      },
+    ]);
+    expect(await requestReviews({ teamIds: [teamId], union: true })).toEqual([
+      expect.objectContaining({
+        requestedReviewer: { __typename: 'User', login: reviewerName },
+      }),
+      {
+        asCodeOwner: false,
+        requestedReviewer: {
+          __typename: 'Team',
+          slug: 'core',
+          organization: { login: org },
+        },
+      },
+    ]);
+    expect(await requestReviews({ teamIds: [teamId] })).toEqual([
+      expect.objectContaining({
+        requestedReviewer: expect.objectContaining({ slug: 'core' }),
+      }),
+    ]);
+    // Without union the call replaces the set, so the pending team goes too.
+    expect(await requestReviews({ userIds: [userId] })).toEqual([
+      expect.objectContaining({
+        requestedReviewer: { __typename: 'User', login: reviewerName },
+      }),
+    ]);
+    await requestReviews({ teamIds: [teamId] });
+
+    const search = async (qualifier: string) => {
+      const response = await graphql(
+        'query($q: String!) { search(type: ISSUE, first: 10, query: $q) { issueCount nodes { ...on PullRequest { title } } } }',
+        { q: `repo:${org}/widget state:open ${qualifier}` },
+        owner.key,
+      ).expect(200);
+      expect(response.body.errors).toBeUndefined();
+      return response.body.data.search.nodes;
+    };
+    const widget = [{ title: 'Widget feature' }];
+    expect(await search(`review-requested:${reviewerName}`)).toEqual(widget);
+    expect(
+      await search(`review-requested:${reviewerName.toUpperCase()}`),
+    ).toEqual(widget);
+    expect(await search(`user-review-requested:${reviewerName}`)).toEqual([]);
+    expect(await search(`team-review-requested:${org}/core`)).toEqual(widget);
+    expect(await search(`team-review-requested:${org}/nobody`)).toEqual([]);
+    expect(await search('review-requested:nobody-at-all')).toEqual([]);
+
+    await api
+      .post(`/api/repositories/${org}/widget/pulls/1/reviews`)
+      .set('cookie', reviewer.cookie)
+      .send({ state: 'approved' })
+      .expect(201);
+    const reviewed = await graphql(
+      'query($o: String!) { repository(owner: $o, name: "widget") { pullRequest(number: 1) { reviewRequests(first: 100) { nodes { asCodeOwner } } reviews(first: 10) { nodes { onBehalfOf(first: 10) { totalCount nodes { slug } } } } } } }',
+      { o: org },
+      owner.key,
+    ).expect(200);
+    expect(reviewed.body.errors).toBeUndefined();
+    expect(reviewed.body.data.repository.pullRequest).toEqual({
+      reviewRequests: { nodes: [] },
+      reviews: {
+        nodes: [{ onBehalfOf: { totalCount: 1, nodes: [{ slug: 'core' }] } }],
+      },
+    });
+  }, 60_000);
 });

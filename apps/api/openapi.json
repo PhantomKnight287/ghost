@@ -2106,6 +2106,152 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/codeowners": {
+      "get": {
+        "description": "The CODEOWNERS file in effect at a ref and every error in it: bad syntax, and owners that are unknown or lack write access.",
+        "operationId": "CodeownersController_getCodeowners",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch, tag or commit sha to read the CODEOWNERS file from. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCodeownersResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Check the CODEOWNERS file",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{slug}/codeowners/owners": {
+      "get": {
+        "description": "The owners of each file under the CODEOWNERS file in effect at a ref, leaving out owners that are unknown or lack write access.",
+        "operationId": "CodeownersController_getCodeownersOwners",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "Branch, tag or commit sha to read the CODEOWNERS file from. Omit for the default branch.",
+            "schema": {
+              "example": "main",
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "required": true,
+            "in": "query",
+            "description": "Files to name the owners of, relative to the repository root. Repeat the parameter for each file.",
+            "schema": {
+              "maxItems": 500,
+              "example": [
+                "src/main.ts"
+              ],
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCodeownersOwnersResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A `path` is not a repository-relative file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Name the code owners of files",
+        "tags": [
+          "Repositories"
+        ]
+      }
+    },
     "/api/storage/{owner}": {
       "get": {
         "description": "Bytes the signed-in user's own account, or an organization they belong to, keeps against each of its quotas: pushed git data and merged pull requests' heads, Git LFS objects, release assets and the user's attachments, and forks, which hold everything but attachments under one quota.",
@@ -4405,6 +4551,15 @@
               "default": 20,
               "type": "number"
             }
+          },
+          {
+            "name": "reviewRequested",
+            "required": false,
+            "in": "query",
+            "description": "Only pull requests asking this username, or `@me`, for a review, directly or through a team.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5243,6 +5398,49 @@
         ]
       }
     },
+    "/api/user/review-requests": {
+      "get": {
+        "description": "Requests to the user directly or to one of their teams, in every repository the user can read.",
+        "operationId": "ViewerPullRequestsController_getReviewRequests",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPullRequestsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Open pull requests asking the signed-in user for a review",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/pulls/{number}/reviews": {
       "post": {
         "operationId": "ReviewsController_submitReview",
@@ -5992,6 +6190,310 @@
           }
         },
         "summary": "Commit a comment's suggested change to the head branch",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/requested-reviewers": {
+      "get": {
+        "operationId": "ReviewRequestsController_listRequestedReviewers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestedReviewersDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Users and teams asked to review a pull request",
+        "tags": [
+          "Pull request reviews"
+        ]
+      },
+      "post": {
+        "operationId": "ReviewRequestsController_requestReviewers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequestsBodyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestedReviewersDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Request reviews from users and teams",
+        "tags": [
+          "Pull request reviews"
+        ]
+      },
+      "delete": {
+        "operationId": "ReviewRequestsController_removeRequestedReviewers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequestsBodyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestedReviewersDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove requests for review",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/requestable-reviewers": {
+      "get": {
+        "description": "Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it; `q` written `org/team` matches teams by the part after the slash. Needs the triage role, as requesting does.",
+        "operationId": "ReviewRequestsController_listRequestableReviewers",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "What has been typed so far. Empty suggests the people or issues most likely meant.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestableReviewersDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Users and teams a review can be requested from",
         "tags": [
           "Pull request reviews"
         ]
@@ -10806,6 +11308,46 @@
         ]
       }
     },
+    "/api/v3/repos/{owner}/{repo}/codeowners/errors": {
+      "get": {
+        "operationId": "GithubCodeownersController_errors",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Errors in the CODEOWNERS file at a ref, the default branch when none is given",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3/repos/{owner}/{repo}/issues/comments": {
       "get": {
         "operationId": "CommentsController_listForRepository",
@@ -12818,6 +13360,142 @@
           }
         },
         "summary": "Submit your pending review",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/requested_reviewers": {
+      "get": {
+        "operationId": "RequestedReviewersController_list",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Users and teams asked to review a pull request",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "post": {
+        "operationId": "RequestedReviewersController_request",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubRequestedReviewersDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Request reviews from users and teams",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "delete": {
+        "operationId": "RequestedReviewersController_remove",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubRequestedReviewersDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Remove requested reviewers",
         "tags": [
           "GitHub compatibility"
         ]
@@ -16449,6 +17127,94 @@
           "transfers"
         ]
       },
+      "CodeownersErrorDTO": {
+        "type": "object",
+        "properties": {
+          "line": {
+            "type": "number",
+            "example": 4
+          },
+          "column": {
+            "type": "number",
+            "example": 7
+          },
+          "kind": {
+            "type": "string",
+            "example": "Unknown owner"
+          },
+          "source": {
+            "type": "string",
+            "description": "The whole line as written.",
+            "example": "docs/ @alcie"
+          },
+          "suggestion": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Unknown owner on line 4: make sure @alcie exists and has write access to the repository"
+          },
+          "path": {
+            "type": "string",
+            "example": ".github/CODEOWNERS"
+          }
+        },
+        "required": [
+          "line",
+          "column",
+          "kind",
+          "source",
+          "suggestion",
+          "message",
+          "path"
+        ]
+      },
+      "GetCodeownersResponseDTO": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The CODEOWNERS file in effect, or null when the ref has none or it is over 3 MB.",
+            "nullable": true,
+            "example": ".github/CODEOWNERS"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeownersErrorDTO"
+            }
+          }
+        },
+        "required": [
+          "path",
+          "errors"
+        ]
+      },
+      "GetCodeownersOwnersResponseDTO": {
+        "type": "object",
+        "properties": {
+          "owners": {
+            "type": "object",
+            "description": "Owners with write access of each requested file, keyed by its normalized path. Users read `@login`, teams `@organization/team`.",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": {
+              "src/main.ts": [
+                "@alice",
+                "@acme/infra"
+              ]
+            }
+          }
+        },
+        "required": [
+          "owners"
+        ]
+      },
       "StorageLimitUsageDTO": {
         "type": "object",
         "properties": {
@@ -18474,6 +19240,175 @@
           "commitSha"
         ]
       },
+      "RequestedUserDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          },
+          "asCodeOwner": {
+            "type": "boolean",
+            "description": "Requested by CODEOWNERS rather than a person."
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name",
+          "image",
+          "asCodeOwner"
+        ]
+      },
+      "RequestedTeamDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "example": "core"
+          },
+          "name": {
+            "type": "string"
+          },
+          "asCodeOwner": {
+            "type": "boolean",
+            "description": "Requested by CODEOWNERS rather than a person."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "asCodeOwner"
+        ]
+      },
+      "RequestedReviewersDTO": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestedUserDTO"
+            }
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestedTeamDTO"
+            }
+          }
+        },
+        "required": [
+          "users",
+          "teams"
+        ]
+      },
+      "RequestableUserDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Avatar URL."
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "name",
+          "image"
+        ]
+      },
+      "RequestableTeamDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "example": "core"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ]
+      },
+      "RequestableReviewersDTO": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestableUserDTO"
+            }
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestableTeamDTO"
+            }
+          }
+        },
+        "required": [
+          "users",
+          "teams"
+        ]
+      },
+      "ReviewRequestsBodyDTO": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "description": "Usernames.",
+            "example": [
+              "octocat"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "teams": {
+            "description": "Slugs of the organization's teams.",
+            "example": [
+              "core"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "CreateIssueRequestDTO": {
         "type": "object",
         "properties": {
@@ -18905,7 +19840,9 @@
           "ready_for_review",
           "converted_to_draft",
           "committed",
-          "head_force_pushed"
+          "head_force_pushed",
+          "review_requested",
+          "review_request_removed"
         ]
       },
       "IssueTimelineEventDTO": {
@@ -18965,6 +19902,16 @@
             "nullable": true,
             "description": "A `committed` event's commit author, as git recorded the name."
           },
+          "requestedReviewerUsername": {
+            "type": "string",
+            "nullable": true,
+            "description": "The user a `review_requested` or `review_request_removed` event names."
+          },
+          "requestedTeamSlug": {
+            "type": "string",
+            "nullable": true,
+            "description": "The team a `review_requested` or `review_request_removed` event names."
+          },
           "sourceRepository": {
             "type": "string",
             "nullable": true,
@@ -18992,6 +19939,8 @@
           "beforeSha",
           "commitMessage",
           "commitAuthorName",
+          "requestedReviewerUsername",
+          "requestedTeamSlug",
           "sourceRepository",
           "sourceNumber",
           "createdAt"
@@ -19574,7 +20523,8 @@
               "team_mentioned",
               "author",
               "subscribed",
-              "watching"
+              "watching",
+              "review_requested"
             ],
             "description": "Why the viewer is notified, the most specific that applies."
           },
@@ -19918,6 +20868,8 @@
           "pull_request.reviewed",
           "pull_request.review_dismissed",
           "pull_request.review_commented",
+          "pull_request.review_requested",
+          "pull_request.review_request_removed",
           "label.created",
           "label.edited",
           "label.deleted",
@@ -20792,6 +21744,23 @@
         "required": [
           "event"
         ]
+      },
+      "GithubRequestedReviewersDTO": {
+        "type": "object",
+        "properties": {
+          "reviewers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "team_reviewers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "GithubCreatePullDTO": {
         "type": "object",

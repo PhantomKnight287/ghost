@@ -318,3 +318,43 @@ export const updatePullRequest = actionClient
 
     revalidatePath(`/${username}/${repo}/pull/${number}`);
   });
+
+const reviewRequests = target.extend({
+  users: z.array(z.string()).optional(),
+  teams: z.array(z.string()).optional(),
+});
+
+/** Requests reviews from people and teams; asking someone who already reviewed is GitHub's re-request. */
+export const requestReviewers = actionClient
+  .inputSchema(reviewRequests)
+  .action(async ({ parsedInput: { username, repo, number, users, teams } }) => {
+    const data = await callApi((client) =>
+      client.POST(
+        "/api/repositories/{username}/{repo}/pulls/{number}/requested-reviewers",
+        {
+          params: { path: { username, repo, number } },
+          body: { users, teams },
+        },
+      ),
+    );
+
+    revalidatePath(`/${username}/${repo}/pull/${number}`);
+    return data;
+  });
+
+export const removeReviewers = actionClient
+  .inputSchema(reviewRequests)
+  .action(async ({ parsedInput: { username, repo, number, users, teams } }) => {
+    const data = await callApi((client) =>
+      client.DELETE(
+        "/api/repositories/{username}/{repo}/pulls/{number}/requested-reviewers",
+        {
+          params: { path: { username, repo, number } },
+          body: { users, teams },
+        },
+      ),
+    );
+
+    revalidatePath(`/${username}/${repo}/pull/${number}`);
+    return data;
+  });

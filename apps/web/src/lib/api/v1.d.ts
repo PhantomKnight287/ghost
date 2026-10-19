@@ -573,6 +573,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/codeowners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check the CODEOWNERS file
+         * @description The CODEOWNERS file in effect at a ref and every error in it: bad syntax, and owners that are unknown or lack write access.
+         */
+        get: operations["CodeownersController_getCodeowners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{slug}/codeowners/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Name the code owners of files
+         * @description The owners of each file under the CODEOWNERS file in effect at a ref, leaving out owners that are unknown or lack write access.
+         */
+        get: operations["CodeownersController_getCodeownersOwners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/storage/{owner}": {
         parameters: {
             query?: never;
@@ -1376,6 +1416,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/user/review-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open pull requests asking the signed-in user for a review
+         * @description Requests to the user directly or to one of their teams, in every repository the user can read.
+         */
+        get: operations["ViewerPullRequestsController_getReviewRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/pulls/{number}/reviews": {
         parameters: {
             query?: never;
@@ -1508,6 +1568,45 @@ export interface paths {
         put?: never;
         /** Commit a comment's suggested change to the head branch */
         post: operations["ReviewsController_applySuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/requested-reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Users and teams asked to review a pull request */
+        get: operations["ReviewRequestsController_listRequestedReviewers"];
+        put?: never;
+        /** Request reviews from users and teams */
+        post: operations["ReviewRequestsController_requestReviewers"];
+        /** Remove requests for review */
+        delete: operations["ReviewRequestsController_removeRequestedReviewers"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/requestable-reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Users and teams a review can be requested from
+         * @description Up to twenty users with a role of their own on the repository, other than the author, whose username starts with `q`, and the teams the repository is shared with whose slug contains it; `q` written `org/team` matches teams by the part after the slash. Needs the triage role, as requesting does.
+         */
+        get: operations["ReviewRequestsController_listRequestableReviewers"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2875,6 +2974,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/codeowners/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Errors in the CODEOWNERS file at a ref, the default branch when none is given */
+        get: operations["GithubCodeownersController_errors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/repos/{owner}/{repo}/issues/comments": {
         parameters: {
             query?: never;
@@ -3227,6 +3343,25 @@ export interface paths {
         /** Submit your pending review */
         post: operations["GithubReviewsController_submit"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/pulls/{number}/requested_reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Users and teams asked to review a pull request */
+        get: operations["RequestedReviewersController_list"];
+        put?: never;
+        /** Request reviews from users and teams */
+        post: operations["RequestedReviewersController_request"];
+        /** Remove requested reviewers */
+        delete: operations["RequestedReviewersController_remove"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4346,6 +4481,46 @@ export interface components {
         ListIncomingTransfersResponseDTO: {
             transfers: components["schemas"]["IncomingTransferDTO"][];
         };
+        CodeownersErrorDTO: {
+            /** @example 4 */
+            line: number;
+            /** @example 7 */
+            column: number;
+            /** @example Unknown owner */
+            kind: string;
+            /**
+             * @description The whole line as written.
+             * @example docs/ @alcie
+             */
+            source: string;
+            suggestion: string | null;
+            /** @example Unknown owner on line 4: make sure @alcie exists and has write access to the repository */
+            message: string;
+            /** @example .github/CODEOWNERS */
+            path: string;
+        };
+        GetCodeownersResponseDTO: {
+            /**
+             * @description The CODEOWNERS file in effect, or null when the ref has none or it is over 3 MB.
+             * @example .github/CODEOWNERS
+             */
+            path: string | null;
+            errors: components["schemas"]["CodeownersErrorDTO"][];
+        };
+        GetCodeownersOwnersResponseDTO: {
+            /**
+             * @description Owners with write access of each requested file, keyed by its normalized path. Users read `@login`, teams `@organization/team`.
+             * @example {
+             *       "src/main.ts": [
+             *         "@alice",
+             *         "@acme/infra"
+             *       ]
+             *     }
+             */
+            owners: {
+                [key: string]: string[];
+            };
+        };
         StorageLimitUsageDTO: {
             /** @description Bytes counted against this limit. */
             usedBytes: number;
@@ -4953,6 +5128,60 @@ export interface components {
             /** @description The commit pushed to the head branch. */
             commitSha: string;
         };
+        RequestedUserDTO: {
+            id: string;
+            username: string;
+            name: string | null;
+            /** @description Avatar URL. */
+            image: string | null;
+            /** @description Requested by CODEOWNERS rather than a person. */
+            asCodeOwner: boolean;
+        };
+        RequestedTeamDTO: {
+            id: string;
+            /** @example core */
+            slug: string;
+            name: string;
+            /** @description Requested by CODEOWNERS rather than a person. */
+            asCodeOwner: boolean;
+        };
+        RequestedReviewersDTO: {
+            users: components["schemas"]["RequestedUserDTO"][];
+            teams: components["schemas"]["RequestedTeamDTO"][];
+        };
+        RequestableUserDTO: {
+            id: string;
+            username: string;
+            name: string | null;
+            /** @description Avatar URL. */
+            image: string | null;
+        };
+        RequestableTeamDTO: {
+            id: string;
+            /** @example core */
+            slug: string;
+            name: string;
+        };
+        RequestableReviewersDTO: {
+            users: components["schemas"]["RequestableUserDTO"][];
+            teams: components["schemas"]["RequestableTeamDTO"][];
+        };
+        ReviewRequestsBodyDTO: {
+            /**
+             * @description Usernames.
+             * @example [
+             *       "octocat"
+             *     ]
+             */
+            users?: string[];
+            /**
+             * @description Slugs of the organization's teams.
+             * @example [
+             *       "core"
+             *     ]
+             */
+            teams?: string[];
+        };
         CreateIssueRequestDTO: {
             /** @example Login fails with 500 on Safari */
             title: string;
@@ -5087,7 +5316,7 @@ export interface components {
             updatedAt: string;
         };
         /** @enum {string} */
-        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft" | "committed" | "head_force_pushed";
+        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft" | "committed" | "head_force_pushed" | "review_requested" | "review_request_removed";
         IssueTimelineEventDTO: {
             id: string;
             type: components["schemas"]["IssueEventType"];
@@ -5106,6 +5335,10 @@ export interface components {
             commitMessage: string | null;
             /** @description A `committed` event's commit author, as git recorded the name. */
             commitAuthorName: string | null;
+            /** @description The user a `review_requested` or `review_request_removed` event names. */
+            requestedReviewerUsername: string | null;
+            /** @description The team a `review_requested` or `review_request_removed` event names. */
+            requestedTeamSlug: string | null;
             /**
              * @description Repository of the pull request that closed the issue.
              * @example octocat/ghost
@@ -5297,7 +5530,7 @@ export interface components {
              * @description Why the viewer is notified, the most specific that applies.
              * @enum {string}
              */
-            reason: "assigned" | "mentioned" | "team_mentioned" | "author" | "subscribed" | "watching";
+            reason: "assigned" | "mentioned" | "team_mentioned" | "author" | "subscribed" | "watching" | "review_requested";
             /**
              * @description The latest event on the thread.
              * @example issue.commented
@@ -5385,7 +5618,7 @@ export interface components {
             role: components["schemas"]["RepositoryRole"];
         };
         /** @enum {string} */
-        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "commit_status.created" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
+        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "pull_request.review_requested" | "pull_request.review_request_removed" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "commit_status.created" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
         WebhookDTO: {
             id: string;
             url: string;
@@ -5691,6 +5924,10 @@ export interface components {
             event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
             /** @description Replaces the pending review's summary when given. */
             body?: string;
+        };
+        GithubRequestedReviewersDTO: {
+            reviewers?: string[];
+            team_reviewers?: string[];
         };
         GithubCreatePullDTO: {
             title: string;
@@ -7129,6 +7366,83 @@ export interface operations {
             };
         };
     };
+    CodeownersController_getCodeowners: {
+        parameters: {
+            query?: {
+                /** @description Branch, tag or commit sha to read the CODEOWNERS file from. Omit for the default branch. */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetCodeownersResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CodeownersController_getCodeownersOwners: {
+        parameters: {
+            query: {
+                /** @description Branch, tag or commit sha to read the CODEOWNERS file from. Omit for the default branch. */
+                ref?: string;
+                /** @description Files to name the owners of, relative to the repository root. Repeat the parameter for each file. */
+                path: string[];
+            };
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetCodeownersOwnersResponseDTO"];
+                };
+            };
+            /** @description A `path` is not a repository-relative file. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     StorageController_getStorageUsage: {
         parameters: {
             query?: never;
@@ -8549,6 +8863,8 @@ export interface operations {
                 state?: components["schemas"]["PullRequestStateFilter"];
                 cursor?: string;
                 limit?: number;
+                /** @description Only pull requests asking this username, or `@me`, for a review, directly or through a team. */
+                reviewRequested?: string;
             };
             header?: never;
             path: {
@@ -9049,6 +9365,28 @@ export interface operations {
             };
         };
     };
+    ViewerPullRequestsController_getReviewRequests: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetPullRequestsResponseDTO"];
+                };
+            };
+        };
+    };
     ReviewsController_submitReview: {
         parameters: {
             query?: never;
@@ -9444,6 +9782,181 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewRequestsController_listRequestedReviewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestedReviewersDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewRequestsController_requestReviewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequestsBodyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestedReviewersDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewRequestsController_removeRequestedReviewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequestsBodyDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestedReviewersDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewRequestsController_listRequestableReviewers: {
+        parameters: {
+            query?: {
+                /** @description What has been typed so far. Empty suggests the people or issues most likely meant. */
+                q?: string;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestableReviewersDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12499,6 +13012,28 @@ export interface operations {
             };
         };
     };
+    GithubCodeownersController_errors: {
+        parameters: {
+            query: {
+                ref: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CommentsController_listForRepository: {
         parameters: {
             query?: {
@@ -13392,6 +13927,77 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["GithubSubmitReviewDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RequestedReviewersController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RequestedReviewersController_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubRequestedReviewersDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RequestedReviewersController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubRequestedReviewersDTO"];
             };
         };
         responses: {

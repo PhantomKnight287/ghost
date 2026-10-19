@@ -10,6 +10,7 @@ import { DATABASE } from '../database/database.module.js';
 import ThreadAssigned from './templates/thread-assigned.js';
 import ThreadComment from './templates/thread-comment.js';
 import ThreadOpened from './templates/thread-opened.js';
+import ThreadReviewRequested from './templates/thread-review-requested.js';
 import ThreadReview from './templates/thread-review.js';
 import ThreadState from './templates/thread-state.js';
 
@@ -17,6 +18,7 @@ export type ThreadTemplate =
   | 'thread-opened'
   | 'thread-comment'
   | 'thread-review'
+  | 'thread-review-requested'
   | 'thread-assigned'
   | 'thread-state';
 
@@ -25,6 +27,7 @@ const THREAD_TEMPLATES = {
   'thread-opened': ThreadOpened,
   'thread-comment': ThreadComment,
   'thread-review': ThreadReview,
+  'thread-review-requested': ThreadReviewRequested,
   'thread-assigned': ThreadAssigned,
   'thread-state': ThreadState,
 } as unknown as Record<

@@ -282,7 +282,16 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
         'issue.assigned',
         'pull_request.reviewed',
         'pull_request.review_commented',
+        'pull_request.review_requested',
+        'pull_request.review_request_removed',
       ],
+    });
+    const team = `team_whk_${RUN}`;
+    await db.insert(schema.team).values({
+      id: team,
+      name: 'Core Team',
+      organizationId: ORGANIZATION,
+      createdAt: new Date(),
     });
     const [pullIssue] = await db
       .insert(schema.issue)
@@ -362,7 +371,23 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       issueId: pullIssue.id,
       commentId: reviewComment.id,
     });
+    await send('requested', 'pull_request.review_requested', {
+      issueId: pullIssue.id,
+      requestedUserId: MEMBER,
+    });
+    await send('request_removed', 'pull_request.review_request_removed', {
+      issueId: pullIssue.id,
+      requestedTeamId: team,
+    });
     // gone before the event was handled
+    await send('requested_user_gone', 'pull_request.review_requested', {
+      issueId: pullIssue.id,
+      requestedUserId: 'user_gone',
+    });
+    await send('requested_team_gone', 'pull_request.review_request_removed', {
+      issueId: pullIssue.id,
+      requestedTeamId: 'team_gone',
+    });
     await send('comment_gone', 'issue.commented', {
       issueId: issue.id,
       commentId: 'ic_gone',
@@ -384,6 +409,14 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       commentId: comment.id,
     });
 
+    const sent = (await eventsFor(webhook.id)).filter((event) =>
+      event.startsWith('pull_request.review_request'),
+    );
+    expect(sent.sort()).toEqual([
+      'pull_request.review_request_removed',
+      'pull_request.review_requested',
+    ]);
+
     const bodies = Object.fromEntries(
       (await jobsFor(webhook.id)).map((job) => [
         (job.payload as { event: string }).event,
@@ -395,6 +428,8 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       'issue.commented',
       'ping',
       'pull_request.review_commented',
+      'pull_request.review_request_removed',
+      'pull_request.review_requested',
       'pull_request.reviewed',
     ]);
     expect(bodies['issue.commented']).toMatchObject({
@@ -404,6 +439,12 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     });
     expect(bodies['issue.assigned']).toMatchObject({
       assignee: { id: MEMBER, username: `${USERNAME}-member` },
+    });
+    expect(bodies['pull_request.review_requested']).toMatchObject({
+      requestedReviewer: { id: MEMBER, username: `${USERNAME}-member` },
+    });
+    expect(bodies['pull_request.review_request_removed']).toMatchObject({
+      requestedTeam: { id: team, name: 'Core Team', slug: 'core-team' },
     });
     expect(bodies['pull_request.reviewed']).toMatchObject({
       pullRequest: {

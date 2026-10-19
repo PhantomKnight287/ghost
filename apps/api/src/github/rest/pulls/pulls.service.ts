@@ -38,6 +38,7 @@ import { visibleReview } from '../../../lib/pull-requests/reviews.js';
 import type { IssueDTO } from '../../../resources/issues/dto/issue.dto.js';
 import { IssuesService } from '../../../resources/issues/issues.service.js';
 import { PullRequestsService } from '../../../resources/pull-requests/pull-requests.service.js';
+import { ReviewRequestsService } from '../../../resources/pull-requests/review-requests.service.js';
 import type {
   GithubRepositoryTarget,
   GithubViewer,
@@ -50,6 +51,7 @@ import type {
   GithubCreatePullDTO,
   GithubListPullsQueryDTO,
   GithubMergePullDTO,
+  GithubRequestedReviewersDTO,
   GithubUpdatePullDTO,
 } from './dto/pull.dto.js';
 
@@ -71,6 +73,7 @@ export class GithubPullsService {
     private readonly github: GithubIssuesService,
     private readonly issues: IssuesService,
     private readonly pulls: PullRequestsService,
+    private readonly reviewRequests: ReviewRequestsService,
     private readonly repositories: RepositoryNodesService,
     private readonly config: ConfigService,
   ) {}
@@ -156,6 +159,54 @@ export class GithubPullsService {
   ) {
     const repository = await this.github.readable(owner, repo, viewer);
     return this.detailed(repository, viewer, number);
+  }
+
+  async listRequestedReviewers(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    const issue = await this.issue(repository, viewer, number);
+    const [pull] = await this.rest(repository, viewer, [issue]);
+    return { users: pull!.requested_reviewers, teams: pull!.requested_teams };
+  }
+
+  requestReviewers(
+    target: GithubRepositoryTarget,
+    number: number,
+    body: GithubRequestedReviewersDTO,
+  ) {
+    return this.changeReviewers('request', target, number, body);
+  }
+
+  removeReviewers(
+    target: GithubRepositoryTarget,
+    number: number,
+    body: GithubRequestedReviewersDTO,
+  ) {
+    return this.changeReviewers('remove', target, number, body);
+  }
+
+  private async changeReviewers(
+    operation: 'request' | 'remove',
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    number: number,
+    body: GithubRequestedReviewersDTO,
+  ) {
+    const { repository, viewer: signedIn } = await this.github.writable(
+      owner,
+      repo,
+      viewer,
+      `${operation === 'request' ? 'POST' : 'DELETE'} /repos/:owner/:repo/pulls/:number/requested_reviewers`,
+    );
+    await this.reviewRequests[operation]({
+      ...this.github.ref(repository, signedIn),
+      requesterId: signedIn.userId,
+      number,
+      users: body.reviewers ?? [],
+      teams: body.team_reviewers ?? [],
+    });
+    return this.detailed(repository, signedIn, number);
   }
 
   /** The diff as text, or with `mailbox` one mailbox-style patch per commit, as `gh pr diff` reads it. */
@@ -382,9 +433,18 @@ export class GithubPullsService {
     detail?: PullRestDetail,
   ) {
     const ids = issues.map((issue) => issue.id);
-    const [rows, extras] = await Promise.all([
+    const [rows, extras, reviewers] = await Promise.all([
       pullRequestRowsOf(this.db, ids),
       this.github.issueExtras(ids),
+      // ponytail: one lookup per pull request, a batched query if a page of them gets slow.
+      Promise.all(
+        issues.map((issue) =>
+          this.reviewRequests.list({
+            ...this.github.ref(repository, viewer),
+            number: issue.number,
+          }),
+        ),
+      ),
     ]);
     const origins = githubOrigins(this.config);
     const base = toRepositoryRest(repository, origins);
@@ -411,13 +471,14 @@ export class GithubPullsService {
         ...[...heads.values()].flatMap((head) =>
           head ? [head.owner.login] : [],
         ),
+        ...reviewers.flatMap(({ users }) => users.map((user) => user.username)),
       ],
       labels: issues.flatMap((issue) => issue.labels),
     });
     // Requests sharing a base branch share one in-flight lookup.
     const baseTip = new Map<string, Promise<string | null>>();
     return Promise.all(
-      issues.map(async (issue) => {
+      issues.map(async (issue, index) => {
         const row = rows.get(issue.id)!;
         if (!baseTip.has(row.baseRef))
           baseTip.set(
@@ -445,6 +506,7 @@ export class GithubPullsService {
             head: row.headRepositoryId
               ? (heads.get(row.headRepositoryId) ?? null)
               : null,
+            reviewers: reviewers[index]!,
           },
           context,
           detail,

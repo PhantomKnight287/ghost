@@ -1,6 +1,7 @@
-import type { Database } from '@ghost/db';
+import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { asc, eq } from 'drizzle-orm';
 
 import { DATABASE } from '../../../../database/database.module.js';
 import { orNull } from '../../../../lib/github/authorize.js';
@@ -14,7 +15,9 @@ import {
   toUserNode,
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
+import { teamSlug } from '../../../../lib/organizations/team-slug.js';
 import { PullRequestsService } from '../../../../resources/pull-requests/pull-requests.service.js';
+import { ReviewRequestsService } from '../../../../resources/pull-requests/review-requests.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { sliceConnection } from '../../connection.js';
 import {
@@ -26,6 +29,8 @@ import {
   PullRequestState,
 } from '../../enums.js';
 import { IssueNode } from '../../types/issue.type.js';
+import type { OrganizationNode } from '../../types/organization.type.js';
+import { TeamNode } from '../../types/placeholders.type.js';
 import {
   GitActorNode,
   PullRequestNode,
@@ -49,6 +54,7 @@ export class PullRequestNodesService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly repositories: RepositoryNodesService,
     private readonly pulls: PullRequestsService,
+    private readonly requested: ReviewRequestsService,
     private readonly config: ConfigService,
   ) {}
 
@@ -186,6 +192,65 @@ export class PullRequestNodesService {
     );
   }
 
+  /** Pending requests, users before teams, each in the order they were asked. */
+  async reviewRequests(
+    pull: PullRequestNode,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+    first?: number,
+    after?: string,
+  ) {
+    const { users, teams } = await this.requested.list(this.ref(pull, viewer));
+    const origins = githubOrigins(this.config);
+    const reviewers = [
+      ...(await Promise.all(
+        users.map(async (user) =>
+          toUserNode((await loaders.usersById.load(user.id))!, origins),
+        ),
+      )),
+      ...(await this.teamNodes(teams, pull.repositoryGhostId, viewer, loaders)),
+    ];
+    return sliceConnection(
+      [...users, ...teams].map((request, index) => ({
+        id: encodeNodeId(
+          'ReviewRequest',
+          `${pull.pullRequestGhostId}:${request.id}`,
+        ),
+        asCodeOwner: request.asCodeOwner,
+        requestedReviewer: reviewers[index]!,
+      })),
+      { first, after },
+    );
+  }
+
+  /** The teams whose requests the review answered. */
+  async onBehalfOf(
+    review: PullRequestReviewNode,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+    first?: number,
+    after?: string,
+  ) {
+    const teams = await this.db
+      .select({ id: schema.team.id, name: schema.team.name })
+      .from(schema.pullRequestReviewOnBehalfOf)
+      .innerJoin(
+        schema.team,
+        eq(schema.team.id, schema.pullRequestReviewOnBehalfOf.teamId),
+      )
+      .where(eq(schema.pullRequestReviewOnBehalfOf.reviewId, review.ghostId))
+      .orderBy(asc(schema.team.name));
+    return sliceConnection(
+      await this.teamNodes(
+        teams,
+        review.pullRequest.repositoryGhostId,
+        viewer,
+        loaders,
+      ),
+      { first, after },
+    );
+  }
+
   async files(
     pull: PullRequestNode,
     viewer: GithubViewer | null,
@@ -291,6 +356,28 @@ export class PullRequestNodesService {
       number: pull.number,
       requesterId: viewer?.userId,
     };
+  }
+
+  /** Only teams of the organization owning the repository can be requested, so that organization is every team's. */
+  private async teamNodes(
+    teams: { id: string; name: string }[],
+    repositoryGhostId: string,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+  ) {
+    if (teams.length === 0) return [];
+    const organization = (await this.repositories.owner(
+      await this.repositories.load(repositoryGhostId, viewer),
+      loaders,
+    )) as OrganizationNode;
+    return teams.map((team) =>
+      Object.assign(new TeamNode(), {
+        id: encodeNodeId('Team', team.id),
+        name: team.name,
+        slug: teamSlug(team.name),
+        organization,
+      }),
+    );
   }
 
   /** A commit of the request from git; null once no repository holds it. */

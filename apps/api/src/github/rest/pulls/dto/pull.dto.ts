@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   Allow,
+  IsArray,
   IsBoolean,
   IsIn,
   IsOptional,
@@ -145,4 +146,19 @@ export class GithubMergePullDTO {
   @IsOptional()
   @IsIn(['merge', 'squash', 'rebase'])
   merge_method?: 'merge' | 'squash' | 'rebase';
+}
+
+/** GitHub's requested-reviewers body: logins and team slugs. */
+export class GithubRequestedReviewersDTO {
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  reviewers?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  team_reviewers?: string[];
 }

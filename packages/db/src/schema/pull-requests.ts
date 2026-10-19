@@ -4,15 +4,17 @@ import {
   type AnyPgColumn,
   bigint,
   boolean,
+  check,
   index,
   integer,
+  primaryKey,
   pgEnum,
   pgTable,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth.js";
+import { team, user } from "./auth.js";
 import { issue } from "./issues.js";
 import { repository } from "./repository.js";
 
@@ -111,6 +113,62 @@ export const pullRequestReview = pgTable(
       .on(t.pullRequestId, t.authorId)
       .where(sql`${t.submittedAt} is null`),
   ],
+);
+
+export const reviewRequestClearedReason = pgEnum(
+  "review_request_cleared_reason",
+  ["reviewed", "removed"],
+);
+
+/** One request for a user or a team to review a pull request; exactly one of `reviewerUserId` and `reviewerTeamId` is set. No `clearedAt` means pending, and at most one pending row exists per pull request and reviewer. A row is cleared, not deleted, when the reviewer submits a review (`reviewed`) or someone takes the request back (`removed`). `asCodeOwner` marks a request CODEOWNERS made rather than a person. */
+export const pullRequestReviewRequest = pgTable(
+  "pull_request_review_request",
+  {
+    id: text()
+      .primaryKey()
+      .unique()
+      .notNull()
+      .$defaultFn(() => `prq_${createId()}`),
+    pullRequestId: text()
+      .references(() => pullRequest.id, { onDelete: "cascade" })
+      .notNull(),
+    reviewerUserId: text().references(() => user.id, { onDelete: "cascade" }),
+    reviewerTeamId: text().references(() => team.id, { onDelete: "cascade" }),
+    requestedById: text().references(() => user.id, { onDelete: "set null" }),
+    asCodeOwner: boolean().notNull().default(false),
+
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    clearedAt: timestamp({ withTimezone: true }),
+    clearedReason: reviewRequestClearedReason(),
+  },
+  (t) => [
+    check(
+      "pull_request_review_request_one_reviewer",
+      sql`(${t.reviewerUserId} is null) <> (${t.reviewerTeamId} is null)`,
+    ),
+    uniqueIndex("pull_request_review_request_pending_user_idx")
+      .on(t.pullRequestId, t.reviewerUserId)
+      .where(sql`${t.clearedAt} is null`),
+    uniqueIndex("pull_request_review_request_pending_team_idx")
+      .on(t.pullRequestId, t.reviewerTeamId)
+      .where(sql`${t.clearedAt} is null`),
+    index("pull_request_review_request_user_idx").on(t.reviewerUserId),
+    index("pull_request_review_request_team_idx").on(t.reviewerTeamId),
+  ],
+);
+
+/** The team a review was submitted on behalf of, when the reviewer answered a team's request. */
+export const pullRequestReviewOnBehalfOf = pgTable(
+  "pull_request_review_on_behalf_of",
+  {
+    reviewId: text()
+      .references(() => pullRequestReview.id, { onDelete: "cascade" })
+      .notNull(),
+    teamId: text()
+      .references(() => team.id, { onDelete: "cascade" })
+      .notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.reviewId, t.teamId] })],
 );
 
 /** A comment on a line, or on the range from `startLine` on `startSide` to `line` on `side`, of the diff at `commitSha`; outdated, not wrong, once the head moves on. Every comment belongs to a review; a reply is the only comment of a comment-only review of its own, carries `inReplyToId` and copies the thread's path, line and commit but not its `diffHunk`. */

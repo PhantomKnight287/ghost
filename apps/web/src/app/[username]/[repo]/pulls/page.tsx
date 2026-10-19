@@ -1,4 +1,4 @@
-import { GitPullRequest } from "lucide-react";
+import { Eye, GitPullRequest } from "lucide-react";
 import Link from "next/link";
 
 import { UserLink } from "@/components/users/user-link";
@@ -21,8 +21,13 @@ export default async function PullRequestsPage({
   searchParams,
 }: PageProps<"/[username]/[repo]/pulls">) {
   const { username, repo } = await params;
-  const { state, cursor } = await searchParams;
+  const { state, cursor, reviewRequested } = await searchParams;
   const pageCursor = typeof cursor === "string" ? cursor : undefined;
+  // A username or `@me`: pull requests asking them for a review, directly or through a team.
+  const reviewer =
+    typeof reviewRequested === "string" && reviewRequested
+      ? reviewRequested
+      : undefined;
 
   const filter = pullRequestFilters.find((value) => value === state) ?? "open";
 
@@ -34,6 +39,7 @@ export default async function PullRequestsPage({
         state: filter,
         limit: PAGE_SIZE,
         cursor: pageCursor,
+        reviewRequested: reviewer,
       },
     },
   });
@@ -52,7 +58,13 @@ export default async function PullRequestsPage({
           {pullRequestFilters.map((option) => (
             <Link
               key={option}
-              href={option === "open" ? base : `${base}?state=${option}`}
+              href={{
+                pathname: base,
+                query: {
+                  ...(option !== "open" && { state: option }),
+                  ...(reviewer && { reviewRequested: reviewer }),
+                },
+              }}
               className={cn(
                 buttonVariants({
                   variant: option === filter ? "secondary" : "ghost",
@@ -66,6 +78,23 @@ export default async function PullRequestsPage({
           ))}
         </div>
 
+        <Link
+          href={{
+            pathname: base,
+            query: {
+              ...(filter !== "open" && { state: filter }),
+              ...(!reviewer && { reviewRequested: "@me" }),
+            },
+          }}
+          className={buttonVariants({
+            variant: reviewer ? "secondary" : "ghost",
+            size: "sm",
+          })}
+        >
+          <Eye data-icon="inline-start" />
+          Review requested
+        </Link>
+
         <Button size="sm" className="ml-auto" asChild>
           <Link href={`${base}/new`}>
             <GitPullRequest data-icon="inline-start" />
@@ -77,9 +106,11 @@ export default async function PullRequestsPage({
       <div className="overflow-hidden rounded-lg border">
         {pulls.data.pullRequests.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted-foreground">
-            {filter === "all"
-              ? "This repository has no pull requests yet."
-              : `There are no ${filter} pull requests.`}
+            {reviewer
+              ? "No pull requests match this filter."
+              : filter === "all"
+                ? "This repository has no pull requests yet."
+                : `There are no ${filter} pull requests.`}
           </p>
         ) : (
           <ul className="divide-y">
@@ -131,7 +162,7 @@ export default async function PullRequestsPage({
 
       <CursorPagination
         pathname={base}
-        params={{ state: filter }}
+        params={{ state: filter, reviewRequested: reviewer }}
         cursor={pageCursor}
         nextCursor={pulls.data.nextCursor}
       />

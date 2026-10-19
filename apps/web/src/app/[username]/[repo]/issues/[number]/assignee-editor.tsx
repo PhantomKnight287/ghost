@@ -6,11 +6,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { setIssueAssignees } from "@/components/issues/actions";
-import { AssigneePicker } from "@/components/issues/assignee-picker";
+import { PeoplePicker } from "@/components/issues/people-picker";
 import { UserLink } from "@/components/users/user-link";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { SidebarSectionHeader } from "./sidebar-section-header";
+import { SidebarSectionHeader } from "@/components/issues/sidebar-section-header";
 
 export function AssigneeEditor({
   username,
@@ -101,7 +101,7 @@ export function AssigneeEditor({
       }}
     >
       <SidebarSectionHeader title="Assignees" />
-      <AssigneePicker
+      <PeoplePicker
         username={username}
         repo={repo}
         value={draft}

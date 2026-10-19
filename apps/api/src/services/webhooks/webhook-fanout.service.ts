@@ -12,6 +12,7 @@ import {
   type WebhookSender,
 } from '../../lib/webhooks/formats/index.js';
 import type { WebhookBody, WebhookOwner } from '../../lib/webhooks/webhooks.js';
+import { teamSlug } from '../../lib/organizations/team-slug.js';
 import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 
 type WebhookJob = {
@@ -234,6 +235,24 @@ export class WebhookFanoutService {
         const assignee = await this.userRef(event.payload.assigneeId);
         if (!assignee) return null;
         body.assignee = assignee;
+        break;
+      }
+      case 'pull_request.review_requested':
+      case 'pull_request.review_request_removed': {
+        const { requestedUserId, requestedTeamId } = event.payload;
+        if (requestedUserId) {
+          const reviewer = await this.userRef(requestedUserId);
+          if (!reviewer) return null;
+          body.requestedReviewer = reviewer;
+        }
+        if (requestedTeamId) {
+          const [team] = await this.db
+            .select({ id: schema.team.id, name: schema.team.name })
+            .from(schema.team)
+            .where(eq(schema.team.id, requestedTeamId));
+          if (!team) return null;
+          body.requestedTeam = { ...team, slug: teamSlug(team.name) };
+        }
         break;
       }
       case 'member.added':

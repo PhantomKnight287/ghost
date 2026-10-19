@@ -25,6 +25,8 @@ import { CommitSigningService } from '../../services/gpg/commit-signing.service.
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
+import { CodeownersService } from '../../services/codeowners/codeowners.service.js';
+import { CodeownersController } from './codeowners.controller.js';
 
 @Module({
   imports: [
@@ -45,7 +47,12 @@ import { LfsService } from '../../services/git/lfs/lfs.service.js';
       errorMessage: 'Too many requests. Try again in a minute.',
     }),
   ],
-  controllers: [RepositoriesController, SearchController, TransfersController],
+  controllers: [
+    RepositoriesController,
+    SearchController,
+    TransfersController,
+    CodeownersController,
+  ],
   providers: [
     RepositoriesService,
     UsersService,
@@ -60,6 +67,7 @@ import { LfsService } from '../../services/git/lfs/lfs.service.js';
     CommitVerificationService,
     LfsService,
     PushTransactionService,
+    CodeownersService,
   ],
   exports: [RepositoriesService],
 })

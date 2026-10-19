@@ -1,14 +1,18 @@
-import { Download, GitCommitHorizontal } from "lucide-react";
+import { Download, GitCommitHorizontal, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { OwnersBadge } from "@/components/codeowners/owners-badge";
 import { FromNowHoverCard } from "@/components/from-now-card";
 
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
   createServerClient,
+  getCodeOwners,
   notFoundIfHidden,
   resolveRevisionPath,
 } from "@/lib/api/server";
+import { CODEOWNERS_PATHS } from "@/lib/codeowners";
 import { highlightLines } from "@/lib/highlight";
 import { ogUrl } from "@/lib/og-url";
 import { cn, formatBytes } from "@/lib/utils";
@@ -58,12 +62,20 @@ export default async function RepositoryBlobPage({
 
   const client = await createServerClient();
 
-  const blob = await client.GET("/api/repositories/{username}/{slug}/blob", {
-    params: {
-      path: { username, slug: repo },
-      query: { ref: revision, path: filePath },
-    },
-  });
+  const [blob, owners, codeowners] = await Promise.all([
+    client.GET("/api/repositories/{username}/{slug}/blob", {
+      params: {
+        path: { username, slug: repo },
+        query: { ref: revision, path: filePath },
+      },
+    }),
+    getCodeOwners(username, repo, revision, [filePath]),
+    CODEOWNERS_PATHS.includes(filePath)
+      ? client.GET("/api/repositories/{username}/{slug}/codeowners", {
+          params: { path: { username, slug: repo }, query: { ref: revision } },
+        })
+      : null,
+  ]);
 
   notFoundIfHidden(blob.response);
   if (!blob.data) throw new Error(`Failed to read ${filePath}`);
@@ -79,6 +91,12 @@ export default async function RepositoryBlobPage({
     encoding === "utf-8" && content !== null
       ? content.replace(/\n$/, "")
       : null;
+
+  // Only the file in effect is checked; another candidate is ignored whole.
+  const activeCodeowners = codeowners?.data?.path;
+  const errors =
+    activeCodeowners === filePath ? (codeowners?.data?.errors ?? []) : [];
+  const lineErrors = Map.groupBy(errors, ({ line }) => line);
 
   // An empty file is text with nothing to highlight; `null` is reserved for what this page cannot render.
   const lines =
@@ -128,6 +146,7 @@ export default async function RepositoryBlobPage({
           {lines ? `${lines.length} lines · ` : ""}
           {formatBytes(size)}
         </span>
+        <OwnersBadge logins={owners[filePath] ?? []} />
         <a
           href={rawUrl}
           download={filename}
@@ -138,6 +157,20 @@ export default async function RepositoryBlobPage({
         </a>
       </div>
 
+      {errors.length > 0 && (
+        <Alert variant="destructive" className="rounded-none border-0 border-b">
+          <TriangleAlert />
+          <AlertTitle>
+            This CODEOWNERS file contains {errors.length}{" "}
+            {errors.length === 1 ? "error" : "errors"}
+          </AlertTitle>
+        </Alert>
+      )}
+      {activeCodeowners && activeCodeowners !== filePath && (
+        <Alert className="rounded-none border-0 border-b">
+          <AlertTitle>Ignored: {activeCodeowners} takes precedence</AlertTitle>
+        </Alert>
+      )}
       <LineTarget />
       {lines ? (
         <div className="overflow-x-auto" data-shiki>
@@ -147,15 +180,28 @@ export default async function RepositoryBlobPage({
                 <tr
                   key={i}
                   id={`L${i + 1}`}
+                  title={lineErrors
+                    .get(i + 1)
+                    ?.map(({ message }) => message)
+                    .join("\n")}
                   className="scroll-mt-20 hover:bg-muted/40"
                 >
                   <td className="w-12 select-none border-r py-0.5 pr-3 text-right align-top text-xs text-muted-foreground">
+                    {lineErrors.has(i + 1) && (
+                      <TriangleAlert className="mr-1 inline size-3 text-destructive" />
+                    )}
                     {/* a plain anchor, so the browser fires hashchange for the line it moves to */}
                     <a href={`#L${i + 1}`} className="hover:text-foreground">
                       {i + 1}
                     </a>
                   </td>
-                  <td className="py-0.5 pl-4 whitespace-pre">
+                  <td
+                    className={cn(
+                      "py-0.5 pl-4 whitespace-pre",
+                      lineErrors.has(i + 1) &&
+                        "underline decoration-destructive decoration-wavy",
+                    )}
+                  >
                     {line.map((t, j) => (
                       <span key={j} style={t.htmlStyle}>
                         {t.content}

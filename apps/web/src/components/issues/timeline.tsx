@@ -140,6 +140,38 @@ export function Timeline({
       );
     }
 
+    if (
+      item.kind === "event" &&
+      (item.event.type === "review_requested" ||
+        item.event.type === "review_request_removed")
+    ) {
+      const { event } = item;
+      return (
+        <p key={item.id} className="px-4 text-xs text-muted-foreground">
+          <UserLink
+            username={event.actorUsername}
+            image={event.actorImage}
+            avatar="xs"
+            className="align-middle"
+          />{" "}
+          {event.type === "review_requested"
+            ? "requested a review from"
+            : "removed the request for review from"}{" "}
+          {event.requestedTeamSlug ? (
+            <Link
+              href={`/${username}/teams/${event.requestedTeamSlug}`}
+              className="font-medium text-foreground hover:underline"
+            >
+              {username}/{event.requestedTeamSlug}
+            </Link>
+          ) : (
+            <UserLink username={event.requestedReviewerUsername ?? ""} />
+          )}{" "}
+          · <FromNowHoverCard date={event.createdAt} />
+        </p>
+      );
+    }
+
     if (item.kind === "event") {
       const { event } = item;
       return (

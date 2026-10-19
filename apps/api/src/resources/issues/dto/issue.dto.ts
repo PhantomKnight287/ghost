@@ -276,6 +276,26 @@ export class IssueTimelineEventDTO {
   @ApiProperty({
     type: String,
     nullable: true,
+    description:
+      'The user a `review_requested` or `review_request_removed` event names.',
+  })
+  @IsString()
+  @IsOptional()
+  requestedReviewerUsername: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The team a `review_requested` or `review_request_removed` event names.',
+  })
+  @IsString()
+  @IsOptional()
+  requestedTeamSlug: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
     example: 'octocat/ghost',
     description: 'Repository of the pull request that closed the issue.',
   })

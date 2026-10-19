@@ -22,6 +22,7 @@ export function FileDiffs({
   patchUrl,
   files,
   annotations,
+  headers,
   onLineComment,
 }: LazyFileDiffsProps) {
   // The page itself is the scroll container, so the virtualizer is built here rather than with the library's own scroll-box component.
@@ -44,6 +45,7 @@ export function FileDiffs({
               patchUrl={patchUrl}
               file={file}
               annotations={annotations?.[file.path]}
+              header={headers?.[file.path]}
               onLineComment={onLineComment}
             />
           ))}
@@ -58,6 +60,7 @@ function LazyFileDiff({
   patchUrl,
   file,
   annotations,
+  header,
   onLineComment,
 }: LazyFileDiffProps) {
   const container = useRef<HTMLDivElement>(null);
@@ -120,12 +123,16 @@ function LazyFileDiff({
           options={options}
           lineAnnotations={annotations}
           renderAnnotation={(annotation) => annotation.metadata}
+          renderHeaderMetadata={() => header}
         />
       ) : (
         <div className="flex flex-col gap-2 rounded-lg border p-4">
-          <span className="font-mono text-xs text-muted-foreground">
-            {file.path}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs text-muted-foreground">
+              {file.path}
+            </span>
+            {header}
+          </div>
           {file.submodule ? (
             <SubmoduleChange {...file.submodule} />
           ) : file.binary ? (

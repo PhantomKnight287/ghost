@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import ThreadAssigned from './templates/thread-assigned.js';
 import ThreadComment from './templates/thread-comment.js';
 import ThreadOpened from './templates/thread-opened.js';
+import ThreadReviewRequested from './templates/thread-review-requested.js';
 import ThreadReview from './templates/thread-review.js';
 import ThreadState from './templates/thread-state.js';
 
@@ -64,6 +65,16 @@ describe('thread emails', () => {
     expect(
       await plain(<ThreadAssigned {...props} reason="subscribed" />),
     ).toContain('bob assigned alice to this issue.');
+  });
+
+  it('say "you" to the requested reviewer and name them to everyone else', async () => {
+    const props = ThreadReviewRequested.PreviewProps;
+    expect(await plain(<ThreadReviewRequested {...props} />)).toContain(
+      'bob requested a review from you on this pull request.',
+    );
+    expect(
+      await plain(<ThreadReviewRequested {...props} reason="author" />),
+    ).toContain('bob requested a review from alice on this pull request.');
   });
 
   it('show what happened to the thread', async () => {

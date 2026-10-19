@@ -1,15 +1,11 @@
 import { schema } from '@ghost/db';
-import { atLeast, organizationRoleOf, type Role } from '@ghost/permissions';
 import {
-  and,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  or,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+  atLeast,
+  type OrganizationRole,
+  organizationRoleOf,
+  type Role,
+} from '@ghost/permissions';
+import { and, eq, isNotNull, isNull, or, type SQL, sql } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 
 import { RepositoryNotFoundError } from '../repositories.errors.js';
@@ -25,6 +21,9 @@ export type AuthorizedRepository = Repository & { viewerRole: Role | null };
 
 export type Actor = { userId: string } | null;
 
+/** An actor, or a user id column for asking about every user of a query at once. */
+type ActorRef = Actor | { userId: PgColumn };
+
 /** Each operation needs at least the role of the same name. */
 export type RepositoryOperation = Exclude<Role, 'owner'>;
 
@@ -34,7 +33,7 @@ export type CollaboratorRole =
 /** Join condition for the actor's accepted collaboration on the repository whose id is `repositoryId`. Matches nothing for an anonymous actor. */
 export function acceptedCollaboration(
   repositoryId: PgColumn,
-  actor: Actor,
+  actor: ActorRef,
 ): SQL | undefined {
   return and(
     eq(schema.repositoryCollaborator.repositoryId, repositoryId),
@@ -63,7 +62,7 @@ export function repositoryFullNameOf(
 /** Join condition for the actor's membership of the organization whose id is `organizationId`. Matches nothing for an anonymous actor or a user's own repository. */
 export function organizationMembership(
   organizationId: PgColumn,
-  actor: Actor,
+  actor: ActorRef,
 ): SQL | undefined {
   return and(
     eq(schema.member.organizationId, organizationId),
@@ -72,7 +71,7 @@ export function organizationMembership(
 }
 
 /** The highest role granted to any team the actor is in, as a scalar subquery: an actor in several teams must not multiply the outer row. Enum order is ladder order, so `max` ranks. */
-export function teamRoleOf(repositoryId: PgColumn, actor: Actor) {
+export function teamRoleOf(repositoryId: PgColumn, actor: ActorRef) {
   if (!actor) return sql<CollaboratorRole | null>`null`;
   return sql<CollaboratorRole | null>`(select max(${schema.repositoryTeam.role}) from ${schema.repositoryTeam} inner join ${schema.teamMember} on ${schema.teamMember.teamId} = ${schema.repositoryTeam.teamId} where ${schema.repositoryTeam.repositoryId} = ${repositoryId} and ${schema.teamMember.userId} = ${actor.userId})`;
 }
@@ -96,11 +95,22 @@ export function grantedTo(actor: Actor) {
     and(
       isNotNull(schema.member.id),
       or(
-        inArray(schema.member.role, ['owner', 'admin']),
+        holdsOrganizationRole(schema.member.role, ['owner', 'admin']),
         isNotNull(basePermissionOf(schema.repository.organizationId)),
       ),
     ),
   );
+}
+
+/** Whether a `member.role` holds any of `roles`, as `organizationRoleOf` reads it: Better Auth joins several roles with commas. */
+export function holdsOrganizationRole(
+  memberRole: PgColumn,
+  roles: OrganizationRole[],
+) {
+  return sql<boolean>`string_to_array(replace(${memberRole}, ' ', ''), ',') && array[${sql.join(
+    roles.map((role) => sql`${role}`),
+    sql`, `,
+  )}]::text[]`;
 }
 
 /** Public, or granted to the actor; same joins as `grantedTo`. */

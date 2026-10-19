@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +12,7 @@ import { type Database, schema } from '@ghost/db';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE } from '../src/database/database.module.js';
+import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 /** The pull request routes and fields gh's own suite (gh-cli.e2e-spec.ts) does not reach: REST pulls, reviews, reopening and merge refusals. */
@@ -303,6 +305,60 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
     await get(`${repo}/pulls/1/reviews/999999999`).expect(404);
   });
 
+  it('requests, lists and removes reviewers, and refuses an unknown login', async () => {
+    const api = `${repo}/pulls/1/requested_reviewers`;
+    const reviewerName = `${username}r`;
+    await v3()
+      .put(`/api/repositories/${username}/tools/collaborators/${reviewerName}`)
+      .set('cookie', owner.cookie)
+      .send({ role: 'write' })
+      .expect(200);
+    const invitation = (
+      await v3()
+        .get('/api/invitations')
+        .set('cookie', reviewer.cookie)
+        .expect(200)
+    ).body.invitations[0];
+    await v3()
+      .post(`/api/invitations/${invitation.id}/accept`)
+      .set('cookie', reviewer.cookie)
+      .expect(204);
+
+    // Logins match without regard to case, as on GitHub.
+    const requested = await send('post', api, {
+      reviewers: [reviewerName.toUpperCase()],
+    }).expect(201);
+    expect(requested.body).toMatchObject({
+      number: 1,
+      requested_reviewers: [{ login: reviewerName }],
+    });
+    expect((await get(api).expect(200)).body).toMatchObject({
+      users: [{ login: reviewerName }],
+      teams: [],
+    });
+    expect(
+      (await get(`${repo}/pulls/1`).expect(200)).body.requested_reviewers[0]
+        .login,
+    ).toBe(reviewerName);
+
+    const unknown = await send('post', api, {
+      reviewers: ['nobody-here'],
+    }).expect(422);
+    expect(unknown.body).toMatchObject({
+      message: expect.stringContaining('nobody-here'),
+      documentation_url: expect.any(String),
+      status: '422',
+    });
+
+    const removed = await v3()
+      .delete(`/api/v3${api}`)
+      .set('authorization', `token ${owner.key}`)
+      .send({ reviewers: [reviewerName] })
+      .expect(200);
+    expect(removed.body.requested_reviewers).toEqual([]);
+    expect((await get(api).expect(200)).body.users).toEqual([]);
+  });
+
   it('refuses a merge whose head moved on, then merges and reports it', async () => {
     await send('put', `${repo}/pulls/1/merge`, { sha: '0'.repeat(40) }).expect(
       409,
@@ -326,6 +382,66 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
     ]);
     await send('put', `${repo}/pulls/1/merge`, {}).expect(405);
   });
+
+  it('answers 422 to a review request on a merged pull request', async () => {
+    await send('post', `${repo}/pulls/1/requested_reviewers`, {
+      reviewers: [`${username}r`],
+    }).expect(422);
+  });
+
+  it('requests a team of an organization repository by slug', async () => {
+    const org = `${username}o`;
+    const auth = app.get<AuthService<Auth>>(AuthService).api;
+    const headers = new Headers({ cookie: owner.cookie });
+    const { id: organizationId } = (await auth.createOrganization({
+      body: { name: 'Pulls Org', slug: org },
+      headers,
+    }))!;
+    await v3()
+      .post('/api/repositories')
+      .set('cookie', owner.cookie)
+      .send({ name: 'widget', organization: org, visibility: 'private' })
+      .expect(201);
+    const core = await auth.createTeam({
+      body: { name: 'Core', organizationId },
+      headers,
+    });
+    await v3()
+      .put(`/api/repositories/${org}/widget/teams/${core!.id}`)
+      .set('cookie', owner.cookie)
+      .send({ role: 'read' })
+      .expect(204);
+    await promisify(execFile)(
+      'git',
+      [
+        'push',
+        '-q',
+        pushUrl.replace(`/${username}/tools.git`, `/${org}/widget.git`),
+        'main',
+        'feature',
+      ],
+      { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+    );
+    const orgRepo = `/repos/${org}/widget`;
+    await send('post', `${orgRepo}/pulls`, {
+      title: 'Feature',
+      head: 'feature',
+      base: 'main',
+    }).expect(201);
+
+    const { body } = await send(
+      'post',
+      `${orgRepo}/pulls/1/requested_reviewers`,
+      { team_reviewers: ['Core'] },
+    ).expect(201);
+    expect(body.requested_teams).toEqual([
+      expect.objectContaining({
+        slug: 'core',
+        name: 'Core',
+        node_id: expect.stringMatching(/^T_/),
+      }),
+    ]);
+  }, 60_000);
 
   it('closes and reopens over REST, and never reopens a merged one', async () => {
     await send('post', `${repo}/pulls`, {

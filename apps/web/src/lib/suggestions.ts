@@ -27,3 +27,16 @@ export async function suggestIssues(
   );
   return data.issues;
 }
+
+/** People whose username starts with `q` and teams whose slug contains it, of those a review on pull request `number` can be requested from. */
+export async function suggestReviewers(
+  { username, repo, number }: RepositoryRef & { number: number },
+  q: string,
+) {
+  return unwrap(
+    apiClient.GET(
+      "/api/repositories/{username}/{repo}/pulls/{number}/requestable-reviewers",
+      { params: { path: { username, repo, number }, query: { q } } },
+    ),
+  );
+}

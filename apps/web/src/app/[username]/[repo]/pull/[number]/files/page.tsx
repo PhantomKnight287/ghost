@@ -1,5 +1,7 @@
+import { OwnersBadge } from "@/components/codeowners/owners-badge";
 import {
   createServerClient,
+  getCodeOwners,
   getServerSession,
   getViewerRole,
   notFoundIfHidden,
@@ -45,6 +47,32 @@ export default async function PullRequestFilesPage({
   }
 
   const viewer = session?.user.username ?? null;
+  const owners = await getCodeOwners(
+    username,
+    repo,
+    pull.data.base.ref,
+    summary.data.files.map((file) => file.path),
+  );
+  // Owners name teams, so the viewer's own are found by reading each team; one they cannot read is one they are not in.
+  const teams = viewer
+    ? [...new Set(Object.values(owners).flat())].filter((owner) =>
+        owner.includes("/"),
+      )
+    : [];
+  const memberships = await Promise.all(
+    teams.map(async (team) => {
+      const [slug, name] = team.slice(1).split("/");
+      const { data } = await client.GET(
+        "/api/organizations/{slug}/teams/{team}",
+        { params: { path: { slug, team: name } } },
+      );
+      return data?.members.some((member) => member.username === viewer)
+        ? team
+        : null;
+    }),
+  );
+  const mine = new Set(viewer ? [`@${viewer}`, ...memberships] : []);
+
   return (
     <ReviewDiff
       username={username}
@@ -55,6 +83,16 @@ export default async function PullRequestFilesPage({
       from={summary.data.from}
       to={summary.data.to}
       files={summary.data.files}
+      headers={Object.fromEntries(
+        Object.entries(owners).map(([file, logins]) => [
+          file,
+          <OwnersBadge
+            key={file}
+            logins={logins}
+            mine={logins.some((login) => mine.has(login))}
+          />,
+        ]),
+      )}
       patchUrl={`${API_URL}/api/repositories/${username}/${repo}/pulls/${number}/patch`}
       reviews={(timeline.data?.timeline ?? []).filter(
         (item): item is PullRequestReview => item.kind === "review",

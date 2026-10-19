@@ -22,6 +22,10 @@ import { publishEvent } from '../../lib/events/events.js';
 import { assertNotImporting } from '../../lib/imports/importing.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
 import type { Executor } from '../../lib/db/executor.js';
+import {
+  pendingReviewRequestFor,
+  type ReviewRequested,
+} from '../../lib/pull-requests/review-requested.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
@@ -33,7 +37,6 @@ import {
 } from '../../lib/repositories/access/repository-access.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
 import { keyset } from '../../lib/db/keyset.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
@@ -65,6 +68,8 @@ export type IssueListOptions = {
   };
   since?: Date;
   assigned?: boolean;
+  /** Pull requests with a pending review request. */
+  reviewRequested?: ReviewRequested;
 };
 
 const NO_ISSUES = {
@@ -305,13 +310,13 @@ export class IssuesService {
     }
 
     const authorId = query.author
-      ? await this.optionalUserId(query.author)
+      ? await this.users.findUserId(query.author)
       : undefined;
     if (query.author && !authorId) {
       return NO_ISSUES;
     }
     const assigneeId = query.assignee
-      ? await this.optionalUserId(query.assignee)
+      ? await this.users.findUserId(query.assignee)
       : undefined;
     if (query.assignee && !assigneeId) {
       return NO_ISSUES;
@@ -395,6 +400,25 @@ export class IssuesService {
             ),
           )
       : undefined;
+    const wanted = options.reviewRequested;
+    const reviewRequest = wanted
+      ? this.db
+          .select({ id: schema.pullRequestReviewRequest.id })
+          .from(schema.pullRequestReviewRequest)
+          .innerJoin(
+            schema.pullRequest,
+            eq(
+              schema.pullRequest.id,
+              schema.pullRequestReviewRequest.pullRequestId,
+            ),
+          )
+          .where(
+            and(
+              eq(schema.pullRequest.issueId, schema.issue.id),
+              pendingReviewRequestFor(this.db, wanted),
+            ),
+          )
+      : undefined;
     const baseClause = (forState: 'open' | 'closed' | 'all') =>
       and(
         eq(schema.issue.repositoryId, repository.id),
@@ -411,6 +435,7 @@ export class IssuesService {
             ? exists(assignment)
             : not(exists(assignment)),
         authorId ? eq(schema.issue.authorId, authorId) : undefined,
+        reviewRequest ? exists(reviewRequest) : undefined,
         labelIssueIds ? inArray(schema.issue.id, labelIssueIds) : undefined,
         assigneeFilterIds
           ? inArray(schema.issue.id, assigneeFilterIds)
@@ -857,6 +882,9 @@ export class IssuesService {
             beforeSha: schema.issueEvent.beforeSha,
             commitMessage: schema.issueEvent.commitMessage,
             commitAuthorName: schema.issueEvent.commitAuthorName,
+            requestedReviewerUsername:
+              schema.issueEvent.requestedReviewerUsername,
+            requestedTeamSlug: schema.issueEvent.requestedTeamSlug,
             // `owner/repo`, so a pull request in another repository that closed this one still links
             sourceRepository: sql<
               string | null
@@ -1402,15 +1430,6 @@ export class IssuesService {
     return Promise.all(
       usernames.map((username) => this.users.getUserByUsername(username)),
     );
-  }
-
-  private async optionalUserId(username: string) {
-    try {
-      return (await this.users.getUserByUsername(username)).id;
-    } catch (error) {
-      if (error instanceof UserNotFoundError) return null;
-      throw error;
-    }
   }
 }
 

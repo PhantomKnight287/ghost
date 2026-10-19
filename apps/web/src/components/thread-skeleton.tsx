@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** Comments down the main column and a sidebar, the shape of an issue or pull request conversation while it loads. */
 export function ThreadSkeleton() {
   return (
-    <div className="grid gap-6 md:grid-cols-[1fr_220px]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="flex flex-col gap-4">
         {Array.from({ length: 3 }).map((_, index) => (
           <div key={index} className="flex gap-3">

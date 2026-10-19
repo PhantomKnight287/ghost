@@ -28,6 +28,8 @@ export const webhookEvents = [
   'pull_request.reviewed',
   'pull_request.review_dismissed',
   'pull_request.review_commented',
+  'pull_request.review_requested',
+  'pull_request.review_request_removed',
   'label.created',
   'label.edited',
   'label.deleted',
@@ -192,6 +194,8 @@ export type WebhookBody = {
     dismissalMessage: string | null;
   };
   assignee?: UserRef;
+  requestedReviewer?: UserRef;
+  requestedTeam?: { id: string; name: string; slug: string };
   member?: UserRef;
   label?: {
     id: string;
