@@ -1,5 +1,10 @@
 import { schema } from '@ghost/db';
-import { ApiProperty, ApiPropertyOptional, OmitType, getSchemaPath } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  OmitType,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayUnique,

@@ -476,6 +476,12 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       expect(asReader['refs/heads/feature/x'].bypass).toBe('never');
     });
 
+    it('leaves out refs whose rulesets have no rules', async () => {
+      await create({ name: 'no rules', include: ['release/3.0/hotfix'], rules: [] });
+      const { body } = await protectedRefs(reader, 'branch').expect(200);
+      expect(body.refs).not.toHaveProperty(['refs/heads/release/3.0/hotfix']);
+    });
+
     it('covers tags with the tag target', async () => {
       await create({ name: 'tag lock', target: 'tag', include: ['nightly'], rules: [{ type: 'update' }] });
       const { body } = await protectedRefs(reader, 'tag').expect(200);

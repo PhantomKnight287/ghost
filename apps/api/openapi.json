@@ -23089,11 +23089,7 @@
               "type": "string"
             }
           }
-        },
-        "required": [
-          "include",
-          "exclude"
-        ]
+        }
       },
       "GithubRulesetConditionsDTO": {
         "type": "object",

@@ -1,6 +1,6 @@
 import { schema } from '@ghost/db';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
@@ -9,6 +9,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
   ValidateIf,
   ValidateNested,
@@ -42,18 +43,21 @@ export class GithubBypassActorDTO {
   bypass_mode?: (typeof schema.rulesetBypassMode.enumValues)[number];
 }
 
+/** Either list may be left out: an empty one on create, the current one on update. */
 export class GithubRefNameConditionDTO {
-  @ApiProperty({ type: [String] })
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @MinLength(1, { each: true })
-  include: string[];
+  include?: string[];
 
-  @ApiProperty({ type: [String] })
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @MinLength(1, { each: true })
-  exclude: string[];
+  exclude?: string[];
 }
 
 export class GithubRulesetConditionsDTO {
@@ -77,9 +81,12 @@ export class GithubRulesetRuleDTO {
 }
 
 export class GithubCreateRulesetDTO {
+  // The same limits as RulesetRequestDTO: RulesetsService stores what its callers validated.
   @ApiProperty()
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MinLength(1)
+  @MaxLength(100)
   name: string;
 
   @ApiPropertyOptional({

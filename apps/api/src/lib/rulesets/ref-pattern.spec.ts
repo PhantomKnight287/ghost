@@ -85,6 +85,23 @@ describe('refTargeted', () => {
     );
   });
 
+  it('reads a trailing `**` as `*`, as Ruby fnmatch does: only `**/` crosses segments', () => {
+    expect(targets(branches(['release/**']), branch('release/1.0'))).toBe(true);
+    expect(targets(branches(['release/**']), branch('release/1.0/hotfix'))).toBe(false);
+    expect(targets(branches(['~ALL'], ['release/**']), branch('release/1.0/hotfix'))).toBe(true);
+  });
+
+  it('takes braces literally', () => {
+    expect(targets(branches(['{a,b}']), branch('a'))).toBe(false);
+    expect(targets(branches(['{a,b}']), branch('{a,b}'))).toBe(true);
+  });
+
+  it('never matches `/` with a character class', () => {
+    expect(targets(branches(['a[/]b']), branch('a/b'))).toBe(false);
+    expect(targets(branches(['a[!x]b']), branch('a/b'))).toBe(false);
+    expect(targets(branches(['a[!x]b']), branch('ayb'))).toBe(true);
+  });
+
   it('supports `?` and character classes', () => {
     expect(refTargeted(tags(['v?']), tag('v1'), 'main')).toBe(true);
     expect(refTargeted(tags(['v?']), tag('v10'), 'main')).toBe(false);

@@ -230,6 +230,29 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
     });
   });
 
+  it('takes ref_name with include alone, and keeps exclude on an update that leaves it out', async () => {
+    const made = await create({
+      name: 'include only',
+      conditions: { ref_name: { include: ['main'] } },
+    });
+    expect(made.conditions).toEqual({ ref_name: { include: ['refs/heads/main'], exclude: [] } });
+
+    await as(owner)
+      .put(`${repo}/rulesets/${made.id}`, { conditions: { ref_name: { include: ['dev'], exclude: ['old'] } } })
+      .expect(200);
+    const { body } = await as(owner)
+      .put(`${repo}/rulesets/${made.id}`, { conditions: { ref_name: { include: ['main'] } } })
+      .expect(200);
+    expect(body.conditions).toEqual({
+      ref_name: { include: ['refs/heads/main'], exclude: ['refs/heads/old'] },
+    });
+  });
+
+  it('answers 404 for an id past the safe integer range', async () => {
+    await as(owner).get(`${repo}/rulesets/9223372036854775807`).expect(404);
+    await as(owner).get(`${repo}/rulesets/99999999999999999999`).expect(404);
+  });
+
   it('deletes a ruleset', async () => {
     const made = await create();
     await as(owner).delete(`${repo}/rulesets/${made.id}`).expect(204);
@@ -248,6 +271,8 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       { bypass_actors: [{ actor_id: 999999999, actor_type: 'Team', bypass_mode: 'always' }] },
       { bypass_actors: [{ actor_id: 1, actor_type: 'Integration', bypass_mode: 'always' }] },
       { bypass_actors: [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'never' }] },
+      { name: '   ' },
+      { name: 'x'.repeat(101) },
     ];
     for (const overrides of invalid) {
       const { status, body } = await as(owner).post(`${repo}/rulesets`, valid(overrides));

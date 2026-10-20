@@ -6,7 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
+  type PipeTransform,
   Post,
   Put,
   UseFilters,
@@ -15,6 +15,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
+import { GithubNotFoundError } from '../../../lib/github/github.errors.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
@@ -25,7 +26,15 @@ import {
 } from './dto/rulesets.dto.js';
 import { GithubRulesetsService } from './rulesets.service.js';
 
-const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
+// numeric_id is a bigint, read as a JavaScript number: an id past the safe range could only round onto another ruleset or overflow Postgres, so it is as absent as any unknown id.
+const ID: PipeTransform<string, number> = {
+  transform: (value) => {
+    const id = Number(value);
+    if (!/^\d+$/.test(value) || !Number.isSafeInteger(id))
+      throw new GithubNotFoundError();
+    return id;
+  },
+};
 
 @Controller('v3/repos/:owner/:repo')
 @ApiTags('GitHub compatibility')

@@ -6288,8 +6288,8 @@ export interface components {
             bypass_mode?: "always" | "pull_request";
         };
         GithubRefNameConditionDTO: {
-            include: string[];
-            exclude: string[];
+            include?: string[];
+            exclude?: string[];
         };
         GithubRulesetConditionsDTO: {
             ref_name: components["schemas"]["GithubRefNameConditionDTO"];

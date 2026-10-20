@@ -210,8 +210,10 @@ export class RulesetsService {
 
     const protectedRefs: Record<string, ProtectedRefDTO> = {};
     for (const ref of refs) {
-      const applying = rulesets.filter((ruleset) =>
-        refTargeted(ruleset, ref, defaultBranch),
+      // A ruleset without rules restricts nothing, so it neither protects the ref nor limits its bypass.
+      const applying = rulesets.filter(
+        (ruleset) =>
+          ruleset.rules.length > 0 && refTargeted(ruleset, ref, defaultBranch),
       );
       if (applying.length === 0) continue;
       protectedRefs[ref] = {
