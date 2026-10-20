@@ -150,6 +150,11 @@ export const team = pgTable(
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
+    // Integer id for the GitHub compatibility layer only (REST `id`, GraphQL `databaseId`); nothing references it and Ghost's own API does not expose it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
     memberCount: integer("member_count").default(0).notNull(),
     organizationId: text("organization_id")
       .notNull()

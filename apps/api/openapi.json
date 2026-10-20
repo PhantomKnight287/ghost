@@ -8011,6 +8011,499 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/rulesets": {
+      "get": {
+        "description": "Oldest first. `bypassActors` is shown to admins only.",
+        "operationId": "RulesetsController_list",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRulesetsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List rulesets",
+        "tags": [
+          "Rulesets"
+        ]
+      },
+      "post": {
+        "description": "Admins only. Patterns are stored in full ref form.",
+        "operationId": "RulesetsController_create",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulesetRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A ruleset with that name exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A bypass actor names a team outside the organization, or a team or organization admin on a personal repository.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a ruleset",
+        "tags": [
+          "Rulesets"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/rulesets/preview": {
+      "post": {
+        "description": "Admins only. Matches the existing branches or tags exactly as enforcement would.",
+        "operationId": "RulesetsController_preview",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulesetPatternsDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetPreviewResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Preview the refs patterns target",
+        "tags": [
+          "Rulesets"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/rulesets/{id}": {
+      "get": {
+        "description": "`bypassActors` is shown to admins only.",
+        "operationId": "RulesetsController_get",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get a ruleset",
+        "tags": [
+          "Rulesets"
+        ]
+      },
+      "put": {
+        "description": "Admins only. Rules and bypass actors become exactly the ones sent.",
+        "operationId": "RulesetsController_update",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulesetRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace a ruleset",
+        "tags": [
+          "Rulesets"
+        ]
+      },
+      "delete": {
+        "description": "Admins only.",
+        "operationId": "RulesetsController_remove",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a ruleset",
+        "tags": [
+          "Rulesets"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/protected-refs": {
+      "get": {
+        "description": "Each branch or tag an active ruleset targets, its rules, and how far the viewer may bypass them.",
+        "operationId": "RulesetsController_protectedRefs",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "branch",
+                "tag"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectedRefsResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Refs guarded by rulesets",
+        "tags": [
+          "Rulesets"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/attachments": {
       "post": {
         "description": "Needs read access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`. Embed the file by linking `/api/attachments/{id}` in an issue, pull request, comment or release; one no text in the repository mentions is removed after a day. The file counts against the uploader's asset quota, when the instance sets one.",
@@ -14840,6 +15333,248 @@
         ]
       }
     },
+    "/api/v3/repos/{owner}/{repo}/rulesets": {
+      "get": {
+        "description": "`includes_parents` is ignored until organization rulesets exist.",
+        "operationId": "GithubRulesetsController_list",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A repository's rulesets, as summaries",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "post": {
+        "operationId": "GithubRulesetsController_create",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCreateRulesetDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a ruleset",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/rulesets/{id}": {
+      "get": {
+        "operationId": "GithubRulesetsController_get",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A ruleset",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "put": {
+        "operationId": "GithubRulesetsController_update",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubUpdateRulesetDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a ruleset; fields left out keep their value",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "delete": {
+        "operationId": "GithubRulesetsController_remove",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a ruleset",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/rules/branches/{branch}": {
+      "get": {
+        "operationId": "GithubRulesetsController_branchRules",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "branch",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "The active rules that apply to a branch",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/oauth-apps": {
       "get": {
         "operationId": "OauthAppsController_list",
@@ -20404,6 +21139,312 @@
           "updatedAt"
         ]
       },
+      "ProtectedRefDTO": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "description": "Every rule an active ruleset applies to the ref.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "creation",
+                "update",
+                "deletion",
+                "non_fast_forward",
+                "required_linear_history"
+              ]
+            }
+          },
+          "bypass": {
+            "type": "string",
+            "enum": [
+              "always",
+              "pull_requests_only",
+              "never"
+            ],
+            "description": "How far the viewer may skip those rules: the least any one of the rulesets allows."
+          }
+        },
+        "required": [
+          "rules",
+          "bypass"
+        ]
+      },
+      "RulesetRuleDTO": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "creation",
+              "update",
+              "deletion",
+              "non_fast_forward",
+              "required_linear_history"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "RulesetBypassActorDTO": {
+        "type": "object",
+        "properties": {
+          "actorType": {
+            "type": "string",
+            "enum": [
+              "RepositoryRole",
+              "Team",
+              "OrganizationAdmin"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "write",
+              "maintain",
+              "admin"
+            ],
+            "description": "For `RepositoryRole`: everyone with at least this role."
+          },
+          "teamId": {
+            "type": "string",
+            "description": "For `Team`: a team of the repository's organization."
+          },
+          "bypassMode": {
+            "type": "string",
+            "enum": [
+              "always",
+              "pull_request"
+            ],
+            "description": "`pull_request` skips the ruleset only when merging a pull request."
+          }
+        },
+        "required": [
+          "actorType",
+          "bypassMode"
+        ]
+      },
+      "RulesetDTO": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "branch",
+              "tag"
+            ]
+          },
+          "include": {
+            "description": "Ref name patterns, with or without the `refs/heads/` or `refs/tags/` prefix, or `~DEFAULT_BRANCH` and `~ALL`. `*` stays within one path segment, `**` crosses them.",
+            "example": [
+              "main",
+              "release/*"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude": {
+            "description": "Patterns that take a ref back out, whatever `include` says.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string",
+            "example": "Protect main"
+          },
+          "enforcement": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "rules": {
+            "description": "Each type at most once.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RulesetRuleDTO"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "bypassActors": {
+            "description": "Left out for viewers who are not admins.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RulesetBypassActorDTO"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "include",
+          "exclude",
+          "name",
+          "enforcement",
+          "rules",
+          "id",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ListRulesetsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "rulesets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RulesetDTO"
+            }
+          }
+        },
+        "required": [
+          "rulesets"
+        ]
+      },
+      "RulesetRequestDTO": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "branch",
+              "tag"
+            ]
+          },
+          "include": {
+            "description": "Ref name patterns, with or without the `refs/heads/` or `refs/tags/` prefix, or `~DEFAULT_BRANCH` and `~ALL`. `*` stays within one path segment, `**` crosses them.",
+            "example": [
+              "main",
+              "release/*"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude": {
+            "description": "Patterns that take a ref back out, whatever `include` says.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string",
+            "example": "Protect main"
+          },
+          "enforcement": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "bypassActors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RulesetBypassActorDTO"
+            }
+          },
+          "rules": {
+            "description": "Each type at most once.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RulesetRuleDTO"
+            }
+          }
+        },
+        "required": [
+          "target",
+          "include",
+          "exclude",
+          "name",
+          "enforcement",
+          "bypassActors",
+          "rules"
+        ]
+      },
+      "RulesetPatternsDTO": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "branch",
+              "tag"
+            ]
+          },
+          "include": {
+            "description": "Ref name patterns, with or without the `refs/heads/` or `refs/tags/` prefix, or `~DEFAULT_BRANCH` and `~ALL`. `*` stays within one path segment, `**` crosses them.",
+            "example": [
+              "main",
+              "release/*"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude": {
+            "description": "Patterns that take a ref back out, whatever `include` says.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "target",
+          "include",
+          "exclude"
+        ]
+      },
+      "RulesetPreviewResponseDTO": {
+        "type": "object",
+        "properties": {
+          "refs": {
+            "description": "Every existing ref the patterns target, full form, sorted.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "refs"
+        ]
+      },
+      "ProtectedRefsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "refs": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProtectedRefDTO"
+            }
+          }
+        },
+        "required": [
+          "refs"
+        ]
+      },
       "AttachmentDTO": {
         "type": "object",
         "properties": {
@@ -22003,6 +23044,169 @@
           "content_type",
           "url"
         ]
+      },
+      "GithubBypassActorDTO": {
+        "type": "object",
+        "properties": {
+          "actor_id": {
+            "type": "number",
+            "nullable": true,
+            "description": "A repository role (2 maintain, 4 write, 5 admin) or a team id; ignored for `OrganizationAdmin`."
+          },
+          "actor_type": {
+            "type": "string",
+            "enum": [
+              "RepositoryRole",
+              "Team",
+              "OrganizationAdmin"
+            ]
+          },
+          "bypass_mode": {
+            "type": "string",
+            "enum": [
+              "always",
+              "pull_request"
+            ],
+            "default": "always"
+          }
+        },
+        "required": [
+          "actor_type"
+        ]
+      },
+      "GithubRefNameConditionDTO": {
+        "type": "object",
+        "properties": {
+          "include": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "include",
+          "exclude"
+        ]
+      },
+      "GithubRulesetConditionsDTO": {
+        "type": "object",
+        "properties": {
+          "ref_name": {
+            "$ref": "#/components/schemas/GithubRefNameConditionDTO"
+          }
+        },
+        "required": [
+          "ref_name"
+        ]
+      },
+      "GithubRulesetRuleDTO": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "creation",
+              "update",
+              "deletion",
+              "non_fast_forward",
+              "required_linear_history"
+            ]
+          },
+          "parameters": {
+            "type": "object",
+            "description": "None of the rules Ghost supports takes any."
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "GithubCreateRulesetDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "branch",
+              "tag"
+            ],
+            "default": "branch"
+          },
+          "enforcement": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "bypass_actors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubBypassActorDTO"
+            }
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/GithubRulesetConditionsDTO"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubRulesetRuleDTO"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "enforcement"
+        ]
+      },
+      "GithubUpdateRulesetDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "branch",
+              "tag"
+            ],
+            "default": "branch"
+          },
+          "enforcement": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "bypass_actors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubBypassActorDTO"
+            }
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/GithubRulesetConditionsDTO"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubRulesetRuleDTO"
+            }
+          }
+        }
       },
       "OauthAppDTO": {
         "type": "object",

@@ -230,6 +230,113 @@ A **Rules** section in repository settings, admins only:
 - Exact UI layout, within GitHub's patterns.
 - Where the actor's role, teams and organization admin status are resolved, as long as it is once per write.
 
+## Build steps
+
+Do them in this order. Each step ends with tests that turn green, so you always know where you stand. The enforcement suites create their rulesets through the Ghost API, which is why the API comes before enforcement.
+
+### 1. Match refs (done)
+
+Turn a pattern into its stored form, and decide whether a ruleset targets a ref. Check the ref type first: a ref outside the ruleset's namespace is never targeted. `~ALL`, `~DEFAULT_BRANCH` and globs go through the same matcher for include and exclude.
+
+Done when `ref-pattern.spec.ts` is green.
+
+### 2. Decide a write (done)
+
+The pure evaluator. For each active ruleset the actor cannot bypass, and each targeted transition, classify the move as create, update or delete, and report every rule it breaks. Missing facts break the rule.
+
+Done when `evaluate-rulesets.spec.ts` is green.
+
+### 3. Errors (done)
+
+`RulesetVerdictRequiredError` (a caller bug, 500) and `RulesetViolationError` (422, carries the violations, names each ruleset).
+
+### 4. Store rulesets (done)
+
+1. Add the three tables from Data.
+2. Give rulesets a numeric id for REST, the way other numbered resources do in the compat layer.
+3. Add `numeric_id` to `team`.
+4. Run `bun db:generate`, then apply the migration to a throwaway database.
+
+Done when the migration applies cleanly and the existing suites still pass.
+
+### 5. Manage rulesets through the Ghost API
+
+1. Validate the body at the boundary. Each mistake gets the status code the contract gives it: 400, 409 or 422.
+2. Store patterns through `normalizeRefPattern`.
+3. Check permissions. Reads need read access, changes need admin, and `bypassActors` is hidden from non-admins.
+4. On create, edit and delete, write the outbox event in the same transaction as the change.
+5. Add `preview`. It lists the repository's branches or tags and keeps those `refTargeted` accepts.
+6. Add `protected-refs`, which needs the viewer's bypass status for each ruleset. The evaluator already decides bypass inline. Move that logic into one exported function in `lib/rulesets` that answers `always`, `pull_requests_only` or `never`, so the evaluator, `protected-refs` and REST `current_user_can_bypass` share one copy.
+
+Done when `rulesets.e2e-spec.ts` is green.
+
+### 6. Make every write carry a verdict
+
+1. Write one service method that a writer calls before committing. It:
+   - loads the repository's active rulesets in one query;
+   - resolves the actor once (role, team ids, organization admin), with a personal repository's owner as `admin`;
+   - runs the evaluator and returns `{ transitions, violations }`.
+
+   When the repository has no active rulesets, it returns a clean verdict without resolving the actor.
+2. Replace `pushedBy` on `commitPush` with the required `actor`. Before anything is stored, refuse in this order:
+   - no actor;
+   - a user actor without a verdict;
+   - a verdict whose transitions are not the same set as the ones being written;
+   - a verdict with violations.
+
+   Compare sets by ref, old oid and new oid. Record `actor.userId` where `pushedBy` went.
+3. Write the list of callers allowed to pass `'system'` as a comment on the actor type: repair, pull refs, repository initialisation.
+4. Compile. Every caller that no longer type-checks is a write path to wire up in steps 7 and 8. Use that list as your checklist.
+5. In the existing tests that call `commitPush` directly, add `actor: 'system'` or a clean verdict. Change nothing else in them.
+
+Done when `push-transaction.rulesets.spec.ts` and `push-transaction.service.spec.ts` are green.
+
+### 7. Enforce on git push
+
+1. In `withVerifiedPack`, while the quarantine exists, compute facts. Only do it for refs that an active ruleset with `non_fast_forward` or `required_linear_history` targets. With no such ruleset, run no extra git command.
+2. In `commitToLog`, beside the `refs/pull/*` refusal, get the verdict. If it has violations:
+   - refuse the whole push;
+   - print `GH013: Repository rule violations found for <ref>` and each violation's message and ruleset for every refused ref;
+   - mark every refused ref rejected with `push declined due to repository rule violations`.
+
+   Otherwise, pass the verdict to `commitPush`.
+
+Done when the git push tests in `rulesets-enforcement.e2e-spec.ts` are green.
+
+### 8. Enforce on API writes
+
+For each caller in the API writes table, build the transitions, supply the facts it knows, get the verdict, and pass it to `commitPush`. `RulesetViolationError` already maps to 422 through the domain error filter.
+
+1. Branch create and delete.
+2. Release tag create and delete.
+3. Pull request merge, as a `pull_request_merge` write. Under `required_linear_history`, the `merge` method is refused, because it introduces a merge commit; `squash` and `rebase` pass.
+4. Suggestion apply on the head branch.
+5. Repair, pull refs and repository initialisation pass `'system'`.
+
+`~DEFAULT_BRANCH` must come from the repository row at write time, never from a cache that a default branch change leaves stale.
+
+Done when all of `rulesets-enforcement.e2e-spec.ts` is green.
+
+### 9. GitHub REST
+
+1. Add the endpoints from API, built on the same service as step 5.
+2. Map role ids `2`, `4` and `5` to `maintain`, `write` and `admin`, and back.
+3. Map team `numeric_id` to the team, and use `1` for `OrganizationAdmin`.
+4. Make `PUT` partial.
+5. Return 422 with a `message` for every invalid body.
+6. Return summaries in the list.
+7. Answer `current_user_can_bypass` from the shared bypass function.
+8. For `rules/branches/{branch}`, accept a branch name containing `/`.
+
+Done when `github-rulesets.e2e-spec.ts` is green.
+
+### 10. Close out
+
+1. Run the full API suite, unit and e2e, against throwaway Postgres and RustFS.
+2. Check the cost anti-goal by hand: a push to a repository without rulesets runs no extra git command and at most one query.
+3. Replace the four unverified rule messages with GitHub's wording.
+4. Then hand over for review.
+
 ## Contract fixed by the tests
 
 The failing tests written before the build pin these names and shapes. Change them only together with the tests.

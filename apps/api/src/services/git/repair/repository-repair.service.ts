@@ -380,6 +380,7 @@ export class RepositoryRepairService {
     if (diagnosis.dropped.length > 0 || diagnosis.rescuePack) {
       const pack = diagnosis.rescuePack;
       await this.pushTransaction.commitPush({
+        actor: 'system',
         repoId: repositoryId,
         transitions: diagnosis.dropped.map(({ ref, oid }) => ({
           ref,

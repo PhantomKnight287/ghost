@@ -320,7 +320,7 @@ export class RepositoriesService {
         ],
         body: fileBody(pack.path, pack.size),
         packOffset: 0,
-        pushedBy: userId,
+        actor: 'system',
       });
     });
     await this.db

@@ -223,6 +223,7 @@ export class PullRefsService {
       await this.quota
         .reservePullRefWrite(pullRequest, pack.size, async (tx) => {
           await this.pushTransaction.commitPush({
+            actor: 'system',
             ulid,
             repoId: pullRequest.baseRepositoryId,
             transitions,

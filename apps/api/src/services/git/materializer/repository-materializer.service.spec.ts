@@ -76,6 +76,7 @@ describe('RepositoryMaterializerService', () => {
     };
 
     await pushes.commitPush({
+      actor: 'system',
       repoId: REPO_ID,
       transitions: [transition],
       body: bufferBody(packSince(before)),
@@ -148,6 +149,7 @@ describe('RepositoryMaterializerService', () => {
   it('points HEAD at the chosen default branch, even on a current cache', async () => {
     const oid = await commitAndLog('README.md', '# ghost\n');
     await pushes.commitPush({
+      actor: 'system',
       repoId: REPO_ID,
       transitions: [
         {
@@ -213,6 +215,7 @@ describe('RepositoryMaterializerService', () => {
 
     git(cache, 'update-ref', 'refs/heads/stale', oid);
     await pushes.commitPush({
+      actor: 'system',
       repoId: REPO_ID,
       transitions: [
         {

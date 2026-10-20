@@ -48,6 +48,7 @@ import { GithubUserAttachmentsModule } from './rest/attachments/user-attachments
 import { ReposModule } from './rest/repos/repos.module.js';
 import { UsersModule } from './rest/users/users.module.js';
 import { TemplatesModule } from './rest/templates/templates.module.js';
+import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
 
 @Module({
   imports: [
@@ -108,6 +109,7 @@ import { TemplatesModule } from './rest/templates/templates.module.js';
     GithubUserAttachmentsModule,
     GithubGitModule,
     TemplatesModule,
+    GithubRulesetsModule,
   ],
   providers: [
     ViewerResolver,

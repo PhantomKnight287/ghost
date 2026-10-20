@@ -11,6 +11,8 @@ import { PushRejectedError } from './protocol.errors.js';
 import { withTempDir } from '../../temp-dir.js';
 import { splitRecords } from '../exec/split-records.js';
 import { objectTypes } from '../exec/object-types.js';
+import { refFacts } from '../refs/ref-facts.js';
+import type { RefFacts } from '../../rulesets/rulesets.types.js';
 
 /** Proves a push can be replayed by a node holding only the log (0034). The pack is indexed into a quarantine with the cache lent as an alternate, the way git quarantines a push; the log stores that indexed pack, not the thin one received: a thin pack's delta bases come from the cache, which holds objects the log does not. */
 export async function withVerifiedPack<T>(
@@ -19,19 +21,31 @@ export async function withVerifiedPack<T>(
     transitions,
     body,
     packOffset,
+    factsFor = new Set(),
   }: {
     gitDir: string;
     transitions: RefTransition[];
     body: GitRequestBody;
     packOffset: number;
+    /** Refs whose `refFacts` the commit needs; they can only be computed while the pushed objects are in quarantine. */
+    factsFor?: Set<string>;
   },
-  commit: (pack: { body: GitRequestBody; packOffset: number }) => Promise<T>,
+  commit: (pack: {
+    body: GitRequestBody;
+    packOffset: number;
+    facts: Map<string, RefFacts>;
+  }) => Promise<T>,
 ): Promise<T> {
+  const judged = transitions.filter(({ ref }) => factsFor.has(ref));
   if (body.size === packOffset) {
     if (transitions.some(({ newOid }) => !newOid.equals(ZERO_OID))) {
       await verifyRefs({ gitDir, transitions, quarantine: null });
     }
-    return commit({ body, packOffset });
+    return commit({
+      body,
+      packOffset,
+      facts: await refFacts({ gitDir, transitions: judged }),
+    });
   }
 
   return await withTempDir('ghost-quarantine-', async (quarantine) => {
@@ -52,6 +66,11 @@ export async function withVerifiedPack<T>(
     return await commit({
       body: fileBody(indexed, (await stat(indexed)).size),
       packOffset: 0,
+      facts: await refFacts({
+        gitDir,
+        env: lend(gitDir, quarantine),
+        transitions: judged,
+      }),
     });
   });
 }

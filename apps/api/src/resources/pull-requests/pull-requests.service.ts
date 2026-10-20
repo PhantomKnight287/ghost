@@ -60,6 +60,8 @@ import {
   type Repository,
   type RepositoryOperation,
 } from '../../lib/repositories/access/repository-access.js';
+import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
+import { RulesetViolationError } from '../../lib/rulesets/rulesets.errors.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
 import { lfsPointersIn } from '../../lib/git/lfs/lfs-pointer.js';
@@ -160,6 +162,7 @@ export class PullRequestsService {
     private readonly quota: StorageQuotaService,
     private readonly lfs: LfsService,
     private readonly statuses: CommitStatusesService,
+    private readonly verdicts: RulesetVerdictsService,
   ) {}
 
   async createPullRequest({
@@ -681,6 +684,22 @@ export class PullRequestsService {
         newOid: Buffer.from(mergeCommitSha, 'hex'),
       },
     ];
+    // Judged before anything is copied or packed, so a refused merge leaves nothing behind.
+    const verdict = await this.verdicts.judge({
+      repository: base,
+      gitDir: git.baseDirectory,
+      userId: params.requesterId,
+      write: 'pull_request_merge',
+      transitions,
+      facts: new Map([
+        [
+          transitions[0].ref,
+          { isFastForward: true, introducesMergeCommit: method === 'merge' },
+        ],
+      ]),
+    });
+    if (verdict.violations.length > 0)
+      throw new RulesetViolationError(verdict.violations);
 
     return await withTempDir('ghost-merge-', async (directory) => {
       // The pull head ref is in the base log, so whatever it reaches was already written there by the last sync and only the merge itself is new.
@@ -748,7 +767,7 @@ export class PullRequestsService {
           transitions,
           body: fileBody(pack.path, pack.size),
           packOffset: 0,
-          pushedBy: params.requesterId,
+          actor: { userId: params.requesterId, verdict },
         });
 
         await tx

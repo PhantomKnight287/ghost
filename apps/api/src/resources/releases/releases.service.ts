@@ -36,6 +36,8 @@ import {
 import { withTempDir } from '../../lib/temp-dir.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
+import { EXISTING_HISTORY } from '../../lib/rulesets/rulesets.types.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { UsersService } from '../../services/users/users.service.js';
@@ -86,6 +88,7 @@ export class ReleasesService {
     private readonly assets: ReleaseAssetsService,
     private readonly archives: ReleaseArchivesService,
     private readonly quota: StorageQuotaService,
+    private readonly verdicts: RulesetVerdictsService,
   ) {}
 
   async listReleases({
@@ -374,23 +377,28 @@ export class ReleasesService {
     });
     const ref = `refs/tags/${tagName}`;
     // The tag object's own id, not the commit it peels to: that is what the ref holds.
-    const oid = (await listRefs(await this.materializer.open(repository))).get(
-      ref,
-    );
+    const directory = await this.materializer.open(repository);
+    const oid = (await listRefs(directory)).get(ref);
     if (!oid) throw new TagNotFoundError(tagName);
 
+    const transitions = [
+      { ref, oldOid: Buffer.from(oid, 'hex'), newOid: ZERO_OID },
+    ];
     await this.pushTransaction.commitPush({
       repoId: repository.id,
-      transitions: [
-        {
-          ref,
-          oldOid: Buffer.from(oid, 'hex'),
-          newOid: ZERO_OID,
-        },
-      ],
+      transitions,
       body: bufferBody(Buffer.alloc(0)),
       packOffset: 0,
-      pushedBy: target.requesterId,
+      actor: {
+        userId: target.requesterId,
+        verdict: await this.verdicts.judge({
+          repository,
+          gitDir: directory,
+          userId: target.requesterId,
+          write: 'push',
+          transitions,
+        }),
+      },
     });
   }
 
@@ -426,18 +434,29 @@ export class ReleasesService {
         exclude: [sha],
         prefix: path.join(scratch, 'tag'),
       });
+      const transitions = [
+        {
+          ref: `refs/tags/${name}`,
+          oldOid: ZERO_OID,
+          newOid: Buffer.from(oid, 'hex'),
+        },
+      ];
       await this.pushTransaction.commitPush({
         repoId: repository.id,
-        transitions: [
-          {
-            ref: `refs/tags/${name}`,
-            oldOid: ZERO_OID,
-            newOid: Buffer.from(oid, 'hex'),
-          },
-        ],
+        transitions,
         body: fileBody(pack.path, pack.size),
         packOffset: 0,
-        pushedBy: requesterId,
+        actor: {
+          userId: requesterId,
+          verdict: await this.verdicts.judge({
+            repository,
+            gitDir: directory,
+            userId: requesterId,
+            write: 'push',
+            transitions,
+            facts: new Map([[transitions[0].ref, EXISTING_HISTORY]]),
+          }),
+        },
       });
     });
   }

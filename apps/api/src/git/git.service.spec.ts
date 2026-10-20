@@ -24,6 +24,7 @@ import {
 } from '../lib/git/git.errors.js';
 import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { DATABASE } from '../database/database.module.js';
+import { RulesetVerdictsService } from '../services/rulesets/ruleset-verdicts.service.js';
 import { GitService } from './git.service.js';
 
 // Verification runs real git over a real pack; it has its own spec, and these bodies are stand-ins.
@@ -54,6 +55,10 @@ describe('GitService', () => {
   };
 
   const codeSearch = { indexInBackground: vi.fn() };
+  const verdicts = {
+    active: vi.fn().mockResolvedValue([]),
+    judge: vi.fn(async ({ transitions }) => ({ transitions, violations: [] })),
+  };
   const pullRefs = { syncAfterPush: vi.fn().mockResolvedValue(undefined) };
   const pullRequestPushes = {
     recordPush: vi.fn().mockResolvedValue(undefined),
@@ -112,6 +117,7 @@ describe('GitService', () => {
         { provide: PullRequestHintsService, useValue: pullRequestHints },
         { provide: StorageQuotaService, useValue: quota },
         { provide: DATABASE, useValue: db },
+        { provide: RulesetVerdictsService, useValue: verdicts },
       ],
     }).compile();
 

@@ -470,6 +470,13 @@
       "when": 1792337082583,
       "tag": "0066_square_triton",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792431964586,
+      "tag": "0067_equal_malcolm_colcord",
+      "breakpoints": true
     }
   ]
 }

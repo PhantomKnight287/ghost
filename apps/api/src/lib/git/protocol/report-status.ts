@@ -1,15 +1,22 @@
 import { FLUSH_PACKET, pktLine } from './pkt-line.js';
-import { SIDE_BAND_DATA, sideBandChunk, sideBandPackets } from './side-band.js';
+import {
+  SIDE_BAND_DATA,
+  SIDE_BAND_PROGRESS,
+  sideBandChunk,
+  sideBandPackets,
+} from './side-band.js';
 
-/** A receive-pack reply that refuses every ref in a push, which git prints as `! [remote rejected] <ref> (<reason>)`. Null when the client asked for no report, so the caller has nothing better than an error status. */
+/** A receive-pack reply that refuses every ref in a push, which git prints as `! [remote rejected] <ref> (<reason>)`, after `lines` as `remote:` output when there is a side band to carry them. Null when the client asked for no report, so the caller has nothing better than an error status. */
 export function rejectedPushReport({
   refs,
   capabilities,
   reason,
+  lines = [],
 }: {
   refs: string[];
   capabilities: string[];
   reason: string;
+  lines?: string[];
 }): Buffer | null {
   if (
     !capabilities.includes('report-status') &&
@@ -29,6 +36,13 @@ export function rejectedPushReport({
   if (chunk === null) return report;
 
   return Buffer.concat([
+    ...(lines.length > 0
+      ? sideBandPackets(
+          SIDE_BAND_PROGRESS,
+          Buffer.from(lines.map((line) => `${line}\n`).join('')),
+          chunk,
+        )
+      : []),
     ...sideBandPackets(SIDE_BAND_DATA, report, chunk),
     Buffer.from(FLUSH_PACKET),
   ]);
