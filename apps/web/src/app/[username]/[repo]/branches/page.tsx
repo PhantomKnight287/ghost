@@ -29,10 +29,13 @@ export default async function BranchesPage({
   const { username, repo } = await params;
 
   const client = await createServerClient();
-  const [role, branches] = await Promise.all([
+  const [role, branches, protectedRefs] = await Promise.all([
     getViewerRole(username, repo),
     client.GET("/api/repositories/{username}/{slug}/branches", {
       params: { path: { username, slug: repo } },
+    }),
+    client.GET("/api/repositories/{username}/{repo}/protected-refs", {
+      params: { path: { username, repo }, query: { target: "branch" } },
     }),
   ]);
 
@@ -73,6 +76,7 @@ export default async function BranchesPage({
           branches={branches.data.branches}
           defaultBranch={defaultBranch}
           canWrite={canWrite}
+          protectedRefs={protectedRefs.data?.refs ?? {}}
         />
       )}
     </div>
