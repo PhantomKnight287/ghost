@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ReleaseCard } from "@/components/releases/release-card";
+import { pageLinks } from "@/lib/agent-pages";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 
 export async function generateMetadata({
@@ -16,6 +17,7 @@ export async function generateMetadata({
     title,
     openGraph: { title, images: [image] },
     twitter: { images: [image] },
+    ...pageLinks(`/${username}/${repo}/releases/tag/${tag.join("/")}`),
   };
 }
 

@@ -22,6 +22,12 @@ describe("matchPage", () => {
       number: 12,
     });
     expect(match("/ghost/ghost/pull/3")?.kind).toBe("pull");
+    expect(match("/ghost/ghost/releases/tag/v1/beta%231")).toEqual({
+      kind: "release",
+      username: "ghost",
+      repo: "ghost",
+      tag: "v1/beta#1",
+    });
   });
 
   it("leaves app routes, files and deeper pages alone", () => {
@@ -33,6 +39,8 @@ describe("matchPage", () => {
       "/ghost/ghost/tree/main",
       "/ghost/ghost/issues/new",
       "/ghost/ghost/pull/3/files",
+      "/ghost/ghost/releases/tag",
+      "/ghost/ghost/releases/v1",
       "/ghost/ghost/blob/main/README.md",
     ]) {
       expect(match(path)).toBeNull();

@@ -8,21 +8,25 @@ import {
 
 import { cn } from "@/lib/utils";
 
+// `accent` is the same colour as a number, for Discord embeds.
 const STYLES = {
   issue: {
     open: {
       Icon: CircleDot,
       text: "text-emerald-600",
+      accent: 0x059669,
       badge: "bg-emerald-600 text-white",
     },
     closed: {
       Icon: CircleCheck,
       text: "text-red-600",
+      accent: 0xdc2626,
       badge: "bg-red-600 text-white",
     },
     merged: {
       Icon: CircleCheck,
       text: "text-red-600",
+      accent: 0xdc2626,
       badge: "bg-red-600 text-white",
     },
   },
@@ -30,16 +34,19 @@ const STYLES = {
     open: {
       Icon: GitPullRequest,
       text: "text-emerald-600",
+      accent: 0x059669,
       badge: "bg-emerald-600 text-white",
     },
     closed: {
       Icon: GitPullRequestClosed,
       text: "text-red-600",
+      accent: 0xdc2626,
       badge: "bg-red-600 text-white",
     },
     merged: {
       Icon: GitMerge,
       text: "text-violet-600",
+      accent: 0x7c3aed,
       badge: "bg-violet-600 text-white",
     },
   },

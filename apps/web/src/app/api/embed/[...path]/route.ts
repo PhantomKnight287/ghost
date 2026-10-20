@@ -1,10 +1,14 @@
 import { matchPage } from "@/lib/agent-pages";
 import { createServerClient } from "@/lib/api/server";
 import { SITE_URL } from "@/lib/env";
+import { threadStateStyle } from "@/components/thread-state";
 import { plain, plural, truncate } from "@/lib/og";
+import type { Release } from "@/types/release";
 
 // The --primary lavender of the dark theme in globals.css.
 const ACCENT = 0xc2b1f8;
+// zinc-500, as a draft has no state colour in the app
+const DRAFT = 0x71717a;
 
 type Component = Record<string, unknown>;
 
@@ -15,12 +19,16 @@ export async function GET(
 ) {
   const { path } = await params;
   const page = matchPage(path);
-  const components = page && (await render(page));
+  const embed = page && (await render(page));
   const payload = JSON.stringify({
-    component: { type: 17, accent_color: ACCENT, components },
+    component: {
+      type: 17,
+      accent_color: embed?.accent ?? ACCENT,
+      components: embed?.components,
+    },
   });
   // Discord drops an embed over 3000 bytes; a 404 leaves the Open Graph card.
-  if (!components || Buffer.byteLength(payload) > 3000) {
+  if (!embed || Buffer.byteLength(payload) > 3000) {
     return Response.json({}, { status: 404 });
   }
 
@@ -31,7 +39,7 @@ export async function GET(
 
 async function render(
   page: NonNullable<ReturnType<typeof matchPage>>,
-): Promise<Component[] | null> {
+): Promise<{ components: Component[]; accent?: number } | null> {
   if (page.kind === "home" || page.kind === "changelog") return null;
 
   const client = await createServerClient();
@@ -48,34 +56,38 @@ async function render(
     if (organization.data) {
       const { name, logo, description, location, website, repositoryCount } =
         organization.data;
-      return [
-        section(
-          [
-            `## [${name}](${url})`,
-            description,
-            `-# ${[`@${username}`, location, plural(repositoryCount, "public repository", "public repositories")].filter(Boolean).join(" · ")}`,
-          ],
-          logo,
-        ),
-        buttons([
-          ["View organization", url],
-          website ? ["Website", website] : null,
-        ]),
-      ];
+      return {
+        components: [
+          section(
+            [
+              `## [${name}](${url})`,
+              description,
+              `-# ${[`@${username}`, location, plural(repositoryCount, "public repository", "public repositories")].filter(Boolean).join(" · ")}`,
+            ],
+            logo,
+          ),
+          buttons([
+            ["View organization", url],
+            website ? ["Website", website] : null,
+          ]),
+        ],
+      };
     }
     if (!user.data) return null;
     const { name, image, joinedAt, repositoryCount, starCount } = user.data;
-    return [
-      section(
-        [
-          `## [${name}](${url})`,
-          `@${user.data.username} · joined ${timestamp(joinedAt, "D")}`,
-          `-# ${plural(repositoryCount, "public repository", "public repositories")} · ${plural(starCount, "star")}`,
-        ],
-        image,
-      ),
-      buttons([["View profile", url]]),
-    ];
+    return {
+      components: [
+        section(
+          [
+            `## [${name}](${url})`,
+            `@${user.data.username} · joined ${timestamp(joinedAt, "D")}`,
+            `-# ${plural(repositoryCount, "public repository", "public repositories")} · ${plural(starCount, "star")}`,
+          ],
+          image,
+        ),
+        buttons([["View profile", url]]),
+      ],
+    };
   }
 
   const { repo } = page;
@@ -90,21 +102,23 @@ async function render(
       params: { path: { username, slug: repo } },
     });
     if (!data) return null;
-    return [
-      text([
-        `## [${data.owner}/${data.slug}](${base})`,
-        data.description && truncate(plain(data.description), 280),
-        `-# ⭐ ${plural(data.starCount, "star")} · ${plural(data.forkCount, "fork")}${data.lastPushedAt ? ` · pushed ${timestamp(data.lastPushedAt, "R")}` : ""}`,
-      ]),
-      // The repository's Open Graph card, which the component embed replaces in the preview.
-      { type: 12, items: [{ media: { url: `${base}/opengraph-image` } }] },
-      buttons([
-        ["Code", base],
-        ["Issues", `${base}/issues`],
-        ["Pull requests", `${base}/pulls`],
-        ["Releases", `${base}/releases`],
-      ]),
-    ];
+    return {
+      components: [
+        text([
+          `## [${data.owner}/${data.slug}](${base})`,
+          data.description && truncate(plain(data.description), 280),
+          `-# ⭐ ${plural(data.starCount, "star")} · ${plural(data.forkCount, "fork")}${data.lastPushedAt ? ` · pushed ${timestamp(data.lastPushedAt, "R")}` : ""}`,
+        ]),
+        // The repository's Open Graph card, which the component embed replaces in the preview.
+        { type: 12, items: [{ media: { url: `${base}/opengraph-image` } }] },
+        buttons([
+          ["Code", base],
+          ["Issues", `${base}/issues`],
+          ["Pull requests", `${base}/pulls`],
+          ["Releases", `${base}/releases`],
+        ]),
+      ],
+    };
   }
 
   if (page.kind === "releases") {
@@ -114,28 +128,23 @@ async function render(
     );
     if (!data) return null;
     const [latest] = data.releases;
-    const url = `${base}/releases`;
-    if (!latest) {
-      return [
+    if (latest) return { components: release(latest, page) };
+    return {
+      components: [
         text([
-          `## [Releases · ${username}/${repo}](${url})`,
+          `## [Releases · ${username}/${repo}](${base}/releases)`,
           "No releases yet.",
         ]),
-      ];
-    }
-    const tag = `${url}/tag/${latest.tagName.split("/").map(encodeURIComponent).join("/")}`;
-    return [
-      text([
-        `-# Releases · ${username}/${repo}`,
-        `## [${latest.name || latest.tagName}](${tag})`,
-        latest.body && truncate(plain(latest.body), 280),
-        `-# \`${latest.tagName}\` · @${latest.authorUsername} · ${timestamp(latest.publishedAt ?? latest.createdAt, "R")}`,
-      ]),
-      buttons([
-        ["View release", tag],
-        ["All releases", url],
-      ]),
-    ];
+      ],
+    };
+  }
+
+  if (page.kind === "release") {
+    const { data } = await client.GET(
+      "/api/repositories/{username}/{repo}/releases/tags/{tag}",
+      { params: { path: { username, repo, tag: page.tag } } },
+    );
+    return data ? { components: release(data, page) } : null;
   }
 
   const path = { username, repo, number: page.number };
@@ -146,21 +155,22 @@ async function render(
     );
     if (!data) return null;
     const url = `${base}/issues/${data.number}`;
-    return [
-      text([
-        `-# ${username}/${repo}`,
-        `## [${data.title} #${data.number}](${url})`,
-        data.body && truncate(plain(data.body), 280),
-        `-# ${data.state === "open" ? "🟢 Open" : "🟣 Closed"} · @${data.authorUsername} opened ${timestamp(data.createdAt, "R")} · ${plural(data.commentCount, "comment")}`,
-        data.labels.length
-          ? data.labels
-              .slice(0, 10)
-              .map((label) => `\`${label.name}\``)
-              .join(" ")
-          : null,
-      ]),
-      buttons([["View issue", url]]),
-    ];
+    const labels = data.labels
+      .slice(0, 10)
+      .map((label) => ` · \`${label.name}\``)
+      .join("");
+    return {
+      accent: threadStateStyle(false, data.state).accent,
+      components: [
+        text([
+          author(data.authorUsername, "opened", data.createdAt),
+          `## [${data.title} #${data.number}](${url})`,
+          data.body && truncate(plain(data.body), 280),
+          `-# ${username}/${repo} · ${plural(data.commentCount, "comment")}${labels}`,
+        ]),
+        buttons([["View issue", url]]),
+      ],
+    };
   }
 
   const { data } = await client.GET(
@@ -169,25 +179,51 @@ async function render(
   );
   if (!data) return null;
   const url = `${base}/pull/${data.number}`;
-  const state = data.draft
-    ? "⚪ Draft"
-    : { open: "🟢 Open", closed: "🔴 Closed", merged: "🟣 Merged" }[data.state];
-  return [
-    section(
-      [
-        `-# ${username}/${repo}`,
+  return {
+    accent: data.draft ? DRAFT : threadStateStyle(true, data.state).accent,
+    components: [
+      text([
+        author(data.authorUsername, "opened", data.createdAt),
         `## [${data.title} #${data.number}](${url})`,
         data.body && truncate(plain(data.body), 280),
-        `-# ${state} · @${data.authorUsername} · \`${data.head.ref}\` into \`${data.base.ref}\``,
+        `-# ${username}/${repo} · \`${data.head.ref}\` into \`${data.base.ref}\``,
         `-# ${plural(data.commitCount, "commit")} · ${plural(data.changedFiles, "file")} · +${data.additions} −${data.deletions}`,
-      ],
-      data.authorImage,
-    ),
+      ]),
+      buttons([
+        ["View pull request", url],
+        ["Files changed", `${url}/files`],
+      ]),
+    ],
+  };
+}
+
+/** The release page's embed, also shown for the releases list by its latest release. */
+function release(
+  { tagName, name, body, authorUsername, publishedAt, createdAt }: Release,
+  { username, repo }: { username: string; repo: string },
+) {
+  const releases = `${SITE_URL}/${username}/${repo}/releases`;
+  const url = `${releases}/tag/${tagName.split("/").map(encodeURIComponent).join("/")}`;
+  return [
+    text([
+      author(authorUsername, "published", publishedAt ?? createdAt),
+      `## [${name || tagName}](${url})`,
+      body && truncate(plain(body), 280),
+      `-# ${username}/${repo} · \`${tagName}\``,
+    ]),
     buttons([
-      ["View pull request", url],
-      ["Files changed", `${url}/files`],
+      ["View release", url],
+      ["All releases", releases],
     ]),
   ];
+}
+
+/** The small line above a title that links its author's profile. An account that was deleted leaves no author. */
+function author(username: string | null, verb: string, iso: string) {
+  const who = username
+    ? `[@${username}](${SITE_URL}/${username}) ${verb}`
+    : verb.replace(/^./, (first) => first.toUpperCase());
+  return `-# ${who} ${timestamp(iso, "R")}`;
 }
 
 function text(lines: (string | null | undefined)[]): Component {

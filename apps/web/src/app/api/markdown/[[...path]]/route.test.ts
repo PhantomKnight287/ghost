@@ -205,6 +205,24 @@ describe("Markdown pages", () => {
     expect(none.body).toEndWith("None yet.");
   });
 
+  it("shows one release by its tag, and one whose author is gone", async () => {
+    const { body } = await markdown("/ghost/ghost/releases/tag/v1%2Fbeta", {
+      "/api/repositories/ghost/ghost/releases/tags/v1%2Fbeta": {
+        tagName: "v1/beta",
+        name: null,
+        body: null,
+        isLatest: false,
+        isPrerelease: false,
+        authorUsername: null,
+        publishedAt: "2026-10-03T00:00:00Z",
+        createdAt: "2026-10-01T00:00:00Z",
+      },
+    });
+    expect(body).toBe(
+      "# v1/beta · ghost/ghost\n\nTag `v1/beta`, published 2026-10-03.",
+    );
+  });
+
   it("shows an issue with its labels and comments", async () => {
     const { body } = await markdown("/ghost/ghost/issues/7", {
       "/api/repositories/ghost/ghost/issues/7": {
@@ -252,6 +270,7 @@ describe("Markdown pages", () => {
       "/ghost/ghost/issues",
       "/ghost/ghost/pulls",
       "/ghost/ghost/releases",
+      "/ghost/ghost/releases/tag/v1",
       "/ghost/ghost/issues/7",
     ]) {
       const { status, body } = await markdown(path);

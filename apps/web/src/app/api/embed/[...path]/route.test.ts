@@ -43,6 +43,14 @@ const organization = {
   repositoryCount: 2,
   members: [],
 };
+const release = {
+  tagName: "v1/beta",
+  name: "",
+  body: "Notes",
+  authorUsername: "alice",
+  publishedAt: null,
+  createdAt: "2026-10-01T00:00:00Z",
+};
 const thread = {
   number: 7,
   title: "Fix it",
@@ -108,25 +116,36 @@ describe("Discord embed", () => {
     expect(contents(body)).toContain("3 public repositories · 1 star");
   });
 
-  it("shows the latest release, linked by its tag", async () => {
+  it("shows the latest release with its author, linked by its tag", async () => {
     const { body } = await embed("/ghost/ghost/releases", {
-      "/api/repositories/ghost/ghost/releases": {
-        releases: [
-          {
-            tagName: "v1/beta",
-            name: "",
-            body: "Notes",
-            authorUsername: "alice",
-            publishedAt: null,
-            createdAt: "2026-10-01T00:00:00Z",
-          },
-        ],
+      "/api/repositories/ghost/ghost/releases": { releases: [release] },
+    });
+    expect(body.component.accent_color).toBe(0xc2b1f8);
+    expect(body.component.components[0].content).toBe(
+      [
+        "-# [@alice](http://localhost:3000/alice) published <t:1790812800:R>",
+        "## [v1/beta](http://localhost:3000/ghost/ghost/releases/tag/v1/beta)",
+        "Notes",
+        "-# ghost/ghost · `v1/beta`",
+      ].join("\n"),
+    );
+  });
+
+  it("shows a release by its tag, and one whose author is gone", async () => {
+    const { body } = await embed("/ghost/ghost/releases/tag/v1/beta", {
+      "/api/repositories/ghost/ghost/releases/tags/v1%2Fbeta": {
+        ...release,
+        name: "Beta",
+        authorUsername: null,
       },
     });
+    expect(contents(body)).toContain("-# Published <t:1790812800:R>");
     expect(contents(body)).toContain(
-      "## [v1/beta](http://localhost:3000/ghost/ghost/releases/tag/v1/beta)",
+      "## [Beta](http://localhost:3000/ghost/ghost/releases/tag/v1/beta)",
     );
-    expect(contents(body)).toContain("<t:1790812800:R>");
+    expect(contents(body)).toContain(
+      '"label":"All releases","url":"http://localhost:3000/ghost/ghost/releases"',
+    );
   });
 
   it("says when a repository has no releases", async () => {
@@ -136,28 +155,41 @@ describe("Discord embed", () => {
     expect(contents(body)).toContain("No releases yet.");
   });
 
-  it("shows an issue's state, comments, labels and the plain text of its body", async () => {
+  it("shows an issue under its author, coloured by its state", async () => {
+    const issue = {
+      ...thread,
+      commentCount: 1,
+      labels: [{ name: "bug" }, { name: "ui" }],
+    };
     const { body } = await embed("/ghost/ghost/issues/7", {
+      "/api/repositories/ghost/ghost/issues/7": issue,
+    });
+    expect(body.component.accent_color).toBe(0x059669);
+    expect(body.component.components[0].content).toBe(
+      [
+        "-# [@alice](http://localhost:3000/alice) opened <t:1790812800:R>",
+        "## [Fix it #7](http://localhost:3000/ghost/ghost/issues/7)",
+        "Broken since yesterday",
+        "-# ghost/ghost · 1 comment · `bug` · `ui`",
+      ].join("\n"),
+    );
+
+    const closed = await embed("/ghost/ghost/issues/7", {
       "/api/repositories/ghost/ghost/issues/7": {
-        ...thread,
+        ...issue,
         state: "closed",
-        commentCount: 1,
-        labels: [{ name: "bug" }],
+        labels: [],
       },
     });
-    expect(contents(body)).toContain("Broken since yesterday");
-    expect(contents(body)).toContain(
-      "🟣 Closed · @alice opened <t:1790812800:R> · 1 comment",
-    );
-    expect(contents(body)).toContain("`bug`");
+    expect(closed.body.component.accent_color).toBe(0xdc2626);
+    expect(contents(closed.body)).toContain("-# ghost/ghost · 1 comment");
   });
 
-  it("shows a pull request's state, branches and size", async () => {
+  it("shows a pull request under its author, coloured by its state", async () => {
     const pull = {
       ...thread,
       draft: false,
       state: "merged",
-      authorImage: null,
       head: { ref: "feat" },
       base: { ref: "main" },
       commitCount: 1,
@@ -168,13 +200,27 @@ describe("Discord embed", () => {
     const { body } = await embed("/ghost/ghost/pull/7", {
       "/api/repositories/ghost/ghost/pulls/7": pull,
     });
-    expect(contents(body)).toContain("🟣 Merged · @alice · `feat` into `main`");
-    expect(contents(body)).toContain("1 commit · 2 files · +3 −4");
+    expect(body.component.accent_color).toBe(0x7c3aed);
+    expect(body.component.components[0].content).toBe(
+      [
+        "-# [@alice](http://localhost:3000/alice) opened <t:1790812800:R>",
+        "## [Fix it #7](http://localhost:3000/ghost/ghost/pull/7)",
+        "Broken since yesterday",
+        "-# ghost/ghost · `feat` into `main`",
+        "-# 1 commit · 2 files · +3 −4",
+      ].join("\n"),
+    );
 
-    const draft = await embed("/ghost/ghost/pull/7", {
-      "/api/repositories/ghost/ghost/pulls/7": { ...pull, draft: true },
-    });
-    expect(contents(draft.body)).toContain("⚪ Draft");
+    for (const [state, draft, accent] of [
+      ["open", false, 0x059669],
+      ["closed", false, 0xdc2626],
+      ["open", true, 0x71717a],
+    ] as const) {
+      const other = await embed("/ghost/ghost/pull/7", {
+        "/api/repositories/ghost/ghost/pulls/7": { ...pull, state, draft },
+      });
+      expect(other.body.component.accent_color).toBe(accent);
+    }
   });
 
   it("answers 404 for pages without an embed, hidden resources and payloads over 3000 bytes", async () => {
@@ -184,6 +230,7 @@ describe("Discord embed", () => {
     for (const path of [
       "/ghost/ghost",
       "/ghost/ghost/releases",
+      "/ghost/ghost/releases/tag/v1",
       "/ghost/ghost/issues/7",
       "/ghost/ghost/pull/7",
     ]) {

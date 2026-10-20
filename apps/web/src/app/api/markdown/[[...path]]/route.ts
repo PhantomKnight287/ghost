@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/api/server";
 import { API_URL, SITE_URL } from "@/lib/env";
 import { LLMS_TXT } from "@/lib/llms";
 import { plural } from "@/lib/og";
+import type { Release } from "@/types/release";
 
 /** The Markdown proxy.ts rewrites a page to when the request asks for `Accept: text/markdown`. */
 export async function GET(
@@ -173,18 +174,24 @@ async function render(page: Page): Promise<string | null | undefined> {
     return [
       `# Releases · ${username}/${repo}`,
       ...data.releases.map((release) =>
-        [
-          `## ${release.name || release.tagName}${release.isLatest ? " (latest)" : ""}${release.isPrerelease ? " (pre-release)" : ""}`,
-          `Tag \`${release.tagName}\`, published ${(release.publishedAt ?? release.createdAt).slice(0, 10)} by @${release.authorUsername}.`,
-          release.body,
-        ]
-          .filter(Boolean)
-          .join("\n\n"),
+        releaseMarkdown(release, `## ${release.name || release.tagName}`),
       ),
       data.releases.length ? "" : "None yet.",
     ]
       .filter(Boolean)
       .join("\n\n");
+  }
+
+  if (page.kind === "release") {
+    const { data, response } = await client.GET(
+      "/api/repositories/{username}/{repo}/releases/tags/{tag}",
+      { params: { path: { username, repo, tag: page.tag } } },
+    );
+    if (!data) return hidden(response);
+    return releaseMarkdown(
+      data,
+      `# ${data.name || data.tagName} · ${username}/${repo}`,
+    );
   }
 
   const path = { username, repo, number: page.number };
@@ -229,6 +236,17 @@ async function render(page: Page): Promise<string | null | undefined> {
         `---\n\n**@${comment.authorUsername}** on ${comment.createdAt.slice(0, 10)}:\n\n${comment.body}`,
     ),
   ].join("\n\n");
+}
+
+/** A release's heading, tag line and notes, under the heading the caller gives it. */
+function releaseMarkdown(release: Release, heading: string) {
+  return [
+    `${heading}${release.isLatest ? " (latest)" : ""}${release.isPrerelease ? " (pre-release)" : ""}`,
+    `Tag \`${release.tagName}\`, published ${(release.publishedAt ?? release.createdAt).slice(0, 10)}${release.authorUsername ? ` by @${release.authorUsername}` : ""}.`,
+    release.body,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /** null for a resource the viewer may not see, which reads as a 404 like the HTML page; undefined for any other failure. */

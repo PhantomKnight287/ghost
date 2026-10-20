@@ -13,6 +13,7 @@ export type AgentPage =
   | ({ kind: "issues" } & InRepository)
   | ({ kind: "pulls" } & InRepository)
   | ({ kind: "releases" } & InRepository)
+  | ({ kind: "release"; tag: string } & InRepository)
   | ({ kind: "issue"; number: number } & InRepository)
   | ({ kind: "pull"; number: number } & InRepository);
 
@@ -37,10 +38,19 @@ export function matchPage(segments: string[]): AgentPage | null {
   if (!username) return { kind: "home" };
   if (username === "changelog" && !repo) return { kind: "changelog" };
   // a file at the root, such as robots.txt or the opengraph image
-  if (APP_ROUTES.has(username) || username.includes(".") || rest.length)
-    return null;
+  if (APP_ROUTES.has(username) || username.includes(".")) return null;
   if (!repo) return { kind: "profile", username };
   if (!section) return { kind: "repository", username, repo };
+  // a tag can hold slashes, so it takes every segment after `tag`
+  if (section === "releases" && number === "tag" && rest.length) {
+    return {
+      kind: "release",
+      username,
+      repo,
+      tag: rest.map(decodeURIComponent).join("/"),
+    };
+  }
+  if (rest.length) return null;
   if (!number) {
     if (!LISTS.has(section)) return null;
     return { kind: section as "issues", username, repo };
