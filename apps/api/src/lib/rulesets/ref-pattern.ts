@@ -28,46 +28,68 @@ export function refTargeted(
         if (full === '~ALL') return true;
         if (full === '~DEFAULT_BRANCH')
           return ref === `refs/heads/${defaultBranch}`;
-        return fnmatch(full).test(ref);
+        return fnmatch(full, ref);
       }),
   );
   return included && !excluded;
 }
 
+type Token = '**/' | '*' | ((char: string) => boolean);
+
 // GitHub's fnmatch, which is Ruby's `File.fnmatch` with `FNM_PATHNAME`: `*`, `?` and `[...]` never cross `/`, only `**/` does, a trailing `**` is a plain `*`, and braces are literal.
-function fnmatch(pattern: string) {
-  let source = '';
+// Walks the set of ref positions each token can reach rather than backtracking, so any pattern costs at most tokens × ref length.
+function fnmatch(pattern: string, ref: string) {
+  let reached = Array.from({ length: ref.length + 1 }, (_, at) => at === 0);
+  for (const token of tokensOf(pattern)) {
+    const next = reached.map(() => false);
+    let open = false;
+    for (let at = 0; at <= ref.length; at++) {
+      if (token === '**/') {
+        // Nothing, or anything up to and including a `/`.
+        next[at] = reached[at] || (open && ref[at - 1] === '/');
+        open ||= reached[at];
+      } else if (token === '*') {
+        open = reached[at] || (open && ref[at - 1] !== '/');
+        next[at] = open;
+      } else if (reached[at] && at < ref.length && token(ref[at])) {
+        next[at + 1] = true;
+      }
+    }
+    reached = next;
+  }
+  return reached[ref.length];
+}
+
+function tokensOf(pattern: string) {
+  const tokens: Token[] = [];
   for (let at = 0; at < pattern.length; at++) {
     const char = pattern[at];
     if (pattern.startsWith('**/', at)) {
-      source += '(?:.*/)?';
+      tokens.push('**/');
       at += 2;
-      // A run of `**/` matches what one does; collapsed, it cannot nest backtracking groups.
-      while (pattern.startsWith('**/', at + 1)) at += 3;
     } else if (char === '*') {
-      source += '[^/]*';
+      tokens.push('*');
       while (pattern[at + 1] === '*') at++;
     } else if (char === '?') {
-      source += '[^/]';
+      tokens.push((c) => c !== '/');
     } else if (char === '\\' && at + 1 < pattern.length) {
-      source += escape(pattern[++at]);
+      const escaped = pattern[++at];
+      tokens.push((c) => c === escaped);
     } else if (char === '[' && pattern.indexOf(']', at + 2) > 0) {
       const end = pattern.indexOf(']', at + 2);
       const body = pattern.slice(at + 1, end);
       const negated = body[0] === '!' || body[0] === '^';
-      // Within a class only `\`, `]` and `^` mean anything to a RegExp.
+      // Within a class only `\`, `]` and `^` mean anything to a RegExp; it tests one character, so it cannot backtrack.
       const members = (negated ? body.slice(1) : body).replace(
         /[\\\]^]/g,
         (special) => `\\${special}`,
       );
-      source += `(?!/)[${negated ? '^' : ''}${members}]`;
+      const member = new RegExp(`^[${negated ? '^' : ''}${members}]$`);
+      tokens.push((c) => c !== '/' && member.test(c));
       at = end;
     } else {
-      source += escape(char);
+      tokens.push((c) => c === char);
     }
   }
-  return new RegExp(`^${source}$`);
+  return tokens;
 }
-
-const escape = (char: string) =>
-  /[.*+?^${}()|[\]\\/-]/.test(char) ? `\\${char}` : char;

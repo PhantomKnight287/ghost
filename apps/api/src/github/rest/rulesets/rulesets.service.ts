@@ -115,12 +115,20 @@ export class GithubRulesetsService {
       'PUT /repos/:owner/:repo/rulesets/:id',
     );
     const current = await this.byNumericId(repository, numericId);
+    // Stored patterns carry the current target's prefix; without it, a new target prefixes them as its own.
+    const reused = (patterns: string[]) =>
+      patterns.map((pattern) =>
+        pattern.replace(
+          current.target === 'branch' ? /^refs\/heads\// : /^refs\/tags\//,
+          '',
+        ),
+      );
     const next: RulesetRequestDTO = {
       name: body.name ?? current.name,
       target: body.target ?? current.target,
       enforcement: body.enforcement ?? current.enforcement,
-      include: body.conditions?.ref_name.include ?? current.include,
-      exclude: body.conditions?.ref_name.exclude ?? current.exclude,
+      include: body.conditions?.ref_name.include ?? reused(current.include),
+      exclude: body.conditions?.ref_name.exclude ?? reused(current.exclude),
       bypassActors: body.bypass_actors
         ? await this.bypassActorsOf(body.bypass_actors)
         : (current.bypassActors as RulesetBypassActorDTO[]),

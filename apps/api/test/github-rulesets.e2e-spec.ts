@@ -248,6 +248,20 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
     });
   });
 
+  it('moves the patterns to the new target when an update changes only the target', async () => {
+    const made = await create({
+      name: 'retarget',
+      conditions: { ref_name: { include: ['v1', '~ALL'], exclude: ['old'] } },
+    });
+    const { body } = await as(owner)
+      .put(`${repo}/rulesets/${made.id}`, { target: 'tag' })
+      .expect(200);
+    expect(body).toMatchObject({
+      target: 'tag',
+      conditions: { ref_name: { include: ['refs/tags/v1', '~ALL'], exclude: ['refs/tags/old'] } },
+    });
+  });
+
   it('answers 404 for an id past the safe integer range', async () => {
     await as(owner).get(`${repo}/rulesets/9223372036854775807`).expect(404);
     await as(owner).get(`${repo}/rulesets/99999999999999999999`).expect(404);

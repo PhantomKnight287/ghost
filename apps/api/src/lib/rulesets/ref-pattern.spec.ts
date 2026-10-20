@@ -99,6 +99,14 @@ describe('refTargeted', () => {
     expect(performance.now() - started).toBeLessThan(100);
   });
 
+  it('stays fast when wildcards are apart, which a backtracking matcher is not', () => {
+    const started = performance.now();
+    expect(targets(branches([`${'**/a/'.repeat(8)}b`]), branch(`${'a/'.repeat(60)}a`))).toBe(false);
+    expect(targets(branches([`${'a*'.repeat(40)}b`]), branch('a'.repeat(200)))).toBe(false);
+    expect(targets(branches([`${'**/a/'.repeat(3)}b`]), branch('x/a/y/a/a/b'))).toBe(true);
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+
   it('takes braces literally', () => {
     expect(targets(branches(['{a,b}']), branch('a'))).toBe(false);
     expect(targets(branches(['{a,b}']), branch('{a,b}'))).toBe(true);
