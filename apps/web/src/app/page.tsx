@@ -1,4 +1,5 @@
 import { ArrowRight, Ghost } from "lucide-react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -8,9 +9,35 @@ import { Button } from "@/components/ui/button";
 import { BugInvasion } from "@/components/bug-invasion";
 
 import { getServerSession } from "@/lib/api/server";
-import { DOCS_URL } from "@/lib/env";
+import { DOCS_URL, SITE_URL } from "@/lib/env";
 import { ScreenCard } from "./screen-card";
 import { Plan } from "./plan";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
+
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: "Ghost",
+      url: SITE_URL,
+      logo: `${SITE_URL}/icon.svg`,
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: "Ghost",
+      url: SITE_URL,
+      description:
+        "Git hosting with pull requests, code review, issues, releases, code search across every repository, organizations and teams, and verified commits. Use Ghost Cloud or run it on your own server.",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Web",
+      publisher: { "@id": `${SITE_URL}/#organization` },
+      softwareHelp: DOCS_URL,
+    },
+  ],
+};
 
 const FEATURES = [
   {
@@ -49,6 +76,13 @@ export default async function LandingPage() {
 
   return (
     <div className="flex min-h-full flex-col overflow-x-clip">
+      <script
+        type="application/ld+json"
+        // Static and ours; `<` is escaped so nothing in it can close the script.
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(STRUCTURED_DATA).replace(/</g, "\\u003c"),
+        }}
+      />
       <nav
         aria-label="Primary"
         className="mx-auto flex w-full max-w-7xl items-center gap-1 px-5 py-4 md:px-10 md:py-6"

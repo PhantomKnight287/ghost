@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { UserLink } from "@/components/users/user-link";
 import { DiffsProvider } from "@/components/diffs/diffs-provider";
 import { CommentBox } from "@/components/issues/comments";
@@ -10,12 +11,20 @@ import {
   getViewerRole,
   notFoundIfHidden,
 } from "@/lib/api/server";
+import { pageLinks } from "@/lib/agent-pages";
 import { atLeast } from "@ghost/permissions";
 
 import { reviewerRows } from "@/components/pull-requests/common";
 
 import { MergePanel } from "./merge-panel";
 import { ReviewerEditor } from "./reviewer-editor";
+
+export async function generateMetadata({
+  params,
+}: PageProps<"/[username]/[repo]/pull/[number]">): Promise<Metadata> {
+  const { username, repo, number } = await params;
+  return pageLinks(`/${username}/${repo}/pull/${number}`);
+}
 
 export default async function PullRequestPage({
   params,

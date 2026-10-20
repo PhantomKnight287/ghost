@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { createServerClient } from "@/lib/api/server";
-import { ogCard, plural } from "@/lib/og";
+import { inlineApiImage, ogCard, plural } from "@/lib/og";
 
 export { size, contentType } from "@/lib/og";
 export const alt = "Profile";
@@ -26,7 +26,7 @@ export default async function Image({
     return ogCard({
       eyebrow: "Organization",
       icon: "user",
-      avatar: org.logo,
+      avatar: await inlineApiImage(org.logo),
       title: org.name,
       description: `@${org.slug}`,
       stats: [
@@ -45,7 +45,7 @@ export default async function Image({
   return ogCard({
     eyebrow: "User Profile",
     icon: "user",
-    avatar: data.image,
+    avatar: await inlineApiImage(data.image),
     title: data.name || data.username,
     description: `@${data.username}`,
     stats: [

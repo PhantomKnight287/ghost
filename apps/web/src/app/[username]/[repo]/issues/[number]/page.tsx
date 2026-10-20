@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { UserLink } from "@/components/users/user-link";
 import { CommentBox } from "@/components/issues/comments";
 import { EditableField } from "@/components/issues/editable-field";
@@ -9,10 +10,18 @@ import {
   getViewerRole,
   notFoundIfHidden,
 } from "@/lib/api/server";
+import { pageLinks } from "@/lib/agent-pages";
 import { atLeast } from "@ghost/permissions";
 
 import { AssigneeEditor } from "./assignee-editor";
 import { LabelEditor } from "./label-editor";
+
+export async function generateMetadata({
+  params,
+}: PageProps<"/[username]/[repo]/issues/[number]">): Promise<Metadata> {
+  const { username, repo, number } = await params;
+  return pageLinks(`/${username}/${repo}/issues/${number}`);
+}
 
 export default async function IssuePage({
   params,

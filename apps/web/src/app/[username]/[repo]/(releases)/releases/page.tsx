@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { CursorPagination } from "@/components/cursor-pagination";
 import { ReleaseCard } from "@/components/releases/release-card";
+import { pageLinks } from "@/lib/agent-pages";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import {
   Empty,
@@ -14,7 +15,10 @@ export async function generateMetadata({
   params,
 }: PageProps<"/[username]/[repo]/releases">): Promise<Metadata> {
   const { username, repo } = await params;
-  return { title: `Releases · ${username}/${repo}` };
+  return {
+    title: `Releases · ${username}/${repo}`,
+    ...pageLinks(`/${username}/${repo}/releases`),
+  };
 }
 
 export default async function ReleasesPage({

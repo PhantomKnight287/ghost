@@ -1,25 +1,31 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 
 import { AppHeader } from "@/components/app-header";
+import { pageLinks } from "@/lib/agent-pages";
 import { createServerClient, getServerSession } from "@/lib/api/server";
 import { plural } from "@/lib/og";
 
 import { Profile, ProfileSkeleton } from "./profile";
+
+/** The user and the organization a name could be, fetched once for the metadata and the page. */
+const loadOwner = cache(async (username: string) => {
+  const client = await createServerClient();
+  return Promise.all([
+    client.GET("/api/users/{username}", { params: { path: { username } } }),
+    client.GET("/api/organizations/{slug}", {
+      params: { path: { slug: username } },
+    }),
+  ]);
+});
 
 export async function generateMetadata({
   params,
 }: PageProps<"/[username]">): Promise<Metadata> {
   const { username } = await params;
 
-  const client = await createServerClient();
-  const [{ data, response }, organization] = await Promise.all([
-    client.GET("/api/users/{username}", { params: { path: { username } } }),
-    client.GET("/api/organizations/{slug}", {
-      params: { path: { slug: username } },
-    }),
-  ]);
+  const [{ data, response }, organization] = await loadOwner(username);
   if (organization.data) {
     const title = organization.data.name;
     const description = plural(
@@ -31,6 +37,7 @@ export async function generateMetadata({
       title,
       description,
       openGraph: { title, description, url: `/${username}` },
+      ...pageLinks(`/${username}`),
     };
   }
   if (response.status === 404) notFound();
@@ -43,6 +50,7 @@ export async function generateMetadata({
     title,
     description,
     openGraph: { title, description, url: `/${data.username}` },
+    ...pageLinks(`/${data.username}`),
   };
 }
 
@@ -53,6 +61,9 @@ export default async function ProfilePage({
   const { username } = await params;
   const { tab, q, cursor } = await searchParams;
   const viewer = (await getServerSession())?.user.username ?? "";
+  // Before the Suspense boundary, so an unknown name answers a real 404 rather than a 200 with the not-found page streamed into it.
+  const [user, organization] = await loadOwner(username);
+  if (!organization.data && user.response.status === 404) notFound();
 
   return (
     <div className="flex min-h-full flex-col">

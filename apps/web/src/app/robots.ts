@@ -6,7 +6,8 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: "/",
+      // Discord fetches a page's component embed from here.
+      allow: ["/", "/api/embed/"],
       disallow: [
         "/api/",
         "/dashboard",

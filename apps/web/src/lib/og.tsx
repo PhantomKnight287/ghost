@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { type ReactNode, createElement } from "react";
 
+import { API_URL, INTERNAL_API_URL } from "./env";
 import { type IconName, icons } from "./og-icons";
 import { languageColor } from "@ghost/languages";
 
@@ -310,7 +311,7 @@ export function plain(markdown: string) {
     .trim();
 }
 
-function truncate(value: string, max: number) {
+export function truncate(value: string, max: number) {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
@@ -360,6 +361,23 @@ export function shortenPath(path: string, max = 72) {
   return `${head}/…/${tail}`.length <= max
     ? `${head}/…/${tail}`
     : `…/${truncate(tail, max - 2)}`;
+}
+
+/** An image the API serves, read over INTERNAL_API_URL and inlined as a data URI. Satori refuses a URL on localhost or a private address, which is where the API sits in development and on a private network. A URL on any other host is returned as it is, so Satori's own SSRF check still covers it. */
+export async function inlineApiImage(url?: string | null) {
+  if (!url?.startsWith(`${API_URL}/`)) return url;
+  try {
+    const response = await fetch(INTERNAL_API_URL + url.slice(API_URL.length), {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return null;
+    const type = response.headers.get("content-type")?.split(";")[0];
+    const bytes = Buffer.from(await response.arrayBuffer()).toString("base64");
+    return `data:${type};base64,${bytes}`;
+  } catch {
+    // the card still renders, with the icon in place of the image
+    return null;
+  }
 }
 
 /** Satori decodes png, jpeg, gif and svg only; a webp data URI (what the auth provider stores) crashes it, so anything else falls back to the icon. */

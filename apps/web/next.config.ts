@@ -14,6 +14,12 @@ const nextConfig: NextConfig = {
   // A pull request lives at `pull/<n>`, as on GitHub; links from before the move used `pulls/<n>`.
   async redirects() {
     return [
+      // The API serves its own spec; agents look for it on the site's origin.
+      {
+        source: "/openapi.json",
+        destination: `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}/openapi.json`,
+        permanent: true,
+      },
       {
         source: "/:username/:repo/pulls/:number(\\d+)/:rest*",
         destination: "/:username/:repo/pull/:number/:rest*",
