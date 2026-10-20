@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
+import type { Request, Response } from 'express';
 import morgan from 'morgan';
 import { configureApp } from './app.setup.js';
 import { openApiConfig } from './lib/openapi.js';
@@ -18,6 +19,8 @@ async function bootstrap() {
   configureApp(app);
 
   const document = SwaggerModule.createDocument(app, openApiConfig);
+  // Where agents look for a spec; the web app's /openapi.json redirects here.
+  app.use('/openapi.json', (_req: Request, res: Response) => res.json(document));
   app.use(
     '/reference',
     apiReference({ content: document, theme: 'deepSpace' }),

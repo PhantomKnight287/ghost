@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { RepositoryContents } from "@/components/repositories/repository-contents";
 import { RepositoryEmptyState } from "./repository-empty-state";
@@ -5,6 +6,7 @@ import {
   RepositoryReadme,
   RepositoryReadmeSkeleton,
 } from "@/components/repositories/repository-readme";
+import { pageLinks } from "@/lib/agent-pages";
 import { createServerClient } from "@/lib/api/server";
 import { API_URL, sshCloneUrlFor } from "@/lib/env";
 import {
@@ -13,6 +15,13 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+
+export async function generateMetadata({
+  params,
+}: PageProps<"/[username]/[repo]">): Promise<Metadata> {
+  const { username, repo } = await params;
+  return pageLinks(`/${username}/${repo}`);
+}
 
 export default async function RepositoryPage({
   params,

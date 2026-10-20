@@ -9,6 +9,46 @@ export const CHANGELOG: {
   body: string;
 }[] = [
   {
+    date: "2026-10-20",
+    title: "Markdown for agents, richer Discord previews",
+    body: "Ask for any public profile, repository, issue, pull request or release list with `Accept: text/markdown` and Ghost answers in Markdown, comments and README included. `/llms.txt` tells AI agents what Ghost serves, and `/openapi.json` describes the API. Links pasted in Discord show the title, state, stats and buttons to open the page.",
+  },
+  {
+    date: "2026-10-20",
+    title: "Branch and tag rulesets",
+    body: "Repository rulesets protect branches and tags: restrict creating, updating or deleting them, block force pushes and require linear history. Rulesets target refs by pattern, can be switched off without deleting them, and let chosen roles, teams or organization admins bypass them. A push that breaks a rule is refused with the rule and ruleset it broke. Set them up under Settings → Rules; protected branches and tags show a badge, and GitHub's rulesets REST API works against Ghost.",
+  },
+  {
+    date: "2026-10-19",
+    title: "Review requests and CODEOWNERS",
+    body: `Request reviews from people and teams on a pull request, and re-request them after changes. A \`CODEOWNERS\` file in \`.ghost/\`, \`.github/\`, \`docs/\` or the repository root requests the owners of changed files automatically. Review requests show on your dashboard and in notifications, pull request lists filter by them, and \`gh pr create --reviewer\` and \`gh pr edit --add-reviewer\` work. See [Review requests](${DOCS_URL}/pull-requests/review-requests).`,
+  },
+  {
+    date: "2026-10-17",
+    title: "Review comments on a pull request's commits",
+    body: "A commit opened from a pull request's Commits tab stays inside the pull request and shows the review threads left on it, on the lines they were written against. Previous and next links step through the pull request's commits.",
+  },
+  {
+    date: "2026-10-17",
+    title: "Upload attachments with a token",
+    body: `API tokens can upload attachments for issues and comments, through GitHub's user-attachments route, so scripts and tools can put a screenshot in an issue. See [GitHub CLI](${DOCS_URL}/github-cli).`,
+  },
+  {
+    date: "2026-10-16",
+    title: "Commit statuses",
+    body: "External CI and bots can report results on a commit through GitHub's commit status API. Statuses show on pull requests, commits and commit lists, `gh pr checks` lists them, and a `commit_status.created` webhook fires for each one.",
+  },
+  {
+    date: "2026-10-16",
+    title: "Start a repository from templates",
+    body: "Create a repository with a README, a `.gitignore` template and a license, landed as its first commit. `gh repo create --add-readme --gitignore Go --license mit` works too.",
+  },
+  {
+    date: "2026-10-16",
+    title: "More fields in gh pr view --json",
+    body: "`gh pr view --json` answers six fields it used to reject: `mergeCommit`, `mergedBy`, `baseRefOid`, `potentialMergeCommit`, `fullDatabaseId` and `closingIssuesReferences`.",
+  },
+  {
     date: "2026-10-15",
     title: "Git submodules",
     body: `Submodules show the commit they are pinned to and link to their repository, at that commit on Ghost, GitHub, GitLab, Codeberg and other well-known hosts. Diffs show a moved submodule as its old and new commit, and \`git clone --recurse-submodules\` fetches private submodules on the same instance with the same credentials. See [Git submodules](${DOCS_URL}/submodules).`,

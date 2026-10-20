@@ -1,0 +1,4 @@
+reviews:
+  path_filters:
+    - "! **/openapi.json"
+    - "! **/v1.d.ts"
