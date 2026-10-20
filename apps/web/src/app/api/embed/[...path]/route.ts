@@ -96,6 +96,8 @@ async function render(
         data.description && truncate(plain(data.description), 280),
         `-# ⭐ ${plural(data.starCount, "star")} · ${plural(data.forkCount, "fork")}${data.lastPushedAt ? ` · pushed ${timestamp(data.lastPushedAt, "R")}` : ""}`,
       ]),
+      // The repository's Open Graph card, which the component embed replaces in the preview.
+      { type: 12, items: [{ media: { url: `${base}/opengraph-image` } }] },
       buttons([
         ["Code", base],
         ["Issues", `${base}/issues`],

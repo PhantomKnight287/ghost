@@ -68,6 +68,12 @@ describe("Discord embed", () => {
     expect(contents(body)).toContain(
       "1 star · 2 forks · pushed <t:1792454400:R>",
     );
+    expect(body.component.components[1]).toEqual({
+      type: 12,
+      items: [
+        { media: { url: "http://localhost:3000/ghost/ghost/opengraph-image" } },
+      ],
+    });
     expect(contents(body)).toContain(
       '"label":"Pull requests","url":"http://localhost:3000/ghost/ghost/pulls"',
     );
