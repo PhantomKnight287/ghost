@@ -78,6 +78,9 @@ export type EventPayloads = {
   'member.added': { userId: string };
   /** A collaborator who had accepted was removed, or left. */
   'member.removed': { userId: string };
+  'repository_ruleset.created': { rulesetId: string };
+  'repository_ruleset.edited': { rulesetId: string };
+  'repository_ruleset.deleted': { rulesetId: string; name: string };
   /** One per ref a push moved. Unlike the others it carries what it describes, since commits are not rows to read back. */
   push: {
     ref: string;

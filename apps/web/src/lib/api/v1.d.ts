@@ -1946,6 +1946,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/rulesets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List rulesets
+         * @description Oldest first. `bypassActors` is shown to admins only.
+         */
+        get: operations["RulesetsController_list"];
+        put?: never;
+        /**
+         * Create a ruleset
+         * @description Admins only. Patterns are stored in full ref form.
+         */
+        post: operations["RulesetsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/rulesets/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview the refs patterns target
+         * @description Admins only. Matches the existing branches or tags exactly as enforcement would.
+         */
+        post: operations["RulesetsController_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/rulesets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a ruleset
+         * @description `bypassActors` is shown to admins only.
+         */
+        get: operations["RulesetsController_get"];
+        /**
+         * Replace a ruleset
+         * @description Admins only. Rules and bypass actors become exactly the ones sent.
+         */
+        put: operations["RulesetsController_update"];
+        post?: never;
+        /**
+         * Delete a ruleset
+         * @description Admins only.
+         */
+        delete: operations["RulesetsController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/protected-refs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Refs guarded by rulesets
+         * @description Each branch or tag an active ruleset targets, its rules, and how far the viewer may bypass them.
+         */
+        get: operations["RulesetsController_protectedRefs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/attachments": {
         parameters: {
             query?: never;
@@ -3732,6 +3824,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/rulesets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A repository's rulesets, as summaries
+         * @description `includes_parents` is ignored until organization rulesets exist.
+         */
+        get: operations["GithubRulesetsController_list"];
+        put?: never;
+        /** Create a ruleset */
+        post: operations["GithubRulesetsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/rulesets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A ruleset */
+        get: operations["GithubRulesetsController_get"];
+        /** Update a ruleset; fields left out keep their value */
+        put: operations["GithubRulesetsController_update"];
+        post?: never;
+        /** Delete a ruleset */
+        delete: operations["GithubRulesetsController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/rules/branches/{branch}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The active rules that apply to a branch */
+        get: operations["GithubRulesetsController_branchRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/oauth-apps": {
         parameters: {
             query?: never;
@@ -5485,6 +5634,109 @@ export interface components {
             createdAt: string;
             updatedAt: string;
         };
+        ProtectedRefDTO: {
+            /** @description Every rule an active ruleset applies to the ref. */
+            rules: ("creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history")[];
+            /**
+             * @description How far the viewer may skip those rules: the least any one of the rulesets allows.
+             * @enum {string}
+             */
+            bypass: "always" | "pull_requests_only" | "never";
+        };
+        RulesetRuleDTO: {
+            /** @enum {string} */
+            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history";
+        };
+        RulesetBypassActorDTO: {
+            /** @enum {string} */
+            actorType: "RepositoryRole" | "Team" | "OrganizationAdmin";
+            /**
+             * @description For `RepositoryRole`: everyone with at least this role.
+             * @enum {string}
+             */
+            role?: "write" | "maintain" | "admin";
+            /** @description For `Team`: a team of the repository's organization. */
+            teamId?: string;
+            /**
+             * @description `pull_request` skips the ruleset only when merging a pull request.
+             * @enum {string}
+             */
+            bypassMode: "always" | "pull_request";
+        };
+        RulesetDTO: {
+            /** @enum {string} */
+            target: "branch" | "tag";
+            /**
+             * @description Ref name patterns, with or without the `refs/heads/` or `refs/tags/` prefix, or `~DEFAULT_BRANCH` and `~ALL`. `*` stays within one path segment, `**` crosses them.
+             * @example [
+             *       "main",
+             *       "release/*"
+             *     ]
+             */
+            include: string[];
+            /** @description Patterns that take a ref back out, whatever `include` says. */
+            exclude: string[];
+            /** @example Protect main */
+            name: string;
+            /** @enum {string} */
+            enforcement: "active" | "disabled";
+            /** @description Each type at most once. */
+            rules: components["schemas"]["RulesetRuleDTO"][];
+            id: string;
+            /** @description Left out for viewers who are not admins. */
+            bypassActors?: components["schemas"]["RulesetBypassActorDTO"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ListRulesetsResponseDTO: {
+            rulesets: components["schemas"]["RulesetDTO"][];
+        };
+        RulesetRequestDTO: {
+            /** @enum {string} */
+            target: "branch" | "tag";
+            /**
+             * @description Ref name patterns, with or without the `refs/heads/` or `refs/tags/` prefix, or `~DEFAULT_BRANCH` and `~ALL`. `*` stays within one path segment, `**` crosses them.
+             * @example [
+             *       "main",
+             *       "release/*"
+             *     ]
+             */
+            include: string[];
+            /** @description Patterns that take a ref back out, whatever `include` says. */
+            exclude: string[];
+            /** @example Protect main */
+            name: string;
+            /** @enum {string} */
+            enforcement: "active" | "disabled";
+            bypassActors: components["schemas"]["RulesetBypassActorDTO"][];
+            /** @description Each type at most once. */
+            rules: components["schemas"]["RulesetRuleDTO"][];
+        };
+        RulesetPatternsDTO: {
+            /** @enum {string} */
+            target: "branch" | "tag";
+            /**
+             * @description Ref name patterns, with or without the `refs/heads/` or `refs/tags/` prefix, or `~DEFAULT_BRANCH` and `~ALL`. `*` stays within one path segment, `**` crosses them.
+             * @example [
+             *       "main",
+             *       "release/*"
+             *     ]
+             */
+            include: string[];
+            /** @description Patterns that take a ref back out, whatever `include` says. */
+            exclude: string[];
+        };
+        RulesetPreviewResponseDTO: {
+            /** @description Every existing ref the patterns target, full form, sorted. */
+            refs: string[];
+        };
+        ProtectedRefsResponseDTO: {
+            refs: {
+                [key: string]: components["schemas"]["ProtectedRefDTO"];
+            };
+        };
         AttachmentDTO: {
             id: string;
             /** @example screenshot.png */
@@ -6023,6 +6275,56 @@ export interface components {
             content_type: string;
             /** @description Where the repository serves the file; embed it in any issue, pull request, comment or release of that repository. */
             url: string;
+        };
+        GithubBypassActorDTO: {
+            /** @description A repository role (2 maintain, 4 write, 5 admin) or a team id; ignored for `OrganizationAdmin`. */
+            actor_id?: number | null;
+            /** @enum {string} */
+            actor_type: "RepositoryRole" | "Team" | "OrganizationAdmin";
+            /**
+             * @default always
+             * @enum {string}
+             */
+            bypass_mode?: "always" | "pull_request";
+        };
+        GithubRefNameConditionDTO: {
+            include?: string[];
+            exclude?: string[];
+        };
+        GithubRulesetConditionsDTO: {
+            ref_name: components["schemas"]["GithubRefNameConditionDTO"];
+        };
+        GithubRulesetRuleDTO: {
+            /** @enum {string} */
+            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history";
+            /** @description None of the rules Ghost supports takes any. */
+            parameters?: Record<string, never>;
+        };
+        GithubCreateRulesetDTO: {
+            name: string;
+            /**
+             * @default branch
+             * @enum {string}
+             */
+            target?: "branch" | "tag";
+            /** @enum {string} */
+            enforcement: "active" | "disabled";
+            bypass_actors?: components["schemas"]["GithubBypassActorDTO"][];
+            conditions?: components["schemas"]["GithubRulesetConditionsDTO"];
+            rules?: components["schemas"]["GithubRulesetRuleDTO"][];
+        };
+        GithubUpdateRulesetDTO: {
+            name?: string;
+            /**
+             * @default branch
+             * @enum {string}
+             */
+            target?: "branch" | "tag";
+            /** @enum {string} */
+            enforcement?: "active" | "disabled";
+            bypass_actors?: components["schemas"]["GithubBypassActorDTO"][];
+            conditions?: components["schemas"]["GithubRulesetConditionsDTO"];
+            rules?: components["schemas"]["GithubRulesetRuleDTO"][];
         };
         OauthAppDTO: {
             clientId: string;
@@ -10810,6 +11112,305 @@ export interface operations {
             };
         };
     };
+    RulesetsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListRulesetsResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RulesetsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RulesetRequestDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesetDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description A ruleset with that name exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description A bypass actor names a team outside the organization, or a team or organization admin on a personal repository. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RulesetsController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RulesetPatternsDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesetPreviewResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RulesetsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesetDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RulesetsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RulesetRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesetDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RulesetsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RulesetsController_protectedRefs: {
+        parameters: {
+            query: {
+                target: "branch" | "tag";
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProtectedRefsResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     AttachmentsController_uploadAttachment: {
         parameters: {
             query: {
@@ -14658,6 +15259,138 @@ export interface operations {
             header?: never;
             path: {
                 license: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubRulesetsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubRulesetsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCreateRulesetDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubRulesetsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubRulesetsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubUpdateRulesetDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubRulesetsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubRulesetsController_branchRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                branch: string[];
             };
             cookie?: never;
         };

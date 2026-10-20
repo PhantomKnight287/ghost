@@ -18,6 +18,7 @@ const PREFIXES = {
   ReleaseAsset: 'RA',
   StatusContext: 'SC',
   StatusCheckRollup: 'SCR',
+  RepositoryRuleset: 'RRS',
 } as const;
 
 export type NodeType = keyof typeof PREFIXES;

@@ -45,6 +45,10 @@ import { DomainError } from '../domain/errors.js';
 import { rejectedPushReport } from '../lib/git/protocol/report-status.js';
 import { withRemoteMessages } from '../lib/git/protocol/side-band.js';
 import { errorMessage } from '../lib/error-message.js';
+import { refTargeted } from '../lib/rulesets/ref-pattern.js';
+import { RulesetViolationError } from '../lib/rulesets/rulesets.errors.js';
+import type { Violation } from '../lib/rulesets/rulesets.types.js';
+import { RulesetVerdictsService } from '../services/rulesets/ruleset-verdicts.service.js';
 
 export interface GitTransportResponse {
   headers: Record<string, string>;
@@ -72,6 +76,7 @@ export class GitService {
     private readonly pullRequestHints: PullRequestHintsService,
     private readonly quota: StorageQuotaService,
     @Inject(DATABASE) private readonly db: Database,
+    private readonly verdicts: RulesetVerdictsService,
   ) {}
 
   async advertiseRefs({
@@ -165,13 +170,20 @@ export class GitService {
     } catch (error) {
       // Every refusal lands before the log commits, so the client is told per ref, the way git itself refuses one, instead of seeing a dropped connection.
       const report =
-        error instanceof DomainError
+        error instanceof RulesetViolationError
           ? rejectedPushReport({
               refs: transitions.map(({ ref }) => ref),
               capabilities,
-              reason: error.message,
+              reason: 'push declined due to repository rule violations',
+              lines: ruleViolationLines(error.violations),
             })
-          : null;
+          : error instanceof DomainError
+            ? rejectedPushReport({
+                refs: transitions.map(({ ref }) => ref),
+                capabilities,
+                reason: error.message,
+              })
+            : null;
       if (!report) throw error;
       return {
         headers: resultHeaders('git-receive-pack'),
@@ -284,10 +296,41 @@ export class GitService {
       id: repositoryId,
       defaultBranch: repository.defaultBranch,
     });
+    const rulesets = await this.verdicts.active(repositoryId);
+    const defaultBranch =
+      rulesets.length > 0
+        ? await this.verdicts.defaultBranchOf(repository, repoDirectory)
+        : '';
+    // Only these rules need git to answer, so a repository without them runs no extra command.
+    const factsFor = new Set(
+      transitions
+        .filter(({ ref }) =>
+          rulesets.some(
+            (ruleset) =>
+              ruleset.rules.some(
+                ({ type }) =>
+                  type === 'non_fast_forward' ||
+                  type === 'required_linear_history',
+              ) && refTargeted(ruleset, ref, defaultBranch),
+          ),
+        )
+        .map(({ ref }) => ref),
+    );
 
     await withVerifiedPack(
-      { gitDir: repoDirectory, transitions, body, packOffset },
-      (pack) => {
+      { gitDir: repoDirectory, transitions, body, packOffset, factsFor },
+      async ({ facts, ...pack }) => {
+        const verdict = await this.verdicts.judge({
+          repository,
+          gitDir: repoDirectory,
+          userId: pushedBy,
+          write: 'push',
+          transitions,
+          facts,
+          rulesets,
+        });
+        if (verdict.violations.length > 0)
+          throw new RulesetViolationError(verdict.violations);
         const ulid = createUlid();
         const size = pack.body.size - pack.packOffset;
         const entry = { repositoryId, ulid, size };
@@ -304,7 +347,7 @@ export class GitService {
                 repoId: repositoryId,
                 transitions,
                 ...pack,
-                pushedBy,
+                actor: { userId: pushedBy, verdict },
               });
               committed = true;
               await tx
@@ -426,4 +469,18 @@ function resultHeaders(service: GitServiceName) {
     'Content-Type': `application/x-${service}-result`,
     'Cache-Control': 'no-cache',
   };
+}
+
+/** GitHub's GH013 report: each refused ref, then each rule that refused it, naming the ruleset. */
+function ruleViolationLines(violations: Violation[]) {
+  return [...new Set(violations.map(({ ref }) => ref))].flatMap((ref) => [
+    `error: GH013: Repository rule violations found for ${ref}.`,
+    '',
+    ...violations
+      .filter((violation) => violation.ref === ref)
+      .map(
+        ({ message, rulesetName }) => `- ${message} (ruleset "${rulesetName}")`,
+      ),
+    '',
+  ]);
 }

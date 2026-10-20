@@ -281,6 +281,13 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
       );
     case 'member.removed':
       return say(`removed ${body.member?.username} as a collaborator`, RED);
+    case 'repository_ruleset.created':
+    case 'repository_ruleset.edited':
+    case 'repository_ruleset.deleted':
+      return say(
+        `${body.event.slice('repository_ruleset.'.length)} a ruleset on ${repository.fullName}`,
+        GREY,
+      );
   }
 }
 

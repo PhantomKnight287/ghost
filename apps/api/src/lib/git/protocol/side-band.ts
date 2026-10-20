@@ -3,7 +3,7 @@ import { Readable, Transform, pipeline } from 'node:stream';
 import { FLUSH_PACKET, pktLine } from './pkt-line.js';
 
 export const SIDE_BAND_DATA = 1;
-const SIDE_BAND_PROGRESS = 2;
+export const SIDE_BAND_PROGRESS = 2;
 const PKT_LENGTH_CHARS = 4;
 // The packet limits git sets for each side-band capability, less the length and the band byte.
 const SIDE_BAND_64K_CHUNK = 65520 - 5;

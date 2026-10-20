@@ -117,6 +117,7 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
     git(source, 'tag', '-a', 'v1', '-m', 'release');
     tagSha = git(source, 'rev-parse', 'v1');
     await new PushTransactionService(store).commitPush({
+      actor: 'system',
       repoId: repository.id,
       transitions: [
         {

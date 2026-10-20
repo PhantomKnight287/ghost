@@ -48,6 +48,7 @@ import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
+import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import type { S3Service } from '../../services/s3/s3.service.js';
@@ -115,6 +116,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
       assets,
       archives,
       quota,
+      new RulesetVerdictsService(db),
     );
   }
 
@@ -142,6 +144,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
     const after = git(source, 'rev-parse', 'HEAD');
 
     await pushes.commitPush({
+      actor: 'system',
       repoId: repository.id,
       transitions: [
         {
@@ -480,6 +483,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
       body: { tagName: 'v1' },
     });
     await pushes.commitPush({
+      actor: 'system',
       repoId: repository.id,
       transitions: [
         {
@@ -879,6 +883,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
       });
       await built();
       await pushes.commitPush({
+        actor: 'system',
         repoId: repository.id,
         transitions: [
           {

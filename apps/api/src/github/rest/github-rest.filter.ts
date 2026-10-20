@@ -31,6 +31,7 @@ import {
   PullRequestNotOpenError,
   ReviewLineNotInDiffError,
 } from '../../lib/pull-requests/pull-requests.errors.js';
+import { RulesetNameTakenError } from '../../lib/rulesets/rulesets.errors.js';
 import {
   InvalidAssetNameError,
   InvalidTagNameError,
@@ -86,6 +87,7 @@ const UNPROCESSABLE: (new (...args: never[]) => DomainError)[] = [
   OwnPullRequestReviewError,
   EmptyReviewError,
   PullRequestNotOpenError,
+  RulesetNameTakenError,
 ];
 
 const DOCUMENTATION_URL = 'https://docs.github.com/rest';

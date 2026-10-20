@@ -32,6 +32,7 @@ import { OauthAppsModule } from './resources/oauth-apps/oauth-apps.module.js';
 import { OrganizationsModule } from './resources/organizations/organizations.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { ReleasesModule } from './resources/releases/releases.module.js';
+import { RulesetsModule } from './resources/rulesets/rulesets.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
@@ -125,6 +126,7 @@ const parses = (type: string) => (req: IncomingMessage) => {
     IssuesModule,
     ImportsModule,
     ReleasesModule,
+    RulesetsModule,
     AttachmentsModule,
     BranchesModule,
     NotificationsModule,

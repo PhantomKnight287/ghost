@@ -25,6 +25,7 @@ import {
   extractSuggestion,
 } from '../../lib/pull-requests/suggestion.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
@@ -80,6 +81,7 @@ export class ReviewsService {
     private readonly users: UsersService,
     private readonly pushTransaction: PushTransactionService,
     private readonly signing: CommitSigningService,
+    private readonly verdicts: RulesetVerdictsService,
   ) {}
 
   /** Submits the requester's pending review, or a new one, together with any further line comments. `separate` leaves the pending review alone and submits a new one; `commitSha` reviews an earlier commit of the request instead of its head. */
@@ -565,7 +567,7 @@ export class ReviewsService {
 
     // An open request always has its head: a repository heading one cannot be deleted.
     const headRepositoryId = pullRequest.headRepositoryId!;
-    await this.access.authorizeById({
+    const head = await this.access.authorizeById({
       repositoryId: headRepositoryId,
       requesterId: params.requesterId,
       operation: 'write',
@@ -614,6 +616,19 @@ export class ReviewsService {
         newOid: Buffer.from(commitSha, 'hex'),
       },
     ];
+    const verdict = await this.verdicts.judge({
+      repository: head,
+      gitDir: git.headDirectory,
+      userId: params.requesterId,
+      write: 'push',
+      transitions,
+      facts: new Map([
+        [
+          transitions[0].ref,
+          { isFastForward: true, introducesMergeCommit: false },
+        ],
+      ]),
+    });
     await withTempDir('ghost-suggestion-', async (directory) => {
       const pack = await packRange({
         gitDir: git.headDirectory,
@@ -626,7 +641,7 @@ export class ReviewsService {
         transitions,
         body: fileBody(pack.path, pack.size),
         packOffset: 0,
-        pushedBy: params.requesterId,
+        actor: { userId: params.requesterId, verdict },
       });
     });
 

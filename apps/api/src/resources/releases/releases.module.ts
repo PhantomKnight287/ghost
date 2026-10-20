@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
 import { UsersService } from '../../services/users/users.service.js';
@@ -21,6 +22,7 @@ import { ReleasesService } from './releases.service.js';
     ReleaseArchivesService,
     RepositoryAccessService,
     PushTransactionService,
+    RulesetVerdictsService,
     WalStoreService,
     UsersService,
   ],

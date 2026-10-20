@@ -29,6 +29,11 @@ import {
   pushesTotal,
   refUpdatesTotal,
 } from '../../../lib/metrics.js';
+import {
+  RulesetVerdictRequiredError,
+  RulesetViolationError,
+} from '../../../lib/rulesets/rulesets.errors.js';
+import type { RefWriter } from '../../../lib/rulesets/rulesets.types.js';
 import { WalStoreService } from './wal-store.service.js';
 
 const MAX_ATTEMPTS = 8;
@@ -43,7 +48,7 @@ export interface CommitPushOptions {
   /** The whole request body; the packfile starts at `packOffset`. */
   body: GitRequestBody;
   packOffset: number;
-  pushedBy?: string | null;
+  actor: RefWriter;
 }
 
 export interface CommitPushResult {
@@ -62,9 +67,11 @@ export class PushTransactionService {
     transitions,
     body,
     packOffset,
-    pushedBy = null,
+    actor,
     ulid = createUlid(),
   }: CommitPushOptions): Promise<CommitPushResult> {
+    assertJudged(actor, transitions);
+    const pushedBy = actor === 'system' ? null : actor.userId;
     for (const { ref, newOid } of transitions) {
       if (!newOid.equals(ZERO_OID) && !isWellFormedRef(ref)) {
         throw new UnreplayableRefError(ref, 'git refuses this name');
@@ -169,6 +176,30 @@ export class PushTransactionService {
       }
     }
   }
+}
+
+/** Refuses, before anything is stored, a user write whose verdict is missing, covers other transitions, or found violations. */
+function assertJudged(
+  actor: RefWriter | undefined,
+  transitions: RefTransition[],
+) {
+  if (actor === 'system') return;
+  if (!actor) throw new RulesetVerdictRequiredError('no actor');
+  if (!actor.verdict)
+    throw new RulesetVerdictRequiredError(`no verdict for ${actor.userId}`);
+  const key = ({ ref, oldOid, newOid }: RefTransition) =>
+    `${ref} ${oldOid.toString('hex')} ${newOid.toString('hex')}`;
+  const judged = new Set(actor.verdict.transitions.map(key));
+  const written = new Set(transitions.map(key));
+  if (
+    judged.size !== written.size ||
+    [...written].some((transition) => !judged.has(transition))
+  )
+    throw new RulesetVerdictRequiredError(
+      'the verdict covers other transitions',
+    );
+  if (actor.verdict.violations.length > 0)
+    throw new RulesetViolationError(actor.verdict.violations);
 }
 
 function seqOfLayer(index: WalIndex, ulid: string) {

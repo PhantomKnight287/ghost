@@ -15,6 +15,8 @@ import {
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
+import { EXISTING_HISTORY } from '../../lib/rulesets/rulesets.types.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { BranchNotFoundError } from '../../lib/repositories/repositories.errors.js';
 import type { BranchDTO, CreateBranchRequestDTO } from './dto/branch.dto.js';
@@ -37,6 +39,7 @@ export class RepositoryBranchesService {
     private readonly access: RepositoryAccessService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
+    private readonly verdicts: RulesetVerdictsService,
   ) {}
 
   async createBranch({
@@ -75,7 +78,7 @@ export class RepositoryBranchesService {
     }
 
     // A concurrent create of the same name loses the compare-and-swap with a conflict.
-    await this.commitRef(repository, target.requesterId, {
+    await this.commitRef(repository, directory, target.requesterId, {
       ref: `refs/heads/${body.name}`,
       oldOid: ZERO_OID,
       newOid: Buffer.from(sha, 'hex'),
@@ -130,24 +133,36 @@ export class RepositoryBranchesService {
     if (!sha) throw new BranchNotFoundError(branch);
 
     // Pinned to the tip read above, so a push that moved the branch in between wins and this fails with a conflict.
-    await this.commitRef(repository, target.requesterId, {
+    await this.commitRef(repository, directory, target.requesterId, {
       ref,
       oldOid: Buffer.from(sha, 'hex'),
       newOid: ZERO_OID,
     });
   }
 
-  private commitRef(
+  private async commitRef(
     repository: AuthorizedRepository,
+    gitDir: string,
     requesterId: string,
     transition: RefTransition,
   ) {
+    const transitions = [transition];
     return this.pushTransaction.commitPush({
       repoId: repository.id,
-      transitions: [transition],
+      transitions,
       body: bufferBody(Buffer.alloc(0)),
       packOffset: 0,
-      pushedBy: requesterId,
+      actor: {
+        userId: requesterId,
+        verdict: await this.verdicts.judge({
+          repository,
+          gitDir,
+          userId: requesterId,
+          write: 'push',
+          transitions,
+          facts: new Map([[transition.ref, EXISTING_HISTORY]]),
+        }),
+      },
     });
   }
 }

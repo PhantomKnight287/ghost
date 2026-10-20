@@ -57,6 +57,7 @@ describe('PushTransactionService', () => {
     store.casIndex.mockResolvedValue(true);
 
     const result = await service.commitPush({
+      actor: 'system',
       repoId: 'phantomknight287/ghost',
       transitions: [transition(0, 0xaa)],
       body,
@@ -84,6 +85,7 @@ describe('PushTransactionService', () => {
     store.casIndex.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 
     const result = await service.commitPush({
+      actor: 'system',
       repoId: 'phantomknight287/ghost',
       transitions: [transition(0xaa, 0xbb)],
       body,
@@ -111,6 +113,7 @@ describe('PushTransactionService', () => {
     };
 
     const result = await service.commitPush({
+      actor: 'system',
       repoId: 'phantomknight287/ghost',
       transitions: [transition(0, 0xaa)],
       body: huge,
@@ -124,6 +127,7 @@ describe('PushTransactionService', () => {
   it('refuses a ref name git would refuse before uploading anything', async () => {
     await expect(
       service.commitPush({
+        actor: 'system',
         repoId: 'phantomknight287/ghost',
         transitions: [
           { ref: 'refs/heads/a..b', oldOid: ZERO_OID, newOid: oid(0xaa) },
@@ -148,6 +152,7 @@ describe('PushTransactionService', () => {
     for (const ref of ['refs/heads/a/b', 'refs/heads/a/b/c']) {
       await expect(
         service.commitPush({
+          actor: 'system',
           repoId: 'phantomknight287/ghost',
           transitions: [{ ref, oldOid: ZERO_OID, newOid: oid(0xbb) }],
           body,
@@ -171,6 +176,7 @@ describe('PushTransactionService', () => {
 
     await expect(
       service.commitPush({
+        actor: 'system',
         repoId: 'phantomknight287/ghost',
         transitions: [
           { ref: 'refs/heads/a', oldOid: ZERO_OID, newOid: oid(0xbb) },
@@ -193,6 +199,7 @@ describe('PushTransactionService', () => {
     store.casIndex.mockResolvedValue(true);
 
     const result = await service.commitPush({
+      actor: 'system',
       repoId: 'phantomknight287/ghost',
       transitions: [
         { ref: 'refs/heads/a', oldOid: oid(0xaa), newOid: ZERO_OID },
@@ -216,6 +223,7 @@ describe('PushTransactionService', () => {
 
     await expect(
       service.commitPush({
+        actor: 'system',
         repoId: 'phantomknight287/ghost',
         transitions: [transition(0xaa, 0xbb)],
         body,
@@ -234,6 +242,7 @@ describe('PushTransactionService', () => {
 
     await expect(
       service.commitPush({
+        actor: 'system',
         repoId: 'phantomknight287/ghost',
         transitions: [transition(0, 0xaa)],
         body,
@@ -252,6 +261,7 @@ describe('PushTransactionService', () => {
 
     await expect(
       service.commitPush({
+        actor: 'system',
         repoId: 'phantomknight287/ghost',
         transitions: [transition(0, 0xaa)],
         body,
@@ -279,6 +289,7 @@ describe('PushTransactionService', () => {
     }));
 
     const result = await service.commitPush({
+      actor: 'system',
       repoId: 'phantomknight287/ghost',
       transitions: [transition(0xaa, 0xbb)],
       body,
