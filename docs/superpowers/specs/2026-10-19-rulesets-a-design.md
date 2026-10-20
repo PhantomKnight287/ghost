@@ -119,7 +119,8 @@ It does no I/O. Everything it needs is passed in, so every case can be unit test
 **Git push.** The pushed commits exist only in the quarantine that `withVerifiedPack` builds (`lib/git/protocol/verify-push.ts`). Compute facts there, with the quarantine environment:
 
 - `isFastForward`: `git merge-base --is-ancestor <old> <new>`.
-- `introducesMergeCommit`: `git rev-list --min-parents=2 -n1 <new> --not --all`.
+- `introducesMergeCommit` for an update: `git rev-list --min-parents=2 -n1 <new> --not <old>`. Judged against the ref's own old tip, so a merge commit another branch already reaches cannot be fast-forwarded onto a protected one.
+- `introducesMergeCommit` for a creation: `git rev-list --min-parents=2 -n1 <new> --not --exclude=refs/pull/* --all`. Only commits new to the repository count: judging the whole history would refuse any branch made from history with a merge in it. Test merges under `refs/pull/*` do not count as existing history.
 
 Compute them only for refs targeted by an active ruleset that has `non_fast_forward` or `required_linear_history`. Creation and deletion need no facts.
 
@@ -194,7 +195,7 @@ REST, under the GitHub compat layer (`apps/api/src/github/rest/repos/`), with Gi
 - `DELETE /repos/{owner}/{repo}/rulesets/{ruleset_id}`: admin.
 - `GET /repos/{owner}/{repo}/rules/branches/{branch}`: read access. The rules that apply to that branch, each with `ruleset_source_type`, `ruleset_source` and `ruleset_id`.
 
-The web app uses Ghost's own API under `repositories/:username/:repo/rulesets`, following the existing controllers. Validation errors are 422 with GitHub's messages: an unknown rule type, an unknown actor, a duplicate rule type, or a duplicate name.
+The REST endpoints answer every invalid body with 422 and GitHub's messages: an unknown rule type, an unknown actor, a duplicate rule type, or a duplicate name. The web app uses Ghost's own API under `repositories/:username/:repo/rulesets`, following the existing controllers; its status codes are in the contract section below.
 
 Every create, update and delete writes an outbox event, ready for the `repository_ruleset` webhook. Delivering the webhook is part of the webhook work, not this part.
 

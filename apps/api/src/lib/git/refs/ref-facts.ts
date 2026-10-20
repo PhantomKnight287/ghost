@@ -3,7 +3,7 @@ import { runGit } from '../exec/run-git.js';
 import { type RefTransition, ZERO_OID } from '../wal/wal.types.js';
 import type { RefFacts } from '../../rulesets/rulesets.types.js';
 
-/** What rulesets need to know about each move: whether it keeps the old tip, and whether it reaches a merge commit no existing ref reaches. `env` points git at a push's quarantine. Deletions have no facts. */
+/** What rulesets need to know about each move: whether it keeps the old tip, and whether it brings in a merge commit. `env` points git at a push's quarantine. Deletions have no facts. */
 export async function refFacts({
   gitDir,
   env,
@@ -37,7 +37,25 @@ export async function refFacts({
             },
           ),
       runGit({
-        args: ['rev-list', '--min-parents=2', '-n1', next, '--not', '--all'],
+        // An update is judged against its own old tip, so a merge commit another branch already reaches cannot be fast-forwarded in. A new ref is judged against everything the repository already holds, minus test merges: otherwise branching off any history with a merge in it would be refused.
+        args: oldOid.equals(ZERO_OID)
+          ? [
+              'rev-list',
+              '--min-parents=2',
+              '-n1',
+              next,
+              '--not',
+              '--exclude=refs/pull/*',
+              '--all',
+            ]
+          : [
+              'rev-list',
+              '--min-parents=2',
+              '-n1',
+              next,
+              '--not',
+              oldOid.toString('hex'),
+            ],
         gitDir,
         env,
       }),

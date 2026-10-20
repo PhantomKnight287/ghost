@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 
 import type { RuleType } from '../../../../lib/rulesets/rulesets.types.js';
+import { PATTERN_MAX_LENGTH } from '../../../../resources/rulesets/dto/ruleset.dto.js';
 
 export class GithubBypassActorDTO {
   @ApiPropertyOptional({
@@ -50,6 +51,7 @@ export class GithubRefNameConditionDTO {
   @IsArray()
   @IsString({ each: true })
   @MinLength(1, { each: true })
+  @MaxLength(PATTERN_MAX_LENGTH, { each: true })
   include?: string[];
 
   @ApiPropertyOptional({ type: [String] })
@@ -57,6 +59,7 @@ export class GithubRefNameConditionDTO {
   @IsArray()
   @IsString({ each: true })
   @MinLength(1, { each: true })
+  @MaxLength(PATTERN_MAX_LENGTH, { each: true })
   exclude?: string[];
 }
 

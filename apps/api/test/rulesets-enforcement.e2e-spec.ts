@@ -268,6 +268,24 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       expect(await serverTip('refs/heads/linear')).toBe(straight);
     });
 
+    it('refuses fast-forwarding a protected branch onto a merge commit another branch already brought in', async () => {
+      const before = await seed('linear-ff');
+      await ruleset({
+        name: 'straight ff',
+        include: ['linear-ff'],
+        rules: [{ type: 'required_linear_history' }],
+      });
+      commitOn('linear-ff-side', 'linear-ff');
+      commitOn('linear-ff-feature', 'linear-ff');
+      git('merge', '-q', '--no-ff', '-m', 'merge side', 'linear-ff-side');
+      await pushAs(writer, 'linear-ff-feature:refs/heads/linear-ff-feature');
+
+      await expect(
+        pushAs(writer, 'linear-ff-feature:refs/heads/linear-ff'),
+      ).rejects.toThrow(violationsFor('refs/heads/linear-ff'));
+      expect(await serverTip('refs/heads/linear-ff')).toBe(before);
+    });
+
     it('refuses creating a branch that already carries a merge commit under required_linear_history', async () => {
       await ruleset({
         name: 'straight new',

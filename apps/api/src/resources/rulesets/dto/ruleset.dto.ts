@@ -26,6 +26,8 @@ const TARGETS = schema.rulesetTarget.enumValues;
 const RULE_TYPES = schema.rulesetRuleType.enumValues;
 const ACTOR_TYPES = schema.rulesetBypassActorType.enumValues;
 const BYPASS_MODES = schema.rulesetBypassMode.enumValues;
+/** Git's own refs are rarely longer; the cap keeps a pattern cheap to match on every push. */
+export const PATTERN_MAX_LENGTH = 255;
 // Bypassing below write would let someone skip rules on refs they cannot write anyway.
 const BYPASS_ROLES = ['write', 'maintain', 'admin'] as const;
 
@@ -80,6 +82,7 @@ export class RulesetPatternsDTO {
   @IsArray()
   @IsString({ each: true })
   @MinLength(1, { each: true })
+  @MaxLength(PATTERN_MAX_LENGTH, { each: true })
   include: string[];
 
   @ApiProperty({
@@ -89,6 +92,7 @@ export class RulesetPatternsDTO {
   @IsArray()
   @IsString({ each: true })
   @MinLength(1, { each: true })
+  @MaxLength(PATTERN_MAX_LENGTH, { each: true })
   exclude: string[];
 }
 

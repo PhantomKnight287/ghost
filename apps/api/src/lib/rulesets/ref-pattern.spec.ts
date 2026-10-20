@@ -91,6 +91,14 @@ describe('refTargeted', () => {
     expect(targets(branches(['~ALL'], ['release/**']), branch('release/1.0/hotfix'))).toBe(true);
   });
 
+  it('matches a run of `**/` as one, and quickly', () => {
+    expect(targets(branches(['**/**/x']), branch('a/b/x'))).toBe(true);
+    expect(targets(branches(['**/**/x']), branch('x'))).toBe(true);
+    const started = performance.now();
+    expect(targets(branches([`${'**/'.repeat(40)}x`]), branch(`${'a/'.repeat(60)}y`))).toBe(false);
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+
   it('takes braces literally', () => {
     expect(targets(branches(['{a,b}']), branch('a'))).toBe(false);
     expect(targets(branches(['{a,b}']), branch('{a,b}'))).toBe(true);

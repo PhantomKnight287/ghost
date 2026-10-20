@@ -42,6 +42,8 @@ function fnmatch(pattern: string) {
     if (pattern.startsWith('**/', at)) {
       source += '(?:.*/)?';
       at += 2;
+      // A run of `**/` matches what one does; collapsed, it cannot nest backtracking groups.
+      while (pattern.startsWith('**/', at + 1)) at += 3;
     } else if (char === '*') {
       source += '[^/]*';
       while (pattern[at + 1] === '*') at++;

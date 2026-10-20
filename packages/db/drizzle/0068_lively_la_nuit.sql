@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "ruleset_bypass_actor_organization_admin_idx" ON "ruleset_bypass_actor" USING btree ("ruleset_id") WHERE actor_type = 'OrganizationAdmin';

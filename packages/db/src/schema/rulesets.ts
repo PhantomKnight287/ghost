@@ -108,5 +108,9 @@ export const rulesetBypassActor = pgTable(
     // NULLs are distinct, so each index only constrains the actor type that sets its column. The first also serves lookups by ruleset.
     uniqueIndex("ruleset_bypass_actor_role_idx").on(t.rulesetId, t.role),
     uniqueIndex("ruleset_bypass_actor_team_idx").on(t.rulesetId, t.teamId),
+    // Organization admins set neither column, so only a partial index keeps them to one row.
+    uniqueIndex("ruleset_bypass_actor_organization_admin_idx")
+      .on(t.rulesetId)
+      .where(sql`actor_type = 'OrganizationAdmin'`),
   ],
 );
