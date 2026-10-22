@@ -27,7 +27,6 @@ import {
   RepositoryDeletedError,
   WalContentionError,
 } from '../../../lib/git/wal/wal.errors.js';
-import { timed } from '../../../lib/timing.js';
 
 // Each lost CAS is a push that committed in between; only a stream of pushes could outlast this, and the caller retries.
 const MAX_TOMBSTONE_ATTEMPTS = 8;
@@ -58,15 +57,11 @@ export class WalStoreService {
 
   private async readStoredIndex(repoId: string): Promise<StoredIndex | null> {
     try {
-      const response = await timed('s3 getObject index', () =>
-        this.s3.getObject({
-          Bucket: this.s3.bucket,
-          Key: this.indexKey(repoId),
-        }),
-      );
-      const body = await timed('s3 read index body', async () =>
-        Buffer.from(await response.Body!.transformToByteArray()),
-      );
+      const response = await this.s3.getObject({
+        Bucket: this.s3.bucket,
+        Key: this.indexKey(repoId),
+      });
+      const body = Buffer.from(await response.Body!.transformToByteArray());
       return { index: decodeIndex(body), etag: response.ETag! };
     } catch (error) {
       if (isNotFound(error)) return null;

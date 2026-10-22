@@ -10,7 +10,6 @@ import { isAncestor } from '../../../lib/git/diff/diff.js';
 import { errorMessage } from '../../../lib/error-message.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
 import { ancestorsOf } from '../../../lib/git/path-index/ancestors.js';
-import { timed } from '../../../lib/timing.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;
@@ -71,17 +70,15 @@ export class RepositoryPathIndexService {
     const tip = await resolveCommit(repoDirectory, ref);
     if (!tip) return false;
 
-    const [state] = await timed('db ref index state', async () =>
-      this.db
-        .select()
-        .from(schema.repositoryRefIndex)
-        .where(
-          and(
-            eq(schema.repositoryRefIndex.repositoryId, repositoryId),
-            eq(schema.repositoryRefIndex.ref, ref),
-          ),
+    const [state] = await this.db
+      .select()
+      .from(schema.repositoryRefIndex)
+      .where(
+        and(
+          eq(schema.repositoryRefIndex.repositoryId, repositoryId),
+          eq(schema.repositoryRefIndex.ref, ref),
         ),
-    );
+      );
     if (state?.indexedCommitSha === tip) return true;
 
     if (
@@ -89,16 +86,10 @@ export class RepositoryPathIndexService {
       (await isAncestor(repoDirectory, state.indexedCommitSha, tip))
     ) {
       // A walk already in flight may have started before the ref moved to this tip.
-      return (
-        (await timed('path index top-up', () =>
-          this.sync({ repositoryId, repoDirectory, ref }),
-        )) === tip
-      );
+      return (await this.sync({ repositoryId, repoDirectory, ref })) === tip;
     }
 
-    timed('path index rebuild (background)', () =>
-      this.sync({ repositoryId, repoDirectory, ref }),
-    ).catch((error: unknown) =>
+    this.sync({ repositoryId, repoDirectory, ref }).catch((error: unknown) =>
       this.logger.warn(
         `Path index build failed for ${repositoryId} ${ref}: ${errorMessage(error)}`,
       ),
@@ -118,23 +109,21 @@ export class RepositoryPathIndexService {
   }): Promise<Map<string, PathCommit>> {
     if (paths.length === 0) return new Map();
 
-    const rows = await timed('db path commits', async () =>
-      this.db
-        .select({
-          path: schema.repositoryPathCommit.path,
-          sha: schema.repositoryPathCommit.commitSha,
-          subject: schema.repositoryPathCommit.subject,
-          committedAt: isoTimestamp(schema.repositoryPathCommit.committedAt),
-        })
-        .from(schema.repositoryPathCommit)
-        .where(
-          and(
-            eq(schema.repositoryPathCommit.repositoryId, repositoryId),
-            eq(schema.repositoryPathCommit.ref, ref),
-            inArray(schema.repositoryPathCommit.path, paths),
-          ),
+    const rows = await this.db
+      .select({
+        path: schema.repositoryPathCommit.path,
+        sha: schema.repositoryPathCommit.commitSha,
+        subject: schema.repositoryPathCommit.subject,
+        committedAt: isoTimestamp(schema.repositoryPathCommit.committedAt),
+      })
+      .from(schema.repositoryPathCommit)
+      .where(
+        and(
+          eq(schema.repositoryPathCommit.repositoryId, repositoryId),
+          eq(schema.repositoryPathCommit.ref, ref),
+          inArray(schema.repositoryPathCommit.path, paths),
         ),
-    );
+      );
 
     return new Map(rows.map(({ path, ...commit }) => [path, commit]));
   }

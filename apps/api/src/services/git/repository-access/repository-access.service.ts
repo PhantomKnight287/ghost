@@ -17,7 +17,6 @@ import {
   roleOf,
   teamRoleOf,
 } from '../../../lib/repositories/access/repository-access.js';
-import { timed } from '../../../lib/timing.js';
 
 @Injectable()
 export class RepositoryAccessService {
@@ -36,31 +35,27 @@ export class RepositoryAccessService {
     operation?: RepositoryOperation;
   }): Promise<AuthorizedRepository> {
     const actor: Actor = requesterId ? { userId: requesterId } : null;
-    let [row] = await timed('db repository lookup', async () =>
-      this.lookup(
-        actor,
-        and(
-          eq(ownerNameOf(schema.user, schema.organization), username),
-          eq(schema.repository.slug, repo),
-        ),
+    let [row] = await this.lookup(
+      actor,
+      and(
+        eq(ownerNameOf(schema.user, schema.organization), username),
+        eq(schema.repository.slug, repo),
       ),
     );
     // A renamed or transferred repository is still reachable at its old name, as long as nothing took that name since.
     if (!row) {
-      const [redirect] = await timed('db redirect lookup', async () =>
-        this.database
-          .select({ repositoryId: schema.repositoryRedirect.repositoryId })
-          .from(schema.repositoryRedirect)
-          .where(
-            and(
-              eq(
-                sql`lower(${schema.repositoryRedirect.ownerName})`,
-                username.toLowerCase(),
-              ),
-              eq(schema.repositoryRedirect.slug, repo),
+      const [redirect] = await this.database
+        .select({ repositoryId: schema.repositoryRedirect.repositoryId })
+        .from(schema.repositoryRedirect)
+        .where(
+          and(
+            eq(
+              sql`lower(${schema.repositoryRedirect.ownerName})`,
+              username.toLowerCase(),
             ),
+            eq(schema.repositoryRedirect.slug, repo),
           ),
-      );
+        );
       if (redirect) {
         [row] = await this.lookup(
           actor,

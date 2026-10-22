@@ -8,7 +8,6 @@ import { listRefs } from '../../../lib/git/refs/list-refs.js';
 import { headRef } from '../../../lib/git/tree/resolve-ref.js';
 import { emptyIndex, type WalIndex } from '../../../lib/git/wal/wal.types.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
-import { timed } from '../../../lib/timing.js';
 import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
 
@@ -28,12 +27,8 @@ export class RepositoryMaterializerService {
 
   /** The repository's cache directory, current with its log. Everything that hands a repository to git opens it this way. */
   async open(repository: { id: string; defaultBranch: string | null }) {
-    const directory = await timed('storage.getRepoPath', () =>
-      this.storage.getRepoPath(repository.id),
-    );
-    await timed('materialize', () =>
-      this.materialize(repository.id, directory, repository.defaultBranch),
-    );
+    const directory = await this.storage.getRepoPath(repository.id);
+    await this.materialize(repository.id, directory, repository.defaultBranch);
     return directory;
   }
 
@@ -58,21 +53,15 @@ export class RepositoryMaterializerService {
     defaultBranch: string | null,
   ): Promise<WalIndex> {
     const started = performance.now();
-    const stored = await timed('wal.readIndex', () =>
-      this.store.readIndex(repoId),
-    );
+    const stored = await this.store.readIndex(repoId);
     const indexRead = performance.now() - started;
     if (!stored) return emptyIndex();
 
     const { index } = stored;
-    const cachedSeq = await timed('readCachedSeq', () =>
-      this.readCachedSeq(repoDirectory),
-    );
+    const cachedSeq = await this.readCachedSeq(repoDirectory);
     // The default branch changes without a push, so HEAD is checked even when the cache is current.
     if (cachedSeq >= index.seq) {
-      await timed('ensureHead (cache current)', () =>
-        this.ensureHead(repoDirectory, index, defaultBranch),
-      );
+      await this.ensureHead(repoDirectory, index, defaultBranch);
       return index;
     }
 
@@ -86,31 +75,25 @@ export class RepositoryMaterializerService {
       // Pushes since 0034 store self-contained packs, but older layers may be thin, with deltas against objects from earlier layers, which is why replay must stay in sequence order.
       if (layer.size > 0) {
         const opened = performance.now();
-        const input = await timed(`wal.openEntryPack seq ${seq}`, () =>
-          this.store.openEntryPack(repoId, layer.ulid),
-        );
+        const input = await this.store.openEntryPack(repoId, layer.ulid);
         const indexed = performance.now();
-        await timed(`index-pack seq ${seq} (${layer.size} bytes)`, () =>
-          runGit({
-            args: ['index-pack', '--fix-thin', '--stdin'],
-            gitDir: repoDirectory,
-            input,
-          }),
-        );
+        await runGit({
+          args: ['index-pack', '--fix-thin', '--stdin'],
+          gitDir: repoDirectory,
+          input,
+        });
         replayed++;
         opening += indexed - opened;
         indexing += performance.now() - indexed;
       }
     }
 
-    await timed('reconcileRefs', () =>
-      this.reconcileRefs(repoDirectory, index),
-    );
-    await timed('ensureHead', () =>
-      this.ensureHead(repoDirectory, index, defaultBranch),
-    );
-    await timed('write seq marker', () =>
-      writeFile(path.join(repoDirectory, SEQ_MARKER), `${index.seq}\n`, 'utf8'),
+    await this.reconcileRefs(repoDirectory, index);
+    await this.ensureHead(repoDirectory, index, defaultBranch);
+    await writeFile(
+      path.join(repoDirectory, SEQ_MARKER),
+      `${index.seq}\n`,
+      'utf8',
     );
     // Opening a layer is its two round trips to the store; indexing includes streaming the pack body, which index-pack reads as it goes.
     const ms = (value: number) => `${Math.round(value)}ms`;

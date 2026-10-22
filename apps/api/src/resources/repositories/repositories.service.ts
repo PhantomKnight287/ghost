@@ -178,7 +178,6 @@ import type {
 import type { SearchRepositoriesResponseDTO } from './dto/search-repositories.dto.js';
 import type { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
 import { errorMessage } from '../../lib/error-message.js';
-import { timed, traced } from '../../lib/timing.js';
 import { listBranches } from '../../lib/git/refs/list-refs.js';
 
 // `/owner/settings` and `/org/teams` are pages of the owner's own, so no repository may live there.
@@ -1527,93 +1526,47 @@ export class RepositoriesService {
     requesterId?: string;
     ref?: string;
   }): Promise<GetRepositoryBlobResponseDTO> {
-    // ponytail: latency investigation on Unkey; drop the trace once the slow step is found.
-    return traced(
-      () =>
-        this.readRepositoryBlob({
-          username,
-          repo,
-          path,
-          requesterId,
-          ref: requestedRef,
-        }),
-      (tree) =>
-        this.logger.log(`Blob ${username}/${repo}/${path} timings:\n${tree}`),
-    );
-  }
-
-  private async readRepositoryBlob({
-    username,
-    repo,
-    path,
-    requesterId,
-    ref: requestedRef,
-  }: {
-    username: string;
-    repo: string;
-    path: string;
-    requesterId?: string;
-    ref?: string;
-  }): Promise<GetRepositoryBlobResponseDTO> {
     const filePath = normalizeBlobPath(path);
 
-    const { repository, directory, ref, detached } = await timed(
-      'openRepository',
-      () =>
-        this.openRepository({
-          username,
-          repo,
-          requesterId,
-          ref: requestedRef,
-        }),
-    );
+    const { repository, directory, ref, detached } = await this.openRepository({
+      username,
+      repo,
+      requesterId,
+      ref: requestedRef,
+    });
 
-    const blob = await timed('readBlob', () =>
-      readBlob({ gitDir: directory, ref, path: filePath }),
-    );
+    const blob = await readBlob({ gitDir: directory, ref, path: filePath });
     if (!blob) throw new BlobNotFoundError(filePath);
 
     const indexed =
       !detached &&
-      (await timed('pathIndex.ensureIndexed', () =>
-        this.pathIndex.ensureIndexed({
-          repositoryId: repository.id,
-          repoDirectory: directory,
-          ref,
-        }),
-      ));
+      (await this.pathIndex.ensureIndexed({
+        repositoryId: repository.id,
+        repoDirectory: directory,
+        ref,
+      }));
 
     // one file is one history walk, cheap enough to skip the index for
     const lastCommit = indexed
       ? null
-      : await timed('readCommitSummary (unindexed)', () =>
-          readCommitSummary({ gitDir: directory, ref, path: filePath }),
-        );
+      : await readCommitSummary({ gitDir: directory, ref, path: filePath });
     const commits = indexed
-      ? await timed('pathIndex.lookup', () =>
-          this.pathIndex.lookup({
-            repositoryId: repository.id,
-            ref,
-            paths: [filePath],
-          }),
-        )
+      ? await this.pathIndex.lookup({
+          repositoryId: repository.id,
+          ref,
+          paths: [filePath],
+        })
       : new Map();
 
     const pointer = blob.content && parseLfsPointer(blob.content);
-    const object =
-      pointer &&
-      (await timed('lfs.find', () =>
-        this.lfs.find(repository.id, pointer.oid),
-      ));
+    const object = pointer && (await this.lfs.find(repository.id, pointer.oid));
     const file = object
       ? {
           size: object.size,
           content:
             object.size > MAX_BLOB_BYTES
               ? null
-              : await timed('lfs.read', () =>
-                  this.lfs.read(repository.id, pointer.oid),
-                ),
+              : await this.lfs.read(repository.id, pointer.oid),
         }
       : blob;
     const text = isTextBlob(file.content);
@@ -2306,41 +2259,28 @@ export class RepositoriesService {
     requesterId?: string;
     ref?: string;
   }) {
-    const repository = await timed('access.authorize', () =>
-      this.access.authorize({
-        username,
-        repo,
-        requesterId,
-      }),
-    );
+    const repository = await this.access.authorize({
+      username,
+      repo,
+      requesterId,
+    });
 
-    const directory = await timed('materializer.open', () =>
-      this.materializer.open(repository),
-    );
+    const directory = await this.materializer.open(repository);
     // Pushes index too; this catches repositories that predate code search, while the objects are already on disk.
-    timed('codeSearch.index (background)', () =>
-      this.codeSearch.index({
-        repositoryId: repository.id,
-        isPublic: repository.visibility === 'public',
-        repoDirectory: directory,
-      }),
-    ).catch((error: unknown) =>
-      this.logger.warn(
-        `Code search index failed for ${repository.id}: ${errorMessage(error)}`,
-      ),
-    );
+    this.codeSearch.indexInBackground({
+      repositoryId: repository.id,
+      isPublic: repository.visibility === 'public',
+      repoDirectory: directory,
+    });
 
     // Indexed while the objects are hot, so the profile graph never materializes. Not awaited: a first build walks the whole history.
-    timed('contributions.sync (background)', () =>
-      this.contributions.sync({
-        repositoryId: repository.id,
-        repoDirectory: directory,
-      }),
-    ).catch((error: unknown) =>
-      this.logger.warn(
-        `Contribution index update failed for ${repository.id}: ${errorMessage(error)}`,
-      ),
-    );
+    this.contributions
+      .sync({ repositoryId: repository.id, repoDirectory: directory })
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Contribution index update failed for ${repository.id}: ${errorMessage(error)}`,
+        ),
+      );
 
     const name = requested?.trim();
     if (!name) {
@@ -2348,26 +2288,22 @@ export class RepositoriesService {
         repository,
         directory,
         detached: false,
-        ref: await timed('resolveDefaultRef', () =>
-          resolveDefaultRef({
-            gitDir: directory,
-          }),
-        ),
+        ref: await resolveDefaultRef({
+          gitDir: directory,
+        }),
       };
     }
 
     const [branches, tags] = await Promise.all([
-      timed('listBranches', () => listBranches(directory)),
-      timed('listTags', () => listTags(directory)),
+      listBranches(directory),
+      listTags(directory),
     ]);
-    const resolved = await timed('resolveRevision', () =>
-      resolveRevision({
-        gitDir: directory,
-        branches,
-        tags,
-        requested: name,
-      }),
-    );
+    const resolved = await resolveRevision({
+      gitDir: directory,
+      branches,
+      tags,
+      requested: name,
+    });
     if (resolved) return { repository, directory, ...resolved };
 
     throw new BranchNotFoundError(name);

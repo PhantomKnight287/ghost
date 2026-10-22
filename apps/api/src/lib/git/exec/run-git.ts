@@ -3,7 +3,6 @@ import { once } from 'node:events';
 import { PassThrough, type Readable } from 'node:stream';
 import { StringDecoder } from 'node:string_decoder';
 
-import { timed } from '../../timing.js';
 import { GitCommandFailedError } from './exec.errors.js';
 
 export interface RunGitOptions {
@@ -33,13 +32,7 @@ function feed(
   else input.pipe(child.stdin);
 }
 
-export function runGitBuffer(options: RunGitOptions): Promise<Buffer> {
-  return timed(`git ${options.args.slice(0, 2).join(' ')}`, () =>
-    bufferGit(options),
-  );
-}
-
-function bufferGit({
+export async function runGitBuffer({
   args,
   gitDir,
   input,
