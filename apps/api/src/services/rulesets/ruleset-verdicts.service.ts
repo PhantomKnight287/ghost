@@ -16,6 +16,7 @@ import { resolveDefaultRef } from '../../lib/git/tree/resolve-ref.js';
 import { evaluateRulesets } from '../../lib/rulesets/evaluate-rulesets.js';
 import { rulesetColumns } from '../../lib/rulesets/ruleset-columns.js';
 import type {
+  PullRequestFacts,
   RefFacts,
   Ruleset,
   RulesetActor,
@@ -107,6 +108,7 @@ export class RulesetVerdictsService {
     transitions,
     facts = new Map(),
     rulesets,
+    pullRequest,
   }: {
     repository: { id: string; defaultBranch: string | null };
     gitDir: string;
@@ -116,6 +118,7 @@ export class RulesetVerdictsService {
     facts?: Map<string, RefFacts>;
     /** Already loaded by a caller that needed them to decide which facts to compute. */
     rulesets?: Ruleset[];
+    pullRequest?: PullRequestFacts;
   }): Promise<RulesetVerdict> {
     const applicable = rulesets ?? (await this.active(repository.id));
     if (applicable.length === 0)
@@ -133,6 +136,7 @@ export class RulesetVerdictsService {
         transitions,
         facts,
         defaultBranch,
+        pullRequest,
       }),
     };
   }

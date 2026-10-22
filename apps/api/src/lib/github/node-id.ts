@@ -9,6 +9,7 @@ const PREFIXES = {
   PullRequest: 'PR',
   PullRequestReview: 'PRR',
   PullRequestReviewComment: 'PRRC',
+  PullRequestReviewThread: 'PRRT',
   PullRequestCommit: 'PURC',
   ReviewRequest: 'RR',
   Commit: 'C',
@@ -19,6 +20,8 @@ const PREFIXES = {
   StatusContext: 'SC',
   StatusCheckRollup: 'SCR',
   RepositoryRuleset: 'RRS',
+  RepositoryRule: 'RRU',
+  RepositoryRulesetBypassActor: 'RBA',
 } as const;
 
 export type NodeType = keyof typeof PREFIXES;

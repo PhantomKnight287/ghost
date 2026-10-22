@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parsePullRequestParameters } from './pull-request-parameters.js';
 
-const full: any = {
+const full = {
   required_approving_review_count: 2,
   dismiss_stale_reviews_on_push: true,
   require_code_owner_review: true,
@@ -11,7 +11,7 @@ const full: any = {
   allowed_merge_methods: ['squash', 'rebase'],
 };
 
-const refused = (input: any) => {
+const refused = (input: unknown) => {
   const result = parsePullRequestParameters(input);
   expect(result).toMatchObject({ ok: false, message: expect.any(String) });
   return result;

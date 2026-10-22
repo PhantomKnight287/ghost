@@ -29,9 +29,13 @@ const NEWER_THAN_PACKAGE = `
   type IssueType implements Node { color: IssueTypeColor! description: String id: ID! isEnabled: Boolean! name: String! }
   extend type Issue { issueType: IssueType }
 `;
+/** Field types github.com has changed since the package, as its live introspection answers; the new types they name come with them. */
+const idl = `${github.idl.replaceAll('allowedMergeMethods: [String!]', 'allowedMergeMethods: [PullRequestAllowedMergeMethods!]')}
+enum PullRequestAllowedMergeMethods { MERGE SQUASH REBASE }
+`;
 
 const theirs = extendSchema(
-  buildSchema(github.idl, { assumeValidSDL: true }),
+  buildSchema(idl, { assumeValidSDL: true }),
   parse(NEWER_THAN_PACKAGE),
   { assumeValidSDL: true },
 );

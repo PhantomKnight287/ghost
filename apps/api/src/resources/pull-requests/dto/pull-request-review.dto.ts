@@ -1,9 +1,14 @@
 import { schema } from '@ghost/db';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  IntersectionType,
+} from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsISO8601,
@@ -146,7 +151,33 @@ export class ReviewReplyDTO {
   updatedAt: string;
 }
 
-export class ReviewThreadDTO extends ReviewReplyDTO {
+export class ThreadResolverDTO {
+  @ApiProperty()
+  @IsString()
+  username: string;
+}
+
+export class ReviewThreadResolutionDTO {
+  @ApiProperty()
+  @IsBoolean()
+  resolved: boolean;
+
+  @ApiProperty({
+    type: ThreadResolverDTO,
+    nullable: true,
+    description:
+      'Who resolved the thread; null while it is unresolved, or once their account is deleted.',
+  })
+  @ValidateNested()
+  @Type(() => ThreadResolverDTO)
+  @IsOptional()
+  resolvedBy: ThreadResolverDTO | null;
+}
+
+export class ReviewThreadDTO extends IntersectionType(
+  ReviewReplyDTO,
+  ReviewThreadResolutionDTO,
+) {
   @ApiProperty()
   @IsString()
   path: string;

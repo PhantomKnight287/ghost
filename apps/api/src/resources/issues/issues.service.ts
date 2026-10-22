@@ -53,6 +53,7 @@ import {
 } from '../../lib/issues/issues.errors.js';
 import { touchIssue } from '../../lib/issues/touch-issue.js';
 import { canEditThread } from '../../lib/issues/can-edit-thread.js';
+import type { Violation } from '../../lib/rulesets/rulesets.types.js';
 
 /** Filters and paging the GitHub REST layer needs beyond Ghost's own list: offset pages, pull requests alongside issues, `since`, and any or no assignee. */
 export type IssueListOptions = {
@@ -890,6 +891,9 @@ export class IssuesService {
               string | null
             >`${repositoryFullNameOf(eventSourceOwner, eventSourceOrganization, eventSourceRepository)}`,
             sourceNumber: eventSource.number,
+            details: sql<{
+              violations: Violation[];
+            } | null>`${schema.issueEvent.details}`,
             createdAt: isoTimestamp(schema.issueEvent.createdAt),
           },
         })

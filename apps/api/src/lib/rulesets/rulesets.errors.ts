@@ -12,12 +12,32 @@ export class RulesetVerdictRequiredError extends DomainError {
   }
 }
 
+// GitHub's layout, one paragraph per rule; Ghost also names the ruleset, and lists every rule where GitHub stops at the first.
+const listed = (violations: Violation[]) =>
+  violations
+    .map(({ rulesetName, message }) => `${message} (ruleset "${rulesetName}")`)
+    .join('\n\n');
+
 export class RulesetViolationError extends DomainError {
   status: number = HttpStatus.UNPROCESSABLE_ENTITY;
 
   constructor(readonly violations: Violation[]) {
+    super(`Repository rule violations found\n\n${listed(violations)}\n\n`);
+  }
+}
+
+/** GitHub answers a merge method the rules leave out on its own, before any other requirement. */
+export class MergeMethodNotAllowedError extends DomainError {
+  status: number = HttpStatus.METHOD_NOT_ALLOWED;
+}
+
+/** Every unmet requirement is one the merger may bypass, but they did not say they meant to. */
+export class RulesetBypassRequiredError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(readonly bypassed: Violation[]) {
     super(
-      `Repository rule violations found: ${violations.map(({ ref, rulesetName, message }) => `${ref}: ${message} (ruleset "${rulesetName}")`).join('; ')}`,
+      `Repository rule violations found, which you can bypass by merging with bypassRules\n\n${listed(bypassed)}\n\n`,
     );
   }
 }

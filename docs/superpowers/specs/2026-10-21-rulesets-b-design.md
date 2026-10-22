@@ -339,6 +339,29 @@ Collect these from a real GitHub repository (the GitHub remote serves) before re
 - how a CODEOWNERS file with errors is applied;
 - whether a base move dismisses approvals only when the files overlap.
 
+## Checked against GitHub (2026-10-22)
+
+On a scratch public repository, with one account (`PhantomKnight287/ghost-rulesets-scratch`, archived):
+
+- Direct push refusal: `GH013`, then `- Changes must be made through a pull request.` Matches.
+- Push bypass notice: `Bypassed rule violations for refs/heads/main:`, a blank line, `- Changes must be made through a pull request.` Ghost prints the same.
+- The `pull_request` rule does not refuse creating or deleting a targeted ref.
+- Merge refusals, REST 405 and GraphQL `UNPROCESSABLE`, read `Repository rule violations found` then the requirement, as paragraphs. GitHub names only the first unmet requirement; Ghost names all of them and their rulesets, as the anti-goals require. Wording taken: `At least N approving review(s) is/are required by reviewers with write access.`, `A conversation must be resolved before this pull request can be merged.`, `New changes require approval from someone other than the last pusher.`
+- A method a rule leaves out answers 405 `Merge commits are not allowed on this repository.` (`Squash merges`, `Rebase merges`), on its own rather than as a rule violation. Ghost words it the same but lists it with the other violations.
+- `reviewDecision` is `REVIEW_REQUIRED` while approvals are missing, and null on a branch with no rule and no verdicts. `mergeStateStatus` and `mergeable_state` are `BLOCKED`/`blocked` for a bypass actor too. A bypass actor's REST merge succeeds with no flag.
+- `Ref.branchProtectionRule` is null on a branch only a ruleset protects. Ghost keeps null.
+- `PullRequestParameters.allowedMergeMethods` is `[PullRequestAllowedMergeMethods!]` (`MERGE`, `SQUASH`, `REBASE`) on github.com, newer than `@octokit/graphql-schema` 15.26.1.
+- GitHub merged a pull request whose author is the only code owner of its files, with `require_code_owner_review` on and no review. Ghost now does the same (user decision, 2026-10-22): a path the author owns needs no other owner's approval.
+
+From GitHub's documentation, for what one account cannot try:
+
+- Stale approvals: "approving reviews will be dismissed as stale if the merge base introduces new changes after the review was submitted", and approvals "usually survive a merge base change when no new changes are introduced" ([changelog, 2023-06-06](https://github.blog/changelog/2023-06-06-security-enhancements-to-required-approvals-on-pull-requests/)). Ghost judges an approval stale only when the change it approved, measured from its own merge base, differs from the pull request's change now. The base moving on does not dismiss anything, and neither does merging the base into the head when that adds nothing. This replaces the base-tip rule in Stale approvals above, and the consumer listens to `pull_request.synchronized` only, drafts included.
+- "If someone chooses the Request changes option in a review, then that person must approve the pull request before the pull request can be merged" ([available rules](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)), with no condition on the approval count. Ghost blocks on a standing change request whatever the count.
+- A CODEOWNERS line with invalid syntax is skipped, and the rest of the file applies ([about code owners](https://docs.github.com/en/enterprise-server@3.14/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners)). Ghost's parser already does this.
+- `reviewDecision` with no rule asking for reviews: null even once approved, as observed with a comment-only review. Ghost answers null for an open pull request unless a rule asks for approvals or code owners; a change request a rule blocks on still shows as `CHANGES_REQUESTED`.
+
+Still unknown: the wording of the code owner refusal and of an automatic stale dismissal. Ghost's own wording stands for both.
+
 ## Build order
 
 The detailed plan comes next (`superpowers:writing-plans`). Expected order, each step ending green:

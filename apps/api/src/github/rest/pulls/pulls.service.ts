@@ -35,6 +35,7 @@ import {
   PullRequestNotOpenError,
 } from '../../../lib/pull-requests/pull-requests.errors.js';
 import { visibleReview } from '../../../lib/pull-requests/reviews.js';
+import { RulesetViolationError } from '../../../lib/rulesets/rulesets.errors.js';
 import type { IssueDTO } from '../../../resources/issues/dto/issue.dto.js';
 import { IssuesService } from '../../../resources/issues/issues.service.js';
 import { PullRequestsService } from '../../../resources/pull-requests/pull-requests.service.js';
@@ -393,6 +394,7 @@ export class GithubPullsService {
         method: body.merge_method,
         title: body.commit_title || undefined,
         message: body.commit_message,
+        compat: true,
       });
       return {
         sha: mergeCommitSha,
@@ -407,6 +409,8 @@ export class GithubPullsService {
         error instanceof NothingToMergeError
       )
         throw new NotMergeableError();
+      if (error instanceof RulesetViolationError)
+        throw new NotMergeableError(error.message);
       throw error;
     }
   }
@@ -528,15 +532,26 @@ export class GithubPullsService {
     });
     const open = pull.state === 'open';
     const conflicted = open && pull.conflicts.length > 0;
+    const mergeable = !open
+      ? null
+      : conflicted
+        ? false
+        : pull.mergeBase !== null && pull.mergeBase !== pull.headSha
+          ? true
+          : null;
+    const requirements = mergeable
+      ? await this.pulls.mergeRequirements({
+          ...this.github.ref(repository, viewer),
+          number,
+        })
+      : null;
     const [rest] = await this.rest(repository, viewer, [issue], {
-      mergeable: !open
-        ? null
-        : conflicted
-          ? false
-          : pull.mergeBase !== null && pull.mergeBase !== pull.headSha
-            ? true
-            : null,
+      mergeable,
       conflicted,
+      // A bypass actor sees blocked too, as on GitHub.
+      blocked:
+        requirements !== null &&
+        requirements.violations.length + requirements.bypassed.length > 0,
       commits: pull.commitCount,
       additions: pull.additions,
       deletions: pull.deletions,

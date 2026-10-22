@@ -34,9 +34,17 @@ export type EventPayloads = {
     /** What the push added to the request, newest first, at most `MAX_PUSH_COMMITS`. */
     commits: Commit[];
   };
+  /** A merge went ahead over ruleset requirements its merger may bypass; the timeline event names them. */
+  'pull_request.rules_bypassed': { issueId: string };
   'pull_request.reviewed': { issueId: string; reviewId: string };
   'pull_request.review_dismissed': { issueId: string; reviewId: string };
   'pull_request.review_commented': { issueId: string; commentId: string };
+  /** `commentId` is the thread's first comment, which stands for the thread. */
+  'pull_request_review_thread.resolved': { issueId: string; commentId: string };
+  'pull_request_review_thread.unresolved': {
+    issueId: string;
+    commentId: string;
+  };
   'pull_request.review_requested': {
     issueId: string;
     requestedUserId?: string;

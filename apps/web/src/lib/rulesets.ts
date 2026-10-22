@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { mergeMethods } from "@/components/pull-requests/common";
 import type { components } from "@/lib/api/v1";
 
 export type Ruleset = components["schemas"]["RulesetDTO"];
@@ -29,6 +30,12 @@ export const rules: { type: RuleType; title: string; description: string }[] = [
       "Only allow users with bypass permissions to delete matching refs.",
   },
   {
+    type: "pull_request",
+    title: "Require a pull request before merging",
+    description:
+      "Require all commits be made to a non-target branch and submitted via a pull request before they can be merged.",
+  },
+  {
     type: "required_linear_history",
     title: "Require linear history",
     description: "Prevent merge commits from being pushed to matching refs.",
@@ -43,6 +50,63 @@ export const rules: { type: RuleType; title: string; description: string }[] = [
 export const ruleTitles = Object.fromEntries(
   rules.map(({ type, title }) => [type, title]),
 ) as Record<RuleType, string>;
+
+export const pullRequestParametersSchema = z.object({
+  required_approving_review_count: z.number().int().min(0).max(10),
+  dismiss_stale_reviews_on_push: z.boolean(),
+  require_code_owner_review: z.boolean(),
+  require_last_push_approval: z.boolean(),
+  required_review_thread_resolution: z.boolean(),
+  allowed_merge_methods: z
+    .array(z.enum(mergeMethods))
+    .min(1, "Allow at least one merge method."),
+});
+export type PullRequestParameters = z.infer<typeof pullRequestParametersSchema>;
+
+/** GitHub's defaults for a new rule. */
+export const defaultPullRequestParameters: PullRequestParameters = {
+  required_approving_review_count: 0,
+  dismiss_stale_reviews_on_push: false,
+  require_code_owner_review: false,
+  require_last_push_approval: false,
+  required_review_thread_resolution: false,
+  allowed_merge_methods: [...mergeMethods],
+};
+
+/** GitHub's labels and descriptions for the rule's switches, in GitHub's order. */
+export const pullRequestFlags: {
+  key: Exclude<
+    keyof PullRequestParameters,
+    "required_approving_review_count" | "allowed_merge_methods"
+  >;
+  title: string;
+  description: string;
+}[] = [
+  {
+    key: "dismiss_stale_reviews_on_push",
+    title: "Dismiss stale pull request approvals when new commits are pushed",
+    description:
+      "New, reviewable commits pushed will dismiss previous pull request review approvals.",
+  },
+  {
+    key: "require_code_owner_review",
+    title: "Require review from Code Owners",
+    description:
+      "Require an approving review in pull requests that modify files that have a designated code owner.",
+  },
+  {
+    key: "require_last_push_approval",
+    title: "Require approval of the most recent reviewable push",
+    description:
+      "Whether the most recent reviewable push must be approved by someone other than the person who pushed it.",
+  },
+  {
+    key: "required_review_thread_resolution",
+    title: "Require conversation resolution before merging",
+    description:
+      "All conversations on code must be resolved before a pull request can be merged.",
+  },
+];
 
 export const bypassRoles = ["write", "maintain", "admin"] as const;
 
@@ -62,15 +126,21 @@ export const rulesetBodySchema = z.object({
     }),
   ),
   rules: z.array(
-    z.object({
-      type: z.enum([
-        "creation",
-        "update",
-        "deletion",
-        "non_fast_forward",
-        "required_linear_history",
-      ]),
-    }),
+    z.discriminatedUnion("type", [
+      z.object({
+        type: z.enum([
+          "creation",
+          "update",
+          "deletion",
+          "non_fast_forward",
+          "required_linear_history",
+        ]),
+      }),
+      z.object({
+        type: z.literal("pull_request"),
+        parameters: pullRequestParametersSchema,
+      }),
+    ]),
   ),
 });
 

@@ -1,7 +1,8 @@
 import { type Database, schema } from '@ghost/db';
+import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, sql } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../../database/database.module.js';
 import {
@@ -21,6 +22,11 @@ import {
   type UserRow,
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
+import { rulesetColumns } from '../../../../lib/rulesets/ruleset-columns.js';
+import {
+  GITHUB_ROLE_IDS,
+  type PullRequestRuleParameters,
+} from '../../../../lib/rulesets/rulesets.types.js';
 import { hasScope } from '../../../../lib/github/scopes.js';
 import { oauthAppBlocked } from '../../../../lib/organizations/oauth-app-access.js';
 import type { AuthorizedRepository } from '../../../../lib/repositories/access/repository-access.js';
@@ -34,10 +40,16 @@ import {
   IssueState,
   LabelOrderField,
   OrderDirection,
+  type PullRequestAllowedMergeMethods,
   PullRequestState,
+  type RepositoryRulesetBypassActorBypassMode,
+  type RepositoryRulesetTarget,
+  type RepositoryRuleType,
+  type RuleEnforcement,
 } from '../../enums.js';
 import { IssueFilters, IssueOrder, LabelOrder } from '../../inputs.js';
 import { PullRequestNode } from '../../types/pull-request.type.js';
+import type { RepositoryRulesetNode } from '../../types/ruleset.type.js';
 import { RepositoryNode } from '../../types/repository.type.js';
 import { IssueNodesService } from '../issue/issue-nodes.service.js';
 
@@ -190,6 +202,84 @@ export class RepositoryNodesService {
       (candidate) => candidate.name.toLowerCase() === name.toLowerCase(),
     );
     return label ? toLabelNode(label, repository) : null;
+  }
+
+  /** Active and disabled rulesets alike, oldest first; bypass actors only for the repository's admins, as on GitHub. */
+  async rulesets(repository: RepositoryNode, first?: number, after?: string) {
+    const rows = await this.db
+      .select({
+        ...rulesetColumns,
+        numericId: schema.ruleset.numericId,
+        createdAt: schema.ruleset.createdAt,
+        updatedAt: schema.ruleset.updatedAt,
+      })
+      .from(schema.ruleset)
+      .where(eq(schema.ruleset.repositoryId, repository.ghostId))
+      .orderBy(asc(schema.ruleset.createdAt));
+    const admin = atLeast(repository.viewerRole, 'admin');
+    return sliceConnection(
+      rows.map(
+        (row): RepositoryRulesetNode => ({
+          kind: 'RepositoryRuleset',
+          id: encodeNodeId('RepositoryRuleset', row.id),
+          databaseId: row.numericId,
+          name: row.name,
+          target: row.target.toUpperCase() as RepositoryRulesetTarget,
+          enforcement: row.enforcement.toUpperCase() as RuleEnforcement,
+          conditions: {
+            refName: { include: row.include, exclude: row.exclude },
+          },
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          ruleNodes: row.rules.map((rule) => {
+            const parameters =
+              rule.type === 'pull_request'
+                ? (rule.parameters as PullRequestRuleParameters)
+                : null;
+            return {
+              kind: 'RepositoryRule',
+              id: encodeNodeId('RepositoryRule', `${row.id}:${rule.type}`),
+              type: rule.type.toUpperCase() as RepositoryRuleType,
+              parameters: parameters && {
+                kind: 'PullRequestParameters',
+                allowedMergeMethods: parameters.allowed_merge_methods.map(
+                  (method) =>
+                    method.toUpperCase() as PullRequestAllowedMergeMethods,
+                ),
+                dismissStaleReviewsOnPush:
+                  parameters.dismiss_stale_reviews_on_push,
+                requireCodeOwnerReview: parameters.require_code_owner_review,
+                requireLastPushApproval: parameters.require_last_push_approval,
+                requiredApprovingReviewCount:
+                  parameters.required_approving_review_count,
+                requiredReviewThreadResolution:
+                  parameters.required_review_thread_resolution,
+              },
+            };
+          }),
+          bypassActorNodes: admin
+            ? row.bypassActors.map((actor, index) => ({
+                kind: 'RepositoryRulesetBypassActor',
+                id: encodeNodeId(
+                  'RepositoryRulesetBypassActor',
+                  `${row.id}:${index}`,
+                ),
+                bypassMode:
+                  actor.bypassMode.toUpperCase() as RepositoryRulesetBypassActorBypassMode,
+                deployKey: false,
+                organizationAdmin: actor.actorType === 'OrganizationAdmin',
+                repositoryRoleDatabaseId:
+                  actor.actorType === 'RepositoryRole'
+                    ? GITHUB_ROLE_IDS[actor.role]
+                    : null,
+                repositoryRoleName:
+                  actor.actorType === 'RepositoryRole' ? actor.role : null,
+              }))
+            : [],
+        }),
+      ),
+      { first, after },
+    );
   }
 
   async assignableUsers(

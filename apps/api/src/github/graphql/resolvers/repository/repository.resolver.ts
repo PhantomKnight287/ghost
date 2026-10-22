@@ -27,6 +27,13 @@ import {
   PullRequestNode,
 } from '../../types/pull-request.type.js';
 import { RefNode, RepositoryNode } from '../../types/repository.type.js';
+import {
+  RepositoryRuleConnection,
+  RepositoryRulesetBypassActorConnection,
+  RepositoryRulesetConnection,
+  RepositoryRulesetNode,
+} from '../../types/ruleset.type.js';
+import { sliceConnection } from '../../connection.js';
 import { UserConnection } from '../../types/user.type.js';
 import { RepositoryNodesService } from './repository-nodes.service.js';
 
@@ -92,6 +99,15 @@ export class RepositoryResolver {
     @Viewer() viewer: GithubViewer | null,
   ) {
     return this.repositories.label(repository, name, viewer);
+  }
+
+  @ResolveField(() => RepositoryRulesetConnection, { nullable: true })
+  rulesets(
+    @Parent() repository: RepositoryNode,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
+  ) {
+    return this.repositories.rulesets(repository, first, after);
   }
 
   @ResolveField(() => UserConnection)
@@ -205,5 +221,29 @@ export class RepositoryOwnerResolver {
     @Viewer() viewer: GithubViewer | null,
   ) {
     return this.repositories.ownedRepository(owner.login, name, viewer);
+  }
+}
+
+@Resolver(() => RepositoryRulesetNode)
+@AllowAnonymous()
+export class RepositoryRulesetResolver {
+  @ResolveField(() => RepositoryRuleConnection, { nullable: true })
+  rules(
+    @Parent() ruleset: RepositoryRulesetNode,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
+  ) {
+    return sliceConnection(ruleset.ruleNodes, { first, after });
+  }
+
+  @ResolveField(() => RepositoryRulesetBypassActorConnection, {
+    nullable: true,
+  })
+  bypassActors(
+    @Parent() ruleset: RepositoryRulesetNode,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
+  ) {
+    return sliceConnection(ruleset.bypassActorNodes, { first, after });
   }
 }

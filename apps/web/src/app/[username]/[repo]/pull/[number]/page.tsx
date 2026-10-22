@@ -38,7 +38,7 @@ export default async function PullRequestPage({
   ]);
 
   const path = { username, repo, number: Number(number) };
-  const [pull, timeline, requested] = await Promise.all([
+  const [pull, timeline, requested, requirements] = await Promise.all([
     client.GET("/api/repositories/{username}/{repo}/pulls/{number}", {
       params: { path },
     }),
@@ -49,6 +49,13 @@ export default async function PullRequestPage({
       "/api/repositories/{username}/{repo}/pulls/{number}/requested-reviewers",
       { params: { path } },
     ),
+    // Only someone who can merge sees the requirements; a closed request answers with an error and shows none.
+    session && atLeast(role, "write")
+      ? client.GET(
+          "/api/repositories/{username}/{repo}/pulls/{number}/merge-requirements",
+          { params: { path } },
+        )
+      : null,
   ]);
 
   notFoundIfHidden(pull.response);
@@ -96,6 +103,9 @@ export default async function PullRequestPage({
             number={Number(number)}
             viewer={viewer}
             canModerate={atLeast(role, "write")}
+            canResolve={
+              atLeast(role, "write") || viewer === pull.data.authorUsername
+            }
             items={timeline.data?.timeline ?? []}
             noun="pull request"
             headSha={pull.data.headSha}
@@ -117,6 +127,7 @@ export default async function PullRequestPage({
           reviewers={pull.data.reviewers}
           pullRefsBlocked={pull.data.pullRefsBlocked}
           checks={pull.data.checks}
+          requirements={requirements?.data ?? null}
           baseRef={pull.data.base.ref}
           headRef={pull.data.head.ref}
         />

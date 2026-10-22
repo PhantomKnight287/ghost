@@ -288,10 +288,10 @@ Expected: FAIL.
   - `resolveReviewThread` flips it, and `resolvedBy.login` equals the viewer;
   - `viewerCanResolve` is false for a reader;
   - unresolve works.
-- [ ] **Step 3: Run the tests and confirm they fail**
-- [ ] **Step 4: The user implements** the service, the endpoints, the events and GraphQL.
-- [ ] **Step 5: Run the tests and confirm they pass**
-- [ ] **Step 6: Claude audits**
+- [x] **Step 3: Run the tests and confirm they fail**
+- [x] **Step 4: The user implements** the service, the endpoints, the events and GraphQL.
+- [x] **Step 5: Run the tests and confirm they pass**
+- [x] **Step 6: Claude audits**
 
 ---
 
@@ -337,7 +337,7 @@ Mark the per-request git work with `// ponytail: per-request git work for list q
 
 The message text comes from GitHub, recorded in Task 9.
 
-- [ ] **Step 1: Write the failing e2e tests** in `pull-request-rules.e2e-spec.ts`. Set up through the Ghost API and git push, as in `rulesets-enforcement.e2e-spec.ts`, and call `requirements` through the endpoint from Task 6, or directly with `app.get(PullRequestRulesService)`. Tests:
+- [x] **Step 1: Write the failing e2e tests** in `pull-request-rules.e2e-spec.ts`. Set up through the Ghost API and git push, as in `rulesets-enforcement.e2e-spec.ts`, and call `requirements` through the endpoint from Task 6, or directly with `app.get(PullRequestRulesService)`. Tests:
   - `no pull_request rule: no requirements`;
   - `counts an approval from a write collaborator, not the author`;
   - `drops an approval whose reviewer lost write access` (Review Focus 1);
@@ -352,10 +352,10 @@ The message text comes from GitHub, recorded in Task 9.
   - `unresolved thread counts; resolving clears it`;
   - `stale consumer dismisses with null dismissedById and emits review_dismissed`;
   - `stale consumer does nothing when dismiss_stale is off`.
-- [ ] **Step 2: Run the tests and confirm they fail**
-- [ ] **Step 3: The user implements**
-- [ ] **Step 4: Run the tests and confirm they pass**, along with `codeowner-requests.e2e-spec.ts` and `pull-request-reviews.e2e-spec.ts`.
-- [ ] **Step 5: Claude audits.** Check by hand that a repository with no rulesets runs no git command in `requirements`.
+- [x] **Step 2: Run the tests and confirm they fail**
+- [x] **Step 3: The user implements**
+- [x] **Step 4: Run the tests and confirm they pass**, along with `codeowner-requests.e2e-spec.ts` and `pull-request-reviews.e2e-spec.ts`.
+- [x] **Step 5: Claude audits.** Check by hand that a repository with no rulesets runs no git command in `requirements`.
 
 ---
 
@@ -374,11 +374,11 @@ The message text comes from GitHub, recorded in Task 9.
 - `GET /api/repositories/:username/:repo/pulls/:number/merge-requirements?method=` returns `MergeRequirements` for the signed-in viewer.
 - Push: when `verdict.bypassed` is non-empty and `violations` is empty, the sideband prints `Bypassed rule violations for <ref>:` followed by `- <message>` for each one. Correct the exact text from GitHub in Task 9.
 
-- [ ] **Step 1: Write the failing push tests** in `rulesets-enforcement.e2e-spec.ts`:
+- [x] **Step 1: Write the failing push tests** in `rulesets-enforcement.e2e-spec.ts`:
   - `pull_request rule refuses a direct push to main with GH013 and "Changes must be made through a pull request."`;
   - `an always-bypass push lands and prints the bypassed notice`;
   - `a pull_request-mode bypasser's direct push is still refused`.
-- [ ] **Step 2: Write the failing merge tests** in `pull-request-rules.e2e-spec.ts`:
+- [x] **Step 2: Write the failing merge tests** in `pull-request-rules.e2e-spec.ts`:
   - `merge refused with 422 listing every unmet requirement`: approvals, code owners and threads give three entries, each naming the ruleset;
   - `merge allowed once requirements met`;
   - `bypasser without flag gets 422 bypass-required; with bypassRules merges and writes rules_bypassed timeline event and outbox event`;
@@ -387,10 +387,10 @@ The message text comes from GitHub, recorded in Task 9.
   - `merge-requirements endpoint lists violations, bypassed and allowedMethods`;
   - `disabling the ruleset unblocks immediately` (Review Focus 4);
   - `merge judges the head it loaded`: a push to the head after the requirements were met, with `dismiss_stale` on, leads to a refused merge.
-- [ ] **Step 3: Run the tests and confirm they fail**
-- [ ] **Step 4: The user implements**
-- [ ] **Step 5: Run the tests and confirm they pass**, along with `rulesets-enforcement.e2e-spec.ts` in full and `merge-methods.e2e-spec.ts`.
-- [ ] **Step 6: Claude audits**
+- [x] **Step 3: Run the tests and confirm they fail**
+- [x] **Step 4: The user implements**
+- [x] **Step 5: Run the tests and confirm they pass**, along with `rulesets-enforcement.e2e-spec.ts` in full and `merge-methods.e2e-spec.ts`.
+- [x] **Step 6: Claude audits**
 
 ---
 
@@ -414,7 +414,7 @@ The message text comes from GitHub, recorded in Task 9.
 - REST: `mergeable_state: 'blocked'` in the same case. `PUT /pulls/{n}/merge` answers 405 `{ message }` listing every violation, for a non-bypasser.
 - `repository.rulesets(first, after)`: a `RepositoryRuleset` with `databaseId`, `name`, `target`, `enforcement`, `conditions { refName { include exclude } }`, `rules { nodes { type parameters } }` and `bypassActors`. The bypass actors are for admins only.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - REST `mergeable_state` is `blocked`, and `clean` once met;
   - 405 on PUT merge with the message listing the requirements;
   - an admin bypass actor's PUT merge succeeds without a flag;
@@ -425,10 +425,10 @@ The message text comes from GitHub, recorded in Task 9.
   - in `gh-cli.e2e-spec.ts`, `gh pr merge` on a blocked PR exits non-zero with gh's base branch policy text, and `gh pr view --json reviewDecision,mergeStateStatus` shows `REVIEW_REQUIRED`/`BLOCKED`.
 
   Leave `Ref.branchProtectionRule` and the no-rule `reviewDecision` assertions for after Task 9 records GitHub's answer.
-- [ ] **Step 2: Run the tests and confirm they fail**
-- [ ] **Step 3: The user implements**
-- [ ] **Step 4: Run the tests and confirm they pass**, including `github-graphql.e2e-spec.ts` and `github-pulls.e2e-spec.ts` in full. Use the gh suite recipe from memory for `gh-cli.e2e-spec.ts`.
-- [ ] **Step 5: Claude audits**
+- [x] **Step 2: Run the tests and confirm they fail**
+- [x] **Step 3: The user implements**
+- [x] **Step 4: Run the tests and confirm they pass**, including `github-graphql.e2e-spec.ts` and `github-pulls.e2e-spec.ts` in full. Use the gh suite recipe from memory for `gh-cli.e2e-spec.ts`.
+- [x] **Step 5: Claude audits**
 
 ---
 
@@ -469,6 +469,6 @@ Behaviour:
   - whether a base move dismisses only when the files overlap;
   - whether a change request blocks with a count of 0;
   - the stale dismissal message.
-- [ ] **Step 2:** Put the recorded wording in the evaluator and the notice. Add the deferred Task 7 assertions. Update the spec wherever GitHub differed.
-- [ ] **Step 3:** Run the full API suite, unit and e2e, against throwaway Postgres and RustFS. Expected: green except the known failures noted in memory (`storage-limits` fork quota, `webhook-events` release).
-- [ ] **Step 4:** Check the cost anti-goal by hand: view and merge a PR in a repository without rulesets, with git command tracing on, and see no extra git command and at most one ruleset query.
+- [x] **Step 2:** Put the recorded wording in the evaluator and the notice. Add the deferred Task 7 assertions. Update the spec wherever GitHub differed.
+- [x] **Step 3:** Run the full API suite, unit and e2e, against throwaway Postgres and RustFS. Expected: green except the known failures noted in memory (`storage-limits` fork quota, `webhook-events` release).
+- [x] **Step 4:** Check the cost anti-goal by hand: view and merge a PR in a repository without rulesets, with git command tracing on, and see no extra git command and at most one ruleset query.

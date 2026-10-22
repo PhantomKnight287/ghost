@@ -86,7 +86,7 @@ export class GithubConflictError extends DomainError {
 export class NotMergeableError extends DomainError {
   readonly status = HttpStatus.METHOD_NOT_ALLOWED;
 
-  constructor() {
-    super('Pull Request is not mergeable');
+  constructor(message = 'Pull Request is not mergeable') {
+    super(message);
   }
 }

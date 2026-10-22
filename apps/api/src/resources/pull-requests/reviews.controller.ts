@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
@@ -15,8 +17,10 @@ import {
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiForbiddenResponse,
   ApiOperation,
   ApiTags,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
@@ -30,14 +34,19 @@ import {
   ReviewCommentBodyDTO,
   ReviewCommentRequestDTO,
   ReviewReplyDTO,
+  ReviewThreadResolutionDTO,
   UpdateReviewRequestDTO,
 } from './dto/pull-request-review.dto.js';
+import { ReviewThreadsService } from './review-threads.service.js';
 import { ReviewsService } from './reviews.service.js';
 
 @Controller('repositories/:username/:repo/pulls/:number')
 @ApiTags('Pull request reviews')
 export class ReviewsController {
-  constructor(private readonly reviews: ReviewsService) {}
+  constructor(
+    private readonly reviews: ReviewsService,
+    private readonly threads: ReviewThreadsService,
+  ) {}
 
   @Post('reviews')
   @ApiOperation({
@@ -254,6 +263,54 @@ export class ReviewsController {
       number,
       commentId,
       requesterId: session.user.id,
+    });
+  }
+
+  @Post('comments/:commentId/resolve')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resolve the thread a line comment starts' })
+  @ApiOkResponse({ type: ReviewThreadResolutionDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
+  resolveThread(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Param('commentId') commentId: string,
+    @Session() session: UserSession,
+  ) {
+    return this.threads.resolve({
+      username,
+      repo,
+      number,
+      commentId,
+      requesterId: session.user.id,
+      resolved: true,
+    });
+  }
+
+  @Post('comments/:commentId/unresolve')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reopen the thread a line comment starts' })
+  @ApiOkResponse({ type: ReviewThreadResolutionDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
+  unresolveThread(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Param('commentId') commentId: string,
+    @Session() session: UserSession,
+  ) {
+    return this.threads.resolve({
+      username,
+      repo,
+      number,
+      commentId,
+      requesterId: session.user.id,
+      resolved: false,
     });
   }
 }

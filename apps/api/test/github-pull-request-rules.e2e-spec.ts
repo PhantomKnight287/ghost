@@ -250,6 +250,18 @@ describe.skipIf(!hasBackends)('GitHub pull request rules', { timeout: 30_000 }, 
       expect(await serverTip(`refs/heads/${base}`)).toBe(before);
     });
 
+    it('refuses a method the rules leave out with 405 and only GitHub’s method message', async () => {
+      const { base, number } = await pullRequest();
+      await requireOn(base, {
+        required_approving_review_count: 1,
+        allowed_merge_methods: ['merge'],
+      });
+      const { body } = await rest(author)
+        .put(`/pulls/${number}/merge`, { merge_method: 'squash' })
+        .expect(405);
+      expect(body.message).toBe('Squash merges are not allowed on this repository.');
+    });
+
     it('merges for a bypass actor without any flag, and records the bypass', async () => {
       const { base, number } = await pullRequest();
       await requireOn(base, { required_approving_review_count: 1 }, maintainers);
@@ -289,6 +301,22 @@ describe.skipIf(!hasBackends)('GitHub pull request rules', { timeout: 30_000 }, 
       });
     });
 
+    it('answers null without a rule requiring reviews, even once approved', async () => {
+      const { number } = await pullRequest();
+      await review(reviewer, number, 'approved');
+      expect(await pullFields(author, number)).toMatchObject({ reviewDecision: null });
+    });
+
+    it('answers CHANGES_REQUESTED under a rule that requires no approvals', async () => {
+      const { base, number } = await pullRequest();
+      await requireOn(base, {});
+      await review(reviewer, number, 'changes_requested', 'Please fix');
+      expect(await pullFields(author, number)).toMatchObject({
+        reviewDecision: 'CHANGES_REQUESTED',
+        mergeStateStatus: 'BLOCKED',
+      });
+    });
+
     it('answers REVIEW_REQUIRED while code owners are waiting', async () => {
       const base = `base-${++counter}`;
       git('checkout', '-q', '-B', base, 'main');
@@ -318,6 +346,25 @@ describe.skipIf(!hasBackends)('GitHub pull request rules', { timeout: 30_000 }, 
       expect(await pullFields(author, number)).toMatchObject({
         reviewDecision: 'APPROVED',
       });
+    });
+
+    it('answers as GitHub does without a rule, and leaves branchProtectionRule null under one', async () => {
+      const free = await pullRequest();
+      expect(await pullFields(author, free.number)).toMatchObject({ reviewDecision: null });
+
+      const { base, number } = await pullRequest();
+      await requireOn(base, { required_approving_review_count: 1 });
+      const body = await graphql(
+        author,
+        `query($owner: String!, $name: String!, $number: Int!) {
+          repository(owner: $owner, name: $name) {
+            pullRequest(number: $number) { baseRef { branchProtectionRule { id } } }
+          }
+        }`,
+        { owner: org, name, number },
+      );
+      expect(body.errors).toBeUndefined();
+      expect(body.data.repository.pullRequest.baseRef).toEqual({ branchProtectionRule: null });
     });
 
     it('answers mergeStateStatus BLOCKED, for a bypass actor too, and CLEAN once met', async () => {
@@ -433,7 +480,7 @@ describe.skipIf(!hasBackends)('GitHub pull request rules', { timeout: 30_000 }, 
                 requireCodeOwnerReview: true,
                 requireLastPushApproval: false,
                 requiredReviewThreadResolution: false,
-                allowedMergeMethods: ['squash'],
+                allowedMergeMethods: ['SQUASH'],
               },
             },
           ],

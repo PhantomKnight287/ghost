@@ -45,6 +45,8 @@ import {
   GetPullRequestPatchQueryDTO,
   MergePullRequestRequestDTO,
   MergePullRequestResponseDTO,
+  MergeRequirementsDTO,
+  MergeRequirementsQueryDTO,
 } from './dto/pull-request-changes.dto.js';
 import { PullRequestsService } from './pull-requests.service.js';
 
@@ -261,6 +263,30 @@ export class PullRequestsController {
       title: body.title,
       message: body.message,
       method: body.method,
+      bypassRules: body.bypassRules,
+    });
+  }
+
+  @Get(':number/merge-requirements')
+  @ApiOperation({
+    summary: 'What stands between the viewer and merging a pull request',
+  })
+  @ApiOkResponse({ type: MergeRequirementsDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiConflictResponse({ type: ErrorResponseDTO })
+  getMergeRequirements(
+    @Param('username') username: string,
+    @Param('repo') repo: string,
+    @Param('number', ParseIntPipe) number: number,
+    @Query() query: MergeRequirementsQueryDTO,
+    @Session() session: UserSession,
+  ) {
+    return this.pullRequests.mergeRequirements({
+      username,
+      repo,
+      number,
+      requesterId: session.user.id,
+      method: query.method,
     });
   }
 

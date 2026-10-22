@@ -39,6 +39,8 @@ export class RulesetRuleDTO {
   type: RuleType;
 
   @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: true,
     description:
       "For `pull_request`: GitHub's parameters, defaults filled in for those left out. Other rules take none.",
     example: {

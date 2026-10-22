@@ -26,6 +26,13 @@ const MESSAGES: Record<Exclude<RuleType, 'pull_request'>, string> = {
 
 const MERGE_METHODS: MergeMethod[] = ['merge', 'squash', 'rebase'];
 
+// GitHub's 405 wording for a method a rule leaves out.
+const METHOD_NAMES: Record<MergeMethod, string> = {
+  merge: 'Merge commits',
+  squash: 'Squash merges',
+  rebase: 'Rebase merges',
+};
+
 /** How far `actor` may skip `ruleset`: GitHub's `current_user_can_bypass`. */
 export function bypassOf(
   ruleset: Pick<Ruleset, 'bypassActors'>,
@@ -64,18 +71,17 @@ function unmetOnMerge(
       'approvals',
       `At least ${required} approving review${required === 1 ? ' is' : 's are'} required by reviewers with write access.`,
     ]);
-  // ponytail: a change request blocks only when reviews are required at all; Task 9 checks GitHub with a count of 0.
-  if (
-    pullRequest.changesRequestedBy.length > 0 &&
-    (required > 0 || parameters.require_code_owner_review)
-  )
+  // GitHub: whoever requests changes must approve before the pull request can merge, whatever the approval count.
+  if (pullRequest.changesRequestedBy.length > 0)
     unmet.push([
       'changes_requested',
       'Changes requested by reviewers with write access.',
     ]);
   if (parameters.require_code_owner_review) {
+    // An author who owns a path stands in for its owners, as GitHub lets a sole owner's own pull request merge.
     const waiting = pullRequest.codeOwners.filter(
       (owned) =>
+        !owned.userIds.includes(pullRequest.authorId) &&
         !counted.some(
           (approval) =>
             owned.userIds.includes(approval.userId) ||
@@ -100,17 +106,20 @@ function unmetOnMerge(
   )
     unmet.push([
       'last_push',
-      'The most recent push must be approved by someone other than the last pusher.',
+      'New changes require approval from someone other than the last pusher.',
     ]);
   if (
     parameters.required_review_thread_resolution &&
     pullRequest.unresolvedThreads > 0
   )
-    unmet.push(['threads', 'All comments must be resolved.']);
+    unmet.push([
+      'threads',
+      'A conversation must be resolved before this pull request can be merged.',
+    ]);
   if (!parameters.allowed_merge_methods.includes(pullRequest.method))
     unmet.push([
       'merge_method',
-      `Merge method ${pullRequest.method} is not allowed.`,
+      `${METHOD_NAMES[pullRequest.method]} are not allowed on this repository.`,
     ]);
   return unmet;
 }

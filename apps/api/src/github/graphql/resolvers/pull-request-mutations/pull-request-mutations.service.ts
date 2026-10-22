@@ -2,9 +2,14 @@ import { Injectable } from '@nestjs/common';
 
 import { UnprocessableError } from '../../../../lib/github/github.errors.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
+import {
+  decodeNodeIdAs,
+  encodeNodeId,
+} from '../../../../lib/github/node-id.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
 import { PullRequestsService } from '../../../../resources/pull-requests/pull-requests.service.js';
 import { ReviewRequestsService } from '../../../../resources/pull-requests/review-requests.service.js';
+import { ReviewThreadsService } from '../../../../resources/pull-requests/review-threads.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { requireWriteScope } from '../../../auth/require-scopes.js';
 import { PullRequestState, PullRequestUpdateState } from '../../enums.js';
@@ -16,6 +21,7 @@ import {
   IssueMutationsService,
   type IssueRef,
 } from '../issue-mutations/issue-mutations.service.js';
+import { PullRequestNodesService } from '../pull-request/pull-request-nodes.service.js';
 
 @Injectable()
 export class PullRequestMutationsService {
@@ -25,6 +31,8 @@ export class PullRequestMutationsService {
     private readonly issues: IssuesService,
     private readonly mutations: IssueMutationsService,
     private readonly issueNodes: IssueNodesService,
+    private readonly threads: ReviewThreadsService,
+    private readonly pullNodes: PullRequestNodesService,
   ) {}
 
   async createPullRequest(
@@ -201,6 +209,7 @@ export class PullRequestMutationsService {
             : undefined,
           title: input.commitHeadline || undefined,
           message: input.commitBody ?? undefined,
+          compat: true,
         });
       },
     );
@@ -239,6 +248,42 @@ export class PullRequestMutationsService {
         });
       },
     );
+  }
+
+  /** Resolves or reopens the thread `threadId` names, and answers with it as it then stands. */
+  async resolveReviewThread(
+    input: M.ResolveReviewThreadInput,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+    resolved: boolean,
+  ) {
+    const mutation = resolved ? 'ResolveReviewThread' : 'UnresolveReviewThread';
+    const signedIn = this.mutations.require(viewer, mutation);
+    const [issueId, commentId] = decodeNodeIdAs(
+      input.threadId,
+      'PullRequestReviewThread',
+    ).split(':');
+    if (!issueId || !commentId) throw this.mutations.unresolved(input.threadId);
+    const { repository, ref } = await this.mutations.issueRef(
+      encodeNodeId('PullRequest', issueId),
+      signedIn,
+      ['PullRequest'],
+    );
+    requireWriteScope(
+      signedIn,
+      mutation[0]!.toLowerCase() + mutation.slice(1),
+      repository,
+    );
+    await this.mutations.write(mutation, signedIn.userId, loaders, () =>
+      this.threads.resolve({ ...ref, commentId, resolved }),
+    );
+    const [thread] = await this.pullNodes.reviewThreads(
+      await this.node(repository, ref.number, signedIn),
+      signedIn,
+      loaders,
+      commentId,
+    );
+    return { clientMutationId: input.clientMutationId, thread };
   }
 
   /** A mutation that names one pull request, runs `run` on it, and answers with it as it then stands. */

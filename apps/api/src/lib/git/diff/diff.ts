@@ -141,6 +141,26 @@ function patchArgs(from: string, to: string, path?: string) {
   ];
 }
 
+/** `git patch-id --stable` of `from..to`: equal for two ranges that make the same change, whatever their commits. Empty for an empty diff. */
+export async function diffIdentity({
+  gitDir,
+  alternates,
+  from,
+  to,
+}: DiffRange) {
+  return (
+    await runGit({
+      args: ['patch-id', '--stable'],
+      gitDir,
+      input: runGitReadable({
+        args: patchArgs(from, to),
+        gitDir,
+        env: alternatesEnv(alternates),
+      }),
+    })
+  ).split(' ')[0];
+}
+
 /** The patch text itself, streamed - a large review diff should not be buffered. */
 export function streamDiffPatch({
   gitDir,

@@ -14,7 +14,10 @@ import { githubOrigins } from '../../../lib/github/origins.js';
 import { bypassOf } from '../../../lib/rulesets/evaluate-rulesets.js';
 import { refTargeted } from '../../../lib/rulesets/ref-pattern.js';
 import { rulesetColumns } from '../../../lib/rulesets/ruleset-columns.js';
-import type { BypassActor } from '../../../lib/rulesets/rulesets.types.js';
+import {
+  type BypassActor,
+  GITHUB_ROLE_IDS,
+} from '../../../lib/rulesets/rulesets.types.js';
 import type {
   RulesetBypassActorDTO,
   RulesetRequestDTO,
@@ -34,8 +37,6 @@ import type {
   GithubUpdateRulesetDTO,
 } from './dto/rulesets.dto.js';
 
-/** GitHub's numbers for the built-in repository roles, as its API and Terraform provider use them. */
-const ROLE_IDS = { maintain: 2, write: 4, admin: 5 } as const;
 // GitHub sends 1 for the organization admin actor, whose id means nothing.
 const ORGANIZATION_ADMIN_ID = 1;
 
@@ -272,7 +273,7 @@ export class GithubRulesetsService {
     return actors.map((actor) => ({
       actor_id:
         actor.actorType === 'RepositoryRole'
-          ? ROLE_IDS[actor.role]
+          ? GITHUB_ROLE_IDS[actor.role]
           : actor.actorType === 'Team'
             ? teams.find((team) => team.id === actor.teamId)!.numericId
             : ORGANIZATION_ADMIN_ID,
@@ -310,9 +311,9 @@ export class GithubRulesetsService {
           bypassMode: bypass_mode,
         };
       }
-      const role = Object.entries(ROLE_IDS).find(
+      const role = Object.entries(GITHUB_ROLE_IDS).find(
         ([, id]) => id === actor_id,
-      )?.[0] as keyof typeof ROLE_IDS | undefined;
+      )?.[0] as keyof typeof GITHUB_ROLE_IDS | undefined;
       if (!role)
         throw new UnprocessableError(
           `Invalid actor_id ${actor_id} for actor_type RepositoryRole`,

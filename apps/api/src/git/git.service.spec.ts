@@ -57,7 +57,11 @@ describe('GitService', () => {
   const codeSearch = { indexInBackground: vi.fn() };
   const verdicts = {
     active: vi.fn().mockResolvedValue([]),
-    judge: vi.fn(async ({ transitions }) => ({ transitions, violations: [] })),
+    judge: vi.fn(async ({ transitions }) => ({
+      transitions,
+      violations: [],
+      bypassed: [],
+    })),
   };
   const pullRefs = { syncAfterPush: vi.fn().mockResolvedValue(undefined) };
   const pullRequestPushes = {

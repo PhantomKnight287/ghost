@@ -472,7 +472,8 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       expect(await unmet(number)).toEqual([]);
     });
 
-    it('base move makes approval stale, even when the base commits touch other files', async () => {
+    // GitHub dismisses an approval only once the pull request's own changes differ; the base moving on leaves them as they were.
+    it('base move alone keeps approval: the diff the reviewer approved is unchanged', async () => {
       const { base, number } = await pullRequest({ 'work/mine.txt': 'mine\n' });
       await approve(reviewer, number);
       commitOn(base, base, { 'elsewhere.txt': 'unrelated\n' });
@@ -481,9 +482,21 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
         required_approving_review_count: 1,
         dismiss_stale_reviews_on_push: true,
       });
-      expect(await unmet(number)).toEqual(['approvals']);
+      expect(await unmet(number)).toEqual([]);
+    });
 
+    it('merging the base into the head keeps approval when it brings no new changes to the diff', async () => {
+      const { base, head, number } = await pullRequest({ 'work/merged.txt': 'mine\n' });
       await approve(reviewer, number);
+      commitOn(base, base, { 'elsewhere.txt': `moved ${counter}\n` });
+      await pushAs(owner, `${base}:refs/heads/${base}`);
+      await requireOn(base, {
+        required_approving_review_count: 1,
+        dismiss_stale_reviews_on_push: true,
+      });
+      git('checkout', '-q', head);
+      git('merge', '-q', '--no-edit', base);
+      await pushAs(author, `${head}:refs/heads/${head}`);
       expect(await unmet(number)).toEqual([]);
     });
 
@@ -540,7 +553,8 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       expect(await unmet(number)).toEqual([]);
     });
 
-    it('blocks a code owner’s own pull request when they are its only owner', async () => {
+    // GitHub merged a pull request whose author was the only owner of its files, with no review (checked 2026-10-22).
+    it('lets a code owner’s own pull request through for the files they own', async () => {
       const base = `base-${++counter}`;
       git('checkout', '-q', '-B', base, 'main');
       await pushAs(owner, `${base}:refs/heads/${base}`);
@@ -555,9 +569,7 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
           .expect(201)
       ).body.number as number;
       await requireOn(base, { require_code_owner_review: true });
-
-      await approve(second, number);
-      expect(await unmet(number, reviewer)).toEqual(['code_owners']);
+      expect(await unmet(number, reviewer)).toEqual([]);
     });
 
     it('headPushedById follows git push and suggestion apply', async () => {
@@ -690,7 +702,7 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       });
     });
 
-    it('dismisses approvals on every open pull request into a base that moved', async () => {
+    it('dismisses nothing when only the base moves', async () => {
       const { base, number } = await pullRequest();
       await requireOn(
         base,
@@ -703,14 +715,42 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       );
       const approval = await approve(reviewer, number);
 
-      commitOn(base, base, { 'elsewhere.txt': `base moves ${counter}\n` });
+      const moved = commitOn(base, base, { 'elsewhere.txt': `base moves ${counter}\n` });
       await pushAs(maintainer, `${base}:refs/heads/${base}`);
+      // The push event is published after the push answers; wait for it before waiting on its consumers.
       await vi.waitFor(
-        async () =>
-          expect((await reviewRow(approval.body.id)).dismissalMessage).not.toBeNull(),
+        async () => {
+          const events = await db()
+            .select({ id: schema.outboxEvent.id })
+            .from(schema.outboxEvent)
+            .where(
+              and(
+                eq(schema.outboxEvent.type, 'push'),
+                eq(sql`${schema.outboxEvent.payload}->>'after'`, moved),
+              ),
+            );
+          expect(events).toHaveLength(1);
+        },
         { timeout: 15_000, interval: 100 },
       );
-      expect((await reviewRow(approval.body.id)).dismissedById).toBeNull();
+      await settle();
+      expect((await reviewRow(approval.body.id)).dismissalMessage).toBeNull();
+    });
+
+    it('dismisses a stale approval on a draft too', async () => {
+      const { base, head, number } = await pullRequest();
+      await requireOn(base, {
+        required_approving_review_count: 1,
+        dismiss_stale_reviews_on_push: true,
+      });
+      const approval = await approve(reviewer, number);
+      await api().post(pull(number, '/draft')).set('cookie', author.cookie).expect(201);
+
+      const after = commitOn(head, head);
+      await pushAs(author, `${head}:refs/heads/${head}`);
+      await synchronized(after);
+      await settle();
+      expect((await reviewRow(approval.body.id)).dismissalMessage).not.toBeNull();
     });
 
     it('does nothing when dismiss_stale is off, and the old approval still counts', async () => {
@@ -878,6 +918,7 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
           expect.objectContaining({ requirement: 'approvals', rulesetId: bypassable.id }),
         ],
         allowedMethods: ['squash'],
+        reviewsRequired: true,
       });
 
       const asAuthor = await requirements(number, author);

@@ -123,6 +123,10 @@ export class PullRequestPushesService {
         exclude: [baseSha, previous].filter((sha) => sha !== null),
       });
       await this.db.transaction(async (tx) => {
+        await tx
+          .update(schema.pullRequest)
+          .set({ headPushedById: pushedBy })
+          .where(eq(schema.pullRequest.issueId, pull.issueId));
         await recordCommitEvents(tx, {
           issueId: pull.issueId,
           actorId: pushedBy,

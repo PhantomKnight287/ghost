@@ -4,12 +4,13 @@ import { cn } from "cn";
 import {
   CircleCheck,
   CircleX,
+  ShieldAlert,
   GitMerge,
   GitPullRequestClosed,
   GitPullRequestDraft,
   TriangleAlert,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -18,6 +19,8 @@ import { closePullRequest, setDraft } from "@/components/pull-requests/actions";
 import { CommitChecks } from "@/components/repositories/commit-checks";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { mergeMethods } from "@/components/pull-requests/common";
 import { Spinner } from "@/components/ui/spinner";
 import { UserLink } from "@/components/users/user-link";
 import type { components } from "@/lib/api/v1";
@@ -38,6 +41,7 @@ export function MergePanel({
   reviewers,
   pullRefsBlocked,
   checks,
+  requirements,
   baseRef,
   headRef,
 }: {
@@ -62,10 +66,28 @@ export function MergePanel({
   pullRefsBlocked: string | null;
   /** Statuses on the head commit, or null when it has none. */
   checks: components["schemas"]["CombinedCommitStatusDTO"] | null;
+  /** What the rulesets ask of this merge, for a viewer who can merge; null for anyone else. */
+  requirements: components["schemas"]["MergeRequirementsDTO"] | null;
   baseRef: string;
   headRef: string;
 }) {
   const router = useRouter();
+  const [bypassing, setBypassing] = useState(false);
+
+  // The method menu offers only allowed methods, so a method requirement is shown as an empty menu, not a row; with none allowed, a bypasser may still use any.
+  const shown = (list: components["schemas"]["RuleViolationDTO"][]) =>
+    list.filter(({ requirement }) => requirement !== "merge_method");
+  const blocking = shown(requirements?.violations ?? []);
+  const bypassable = shown(requirements?.bypassed ?? []);
+  const methodBypassable = (requirements?.bypassed ?? []).some(
+    ({ requirement }) => requirement === "merge_method",
+  );
+  const allowed = requirements?.allowedMethods ?? [...mergeMethods];
+  const methods =
+    allowed.length > 0 ? allowed : methodBypassable ? [...mergeMethods] : [];
+  const needsBypass =
+    bypassable.length > 0 || (allowed.length === 0 && methodBypassable);
+  const blocked = blocking.length > 0 || methods.length === 0;
 
   const draftToggle = useAction(setDraft, {
     onSuccess: ({ input }) => {
@@ -217,6 +239,40 @@ export function MergePanel({
         </Section>
       )}
 
+      {!draft &&
+        (blocking.length > 0 ||
+          bypassable.length > 0 ||
+          methods.length === 0) && (
+          <Section
+            icon={<ShieldAlert className="size-4" />}
+            tone={blocked ? "bg-red-500 text-white" : "bg-amber-500 text-white"}
+            title={
+              blocked
+                ? "Merging is blocked"
+                : "Merging is blocked, but you can bypass the rules"
+            }
+          >
+            {methods.length === 0 && (
+              <p>No merge method is allowed by every ruleset on this branch.</p>
+            )}
+            <ul className="mt-1 flex flex-col gap-1">
+              {[...blocking, ...bypassable].map((violation) => (
+                <li
+                  key={`${violation.rulesetId}:${violation.requirement ?? violation.rule}`}
+                >
+                  <span className="text-foreground">{violation.message}</span>{" "}
+                  <Link
+                    href={`/${username}/${repo}/settings/rules/${violation.rulesetId}`}
+                    className="hover:underline"
+                  >
+                    ({violation.rulesetName})
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
       {(canMerge || isAuthor) && (
         <div className="flex flex-wrap items-start gap-2 bg-muted/30 px-4 py-3">
           <div className="flex min-w-0 flex-1">
@@ -239,13 +295,34 @@ export function MergePanel({
                   </Button>
                 )
               : canMerge && (
-                  <MergeButton
-                    username={username}
-                    repo={repo}
-                    number={number}
-                    disabled={!mergeable}
-                    squash={squash}
-                  />
+                  <div className="flex flex-col gap-2">
+                    {!blocked && needsBypass && (
+                      <label
+                        htmlFor="bypass-rules"
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <Checkbox
+                          id="bypass-rules"
+                          checked={bypassing}
+                          onCheckedChange={(checked) =>
+                            setBypassing(checked === true)
+                          }
+                        />
+                        Merge anyway, bypassing ruleset requirements
+                      </label>
+                    )}
+                    <MergeButton
+                      username={username}
+                      repo={repo}
+                      number={number}
+                      disabled={
+                        !mergeable || blocked || (needsBypass && !bypassing)
+                      }
+                      methods={methods}
+                      bypassRules={needsBypass && bypassing}
+                      squash={squash}
+                    />
+                  </div>
                 )}
           </div>
 

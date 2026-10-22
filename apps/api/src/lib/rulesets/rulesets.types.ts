@@ -33,6 +33,9 @@ export type BypassActor = {
     }
 );
 
+/** GitHub's numbers for the built-in repository roles, as its API and Terraform provider use them. */
+export const GITHUB_ROLE_IDS = { maintain: 2, write: 4, admin: 5 } as const;
+
 export type RulesetActor = {
   role: Role | null;
   teamIds: string[];
@@ -123,14 +126,16 @@ export type PullRequestRuleParameters = z.infer<
   typeof PullRequestRuleParametersZodSchema
 >;
 
-export type Requirement =
-  | 'pull_request'
-  | 'approvals'
-  | 'changes_requested'
-  | 'code_owners'
-  | 'last_push'
-  | 'threads'
-  | 'merge_method';
+export const REQUIREMENTS = [
+  'pull_request',
+  'approvals',
+  'changes_requested',
+  'code_owners',
+  'last_push',
+  'threads',
+  'merge_method',
+] as const;
+export type Requirement = (typeof REQUIREMENTS)[number];
 
 export type PullRequestFacts = {
   authorId: string;

@@ -741,6 +741,15 @@ describe('evaluateRulesets', () => {
         ).toEqual(['changes_requested']);
       });
 
+      // GitHub: whoever requests changes must approve before the pull request can merge, whatever the approval count.
+      it('blocks on a standing change request with no approvals required', () => {
+        expect(
+          requirementsOf(
+            merge([prRuleset({})], facts({ changesRequestedBy: ['u_b'] })),
+          ),
+        ).toEqual(['changes_requested']);
+      });
+
       describe('code owners', () => {
         const owned = (owners: { userIds?: string[]; teamIds?: string[] }) => ({
           pattern: '/packages/db/',
@@ -807,14 +816,30 @@ describe('evaluateRulesets', () => {
           ).toEqual(['code_owners']);
         });
 
-        it("blocks a sole owner's own pull request", () => {
+        // GitHub merged a pull request whose author was the only owner of its files, with no review (checked 2026-10-22).
+        it("lets an owner's own pull request through for the paths they own", () => {
+          expect(
+            merge(
+              rulesets,
+              facts({
+                authorId: 'u_owner',
+                codeOwners: [owned({ userIds: ['u_owner'] })],
+              }),
+            ),
+          ).toEqual([]);
+        });
+
+        it('still waits on the paths the author does not own', () => {
           expect(
             requirementsOf(
               merge(
                 rulesets,
                 facts({
                   authorId: 'u_owner',
-                  codeOwners: [owned({ userIds: ['u_owner'] })],
+                  codeOwners: [
+                    owned({ userIds: ['u_owner'] }),
+                    { ...owned({ userIds: ['u_web'] }), pattern: '/apps/web/' },
+                  ],
                 }),
               ),
             ),
