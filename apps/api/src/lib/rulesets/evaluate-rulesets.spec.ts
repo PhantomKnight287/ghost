@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { type RefTransition, ZERO_OID } from '../git/wal/wal.types.js';
-import { evaluateRulesets } from './evaluate-rulesets.js';
+import { allowedMergeMethods, evaluateRulesets } from './evaluate-rulesets.js';
 import type {
+  PullRequestFacts,
+  PullRequestRuleParameters,
   RefFacts,
   Ruleset,
   RulesetActor,
@@ -57,21 +59,25 @@ const fastForward: RefFacts = {
 const forced: RefFacts = { isFastForward: false, introducesMergeCommit: false };
 const merged: RefFacts = { isFastForward: true, introducesMergeCommit: true };
 
-const evaluate = ({
-  rulesets,
-  transitions,
-  facts = {},
-  actor = writer,
-  write = 'push',
-  defaultBranch = 'main',
-}: {
+type EvaluateInput = {
   rulesets: Ruleset[];
   transitions: RefTransition[];
   facts?: Record<string, RefFacts>;
   actor?: RulesetActor;
   write?: 'push' | 'pull_request_merge';
   defaultBranch?: string;
-}) =>
+  pullRequest?: PullRequestFacts;
+};
+
+const evaluateAll = ({
+  rulesets,
+  transitions,
+  facts = {},
+  actor = writer,
+  write = 'push',
+  defaultBranch = 'main',
+  pullRequest,
+}: EvaluateInput) =>
   evaluateRulesets({
     rulesets,
     actor,
@@ -79,7 +85,11 @@ const evaluate = ({
     transitions,
     facts: new Map(Object.entries(facts)),
     defaultBranch,
+    pullRequest,
   });
+
+/** The violations that refuse the write; what the actor bypassed is checked through `evaluateAll`. */
+const evaluate = (input: EvaluateInput) => evaluateAll(input).violations;
 
 const rulesOf = (violations: ReturnType<typeof evaluate>) =>
   violations.map(({ ref, rule }) => [ref, rule]);
@@ -301,7 +311,12 @@ describe('evaluateRulesets', () => {
       })),
     ).toEqual(
       expect.arrayContaining([
-        { ref: MAIN, rulesetId: first.id, rulesetName: 'first', rule: 'update' },
+        {
+          ref: MAIN,
+          rulesetId: first.id,
+          rulesetName: 'first',
+          rule: 'update',
+        },
         {
           ref: MAIN,
           rulesetId: first.id,
@@ -360,7 +375,11 @@ describe('evaluateRulesets', () => {
 
     it('lets members of a listed team bypass', () => {
       const rulesets = [
-        always({ actorType: 'Team', teamId: 'team_core', bypassMode: 'always' }),
+        always({
+          actorType: 'Team',
+          teamId: 'team_core',
+          bypassMode: 'always',
+        }),
       ];
       expect(
         evaluate({
@@ -391,9 +410,9 @@ describe('evaluateRulesets', () => {
           actor: { ...writer, organizationAdmin: true },
         }),
       ).toEqual([]);
-      expect(
-        rulesOf(evaluate({ rulesets, transitions: [remove()] })),
-      ).toEqual([[MAIN, 'deletion']]);
+      expect(rulesOf(evaluate({ rulesets, transitions: [remove()] }))).toEqual([
+        [MAIN, 'deletion'],
+      ]);
     });
 
     it('does not let admins bypass unless they are listed', () => {
@@ -444,7 +463,11 @@ describe('evaluateRulesets', () => {
       const rulesets = [
         ruleset(['update'], {
           bypassActors: [
-            { actorType: 'RepositoryRole', role: 'write', bypassMode: 'always' },
+            {
+              actorType: 'RepositoryRole',
+              role: 'write',
+              bypassMode: 'always',
+            },
           ],
         }),
       ];
@@ -476,6 +499,585 @@ describe('evaluateRulesets', () => {
       expect(violations.map(({ rulesetName }) => rulesetName)).toEqual([
         'enforced',
       ]);
+    });
+
+    it('reports what the actor bypassed instead of dropping it', () => {
+      const bypassable = ruleset(['update'], {
+        name: 'bypassable',
+        bypassActors: [
+          { actorType: 'RepositoryRole', role: 'write', bypassMode: 'always' },
+        ],
+      });
+      const result = evaluateAll({
+        rulesets: [bypassable],
+        transitions: [update()],
+        facts: { [MAIN]: fastForward },
+      });
+
+      expect(result.violations).toEqual([]);
+      expect(result.bypassed).toMatchObject([
+        { ref: MAIN, rulesetId: bypassable.id, rule: 'update' },
+      ]);
+    });
+
+    it('a bypassed ruleset lands in bypassed, not violations', () => {
+      const r = evaluateAll({
+        rulesets: [
+          ruleset(['update'], {
+            bypassActors: [
+              {
+                actorType: 'RepositoryRole',
+                role: 'write',
+                bypassMode: 'always',
+              },
+            ],
+          }),
+        ],
+        transitions: [update()],
+      });
+      expect(r.violations).toEqual([]);
+      expect(r.bypassed).toMatchObject([{ rule: 'update' }]);
+    });
+
+    it('puts a pull_request-mode bypass on a merge in bypassed, and refuses it on a push', () => {
+      const rulesets = [
+        ruleset(['update'], {
+          bypassActors: [
+            {
+              actorType: 'RepositoryRole',
+              role: 'write',
+              bypassMode: 'pull_request',
+            },
+          ],
+        }),
+      ];
+      const merge = evaluateAll({
+        rulesets,
+        transitions: [update()],
+        facts: { [MAIN]: fastForward },
+        write: 'pull_request_merge',
+      });
+      expect(merge.violations).toEqual([]);
+      expect(rulesOf(merge.bypassed)).toEqual([[MAIN, 'update']]);
+
+      const push = evaluateAll({
+        rulesets,
+        transitions: [update()],
+        facts: { [MAIN]: fastForward },
+        write: 'push',
+      });
+      expect(rulesOf(push.violations)).toEqual([[MAIN, 'update']]);
+      expect(push.bypassed).toEqual([]);
+    });
+
+    it('leaves bypassed empty when nothing was broken', () => {
+      const result = evaluateAll({
+        rulesets: [
+          ruleset(['deletion'], {
+            bypassActors: [
+              {
+                actorType: 'RepositoryRole',
+                role: 'write',
+                bypassMode: 'always',
+              },
+            ],
+          }),
+        ],
+        transitions: [update()],
+        facts: { [MAIN]: fastForward },
+      });
+      expect(result).toEqual({ violations: [], bypassed: [] });
+    });
+  });
+
+  describe('pull_request', () => {
+    const NO_REQUIREMENTS: PullRequestRuleParameters = {
+      required_approving_review_count: 0,
+      dismiss_stale_reviews_on_push: false,
+      require_code_owner_review: false,
+      require_last_push_approval: false,
+      required_review_thread_resolution: false,
+      allowed_merge_methods: ['merge', 'squash', 'rebase'],
+    };
+    const prRuleset = (
+      parameters: Partial<PullRequestRuleParameters> = {},
+      overrides: Partial<Ruleset> = {},
+    ): Ruleset =>
+      ruleset([], {
+        rules: [
+          {
+            type: 'pull_request',
+            parameters: { ...NO_REQUIREMENTS, ...parameters },
+          },
+        ],
+        ...overrides,
+      });
+    const facts = (
+      overrides: Partial<PullRequestFacts> = {},
+    ): PullRequestFacts => ({
+      authorId: 'u_author',
+      method: 'squash',
+      approvals: [],
+      changesRequestedBy: [],
+      headPushedById: 'u_author',
+      codeOwners: [],
+      unresolvedThreads: 0,
+      ...overrides,
+    });
+    const approval = (
+      userId: string,
+      overrides: { teamIds?: string[]; stale?: boolean } = {},
+    ) => ({
+      userId,
+      teamIds: overrides.teamIds ?? [],
+      stale: overrides.stale ?? false,
+    });
+    const merge = (rulesets: Ruleset[], pullRequest?: PullRequestFacts) =>
+      evaluate({
+        rulesets,
+        transitions: [update()],
+        facts: { [MAIN]: fastForward },
+        write: 'pull_request_merge',
+        pullRequest,
+      });
+    const requirementsOf = (violations: ReturnType<typeof evaluate>) =>
+      violations.map(({ requirement }) => requirement);
+
+    describe('direct pushes', () => {
+      it("refuses updating a targeted ref, in GitHub's words", () => {
+        expect(
+          evaluate({
+            rulesets: [prRuleset()],
+            transitions: [update()],
+            facts: { [MAIN]: fastForward },
+          }),
+        ).toMatchObject([
+          {
+            ref: MAIN,
+            rule: 'pull_request',
+            requirement: 'pull_request',
+            message: 'Changes must be made through a pull request.',
+          },
+        ]);
+      });
+
+      it('leaves creating and deleting the ref to their own rules', () => {
+        expect(
+          evaluate({ rulesets: [prRuleset()], transitions: [create()] }),
+        ).toEqual([]);
+        expect(
+          evaluate({ rulesets: [prRuleset()], transitions: [remove()] }),
+        ).toEqual([]);
+      });
+
+      it('ignores refs the ruleset does not target', () => {
+        expect(
+          evaluate({
+            rulesets: [prRuleset()],
+            transitions: [update('refs/heads/dev')],
+            facts: { 'refs/heads/dev': fastForward },
+          }),
+        ).toEqual([]);
+      });
+    });
+
+    describe('merges', () => {
+      it('passes a merge with no requirements', () => {
+        expect(merge([prRuleset()], facts())).toEqual([]);
+      });
+
+      it('fails closed when the pull request facts are missing', () => {
+        expect(merge([prRuleset()]).map(({ rule }) => rule)).toEqual([
+          'pull_request',
+        ]);
+      });
+
+      it('needs the required number of approvals', () => {
+        const rulesets = [prRuleset({ required_approving_review_count: 2 })];
+        expect(
+          requirementsOf(
+            merge(rulesets, facts({ approvals: [approval('u_a')] })),
+          ),
+        ).toEqual(['approvals']);
+        expect(
+          merge(
+            rulesets,
+            facts({ approvals: [approval('u_a'), approval('u_b')] }),
+          ),
+        ).toEqual([]);
+      });
+
+      it('counts stale approvals only while stale reviews are kept', () => {
+        const stale = facts({ approvals: [approval('u_a', { stale: true })] });
+        expect(
+          merge([prRuleset({ required_approving_review_count: 1 })], stale),
+        ).toEqual([]);
+        expect(
+          requirementsOf(
+            merge(
+              [
+                prRuleset({
+                  required_approving_review_count: 1,
+                  dismiss_stale_reviews_on_push: true,
+                }),
+              ],
+              stale,
+            ),
+          ),
+        ).toEqual(['approvals']);
+      });
+
+      it('blocks on a standing change request even with enough approvals', () => {
+        expect(
+          requirementsOf(
+            merge(
+              [prRuleset({ required_approving_review_count: 1 })],
+              facts({
+                approvals: [approval('u_a')],
+                changesRequestedBy: ['u_b'],
+              }),
+            ),
+          ),
+        ).toEqual(['changes_requested']);
+      });
+
+      describe('code owners', () => {
+        const owned = (owners: { userIds?: string[]; teamIds?: string[] }) => ({
+          pattern: '/packages/db/',
+          userIds: owners.userIds ?? [],
+          teamIds: owners.teamIds ?? [],
+          tokens: ['@dbowner'],
+        });
+        const rulesets = [prRuleset({ require_code_owner_review: true })];
+
+        it("is satisfied by an owner's approval", () => {
+          expect(
+            merge(
+              rulesets,
+              facts({
+                codeOwners: [owned({ userIds: ['u_owner'] })],
+                approvals: [approval('u_owner')],
+              }),
+            ),
+          ).toEqual([]);
+        });
+
+        it("is not satisfied by someone else's approval, and names who it waits on", () => {
+          const violations = merge(
+            rulesets,
+            facts({
+              codeOwners: [owned({ userIds: ['u_owner'] })],
+              approvals: [approval('u_other')],
+            }),
+          );
+          expect(requirementsOf(violations)).toEqual(['code_owners']);
+          expect(violations[0].message).toContain('@dbowner');
+        });
+
+        it('is satisfied by a member of an owning team', () => {
+          expect(
+            merge(
+              rulesets,
+              facts({
+                codeOwners: [owned({ teamIds: ['team_db'] })],
+                approvals: [approval('u_member', { teamIds: ['team_db'] })],
+              }),
+            ),
+          ).toEqual([]);
+        });
+
+        it('needs every owned path satisfied', () => {
+          expect(
+            requirementsOf(
+              merge(
+                rulesets,
+                facts({
+                  codeOwners: [
+                    owned({ userIds: ['u_owner'] }),
+                    {
+                      ...owned({ userIds: ['u_web'] }),
+                      pattern: '/apps/web/',
+                      tokens: ['@webowner'],
+                    },
+                  ],
+                  approvals: [approval('u_owner')],
+                }),
+              ),
+            ),
+          ).toEqual(['code_owners']);
+        });
+
+        it("blocks a sole owner's own pull request", () => {
+          expect(
+            requirementsOf(
+              merge(
+                rulesets,
+                facts({
+                  authorId: 'u_owner',
+                  codeOwners: [owned({ userIds: ['u_owner'] })],
+                }),
+              ),
+            ),
+          ).toEqual(['code_owners']);
+        });
+
+        it('does not accept a stale owner approval while stale reviews are dismissed', () => {
+          expect(
+            requirementsOf(
+              merge(
+                [
+                  prRuleset({
+                    require_code_owner_review: true,
+                    dismiss_stale_reviews_on_push: true,
+                  }),
+                ],
+                facts({
+                  codeOwners: [owned({ userIds: ['u_owner'] })],
+                  approvals: [approval('u_owner', { stale: true })],
+                }),
+              ),
+            ),
+          ).toEqual(['code_owners']);
+        });
+
+        it('needs nothing when no changed path has an owner', () => {
+          expect(merge(rulesets, facts())).toEqual([]);
+        });
+      });
+
+      describe('last push approval', () => {
+        const rulesets = [prRuleset({ require_last_push_approval: true })];
+
+        it('is satisfied by a fresh approval from someone other than the pusher', () => {
+          expect(
+            merge(
+              rulesets,
+              facts({
+                headPushedById: 'u_pusher',
+                approvals: [approval('u_r')],
+              }),
+            ),
+          ).toEqual([]);
+        });
+
+        it("is not satisfied by the pusher's own approval", () => {
+          expect(
+            requirementsOf(
+              merge(
+                rulesets,
+                facts({
+                  headPushedById: 'u_pusher',
+                  approvals: [approval('u_pusher')],
+                }),
+              ),
+            ),
+          ).toEqual(['last_push']);
+        });
+
+        it('is not satisfied by a stale approval', () => {
+          expect(
+            requirementsOf(
+              merge(
+                rulesets,
+                facts({
+                  headPushedById: 'u_pusher',
+                  approvals: [approval('u_r', { stale: true })],
+                }),
+              ),
+            ),
+          ).toEqual(['last_push']);
+        });
+
+        it('is not satisfied when nobody is known to have pushed', () => {
+          expect(
+            requirementsOf(
+              merge(
+                rulesets,
+                facts({ headPushedById: null, approvals: [approval('u_r')] }),
+              ),
+            ),
+          ).toEqual(['last_push']);
+        });
+      });
+
+      it('needs every review thread resolved', () => {
+        const rulesets = [
+          prRuleset({ required_review_thread_resolution: true }),
+        ];
+        expect(
+          requirementsOf(merge(rulesets, facts({ unresolvedThreads: 1 }))),
+        ).toEqual(['threads']);
+        expect(merge(rulesets, facts())).toEqual([]);
+        expect(merge([prRuleset()], facts({ unresolvedThreads: 3 }))).toEqual(
+          [],
+        );
+      });
+
+      it('refuses a merge method the ruleset does not allow', () => {
+        const rulesets = [prRuleset({ allowed_merge_methods: ['squash'] })];
+        expect(
+          requirementsOf(merge(rulesets, facts({ method: 'merge' }))),
+        ).toEqual(['merge_method']);
+        expect(merge(rulesets, facts({ method: 'squash' }))).toEqual([]);
+      });
+
+      it('reports every unmet requirement at once', () => {
+        const violations = merge(
+          [
+            prRuleset({
+              required_approving_review_count: 1,
+              require_code_owner_review: true,
+              required_review_thread_resolution: true,
+              allowed_merge_methods: ['squash'],
+            }),
+          ],
+          facts({
+            method: 'rebase',
+            unresolvedThreads: 2,
+            codeOwners: [
+              {
+                pattern: '/packages/db/',
+                userIds: ['u_owner'],
+                teamIds: [],
+                tokens: ['@dbowner'],
+              },
+            ],
+          }),
+        );
+        expect(requirementsOf(violations).sort()).toEqual(
+          ['approvals', 'code_owners', 'merge_method', 'threads'].sort(),
+        );
+        for (const violation of violations) {
+          expect(violation.rule).toBe('pull_request');
+          expect(violation.message.length).toBeGreaterThan(0);
+        }
+      });
+
+      it('adds up several rulesets, naming the one that is unmet', () => {
+        const one = prRuleset(
+          { required_approving_review_count: 1 },
+          { name: 'one' },
+        );
+        const two = prRuleset(
+          { required_approving_review_count: 2 },
+          { name: 'two', include: ['~ALL'] },
+        );
+        const violations = merge(
+          [one, two],
+          facts({ approvals: [approval('u_a')] }),
+        );
+        expect(
+          violations.map(({ rulesetName, requirement }) => [
+            rulesetName,
+            requirement,
+          ]),
+        ).toEqual([['two', 'approvals']]);
+      });
+
+      it('lets a pull_request-mode bypasser merge over it, reporting what was bypassed', () => {
+        const rulesets = [
+          prRuleset(
+            { required_approving_review_count: 1 },
+            {
+              bypassActors: [
+                {
+                  actorType: 'RepositoryRole',
+                  role: 'admin',
+                  bypassMode: 'pull_request',
+                },
+              ],
+            },
+          ),
+        ];
+        const result = evaluateAll({
+          rulesets,
+          transitions: [update()],
+          facts: { [MAIN]: fastForward },
+          write: 'pull_request_merge',
+          pullRequest: facts(),
+          actor: { ...writer, role: 'admin' },
+        });
+        expect(result.violations).toEqual([]);
+        expect(result.bypassed.map(({ requirement }) => requirement)).toEqual([
+          'approvals',
+        ]);
+      });
+    });
+
+    describe('allowedMergeMethods', () => {
+      it('allows every method when nothing restricts them', () => {
+        expect(allowedMergeMethods([], MAIN, 'main').sort()).toEqual([
+          'merge',
+          'rebase',
+          'squash',
+        ]);
+      });
+
+      it('intersects the methods of every targeting ruleset', () => {
+        expect(
+          allowedMergeMethods(
+            [
+              prRuleset({ allowed_merge_methods: ['merge', 'squash'] }),
+              prRuleset({ allowed_merge_methods: ['squash', 'rebase'] }),
+            ],
+            MAIN,
+            'main',
+          ),
+        ).toEqual(['squash']);
+      });
+
+      it('drops merge under required_linear_history', () => {
+        expect(
+          allowedMergeMethods(
+            [ruleset(['required_linear_history'])],
+            MAIN,
+            'main',
+          ).sort(),
+        ).toEqual(['rebase', 'squash']);
+      });
+
+      it('ignores rulesets that do not target the ref, or are disabled', () => {
+        expect(
+          allowedMergeMethods(
+            [
+              prRuleset(
+                { allowed_merge_methods: ['squash'] },
+                { include: ['refs/heads/dev'] },
+              ),
+              prRuleset(
+                { allowed_merge_methods: ['rebase'] },
+                { enforcement: 'disabled' },
+              ),
+            ],
+            MAIN,
+            'main',
+          ).sort(),
+        ).toEqual(['merge', 'rebase', 'squash']);
+      });
+
+      it('empty method intersection blocks every method', () => {
+        const rulesets = [
+          prRuleset({ allowed_merge_methods: ['merge'] }),
+          ruleset(['required_linear_history']),
+        ];
+        expect(allowedMergeMethods(rulesets, MAIN, 'main')).toEqual([]);
+        for (const method of ['merge', 'squash', 'rebase'] as const) {
+          expect(
+            evaluate({
+              rulesets,
+              transitions: [update()],
+              facts: {
+                [MAIN]: {
+                  isFastForward: true,
+                  introducesMergeCommit: method === 'merge',
+                },
+              },
+              write: 'pull_request_merge',
+              pullRequest: facts({ method }),
+            }).length,
+          ).toBeGreaterThan(0);
+        }
+      });
     });
   });
 });

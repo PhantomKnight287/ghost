@@ -369,4 +369,90 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
     const none = await as(reader).get(`${repo}/rules/branches/unprotected`).expect(200);
     expect(none.body).toEqual([]);
   });
+
+  describe('the pull_request rule', () => {
+    // GitHub's documented example for a pull_request rule.
+    const parameters = {
+      dismiss_stale_reviews_on_push: true,
+      require_code_owner_review: true,
+      require_last_push_approval: true,
+      required_approving_review_count: 1,
+      required_review_thread_resolution: true,
+      allowed_merge_methods: ['squash'],
+    };
+
+    it('creates a ruleset with it and answers the parameters field by field', async () => {
+      const { body } = await as(owner)
+        .post(
+          `${repo}/rulesets`,
+          valid({ name: 'reviews', rules: [{ type: 'pull_request', parameters }] }),
+        )
+        .expect(201);
+      expect(body.rules).toEqual([
+        { type: 'pull_request', parameters: expect.objectContaining(parameters) },
+      ]);
+      const fetched = await as(reader).get(`${repo}/rulesets/${body.id}`).expect(200);
+      expect(fetched.body.rules).toEqual(body.rules);
+    });
+
+    it('shows it in Ghost’s own API with the same parameters', async () => {
+      await create({ name: 'reviews mirrored', rules: [{ type: 'pull_request', parameters }] });
+      const { body } = await http()
+        .get(`/api/repositories/${org}/guarded/rulesets`)
+        .set('cookie', owner.cookie)
+        .expect(200);
+      const ghost = body.rulesets.find(
+        (ruleset: { name: string }) => ruleset.name === 'reviews mirrored',
+      );
+      expect(ghost.rules).toEqual([{ type: 'pull_request', parameters }]);
+    });
+
+    it('replaces the parameters when an update gives the rules', async () => {
+      const made = await create({ name: 'reviews edited', rules: [{ type: 'pull_request', parameters }] });
+      const changed = { ...parameters, required_approving_review_count: 3, allowed_merge_methods: ['merge', 'rebase'] };
+      const { body } = await as(owner)
+        .put(`${repo}/rulesets/${made.id}`, { rules: [{ type: 'pull_request', parameters: changed }] })
+        .expect(200);
+      expect(body.rules).toEqual([
+        { type: 'pull_request', parameters: expect.objectContaining(changed) },
+      ]);
+    });
+
+    it('refuses invalid parameters with 422 and a message', async () => {
+      const invalid = [
+        { ...parameters, required_approving_review_count: 11 },
+        { ...parameters, required_approving_review_count: 'one' },
+        { ...parameters, allowed_merge_methods: [] },
+        { ...parameters, allowed_merge_methods: ['octopus'] },
+        { ...parameters, require_code_owner_review: 'yes' },
+        { ...parameters, unknown_parameter: true },
+      ];
+      for (const bad of invalid) {
+        const { status, body } = await as(owner).post(
+          `${repo}/rulesets`,
+          valid({ rules: [{ type: 'pull_request', parameters: bad }] }),
+        );
+        expect({ bad, status }).toEqual({ bad, status: 422 });
+        expect(body).toMatchObject({ message: expect.any(String) });
+      }
+    });
+
+    it('returns it with its parameters among the rules for a branch', async () => {
+      const made = await create({
+        name: 'reviews on review-target',
+        conditions: { ref_name: { include: ['review-target'], exclude: [] } },
+        rules: [{ type: 'pull_request', parameters }],
+      });
+      const { body } = await as(reader).get(`${repo}/rules/branches/review-target`).expect(200);
+      expect(body).toEqual([
+        {
+          type: 'pull_request',
+          parameters: expect.objectContaining(parameters),
+          ruleset_source_type: 'Repository',
+          ruleset_source: `${org}/guarded`,
+          ruleset_id: made.id,
+        },
+      ]);
+    });
+  });
 });

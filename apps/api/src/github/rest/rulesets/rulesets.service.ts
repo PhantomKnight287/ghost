@@ -96,7 +96,10 @@ export class GithubRulesetsService {
         include: body.conditions?.ref_name.include ?? [],
         exclude: body.conditions?.ref_name.exclude ?? [],
         bypassActors: await this.bypassActorsOf(body.bypass_actors ?? []),
-        rules: (body.rules ?? []).map(({ type }) => ({ type })),
+        rules: (body.rules ?? []).map(({ type, parameters }) => ({
+          type,
+          parameters,
+        })),
       },
     });
     const [row] = await this.rows(eq(schema.ruleset.id, created.id));
@@ -132,7 +135,9 @@ export class GithubRulesetsService {
       bypassActors: body.bypass_actors
         ? await this.bypassActorsOf(body.bypass_actors)
         : (current.bypassActors as RulesetBypassActorDTO[]),
-      rules: body.rules?.map(({ type }) => ({ type })) ?? current.rules,
+      rules:
+        body.rules?.map(({ type, parameters }) => ({ type, parameters })) ??
+        current.rules,
     };
     await this.rulesets.update({
       ...this.github.ref(repository, viewer),
@@ -181,8 +186,9 @@ export class GithubRulesetsService {
     return rows
       .filter((row) => refTargeted(row, `refs/heads/${branch}`, defaultBranch))
       .flatMap((row) =>
-        row.rules.map(({ type }) => ({
+        row.rules.map(({ type, parameters }) => ({
           type,
+          ...(parameters && { parameters }),
           ruleset_source_type: 'Repository',
           ruleset_source: repository.nameWithOwner,
           ruleset_id: row.numericId,

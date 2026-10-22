@@ -42,3 +42,12 @@ export class RulesetNameTakenError extends DomainError {
 export class InvalidBypassActorError extends DomainError {
   status: number = HttpStatus.UNPROCESSABLE_ENTITY;
 }
+
+/** Parameters a rule does not take, or that are out of range. GitHub's routes answer it as a 422. */
+export class InvalidRuleParametersError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor(type: string, detail: string) {
+    super(`Invalid parameters for the ${type} rule: ${detail}`);
+  }
+}

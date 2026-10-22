@@ -571,7 +571,13 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       await expect(pushAs(writer, 'bp-pr:refs/heads/bp-pr')).rejects.toThrow(REJECTED);
       expect(await serverTip('refs/heads/bp-pr')).toBe(before);
 
-      await merge(writer, number).expect(201);
+      // A bypassed merge needs the opt-in, part A's rules included.
+      await merge(writer, number).expect(422);
+      await api()
+        .post(`/api/repositories/${repo}/pulls/${number}/merge`)
+        .set('cookie', writer.cookie)
+        .send({ method: 'squash', bypassRules: true })
+        .expect(201);
       expect(await serverTip('refs/heads/bp-pr')).not.toBe(before);
     });
 
@@ -597,6 +603,119 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       );
       expect(failure).toMatch(/layer two/);
       expect(failure).not.toMatch(/layer one/);
+    });
+  });
+
+  describe('the pull_request rule', () => {
+    const reviews = (branch: string, bypassActors: object[] = []) =>
+      ruleset({
+        name: `${branch} via pull requests`,
+        include: [branch],
+        rules: [
+          {
+            type: 'pull_request',
+            parameters: {
+              required_approving_review_count: 1,
+              dismiss_stale_reviews_on_push: false,
+              require_code_owner_review: false,
+              require_last_push_approval: false,
+              required_review_thread_resolution: false,
+              allowed_merge_methods: ['merge', 'squash', 'rebase'],
+            },
+          },
+        ],
+        bypassActors,
+      });
+    /** stderr of a push that succeeded; the server speaks on the sideband. */
+    const pushOutput = async (account: Account, ...args: string[]) =>
+      (
+        await promisify(execFile)('git', ['push', remote(account), ...args], {
+          cwd: work,
+          env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+        })
+      ).stderr;
+
+    it('refuses a direct push with GH013 and "Changes must be made through a pull request."', async () => {
+      const before = await seed('pr-only');
+      await reviews('pr-only');
+      commitOn('pr-only', 'pr-only');
+
+      const refused = pushAs(writer, 'pr-only:refs/heads/pr-only');
+      await expect(refused).rejects.toThrow(violationsFor('refs/heads/pr-only'));
+      await expect(refused).rejects.toThrow(/Changes must be made through a pull request\./);
+      await expect(refused).rejects.toThrow(/pr-only via pull requests/);
+      await expect(refused).rejects.toThrow(REJECTED);
+      expect(await serverTip('refs/heads/pr-only')).toBe(before);
+    });
+
+    it('does not refuse creating or deleting a targeted branch', async () => {
+      await reviews('pr-life/*');
+      commitOn('pr-life-work', 'main');
+      await pushAs(writer, 'pr-life-work:refs/heads/pr-life/a');
+      expect(await serverTip('refs/heads/pr-life/a')).not.toBeNull();
+      await pushAs(writer, ':refs/heads/pr-life/a');
+      expect(await serverTip('refs/heads/pr-life/a')).toBeNull();
+    });
+
+    it('refuses applying a suggestion to a head branch the rule targets', async () => {
+      git('checkout', '-q', '-B', 'pr-suggest', 'main');
+      writeFileSync(path.join(work, 'pr-suggest.txt'), 'one\ntwo\n');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'to suggest on');
+      const before = git('rev-parse', 'HEAD');
+      await pushAs(owner, 'pr-suggest:refs/heads/pr-suggest');
+      const number = await openPull(owner, 'pr-suggest', 'main');
+      const { body } = await api()
+        .post(`/api/repositories/${repo}/pulls/${number}/reviews`)
+        .set('cookie', writer.cookie)
+        .send({
+          state: 'commented',
+          comments: [
+            { path: 'pr-suggest.txt', side: 'additions', line: 2, body: '```suggestion\nTWO\n```' },
+          ],
+        })
+        .expect(201);
+      await reviews('pr-suggest');
+
+      const refused = await api()
+        .post(`/api/repositories/${repo}/pulls/${number}/comments/${body.comments[0].id}/apply`)
+        .set('cookie', owner.cookie)
+        .expect(422);
+      expect(refused.body.message).toContain('Changes must be made through a pull request.');
+      expect(await serverTip('refs/heads/pr-suggest')).toBe(before);
+    });
+
+    it('lets an always-bypass push land and prints the bypassed notice', async () => {
+      await seed('pr-bypass');
+      await reviews('pr-bypass', [
+        { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'always' },
+      ]);
+      const next = commitOn('pr-bypass', 'pr-bypass');
+
+      const stderr = await pushOutput(maintainer, 'pr-bypass:refs/heads/pr-bypass');
+      expect(stderr).toContain('Bypassed rule violations for refs/heads/pr-bypass:');
+      expect(stderr).toContain('Changes must be made through a pull request.');
+      expect(await serverTip('refs/heads/pr-bypass')).toBe(next);
+    });
+
+    it('prints no notice when nothing was bypassed', async () => {
+      await seed('pr-free');
+      await reviews('pr-free-elsewhere');
+      commitOn('pr-free', 'pr-free');
+      const stderr = await pushOutput(writer, 'pr-free:refs/heads/pr-free');
+      expect(stderr).not.toContain('Bypassed rule violations');
+    });
+
+    it("still refuses a pull_request-mode bypasser's direct push", async () => {
+      const before = await seed('pr-mode');
+      await reviews('pr-mode', [
+        { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'pull_request' },
+      ]);
+      commitOn('pr-mode', 'pr-mode');
+
+      const refused = pushAs(maintainer, 'pr-mode:refs/heads/pr-mode');
+      await expect(refused).rejects.toThrow(/Changes must be made through a pull request\./);
+      expect(await serverTip('refs/heads/pr-mode')).toBe(before);
     });
   });
 

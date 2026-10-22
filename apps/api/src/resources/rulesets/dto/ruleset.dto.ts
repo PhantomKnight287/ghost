@@ -2,14 +2,16 @@ import { schema } from '@ghost/db';
 import {
   ApiProperty,
   ApiPropertyOptional,
-  OmitType,
   getSchemaPath,
+  OmitType,
 } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
   IsIn,
+  IsObject,
+  IsOptional,
   IsString,
   MaxLength,
   MinLength,
@@ -35,6 +37,22 @@ export class RulesetRuleDTO {
   @ApiProperty({ enum: RULE_TYPES })
   @IsIn(RULE_TYPES)
   type: RuleType;
+
+  @ApiPropertyOptional({
+    description:
+      "For `pull_request`: GitHub's parameters, defaults filled in for those left out. Other rules take none.",
+    example: {
+      required_approving_review_count: 1,
+      dismiss_stale_reviews_on_push: true,
+      require_code_owner_review: false,
+      require_last_push_approval: false,
+      required_review_thread_resolution: true,
+      allowed_merge_methods: ['squash', 'rebase'],
+    },
+  })
+  @IsOptional()
+  @IsObject()
+  parameters?: Record<string, unknown>;
 }
 
 export class RulesetBypassActorDTO {

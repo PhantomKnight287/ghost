@@ -118,14 +118,15 @@ export class RulesetVerdictsService {
     rulesets?: Ruleset[];
   }): Promise<RulesetVerdict> {
     const applicable = rulesets ?? (await this.active(repository.id));
-    if (applicable.length === 0) return { transitions, violations: [] };
+    if (applicable.length === 0)
+      return { transitions, violations: [], bypassed: [] };
     const [actor, defaultBranch] = await Promise.all([
       this.actorOf(repository.id, userId),
       this.defaultBranchOf(repository, gitDir),
     ]);
     return {
       transitions,
-      violations: evaluateRulesets({
+      ...evaluateRulesets({
         rulesets: applicable,
         actor,
         write,

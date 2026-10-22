@@ -489,4 +489,85 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       expect(body.refs).not.toHaveProperty(['refs/heads/feature/x']);
     });
   });
+
+  describe('the pull_request rule', () => {
+    const parameters = {
+      required_approving_review_count: 2,
+      dismiss_stale_reviews_on_push: true,
+      require_code_owner_review: true,
+      require_last_push_approval: false,
+      required_review_thread_resolution: true,
+      allowed_merge_methods: ['squash', 'rebase'],
+    };
+
+    it('creates a ruleset with its parameters and returns them as given', async () => {
+      const made = await create({
+        rules: [{ type: 'deletion' }, { type: 'pull_request', parameters }],
+      });
+      expect(made.rules).toEqual(
+        expect.arrayContaining([
+          { type: 'deletion' },
+          { type: 'pull_request', parameters },
+        ]),
+      );
+
+      const fetched = (await api().get(at(`/${made.id}`)).set('cookie', owner.cookie).expect(200)).body;
+      expect(fetched.rules).toEqual(made.rules);
+    });
+
+    it('fills in the parameters left out', async () => {
+      const made = await create({ rules: [{ type: 'pull_request', parameters: { required_approving_review_count: 1 } }] });
+      expect(made.rules).toEqual([
+        {
+          type: 'pull_request',
+          parameters: {
+            required_approving_review_count: 1,
+            dismiss_stale_reviews_on_push: false,
+            require_code_owner_review: false,
+            require_last_push_approval: false,
+            required_review_thread_resolution: false,
+            allowed_merge_methods: ['merge', 'squash', 'rebase'],
+          },
+        },
+      ]);
+    });
+
+    it('replaces the parameters on update', async () => {
+      const made = await create({ rules: [{ type: 'pull_request', parameters }] });
+      const changed = { ...parameters, required_approving_review_count: 0, allowed_merge_methods: ['merge'] };
+      const { body } = await api()
+        .put(at(`/${made.id}`))
+        .set('cookie', owner.cookie)
+        .send(valid({ rules: [{ type: 'pull_request', parameters: changed }] }))
+        .expect(200);
+      expect(body.rules).toEqual([{ type: 'pull_request', parameters: changed }]);
+    });
+
+    it('refuses malformed parameters with 400', async () => {
+      const malformed = [
+        { ...parameters, required_approving_review_count: 11 },
+        { ...parameters, required_approving_review_count: -1 },
+        { ...parameters, required_approving_review_count: 1.5 },
+        { ...parameters, allowed_merge_methods: [] },
+        { ...parameters, allowed_merge_methods: ['ff'] },
+        { ...parameters, allowed_merge_methods: ['merge', 'merge'] },
+        { ...parameters, dismiss_stale_reviews_on_push: 'yes' },
+        { ...parameters, teleport: true },
+      ];
+      for (const bad of malformed) {
+        const { status } = await createAs(owner, valid({ rules: [{ type: 'pull_request', parameters: bad }] }));
+        expect({ bad, status }).toEqual({ bad, status: 400 });
+      }
+    });
+
+    it('lists pull_request among the protected ref rules', async () => {
+      await create({ name: 'dev reviews', include: ['dev'], rules: [{ type: 'pull_request', parameters }] });
+      const { body } = await api()
+        .get(`/api/repositories/${repo}/protected-refs`)
+        .query({ target: 'branch' })
+        .set('cookie', reader.cookie)
+        .expect(200);
+      expect(body.refs['refs/heads/dev'].rules).toContain('pull_request');
+    });
+  });
 });

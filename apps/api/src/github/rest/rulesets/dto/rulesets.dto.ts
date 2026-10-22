@@ -76,7 +76,8 @@ export class GithubRulesetRuleDTO {
   type: RuleType;
 
   @ApiPropertyOptional({
-    description: 'None of the rules Ghost supports takes any.',
+    description:
+      "For `pull_request`: GitHub's parameters. The other rules Ghost supports take none.",
   })
   @IsOptional()
   @IsObject()

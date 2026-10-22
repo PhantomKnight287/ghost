@@ -7,13 +7,14 @@ import {
   check,
   index,
   integer,
-  primaryKey,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+
 import { team, user } from "./auth.js";
 import { issue } from "./issues.js";
 import { repository } from "./repository.js";
@@ -55,6 +56,9 @@ export const pullRequest = pgTable(
     mergeCommitSha: text(),
     // Why `refs/pull/<n>/*` stopped following the branches: the size limit that refused the last update. Cleared by the next update that lands.
     pullRefsBlocked: text(),
+
+    // who pushed the current head.  A suggestion apply counts as a push. Read by require_last_push_approval.
+    headPushedById: text().references(() => user.id, { onDelete: "set null" }),
 
     mergedAt: timestamp({ withTimezone: true }),
   },
@@ -103,6 +107,9 @@ export const pullRequestReview = pgTable(
 
     dismissedById: text().references(() => user.id, { onDelete: "set null" }),
     dismissalMessage: text(),
+
+    // the base tip when the review was submitted. Null for reviews from before this column existed, which never count as stale from the base side
+    baseSha: text(),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     submittedAt: timestamp({ withTimezone: true }),
@@ -207,6 +214,10 @@ export const pullRequestReviewComment = pgTable(
     // The rows of the diff the comment points at, kept as written: the conversation shows them long after the head has moved on.
     diffHunk: text(),
     body: text().notNull(),
+
+    // set only on root comments, where the root stands for its thread. Null means the thread is unresolved.
+    resolvedById: text().references(() => user.id, { onDelete: "set null" }),
+    resolvedAt: timestamp({ withTimezone: true }),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
