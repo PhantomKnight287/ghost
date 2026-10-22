@@ -226,6 +226,13 @@ describe.skipIf(!hasBackends)('GitHub pull request rules', { timeout: 30_000 }, 
       );
     });
 
+    it('judges mergeable_state and mergeStateStatus by a method the rules allow, not merge', async () => {
+      const { base, number } = await pullRequest();
+      await requireOn(base, { allowed_merge_methods: ['squash'] });
+      expect((await rest(author).get(`/pulls/${number}`).expect(200)).body.mergeable_state).toBe('clean');
+      expect(await pullFields(author, number)).toMatchObject({ mergeStateStatus: 'CLEAN' });
+    });
+
     it('answers mergeable_state blocked to a bypass actor too', async () => {
       const { base, number } = await pullRequest();
       await requireOn(base, { required_approving_review_count: 1 }, maintainers);

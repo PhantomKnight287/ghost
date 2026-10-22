@@ -175,7 +175,7 @@ export class MergeRequirementsQueryDTO {
   @ApiPropertyOptional({
     enumName: 'MergeMethod',
     enum: MERGE_METHODS,
-    default: 'merge',
+    description: 'Left out, the first method the rulesets allow is judged.',
   })
   @IsIn(MERGE_METHODS)
   @IsOptional()

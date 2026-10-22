@@ -9666,6 +9666,7 @@ export interface operations {
     PullRequestsController_getMergeRequirements: {
         parameters: {
             query?: {
+                /** @description Left out, the first method the rulesets allow is judged. */
                 method?: components["schemas"]["MergeMethod"];
             };
             header?: never;

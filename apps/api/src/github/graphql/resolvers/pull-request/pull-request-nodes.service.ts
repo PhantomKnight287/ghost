@@ -17,6 +17,7 @@ import {
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import { canResolveThreads } from '../../../../lib/pull-requests/reviews.js';
 import { teamSlug } from '../../../../lib/organizations/team-slug.js';
+import { MERGE_METHODS } from '../../../../resources/pull-requests/dto/pull-request-changes.dto.js';
 import { PullRequestsService } from '../../../../resources/pull-requests/pull-requests.service.js';
 import { ReviewRequestsService } from '../../../../resources/pull-requests/review-requests.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
@@ -81,7 +82,7 @@ export class PullRequestNodesService {
           ? {
               violations: [],
               bypassed: [],
-              allowedMethods: [],
+              allowedMethods: [...MERGE_METHODS],
               reviewsRequired: false,
             }
           : this.pulls.mergeRequirements({

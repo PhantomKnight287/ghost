@@ -5229,6 +5229,7 @@
             "name": "method",
             "required": false,
             "in": "query",
+            "description": "Left out, the first method the rulesets allow is judged.",
             "schema": {
               "$ref": "#/components/schemas/MergeMethod"
             }

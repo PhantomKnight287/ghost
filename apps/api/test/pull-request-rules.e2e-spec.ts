@@ -934,6 +934,16 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       );
     });
 
+    it('judges the first allowed method when merge-requirements is asked without one', async () => {
+      const { base, number } = await pullRequest();
+      await ruleset({ name: `${base} linear`, include: [base], rules: [{ type: 'required_linear_history' }] });
+      const answer = (
+        await api().get(pull(number, '/merge-requirements')).set('cookie', author.cookie).expect(200)
+      ).body as Requirements;
+      expect(answer.violations).toEqual([]);
+      expect(answer.allowedMethods).toEqual(['squash', 'rebase']);
+    });
+
     it('requires signing in for merge-requirements', async () => {
       const { number } = await pullRequest();
       await api().get(pull(number, '/merge-requirements')).expect(401);

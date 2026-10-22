@@ -890,7 +890,7 @@ export class PullRequestsService {
       git,
       {
         requesterId: params.requesterId ?? null,
-        method: params.method ?? 'merge',
+        method: params.method,
         // Nothing is merged yet; the rules only ask whether the base moves.
         mergeCommitSha: git.headSha,
         rulesets,
@@ -914,7 +914,8 @@ export class PullRequestsService {
       rulesets,
     }: {
       requesterId: string | null;
-      method: MergeMethod;
+      /** Left out, the first method the rules allow is judged, so the answer does not hinge on one they forbid. */
+      method?: MergeMethod;
       mergeCommitSha: string;
       rulesets?: Ruleset[];
     },
@@ -926,6 +927,7 @@ export class PullRequestsService {
       git.pullRequest.baseRef,
       rulesets,
     );
+    const judged = method ?? applicable.allowedMethods[0] ?? 'merge';
     const verdict = await this.verdicts.judge({
       repository: git.base,
       gitDir: git.baseDirectory,
@@ -941,13 +943,13 @@ export class PullRequestsService {
       facts: new Map([
         [
           ref,
-          { isFastForward: true, introducesMergeCommit: method === 'merge' },
+          { isFastForward: true, introducesMergeCommit: judged === 'merge' },
         ],
       ]),
       rulesets: applicable.rulesets,
       pullRequest:
         applicable.pullRequestRules.length > 0
-          ? await this.rules.factsOf(git, applicable.pullRequestRules, method)
+          ? await this.rules.factsOf(git, applicable.pullRequestRules, judged)
           : undefined,
     });
     return {
