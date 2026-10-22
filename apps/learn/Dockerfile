@@ -34,7 +34,11 @@ ENV NEXT_PUBLIC_REPOSITORY_URL=$NEXT_PUBLIC_REPOSITORY_URL
 ENV NEXT_PUBLIC_LEARN_URL=$NEXT_PUBLIC_LEARN_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PATH=/app/node_modules/.bin:/app/apps/learn/node_modules/.bin:$PATH
-RUN cd apps/learn && next build
+# Unkey hands build-time env over as a secret .env file rather than build args.
+ARG UNKEY_SECRETS_ID=env
+RUN --mount=type=secret,id=${UNKEY_SECRETS_ID},target=/run/secrets/.env \
+    if [ -f /run/secrets/.env ]; then set -a && . /run/secrets/.env && set +a; fi && \
+    cd apps/learn && next build
 
 FROM node:22-slim AS runtime
 WORKDIR /app

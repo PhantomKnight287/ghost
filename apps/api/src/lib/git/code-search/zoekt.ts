@@ -195,7 +195,13 @@ async function search(
 ): Promise<{ files: ZoektFile[]; matchCount: number }> {
   const response = await fetch(new URL('/api/search', url), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      // A zoekt node on a public host sits behind a gateway that wants this key.
+      ...(process.env.ZOEKT_TOKEN
+        ? { Authorization: `Bearer ${process.env.ZOEKT_TOKEN}` }
+        : undefined),
+    },
     body: JSON.stringify({
       Q: query,
       Opts: {

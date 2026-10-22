@@ -19,6 +19,8 @@ const DEFAULT_BRANCH_PREFERENCE = ['refs/heads/main', 'refs/heads/master'];
 export class RepositoryMaterializerService {
   private readonly logger = new Logger(RepositoryMaterializerService.name);
   private readonly inFlight = new SingleFlight<WalIndex>();
+  /** The sequence and default branch HEAD was last settled for, per cache directory, so a current cache skips the check. */
+  private readonly settledHeads = new Map<string, string>();
 
   constructor(
     private readonly store: WalStoreService,
@@ -59,9 +61,13 @@ export class RepositoryMaterializerService {
 
     const { index } = stored;
     const cachedSeq = await this.readCachedSeq(repoDirectory);
-    // The default branch changes without a push, so HEAD is checked even when the cache is current.
+    // The default branch changes without a push, so HEAD is checked even when the cache is current, unless this process already settled it for the same sequence and branch.
     if (cachedSeq >= index.seq) {
-      await this.ensureHead(repoDirectory, index, defaultBranch);
+      const settled = `${index.seq}:${defaultBranch ?? ''}`;
+      if (this.settledHeads.get(repoDirectory) !== settled) {
+        await this.ensureHead(repoDirectory, index, defaultBranch);
+        this.settledHeads.set(repoDirectory, settled);
+      }
       return index;
     }
 

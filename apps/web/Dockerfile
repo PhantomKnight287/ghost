@@ -55,7 +55,11 @@ ENV PATH=/app/node_modules/.bin:/app/apps/web/node_modules/.bin:$PATH
 # `src/lib/api/v1.d.ts` is committed, so the openapi codegen step is skipped.
 RUN cd packages/db && tsc -p tsconfig.json
 RUN cd packages/permissions && tsc -p tsconfig.json
-RUN cd apps/web && next build
+# Unkey hands build-time env over as a secret .env file rather than build args.
+ARG UNKEY_SECRETS_ID=env
+RUN --mount=type=secret,id=${UNKEY_SECRETS_ID},target=/run/secrets/.env \
+    if [ -f /run/secrets/.env ]; then set -a && . /run/secrets/.env && set +a; fi && \
+    cd apps/web && next build
 
 FROM node:22-slim AS runtime
 WORKDIR /app
