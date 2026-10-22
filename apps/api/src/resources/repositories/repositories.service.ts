@@ -96,6 +96,7 @@ import {
 import {
   FALLBACK_REF,
   toBranchRef,
+  isBranch,
   resolveCommit,
   resolveDefaultRef,
   resolveRevision,
@@ -1535,28 +1536,30 @@ export class RepositoriesService {
       ref: requestedRef,
     });
 
-    const blob = await readBlob({ gitDir: directory, ref, path: filePath });
-    if (!blob) throw new BlobNotFoundError(filePath);
-
-    const indexed =
-      !detached &&
-      (await this.pathIndex.ensureIndexed({
-        repositoryId: repository.id,
-        repoDirectory: directory,
-        ref,
-      }));
-
-    // one file is one history walk, cheap enough to skip the index for
-    const lastCommit = indexed
-      ? null
-      : await readCommitSummary({ gitDir: directory, ref, path: filePath });
-    const commits = indexed
-      ? await this.pathIndex.lookup({
+    // The history lookup needs only the path, so its round trips overlap reading the blob.
+    const [blob, lastCommit] = await Promise.all([
+      readBlob({ gitDir: directory, ref, path: filePath }),
+      (async () => {
+        const indexed =
+          !detached &&
+          (await this.pathIndex.ensureIndexed({
+            repositoryId: repository.id,
+            repoDirectory: directory,
+            ref,
+          }));
+        // one file is one history walk, cheap enough to skip the index for
+        if (!indexed) {
+          return readCommitSummary({ gitDir: directory, ref, path: filePath });
+        }
+        const commits = await this.pathIndex.lookup({
           repositoryId: repository.id,
           ref,
           paths: [filePath],
-        })
-      : new Map();
+        });
+        return commits.get(filePath) ?? null;
+      })(),
+    ]);
+    if (!blob) throw new BlobNotFoundError(filePath);
 
     const pointer = blob.content && parseLfsPointer(blob.content);
     const object = pointer && (await this.lfs.find(repository.id, pointer.oid));
@@ -1579,7 +1582,7 @@ export class RepositoriesService {
       encoding: text ? 'utf-8' : 'base64',
       content: file.content?.toString(text ? 'utf8' : 'base64') ?? null,
       lfs: pointer ? (object ? 'stored' : 'missing') : null,
-      commit: lastCommit ?? commits.get(filePath) ?? null,
+      commit: lastCommit,
     };
   }
 
@@ -2291,6 +2294,17 @@ export class RepositoriesService {
         ref: await resolveDefaultRef({
           gitDir: directory,
         }),
+      };
+    }
+
+    // Pages almost always name a branch; one exact lookup settles that without listing every branch and tag.
+    const branch = name.replace(/^refs\/heads\//, '');
+    if (await isBranch(directory, branch)) {
+      return {
+        repository,
+        directory,
+        detached: false,
+        ref: `refs/heads/${branch}`,
       };
     }
 

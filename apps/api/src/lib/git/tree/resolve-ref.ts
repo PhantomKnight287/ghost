@@ -95,6 +95,17 @@ export async function resolveTargetCommit({
   return ref ? resolveCommit(gitDir, ref) : null;
 }
 
+/** Whether `name` is exactly a branch. `show-ref --verify` takes no revision syntax, so `main~1` is not one. */
+export function isBranch(gitDir: string, name: string) {
+  return runGit({
+    args: ['show-ref', '--verify', '--quiet', `refs/heads/${name}`],
+    gitDir,
+  }).then(
+    () => true,
+    () => false,
+  );
+}
+
 /** The branch HEAD points at, or null when HEAD is detached or unset. */
 export async function headRef(gitDir: string) {
   const head = await runGit({

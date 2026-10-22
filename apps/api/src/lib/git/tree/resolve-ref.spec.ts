@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { resolveCommit, resolveRevision } from './resolve-ref.js';
+import { isBranch, resolveCommit, resolveRevision } from './resolve-ref.js';
 
 describe('resolveRevision', () => {
   let root: string;
@@ -38,6 +38,12 @@ describe('resolveRevision', () => {
     await expect(
       resolveCommit(gitDir, 'refs/heads/missing'),
     ).resolves.toBeNull();
+  });
+
+  it('isBranch matches a branch exactly, not revision syntax or a missing one', async () => {
+    await expect(isBranch(gitDir, 'main')).resolves.toBe(true);
+    await expect(isBranch(gitDir, 'main~0')).resolves.toBe(false);
+    await expect(isBranch(gitDir, 'missing')).resolves.toBe(false);
   });
 
   it('resolves a branch name to its full ref', async () => {
