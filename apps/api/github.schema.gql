@@ -1012,7 +1012,7 @@ type RequestReviewsPayload {
 union RequestedReviewer = Bot | Team | User
 
 type RequiredStatusChecksParameters {
-  doNotEnforceOnCreate: Boolean
+  doNotEnforceOnCreate: Boolean!
   requiredStatusChecks: [StatusCheckConfiguration!]!
   strictRequiredStatusChecksPolicy: Boolean!
 }

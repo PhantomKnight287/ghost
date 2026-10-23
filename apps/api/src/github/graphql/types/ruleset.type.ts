@@ -54,7 +54,7 @@ export class StatusCheckConfigurationNode {
 export class RequiredStatusChecksParametersNode {
   kind = 'RequiredStatusChecksParameters';
 
-  @Field({ nullable: true })
+  @Field()
   doNotEnforceOnCreate: boolean;
 
   @Field(() => [StatusCheckConfigurationNode])
