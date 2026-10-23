@@ -1,5 +1,6 @@
 import { cn } from "cn";
 import { ChevronDown, CircleCheck, CircleDot, CircleX } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import type { components } from "@/lib/api/v1";
 
 type CombinedCommitStatus = components["schemas"]["CombinedCommitStatusDTO"];
@@ -41,13 +42,25 @@ export function CommitStatusIcon({
   );
 }
 
-export function CommitStatusRows({ statuses }: { statuses: CommitStatus[] }) {
+export function CommitStatusRows({
+  statuses,
+  required = [],
+}: {
+  statuses: CommitStatus[];
+  /** Contexts a ruleset requires, badged as GitHub does. */
+  required?: string[];
+}) {
   return (
     <ul className="flex flex-col gap-1 text-sm">
       {statuses.map((status) => (
         <li key={status.id} className="flex items-center gap-2">
           <CommitStatusIcon state={status.state} />
           <span className="shrink-0 font-medium">{status.context}</span>
+          {required.includes(status.context) && (
+            <Badge variant="outline" className="shrink-0">
+              Required
+            </Badge>
+          )}
           {status.description && (
             <span
               title={status.description}
@@ -77,9 +90,11 @@ export function CommitStatusRows({ statuses }: { statuses: CommitStatus[] }) {
 export function CommitChecks({
   status,
   className,
+  required = [],
 }: {
   status: CombinedCommitStatus | null;
   className?: string;
+  required?: string[];
 }) {
   if (!status) return null;
 
@@ -114,7 +129,7 @@ export function CommitChecks({
         <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
       </summary>
       <div className="mt-3 border-t pt-3">
-        <CommitStatusRows statuses={statuses} />
+        <CommitStatusRows statuses={statuses} required={required} />
       </div>
     </details>
   );

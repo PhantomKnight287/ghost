@@ -84,13 +84,6 @@ git log --pretty="%h %an <%ae> %GK" -5
 
 ## No badge at all on a commit I signed
 
-- **You signed with SSH.** Check `git config gpg.format`. If it says `ssh`,
-  Ghost reads nothing: only OpenPGP signatures are verified. Unset it to go
-  back to gpg:
-
-  ```bash
-  git config --global --unset gpg.format
-  ```
 - **The commit was rewritten after you signed it.** A rebase, squash merge or
   `--amend` by any tool drops the old signature.
 - **It is a merge commit Ghost made.** Pull requests merged from the web are

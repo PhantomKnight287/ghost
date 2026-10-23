@@ -1,0 +1,33 @@
+---
+title: Telling git about your SSH key
+description: Configure git to sign commits with an SSH key.
+---
+
+Point git at the key and switch its signature format to SSH:
+
+```bash
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+```
+
+Then sign as usual, with `-S` on each commit or for every commit:
+
+```bash
+git config --global commit.gpgsign true
+```
+
+`user.signingkey` takes the public key file; git finds the private half next to
+it or in your SSH agent.
+
+## Checking locally
+
+To check signatures on your own machine, give git a list of keys it trusts:
+
+```bash
+echo "you@example.com $(cat ~/.ssh/id_ed25519.pub)" >> ~/.ssh/allowed_signers
+git config --global gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
+git log --show-signature -1
+```
+
+Ghost does not need this file; it checks against the signing keys on your
+account.

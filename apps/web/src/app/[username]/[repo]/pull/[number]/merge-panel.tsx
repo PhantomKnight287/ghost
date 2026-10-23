@@ -112,7 +112,11 @@ export function MergePanel({
   });
 
   const checksSection = checks && (
-    <CommitChecks status={checks} className="rounded-none border-0 px-4 py-3" />
+    <CommitChecks
+      status={checks}
+      required={requirements?.requiredContexts}
+      className="rounded-none border-0 px-4 py-3"
+    />
   );
 
   if (state === "merged") {
@@ -260,7 +264,9 @@ export function MergePanel({
                 <li
                   key={`${violation.rulesetId}:${violation.requirement ?? violation.rule}`}
                 >
-                  <span className="text-foreground">{violation.message}</span>{" "}
+                  <span className="whitespace-pre-line text-foreground">
+                    {violation.message}
+                  </span>{" "}
                   <Link
                     href={`/${username}/${repo}/settings/rules/${violation.rulesetId}`}
                     className="hover:underline"

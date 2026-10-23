@@ -5,6 +5,8 @@
     "generating-a-gpg-key",
     "adding-a-gpg-key",
     "telling-git-about-your-key",
+    "adding-an-ssh-signing-key",
+    "telling-git-about-your-ssh-key",
     "signing-commits-and-tags",
     "email-addresses-and-keys",
     "expiration-and-revocation",

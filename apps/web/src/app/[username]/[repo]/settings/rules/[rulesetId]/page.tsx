@@ -11,13 +11,16 @@ export default async function RulesetPage({
   const { username, repo, rulesetId } = await params;
   const client = await createServerClient();
   const path = { username, repo };
-  const [ruleset, teams] = await Promise.all([
+  const [ruleset, teams, statusContexts] = await Promise.all([
     client.GET("/api/repositories/{username}/{repo}/rulesets/{id}", {
       params: { path: { ...path, id: rulesetId } },
     }),
     // Answers 400 for a user's own repository, which has no teams.
     client.GET("/api/repositories/{username}/{repo}/teams", {
       params: { path },
+    }),
+    client.GET("/api/repositories/{username}/{slug}/status-contexts", {
+      params: { path: { username, slug: repo } },
     }),
   ]);
   if (!ruleset.data) notFound();
@@ -30,6 +33,7 @@ export default async function RulesetPage({
           username={username}
           repo={repo}
           teams={teams.data?.teams ?? null}
+          statusContexts={statusContexts.data?.contexts ?? []}
           ruleset={ruleset.data}
         />
       </section>
