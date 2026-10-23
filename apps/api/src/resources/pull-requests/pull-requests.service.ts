@@ -717,7 +717,8 @@ export class PullRequestsService {
     )
       throw new RulesetBypassRequiredError(verdict.bypassed);
 
-    return await this.ruleSuites.attempt(
+    // Only the merge's commit point is the attempt: bookkeeping after it can fail without unmerging the branch, so it must not lose the record.
+    const seq = await this.ruleSuites.attempt(
       {
         repositoryId: base.id,
         actorId: params.requesterId,
@@ -761,7 +762,7 @@ export class PullRequestsService {
           await this.lfs.copy(lfsObjects, git.head.id, base.id);
 
           // The row stays locked until the merge is recorded, so the request cannot be closed or turned into a draft between this check and the push. Nothing that can fail after the push belongs in here: a rollback would leave the branch merged and the request open.
-          const seq = await this.db.transaction(async (tx) => {
+          return this.db.transaction(async (tx) => {
             const [locked] = await tx
               .select({
                 state: schema.pullRequest.state,
@@ -829,50 +830,50 @@ export class PullRequestsService {
             }
             return seq;
           });
-
-          // Only a merge into the default branch closes anything, the same rule GitHub follows.
-          const isDefaultBranch =
-            (await resolveDefaultRef({ gitDir: git.baseDirectory })) ===
-            `refs/heads/${pullRequest.baseRef}`;
-          if (isDefaultBranch) {
-            const { commits } = await listCommits({
-              gitDir: git.baseDirectory,
-              env: git.env,
-              // What landed on the base: the head's own commits, or their squashed or rebased copies.
-              ref: `${git.baseSha}..${method === 'merge' ? git.headSha : mergeCommitSha}`,
-              limit: MAX_CLOSING_COMMITS,
-            });
-            await this.db.transaction(async (tx) => {
-              await this.references.recordCommits(tx, {
-                repository: base,
-                actorId: params.requesterId,
-                commits,
-              });
-              await this.references.closeReferenced(tx, {
-                sources: [
-                  { type: 'issue', id: pullRequest.issueId },
-                  ...commits.map((commit) => ({
-                    type: 'commit' as const,
-                    id: commit.sha,
-                  })),
-                ],
-                actorId: params.requesterId,
-                sourceIssueId: pullRequest.issueId,
-              });
-            });
-          }
-
-          // The base moved, so every other request into it needs a new test merge, and a request from the base branch just gained its commits; this one only needs its head pinned to what merged.
-          this.pullRefs.syncInBackground(pullRequest.id);
-          await this.afterPush({
-            repositoryId: base.id,
-            transitions,
-            pushedBy: params.requesterId,
-          });
-
-          return { mergeCommitSha, seq };
         }),
     );
+
+    // Only a merge into the default branch closes anything, the same rule GitHub follows.
+    const isDefaultBranch =
+      (await resolveDefaultRef({ gitDir: git.baseDirectory })) ===
+      `refs/heads/${pullRequest.baseRef}`;
+    if (isDefaultBranch) {
+      const { commits } = await listCommits({
+        gitDir: git.baseDirectory,
+        env: git.env,
+        // What landed on the base: the head's own commits, or their squashed or rebased copies.
+        ref: `${git.baseSha}..${method === 'merge' ? git.headSha : mergeCommitSha}`,
+        limit: MAX_CLOSING_COMMITS,
+      });
+      await this.db.transaction(async (tx) => {
+        await this.references.recordCommits(tx, {
+          repository: base,
+          actorId: params.requesterId,
+          commits,
+        });
+        await this.references.closeReferenced(tx, {
+          sources: [
+            { type: 'issue', id: pullRequest.issueId },
+            ...commits.map((commit) => ({
+              type: 'commit' as const,
+              id: commit.sha,
+            })),
+          ],
+          actorId: params.requesterId,
+          sourceIssueId: pullRequest.issueId,
+        });
+      });
+    }
+
+    // The base moved, so every other request into it needs a new test merge, and a request from the base branch just gained its commits; this one only needs its head pinned to what merged.
+    this.pullRefs.syncInBackground(pullRequest.id);
+    await this.afterPush({
+      repositoryId: base.id,
+      transitions,
+      pushedBy: params.requesterId,
+    });
+
+    return { mergeCommitSha, seq };
   }
 
   /** What stands between the viewer and merging with `method`: what they cannot bypass, what they may, and the methods the rulesets allow. */

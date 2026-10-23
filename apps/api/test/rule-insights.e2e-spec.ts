@@ -7,11 +7,12 @@ import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
 import { NonFastForwardError } from '../src/lib/git/wal/wal.errors.js';
 import { ZERO_OID } from '../src/lib/git/wal/wal.types.js';
+import { PullRequestsService } from '../src/resources/pull-requests/pull-requests.service.js';
 import { ReleasesService } from '../src/resources/releases/releases.service.js';
 import { RuleSuitesService } from '../src/services/rulesets/rule-suites.service.js';
 import { hasBackends, signUp, startApp } from './harness.js';
@@ -419,6 +420,24 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       expect(suites[0].evaluations).toMatchObject([
         { rulesetId: null, rulesetName: frozen.name, ruleType: 'update', result: 'fail' },
       ]);
+    });
+
+    it('records a landed merge even when the bookkeeping after it fails', async () => {
+      const { branch: base } = await seed('merge-bookkeeping');
+      commitOn(`${base}-work`, base);
+      await pushAs(owner, `${base}-work:refs/heads/${base}-work`);
+      const number = await openPull(`${base}-work`, base);
+      await ruleset({ include: [base], rules: [{ type: 'update' }], bypassActors: ADMIN_BYPASS });
+      const afterPush = vi
+        .spyOn(app.get(PullRequestsService), 'afterPush')
+        .mockRejectedValueOnce(new Error('bookkeeping failed'));
+
+      try {
+        await merge(number, { bypassRules: true }).expect(500);
+      } finally {
+        afterPush.mockRestore();
+      }
+      expect((await suitesOf(`refs/heads/${base}`)).map(({ result }) => result)).toEqual(['bypass']);
     });
 
     it('records nothing for a merge that asks the bypasser to opt in, and bypass once they do', async () => {
