@@ -3131,6 +3131,66 @@
         ]
       }
     },
+    "/api/repositories/{username}/{slug}/status-contexts": {
+      "get": {
+        "description": "Most recently posted first, at most 50; the ruleset form suggests them as required checks.",
+        "operationId": "CommitStatusesController_getStatusContexts",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusContextsDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the status check contexts this repository has seen",
+        "tags": [
+          "Commit statuses"
+        ]
+      }
+    },
     "/api/organizations": {
       "get": {
         "description": "Organizations the signed-in user belongs to, with the user's role in each.",
@@ -19042,6 +19102,21 @@
         },
         "required": [
           "state"
+        ]
+      },
+      "StatusContextsDTO": {
+        "type": "object",
+        "properties": {
+          "contexts": {
+            "description": "Contexts this repository's statuses have named, most recently posted first, at most 50.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "contexts"
         ]
       },
       "OrganizationRole": {

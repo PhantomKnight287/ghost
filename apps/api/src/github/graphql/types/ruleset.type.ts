@@ -40,10 +40,35 @@ export class PullRequestParametersNode {
   requiredReviewThreadResolution: boolean;
 }
 
-/** GitHub's union of every rule's parameters; `pull_request` is the only Ghost rule that takes any. */
+@ObjectType('StatusCheckConfiguration')
+export class StatusCheckConfigurationNode {
+  @Field()
+  context: string;
+
+  /** Always null until Ghost Apps (#50): a check cannot be pinned to an app yet. */
+  @Field(() => Int, { nullable: true })
+  integrationId: number | null;
+}
+
+@ObjectType('RequiredStatusChecksParameters')
+export class RequiredStatusChecksParametersNode {
+  kind = 'RequiredStatusChecksParameters';
+
+  @Field({ nullable: true })
+  doNotEnforceOnCreate: boolean;
+
+  @Field(() => [StatusCheckConfigurationNode])
+  requiredStatusChecks: StatusCheckConfigurationNode[];
+
+  @Field()
+  strictRequiredStatusChecksPolicy: boolean;
+}
+
+/** GitHub's union of every rule's parameters; `pull_request` and `required_status_checks` are the Ghost rules that take any. */
 export const RuleParameters = createUnionType({
   name: 'RuleParameters',
-  types: () => [PullRequestParametersNode] as const,
+  types: () =>
+    [PullRequestParametersNode, RequiredStatusChecksParametersNode] as const,
   resolveType: (value: { kind: string }) => value.kind,
 });
 
@@ -58,7 +83,10 @@ export class RepositoryRuleNode {
   type: RepositoryRuleType;
 
   @Field(() => RuleParameters, { nullable: true })
-  parameters: PullRequestParametersNode | null;
+  parameters:
+    | PullRequestParametersNode
+    | RequiredStatusChecksParametersNode
+    | null;
 }
 
 export const RepositoryRuleConnection = Connection(

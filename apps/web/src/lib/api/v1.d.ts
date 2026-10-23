@@ -821,6 +821,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/status-contexts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the status check contexts this repository has seen
+         * @description Most recently posted first, at most 50; the ruleset form suggests them as required checks.
+         */
+        get: operations["CommitStatusesController_getStatusContexts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/organizations": {
         parameters: {
             query?: never;
@@ -4972,6 +4992,10 @@ export interface components {
              */
             context?: string;
         };
+        StatusContextsDTO: {
+            /** @description Contexts this repository's statuses have named, most recently posted first, at most 50. */
+            contexts: string[];
+        };
         /**
          * @description Highest built-in role held; null when only custom roles are held.
          * @enum {string}
@@ -8568,6 +8592,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CombinedCommitStatusDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CommitStatusesController_getStatusContexts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusContextsDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
             404: {

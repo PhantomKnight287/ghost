@@ -71,3 +71,12 @@ export class InvalidRuleParametersError extends DomainError {
     super(`Invalid parameters for the ${type} rule: ${detail}`);
   }
 }
+
+/** Ghost's own merges and suggestions must verify under the rule, which they only do while it can sign them. */
+export class RequiredSignaturesNeedKeyError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor() {
+    super('Required signatures need a commit signing key on this server');
+  }
+}

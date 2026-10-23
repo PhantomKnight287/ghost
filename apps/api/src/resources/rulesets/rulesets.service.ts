@@ -16,12 +16,14 @@ import {
 } from '../../lib/rulesets/ref-pattern.js';
 import { parsePullRequestParameters } from '../../lib/rulesets/pull-request-parameters.js';
 import { parseStatusCheckParameters } from '../../lib/rulesets/status-check-parameters.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { rulesetColumns } from '../../lib/rulesets/ruleset-columns.js';
 import {
   InvalidBypassActorError,
   InvalidRuleParametersError,
   RulesetNameTakenError,
   RulesetNotFoundError,
+  RequiredSignaturesNeedKeyError,
 } from '../../lib/rulesets/rulesets.errors.js';
 import type {
   BypassAnswer,
@@ -50,6 +52,7 @@ export class RulesetsService {
     private readonly access: RepositoryAccessService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly verdicts: RulesetVerdictsService,
+    private readonly signing: CommitSigningService,
   ) {}
 
   async list(target: RepositoryRef): Promise<RulesetDTO[]> {
@@ -291,6 +294,11 @@ export class RulesetsService {
     rulesetId: string,
     body: RulesetRequestDTO,
   ) {
+    if (
+      !this.signing.signer &&
+      body.rules.some(({ type }) => type === 'required_signatures')
+    )
+      throw new RequiredSignaturesNeedKeyError();
     if (body.rules.length > 0)
       await tx.insert(schema.rulesetRule).values(
         body.rules.map(({ type, parameters }) => ({

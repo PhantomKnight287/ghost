@@ -26,6 +26,8 @@ import { rulesetColumns } from '../../../../lib/rulesets/ruleset-columns.js';
 import {
   GITHUB_ROLE_IDS,
   type PullRequestRuleParameters,
+  type Ruleset,
+  type StatusCheckRuleParameters,
 } from '../../../../lib/rulesets/rulesets.types.js';
 import { hasScope } from '../../../../lib/github/scopes.js';
 import { oauthAppBlocked } from '../../../../lib/organizations/oauth-app-access.js';
@@ -231,32 +233,12 @@ export class RepositoryNodesService {
           },
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
-          ruleNodes: row.rules.map((rule) => {
-            const parameters =
-              rule.type === 'pull_request'
-                ? (rule.parameters as PullRequestRuleParameters)
-                : null;
-            return {
-              kind: 'RepositoryRule',
-              id: encodeNodeId('RepositoryRule', `${row.id}:${rule.type}`),
-              type: rule.type.toUpperCase() as RepositoryRuleType,
-              parameters: parameters && {
-                kind: 'PullRequestParameters',
-                allowedMergeMethods: parameters.allowed_merge_methods.map(
-                  (method) =>
-                    method.toUpperCase() as PullRequestAllowedMergeMethods,
-                ),
-                dismissStaleReviewsOnPush:
-                  parameters.dismiss_stale_reviews_on_push,
-                requireCodeOwnerReview: parameters.require_code_owner_review,
-                requireLastPushApproval: parameters.require_last_push_approval,
-                requiredApprovingReviewCount:
-                  parameters.required_approving_review_count,
-                requiredReviewThreadResolution:
-                  parameters.required_review_thread_resolution,
-              },
-            };
-          }),
+          ruleNodes: row.rules.map((rule) => ({
+            kind: 'RepositoryRule',
+            id: encodeNodeId('RepositoryRule', `${row.id}:${rule.type}`),
+            type: rule.type.toUpperCase() as RepositoryRuleType,
+            parameters: ruleParameters(rule),
+          })),
           bypassActorNodes: admin
             ? row.bypassActors.map((actor, index) => ({
                 kind: 'RepositoryRulesetBypassActor',
@@ -482,4 +464,36 @@ export class RepositoryNodesService {
     `);
     return rows.rows.map((row) => row.id);
   }
+}
+
+/** GitHub's GraphQL parameters for the rules that take any; null for the rest. */
+function ruleParameters(rule: Ruleset['rules'][number]) {
+  if (rule.type === 'pull_request') {
+    const parameters = rule.parameters as PullRequestRuleParameters;
+    return {
+      kind: 'PullRequestParameters',
+      allowedMergeMethods: parameters.allowed_merge_methods.map(
+        (method) => method.toUpperCase() as PullRequestAllowedMergeMethods,
+      ),
+      dismissStaleReviewsOnPush: parameters.dismiss_stale_reviews_on_push,
+      requireCodeOwnerReview: parameters.require_code_owner_review,
+      requireLastPushApproval: parameters.require_last_push_approval,
+      requiredApprovingReviewCount: parameters.required_approving_review_count,
+      requiredReviewThreadResolution:
+        parameters.required_review_thread_resolution,
+    };
+  }
+  if (rule.type === 'required_status_checks') {
+    const parameters = rule.parameters as StatusCheckRuleParameters;
+    return {
+      kind: 'RequiredStatusChecksParameters',
+      doNotEnforceOnCreate: parameters.do_not_enforce_on_create,
+      requiredStatusChecks: parameters.required_status_checks.map(
+        ({ context }) => ({ context, integrationId: null }),
+      ),
+      strictRequiredStatusChecksPolicy:
+        parameters.strict_required_status_checks_policy,
+    };
+  }
+  return null;
 }
