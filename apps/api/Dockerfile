@@ -5,7 +5,7 @@
 # Keep in step with apps/zoekt/Dockerfile: the indexer and the webserver share a shard format.
 FROM ghcr.io/sourcegraph/zoekt:0.0.0-20260911061844-153817f643cd AS zoekt
 
-FROM oven/bun:1.3.14 AS deps
+FROM oven/bun:1.4.4 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
@@ -33,7 +33,7 @@ RUN bun run --filter @ghost/db build \
 
 # A second, clean install: the runtime needs neither the web app's dependencies
 # nor the compilers, and pruning in place leaves Bun's package store behind.
-FROM oven/bun:1.3.14 AS prod-deps
+FROM oven/bun:1.4.4 AS prod-deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json

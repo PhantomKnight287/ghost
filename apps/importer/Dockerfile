@@ -2,7 +2,7 @@
 # Built from the repository root, like the other services:
 #   docker build -f apps/importer/Dockerfile .
 
-FROM oven/bun:1.3.14-slim
+FROM oven/bun:1.4.4-slim
 # The importer shells out to git for the clone and the push.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
