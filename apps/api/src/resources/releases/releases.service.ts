@@ -36,6 +36,7 @@ import {
 import { withTempDir } from '../../lib/temp-dir.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { EXISTING_HISTORY } from '../../lib/rulesets/rulesets.types.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
@@ -89,6 +90,7 @@ export class ReleasesService {
     private readonly archives: ReleaseArchivesService,
     private readonly quota: StorageQuotaService,
     private readonly verdicts: RulesetVerdictsService,
+    private readonly ruleSuites: RuleSuitesService,
   ) {}
 
   async listReleases({
@@ -384,22 +386,24 @@ export class ReleasesService {
     const transitions = [
       { ref, oldOid: Buffer.from(oid, 'hex'), newOid: ZERO_OID },
     ];
-    await this.pushTransaction.commitPush({
-      repoId: repository.id,
+    const verdict = await this.verdicts.judge({
+      repository,
+      gitDir: directory,
+      userId: target.requesterId,
+      write: 'push',
       transitions,
-      body: bufferBody(Buffer.alloc(0)),
-      packOffset: 0,
-      actor: {
-        userId: target.requesterId,
-        verdict: await this.verdicts.judge({
-          repository,
-          gitDir: directory,
-          userId: target.requesterId,
-          write: 'push',
-          transitions,
-        }),
-      },
     });
+    await this.ruleSuites.attempt(
+      { repositoryId: repository.id, actorId: target.requesterId, verdict },
+      () =>
+        this.pushTransaction.commitPush({
+          repoId: repository.id,
+          transitions,
+          body: bufferBody(Buffer.alloc(0)),
+          packOffset: 0,
+          actor: { userId: target.requesterId, verdict },
+        }),
+    );
   }
 
   /** An annotated tag, as `git tag -a` makes, so the tag carries its own date and author rather than borrowing its commit's. Its one object is packed and pushed through `commitPush`. */
@@ -441,23 +445,25 @@ export class ReleasesService {
           newOid: Buffer.from(oid, 'hex'),
         },
       ];
-      await this.pushTransaction.commitPush({
-        repoId: repository.id,
+      const verdict = await this.verdicts.judge({
+        repository,
+        gitDir: directory,
+        userId: requesterId,
+        write: 'push',
         transitions,
-        body: fileBody(pack.path, pack.size),
-        packOffset: 0,
-        actor: {
-          userId: requesterId,
-          verdict: await this.verdicts.judge({
-            repository,
-            gitDir: directory,
-            userId: requesterId,
-            write: 'push',
-            transitions,
-            facts: new Map([[transitions[0].ref, EXISTING_HISTORY]]),
-          }),
-        },
+        facts: new Map([[transitions[0].ref, EXISTING_HISTORY]]),
       });
+      await this.ruleSuites.attempt(
+        { repositoryId: repository.id, actorId: requesterId, verdict },
+        () =>
+          this.pushTransaction.commitPush({
+            repoId: repository.id,
+            transitions,
+            body: fileBody(pack.path, pack.size),
+            packOffset: 0,
+            actor: { userId: requesterId, verdict },
+          }),
+      );
     });
   }
 

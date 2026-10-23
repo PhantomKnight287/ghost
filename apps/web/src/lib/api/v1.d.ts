@@ -2089,6 +2089,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/rule-suites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List rule insights
+         * @description Admins only. Every write the rulesets checked, one suite per ref, newest first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.
+         */
+        get: operations["RuleSuitesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/attachments": {
         parameters: {
             query?: never;
@@ -3890,6 +3910,40 @@ export interface paths {
         put?: never;
         /** Create a ruleset */
         post: operations["GithubRulesetsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/rulesets/rule-suites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rule insights: every write the rulesets checked, one suite per ref */
+        get: operations["GithubRulesetsController_ruleSuites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/rulesets/rule-suites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One rule suite with its rule evaluations */
+        get: operations["GithubRulesetsController_ruleSuite"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5792,7 +5846,7 @@ export interface components {
             /** @example Protect main */
             name: string;
             /** @enum {string} */
-            enforcement: "active" | "disabled";
+            enforcement: "active" | "evaluate" | "disabled";
             /** @description Each type at most once. */
             rules: components["schemas"]["RulesetRuleDTO"][];
             id: string;
@@ -5822,7 +5876,7 @@ export interface components {
             /** @example Protect main */
             name: string;
             /** @enum {string} */
-            enforcement: "active" | "disabled";
+            enforcement: "active" | "evaluate" | "disabled";
             bypassActors: components["schemas"]["RulesetBypassActorDTO"][];
             /** @description Each type at most once. */
             rules: components["schemas"]["RulesetRuleDTO"][];
@@ -5849,6 +5903,57 @@ export interface components {
             refs: {
                 [key: string]: components["schemas"]["ProtectedRefDTO"];
             };
+        };
+        RuleSuiteActorDTO: {
+            id: string;
+            username: string | null;
+        };
+        RuleSuitePullRequestDTO: {
+            number: number;
+        };
+        RuleEvaluationDTO: {
+            /** @description Null once the ruleset is deleted. */
+            rulesetId: string | null;
+            /** @description The ruleset’s name when the write was checked. */
+            rulesetName: string;
+            /** @enum {string} */
+            enforcement: "active" | "evaluate" | "deleted ruleset";
+            /** @enum {string} */
+            rule: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request";
+            /** @enum {string} */
+            result: "pass" | "fail";
+            /** @description What a failed `pull_request` rule left unmet. */
+            requirements: ("pull_request" | "approvals" | "changes_requested" | "code_owners" | "last_push" | "threads" | "merge_method")[];
+            /** @description The message the writer saw for a failure. */
+            details: string | null;
+        };
+        RuleSuiteDTO: {
+            id: string;
+            actor: components["schemas"]["RuleSuiteActorDTO"] | null;
+            /** @description The actor’s login when they wrote. */
+            actorName: string | null;
+            ref: string;
+            beforeSha: string;
+            afterSha: string;
+            /** @enum {string} */
+            write: "push" | "pull_request_merge";
+            pullRequest: components["schemas"]["RuleSuitePullRequestDTO"] | null;
+            /** @enum {string} */
+            result: "pass" | "fail" | "bypass";
+            /**
+             * @description The result with evaluate rulesets counted as active; null when none applied.
+             * @enum {string|null}
+             */
+            evaluationResult: "pass" | "fail" | "bypass" | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description In the order the rules were checked. */
+            evaluations: components["schemas"]["RuleEvaluationDTO"][];
+        };
+        ListRuleSuitesResponseDTO: {
+            /** @description Newest first. */
+            ruleSuites: components["schemas"]["RuleSuiteDTO"][];
+            nextCursor: string | null;
         };
         AttachmentDTO: {
             id: string;
@@ -6421,7 +6526,7 @@ export interface components {
              */
             target?: "branch" | "tag";
             /** @enum {string} */
-            enforcement: "active" | "disabled";
+            enforcement: "active" | "evaluate" | "disabled";
             bypass_actors?: components["schemas"]["GithubBypassActorDTO"][];
             conditions?: components["schemas"]["GithubRulesetConditionsDTO"];
             rules?: components["schemas"]["GithubRulesetRuleDTO"][];
@@ -6434,7 +6539,7 @@ export interface components {
              */
             target?: "branch" | "tag";
             /** @enum {string} */
-            enforcement?: "active" | "disabled";
+            enforcement?: "active" | "evaluate" | "disabled";
             bypass_actors?: components["schemas"]["GithubBypassActorDTO"][];
             conditions?: components["schemas"]["GithubRulesetConditionsDTO"];
             rules?: components["schemas"]["GithubRulesetRuleDTO"][];
@@ -11662,6 +11767,67 @@ export interface operations {
             };
         };
     };
+    RuleSuitesController_list: {
+        parameters: {
+            query?: {
+                /** @description Only suites that checked this ruleset. */
+                rulesetId?: string;
+                /** @description A full ref, or a branch or tag name, which matches either. */
+                ref?: string;
+                /** @description The login the actor had at the time. */
+                actor?: string;
+                result?: "pass" | "fail" | "bypass";
+                /** @description Only suites that checked a ruleset with this enforcement. */
+                enforcement?: "active" | "evaluate";
+                period?: "hour" | "day" | "week" | "month" | "all";
+                /** @description Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page. */
+                cursor?: string;
+                /** @description Page size. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListRuleSuitesResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     AttachmentsController_uploadAttachment: {
         parameters: {
             query: {
@@ -15560,6 +15726,59 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubRulesetsController_ruleSuites: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+                /** @description No wildcards; `refs/heads/` or `refs/tags/` is optional. */
+                ref?: string;
+                time_period?: "hour" | "day" | "week" | "month";
+                actor_name?: string;
+                rule_suite_result?: "pass" | "fail" | "bypass" | "all";
+                evaluate_status?: "all" | "active" | "evaluate";
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GithubRulesetsController_ruleSuite: {
+        parameters: {
+            query?: {
+                /** @description Adds the pull request to a merge’s `pull_request` rule. */
+                include_metadata?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

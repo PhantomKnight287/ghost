@@ -81,8 +81,12 @@ export function RulesetList({
                   <ItemContent className="min-w-0">
                     <ItemTitle className="max-w-full">
                       <span className="truncate">{ruleset.name}</span>
-                      {ruleset.enforcement === "disabled" && (
-                        <Badge variant="outline">Disabled</Badge>
+                      {ruleset.enforcement !== "active" && (
+                        <Badge variant="outline">
+                          {ruleset.enforcement === "evaluate"
+                            ? "Evaluate"
+                            : "Disabled"}
+                        </Badge>
                       )}
                     </ItemTitle>
                     <ItemDescription className="truncate">

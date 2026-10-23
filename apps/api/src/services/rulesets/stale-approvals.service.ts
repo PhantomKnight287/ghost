@@ -73,13 +73,16 @@ export class StaleApprovalsService {
       git.baseDirectory,
       git.pullRequest.baseRef,
     );
-    const dismissing = pullRequestRules.some((ruleset) =>
-      ruleset.rules.some(
-        (rule) =>
-          rule.type === 'pull_request' &&
-          (rule.parameters as PullRequestRuleParameters)
-            .dismiss_stale_reviews_on_push,
-      ),
+    // An evaluate ruleset only records what it would do; dismissing an approval is doing it.
+    const dismissing = pullRequestRules.some(
+      (ruleset) =>
+        ruleset.enforcement === 'active' &&
+        ruleset.rules.some(
+          (rule) =>
+            rule.type === 'pull_request' &&
+            (rule.parameters as PullRequestRuleParameters)
+              .dismiss_stale_reviews_on_push,
+        ),
     );
     if (!dismissing) return;
     const stale = await this.rules.staleApprovals(git);

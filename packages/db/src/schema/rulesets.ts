@@ -3,6 +3,8 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   check,
+  index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -15,12 +17,14 @@ import {
 
 import { team, user } from "./auth.js";
 import { repositoryRole } from "./collaborators.js";
+import { pullRequest } from "./pull-requests.js";
 import { repository } from "./repository.js";
 
 export const rulesetTarget = pgEnum("ruleset_target", ["branch", "tag"]);
 
 export const rulesetEnforcement = pgEnum("ruleset_enforcement", [
   "active",
+  "evaluate",
   "disabled",
 ]);
 
@@ -114,4 +118,77 @@ export const rulesetBypassActor = pgTable(
       .on(t.rulesetId)
       .where(sql`actor_type = 'OrganizationAdmin'`),
   ],
+);
+
+export const ruleSuiteResult = pgEnum("rule_suite_result", [
+  "pass",
+  "fail",
+  "bypass",
+]);
+
+export const ruleEvaluationResult = pgEnum("rule_evaluation_result", [
+  "pass",
+  "fail",
+]);
+
+export const ruleSuiteWrite = pgEnum("rule_suite_write", [
+  "push",
+  "pull_request_merge",
+]);
+
+/** One ref of one write the rulesets checked, kept forever as the repository's rule insights. */
+export const ruleSuite = pgTable(
+  "rule_suite",
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => `rulesuite_${createId()}`),
+    // Integer id for the GitHub compatibility layer only (REST `id`); nothing references it.
+    numericId: bigint({ mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
+    repositoryId: text()
+      .notNull()
+      .references(() => repository.id, { onDelete: "cascade" }),
+    actorId: text().references(() => user.id, { onDelete: "set null" }),
+    // The login at the time, so the record still names who wrote after a rename or deletion.
+    actorName: text(),
+    ref: text().notNull(),
+    beforeSha: text().notNull(),
+    afterSha: text().notNull(),
+    write: ruleSuiteWrite().notNull(),
+    pullRequestId: text().references(() => pullRequest.id, {
+      onDelete: "set null",
+    }),
+    result: ruleSuiteResult().notNull(),
+    evaluationResult: ruleSuiteResult(),
+    // Milliseconds, the precision of the Insights cursor: microseconds would let a page boundary inside one push skip its other refs.
+    createdAt: timestamp({ withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index().on(t.repositoryId, t.createdAt, t.id)],
+);
+
+/** One rule checked in a suite. The ruleset's name is copied so the record reads the same after a rename or deletion. */
+export const ruleEvaluation = pgTable(
+  "rule_evaluation",
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => `ruleeval_${createId()}`),
+    ruleSuiteId: text()
+      .notNull()
+      .references(() => ruleSuite.id, { onDelete: "cascade" }),
+    position: integer().notNull(),
+    rulesetId: text().references(() => ruleset.id, { onDelete: "set null" }),
+    rulesetName: text().notNull(),
+    enforcement: rulesetEnforcement().notNull(),
+    ruleType: rulesetRuleType().notNull(),
+    result: ruleEvaluationResult().notNull(),
+    requirements: text().array().notNull().default([]),
+    details: text(),
+  },
+  (t) => [index().on(t.ruleSuiteId, t.position), index().on(t.rulesetId)],
 );

@@ -812,6 +812,20 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       expect((await reviewRow(approval.body.id)).dismissalMessage).toBeNull();
       expect(await unmet(number)).toEqual([]);
     });
+
+    it('lets an evaluate ruleset dismiss nothing, even while an active one elsewhere asks to', async () => {
+      const { base, head, number } = await pullRequest();
+      await requireOn(`elsewhere-${++counter}`, { dismiss_stale_reviews_on_push: true });
+      await requireOn(base, { dismiss_stale_reviews_on_push: true }, { enforcement: 'evaluate' });
+      const approval = await approve(reviewer, number);
+
+      const after = commitOn(head, head);
+      await pushAs(author, `${head}:refs/heads/${head}`);
+      await synchronized(after);
+      await settle();
+
+      expect((await reviewRow(approval.body.id)).dismissalMessage).toBeNull();
+    });
   });
 
   describe('merging', () => {

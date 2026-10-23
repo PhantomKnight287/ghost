@@ -1034,6 +1034,7 @@ type ReviewRequestConnection {
 enum RuleEnforcement {
   ACTIVE
   DISABLED
+  EVALUATE
 }
 
 union RuleParameters = PullRequestParameters

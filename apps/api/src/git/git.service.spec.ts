@@ -24,6 +24,7 @@ import {
 } from '../lib/git/git.errors.js';
 import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { DATABASE } from '../database/database.module.js';
+import { RuleSuitesService } from '../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../services/rulesets/ruleset-verdicts.service.js';
 import { GitService } from './git.service.js';
 
@@ -56,7 +57,7 @@ describe('GitService', () => {
 
   const codeSearch = { indexInBackground: vi.fn() };
   const verdicts = {
-    active: vi.fn().mockResolvedValue([]),
+    checked: vi.fn().mockResolvedValue([]),
     judge: vi.fn(async ({ transitions }) => ({
       transitions,
       violations: [],
@@ -122,6 +123,10 @@ describe('GitService', () => {
         { provide: StorageQuotaService, useValue: quota },
         { provide: DATABASE, useValue: db },
         { provide: RulesetVerdictsService, useValue: verdicts },
+        {
+          provide: RuleSuitesService,
+          useValue: { attempt: (_: unknown, write: () => unknown) => write() },
+        },
       ],
     }).compile();
 

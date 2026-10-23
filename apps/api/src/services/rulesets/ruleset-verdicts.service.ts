@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
 import { administers, organizationRoleOf } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { RefTransition } from '../../lib/git/wal/wal.types.js';
@@ -35,13 +35,29 @@ export class RulesetVerdictsService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
   active(repositoryId: string, target?: Ruleset['target']): Promise<Ruleset[]> {
+    return this.withEnforcement(repositoryId, ['active'], target);
+  }
+
+  /** Active and evaluate rulesets: everything a write is checked against, whether or not it can refuse it. */
+  checked(
+    repositoryId: string,
+    target?: Ruleset['target'],
+  ): Promise<Ruleset[]> {
+    return this.withEnforcement(repositoryId, ['active', 'evaluate'], target);
+  }
+
+  private withEnforcement(
+    repositoryId: string,
+    enforcement: Ruleset['enforcement'][],
+    target?: Ruleset['target'],
+  ): Promise<Ruleset[]> {
     return this.db
       .select(rulesetColumns)
       .from(schema.ruleset)
       .where(
         and(
           eq(schema.ruleset.repositoryId, repositoryId),
-          eq(schema.ruleset.enforcement, 'active'),
+          inArray(schema.ruleset.enforcement, enforcement),
           target && eq(schema.ruleset.target, target),
         ),
       );
@@ -99,7 +115,7 @@ export class RulesetVerdictsService {
     ).replace(/^refs\/heads\//, '');
   }
 
-  /** `repository` must be the row read for this write, so `~DEFAULT_BRANCH` never follows a stale name. A repository without active rulesets costs one query, no actor lookup and no git command. */
+  /** `repository` must be the row read for this write, so `~DEFAULT_BRANCH` never follows a stale name. A repository without active or evaluate rulesets costs one query, no actor lookup and no git command. */
   async judge({
     repository,
     gitDir,
@@ -120,15 +136,16 @@ export class RulesetVerdictsService {
     rulesets?: Ruleset[];
     pullRequest?: PullRequestFacts;
   }): Promise<RulesetVerdict> {
-    const applicable = rulesets ?? (await this.active(repository.id));
+    const applicable = rulesets ?? (await this.checked(repository.id));
     if (applicable.length === 0)
-      return { transitions, violations: [], bypassed: [] };
+      return { transitions, write, violations: [], bypassed: [], suites: [] };
     const [actor, defaultBranch] = await Promise.all([
       this.actorOf(repository.id, userId),
       this.defaultBranchOf(repository, gitDir),
     ]);
     return {
       transitions,
+      write,
       ...evaluateRulesets({
         rulesets: applicable,
         actor,

@@ -8750,6 +8750,166 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/rule-suites": {
+      "get": {
+        "description": "Admins only. Every write the rulesets checked, one suite per ref, newest first. Pages are cursor-based: pass a response `nextCursor` back as `cursor`.",
+        "operationId": "RuleSuitesController_list",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rulesetId",
+            "required": false,
+            "in": "query",
+            "description": "Only suites that checked this ruleset.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "A full ref, or a branch or tag name, which matches either.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actor",
+            "required": false,
+            "in": "query",
+            "description": "The login the actor had at the time.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "result",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "bypass"
+              ]
+            }
+          },
+          {
+            "name": "enforcement",
+            "required": false,
+            "in": "query",
+            "description": "Only suites that checked a ruleset with this enforcement.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "evaluate"
+              ]
+            }
+          },
+          {
+            "name": "period",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "day",
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor returned as `nextCursor` by the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRuleSuitesResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List rule insights",
+        "tags": [
+          "Rulesets"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/attachments": {
       "post": {
         "description": "Needs read access. Takes the raw file bytes as `application/octet-stream` with a `Content-Length`. Embed the file by linking `/api/attachments/{id}` in an issue, pull request, comment or release; one no text in the repository mentions is removed after a day. The file counts against the uploader's asset quota, when the instance sets one.",
@@ -15652,6 +15812,168 @@
         ]
       }
     },
+    "/api/v3/repos/{owner}/{repo}/rulesets/rule-suites": {
+      "get": {
+        "operationId": "GithubRulesetsController_ruleSuites",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": false,
+            "in": "query",
+            "description": "No wildcards; `refs/heads/` or `refs/tags/` is optional.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "time_period",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "day",
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          },
+          {
+            "name": "actor_name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rule_suite_result",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "all",
+              "type": "string",
+              "enum": [
+                "pass",
+                "fail",
+                "bypass",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "evaluate_status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "all",
+              "type": "string",
+              "enum": [
+                "all",
+                "active",
+                "evaluate"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Rule insights: every write the rulesets checked, one suite per ref",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/rulesets/rule-suites/{id}": {
+      "get": {
+        "operationId": "GithubRulesetsController_ruleSuite",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "include_metadata",
+            "required": false,
+            "in": "query",
+            "description": "Adds the pull request to a merge’s `pull_request` rule.",
+            "schema": {
+              "default": false,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "One rule suite with its rule evaluations",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3/repos/{owner}/{repo}/rulesets/{id}": {
       "get": {
         "operationId": "GithubRulesetsController_get",
@@ -21705,6 +22027,7 @@
             "type": "string",
             "enum": [
               "active",
+              "evaluate",
               "disabled"
             ]
           },
@@ -21796,6 +22119,7 @@
             "type": "string",
             "enum": [
               "active",
+              "evaluate",
               "disabled"
             ]
           },
@@ -21885,6 +22209,213 @@
         },
         "required": [
           "refs"
+        ]
+      },
+      "RuleSuiteActorDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "username"
+        ]
+      },
+      "RuleSuitePullRequestDTO": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "number"
+        ]
+      },
+      "RuleEvaluationDTO": {
+        "type": "object",
+        "properties": {
+          "rulesetId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null once the ruleset is deleted."
+          },
+          "rulesetName": {
+            "type": "string",
+            "description": "The ruleset’s name when the write was checked."
+          },
+          "enforcement": {
+            "type": "string",
+            "enum": [
+              "active",
+              "evaluate",
+              "deleted ruleset"
+            ]
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "creation",
+              "update",
+              "deletion",
+              "non_fast_forward",
+              "required_linear_history",
+              "pull_request"
+            ]
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail"
+            ]
+          },
+          "requirements": {
+            "type": "array",
+            "description": "What a failed `pull_request` rule left unmet.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pull_request",
+                "approvals",
+                "changes_requested",
+                "code_owners",
+                "last_push",
+                "threads",
+                "merge_method"
+              ]
+            }
+          },
+          "details": {
+            "type": "string",
+            "nullable": true,
+            "description": "The message the writer saw for a failure."
+          }
+        },
+        "required": [
+          "rulesetId",
+          "rulesetName",
+          "enforcement",
+          "rule",
+          "result",
+          "requirements",
+          "details"
+        ]
+      },
+      "RuleSuiteDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RuleSuiteActorDTO"
+              }
+            ]
+          },
+          "actorName": {
+            "type": "string",
+            "nullable": true,
+            "description": "The actor’s login when they wrote."
+          },
+          "ref": {
+            "type": "string"
+          },
+          "beforeSha": {
+            "type": "string"
+          },
+          "afterSha": {
+            "type": "string"
+          },
+          "write": {
+            "type": "string",
+            "enum": [
+              "push",
+              "pull_request_merge"
+            ]
+          },
+          "pullRequest": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RuleSuitePullRequestDTO"
+              }
+            ]
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "bypass"
+            ]
+          },
+          "evaluationResult": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "bypass"
+            ],
+            "nullable": true,
+            "description": "The result with evaluate rulesets counted as active; null when none applied."
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "evaluations": {
+            "description": "In the order the rules were checked.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleEvaluationDTO"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "actorName",
+          "ref",
+          "beforeSha",
+          "afterSha",
+          "write",
+          "pullRequest",
+          "result",
+          "evaluationResult",
+          "createdAt",
+          "evaluations"
+        ]
+      },
+      "ListRuleSuitesResponseDTO": {
+        "type": "object",
+        "properties": {
+          "ruleSuites": {
+            "description": "Newest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleSuiteDTO"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "ruleSuites",
+          "nextCursor"
         ]
       },
       "AttachmentDTO": {
@@ -23585,6 +24116,7 @@
             "type": "string",
             "enum": [
               "active",
+              "evaluate",
               "disabled"
             ]
           },
@@ -23627,6 +24159,7 @@
             "type": "string",
             "enum": [
               "active",
+              "evaluate",
               "disabled"
             ]
           },

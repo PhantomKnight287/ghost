@@ -2,7 +2,7 @@
 # Built from the repository root:
 #   docker build -f apps/docs/Dockerfile --build-arg NEXT_PUBLIC_WEB_APP_URL=... .
 
-FROM oven/bun:1.3.14 AS deps
+FROM oven/bun:1.4.4 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json

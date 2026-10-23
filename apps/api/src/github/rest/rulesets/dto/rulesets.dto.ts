@@ -17,6 +17,7 @@ import {
 
 import type { RuleType } from '../../../../lib/rulesets/rulesets.types.js';
 import { PATTERN_MAX_LENGTH } from '../../../../resources/rulesets/dto/ruleset.dto.js';
+import { GithubPageQueryDTO } from '../../issues/dto/issue.dto.js';
 
 export class GithubBypassActorDTO {
   @ApiPropertyOptional({
@@ -131,3 +132,47 @@ export class GithubCreateRulesetDTO {
 export class GithubUpdateRulesetDTO extends PartialType(
   GithubCreateRulesetDTO,
 ) {}
+
+const TIME_PERIODS = ['hour', 'day', 'week', 'month'] as const;
+const SUITE_RESULTS = ['pass', 'fail', 'bypass', 'all'] as const;
+const EVALUATE_STATUSES = ['all', 'active', 'evaluate'] as const;
+
+/** GitHub's rule-suites list filters; an unknown value is GitHub's 422. */
+export class GithubRuleSuitesQueryDTO extends GithubPageQueryDTO {
+  @ApiPropertyOptional({
+    description: 'No wildcards; `refs/heads/` or `refs/tags/` is optional.',
+  })
+  @IsString()
+  @IsOptional()
+  ref?: string;
+
+  @ApiPropertyOptional({ enum: TIME_PERIODS, default: 'day' })
+  @IsIn(TIME_PERIODS)
+  @IsOptional()
+  time_period?: (typeof TIME_PERIODS)[number];
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  actor_name?: string;
+
+  @ApiPropertyOptional({ enum: SUITE_RESULTS, default: 'all' })
+  @IsIn(SUITE_RESULTS)
+  @IsOptional()
+  rule_suite_result?: (typeof SUITE_RESULTS)[number];
+
+  @ApiPropertyOptional({ enum: EVALUATE_STATUSES, default: 'all' })
+  @IsIn(EVALUATE_STATUSES)
+  @IsOptional()
+  evaluate_status?: (typeof EVALUATE_STATUSES)[number];
+}
+
+export class GithubRuleSuiteQueryDTO {
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Adds the pull request to a merge’s `pull_request` rule.',
+  })
+  @IsIn(['true', 'false'])
+  @IsOptional()
+  include_metadata?: 'true' | 'false';
+}
