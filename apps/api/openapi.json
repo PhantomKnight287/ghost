@@ -20483,13 +20483,21 @@
           "reviewsRequired": {
             "type": "boolean",
             "description": "A rule on the base asks for approvals or code owner reviews."
+          },
+          "requiredContexts": {
+            "description": "Status check contexts the active rulesets require on the base branch, sorted.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "violations",
           "bypassed",
           "allowedMethods",
-          "reviewsRequired"
+          "reviewsRequired",
+          "requiredContexts"
         ]
       },
       "UpdatePullRequestRequestDTO": {

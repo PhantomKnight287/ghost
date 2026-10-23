@@ -5381,6 +5381,8 @@ export interface components {
             allowedMethods: components["schemas"]["MergeMethod"][];
             /** @description A rule on the base asks for approvals or code owner reviews. */
             reviewsRequired: boolean;
+            /** @description Status check contexts the active rulesets require on the base branch, sorted. */
+            requiredContexts: string[];
         };
         UpdatePullRequestRequestDTO: {
             /** @example Add a rate limiter */

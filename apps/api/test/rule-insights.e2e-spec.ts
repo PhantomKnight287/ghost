@@ -131,8 +131,14 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
 
   beforeAll(async () => {
     ({ app, origin } = await startApp());
-    owner = { ...(await signUp(app, `riowner${stamp}`)), username: `riowner${stamp}` };
-    writer = { ...(await signUp(app, `riwriter${stamp}`)), username: `riwriter${stamp}` };
+    owner = {
+      ...(await signUp(app, `riowner${stamp}`)),
+      username: `riowner${stamp}`,
+    };
+    writer = {
+      ...(await signUp(app, `riwriter${stamp}`)),
+      username: `riwriter${stamp}`,
+    };
     repositoryId = (
       await api()
         .post('/api/repositories')
@@ -146,7 +152,10 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       .send({ role: 'write' })
       .expect(200);
     const invitation = (
-      await api().get('/api/invitations').set('cookie', writer.cookie).expect(200)
+      await api()
+        .get('/api/invitations')
+        .set('cookie', writer.cookie)
+        .expect(200)
     ).body.invitations[0];
     await api()
       .post(`/api/invitations/${invitation.id}/accept`)
@@ -207,13 +216,19 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       const { branch } = await seed('refused');
       await ruleset({ include: [branch], rules: [{ type: 'update' }] });
       commitOn(branch, branch);
-      await expect(pushAs(writer, `${branch}:refs/heads/${branch}`)).rejects.toThrow();
+      await expect(
+        pushAs(writer, `${branch}:refs/heads/${branch}`),
+      ).rejects.toThrow();
 
       const suites = await suitesOf(`refs/heads/${branch}`);
       expect(suites).toHaveLength(1);
       expect(suites[0].result).toBe('fail');
       expect(suites[0].evaluations).toMatchObject([
-        { ruleType: 'update', result: 'fail', details: 'Cannot update this protected ref' },
+        {
+          ruleType: 'update',
+          result: 'fail',
+          details: 'Cannot update this protected ref',
+        },
       ]);
     });
 
@@ -226,9 +241,9 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       });
       commitOn(branch, branch);
       await pushAs(owner, `${branch}:refs/heads/${branch}`);
-      expect((await suitesOf(`refs/heads/${branch}`)).map(({ result }) => result)).toEqual([
-        'bypass',
-      ]);
+      expect(
+        (await suitesOf(`refs/heads/${branch}`)).map(({ result }) => result),
+      ).toEqual(['bypass']);
     });
 
     it('records each targeted ref of a refused push, and none of the rest', async () => {
@@ -247,8 +262,12 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
           `${free}:refs/heads/${free}`,
         ),
       ).rejects.toThrow();
-      expect((await suitesOf(`refs/heads/${frozen}`)).map(({ result }) => result)).toEqual(['fail']);
-      expect((await suitesOf(`refs/heads/${watched}`)).map(({ result }) => result)).toEqual(['pass']);
+      expect(
+        (await suitesOf(`refs/heads/${frozen}`)).map(({ result }) => result),
+      ).toEqual(['fail']);
+      expect(
+        (await suitesOf(`refs/heads/${watched}`)).map(({ result }) => result),
+      ).toEqual(['pass']);
       expect(await suitesOf(`refs/heads/${free}`)).toEqual([]);
     });
 
@@ -272,12 +291,21 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       await pushAs(writer, `+${branch}:refs/heads/${branch}`);
 
       const suites = await suitesOf(`refs/heads/${branch}`);
-      expect(suites.map(({ result, evaluationResult }) => [result, evaluationResult])).toEqual([
+      expect(
+        suites.map(({ result, evaluationResult }) => [
+          result,
+          evaluationResult,
+        ]),
+      ).toEqual([
         ['pass', 'pass'],
         ['pass', 'fail'],
       ]);
       expect(suites[1].evaluations).toMatchObject([
-        { enforcement: 'evaluate', result: 'fail', details: 'Cannot force-push to this branch' },
+        {
+          enforcement: 'evaluate',
+          result: 'fail',
+          details: 'Cannot force-push to this branch',
+        },
       ]);
     });
 
@@ -295,11 +323,13 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
         .expect(422);
 
       const suites = await suitesOf(`refs/heads/${branch}`);
-      expect(suites.map(({ result, beforeSha, afterSha }) => [
-        result,
-        beforeSha === ZERO_OID.toString('hex'),
-        afterSha === ZERO_OID.toString('hex'),
-      ])).toEqual([
+      expect(
+        suites.map(({ result, beforeSha, afterSha }) => [
+          result,
+          beforeSha === ZERO_OID.toString('hex'),
+          afterSha === ZERO_OID.toString('hex'),
+        ]),
+      ).toEqual([
         ['pass', true, false],
         ['fail', false, true],
       ]);
@@ -307,13 +337,19 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
 
     it('records a release tag', async () => {
       const tag = `v${++counter}`;
-      await ruleset({ target: 'tag', include: [tag], rules: [{ type: 'deletion' }] });
+      await ruleset({
+        target: 'tag',
+        include: [tag],
+        rules: [{ type: 'deletion' }],
+      });
       await api()
         .post(`/api/repositories/${repo}/releases`)
         .set('cookie', writer.cookie)
         .send({ tagName: tag })
         .expect(201);
-      expect((await suitesOf(`refs/tags/${tag}`)).map(({ result }) => result)).toEqual(['pass']);
+      expect(
+        (await suitesOf(`refs/tags/${tag}`)).map(({ result }) => result),
+      ).toEqual(['pass']);
     });
 
     it('records deleting a tag', async () => {
@@ -323,7 +359,11 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
         .set('cookie', writer.cookie)
         .send({ tagName: tag })
         .expect(201);
-      await ruleset({ target: 'tag', include: [tag], rules: [{ type: 'deletion' }] });
+      await ruleset({
+        target: 'tag',
+        include: [tag],
+        rules: [{ type: 'deletion' }],
+      });
       await expect(
         app.get(ReleasesService).deleteTag({
           username: owner.username,
@@ -332,9 +372,12 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
           tagName: tag,
         }),
       ).rejects.toThrow();
-      expect((await suitesOf(`refs/tags/${tag}`)).map(({ result, afterSha }) => [result, afterSha])).toEqual([
-        ['fail', ZERO_OID.toString('hex')],
-      ]);
+      expect(
+        (await suitesOf(`refs/tags/${tag}`)).map(({ result, afterSha }) => [
+          result,
+          afterSha,
+        ]),
+      ).toEqual([['fail', ZERO_OID.toString('hex')]]);
     });
 
     it('records an evaluate pull_request rule the merge would have failed', async () => {
@@ -364,7 +407,12 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       const [suite] = await suitesOf(`refs/heads/${base}`);
       expect([suite.result, suite.evaluationResult]).toEqual(['pass', 'fail']);
       expect(suite.evaluations).toMatchObject([
-        { enforcement: 'evaluate', ruleType: 'pull_request', result: 'fail', requirements: ['approvals'] },
+        {
+          enforcement: 'evaluate',
+          ruleType: 'pull_request',
+          result: 'fail',
+          requirements: ['approvals'],
+        },
       ]);
     });
 
@@ -382,18 +430,28 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
         .send({
           state: 'commented',
           comments: [
-            { path: 'suggest.txt', side: 'additions', line: 3, body: '```suggestion\nTHREE\n```' },
+            {
+              path: 'suggest.txt',
+              side: 'additions',
+              line: 3,
+              body: '```suggestion\nTHREE\n```',
+            },
           ],
         })
         .expect(201);
       await ruleset({ include: [branch], rules: [{ type: 'deletion' }] });
       await api()
-        .post(`/api/repositories/${repo}/pulls/${number}/comments/${body.comments[0].id}/apply`)
+        .post(
+          `/api/repositories/${repo}/pulls/${number}/comments/${body.comments[0].id}/apply`,
+        )
         .set('cookie', owner.cookie)
         .expect(201);
-      expect((await suitesOf(`refs/heads/${branch}`)).map(({ result, write }) => [result, write])).toEqual([
-        ['pass', 'push'],
-      ]);
+      expect(
+        (await suitesOf(`refs/heads/${branch}`)).map(({ result, write }) => [
+          result,
+          write,
+        ]),
+      ).toEqual([['pass', 'push']]);
     });
 
     it('records a refused merge and a landed one with the pull request', async () => {
@@ -401,7 +459,10 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       commitOn(`${base}-work`, base);
       await pushAs(owner, `${base}-work:refs/heads/${base}-work`);
       const number = await openPull(`${base}-work`, base);
-      const frozen = await ruleset({ include: [base], rules: [{ type: 'update' }] });
+      const frozen = await ruleset({
+        include: [base],
+        rules: [{ type: 'update' }],
+      });
 
       await merge(number).expect(422);
       await api()
@@ -413,12 +474,23 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
 
       const pullRequestId = await pullRequestIdOf(number);
       const suites = await suitesOf(`refs/heads/${base}`);
-      expect(suites.map(({ result, write, pullRequestId }) => [result, write, pullRequestId])).toEqual([
+      expect(
+        suites.map(({ result, write, pullRequestId }) => [
+          result,
+          write,
+          pullRequestId,
+        ]),
+      ).toEqual([
         ['fail', 'pull_request_merge', pullRequestId],
         ['pass', 'pull_request_merge', pullRequestId],
       ]);
       expect(suites[0].evaluations).toMatchObject([
-        { rulesetId: null, rulesetName: frozen.name, ruleType: 'update', result: 'fail' },
+        {
+          rulesetId: null,
+          rulesetName: frozen.name,
+          ruleType: 'update',
+          result: 'fail',
+        },
       ]);
     });
 
@@ -427,7 +499,11 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       commitOn(`${base}-work`, base);
       await pushAs(owner, `${base}-work:refs/heads/${base}-work`);
       const number = await openPull(`${base}-work`, base);
-      await ruleset({ include: [base], rules: [{ type: 'update' }], bypassActors: ADMIN_BYPASS });
+      await ruleset({
+        include: [base],
+        rules: [{ type: 'update' }],
+        bypassActors: ADMIN_BYPASS,
+      });
       const afterPush = vi
         .spyOn(app.get(PullRequestsService), 'afterPush')
         .mockRejectedValueOnce(new Error('bookkeeping failed'));
@@ -437,7 +513,9 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       } finally {
         afterPush.mockRestore();
       }
-      expect((await suitesOf(`refs/heads/${base}`)).map(({ result }) => result)).toEqual(['bypass']);
+      expect(
+        (await suitesOf(`refs/heads/${base}`)).map(({ result }) => result),
+      ).toEqual(['bypass']);
     });
 
     it('records nothing for a merge that asks the bypasser to opt in, and bypass once they do', async () => {
@@ -445,12 +523,18 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       commitOn(`${base}-work`, base);
       await pushAs(owner, `${base}-work:refs/heads/${base}-work`);
       const number = await openPull(`${base}-work`, base);
-      await ruleset({ include: [base], rules: [{ type: 'update' }], bypassActors: ADMIN_BYPASS });
+      await ruleset({
+        include: [base],
+        rules: [{ type: 'update' }],
+        bypassActors: ADMIN_BYPASS,
+      });
 
       await merge(number).expect(422);
       expect(await suitesOf(`refs/heads/${base}`)).toEqual([]);
       await merge(number, { bypassRules: true }).expect(201);
-      expect((await suitesOf(`refs/heads/${base}`)).map(({ result }) => result)).toEqual(['bypass']);
+      expect(
+        (await suitesOf(`refs/heads/${base}`)).map(({ result }) => result),
+      ).toEqual(['bypass']);
     });
 
     it('records nothing for merge requirements, the merge box or gh views', async () => {
@@ -458,7 +542,17 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       commitOn(`${base}-work`, base);
       await pushAs(owner, `${base}-work:refs/heads/${base}-work`);
       const number = await openPull(`${base}-work`, base);
-      await ruleset({ include: [base], rules: [{ type: 'update' }] });
+      await ruleset({
+        include: [base],
+        rules: [
+          { type: 'update' },
+          {
+            type: 'required_status_checks',
+            parameters: { required_status_checks: [{ context: 'build' }] },
+          },
+          { type: 'required_signatures' },
+        ],
+      });
 
       for (let i = 0; i < 2; i++)
         await api()
@@ -483,7 +577,11 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
 
     it('records nothing when the rulesets allowed a write that then failed', async () => {
       const ref = `refs/heads/lost-${++counter}`;
-      const transition = { ref, oldOid: Buffer.alloc(20, 1), newOid: Buffer.alloc(20, 2) };
+      const transition = {
+        ref,
+        oldOid: Buffer.alloc(20, 1),
+        newOid: Buffer.alloc(20, 2),
+      };
       await expect(
         app.get(RuleSuitesService).attempt(
           {
@@ -494,7 +592,14 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
               write: 'push',
               violations: [],
               bypassed: [],
-              suites: [{ transition, result: 'pass', evaluationResult: null, evaluations: [] }],
+              suites: [
+                {
+                  transition,
+                  result: 'pass',
+                  evaluationResult: null,
+                  evaluations: [],
+                },
+              ],
             },
           },
           () => Promise.reject(new NonFastForwardError(ref)),
@@ -526,7 +631,10 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       }[];
       nextCursor: string | null;
     };
-    const list = async (query: Record<string, string | number>, viewer = owner) =>
+    const list = async (
+      query: Record<string, string | number>,
+      viewer = owner,
+    ) =>
       (
         await api()
           .get(`/api/repositories/${repo}/rule-suites`)
@@ -545,7 +653,10 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       }
 
       const first = await list({ ref: branch, limit: 2 });
-      expect(first.ruleSuites.map(({ afterSha }) => afterSha)).toEqual([shas[2], shas[1]]);
+      expect(first.ruleSuites.map(({ afterSha }) => afterSha)).toEqual([
+        shas[2],
+        shas[1],
+      ]);
       expect(first.ruleSuites[0]).toMatchObject({
         actor: { id: writer.userId, username: writer.username },
         actorName: writer.username,
@@ -553,24 +664,50 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
         result: 'pass',
         evaluationResult: null,
         pullRequest: null,
-        evaluations: [{ rule: 'deletion', result: 'pass', enforcement: 'active', details: null }],
+        evaluations: [
+          {
+            rule: 'deletion',
+            result: 'pass',
+            enforcement: 'active',
+            details: null,
+          },
+        ],
       });
-      const second = await list({ ref: branch, limit: 2, cursor: first.nextCursor! });
-      expect(second.ruleSuites.map(({ afterSha }) => afterSha)).toEqual([shas[0]]);
+      const second = await list({
+        ref: branch,
+        limit: 2,
+        cursor: first.nextCursor!,
+      });
+      expect(second.ruleSuites.map(({ afterSha }) => afterSha)).toEqual([
+        shas[0],
+      ]);
       expect(second.nextCursor).toBeNull();
     });
 
     it('pages through the refs of one push without skipping any', async () => {
       const branches = [];
-      for (let i = 0; i < 3; i++) branches.push((await seed(`paged-${i}`)).branch);
-      const made = await ruleset({ include: branches, rules: [{ type: 'deletion' }] });
+      for (let i = 0; i < 3; i++)
+        branches.push((await seed(`paged-${i}`)).branch);
+      const made = await ruleset({
+        include: branches,
+        rules: [{ type: 'deletion' }],
+      });
       for (const branch of branches) commitOn(branch, branch);
-      await pushAs(writer, ...branches.map((branch) => `${branch}:refs/heads/${branch}`));
+      await pushAs(
+        writer,
+        ...branches.map((branch) => `${branch}:refs/heads/${branch}`),
+      );
 
       const first = await list({ rulesetId: made.id, limit: 2 });
-      const second = await list({ rulesetId: made.id, limit: 2, cursor: first.nextCursor! });
+      const second = await list({
+        rulesetId: made.id,
+        limit: 2,
+        cursor: first.nextCursor!,
+      });
       expect(
-        [...first.ruleSuites, ...second.ruleSuites].map(({ ref }) => ref).sort(),
+        [...first.ruleSuites, ...second.ruleSuites]
+          .map(({ ref }) => ref)
+          .sort(),
       ).toEqual(branches.map((branch) => `refs/heads/${branch}`).sort());
     });
 
@@ -581,12 +718,21 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
         rules: [{ type: 'update' }],
         bypassActors: ADMIN_BYPASS,
       });
-      const other = await ruleset({ include: ['nothing-here'], rules: [{ type: 'deletion' }] });
-      await ruleset({ include: [branch], enforcement: 'evaluate', rules: [{ type: 'deletion' }] });
+      const other = await ruleset({
+        include: ['nothing-here'],
+        rules: [{ type: 'deletion' }],
+      });
+      await ruleset({
+        include: [branch],
+        enforcement: 'evaluate',
+        rules: [{ type: 'deletion' }],
+      });
       commitOn(branch, branch);
       await pushAs(owner, `${branch}:refs/heads/${branch}`);
       commitOn(branch, branch);
-      await expect(pushAs(writer, `${branch}:refs/heads/${branch}`)).rejects.toThrow();
+      await expect(
+        pushAs(writer, `${branch}:refs/heads/${branch}`),
+      ).rejects.toThrow();
       const { branch: plain } = await seed('filtered-plain');
       await ruleset({ include: [plain], rules: [{ type: 'deletion' }] });
       commitOn(plain, plain);
@@ -595,14 +741,31 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
       const results = async (query: Record<string, string>) =>
         (await list(query)).ruleSuites.map(({ result }) => result);
       expect(await results({ ref: branch })).toEqual(['fail', 'bypass']);
-      expect(await results({ ref: `refs/heads/${branch}` })).toEqual(['fail', 'bypass']);
-      expect(await results({ ref: branch, actor: writer.username })).toEqual(['fail']);
-      expect(await results({ ref: branch, result: 'bypass' })).toEqual(['bypass']);
-      expect(await results({ ref: branch, rulesetId: guard.id })).toEqual(['fail', 'bypass']);
+      expect(await results({ ref: `refs/heads/${branch}` })).toEqual([
+        'fail',
+        'bypass',
+      ]);
+      expect(await results({ ref: branch, actor: writer.username })).toEqual([
+        'fail',
+      ]);
+      expect(await results({ ref: branch, result: 'bypass' })).toEqual([
+        'bypass',
+      ]);
+      expect(await results({ ref: branch, rulesetId: guard.id })).toEqual([
+        'fail',
+        'bypass',
+      ]);
       expect(await results({ ref: branch, rulesetId: other.id })).toEqual([]);
-      expect(await results({ ref: branch, enforcement: 'evaluate' })).toEqual(['fail', 'bypass']);
-      expect(await results({ ref: plain, enforcement: 'evaluate' })).toEqual([]);
-      expect(await results({ ref: plain, enforcement: 'active' })).toEqual(['pass']);
+      expect(await results({ ref: branch, enforcement: 'evaluate' })).toEqual([
+        'fail',
+        'bypass',
+      ]);
+      expect(await results({ ref: plain, enforcement: 'evaluate' })).toEqual(
+        [],
+      );
+      expect(await results({ ref: plain, enforcement: 'active' })).toEqual([
+        'pass',
+      ]);
 
       await db()
         .update(schema.ruleSuite)
@@ -632,7 +795,9 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
         .set('cookie', owner.cookie)
         .send({ ...body, name: `after ${counter}` })
         .expect(200);
-      expect((await list({ ref: branch })).ruleSuites[0].evaluations[0]).toMatchObject({
+      expect(
+        (await list({ ref: branch })).ruleSuites[0].evaluations[0],
+      ).toMatchObject({
         rulesetId: made.id,
         rulesetName: body.name,
         enforcement: 'active',
@@ -642,7 +807,9 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
         .delete(`/api/repositories/${repo}/rulesets/${made.id}`)
         .set('cookie', owner.cookie)
         .expect(204);
-      expect((await list({ ref: branch })).ruleSuites[0].evaluations[0]).toMatchObject({
+      expect(
+        (await list({ ref: branch })).ruleSuites[0].evaluations[0],
+      ).toMatchObject({
         rulesetId: null,
         rulesetName: body.name,
         enforcement: 'deleted ruleset',
@@ -658,7 +825,11 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
     });
 
     it('refuses an unknown filter value', async () => {
-      for (const query of [{ result: 'maybe' }, { period: 'year' }, { enforcement: 'disabled' }])
+      for (const query of [
+        { result: 'maybe' },
+        { period: 'year' },
+        { enforcement: 'disabled' },
+      ])
         await api()
           .get(`/api/repositories/${repo}/rule-suites`)
           .query(query)

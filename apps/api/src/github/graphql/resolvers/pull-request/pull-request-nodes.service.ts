@@ -84,6 +84,7 @@ export class PullRequestNodesService {
               bypassed: [],
               allowedMethods: [...MERGE_METHODS],
               reviewsRequired: false,
+              requiredContexts: [],
             }
           : this.pulls.mergeRequirements({
               ...this.ref(pull, viewer),
