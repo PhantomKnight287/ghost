@@ -8,6 +8,8 @@ import { seedBuiltInRows } from "./seed.js";
 
 // Drizzle runs each migration batch in one transaction, so a failed attempt leaves nothing half-applied to retry over.
 const MAX_RETRIES = 3;
+// Every API instance migrates on start; the lock makes a second one wait, then find nothing left to apply.
+const MIGRATION_LOCK = 7_034_201;
 
 async function main() {
   const migrationsFolder = path.join(
@@ -17,8 +19,10 @@ async function main() {
   );
 
   const { db, pool } = createDatabase();
+  const lock = await pool.connect();
 
   try {
+    await lock.query("select pg_advisory_lock($1)", [MIGRATION_LOCK]);
     for (let attempt = 0; ; attempt++) {
       try {
         await migrate(db, { migrationsFolder });
@@ -35,6 +39,7 @@ async function main() {
     console.log(`Migrations applied from ${migrationsFolder}`);
     await seedBuiltInRows(db);
   } finally {
+    lock.release();
     await pool.end();
   }
 }

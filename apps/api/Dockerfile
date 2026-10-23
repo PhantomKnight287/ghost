@@ -69,4 +69,5 @@ COPY packages/db/drizzle ./packages/db/drizzle
 # Statically linked, so the Alpine build runs on this Debian base.
 COPY --from=zoekt /usr/local/bin/zoekt-git-index /usr/local/bin/zoekt-git-index
 EXPOSE 3001 1031
-CMD ["node", "apps/api/dist/main.js"]
+# Unkey has no pre-deploy step, so each start migrates before serving; migrate.js takes a lock, so instances starting together apply each migration once.
+CMD ["sh", "-c", "node packages/db/dist/migrate.js && exec node apps/api/dist/main.js"]
