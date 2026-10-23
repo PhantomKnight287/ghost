@@ -36,8 +36,12 @@ import { PullRequestParametersField } from "./pull-request-parameters-field";
 
 const targets = ["branch", "tag"] as const;
 const targetLabels = { branch: "Branch", tag: "Tag" };
-const enforcements = ["active", "disabled"] as const;
-const enforcementLabels = { active: "Active", disabled: "Disabled" };
+const enforcements = ["active", "evaluate", "disabled"] as const;
+const enforcementLabels = {
+  active: "Active",
+  evaluate: "Evaluate",
+  disabled: "Disabled",
+};
 
 // The form edits patterns as typed, without the prefix: the API adds the one the target implies, so switching the target carries them over.
 const unprefixed = (pattern: string) =>
@@ -166,6 +170,11 @@ export function RulesetForm({
                 value={enforcement}
                 onChange={setEnforcement}
               />
+              {enforcement === "evaluate" && (
+                <FieldDescription>
+                  Records what would pass or fail without blocking anything.
+                </FieldDescription>
+              )}
             </Field>
           </div>
 

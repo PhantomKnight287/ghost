@@ -310,7 +310,7 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       const malformed = [
         { name: '' },
         { target: 'push' },
-        { enforcement: 'evaluate' },
+        { enforcement: 'sometimes' },
         { include: 'main' },
         { rules: [{ type: 'teleport' }] },
         { rules: [{ type: 'deletion' }, { type: 'deletion' }] },

@@ -230,6 +230,24 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
     });
   });
 
+  it('round-trips evaluate enforcement through REST and GraphQL', async () => {
+    const made = await create({ name: 'evaluate trial', enforcement: 'evaluate' });
+    expect(made.enforcement).toBe('evaluate');
+    const { body } = await http()
+      .post('/api/graphql')
+      .set('authorization', `token ${owner.key}`)
+      .send({
+        query: `query($owner: String!) { repository(owner: $owner, name: "guarded") { rulesets(first: 100) { nodes { name enforcement } } } }`,
+        variables: { owner: org },
+      })
+      .expect(200);
+    expect(body.errors).toBeUndefined();
+    expect(body.data.repository.rulesets.nodes).toContainEqual({
+      name: 'evaluate trial',
+      enforcement: 'EVALUATE',
+    });
+  });
+
   it('takes ref_name with include alone, and keeps exclude on an update that leaves it out', async () => {
     const made = await create({
       name: 'include only',

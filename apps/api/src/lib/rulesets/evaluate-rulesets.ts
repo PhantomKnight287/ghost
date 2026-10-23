@@ -11,7 +11,9 @@ import type {
   Requirement,
   Ruleset,
   RulesetActor,
+  RuleEvaluation,
   RulesetEvaluation,
+  RuleSuiteResult,
   RuleType,
   Violation,
 } from './rulesets.types.js';
@@ -124,7 +126,7 @@ function unmetOnMerge(
   return unmet;
 }
 
-/** Every rule each write breaks. What the actor may bypass for this write goes to `bypassed`, the rest to `violations`, which refuse it. */
+/** Every rule each write breaks. What the actor may bypass for this write goes to `bypassed`, the rest to `violations`, which refuse it. Evaluate rulesets refuse nothing: they only show in `suites`, which list every rule checked per ref. */
 export function evaluateRulesets(payload: {
   rulesets: Ruleset[];
   actor: RulesetActor;
@@ -134,16 +136,26 @@ export function evaluateRulesets(payload: {
   defaultBranch: string;
   pullRequest?: PullRequestFacts;
 }): RulesetEvaluation {
-  const evaluation: RulesetEvaluation = { violations: [], bypassed: [] };
+  const violations: Violation[] = [];
+  const bypassed: Violation[] = [];
+  const tallies = new Map<
+    string,
+    {
+      evaluations: RuleEvaluation[];
+      refused: boolean;
+      bypassed: boolean;
+      evaluated: boolean;
+      evaluateFailed: boolean;
+    }
+  >();
   for (const ruleset of payload.rulesets) {
-    if (ruleset.enforcement !== 'active') continue;
+    if (ruleset.enforcement === 'disabled') continue;
+    const active = ruleset.enforcement === 'active';
     const bypass = bypassOf(ruleset, payload.actor);
-    const into =
+    const bypassable =
       bypass === 'always' ||
       (bypass === 'pull_requests_only' &&
-        payload.write === 'pull_request_merge')
-        ? evaluation.bypassed
-        : evaluation.violations;
+        payload.write === 'pull_request_merge');
 
     for (const { ref, oldOid, newOid } of payload.transitions) {
       if (!refTargeted(ruleset, ref, payload.defaultBranch)) continue;
@@ -160,32 +172,90 @@ export function evaluateRulesets(payload: {
         required_linear_history:
           !deleted && facts?.introducesMergeCommit !== false,
       };
+      const tally = tallies.get(ref) ?? {
+        evaluations: [],
+        refused: false,
+        bypassed: false,
+        evaluated: false,
+        evaluateFailed: false,
+      };
+      tallies.set(ref, tally);
+      tally.evaluated ||= !active;
       const named = { ref, rulesetId: ruleset.id, rulesetName: ruleset.name };
       for (const rule of ruleset.rules) {
-        if (rule.type !== 'pull_request') {
-          if (broken[rule.type])
-            into.push({
-              ...named,
-              rule: rule.type,
-              message: MESSAGES[rule.type],
-            });
+        // Creating and deleting are the creation and deletion rules' business, so the pull_request rule only weighs an update.
+        const unmet: [Requirement | undefined, string][] =
+          rule.type !== 'pull_request'
+            ? broken[rule.type]
+              ? [[undefined, MESSAGES[rule.type]]]
+              : []
+            : !updated
+              ? []
+              : payload.write === 'push'
+                ? [
+                    [
+                      'pull_request',
+                      'Changes must be made through a pull request.',
+                    ],
+                  ]
+                : unmetOnMerge(
+                    rule.parameters as PullRequestRuleParameters,
+                    payload.pullRequest,
+                  );
+        tally.evaluations.push({
+          rulesetId: ruleset.id,
+          rulesetName: ruleset.name,
+          enforcement: ruleset.enforcement,
+          rule: rule.type,
+          result: unmet.length > 0 ? 'fail' : 'pass',
+          requirements: unmet.flatMap(([requirement]) =>
+            requirement ? [requirement] : [],
+          ),
+          details:
+            unmet.length > 0
+              ? unmet.map(([, message]) => message).join('\n')
+              : null,
+        });
+        if (unmet.length === 0) continue;
+        if (!active) {
+          tally.evaluateFailed = true;
           continue;
         }
-        // Creating and deleting are the creation and deletion rules' business.
-        if (!updated) continue;
-        const unmet: [Requirement, string][] =
-          payload.write === 'push'
-            ? [['pull_request', 'Changes must be made through a pull request.']]
-            : unmetOnMerge(
-                rule.parameters as PullRequestRuleParameters,
-                payload.pullRequest,
-              );
+        tally.bypassed ||= bypassable;
+        tally.refused ||= !bypassable;
         for (const [requirement, message] of unmet)
-          into.push({ ...named, rule: 'pull_request', requirement, message });
+          (bypassable ? bypassed : violations).push({
+            ...named,
+            rule: rule.type,
+            ...(requirement && { requirement }),
+            message,
+          });
       }
     }
   }
-  return evaluation;
+
+  const suites = payload.transitions.flatMap((transition) => {
+    const tally = tallies.get(transition.ref);
+    if (!tally || tally.evaluations.length === 0) return [];
+    const result: RuleSuiteResult = tally.refused
+      ? 'fail'
+      : tally.bypassed
+        ? 'bypass'
+        : 'pass';
+    return [
+      {
+        transition,
+        result,
+        evaluationResult: !tally.evaluated
+          ? null
+          : tally.evaluateFailed
+            ? ('fail' as const)
+            : result,
+        evaluations: tally.evaluations,
+      },
+    ];
+  });
+  return { violations, bypassed, suites };
 }
 
 /** The merge methods every applicable ruleset allows, after `required_linear_history` removes `merge`. */

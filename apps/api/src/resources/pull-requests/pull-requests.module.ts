@@ -4,6 +4,7 @@ import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { CodeownersService } from '../../services/codeowners/codeowners.service.js';
 import { PullRequestRulesService } from '../../services/rulesets/pull-request-rules.service.js';
+import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
@@ -48,6 +49,7 @@ import { ReviewsService } from './reviews.service.js';
     UsersService,
     RepositoryAccessService,
     PushTransactionService,
+    RuleSuitesService,
     RulesetVerdictsService,
     PullRequestRulesService,
     CodeownersService,

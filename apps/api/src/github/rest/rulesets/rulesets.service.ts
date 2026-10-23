@@ -2,7 +2,7 @@ import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import {
@@ -10,9 +10,12 @@ import {
   UnprocessableError,
 } from '../../../lib/github/github.errors.js';
 import { encodeNodeId } from '../../../lib/github/node-id.js';
+import { reviewsOf } from '../../../lib/github/node-lookup.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
+import { pageOf, RestPage } from '../../../lib/github/rest.js';
 import { bypassOf } from '../../../lib/rulesets/evaluate-rulesets.js';
 import { refTargeted } from '../../../lib/rulesets/ref-pattern.js';
+import { ruleSuiteFilter } from '../../../lib/rulesets/rule-suite-filter.js';
 import { rulesetColumns } from '../../../lib/rulesets/ruleset-columns.js';
 import {
   type BypassActor,
@@ -34,8 +37,13 @@ import { GithubIssuesService } from '../issues/issues.service.js';
 import type {
   GithubBypassActorDTO,
   GithubCreateRulesetDTO,
+  GithubRuleSuiteQueryDTO,
+  GithubRuleSuitesQueryDTO,
   GithubUpdateRulesetDTO,
 } from './dto/rulesets.dto.js';
+
+// GitHub caps the pull request metadata a suite carries.
+const MAX_METADATA_REVIEWS = 50;
 
 // GitHub sends 1 for the organization admin actor, whose id means nothing.
 const ORGANIZATION_ADMIN_ID = 1;
@@ -195,6 +203,167 @@ export class GithubRulesetsService {
           ruleset_id: row.numericId,
         })),
       );
+  }
+
+  /** Admins only, as GitHub hides rule insights from everyone else behind a 404. */
+  async ruleSuites(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    query: GithubRuleSuitesQueryDTO,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    if (!atLeast(repository.viewerRole, 'admin'))
+      throw new GithubNotFoundError();
+    const page = pageOf(query);
+    const where = ruleSuiteFilter({
+      repositoryId: repository.ghostId,
+      ref: query.ref,
+      actorName: query.actor_name,
+      result:
+        query.rule_suite_result === 'all' ? undefined : query.rule_suite_result,
+      enforcement:
+        query.evaluate_status === 'all' ? undefined : query.evaluate_status,
+      period: query.time_period ?? 'day',
+    });
+    const [suites, [{ total }]] = await Promise.all([
+      this.suites(where)
+        .orderBy(desc(schema.ruleSuite.createdAt), desc(schema.ruleSuite.id))
+        .limit(page.perPage)
+        .offset(page.offset),
+      this.db.select({ total: count() }).from(schema.ruleSuite).where(where),
+    ]);
+    return new RestPage(
+      suites.map((suite) => ({
+        ...suite,
+        repository_id: repository.databaseId,
+        repository_name: repository.name,
+      })),
+      page,
+      total,
+    );
+  }
+
+  async ruleSuite(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    numericId: number,
+    query: GithubRuleSuiteQueryDTO,
+  ) {
+    const repository = await this.github.readable(owner, repo, viewer);
+    if (!atLeast(repository.viewerRole, 'admin'))
+      throw new GithubNotFoundError();
+    const [found] = await this.db
+      .select({
+        id: schema.ruleSuite.id,
+        pullRequestId: schema.ruleSuite.pullRequestId,
+      })
+      .from(schema.ruleSuite)
+      .where(
+        and(
+          eq(schema.ruleSuite.repositoryId, repository.ghostId),
+          eq(schema.ruleSuite.numericId, numericId),
+        ),
+      );
+    if (!found) throw new GithubNotFoundError();
+    const [[suite], evaluations, pullRequest] = await Promise.all([
+      this.suites(eq(schema.ruleSuite.id, found.id)),
+      this.db
+        .select({
+          rule_source: {
+            type: sql<'ruleset'>`'ruleset'`,
+            id: schema.ruleset.numericId,
+            name: schema.ruleEvaluation.rulesetName,
+          },
+          enforcement: sql<
+            'active' | 'evaluate' | 'deleted ruleset'
+          >`case when ${schema.ruleEvaluation.rulesetId} is null then 'deleted ruleset' else ${schema.ruleEvaluation.enforcement}::text end`,
+          result: schema.ruleEvaluation.result,
+          rule_type: schema.ruleEvaluation.ruleType,
+          details: schema.ruleEvaluation.details,
+        })
+        .from(schema.ruleEvaluation)
+        .leftJoin(
+          schema.ruleset,
+          eq(schema.ruleset.id, schema.ruleEvaluation.rulesetId),
+        )
+        .where(eq(schema.ruleEvaluation.ruleSuiteId, found.id))
+        .orderBy(asc(schema.ruleEvaluation.position)),
+      query.include_metadata === 'true' && found.pullRequestId
+        ? this.pullRequestMetadata(repository, found.pullRequestId)
+        : null,
+    ]);
+    return {
+      ...suite,
+      repository_id: repository.databaseId,
+      repository_name: repository.name,
+      rule_evaluations: evaluations.map((evaluation) =>
+        pullRequest && evaluation.rule_type === 'pull_request'
+          ? { ...evaluation, metadata: { pull_request: pullRequest } }
+          : evaluation,
+      ),
+    };
+  }
+
+  /** GitHub's rule suite fields that live on the suite row itself. */
+  private suites(where: SQL | undefined) {
+    return this.db
+      .select({
+        id: schema.ruleSuite.numericId,
+        actor_id: schema.user.numericId,
+        actor_name: schema.ruleSuite.actorName,
+        before_sha: schema.ruleSuite.beforeSha,
+        after_sha: schema.ruleSuite.afterSha,
+        ref: schema.ruleSuite.ref,
+        pushed_at: schema.ruleSuite.createdAt,
+        result: schema.ruleSuite.result,
+        evaluation_result: schema.ruleSuite.evaluationResult,
+      })
+      .from(schema.ruleSuite)
+      .leftJoin(schema.user, eq(schema.user.id, schema.ruleSuite.actorId))
+      .where(where);
+  }
+
+  /** The merged pull request as it is now, with its submitted reviews. */
+  private async pullRequestMetadata(
+    repository: RepositoryNode,
+    pullRequestId: string,
+  ) {
+    const [[pullRequest], reviews] = await Promise.all([
+      this.db
+        .select({
+          id: schema.issue.numericId,
+          number: schema.issue.number,
+          authorLogin: schema.user.username,
+        })
+        .from(schema.pullRequest)
+        .innerJoin(
+          schema.issue,
+          eq(schema.issue.id, schema.pullRequest.issueId),
+        )
+        .leftJoin(schema.user, eq(schema.user.id, schema.issue.authorId))
+        .where(eq(schema.pullRequest.id, pullRequestId)),
+      reviewsOf(this.db, [pullRequestId]),
+    ]);
+    const shown = reviews
+      .filter(({ submittedAt }) => submittedAt !== null)
+      .slice(0, MAX_METADATA_REVIEWS);
+    const { users } = await this.github.context(repository, {
+      logins: [
+        pullRequest.authorLogin ?? '',
+        ...shown.map(({ authorLogin }) => authorLogin),
+      ],
+      labels: [],
+    });
+    return {
+      id: pullRequest.id,
+      number: pullRequest.number,
+      user: users.get(pullRequest.authorLogin ?? '') ?? null,
+      reviews: shown.map((review) => ({
+        id: review.numericId,
+        user: users.get(review.authorLogin) ?? null,
+        state: review.dismissed
+          ? 'DISMISSED'
+          : (review.state ?? 'pending').toUpperCase(),
+      })),
+    };
   }
 
   private rows(where: SQL | undefined) {

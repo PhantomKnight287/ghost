@@ -15,6 +15,7 @@ import {
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { EXISTING_HISTORY } from '../../lib/rulesets/rulesets.types.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
@@ -40,6 +41,7 @@ export class RepositoryBranchesService {
     private readonly materializer: RepositoryMaterializerService,
     private readonly pushTransaction: PushTransactionService,
     private readonly verdicts: RulesetVerdictsService,
+    private readonly ruleSuites: RuleSuitesService,
   ) {}
 
   async createBranch({
@@ -147,22 +149,24 @@ export class RepositoryBranchesService {
     transition: RefTransition,
   ) {
     const transitions = [transition];
-    return this.pushTransaction.commitPush({
-      repoId: repository.id,
+    const verdict = await this.verdicts.judge({
+      repository,
+      gitDir,
+      userId: requesterId,
+      write: 'push',
       transitions,
-      body: bufferBody(Buffer.alloc(0)),
-      packOffset: 0,
-      actor: {
-        userId: requesterId,
-        verdict: await this.verdicts.judge({
-          repository,
-          gitDir,
-          userId: requesterId,
-          write: 'push',
-          transitions,
-          facts: new Map([[transition.ref, EXISTING_HISTORY]]),
-        }),
-      },
+      facts: new Map([[transition.ref, EXISTING_HISTORY]]),
     });
+    return this.ruleSuites.attempt(
+      { repositoryId: repository.id, actorId: requesterId, verdict },
+      () =>
+        this.pushTransaction.commitPush({
+          repoId: repository.id,
+          transitions,
+          body: bufferBody(Buffer.alloc(0)),
+          packOffset: 0,
+          actor: { userId: requesterId, verdict },
+        }),
+    );
   }
 }

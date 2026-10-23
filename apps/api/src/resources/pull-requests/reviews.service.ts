@@ -25,6 +25,7 @@ import {
   extractSuggestion,
 } from '../../lib/pull-requests/suggestion.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
@@ -82,6 +83,7 @@ export class ReviewsService {
     private readonly pushTransaction: PushTransactionService,
     private readonly signing: CommitSigningService,
     private readonly verdicts: RulesetVerdictsService,
+    private readonly ruleSuites: RuleSuitesService,
   ) {}
 
   /** Submits the requester's pending review, or a new one, together with any further line comments. `separate` leaves the pending review alone and submits a new one; `commitSha` reviews an earlier commit of the request instead of its head. */
@@ -638,13 +640,21 @@ export class ReviewsService {
         exclude: [git.headSha],
         prefix: path.join(directory, 'suggestion'),
       });
-      await this.pushTransaction.commitPush({
-        repoId: headRepositoryId,
-        transitions,
-        body: fileBody(pack.path, pack.size),
-        packOffset: 0,
-        actor: { userId: params.requesterId, verdict },
-      });
+      await this.ruleSuites.attempt(
+        {
+          repositoryId: headRepositoryId,
+          actorId: params.requesterId,
+          verdict,
+        },
+        () =>
+          this.pushTransaction.commitPush({
+            repoId: headRepositoryId,
+            transitions,
+            body: fileBody(pack.path, pack.size),
+            packOffset: 0,
+            actor: { userId: params.requesterId, verdict },
+          }),
+      );
     });
 
     await this.pullRequests.afterPush({

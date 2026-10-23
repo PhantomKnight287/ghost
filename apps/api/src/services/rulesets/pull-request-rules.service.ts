@@ -64,10 +64,10 @@ export class PullRequestRulesService {
     baseRef: string,
     rulesets?: Ruleset[],
   ) {
-    const active = rulesets ?? (await this.verdicts.active(repository.id));
-    if (active.length === 0)
+    const checked = rulesets ?? (await this.verdicts.checked(repository.id));
+    if (checked.length === 0)
       return {
-        rulesets: active,
+        rulesets: checked,
         pullRequestRules: [],
         allowedMethods: allowedMergeMethods([], '', ''),
       };
@@ -77,13 +77,14 @@ export class PullRequestRulesService {
       gitDir,
     );
     return {
-      rulesets: active,
-      pullRequestRules: active.filter(
+      rulesets: checked,
+      // Evaluate rulesets too: they are judged on the same facts, they only cannot refuse.
+      pullRequestRules: checked.filter(
         (ruleset) =>
           ruleset.rules.some(({ type }) => type === 'pull_request') &&
           refTargeted(ruleset, ref, defaultBranch),
       ),
-      allowedMethods: allowedMergeMethods(active, ref, defaultBranch),
+      allowedMethods: allowedMergeMethods(checked, ref, defaultBranch),
     };
   }
 

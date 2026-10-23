@@ -113,7 +113,7 @@ export const bypassRoles = ["write", "maintain", "admin"] as const;
 export const rulesetBodySchema = z.object({
   name: z.string().trim().min(1, "Name the ruleset."),
   target: z.enum(["branch", "tag"]),
-  enforcement: z.enum(["active", "disabled"]),
+  enforcement: z.enum(["active", "evaluate", "disabled"]),
   include: z.array(z.string().min(1)),
   exclude: z.array(z.string().min(1)),
   // Which of role and teamId an actor type needs is the API's to check.

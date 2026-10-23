@@ -48,6 +48,7 @@ import { errorMessage } from '../lib/error-message.js';
 import { refTargeted } from '../lib/rulesets/ref-pattern.js';
 import { RulesetViolationError } from '../lib/rulesets/rulesets.errors.js';
 import type { Violation } from '../lib/rulesets/rulesets.types.js';
+import { RuleSuitesService } from '../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../services/rulesets/ruleset-verdicts.service.js';
 
 export interface GitTransportResponse {
@@ -77,6 +78,7 @@ export class GitService {
     private readonly quota: StorageQuotaService,
     @Inject(DATABASE) private readonly db: Database,
     private readonly verdicts: RulesetVerdictsService,
+    private readonly ruleSuites: RuleSuitesService,
   ) {}
 
   async advertiseRefs({
@@ -300,7 +302,7 @@ export class GitService {
       id: repositoryId,
       defaultBranch: repository.defaultBranch,
     });
-    const rulesets = await this.verdicts.active(repositoryId);
+    const rulesets = await this.verdicts.checked(repositoryId);
     const defaultBranch =
       rulesets.length > 0
         ? await this.verdicts.defaultBranchOf(repository, repoDirectory)
@@ -334,43 +336,45 @@ export class GitService {
           facts,
           rulesets,
         });
-        if (verdict.violations.length > 0)
-          throw new RulesetViolationError(verdict.violations);
         bypassed = verdict.bypassed;
         const ulid = createUlid();
         const size = pack.body.size - pack.packOffset;
         const entry = { repositoryId, ulid, size };
         let committed = false;
         // ponytail: a crash between the log's commit point and the billing row leaves the push unbilled; reconcile against the WAL index, as pull refs do, if that leak matters.
-        return this.quota
-          .reserve(
-            storageAccountOf(repository),
-            billedKindOf(repository, 'repository'),
-            size,
-            async (tx) => {
-              await this.pushTransaction.commitPush({
-                ulid,
-                repoId: repositoryId,
-                transitions,
-                ...pack,
-                actor: { userId: pushedBy, verdict },
-              });
-              committed = true;
-              await tx
-                .insert(schema.repositoryLogEntry)
-                .values(entry)
-                .onConflictDoNothing();
-            },
-          )
-          .catch(async (error: unknown) => {
-            // The layer is in the log whatever the transaction did, so it is billed outside it for the next push's quota check to count.
-            if (committed)
-              await this.db
-                .insert(schema.repositoryLogEntry)
-                .values(entry)
-                .onConflictDoNothing();
-            throw error;
-          });
+        return this.ruleSuites.attempt(
+          { repositoryId, actorId: pushedBy, verdict },
+          () =>
+            this.quota
+              .reserve(
+                storageAccountOf(repository),
+                billedKindOf(repository, 'repository'),
+                size,
+                async (tx) => {
+                  await this.pushTransaction.commitPush({
+                    ulid,
+                    repoId: repositoryId,
+                    transitions,
+                    ...pack,
+                    actor: { userId: pushedBy, verdict },
+                  });
+                  committed = true;
+                  await tx
+                    .insert(schema.repositoryLogEntry)
+                    .values(entry)
+                    .onConflictDoNothing();
+                },
+              )
+              .catch(async (error: unknown) => {
+                // The layer is in the log whatever the transaction did, so it is billed outside it for the next push's quota check to count.
+                if (committed)
+                  await this.db
+                    .insert(schema.repositoryLogEntry)
+                    .values(entry)
+                    .onConflictDoNothing();
+                throw error;
+              }),
+        );
       },
     );
     return { importing, repoDirectory, bypassed };

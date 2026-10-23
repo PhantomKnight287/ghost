@@ -232,6 +232,7 @@ registerEnumType(RepositoryRulesetTarget, { name: 'RepositoryRulesetTarget' });
 
 export enum RuleEnforcement {
   ACTIVE = 'ACTIVE',
+  EVALUATE = 'EVALUATE',
   DISABLED = 'DISABLED',
 }
 registerEnumType(RuleEnforcement, { name: 'RuleEnforcement' });

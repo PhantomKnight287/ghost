@@ -60,11 +60,11 @@ import {
   type Repository,
   type RepositoryOperation,
 } from '../../lib/repositories/access/repository-access.js';
+import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import {
   MergeMethodNotAllowedError,
   RulesetBypassRequiredError,
-  RulesetViolationError,
 } from '../../lib/rulesets/rulesets.errors.js';
 import type {
   PullRequestRuleParameters,
@@ -176,6 +176,7 @@ export class PullRequestsService {
     private readonly lfs: LfsService,
     private readonly statuses: CommitStatusesService,
     private readonly verdicts: RulesetVerdictsService,
+    private readonly ruleSuites: RuleSuitesService,
     private readonly rules: PullRequestRulesService,
   ) {}
 
@@ -707,156 +708,171 @@ export class PullRequestsService {
     const methodRefused = verdict.violations.find(
       ({ requirement }) => requirement === 'merge_method',
     );
-    if (params.compat && methodRefused)
-      throw new MergeMethodNotAllowedError(methodRefused.message);
-    if (verdict.violations.length > 0)
-      throw new RulesetViolationError(verdict.violations);
-    if (verdict.bypassed.length > 0 && !params.bypassRules && !params.compat)
+    // Asking the bypasser to opt in decides nothing, so it is not recorded; the retry with bypassRules is.
+    if (
+      verdict.violations.length === 0 &&
+      verdict.bypassed.length > 0 &&
+      !params.bypassRules &&
+      !params.compat
+    )
       throw new RulesetBypassRequiredError(verdict.bypassed);
 
-    return await withTempDir('ghost-merge-', async (directory) => {
-      // The pull head ref is in the base log, so whatever it reaches was already written there by the last sync and only the merge itself is new.
-      const pulledHead = await resolveCommit(
-        git.baseDirectory,
-        pullHeadRef(pullRequest.number),
-      );
-      // ponytail: excludes only the base tip and the pull head, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
-      const pack = await packRange({
-        gitDir: git.baseDirectory,
-        alternates: git.alternates,
-        // The head rides along even when a squash or rebase leaves it unreachable: a merged request reads its commits and diff from the base alone.
-        include: [mergeCommitSha, git.headSha],
-        exclude: pulledHead ? [git.baseSha, pulledHead] : [git.baseSha],
-        prefix: path.join(directory, 'merge'),
-      });
-
-      // A fork's LFS objects stay in the fork, so the merge brings along the ones its commits point at. Bytes go first: a merge that fails afterwards leaves only orphans (0010).
-      const lfsObjects =
-        git.head.id === base.id
-          ? []
-          : await this.lfs.missingFrom(
-              base.id,
-              git.head.id,
-              await lfsPointersIn({
-                gitDir: git.headDirectory,
-                include: [git.headSha],
-                exclude: [mergeBase],
-              }),
-            );
-      await this.lfs.copy(lfsObjects, git.head.id, base.id);
-
-      // The row stays locked until the merge is recorded, so the request cannot be closed or turned into a draft between this check and the push. Nothing that can fail after the push belongs in here: a rollback would leave the branch merged and the request open.
-      const seq = await this.db.transaction(async (tx) => {
-        const [locked] = await tx
-          .select({
-            state: schema.pullRequest.state,
-            draft: schema.pullRequest.draft,
-          })
-          .from(schema.pullRequest)
-          .where(eq(schema.pullRequest.id, pullRequest.id))
-          .for('update');
-        if (locked.draft) throw new PullRequestDraftError();
-        if (locked.state !== 'open') {
-          throw new PullRequestNotOpenError(locked.state);
-        }
-        await this.quota.assertRoom(
-          storageAccountOf(base),
-          billedKindOf(base, 'repository'),
-          MergeStorageQuotaExceededError,
-          tx,
-        );
-        if (lfsObjects.length > 0) {
-          await this.quota.assertRoom(
-            storageAccountOf(base),
-            billedKindOf(base, 'lfs'),
-            MergeStorageQuotaExceededError,
-            tx,
-          );
-          await this.lfs.record(tx, lfsObjects, base.id);
-        }
-
-        const { seq } = await this.pushTransaction.commitPush({
-          repoId: base.id,
-          transitions,
-          body: fileBody(pack.path, pack.size),
-          packOffset: 0,
-          actor: { userId: params.requesterId, verdict },
-        });
-
-        await tx
-          .update(schema.pullRequest)
-          .set({
-            state: 'merged',
-            mergeCommitSha,
-            headSha: git.headSha,
-            mergedAt: new Date(),
-          })
-          .where(eq(schema.pullRequest.id, pullRequest.id));
-        await closeIssue(tx, {
-          issueId: pullRequest.issueId,
-          actorId: params.requesterId,
-          type: 'merged',
-          commitSha: mergeCommitSha,
-        });
-        if (verdict.bypassed.length > 0) {
-          await tx.insert(schema.issueEvent).values({
-            issueId: pullRequest.issueId,
-            actorId: params.requesterId,
-            type: 'rules_bypassed',
-            details: { violations: verdict.bypassed },
-          });
-          await publishEvent(tx, {
-            type: 'pull_request.rules_bypassed',
-            repositoryId: base.id,
-            actorId: params.requesterId,
-            payload: { issueId: pullRequest.issueId },
-          });
-        }
-        return seq;
-      });
-
-      // Only a merge into the default branch closes anything, the same rule GitHub follows.
-      const isDefaultBranch =
-        (await resolveDefaultRef({ gitDir: git.baseDirectory })) ===
-        `refs/heads/${pullRequest.baseRef}`;
-      if (isDefaultBranch) {
-        const { commits } = await listCommits({
-          gitDir: git.baseDirectory,
-          env: git.env,
-          // What landed on the base: the head's own commits, or their squashed or rebased copies.
-          ref: `${git.baseSha}..${method === 'merge' ? git.headSha : mergeCommitSha}`,
-          limit: MAX_CLOSING_COMMITS,
-        });
-        await this.db.transaction(async (tx) => {
-          await this.references.recordCommits(tx, {
-            repository: base,
-            actorId: params.requesterId,
-            commits,
-          });
-          await this.references.closeReferenced(tx, {
-            sources: [
-              { type: 'issue', id: pullRequest.issueId },
-              ...commits.map((commit) => ({
-                type: 'commit' as const,
-                id: commit.sha,
-              })),
-            ],
-            actorId: params.requesterId,
-            sourceIssueId: pullRequest.issueId,
-          });
-        });
-      }
-
-      // The base moved, so every other request into it needs a new test merge, and a request from the base branch just gained its commits; this one only needs its head pinned to what merged.
-      this.pullRefs.syncInBackground(pullRequest.id);
-      await this.afterPush({
+    return await this.ruleSuites.attempt(
+      {
         repositoryId: base.id,
-        transitions,
-        pushedBy: params.requesterId,
-      });
+        actorId: params.requesterId,
+        verdict,
+        pullRequestId: pullRequest.id,
+        refusal:
+          params.compat && methodRefused
+            ? new MergeMethodNotAllowedError(methodRefused.message)
+            : undefined,
+      },
+      () =>
+        withTempDir('ghost-merge-', async (directory) => {
+          // The pull head ref is in the base log, so whatever it reaches was already written there by the last sync and only the merge itself is new.
+          const pulledHead = await resolveCommit(
+            git.baseDirectory,
+            pullHeadRef(pullRequest.number),
+          );
+          // ponytail: excludes only the base tip and the pull head, so objects on the base repository's other branches can be packed again. Exclude every base ref if entry size matters.
+          const pack = await packRange({
+            gitDir: git.baseDirectory,
+            alternates: git.alternates,
+            // The head rides along even when a squash or rebase leaves it unreachable: a merged request reads its commits and diff from the base alone.
+            include: [mergeCommitSha, git.headSha],
+            exclude: pulledHead ? [git.baseSha, pulledHead] : [git.baseSha],
+            prefix: path.join(directory, 'merge'),
+          });
 
-      return { mergeCommitSha, seq };
-    });
+          // A fork's LFS objects stay in the fork, so the merge brings along the ones its commits point at. Bytes go first: a merge that fails afterwards leaves only orphans (0010).
+          const lfsObjects =
+            git.head.id === base.id
+              ? []
+              : await this.lfs.missingFrom(
+                  base.id,
+                  git.head.id,
+                  await lfsPointersIn({
+                    gitDir: git.headDirectory,
+                    include: [git.headSha],
+                    exclude: [mergeBase],
+                  }),
+                );
+          await this.lfs.copy(lfsObjects, git.head.id, base.id);
+
+          // The row stays locked until the merge is recorded, so the request cannot be closed or turned into a draft between this check and the push. Nothing that can fail after the push belongs in here: a rollback would leave the branch merged and the request open.
+          const seq = await this.db.transaction(async (tx) => {
+            const [locked] = await tx
+              .select({
+                state: schema.pullRequest.state,
+                draft: schema.pullRequest.draft,
+              })
+              .from(schema.pullRequest)
+              .where(eq(schema.pullRequest.id, pullRequest.id))
+              .for('update');
+            if (locked.draft) throw new PullRequestDraftError();
+            if (locked.state !== 'open') {
+              throw new PullRequestNotOpenError(locked.state);
+            }
+            await this.quota.assertRoom(
+              storageAccountOf(base),
+              billedKindOf(base, 'repository'),
+              MergeStorageQuotaExceededError,
+              tx,
+            );
+            if (lfsObjects.length > 0) {
+              await this.quota.assertRoom(
+                storageAccountOf(base),
+                billedKindOf(base, 'lfs'),
+                MergeStorageQuotaExceededError,
+                tx,
+              );
+              await this.lfs.record(tx, lfsObjects, base.id);
+            }
+
+            const { seq } = await this.pushTransaction.commitPush({
+              repoId: base.id,
+              transitions,
+              body: fileBody(pack.path, pack.size),
+              packOffset: 0,
+              actor: { userId: params.requesterId, verdict },
+            });
+
+            await tx
+              .update(schema.pullRequest)
+              .set({
+                state: 'merged',
+                mergeCommitSha,
+                headSha: git.headSha,
+                mergedAt: new Date(),
+              })
+              .where(eq(schema.pullRequest.id, pullRequest.id));
+            await closeIssue(tx, {
+              issueId: pullRequest.issueId,
+              actorId: params.requesterId,
+              type: 'merged',
+              commitSha: mergeCommitSha,
+            });
+            if (verdict.bypassed.length > 0) {
+              await tx.insert(schema.issueEvent).values({
+                issueId: pullRequest.issueId,
+                actorId: params.requesterId,
+                type: 'rules_bypassed',
+                details: { violations: verdict.bypassed },
+              });
+              await publishEvent(tx, {
+                type: 'pull_request.rules_bypassed',
+                repositoryId: base.id,
+                actorId: params.requesterId,
+                payload: { issueId: pullRequest.issueId },
+              });
+            }
+            return seq;
+          });
+
+          // Only a merge into the default branch closes anything, the same rule GitHub follows.
+          const isDefaultBranch =
+            (await resolveDefaultRef({ gitDir: git.baseDirectory })) ===
+            `refs/heads/${pullRequest.baseRef}`;
+          if (isDefaultBranch) {
+            const { commits } = await listCommits({
+              gitDir: git.baseDirectory,
+              env: git.env,
+              // What landed on the base: the head's own commits, or their squashed or rebased copies.
+              ref: `${git.baseSha}..${method === 'merge' ? git.headSha : mergeCommitSha}`,
+              limit: MAX_CLOSING_COMMITS,
+            });
+            await this.db.transaction(async (tx) => {
+              await this.references.recordCommits(tx, {
+                repository: base,
+                actorId: params.requesterId,
+                commits,
+              });
+              await this.references.closeReferenced(tx, {
+                sources: [
+                  { type: 'issue', id: pullRequest.issueId },
+                  ...commits.map((commit) => ({
+                    type: 'commit' as const,
+                    id: commit.sha,
+                  })),
+                ],
+                actorId: params.requesterId,
+                sourceIssueId: pullRequest.issueId,
+              });
+            });
+          }
+
+          // The base moved, so every other request into it needs a new test merge, and a request from the base branch just gained its commits; this one only needs its head pinned to what merged.
+          this.pullRefs.syncInBackground(pullRequest.id);
+          await this.afterPush({
+            repositoryId: base.id,
+            transitions,
+            pushedBy: params.requesterId,
+          });
+
+          return { mergeCommitSha, seq };
+        }),
+    );
   }
 
   /** What stands between the viewer and merging with `method`: what they cannot bypass, what they may, and the methods the rulesets allow. */
@@ -956,15 +972,17 @@ export class PullRequestsService {
       verdict,
       allowedMethods: applicable.allowedMethods,
       // What GitHub's reviewDecision answers to: a rule that asks for approvals or code owners.
-      reviewsRequired: applicable.pullRequestRules.some((ruleset) =>
-        ruleset.rules.some((rule) => {
-          if (rule.type !== 'pull_request') return false;
-          const parameters = rule.parameters as PullRequestRuleParameters;
-          return (
-            parameters.required_approving_review_count > 0 ||
-            parameters.require_code_owner_review
-          );
-        }),
+      reviewsRequired: applicable.pullRequestRules.some(
+        (ruleset) =>
+          ruleset.enforcement === 'active' &&
+          ruleset.rules.some((rule) => {
+            if (rule.type !== 'pull_request') return false;
+            const parameters = rule.parameters as PullRequestRuleParameters;
+            return (
+              parameters.required_approving_review_count > 0 ||
+              parameters.require_code_owner_review
+            );
+          }),
       ),
     };
   }

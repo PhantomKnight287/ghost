@@ -67,8 +67,10 @@ export type BypassAnswer = 'always' | 'pull_requests_only' | 'never';
 /** What the rulesets decided about a write, for exactly these transitions. */
 export type RulesetVerdict = {
   transitions: RefTransition[];
+  write: 'push' | 'pull_request_merge';
   violations: Violation[];
   bypassed: Violation[];
+  suites: RuleSuiteVerdict[];
 };
 
 /**
@@ -155,7 +157,30 @@ export type PullRequestFacts = {
   unresolvedThreads: number;
 };
 
+export type RuleSuiteResult = 'pass' | 'fail' | 'bypass';
+
+/** One rule of one ruleset, checked against one ref of a write. */
+export type RuleEvaluation = {
+  rulesetId: string;
+  rulesetName: string;
+  enforcement: 'active' | 'evaluate';
+  rule: RuleType;
+  result: 'pass' | 'fail';
+  /** Unmet requirements of a failed `pull_request` rule, in the evaluator's order; empty otherwise. */
+  requirements: Requirement[];
+  details: string | null;
+};
+
+/** Every rule checked against one ref of a write. `evaluationResult` counts evaluate rulesets as if active, and is null when none applied. */
+export type RuleSuiteVerdict = {
+  transition: RefTransition;
+  result: RuleSuiteResult;
+  evaluationResult: RuleSuiteResult | null;
+  evaluations: RuleEvaluation[];
+};
+
 export type RulesetEvaluation = {
   violations: Violation[];
   bypassed: Violation[];
+  suites: RuleSuiteVerdict[];
 };

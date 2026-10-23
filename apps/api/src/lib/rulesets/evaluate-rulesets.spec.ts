@@ -586,7 +586,7 @@ describe('evaluateRulesets', () => {
         transitions: [update()],
         facts: { [MAIN]: fastForward },
       });
-      expect(result).toEqual({ violations: [], bypassed: [] });
+      expect(result).toMatchObject({ violations: [], bypassed: [] });
     });
   });
 
@@ -1104,5 +1104,216 @@ describe('evaluateRulesets', () => {
         }
       });
     });
+  });
+});
+
+describe('suites', () => {
+  const admin: RulesetActor = { ...writer, role: 'admin' };
+  const adminBypass: Ruleset['bypassActors'] = [
+    { actorType: 'RepositoryRole', role: 'admin', bypassMode: 'always' },
+  ];
+  const resultsOf = (input: EvaluateInput) =>
+    evaluateAll(input).suites.map(({ result, evaluationResult }) => [
+      result,
+      evaluationResult,
+    ]);
+  const pullRequestRuleset = (parameters: Partial<PullRequestRuleParameters>) =>
+    ruleset([], {
+      rules: [
+        {
+          type: 'pull_request',
+          parameters: {
+            required_approving_review_count: 0,
+            dismiss_stale_reviews_on_push: false,
+            require_code_owner_review: false,
+            require_last_push_approval: false,
+            required_review_thread_resolution: false,
+            allowed_merge_methods: ['merge', 'squash', 'rebase'],
+            ...parameters,
+          },
+        },
+      ],
+    });
+
+  it('lists every rule of each targeting ruleset, passing ones included', () => {
+    const [suite] = evaluateAll({
+      rulesets: [ruleset(['creation', 'deletion', 'non_fast_forward'])],
+      transitions: [update()],
+      facts: { [MAIN]: fastForward },
+    }).suites;
+    expect(suite.transition.ref).toBe(MAIN);
+    expect(suite.evaluations.map(({ rule, result }) => [rule, result])).toEqual(
+      [
+        ['creation', 'pass'],
+        ['deletion', 'pass'],
+        ['non_fast_forward', 'pass'],
+      ],
+    );
+    expect(suite.evaluations[0]).toMatchObject({
+      enforcement: 'active',
+      rulesetName: 'protect main',
+      requirements: [],
+      details: null,
+    });
+    expect([suite.result, suite.evaluationResult]).toEqual(['pass', null]);
+  });
+
+  it('has no suite for a ref no ruleset targets', () => {
+    const { suites } = evaluateAll({
+      rulesets: [ruleset(['deletion'])],
+      transitions: [update(), update('refs/heads/feature')],
+      facts: { [MAIN]: fastForward },
+    });
+    expect(suites.map(({ transition }) => transition.ref)).toEqual([MAIN]);
+  });
+
+  it('keeps a failed pull_request rule as one evaluation holding every unmet requirement', () => {
+    const [suite] = evaluateAll({
+      rulesets: [
+        pullRequestRuleset({
+          required_approving_review_count: 1,
+          required_review_thread_resolution: true,
+        }),
+      ],
+      transitions: [update()],
+      facts: { [MAIN]: fastForward },
+      write: 'pull_request_merge',
+      pullRequest: {
+        authorId: 'u_author',
+        method: 'squash',
+        approvals: [],
+        changesRequestedBy: [],
+        headPushedById: 'u_author',
+        codeOwners: [],
+        unresolvedThreads: 2,
+      },
+    }).suites;
+    expect(suite.evaluations).toEqual([
+      expect.objectContaining({
+        rule: 'pull_request',
+        result: 'fail',
+        requirements: ['approvals', 'threads'],
+        details: [
+          'At least 1 approving review is required by reviewers with write access.',
+          'A conversation must be resolved before this pull request can be merged.',
+        ].join('\n'),
+      }),
+    ]);
+    expect(suite.result).toBe('fail');
+  });
+
+  it('passes the pull_request rule on a create or a delete', () => {
+    for (const transition of [create(), remove()]) {
+      const [suite] = evaluateAll({
+        rulesets: [pullRequestRuleset({ required_approving_review_count: 1 })],
+        transitions: [transition],
+      }).suites;
+      expect(suite.evaluations.map(({ result }) => result)).toEqual(['pass']);
+    }
+  });
+
+  it('gives the failure message the pusher saw', () => {
+    const [suite] = evaluateAll({
+      rulesets: [ruleset(['update'])],
+      transitions: [update()],
+    }).suites;
+    expect(suite.evaluations[0]).toMatchObject({
+      result: 'fail',
+      details: 'Cannot update this protected ref',
+    });
+  });
+
+  it('makes a suite bypass when every failure was bypassed', () => {
+    const evaluation = evaluateAll({
+      rulesets: [ruleset(['update'], { bypassActors: adminBypass })],
+      transitions: [update()],
+      actor: admin,
+    });
+    expect(evaluation.violations).toEqual([]);
+    expect(evaluation.bypassed).toHaveLength(1);
+    expect(evaluation.suites.map(({ result }) => result)).toEqual(['bypass']);
+  });
+
+  it('never refuses for an evaluate ruleset', () => {
+    const evaluation = evaluateAll({
+      rulesets: [ruleset(['update'], { enforcement: 'evaluate' })],
+      transitions: [update()],
+    });
+    expect(evaluation.violations).toEqual([]);
+    expect(evaluation.bypassed).toEqual([]);
+    expect(evaluation.suites[0].evaluations[0]).toMatchObject({
+      enforcement: 'evaluate',
+      result: 'fail',
+    });
+    expect(
+      resultsOf({
+        rulesets: [ruleset(['update'], { enforcement: 'evaluate' })],
+        transitions: [update()],
+      }),
+    ).toEqual([['pass', 'fail']]);
+  });
+
+  it('does not apply bypass lists to evaluate rulesets', () => {
+    expect(
+      resultsOf({
+        rulesets: [
+          ruleset(['update'], {
+            enforcement: 'evaluate',
+            bypassActors: adminBypass,
+          }),
+        ],
+        transitions: [update()],
+        actor: admin,
+      }),
+    ).toEqual([['pass', 'fail']]);
+  });
+
+  it('counts active failures in the evaluation result too', () => {
+    const passingEvaluate = ruleset(['deletion'], { enforcement: 'evaluate' });
+    expect(
+      resultsOf({
+        rulesets: [ruleset(['update']), passingEvaluate],
+        transitions: [update()],
+      }),
+    ).toEqual([['fail', 'fail']]);
+    expect(
+      resultsOf({
+        rulesets: [
+          ruleset(['update'], { bypassActors: adminBypass }),
+          passingEvaluate,
+        ],
+        transitions: [update()],
+        actor: admin,
+      }),
+    ).toEqual([['bypass', 'bypass']]);
+  });
+
+  it('does not evaluate disabled rulesets', () => {
+    expect(
+      evaluateAll({
+        rulesets: [ruleset(['update'], { enforcement: 'disabled' })],
+        transitions: [update()],
+      }).suites,
+    ).toEqual([]);
+  });
+
+  it('judges an evaluate non_fast_forward rule by the facts it is given', () => {
+    const rulesets = [
+      ruleset(['non_fast_forward'], { enforcement: 'evaluate' }),
+    ];
+    expect(
+      resultsOf({
+        rulesets,
+        transitions: [update()],
+        facts: { [MAIN]: fastForward },
+      }),
+    ).toEqual([['pass', 'pass']]);
+    expect(
+      resultsOf({
+        rulesets,
+        transitions: [update()],
+        facts: { [MAIN]: forced },
+      }),
+    ).toEqual([['pass', 'fail']]);
   });
 });

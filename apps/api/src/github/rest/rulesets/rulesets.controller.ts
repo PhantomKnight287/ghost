@@ -9,6 +9,7 @@ import {
   type PipeTransform,
   Post,
   Put,
+  Query,
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
@@ -22,6 +23,8 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import {
   GithubCreateRulesetDTO,
+  GithubRuleSuiteQueryDTO,
+  GithubRuleSuitesQueryDTO,
   GithubUpdateRulesetDTO,
 } from './dto/rulesets.dto.js';
 import { GithubRulesetsService } from './rulesets.service.js';
@@ -67,6 +70,33 @@ export class GithubRulesetsController {
     @Viewer() viewer: GithubViewer | null,
   ) {
     return this.rulesets.create({ owner, repo, viewer }, body);
+  }
+
+  // Before `rulesets/:id`, whose numeric id pipe would answer `rule-suites` with 404.
+  @Get('rulesets/rule-suites')
+  @ApiOperation({
+    summary:
+      'Rule insights: every write the rulesets checked, one suite per ref',
+  })
+  ruleSuites(
+    @Param('owner') owner: string,
+    @Param('repo') repo: string,
+    @Query() query: GithubRuleSuitesQueryDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.rulesets.ruleSuites({ owner, repo, viewer }, query);
+  }
+
+  @Get('rulesets/rule-suites/:id')
+  @ApiOperation({ summary: 'One rule suite with its rule evaluations' })
+  ruleSuite(
+    @Param('owner') owner: string,
+    @Param('repo') repo: string,
+    @Param('id', ID) id: number,
+    @Query() query: GithubRuleSuiteQueryDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.rulesets.ruleSuite({ owner, repo, viewer }, id, query);
   }
 
   @Get('rulesets/:id')

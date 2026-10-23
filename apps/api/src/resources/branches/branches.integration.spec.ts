@@ -23,6 +23,7 @@ import { listBranches } from '../../lib/git/refs/list-refs.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
+import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
@@ -126,6 +127,7 @@ describe.skipIf(!CONNECTION)('branches', () => {
       materializer,
       pushes,
       new RulesetVerdictsService(db),
+      new RuleSuitesService(db, new RepositoryAccessService(db)),
     );
 
     await db

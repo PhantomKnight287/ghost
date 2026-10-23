@@ -328,6 +328,23 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       await pushAs(writer, ':refs/heads/off');
       expect(await serverTip('refs/heads/off')).toBeNull();
     });
+
+    it('lets every push through an evaluate ruleset', async () => {
+      await seed('trial');
+      await ruleset({
+        name: 'trial',
+        include: ['trial'],
+        enforcement: 'evaluate',
+        rules: [{ type: 'update' }, { type: 'non_fast_forward' }],
+      });
+      const next = commitOn('trial', 'trial');
+      await pushAs(writer, 'trial:refs/heads/trial');
+      expect(await serverTip('refs/heads/trial')).toBe(next);
+
+      const rewritten = commitOn('trial', 'main');
+      await pushAs(writer, '+trial:refs/heads/trial');
+      expect(await serverTip('refs/heads/trial')).toBe(rewritten);
+    });
   });
 
   describe('tags', () => {
@@ -456,6 +473,39 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
 
       await merge(owner, number, 'merge').expect(422);
       await merge(owner, number, 'squash').expect(201);
+    });
+
+    it('leaves merging alone under an evaluate pull_request rule', async () => {
+      await seed('merge-trial');
+      commitOn('merge-trial-work', 'merge-trial');
+      await pushAs(owner, 'merge-trial-work:refs/heads/merge-trial-work');
+      const number = await openPull(owner, 'merge-trial-work', 'merge-trial');
+      await ruleset({
+        name: 'merge trial',
+        include: ['merge-trial'],
+        enforcement: 'evaluate',
+        rules: [
+          {
+            type: 'pull_request',
+            parameters: {
+              required_approving_review_count: 1,
+              allowed_merge_methods: ['squash'],
+            },
+          },
+        ],
+      });
+
+      const { body } = await api()
+        .get(`/api/repositories/${repo}/pulls/${number}/merge-requirements`)
+        .set('cookie', owner.cookie)
+        .expect(200);
+      expect(body).toMatchObject({
+        violations: [],
+        bypassed: [],
+        allowedMethods: ['merge', 'squash', 'rebase'],
+        reviewsRequired: false,
+      });
+      await merge(owner, number, 'merge').expect(201);
     });
 
     it('refuses applying a suggestion to a head branch under update', async () => {

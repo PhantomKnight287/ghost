@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { RulesTabs } from "@/components/rulesets/rules-tabs";
 import { createServerClient } from "@/lib/api/server";
 
 import { RulesetList } from "./ruleset-list";
@@ -30,13 +31,16 @@ export default async function RepositoryRulesPage({
   );
 
   return (
-    <RulesetList
-      username={username}
-      repo={repo}
-      rulesets={data.rulesets.map((ruleset, index) => ({
-        ...ruleset,
-        matching: matching[index],
-      }))}
-    />
+    <>
+      <RulesTabs username={username} repo={repo} active="rulesets" />
+      <RulesetList
+        username={username}
+        repo={repo}
+        rulesets={data.rulesets.map((ruleset, index) => ({
+          ...ruleset,
+          matching: matching[index],
+        }))}
+      />
+    </>
   );
 }

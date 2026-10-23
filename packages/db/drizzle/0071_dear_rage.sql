@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ruleset_enforcement" ADD VALUE 'evaluate' BEFORE 'disabled';
