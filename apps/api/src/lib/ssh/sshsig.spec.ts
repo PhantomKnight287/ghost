@@ -76,4 +76,57 @@ describe('verifySshSignature', () => {
       verifySshSignature(SIGNED_PAYLOAD, { ...signature, publicKey: other }),
     ).toBe(false);
   });
+
+  const reencode = (mutate: (blob: Buffer) => Buffer) => {
+    const body = Buffer.from(
+      ED25519_GIT_SIGNATURE.trim()
+        .split('\n')
+        .filter((line) => !line.startsWith('-----'))
+        .join(''),
+      'base64',
+    );
+    return `-----BEGIN SSH SIGNATURE-----\n${mutate(body).toString('base64')}\n-----END SSH SIGNATURE-----\n`;
+  };
+
+  it('refuses a blob with bytes after the signature', () => {
+    const padded = reencode((blob) => Buffer.concat([blob, Buffer.from([0])]));
+    expect(readSshSignature(padded)).toBeNull();
+  });
+
+  it('refuses a signature algorithm that does not match the key', () => {
+    const signature = readSshSignature(ED25519_GIT_SIGNATURE)!;
+    expect(
+      verifySshSignature(SIGNED_PAYLOAD, {
+        ...signature,
+        publicKey: Buffer.from(blobOf(RSA_PUBLIC_KEY), 'base64'),
+        algorithm: 'ssh-ed25519',
+      }),
+    ).toBe(false);
+  });
+
+  it('refuses an ECDSA signature whose integers carry extra leading bytes', () => {
+    const signature = readSshSignature(ECDSA_GIT_SIGNATURE)!;
+    const mpint = (value: Buffer) => {
+      const length = Buffer.alloc(4);
+      length.writeUInt32BE(value.length);
+      return Buffer.concat([length, value]);
+    };
+    const reader = (buffer: Buffer) => {
+      const first = buffer.readUInt32BE(0);
+      const r = buffer.subarray(4, 4 + first);
+      const s = buffer.subarray(
+        8 + first,
+        8 + first + buffer.readUInt32BE(4 + first),
+      );
+      return { r, s };
+    };
+    const { r, s: sValue } = reader(signature.signature);
+    const padded = Buffer.concat([
+      mpint(Buffer.concat([Buffer.from([7, 7]), r])),
+      mpint(sValue),
+    ]);
+    expect(
+      verifySshSignature(SIGNED_PAYLOAD, { ...signature, signature: padded }),
+    ).toBe(false);
+  });
 });

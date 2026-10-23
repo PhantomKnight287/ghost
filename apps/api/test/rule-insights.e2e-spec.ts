@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
 import { and, asc, eq, sql } from 'drizzle-orm';
+import * as openpgp from 'openpgp';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -130,7 +131,16 @@ describe.skipIf(!hasBackends)('rule insights', { timeout: 30_000 }, () => {
   };
 
   beforeAll(async () => {
-    ({ app, origin } = await startApp());
+    // A signing key, so rulesets with required_signatures can be saved.
+    const platform = await openpgp.generateKey({
+      userIDs: [{ name: 'Ghost', email: 'noreply@ghost.local' }],
+      format: 'object',
+    });
+    ({ app, origin } = await startApp({
+      COMMIT_SIGNING_KEY: Buffer.from(platform.privateKey.armor()).toString(
+        'base64',
+      ),
+    }));
     owner = {
       ...(await signUp(app, `riowner${stamp}`)),
       username: `riowner${stamp}`,

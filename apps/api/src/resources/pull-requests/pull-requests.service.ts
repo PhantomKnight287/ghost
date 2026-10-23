@@ -67,6 +67,7 @@ import {
   RulesetBypassRequiredError,
 } from '../../lib/rulesets/rulesets.errors.js';
 import { requiredContexts } from '../../lib/rulesets/evaluate-rulesets.js';
+import { refTargeted } from '../../lib/rulesets/ref-pattern.js';
 import type {
   PullRequestRuleParameters,
   RefFacts,
@@ -974,7 +975,9 @@ export class PullRequestsService {
             isFastForward: true,
             introducesMergeCommit: judged === 'merge',
             ...(await this.mergeConditions(git, {
-              rulesets: applicable.rulesets,
+              rulesets: applicable.rulesets.filter((ruleset) =>
+                refTargeted(ruleset, ref, applicable.defaultBranch),
+              ),
               method: judged,
               mergeCommitSha,
             })),

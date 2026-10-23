@@ -157,7 +157,7 @@ export class PullRequestNodesService {
       : MergeableState.UNKNOWN;
   }
 
-  /** Whether an active rule on the base of the pull request `pull` names requires `status`'s context. A pull request number is looked up in the repository whose rollup holds the status. */
+  /** Whether an active rule on the base of the pull request `pull` names requires `status`'s context. The pull request must be in the repository whose rollup holds the status. */
   async contextRequired(
     status: StatusContextNode,
     pull: { id?: string; number?: number },
@@ -177,12 +177,13 @@ export class PullRequestNodesService {
         eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
       )
       .where(
-        pull.id
-          ? eq(schema.issue.id, decodeNodeIdAs(pull.id, 'PullRequest'))
-          : and(
-              eq(schema.issue.repositoryId, status.repositoryId),
-              eq(schema.issue.number, pull.number!),
-            ),
+        and(
+          // Only a pull request in the repository whose rollup holds the status: any other id could name one the viewer cannot read.
+          eq(schema.issue.repositoryId, status.repositoryId),
+          pull.id
+            ? eq(schema.issue.id, decodeNodeIdAs(pull.id, 'PullRequest'))
+            : eq(schema.issue.number, pull.number!),
+        ),
       );
     if (!row) return false;
     return requiredContexts(

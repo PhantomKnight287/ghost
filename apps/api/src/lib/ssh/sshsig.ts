@@ -1,6 +1,6 @@
 import { createHash, createPublicKey, verify } from 'node:crypto';
 
-import { parseStoredKey } from '../git/ssh/public-key.js';
+import { keyTypeOf, parseStoredKey } from '../git/ssh/public-key.js';
 
 export const SSH_SIGNATURE_HEADER = '-----BEGIN SSH SIGNATURE-----';
 const MAGIC = Buffer.from('SSHSIG');
@@ -37,13 +37,15 @@ export function readSshSignature(armored: string): SshSignature | null {
     const hashAlgorithm = reader.string().toString('ascii');
     if (hashAlgorithm !== 'sha256' && hashAlgorithm !== 'sha512') return null;
     const wrapped = new SshReader(reader.string());
-    return {
+    const parsed = {
       publicKey,
       namespace,
       hashAlgorithm,
       algorithm: wrapped.string().toString('ascii'),
       signature: wrapped.string(),
-    };
+    } as const;
+    // OpenSSH refuses trailing bytes; accepting them would let anyone re-encode a signature into a new commit that still verifies.
+    return reader.done() && wrapped.done() ? parsed : null;
   } catch {
     return null;
   }
@@ -69,6 +71,12 @@ export function verifySshSignature(
       parseStoredKey(signature.publicKey.toString('base64')).getPublicPEM(),
     );
     const { algorithm } = signature;
+    const keyType = keyTypeOf(signature.publicKey.toString('base64'));
+    if (
+      keyType !== algorithm &&
+      !(keyType === 'ssh-rsa' && algorithm.startsWith('rsa-sha2-'))
+    )
+      return false;
     if (algorithm === 'ssh-ed25519')
       return verify(null, signed, key, signature.signature);
     if (algorithm === 'rsa-sha2-256' || algorithm === 'rsa-sha2-512')
@@ -82,14 +90,14 @@ export function verifySshSignature(
     if (!curve) return false;
     // The signature blob holds r and s as SSH mpints; Node takes them as one fixed-width r||s.
     const parts = new SshReader(signature.signature);
+    const r = fixedWidth(parts.string(), curve.bytes);
+    const sValue = fixedWidth(parts.string(), curve.bytes);
+    if (!r || !sValue || !parts.done()) return false;
     return verify(
       curve.hash,
       signed,
       { key, dsaEncoding: 'ieee-p1363' },
-      Buffer.concat([
-        fixedWidth(parts.string(), curve.bytes),
-        fixedWidth(parts.string(), curve.bytes),
-      ]),
+      Buffer.concat([r, sValue]),
     );
   } catch {
     return false;
@@ -103,8 +111,11 @@ const ECDSA_CURVES: Record<string, { hash: string; bytes: number }> = {
   'ecdsa-sha2-nistp521': { hash: 'sha512', bytes: 66 },
 };
 
+/** An SSH mpint as `bytes` big-endian bytes; null when it is wider, beyond the one zero byte that keeps it positive, so one signature has one encoding. */
 function fixedWidth(mpint: Buffer, bytes: number) {
-  const unsigned = mpint.subarray(Math.max(0, mpint.length - bytes));
+  const extra = mpint.length - bytes;
+  if (extra > 1 || (extra === 1 && mpint[0] !== 0)) return null;
+  const unsigned = mpint.subarray(Math.max(0, extra));
   return Buffer.concat([Buffer.alloc(bytes - unsigned.length), unsigned]);
 }
 
@@ -124,6 +135,10 @@ class SshReader {
     const value = this.buffer.readUInt32BE(this.offset);
     this.offset += 4;
     return value;
+  }
+
+  done() {
+    return this.offset === this.buffer.length;
   }
 
   string() {

@@ -16,6 +16,8 @@ import type { Auth } from '../src/lib/auth.js';
 import { insertSignature } from '../src/lib/git/commits/commit-signature.js';
 import { ZERO_OID } from '../src/lib/git/wal/wal.types.js';
 import { signPayload } from '../src/lib/gpg/openpgp.js';
+import { CommitStatusesService } from '../src/resources/commit-statuses/commit-statuses.service.js';
+import { CommitVerificationService } from '../src/services/gpg/commit-verification.service.js';
 import { PullRequestPushesService } from '../src/services/pull-requests/pull-request-pushes.service.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
@@ -1250,6 +1252,36 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       await status(caughtUp, 'success');
       await vi.waitFor(async () => expect(await unmet(number)).toEqual([]));
       await merge(author, number).expect(201);
+    });
+  });
+
+  describe('cost', () => {
+    it('gathers no status or signature facts for rules targeting other branches', async () => {
+      const { number } = await pullRequest();
+      await ruleset({
+        name: `elsewhere ${++counter}`,
+        include: ['release/*'],
+        rules: [
+          { type: 'required_signatures' },
+          {
+            type: 'required_status_checks',
+            parameters: { required_status_checks: [{ context: 'build' }] },
+          },
+        ],
+      });
+      const statuses = vi.spyOn(CommitStatusesService.prototype, 'combinedFor');
+      const verify = vi.spyOn(
+        CommitVerificationService.prototype,
+        'verifyCommits',
+      );
+      try {
+        expect(await unmet(number)).toEqual([]);
+        expect(statuses).not.toHaveBeenCalled();
+        expect(verify).not.toHaveBeenCalled();
+      } finally {
+        statuses.mockRestore();
+        verify.mockRestore();
+      }
     });
   });
 

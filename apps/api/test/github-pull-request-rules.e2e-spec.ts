@@ -645,6 +645,83 @@ describe.skipIf(!hasBackends)(
         expect(await states(number)).toEqual(['BEHIND', 'behind']);
       });
 
+      it("answers isRequired only for a pull request in the status's own repository", async () => {
+        const { head, number } = await pullRequest();
+        const sha = git('rev-parse', head);
+        await status(sha, 'success');
+
+        // A private repository the author cannot read, whose pull request requires the same context.
+        await http()
+          .post('/api/repositories')
+          .set('cookie', owner.cookie)
+          .send({ name: 'hidden', visibility: 'private' })
+          .expect(201);
+        const hidden = `${owner.username}/hidden`;
+        git('checkout', '-q', '-B', 'hidden-main', 'main');
+        await promisify(execFile)(
+          'git',
+          [
+            'push',
+            '-q',
+            `${origin.replace('://', `://${owner.username}:${owner.key}@`)}/${hidden}.git`,
+            'hidden-main:refs/heads/main',
+            `${head}:refs/heads/hidden-head`,
+          ],
+          { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+        );
+        const hiddenPull = (
+          await http()
+            .post(`/api/repositories/${hidden}/pulls`)
+            .set('cookie', owner.cookie)
+            .send({ title: 'hidden', base: 'main', head: 'hidden-head' })
+            .expect(201)
+        ).body.number as number;
+        await http()
+          .post(`/api/repositories/${hidden}/rulesets`)
+          .set('cookie', owner.cookie)
+          .send({
+            name: 'hidden checks',
+            target: 'branch',
+            enforcement: 'active',
+            include: ['main'],
+            exclude: [],
+            bypassActors: [],
+            rules: [
+              {
+                type: 'required_status_checks',
+                parameters: { required_status_checks: [{ context: 'build' }] },
+              },
+            ],
+          })
+          .expect(201);
+        const hiddenId = (
+          await graphql(
+            owner,
+            `query($owner: String!, $number: Int!) { repository(owner: $owner, name: "hidden") { pullRequest(number: $number) { id } } }`,
+            { owner: owner.username, number: hiddenPull },
+          )
+        ).data.repository.pullRequest.id;
+
+        const body = await graphql(
+          author,
+          `query($owner: String!, $name: String!, $number: Int!, $other: ID!) {
+          repository(owner: $owner, name: $name) {
+            pullRequest(number: $number) {
+              commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 10) { nodes {
+                ... on StatusContext { context isRequired(pullRequestId: $other) }
+              } } } } } }
+            }
+          }
+        }`,
+          { owner: org, name, number, other: hiddenId },
+        );
+        expect(body.errors).toBeUndefined();
+        expect(
+          body.data.repository.pullRequest.commits.nodes[0].commit
+            .statusCheckRollup.contexts.nodes,
+        ).toEqual([{ context: 'build', isRequired: false }]);
+      });
+
       it('marks the required contexts with isRequired', async () => {
         const { base, head, number } = await pullRequest();
         await checksOn(base);
