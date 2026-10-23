@@ -5,6 +5,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, count, eq } from 'drizzle-orm';
 
+import { mergeStateOf } from '../../../lib/github/merge-state.js';
 import { DATABASE } from '../../../database/database.module.js';
 import { orNull } from '../../../lib/github/authorize.js';
 import {
@@ -548,10 +549,12 @@ export class GithubPullsService {
     const [rest] = await this.rest(repository, viewer, [issue], {
       mergeable,
       conflicted,
-      // A bypass actor sees blocked too, as on GitHub.
-      blocked:
-        requirements !== null &&
-        requirements.violations.length + requirements.bypassed.length > 0,
+      held:
+        requirements &&
+        mergeStateOf(
+          [...requirements.violations, ...requirements.bypassed],
+          pull.checks?.state ?? null,
+        ),
       commits: pull.commitCount,
       additions: pull.additions,
       deletions: pull.deletions,

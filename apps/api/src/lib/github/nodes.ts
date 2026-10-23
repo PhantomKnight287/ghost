@@ -357,12 +357,18 @@ export function toStatusCheckRollupNode(
   return Object.assign(new StatusCheckRollupNode(), {
     id: encodeNodeId('StatusCheckRollup', `${repositoryId}:${status.sha}`),
     state: status.state.toUpperCase() as StatusState,
-    contexts: status.statuses.map(toStatusContextNode),
+    contexts: status.statuses.map((context) =>
+      toStatusContextNode(context, repositoryId),
+    ),
   });
 }
 
-export function toStatusContextNode(status: CommitStatusDTO) {
+export function toStatusContextNode(
+  status: CommitStatusDTO,
+  repositoryId: string,
+) {
   return Object.assign(new StatusContextNode(), {
+    repositoryId,
     id: encodeNodeId('StatusContext', status.id),
     context: status.context,
     state: status.state.toUpperCase() as StatusState,

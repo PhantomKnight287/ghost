@@ -155,7 +155,9 @@ export class ViewerService {
       const repository = await orNull(
         this.repositories.load(status.repositoryId, viewer),
       );
-      return repository ? toStatusContextNode(status) : null;
+      return repository
+        ? toStatusContextNode(status, status.repositoryId)
+        : null;
     }
     if (decoded?.type === 'StatusCheckRollup') {
       const [repositoryId, sha] = decoded.id.split(':');

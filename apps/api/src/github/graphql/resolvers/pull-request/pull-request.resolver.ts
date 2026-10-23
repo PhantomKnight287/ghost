@@ -410,18 +410,26 @@ export class StatusCheckRollupResolver {
   }
 }
 
-/** Ghost has no branch protection, so no status or check is ever required to merge. */
+/** A status is required when an active required_status_checks rule on the pull request's base names its context. */
 @Resolver(() => StatusContextNode)
 @AllowAnonymous()
 export class StatusContextResolver {
+  constructor(private readonly pulls: PullRequestNodesService) {}
+
   @ResolveField(() => Boolean)
   isRequired(
+    @Parent() status: StatusContextNode,
+    @Context() context: GraphqlContext,
     @Args('pullRequestId', { type: () => ID, nullable: true })
-    _pullRequestId?: string,
+    pullRequestId?: string,
     @Args('pullRequestNumber', { type: () => Int, nullable: true })
-    _pullRequestNumber?: number,
+    pullRequestNumber?: number,
   ) {
-    return false;
+    return this.pulls.contextRequired(
+      status,
+      { id: pullRequestId, number: pullRequestNumber },
+      context.loaders,
+    );
   }
 }
 

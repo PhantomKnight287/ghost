@@ -307,8 +307,8 @@ export type PullRestSource = {
 export type PullRestDetail = {
   mergeable: boolean | null;
   conflicted: boolean;
-  /** Mergeable, but held back by ruleset requirements. */
-  blocked: boolean;
+  /** For a mergeable request, what the rules and the head's statuses make of it; null otherwise. */
+  held: 'behind' | 'blocked' | 'unstable' | 'clean' | null;
   commits: number;
   additions: number;
   deletions: number;
@@ -408,11 +408,9 @@ export function toPullRest(
         ? 'draft'
         : detail.conflicted
           ? 'dirty'
-          : detail.blocked
-            ? 'blocked'
-            : detail.mergeable
-              ? 'clean'
-              : 'unknown',
+          : detail.mergeable
+            ? (detail.held ?? 'clean')
+            : 'unknown',
       merged_by: merged ? user(issue.closedByUsername) : null,
       comments: issue.commentCount,
       review_comments: detail.reviewComments,
