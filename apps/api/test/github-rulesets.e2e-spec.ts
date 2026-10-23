@@ -42,7 +42,9 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
         .set('authorization', `token ${account.key}`)
         .send(body),
     delete: (path: string) =>
-      http().delete(`/api/v3${path}`).set('authorization', `token ${account.key}`),
+      http()
+        .delete(`/api/v3${path}`)
+        .set('authorization', `token ${account.key}`),
   });
   const valid = (overrides: object = {}) => ({
     name: `rules ${Math.random().toString(36).slice(2)}`,
@@ -53,15 +55,23 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
     ...overrides,
   });
   const create = async (overrides: object = {}) =>
-    (await as(owner).post(`${repo}/rulesets`, valid(overrides)).expect(201)).body;
-  const collaborate = async (account: Account, username: string, role: string) => {
+    (await as(owner).post(`${repo}/rulesets`, valid(overrides)).expect(201))
+      .body;
+  const collaborate = async (
+    account: Account,
+    username: string,
+    role: string,
+  ) => {
     await http()
       .put(`/api/repositories/${org}/guarded/collaborators/${username}`)
       .set('cookie', owner.cookie)
       .send({ role })
       .expect(200);
     const invitation = (
-      await http().get('/api/invitations').set('cookie', account.cookie).expect(200)
+      await http()
+        .get('/api/invitations')
+        .set('cookie', account.cookie)
+        .expect(200)
     ).body.invitations[0];
     await http()
       .post(`/api/invitations/${invitation.id}/accept`)
@@ -107,13 +117,32 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
         valid({
           name: 'protect main',
           conditions: {
-            ref_name: { include: ['main', '~DEFAULT_BRANCH'], exclude: ['refs/heads/old'] },
+            ref_name: {
+              include: ['main', '~DEFAULT_BRANCH'],
+              exclude: ['refs/heads/old'],
+            },
           },
           bypass_actors: [
-            { actor_id: 2, actor_type: 'RepositoryRole', bypass_mode: 'always' },
-            { actor_id: 4, actor_type: 'RepositoryRole', bypass_mode: 'pull_request' },
-            { actor_id: teamNumericId, actor_type: 'Team', bypass_mode: 'always' },
-            { actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' },
+            {
+              actor_id: 2,
+              actor_type: 'RepositoryRole',
+              bypass_mode: 'always',
+            },
+            {
+              actor_id: 4,
+              actor_type: 'RepositoryRole',
+              bypass_mode: 'pull_request',
+            },
+            {
+              actor_id: teamNumericId,
+              actor_type: 'Team',
+              bypass_mode: 'always',
+            },
+            {
+              actor_id: 1,
+              actor_type: 'OrganizationAdmin',
+              bypass_mode: 'always',
+            },
           ],
           rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }],
         }),
@@ -130,7 +159,11 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       node_id: expect.any(String),
       bypass_actors: expect.arrayContaining([
         { actor_id: 2, actor_type: 'RepositoryRole', bypass_mode: 'always' },
-        { actor_id: 4, actor_type: 'RepositoryRole', bypass_mode: 'pull_request' },
+        {
+          actor_id: 4,
+          actor_type: 'RepositoryRole',
+          bypass_mode: 'pull_request',
+        },
         { actor_id: teamNumericId, actor_type: 'Team', bypass_mode: 'always' },
         { actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' },
       ]),
@@ -140,19 +173,30 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
           exclude: ['refs/heads/old'],
         },
       },
-      rules: expect.arrayContaining([{ type: 'deletion' }, { type: 'non_fast_forward' }]),
+      rules: expect.arrayContaining([
+        { type: 'deletion' },
+        { type: 'non_fast_forward' },
+      ]),
       current_user_can_bypass: 'always',
       created_at: expect.any(String),
       updated_at: expect.any(String),
       _links: {
-        self: { href: expect.stringMatching(new RegExp(`${repo}/rulesets/${body.id}$`)) },
-        html: { href: expect.stringContaining(`/${org}/guarded/rules/${body.id}`) },
+        self: {
+          href: expect.stringMatching(
+            new RegExp(`${repo}/rulesets/${body.id}$`),
+          ),
+        },
+        html: {
+          href: expect.stringContaining(`/${org}/guarded/rules/${body.id}`),
+        },
       },
     });
     expect(body.bypass_actors).toHaveLength(4);
     expect(body.rules).toHaveLength(2);
 
-    const fetched = await as(owner).get(`${repo}/rulesets/${body.id}`).expect(200);
+    const fetched = await as(owner)
+      .get(`${repo}/rulesets/${body.id}`)
+      .expect(200);
     expect(fetched.body).toEqual(body);
   });
 
@@ -169,7 +213,9 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       .get(`/api/repositories/${org}/guarded/rulesets`)
       .set('cookie', owner.cookie)
       .expect(200);
-    const ghost = body.rulesets.find((ruleset: { name: string }) => ruleset.name === 'mapped roles');
+    const ghost = body.rulesets.find(
+      (ruleset: { name: string }) => ruleset.name === 'mapped roles',
+    );
 
     expect(ghost.bypassActors).toEqual(
       expect.arrayContaining([
@@ -184,7 +230,9 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
   it('lists rulesets as summaries', async () => {
     const made = await create({ name: 'listed' });
     const { body } = await as(reader).get(`${repo}/rulesets`).expect(200);
-    const listed = body.find((ruleset: { id: number }) => ruleset.id === made.id);
+    const listed = body.find(
+      (ruleset: { id: number }) => ruleset.id === made.id,
+    );
 
     expect(listed).toEqual({
       id: made.id,
@@ -202,12 +250,19 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
 
   it('accepts and ignores includes_parents until organization rulesets exist', async () => {
     const made = await create({ name: 'parents' });
-    const { body } = await as(reader).get(`${repo}/rulesets?includes_parents=true`).expect(200);
-    expect(body.map((ruleset: { id: number }) => ruleset.id)).toContain(made.id);
+    const { body } = await as(reader)
+      .get(`${repo}/rulesets?includes_parents=true`)
+      .expect(200);
+    expect(body.map((ruleset: { id: number }) => ruleset.id)).toContain(
+      made.id,
+    );
   });
 
   it('updates only the fields given, as GitHub does', async () => {
-    const made = await create({ name: 'partial', rules: [{ type: 'deletion' }, { type: 'creation' }] });
+    const made = await create({
+      name: 'partial',
+      rules: [{ type: 'deletion' }, { type: 'creation' }],
+    });
     const { body } = await as(owner)
       .put(`${repo}/rulesets/${made.id}`, { enforcement: 'disabled' })
       .expect(200);
@@ -221,7 +276,10 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
     expect(body.rules).toEqual(expect.arrayContaining(made.rules));
 
     const renamed = await as(owner)
-      .put(`${repo}/rulesets/${made.id}`, { name: 'partial renamed', rules: [{ type: 'update' }] })
+      .put(`${repo}/rulesets/${made.id}`, {
+        name: 'partial renamed',
+        rules: [{ type: 'update' }],
+      })
       .expect(200);
     expect(renamed.body).toMatchObject({
       name: 'partial renamed',
@@ -231,7 +289,10 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
   });
 
   it('round-trips evaluate enforcement through REST and GraphQL', async () => {
-    const made = await create({ name: 'evaluate trial', enforcement: 'evaluate' });
+    const made = await create({
+      name: 'evaluate trial',
+      enforcement: 'evaluate',
+    });
     expect(made.enforcement).toBe('evaluate');
     const { body } = await http()
       .post('/api/graphql')
@@ -253,13 +314,19 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       name: 'include only',
       conditions: { ref_name: { include: ['main'] } },
     });
-    expect(made.conditions).toEqual({ ref_name: { include: ['refs/heads/main'], exclude: [] } });
+    expect(made.conditions).toEqual({
+      ref_name: { include: ['refs/heads/main'], exclude: [] },
+    });
 
     await as(owner)
-      .put(`${repo}/rulesets/${made.id}`, { conditions: { ref_name: { include: ['dev'], exclude: ['old'] } } })
+      .put(`${repo}/rulesets/${made.id}`, {
+        conditions: { ref_name: { include: ['dev'], exclude: ['old'] } },
+      })
       .expect(200);
     const { body } = await as(owner)
-      .put(`${repo}/rulesets/${made.id}`, { conditions: { ref_name: { include: ['main'] } } })
+      .put(`${repo}/rulesets/${made.id}`, {
+        conditions: { ref_name: { include: ['main'] } },
+      })
       .expect(200);
     expect(body.conditions).toEqual({
       ref_name: { include: ['refs/heads/main'], exclude: ['refs/heads/old'] },
@@ -276,7 +343,12 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       .expect(200);
     expect(body).toMatchObject({
       target: 'tag',
-      conditions: { ref_name: { include: ['refs/tags/v1', '~ALL'], exclude: ['refs/tags/old'] } },
+      conditions: {
+        ref_name: {
+          include: ['refs/tags/v1', '~ALL'],
+          exclude: ['refs/tags/old'],
+        },
+      },
     });
   });
 
@@ -299,15 +371,34 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       { name: 'taken' },
       { target: 'push' },
       { enforcement: 'sometimes' },
-      { bypass_actors: [{ actor_id: 3, actor_type: 'RepositoryRole', bypass_mode: 'always' }] },
-      { bypass_actors: [{ actor_id: 999999999, actor_type: 'Team', bypass_mode: 'always' }] },
-      { bypass_actors: [{ actor_id: 1, actor_type: 'Integration', bypass_mode: 'always' }] },
-      { bypass_actors: [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'never' }] },
+      {
+        bypass_actors: [
+          { actor_id: 3, actor_type: 'RepositoryRole', bypass_mode: 'always' },
+        ],
+      },
+      {
+        bypass_actors: [
+          { actor_id: 999999999, actor_type: 'Team', bypass_mode: 'always' },
+        ],
+      },
+      {
+        bypass_actors: [
+          { actor_id: 1, actor_type: 'Integration', bypass_mode: 'always' },
+        ],
+      },
+      {
+        bypass_actors: [
+          { actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'never' },
+        ],
+      },
       { name: '   ' },
       { name: 'x'.repeat(101) },
     ];
     for (const overrides of invalid) {
-      const { status, body } = await as(owner).post(`${repo}/rulesets`, valid(overrides));
+      const { status, body } = await as(owner).post(
+        `${repo}/rulesets`,
+        valid(overrides),
+      );
       expect({ overrides, status }).toEqual({ overrides, status: 422 });
       expect(body).toMatchObject({ message: expect.any(String) });
     }
@@ -316,16 +407,24 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
 
   it('lets only admins change rulesets, and hides bypass actors from everyone else', async () => {
     const made = await create({
-      bypass_actors: [{ actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' }],
+      bypass_actors: [
+        { actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' },
+      ],
     });
     const refused = [
       (await as(writer).post(`${repo}/rulesets`, valid())).status,
-      (await as(writer).put(`${repo}/rulesets/${made.id}`, { enforcement: 'disabled' })).status,
+      (
+        await as(writer).put(`${repo}/rulesets/${made.id}`, {
+          enforcement: 'disabled',
+        })
+      ).status,
       (await as(writer).delete(`${repo}/rulesets/${made.id}`)).status,
     ];
     for (const status of refused) expect([403, 404]).toContain(status);
 
-    const { body } = await as(reader).get(`${repo}/rulesets/${made.id}`).expect(200);
+    const { body } = await as(reader)
+      .get(`${repo}/rulesets/${made.id}`)
+      .expect(200);
     expect(body).not.toHaveProperty('bypass_actors');
     expect(body.rules).toEqual(made.rules);
   });
@@ -333,7 +432,11 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
   it('tells each viewer whether they can bypass', async () => {
     const made = await create({
       bypass_actors: [
-        { actor_id: 4, actor_type: 'RepositoryRole', bypass_mode: 'pull_request' },
+        {
+          actor_id: 4,
+          actor_type: 'RepositoryRole',
+          bypass_mode: 'pull_request',
+        },
         { actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' },
       ],
     });
@@ -365,7 +468,9 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       rules: [{ type: 'update' }],
     });
 
-    const { body } = await as(reader).get(`${repo}/rules/branches/feature/a/b`).expect(200);
+    const { body } = await as(reader)
+      .get(`${repo}/rules/branches/feature/a/b`)
+      .expect(200);
     expect(body).toEqual(
       expect.arrayContaining([
         {
@@ -384,7 +489,9 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
     );
     expect(body).toHaveLength(2);
 
-    const none = await as(reader).get(`${repo}/rules/branches/unprotected`).expect(200);
+    const none = await as(reader)
+      .get(`${repo}/rules/branches/unprotected`)
+      .expect(200);
     expect(none.body).toEqual([]);
   });
 
@@ -403,18 +510,29 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       const { body } = await as(owner)
         .post(
           `${repo}/rulesets`,
-          valid({ name: 'reviews', rules: [{ type: 'pull_request', parameters }] }),
+          valid({
+            name: 'reviews',
+            rules: [{ type: 'pull_request', parameters }],
+          }),
         )
         .expect(201);
       expect(body.rules).toEqual([
-        { type: 'pull_request', parameters: expect.objectContaining(parameters) },
+        {
+          type: 'pull_request',
+          parameters: expect.objectContaining(parameters),
+        },
       ]);
-      const fetched = await as(reader).get(`${repo}/rulesets/${body.id}`).expect(200);
+      const fetched = await as(reader)
+        .get(`${repo}/rulesets/${body.id}`)
+        .expect(200);
       expect(fetched.body.rules).toEqual(body.rules);
     });
 
     it('shows it in Ghost’s own API with the same parameters', async () => {
-      await create({ name: 'reviews mirrored', rules: [{ type: 'pull_request', parameters }] });
+      await create({
+        name: 'reviews mirrored',
+        rules: [{ type: 'pull_request', parameters }],
+      });
       const { body } = await http()
         .get(`/api/repositories/${org}/guarded/rulesets`)
         .set('cookie', owner.cookie)
@@ -426,10 +544,19 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
     });
 
     it('replaces the parameters when an update gives the rules', async () => {
-      const made = await create({ name: 'reviews edited', rules: [{ type: 'pull_request', parameters }] });
-      const changed = { ...parameters, required_approving_review_count: 3, allowed_merge_methods: ['merge', 'rebase'] };
+      const made = await create({
+        name: 'reviews edited',
+        rules: [{ type: 'pull_request', parameters }],
+      });
+      const changed = {
+        ...parameters,
+        required_approving_review_count: 3,
+        allowed_merge_methods: ['merge', 'rebase'],
+      };
       const { body } = await as(owner)
-        .put(`${repo}/rulesets/${made.id}`, { rules: [{ type: 'pull_request', parameters: changed }] })
+        .put(`${repo}/rulesets/${made.id}`, {
+          rules: [{ type: 'pull_request', parameters: changed }],
+        })
         .expect(200);
       expect(body.rules).toEqual([
         { type: 'pull_request', parameters: expect.objectContaining(changed) },
@@ -461,7 +588,9 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
         conditions: { ref_name: { include: ['review-target'], exclude: [] } },
         rules: [{ type: 'pull_request', parameters }],
       });
-      const { body } = await as(reader).get(`${repo}/rules/branches/review-target`).expect(200);
+      const { body } = await as(reader)
+        .get(`${repo}/rules/branches/review-target`)
+        .expect(200);
       expect(body).toEqual([
         {
           type: 'pull_request',
@@ -469,6 +598,95 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
           ruleset_source_type: 'Repository',
           ruleset_source: `${org}/guarded`,
           ruleset_id: made.id,
+        },
+      ]);
+    });
+  });
+
+  describe('required status checks and signatures', () => {
+    const checks = {
+      required_status_checks: [{ context: 'build' }],
+      strict_required_status_checks_policy: true,
+      do_not_enforce_on_create: false,
+    };
+
+    it('round-trips a status check rule and lists it for a branch', async () => {
+      const made = await create({
+        name: 'checks on ci-target',
+        conditions: { ref_name: { include: ['ci-target'], exclude: [] } },
+        rules: [{ type: 'required_status_checks', parameters: checks }],
+      });
+      expect(made.rules).toEqual([
+        { type: 'required_status_checks', parameters: checks },
+      ]);
+      const { body } = await as(reader)
+        .get(`${repo}/rules/branches/ci-target`)
+        .expect(200);
+      expect(body).toEqual([
+        {
+          type: 'required_status_checks',
+          parameters: checks,
+          ruleset_source_type: 'Repository',
+          ruleset_source: `${org}/guarded`,
+          ruleset_id: made.id,
+        },
+      ]);
+    });
+
+    it('answers integration_id and signatures without a signing key with 422', async () => {
+      await as(owner)
+        .post(
+          `${repo}/rulesets`,
+          valid({
+            rules: [
+              {
+                type: 'required_status_checks',
+                parameters: {
+                  required_status_checks: [
+                    { context: 'build', integration_id: 15368 },
+                  ],
+                },
+              },
+            ],
+          }),
+        )
+        .expect(422);
+      const refused = await as(owner)
+        .post(
+          `${repo}/rulesets`,
+          valid({ rules: [{ type: 'required_signatures' }] }),
+        )
+        .expect(422);
+      expect(refused.body.message).toBe(
+        'Required signatures need a commit signing key on this server',
+      );
+    });
+
+    it('answers the status check parameters in GraphQL', async () => {
+      await create({
+        name: 'checks in graphql',
+        rules: [{ type: 'required_status_checks', parameters: checks }],
+      });
+      const { body } = await http()
+        .post('/api/graphql')
+        .set('authorization', `token ${owner.key}`)
+        .send({
+          query: `query($owner: String!) { repository(owner: $owner, name: "guarded") { rulesets(first: 100) { nodes { name rules(first: 10) { nodes { type parameters { ... on RequiredStatusChecksParameters { strictRequiredStatusChecksPolicy doNotEnforceOnCreate requiredStatusChecks { context integrationId } } } } } } } } }`,
+          variables: { owner: org },
+        })
+        .expect(200);
+      expect(body.errors).toBeUndefined();
+      const ruleset = body.data.repository.rulesets.nodes.find(
+        ({ name }: { name: string }) => name === 'checks in graphql',
+      );
+      expect(ruleset.rules.nodes).toEqual([
+        {
+          type: 'REQUIRED_STATUS_CHECKS',
+          parameters: {
+            strictRequiredStatusChecksPolicy: true,
+            doNotEnforceOnCreate: false,
+            requiredStatusChecks: [{ context: 'build', integrationId: null }],
+          },
         },
       ]);
     });

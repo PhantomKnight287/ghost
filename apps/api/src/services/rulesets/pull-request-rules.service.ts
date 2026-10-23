@@ -70,6 +70,7 @@ export class PullRequestRulesService {
         rulesets: checked,
         pullRequestRules: [],
         allowedMethods: allowedMergeMethods([], '', ''),
+        defaultBranch: '',
       };
     const ref = `refs/heads/${baseRef}`;
     const defaultBranch = await this.verdicts.defaultBranchOf(
@@ -85,6 +86,7 @@ export class PullRequestRulesService {
           refTargeted(ruleset, ref, defaultBranch),
       ),
       allowedMethods: allowedMergeMethods(checked, ref, defaultBranch),
+      defaultBranch,
     };
   }
 

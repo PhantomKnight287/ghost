@@ -217,5 +217,42 @@ describe.skipIf(!hasBackends)(
       expect(await checksOf(number)).toBeNull();
       expect((await pullCommits(number, upstream.cookie))[0].status).toBeNull();
     });
+    it('counts only the base repository’s statuses toward a required check', async () => {
+      const head = branch('fork-only');
+      await push(contributor, forker.key, 'fork', 'fork-only');
+      const number = await openPull(forker.cookie, `${contributor}:fork-only`);
+      await postStatus(forkRepos, forker.cookie, head);
+      await api()
+        .post(`${repos}/rulesets`)
+        .set('cookie', upstream.cookie)
+        .send({
+          name: 'ci required',
+          target: 'branch',
+          enforcement: 'active',
+          include: ['~DEFAULT_BRANCH'],
+          exclude: [],
+          bypassActors: [],
+          rules: [
+            {
+              type: 'required_status_checks',
+              parameters: { required_status_checks: [{ context: 'ci' }] },
+            },
+          ],
+        })
+        .expect(201);
+      const unmet = async () =>
+        (
+          await api()
+            .get(`${repos}/pulls/${number}/merge-requirements`)
+            .set('cookie', upstream.cookie)
+            .expect(200)
+        ).body.violations.map(
+          ({ requirement }: { requirement: string }) => requirement,
+        );
+
+      expect(await unmet()).toEqual(['status_checks']);
+      await postStatus(repos, upstream.cookie, head);
+      expect(await unmet()).toEqual([]);
+    });
   },
 );

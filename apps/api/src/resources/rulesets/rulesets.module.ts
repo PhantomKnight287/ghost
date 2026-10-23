@@ -7,15 +7,22 @@ import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts
 import { RuleSuitesController } from './rule-suites.controller.js';
 import { RulesetsController } from './rulesets.controller.js';
 import { RulesetsService } from './rulesets.service.js';
+import { CommitStatusesModule } from '../../resources/commit-statuses/commit-statuses.module.js';
+import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
+import { UsersService } from '../../services/users/users.service.js';
 
 @Module({
-  imports: [MaterializerModule],
+  imports: [CommitStatusesModule, MaterializerModule],
   controllers: [RulesetsController, RuleSuitesController],
   providers: [
     RulesetsService,
     RuleSuitesService,
     RepositoryAccessService,
     RulesetVerdictsService,
+    UsersService,
+    CommitSigningService,
+    CommitVerificationService,
   ],
   exports: [RulesetsService],
 })

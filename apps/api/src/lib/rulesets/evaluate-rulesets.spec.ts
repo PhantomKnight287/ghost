@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { type RefTransition, ZERO_OID } from '../git/wal/wal.types.js';
-import { allowedMergeMethods, evaluateRulesets } from './evaluate-rulesets.js';
+import {
+  allowedMergeMethods,
+  evaluateRulesets,
+  requiredContexts,
+} from './evaluate-rulesets.js';
 import type {
   PullRequestFacts,
   PullRequestRuleParameters,
@@ -9,6 +13,7 @@ import type {
   Ruleset,
   RulesetActor,
   RuleType,
+  StatusCheckRuleParameters,
 } from './rulesets.types.js';
 
 const oid = (byte: number) => Buffer.alloc(20, byte);
@@ -1315,5 +1320,302 @@ describe('suites', () => {
         facts: { [MAIN]: forced },
       }),
     ).toEqual([['pass', 'fail']]);
+  });
+});
+
+const checks = (
+  contexts: string[],
+  parameters: Partial<StatusCheckRuleParameters> = {},
+  overrides: Partial<Ruleset> = {},
+) =>
+  ruleset([], {
+    rules: [
+      {
+        type: 'required_status_checks',
+        parameters: {
+          required_status_checks: contexts.map((context) => ({ context })),
+          strict_required_status_checks_policy: false,
+          do_not_enforce_on_create: false,
+          ...parameters,
+        },
+      },
+    ],
+    ...overrides,
+  });
+
+const withStatuses = (
+  statuses: RefFacts['statuses'],
+  extra: Partial<RefFacts> = {},
+): Record<string, RefFacts> => ({
+  [MAIN]: { ...fastForward, statuses, ...extra },
+});
+
+describe('required_status_checks', () => {
+  it('passes a tip with success on every required context', () => {
+    const evaluation = evaluateAll({
+      rulesets: [checks(['build', 'test'])],
+      transitions: [update()],
+      facts: withStatuses([
+        { context: 'build', state: 'success' },
+        { context: 'test', state: 'success' },
+        { context: 'lint', state: 'failure' },
+      ]),
+    });
+    expect(evaluation.violations).toEqual([]);
+  });
+
+  it('fails a missing context as expected', () => {
+    const { violations } = evaluateAll({
+      rulesets: [checks(['build'])],
+      transitions: [update()],
+      facts: withStatuses([]),
+    });
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({
+      rule: 'required_status_checks',
+      requirement: 'status_checks',
+    });
+    expect(violations[0].message).toContain('build');
+    expect(violations[0].message).toContain('expected');
+  });
+
+  it.each(['pending', 'failure', 'error'] as const)(
+    'fails a context whose latest state is %s',
+    (state) => {
+      const { violations } = evaluateAll({
+        rulesets: [checks(['build'])],
+        transitions: [update()],
+        facts: withStatuses([{ context: 'build', state }]),
+      });
+      expect(violations.map(({ requirement }) => requirement)).toEqual([
+        'status_checks',
+      ]);
+      expect(violations[0].message).toContain(state);
+    },
+  );
+
+  it('requires the union of every applicable ruleset’s contexts', () => {
+    const { violations } = evaluateAll({
+      rulesets: [checks(['build']), checks(['test'])],
+      transitions: [update()],
+      facts: withStatuses([{ context: 'build', state: 'success' }]),
+    });
+    expect(violations).toHaveLength(1);
+    expect(violations[0].message).toContain('test');
+  });
+
+  it('skips a create only for the rule that opts out of creations', () => {
+    const skipping = checks(['build'], { do_not_enforce_on_create: true });
+    const enforcing = checks(['test']);
+    const { violations } = evaluateAll({
+      rulesets: [skipping, enforcing],
+      transitions: [create()],
+      facts: withStatuses([]),
+    });
+    expect(violations.map(({ rulesetId }) => rulesetId)).toEqual([
+      enforcing.id,
+    ]);
+  });
+
+  it('does not judge a deletion', () => {
+    expect(
+      evaluateAll({
+        rulesets: [checks(['build'])],
+        transitions: [remove()],
+      }).violations,
+    ).toEqual([]);
+  });
+
+  it('fails a merge whose head is behind the base under strict', () => {
+    const { violations } = evaluateAll({
+      rulesets: [
+        checks(['build'], { strict_required_status_checks_policy: true }),
+      ],
+      transitions: [update()],
+      write: 'pull_request_merge',
+      facts: withStatuses([{ context: 'build', state: 'success' }], {
+        upToDate: false,
+      }),
+    });
+    expect(violations.map(({ requirement }) => requirement)).toEqual([
+      'up_to_date',
+    ]);
+  });
+
+  it('passes a merge that is up to date under strict', () => {
+    expect(
+      evaluateAll({
+        rulesets: [
+          checks(['build'], { strict_required_status_checks_policy: true }),
+        ],
+        transitions: [update()],
+        write: 'pull_request_merge',
+        facts: withStatuses([{ context: 'build', state: 'success' }], {
+          upToDate: true,
+        }),
+      }).violations,
+    ).toEqual([]);
+  });
+
+  it('adds nothing for strict on a push', () => {
+    expect(
+      evaluateAll({
+        rulesets: [
+          checks(['build'], { strict_required_status_checks_policy: true }),
+        ],
+        transitions: [update()],
+        facts: withStatuses([{ context: 'build', state: 'success' }]),
+      }).violations,
+    ).toEqual([]);
+  });
+
+  it('fails closed without statuses facts', () => {
+    expect(
+      evaluateAll({
+        rulesets: [checks(['build'])],
+        transitions: [update()],
+        facts: { [MAIN]: fastForward },
+      }).violations.map(({ requirement }) => requirement),
+    ).toEqual(['status_checks']);
+  });
+
+  it('moves an unmet check to bypassed for an always bypass actor', () => {
+    const evaluation = evaluateAll({
+      rulesets: [
+        checks(
+          ['build'],
+          {},
+          {
+            bypassActors: [
+              {
+                actorType: 'RepositoryRole',
+                role: 'admin',
+                bypassMode: 'always',
+              },
+            ],
+          },
+        ),
+      ],
+      transitions: [update()],
+      actor: { ...writer, role: 'admin' },
+      facts: withStatuses([]),
+    });
+    expect(evaluation.violations).toEqual([]);
+    expect(evaluation.bypassed.map(({ rule }) => rule)).toEqual([
+      'required_status_checks',
+    ]);
+  });
+
+  it('never refuses for an evaluate ruleset', () => {
+    const evaluation = evaluateAll({
+      rulesets: [checks(['build'], {}, { enforcement: 'evaluate' })],
+      transitions: [update()],
+      facts: withStatuses([]),
+    });
+    expect(evaluation.violations).toEqual([]);
+    expect(evaluation.suites[0].evaluationResult).toBe('fail');
+  });
+});
+
+describe('required_signatures', () => {
+  const signatures = (overrides: Partial<Ruleset> = {}) =>
+    ruleset(['required_signatures'], overrides);
+
+  it('passes when every added commit verifies', () => {
+    expect(
+      evaluateAll({
+        rulesets: [signatures()],
+        transitions: [update()],
+        facts: { [MAIN]: { ...fastForward, unverifiedCommits: [] } },
+      }).violations,
+    ).toEqual([]);
+  });
+
+  it('lists every unverified commit', () => {
+    const { violations } = evaluateAll({
+      rulesets: [signatures()],
+      transitions: [update()],
+      facts: {
+        [MAIN]: {
+          ...fastForward,
+          unverifiedCommits: [
+            { sha: 'a'.repeat(40), reason: 'Unsigned' },
+            {
+              sha: 'b'.repeat(40),
+              reason: 'Signature does not match the commit',
+            },
+          ],
+        },
+      },
+    });
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({
+      rule: 'required_signatures',
+      requirement: 'signatures',
+    });
+    expect(violations[0].message).toContain('aaaaaaa');
+    expect(violations[0].message).toContain('bbbbbbb');
+  });
+
+  it('summarises past ten unverified commits', () => {
+    const { violations } = evaluateAll({
+      rulesets: [signatures()],
+      transitions: [update()],
+      facts: {
+        [MAIN]: {
+          ...fastForward,
+          unverifiedCommits: Array.from({ length: 12 }, (_, index) => ({
+            sha: index.toString(16).repeat(40),
+            reason: 'Unsigned',
+          })),
+        },
+      },
+    });
+    expect(violations[0].message).toContain('and 2 more');
+  });
+
+  it('fails closed without unverifiedCommits facts', () => {
+    expect(
+      evaluateAll({
+        rulesets: [signatures()],
+        transitions: [update()],
+        facts: { [MAIN]: fastForward },
+      }).violations.map(({ requirement }) => requirement),
+    ).toEqual(['signatures']);
+  });
+
+  it('does not judge a deletion', () => {
+    expect(
+      evaluateAll({
+        rulesets: [signatures()],
+        transitions: [remove()],
+      }).violations,
+    ).toEqual([]);
+  });
+});
+
+describe('requiredContexts', () => {
+  it('unions active rulesets targeting the ref, sorted', () => {
+    expect(
+      requiredContexts(
+        [checks(['test', 'build']), checks(['build', 'lint'])],
+        MAIN,
+        'main',
+      ),
+    ).toEqual(['build', 'lint', 'test']);
+  });
+
+  it('leaves out evaluate and disabled rulesets and other refs', () => {
+    expect(
+      requiredContexts(
+        [
+          checks(['build'], {}, { enforcement: 'evaluate' }),
+          checks(['test'], {}, { enforcement: 'disabled' }),
+          checks(['lint'], {}, { include: ['refs/heads/release'] }),
+        ],
+        MAIN,
+        'main',
+      ),
+    ).toEqual([]);
   });
 });

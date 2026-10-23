@@ -31,9 +31,14 @@ import { GitService } from './git.service.js';
 import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
 import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-auth.middleware.js';
+import { CommitStatusesModule } from '../resources/commit-statuses/commit-statuses.module.js';
+import { CommitVerificationService } from '../services/gpg/commit-verification.service.js';
+import { CommitSigningService } from '../services/gpg/commit-signing.service.js';
+import { UsersService } from '../services/users/users.service.js';
 
 @Module({
   imports: [
+    CommitStatusesModule,
     MaterializerModule,
     SshKeysModule,
     IssuesModule,
@@ -51,6 +56,9 @@ import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-au
     PushTransactionService,
     RuleSuitesService,
     RulesetVerdictsService,
+    UsersService,
+    CommitSigningService,
+    CommitVerificationService,
     WalStoreService,
     RepositoryAccessService,
     GitBasicAuthMiddleware,

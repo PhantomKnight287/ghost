@@ -33,6 +33,7 @@ import {
 } from '../../lib/pull-requests/pull-requests.errors.js';
 import {
   InvalidRuleParametersError,
+  RequiredSignaturesNeedKeyError,
   RulesetNameTakenError,
 } from '../../lib/rulesets/rulesets.errors.js';
 import {
@@ -42,6 +43,7 @@ import {
   ReleaseAssetExistsError,
   TagTargetNotFoundError,
 } from '../../lib/releases/releases.errors.js';
+import { SshKeyAlreadyExistsError } from '../../lib/ssh-keys/ssh-keys.errors.js';
 
 /** Ghost errors GitHub answers as a 422 naming the field at fault. */
 const FIELD_ERRORS: [
@@ -80,6 +82,10 @@ const FIELD_ERRORS: [
     TooManyStatusesError,
     { resource: 'Status', field: 'context', code: 'invalid' },
   ],
+  [
+    SshKeyAlreadyExistsError,
+    { resource: 'PublicKey', field: 'key', code: 'already_exists' },
+  ],
 ];
 
 /** Ghost errors GitHub answers as a plain 422, where Ghost says 400 or 409. */
@@ -92,6 +98,7 @@ const UNPROCESSABLE: (new (...args: never[]) => DomainError)[] = [
   PullRequestNotOpenError,
   RulesetNameTakenError,
   InvalidRuleParametersError,
+  RequiredSignaturesNeedKeyError,
 ];
 
 const DOCUMENTATION_URL = 'https://docs.github.com/rest';

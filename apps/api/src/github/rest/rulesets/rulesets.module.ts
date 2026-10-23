@@ -6,10 +6,25 @@ import { RulesetVerdictsService } from '../../../services/rulesets/ruleset-verdi
 import { GithubIssuesModule } from '../issues/issues.module.js';
 import { GithubRulesetsController } from './rulesets.controller.js';
 import { GithubRulesetsService } from './rulesets.service.js';
+import { CommitStatusesModule } from '../../../resources/commit-statuses/commit-statuses.module.js';
+import { CommitVerificationService } from '../../../services/gpg/commit-verification.service.js';
+import { CommitSigningService } from '../../../services/gpg/commit-signing.service.js';
+import { UsersService } from '../../../services/users/users.service.js';
 
 @Module({
-  imports: [RulesetsModule, GithubIssuesModule, MaterializerModule],
+  imports: [
+    CommitStatusesModule,
+    RulesetsModule,
+    GithubIssuesModule,
+    MaterializerModule,
+  ],
   controllers: [GithubRulesetsController],
-  providers: [GithubRulesetsService, RulesetVerdictsService],
+  providers: [
+    GithubRulesetsService,
+    RulesetVerdictsService,
+    CommitVerificationService,
+    CommitSigningService,
+    UsersService,
+  ],
 })
 export class GithubRulesetsModule {}

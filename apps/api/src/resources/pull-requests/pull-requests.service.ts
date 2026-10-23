@@ -66,10 +66,15 @@ import {
   MergeMethodNotAllowedError,
   RulesetBypassRequiredError,
 } from '../../lib/rulesets/rulesets.errors.js';
+import { requiredContexts } from '../../lib/rulesets/evaluate-rulesets.js';
+import { refTargeted } from '../../lib/rulesets/ref-pattern.js';
 import type {
   PullRequestRuleParameters,
+  RefFacts,
   Ruleset,
+  RuleType,
 } from '../../lib/rulesets/rulesets.types.js';
+import { addedCommits } from '../../lib/git/refs/added-commits.js';
 import { PullRequestRulesService } from '../../services/rulesets/pull-request-rules.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
@@ -896,6 +901,7 @@ export class PullRequestsService {
         bypassed: [],
         allowedMethods: [...MERGE_METHODS],
         reviewsRequired: false,
+        requiredContexts: [],
       };
     }
     const git = await this.openLive(
@@ -918,6 +924,11 @@ export class PullRequestsService {
       bypassed: verdict.bypassed,
       allowedMethods,
       reviewsRequired,
+      requiredContexts: requiredContexts(
+        rulesets,
+        `refs/heads/${pullRequest.baseRef}`,
+        await this.verdicts.defaultBranchOf(base, git.baseDirectory),
+      ),
     };
   }
 
@@ -960,7 +971,17 @@ export class PullRequestsService {
       facts: new Map([
         [
           ref,
-          { isFastForward: true, introducesMergeCommit: judged === 'merge' },
+          {
+            isFastForward: true,
+            introducesMergeCommit: judged === 'merge',
+            ...(await this.mergeConditions(git, {
+              rulesets: applicable.rulesets.filter((ruleset) =>
+                refTargeted(ruleset, ref, applicable.defaultBranch),
+              ),
+              method: judged,
+              mergeCommitSha,
+            })),
+          },
         ],
       ]),
       rulesets: applicable.rulesets,
@@ -986,6 +1007,72 @@ export class PullRequestsService {
           }),
       ),
     };
+  }
+
+  /** What status check and signature rules read about a merge: the head's statuses on the base repository, whether the head contains the base tip, and the commits the method lands that do not verify. Ghost writes the merge, squash or rebase commits itself, so they verify only while it can sign. */
+  private async mergeConditions(
+    git: LiveComparison,
+    {
+      rulesets,
+      method,
+      mergeCommitSha,
+    }: { rulesets: Ruleset[]; method: MergeMethod; mergeCommitSha: string },
+  ): Promise<Partial<RefFacts>> {
+    const wants = (type: RuleType) =>
+      rulesets.some(
+        (ruleset) =>
+          ruleset.enforcement !== 'disabled' &&
+          ruleset.rules.some((rule) => rule.type === type),
+      );
+    const conditions: Partial<RefFacts> = {};
+    if (wants('required_status_checks')) {
+      // A fork's statuses never count: its owner can post anything there.
+      const combined = await this.statuses.combinedFor(
+        [git.base.id],
+        [git.headSha],
+      );
+      conditions.statuses = (combined.get(git.headSha)?.statuses ?? []).map(
+        ({ context, state }) => ({ context, state }),
+      );
+      conditions.upToDate = git.mergeBase === git.baseSha;
+    }
+    if (wants('required_signatures')) {
+      const landed =
+        method === 'merge'
+          ? await addedCommits({
+              gitDir: git.baseDirectory,
+              env: git.env,
+              transition: {
+                ref: `refs/heads/${git.pullRequest.baseRef}`,
+                oldOid: Buffer.from(git.baseSha, 'hex'),
+                newOid: Buffer.from(git.headSha, 'hex'),
+              },
+            })
+          : [];
+      const verdicts = await this.verification.verifyCommits({
+        gitDir: git.baseDirectory,
+        env: git.env,
+        commits: landed,
+      });
+      conditions.unverifiedCommits = [
+        ...landed.flatMap(({ sha }) => {
+          const verdict = verdicts.get(sha);
+          return verdict?.verified
+            ? []
+            : [{ sha, reason: verdict?.reason ?? 'Unsigned' }];
+        }),
+        ...(this.signing.signer
+          ? []
+          : [
+              {
+                sha: mergeCommitSha,
+                reason:
+                  'Ghost cannot sign the commits it writes on this server',
+              },
+            ]),
+      ];
+    }
+    return conditions;
   }
 
   /** The bookkeeping after the API itself pushed to a branch: merges and applied suggestions. */

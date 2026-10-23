@@ -21,11 +21,13 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   type BypassActor,
   defaultPullRequestParameters,
+  defaultStatusCheckParameters,
   type PullRequestParameters,
   type Ruleset,
   type RulesetTarget,
   type RuleType,
   rules as allRules,
+  type StatusCheckParameters,
 } from "@/lib/rulesets";
 
 import { createRuleset, updateRuleset } from "./actions";
@@ -33,6 +35,7 @@ import { BypassActorsField } from "./bypass-actors-field";
 import { PatternListField } from "./pattern-list-field";
 import { PatternPreview } from "./pattern-preview";
 import { PullRequestParametersField } from "./pull-request-parameters-field";
+import { StatusCheckParametersField } from "./status-check-parameters-field";
 
 const targets = ["branch", "tag"] as const;
 const targetLabels = { branch: "Branch", tag: "Tag" };
@@ -53,12 +56,15 @@ export function RulesetForm({
   repo,
   teams,
   ruleset,
+  statusContexts,
 }: {
   username: string;
   repo: string;
   /** Null on a personal repository. */
   teams: { id: string; name: string }[] | null;
   ruleset?: Ruleset;
+  /** Contexts this repository's statuses have named, suggested as required checks. */
+  statusContexts: string[];
 }) {
   const router = useRouter();
   const [name, setName] = useState(ruleset?.name ?? "");
@@ -89,6 +95,15 @@ export function RulesetForm({
       }) as PullRequestParameters,
   );
 
+  const [statusChecks, setStatusChecks] = useState<StatusCheckParameters>(
+    () =>
+      ({
+        ...defaultStatusCheckParameters,
+        ...ruleset?.rules.find(({ type }) => type === "required_status_checks")
+          ?.parameters,
+      }) as StatusCheckParameters,
+  );
+
   const onError = ({ error }: { error: { serverError?: string } }) =>
     toast.error(error.serverError ?? "Could not save this ruleset.");
   const create = useAction(createRuleset, { onError });
@@ -111,7 +126,11 @@ export function RulesetForm({
       exclude,
       bypassActors,
       rules: rules.map((type) =>
-        type === "pull_request" ? { type, parameters: pullRequest } : { type },
+        type === "pull_request"
+          ? { type, parameters: pullRequest }
+          : type === "required_status_checks"
+            ? { type, parameters: statusChecks }
+            : { type },
       ),
     };
     if (ruleset) update.execute({ username, repo, id: ruleset.id, body });
@@ -243,6 +262,14 @@ export function RulesetForm({
                       onChange={setPullRequest}
                     />
                   )}
+                {rule.type === "required_status_checks" &&
+                  rules.includes("required_status_checks") && (
+                    <StatusCheckParametersField
+                      value={statusChecks}
+                      onChange={setStatusChecks}
+                      suggestions={statusContexts}
+                    />
+                  )}
               </div>
             ))}
           </fieldset>
@@ -256,7 +283,9 @@ export function RulesetForm({
               pending ||
               !name.trim() ||
               (rules.includes("pull_request") &&
-                pullRequest.allowed_merge_methods.length === 0)
+                pullRequest.allowed_merge_methods.length === 0) ||
+              (rules.includes("required_status_checks") &&
+                statusChecks.required_status_checks.length === 0)
             }
           >
             {pending && <Spinner />}

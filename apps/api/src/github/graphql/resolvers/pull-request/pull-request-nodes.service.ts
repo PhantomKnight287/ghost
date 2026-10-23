@@ -8,6 +8,12 @@ import { orNull } from '../../../../lib/github/authorize.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
 import { encodeNodeId } from '../../../../lib/github/node-id.js';
 import { closingIssueIdsOf } from '../../../../lib/github/node-lookup.js';
+import { resolveDefaultRef } from '../../../../lib/git/tree/resolve-ref.js';
+import { mergeStateOf } from '../../../../lib/github/merge-state.js';
+import { RepositoryMaterializerService } from '../../../../services/git/materializer/repository-materializer.service.js';
+import { decodeNodeIdAs } from '../../../../lib/github/node-id.js';
+import { requiredContexts } from '../../../../lib/rulesets/evaluate-rulesets.js';
+import type { StatusContextNode } from '../../types/placeholders.type.js';
 import {
   toCommitNode,
   toPullRequestReviewNode,
@@ -61,6 +67,7 @@ export class PullRequestNodesService {
     private readonly pulls: PullRequestsService,
     private readonly requested: ReviewRequestsService,
     private readonly config: ConfigService,
+    private readonly materializer: RepositoryMaterializerService,
   ) {}
 
   /** getPullRequest once per node: additions, mergeable and the live head all come from the same git reads. */
@@ -84,6 +91,7 @@ export class PullRequestNodesService {
               bypassed: [],
               allowedMethods: [...MERGE_METHODS],
               reviewsRequired: false,
+              requiredContexts: [],
             }
           : this.pulls.mergeRequirements({
               ...this.ref(pull, viewer),
@@ -152,6 +160,56 @@ export class PullRequestNodesService {
       : MergeableState.UNKNOWN;
   }
 
+  /** Whether an active rule on the base of the pull request `pull` names requires `status`'s context. The pull request must be in the repository whose rollup holds the status. */
+  async contextRequired(
+    status: StatusContextNode,
+    pull: { id?: string; number?: number },
+    loaders: Loaders,
+  ) {
+    if (!pull.id && pull.number === undefined) return false;
+    const [row] = await this.db
+      .select({
+        baseRepositoryId: schema.pullRequest.baseRepositoryId,
+        baseRef: schema.pullRequest.baseRef,
+        defaultBranch: schema.repository.defaultBranch,
+      })
+      .from(schema.pullRequest)
+      .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
+      .innerJoin(
+        schema.repository,
+        eq(schema.repository.id, schema.pullRequest.baseRepositoryId),
+      )
+      .where(
+        and(
+          // Only a pull request in the repository whose rollup holds the status: any other id could name one the viewer cannot read.
+          eq(schema.issue.repositoryId, status.repositoryId),
+          pull.id
+            ? eq(schema.issue.id, decodeNodeIdAs(pull.id, 'PullRequest'))
+            : eq(schema.issue.number, pull.number!),
+        ),
+      );
+    if (!row) return false;
+    const rulesets = await loaders.activeRulesetsByRepositoryId.load(
+      row.baseRepositoryId,
+    );
+    if (rulesets.length === 0) return false;
+    // The row names a default branch only when one was chosen; otherwise HEAD does, as for merges.
+    const defaultBranch = (
+      await resolveDefaultRef({
+        gitDir: await this.materializer.open({
+          id: row.baseRepositoryId,
+          defaultBranch: row.defaultBranch,
+        }),
+        defaultBranch: row.defaultBranch,
+      })
+    ).replace(/^refs\/heads\//, '');
+    return requiredContexts(
+      rulesets,
+      `refs/heads/${row.baseRef}`,
+      defaultBranch,
+    ).includes(status.context);
+  }
+
   /** BLOCKED for a bypass actor too, as GitHub answers, which is why gh tells them to pass `--admin`. */
   async mergeStateStatus(
     pull: PullRequestNode,
@@ -163,14 +221,14 @@ export class PullRequestNodesService {
     const mergeable = await this.mergeable(pull, viewer);
     if (mergeable === MergeableState.CONFLICTING) return MergeStateStatus.DIRTY;
     if (mergeable !== MergeableState.MERGEABLE) return MergeStateStatus.UNKNOWN;
-    const { violations, bypassed } = await this.requirements(
-      pull,
-      viewer,
-      loaders,
-    );
-    return violations.length + bypassed.length > 0
-      ? MergeStateStatus.BLOCKED
-      : MergeStateStatus.CLEAN;
+    const [{ violations, bypassed }, detail] = await Promise.all([
+      this.requirements(pull, viewer, loaders),
+      this.detail(pull, viewer),
+    ]);
+    return mergeStateOf(
+      [...violations, ...bypassed],
+      detail.checks?.state ?? null,
+    ).toUpperCase() as MergeStateStatus;
   }
 
   /** As GitHub answers: null unless a rule on the base asks for reviews, though a standing change request a rule blocks on shows either way. A closed or merged request, whose rules are no longer judged, falls back to each reviewer's standing verdict. */

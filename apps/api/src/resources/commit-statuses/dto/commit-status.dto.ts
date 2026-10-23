@@ -124,3 +124,12 @@ export class CombinedCommitStatusDTO {
   @Type(() => CommitStatusDTO)
   statuses: CommitStatusDTO[];
 }
+
+export class StatusContextsDTO {
+  @ApiProperty({
+    type: [String],
+    description:
+      "Contexts this repository's statuses have named, most recently posted first, at most 50.",
+  })
+  contexts: string[];
+}

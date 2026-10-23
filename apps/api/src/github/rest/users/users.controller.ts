@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
+  ParseIntPipe,
   Post,
   UseFilters,
 } from '@nestjs/common';
@@ -15,6 +17,8 @@ import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubAddKeyDTO } from './dto/add-key.dto.js';
 import { GithubUsersService } from './users.service.js';
+
+const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
@@ -50,5 +54,46 @@ export class UsersController {
   @ApiOperation({ summary: 'Add an SSH key to the authenticated user' })
   addKey(@Body() body: GithubAddKeyDTO, @Viewer() viewer: GithubViewer | null) {
     return this.users.addKey(viewer, body);
+  }
+
+  @Get('user/ssh_signing_keys')
+  @ApiOperation({
+    summary: "The authenticated user's SSH signing keys, in GitHub REST shape",
+  })
+  signingKeys(@Viewer() viewer: GithubViewer | null) {
+    return this.users.signingKeys(viewer);
+  }
+
+  @Get('user/ssh_signing_keys/:id')
+  @ApiOperation({ summary: 'One SSH signing key of the authenticated user' })
+  signingKey(
+    @Param('id', ID) id: number,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.users.signingKey(viewer, id);
+  }
+
+  @Post('user/ssh_signing_keys')
+  @HttpCode(201)
+  @ApiOperation({
+    summary: 'Add an SSH signing key to the authenticated user',
+  })
+  addSigningKey(
+    @Body() body: GithubAddKeyDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.users.addSigningKey(viewer, body);
+  }
+
+  @Delete('user/ssh_signing_keys/:id')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Remove an SSH signing key from the authenticated user',
+  })
+  removeSigningKey(
+    @Param('id', ID) id: number,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.users.removeSigningKey(viewer, id);
   }
 }

@@ -15,6 +15,7 @@ import { ErrorResponseDTO } from '../../domain/http.js';
 import { CommitStatusesService } from './commit-statuses.service.js';
 import {
   CombinedCommitStatusDTO,
+  StatusContextsDTO,
   CommitStatusDTO,
   CreateCommitStatusRequestDTO,
 } from './dto/commit-status.dto.js';
@@ -78,6 +79,27 @@ export class CommitStatusesController {
       repo: slug,
       requesterId: session?.user?.id,
       ref,
+    });
+  }
+
+  @Get('status-contexts')
+  @ApiOperation({
+    summary: 'List the status check contexts this repository has seen',
+    description:
+      'Most recently posted first, at most 50; the ruleset form suggests them as required checks.',
+  })
+  @ApiOkResponse({ type: StatusContextsDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  getStatusContexts(
+    @Param('username') username: string,
+    @Param('slug') slug: string,
+    @Session() session: UserSession,
+  ): Promise<StatusContextsDTO> {
+    return this.statuses.contexts({
+      username,
+      repo: slug,
+      requesterId: session.user.id,
     });
   }
 }

@@ -460,6 +460,30 @@ export const userSshKey = pgTable(
   (table) => [index("user_ssh_key_user_id_idx").on(table.userId)],
 );
 
+export const userSshSigningKey = pgTable(
+  "user_ssh_signing_key",
+  {
+    id: text("id").primaryKey(),
+    // Integer id for the GitHub compatibility layer only (REST `id`); nothing references it.
+    numericId: bigint("numeric_id", { mode: "number" })
+      .generatedAlwaysAsIdentity()
+      .notNull()
+      .unique(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    // SHA256 of the key blob, base64 without padding. Unique here but not across user_ssh_key: one key may sign and authenticate, as on GitHub.
+    fingerprint: text("fingerprint").notNull().unique(),
+    // The key blob, base64, as the second field of an authorized_keys line.
+    publicKey: text("public_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("user_ssh_signing_key_user_id_idx").on(table.userId)],
+);
+
 export const passkey = pgTable(
   "passkey",
   {

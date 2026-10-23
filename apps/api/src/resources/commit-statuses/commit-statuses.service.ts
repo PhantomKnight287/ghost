@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import {
@@ -48,6 +48,8 @@ const newestFirst = [
   desc(schema.commitStatus.createdAt),
   desc(schema.commitStatus.numericId),
 ];
+
+const SUGGESTED_CONTEXTS = 50;
 
 @Injectable()
 export class CommitStatusesService {
@@ -115,6 +117,22 @@ export class CommitStatusesService {
 
     const [status] = await this.select().where(eq(schema.commitStatus.id, id));
     return status;
+  }
+
+  /** The contexts this repository has seen, for the ruleset form to suggest as required checks. Writers only, as the form is theirs to fill. */
+  async contexts(target: RepositoryRef & { requesterId: string }) {
+    const repository = await this.access.authorize({
+      ...target,
+      operation: 'write',
+    });
+    const rows = await this.db
+      .select({ context: schema.commitStatus.context })
+      .from(schema.commitStatus)
+      .where(eq(schema.commitStatus.repositoryId, repository.id))
+      .groupBy(schema.commitStatus.context)
+      .orderBy(desc(max(schema.commitStatus.numericId)))
+      .limit(SUGGESTED_CONTEXTS);
+    return { contexts: rows.map(({ context }) => context) };
   }
 
   async combined({

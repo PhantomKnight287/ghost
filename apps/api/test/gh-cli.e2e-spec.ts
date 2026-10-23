@@ -536,6 +536,74 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
       ]);
     });
 
+    it('lists only the required checks with --required', async () => {
+      const { headRefOid } = await view('headRefOid');
+      await ok([
+        'api',
+        '-X',
+        'POST',
+        `repos/${username}/tools/statuses/${headRefOid}`,
+        '-f',
+        'state=success',
+        '-f',
+        'context=lint',
+      ]);
+      const ruleset = JSON.parse(
+        await ok(
+          [
+            'api',
+            '-X',
+            'POST',
+            `repos/${username}/tools/rulesets`,
+            '--input',
+            '-',
+          ],
+          {
+            input: JSON.stringify({
+              name: 'ci required',
+              target: 'branch',
+              enforcement: 'active',
+              conditions: {
+                ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] },
+              },
+              rules: [
+                {
+                  type: 'required_status_checks',
+                  parameters: {
+                    required_status_checks: [{ context: 'ci/test' }],
+                    strict_required_status_checks_policy: false,
+                  },
+                },
+              ],
+            }),
+          },
+        ),
+      );
+      try {
+        expect(
+          JSON.parse(
+            await ok([
+              'pr',
+              'checks',
+              number,
+              '-R',
+              repo(),
+              '--required',
+              '--json',
+              'name',
+            ]),
+          ),
+        ).toEqual([{ name: 'ci/test' }]);
+      } finally {
+        await ok([
+          'api',
+          '-X',
+          'DELETE',
+          `repos/${username}/tools/rulesets/${ruleset.id}`,
+        ]);
+      }
+    });
+
     it('comments on a pull request and views it with comments', async () => {
       await ok(['pr', 'comment', number, '-R', repo(), '--body', 'Looks good']);
       expect(
@@ -703,7 +771,16 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
         })
         .expect(201);
       const chore = JSON.parse(
-        await ok(['pr', 'list', '-R', repo(), '--head', 'chore', '--json', 'number']),
+        await ok([
+          'pr',
+          'list',
+          '-R',
+          repo(),
+          '--head',
+          'chore',
+          '--json',
+          'number',
+        ]),
       )[0].number.toString();
 
       expect(
@@ -718,13 +795,25 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
             'reviewDecision,mergeStateStatus',
           ]),
         ),
-      ).toEqual({ reviewDecision: 'REVIEW_REQUIRED', mergeStateStatus: 'BLOCKED' });
+      ).toEqual({
+        reviewDecision: 'REVIEW_REQUIRED',
+        mergeStateStatus: 'BLOCKED',
+      });
 
-      const refused = await gh(['pr', 'merge', chore, '-R', repo(), '--squash']);
+      const refused = await gh([
+        'pr',
+        'merge',
+        chore,
+        '-R',
+        repo(),
+        '--squash',
+      ]);
       expect(refused.code).not.toBe(0);
       expect(refused.stderr).toMatch(/base branch policy prohibits the merge/);
       expect(
-        JSON.parse(await ok(['pr', 'view', chore, '-R', repo(), '--json', 'state'])),
+        JSON.parse(
+          await ok(['pr', 'view', chore, '-R', repo(), '--json', 'state']),
+        ),
       ).toEqual({ state: 'OPEN' });
     });
   });
@@ -956,6 +1045,28 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     const keyFile = path.join(configDir, 'id.pub');
     await ok(['ssh-key', 'add', keyFile, '--title', 'gh-e2e']);
     expect(await ok(['ssh-key', 'list'])).toContain('gh-e2e');
+  });
+
+  it('adds and lists SSH signing keys', async () => {
+    await promisify(execFile)('ssh-keygen', [
+      '-q',
+      '-t',
+      'ed25519',
+      '-N',
+      '',
+      '-f',
+      path.join(configDir, 'signing'),
+    ]);
+    await ok([
+      'ssh-key',
+      'add',
+      path.join(configDir, 'signing.pub'),
+      '--title',
+      'gh-e2e-signing',
+      '--type',
+      'signing',
+    ]);
+    expect(await ok(['ssh-key', 'list'])).toMatch(/gh-e2e-signing.*signing/);
   });
   it('logs in through the device flow', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'gh-e2e-web-'));

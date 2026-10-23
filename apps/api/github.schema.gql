@@ -942,6 +942,8 @@ enum RepositoryRuleType {
   NON_FAST_FORWARD
   PULL_REQUEST
   REQUIRED_LINEAR_HISTORY
+  REQUIRED_SIGNATURES
+  REQUIRED_STATUS_CHECKS
   UPDATE
 }
 
@@ -1009,6 +1011,12 @@ type RequestReviewsPayload {
 
 union RequestedReviewer = Bot | Team | User
 
+type RequiredStatusChecksParameters {
+  doNotEnforceOnCreate: Boolean!
+  requiredStatusChecks: [StatusCheckConfiguration!]!
+  strictRequiredStatusChecksPolicy: Boolean!
+}
+
 input ResolveReviewThreadInput {
   clientMutationId: String
   threadId: ID!
@@ -1037,7 +1045,7 @@ enum RuleEnforcement {
   EVALUATE
 }
 
-union RuleParameters = PullRequestParameters
+union RuleParameters = PullRequestParameters | RequiredStatusChecksParameters
 
 union SearchResultItem = Issue | PullRequest
 
@@ -1058,6 +1066,11 @@ enum SearchType {
   ISSUE
   REPOSITORY
   USER
+}
+
+type StatusCheckConfiguration {
+  context: String!
+  integrationId: Int
 }
 
 type StatusCheckRollup implements Node {

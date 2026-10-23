@@ -1,3 +1,4 @@
+import { SSH_SIGNATURE_HEADER } from '../../ssh/sshsig.js';
 import { runGitBuffer } from '../exec/run-git.js';
 
 export interface SignedCommit {
@@ -5,11 +6,12 @@ export interface SignedCommit {
   payload: string;
   /** Armored signature taken from the `gpgsig` header. */
   signature: string;
+  format: 'openpgp' | 'ssh';
 }
 
 const PGP_SIGNATURE_HEADER = '-----BEGIN PGP SIGNATURE-----';
 
-/** Commits without an OpenPGP signature (SSH ones included) are absent from the map. One `cat-file --batch` answers a whole page: `git log` cannot hand back the signature header. */
+/** Commits without an OpenPGP or SSH signature (X.509 ones included) are absent from the map. One `cat-file --batch` answers a whole page: `git log` cannot hand back the signature header. */
 export async function readSignedCommits({
   gitDir,
   env,
@@ -91,9 +93,14 @@ export function splitSignature(commit: string): SignedCommit | null {
   if (signature.length === 0) return null;
 
   const armored = signature.join('\n');
-  if (!armored.startsWith(PGP_SIGNATURE_HEADER)) return null;
+  const format = armored.startsWith(PGP_SIGNATURE_HEADER)
+    ? 'openpgp'
+    : armored.startsWith(SSH_SIGNATURE_HEADER)
+      ? 'ssh'
+      : null;
+  if (!format) return null;
 
-  return { payload: payload.join('\n'), signature: armored };
+  return { payload: payload.join('\n'), signature: armored, format };
 }
 
 export type CommitSigner = (payload: string) => Promise<string>;

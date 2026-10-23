@@ -59,14 +59,21 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       ],
       { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
     );
-  const collaborate = async (account: Account, username: string, role: string) => {
+  const collaborate = async (
+    account: Account,
+    username: string,
+    role: string,
+  ) => {
     await api()
       .put(`/api/repositories/${repo}/collaborators/${username}`)
       .set('cookie', owner.cookie)
       .send({ role })
       .expect(200);
     const invitation = (
-      await api().get('/api/invitations').set('cookie', account.cookie).expect(200)
+      await api()
+        .get('/api/invitations')
+        .set('cookie', account.cookie)
+        .expect(200)
     ).body.invitations[0];
     await api()
       .post(`/api/invitations/${invitation.id}/accept`)
@@ -166,7 +173,11 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
           include: ['main', 'refs/heads/dev', '~DEFAULT_BRANCH'],
           exclude: ['release/*'],
           bypassActors: [
-            { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'always' },
+            {
+              actorType: 'RepositoryRole',
+              role: 'maintain',
+              bypassMode: 'always',
+            },
             { actorType: 'Team', teamId, bypassMode: 'pull_request' },
             { actorType: 'OrganizationAdmin', bypassMode: 'always' },
           ],
@@ -182,7 +193,11 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
         include: ['refs/heads/main', 'refs/heads/dev', '~DEFAULT_BRANCH'],
         exclude: ['refs/heads/release/*'],
         bypassActors: expect.arrayContaining([
-          { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'always' },
+          {
+            actorType: 'RepositoryRole',
+            role: 'maintain',
+            bypassMode: 'always',
+          },
           { actorType: 'Team', teamId, bypassMode: 'pull_request' },
           { actorType: 'OrganizationAdmin', bypassMode: 'always' },
         ]),
@@ -196,7 +211,12 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       expect(body.bypassActors).toHaveLength(3);
       expect(body.rules).toHaveLength(2);
 
-      const fetched = (await api().get(at(`/${body.id}`)).set('cookie', admin.cookie).expect(200)).body;
+      const fetched = (
+        await api()
+          .get(at(`/${body.id}`))
+          .set('cookie', admin.cookie)
+          .expect(200)
+      ).body;
       expect(fetched).toEqual(body);
     });
 
@@ -207,10 +227,15 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
 
     it('lists the repository rulesets', async () => {
       const made = await create({ name: 'listed' });
-      const { body } = await api().get(at()).set('cookie', owner.cookie).expect(200);
+      const { body } = await api()
+        .get(at())
+        .set('cookie', owner.cookie)
+        .expect(200);
 
       expect(body.rulesets).toEqual(
-        expect.arrayContaining([expect.objectContaining({ id: made.id, name: 'listed' })]),
+        expect.arrayContaining([
+          expect.objectContaining({ id: made.id, name: 'listed' }),
+        ]),
       );
     });
 
@@ -246,9 +271,18 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
 
     it('deletes a ruleset', async () => {
       const made = await create();
-      await api().delete(at(`/${made.id}`)).set('cookie', owner.cookie).expect(204);
-      await api().get(at(`/${made.id}`)).set('cookie', owner.cookie).expect(404);
-      await api().delete(at(`/${made.id}`)).set('cookie', owner.cookie).expect(404);
+      await api()
+        .delete(at(`/${made.id}`))
+        .set('cookie', owner.cookie)
+        .expect(204);
+      await api()
+        .get(at(`/${made.id}`))
+        .set('cookie', owner.cookie)
+        .expect(404);
+      await api()
+        .delete(at(`/${made.id}`))
+        .set('cookie', owner.cookie)
+        .expect(404);
     });
 
     it('records every change in the outbox', async () => {
@@ -258,7 +292,10 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
         .set('cookie', owner.cookie)
         .send(valid({ name: 'audited again' }))
         .expect(200);
-      await api().delete(at(`/${made.id}`)).set('cookie', owner.cookie).expect(204);
+      await api()
+        .delete(at(`/${made.id}`))
+        .set('cookie', owner.cookie)
+        .expect(204);
 
       for (const type of [
         'repository_ruleset.created',
@@ -268,7 +305,8 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
         const events = await outbox(type);
         expect(
           events.filter(
-            ({ payload }) => (payload as { rulesetId?: string }).rulesetId === made.id,
+            ({ payload }) =>
+              (payload as { rulesetId?: string }).rulesetId === made.id,
           ),
         ).toHaveLength(1);
       }
@@ -280,21 +318,38 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       const made = await create();
       for (const account of [writer, reader]) {
         await createAs(account, valid()).expect(403);
-        await api().put(at(`/${made.id}`)).set('cookie', account.cookie).send(valid()).expect(403);
-        await api().delete(at(`/${made.id}`)).set('cookie', account.cookie).expect(403);
+        await api()
+          .put(at(`/${made.id}`))
+          .set('cookie', account.cookie)
+          .send(valid())
+          .expect(403);
+        await api()
+          .delete(at(`/${made.id}`))
+          .set('cookie', account.cookie)
+          .expect(403);
       }
-      await api().get(at(`/${made.id}`)).set('cookie', owner.cookie).expect(200);
+      await api()
+        .get(at(`/${made.id}`))
+        .set('cookie', owner.cookie)
+        .expect(200);
     });
 
     it('lets readers read rulesets, but hides who can bypass them', async () => {
       const made = await create({
-        bypassActors: [{ actorType: 'OrganizationAdmin', bypassMode: 'always' }],
+        bypassActors: [
+          { actorType: 'OrganizationAdmin', bypassMode: 'always' },
+        ],
       });
-      const { body } = await api().get(at(`/${made.id}`)).set('cookie', reader.cookie).expect(200);
+      const { body } = await api()
+        .get(at(`/${made.id}`))
+        .set('cookie', reader.cookie)
+        .expect(200);
       expect(body).toMatchObject({ id: made.id, rules: made.rules });
       expect(body).not.toHaveProperty('bypassActors');
 
-      const list = (await api().get(at()).set('cookie', reader.cookie).expect(200)).body;
+      const list = (
+        await api().get(at()).set('cookie', reader.cookie).expect(200)
+      ).body;
       for (const ruleset of list.rulesets) {
         expect(ruleset).not.toHaveProperty('bypassActors');
       }
@@ -315,8 +370,20 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
         { rules: [{ type: 'teleport' }] },
         { rules: [{ type: 'deletion' }, { type: 'deletion' }] },
         { bypassActors: [{ actorType: 'Integration', bypassMode: 'always' }] },
-        { bypassActors: [{ actorType: 'RepositoryRole', role: 'read', bypassMode: 'always' }] },
-        { bypassActors: [{ actorType: 'RepositoryRole', role: 'write', bypassMode: 'sometimes' }] },
+        {
+          bypassActors: [
+            { actorType: 'RepositoryRole', role: 'read', bypassMode: 'always' },
+          ],
+        },
+        {
+          bypassActors: [
+            {
+              actorType: 'RepositoryRole',
+              role: 'write',
+              bypassMode: 'sometimes',
+            },
+          ],
+        },
       ];
       for (const overrides of malformed) {
         const { status } = await createAs(owner, valid(overrides));
@@ -328,13 +395,17 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       await createAs(
         owner,
         valid({
-          bypassActors: [{ actorType: 'Team', teamId: foreignTeamId, bypassMode: 'always' }],
+          bypassActors: [
+            { actorType: 'Team', teamId: foreignTeamId, bypassMode: 'always' },
+          ],
         }),
       ).expect(422);
       await createAs(
         owner,
         valid({
-          bypassActors: [{ actorType: 'Team', teamId: 'team_missing', bypassMode: 'always' }],
+          bypassActors: [
+            { actorType: 'Team', teamId: 'team_missing', bypassMode: 'always' },
+          ],
         }),
       ).expect(422);
     });
@@ -386,19 +457,35 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       await api()
         .post(personalAt)
         .set('cookie', owner.cookie)
-        .send(valid({ bypassActors: [{ actorType: 'OrganizationAdmin', bypassMode: 'always' }] }))
-        .expect(422);
-      await api()
-        .post(personalAt)
-        .set('cookie', owner.cookie)
-        .send(valid({ bypassActors: [{ actorType: 'Team', teamId, bypassMode: 'always' }] }))
+        .send(
+          valid({
+            bypassActors: [
+              { actorType: 'OrganizationAdmin', bypassMode: 'always' },
+            ],
+          }),
+        )
         .expect(422);
       await api()
         .post(personalAt)
         .set('cookie', owner.cookie)
         .send(
           valid({
-            bypassActors: [{ actorType: 'RepositoryRole', role: 'admin', bypassMode: 'always' }],
+            bypassActors: [{ actorType: 'Team', teamId, bypassMode: 'always' }],
+          }),
+        )
+        .expect(422);
+      await api()
+        .post(personalAt)
+        .set('cookie', owner.cookie)
+        .send(
+          valid({
+            bypassActors: [
+              {
+                actorType: 'RepositoryRole',
+                role: 'admin',
+                bypassMode: 'always',
+              },
+            ],
           }),
         )
         .expect(201);
@@ -417,20 +504,32 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       }).expect(200);
       expect(body.refs).toEqual(['refs/heads/main', 'refs/heads/release/1.0']);
 
-      const deep = await preview({ target: 'branch', include: ['release/**/*'], exclude: [] }).expect(200);
+      const deep = await preview({
+        target: 'branch',
+        include: ['release/**/*'],
+        exclude: [],
+      }).expect(200);
       expect(deep.body.refs).toEqual([
         'refs/heads/release/1.0',
         'refs/heads/release/2.0',
         'refs/heads/release/3.0/hotfix',
       ]);
 
-      const all = await preview({ target: 'branch', include: ['~ALL'], exclude: ['~DEFAULT_BRANCH'] }).expect(200);
+      const all = await preview({
+        target: 'branch',
+        include: ['~ALL'],
+        exclude: ['~DEFAULT_BRANCH'],
+      }).expect(200);
       expect(all.body.refs).not.toContain('refs/heads/main');
       expect(all.body.refs).toContain('refs/heads/feature/x');
     });
 
     it('lists tags for a tag target', async () => {
-      const { body } = await preview({ target: 'tag', include: ['v*'], exclude: [] }).expect(200);
+      const { body } = await preview({
+        target: 'tag',
+        include: ['v*'],
+        exclude: [],
+      }).expect(200);
       expect(body.refs).toEqual(['refs/tags/v1.0', 'refs/tags/v2.0']);
     });
 
@@ -455,7 +554,13 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
         name: 'feature lock',
         include: ['feature/*'],
         rules: [{ type: 'deletion' }, { type: 'update' }],
-        bypassActors: [{ actorType: 'RepositoryRole', role: 'write', bypassMode: 'pull_request' }],
+        bypassActors: [
+          {
+            actorType: 'RepositoryRole',
+            role: 'write',
+            bypassMode: 'pull_request',
+          },
+        ],
       });
       await create({
         name: 'feature lock off',
@@ -464,7 +569,8 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
         rules: [{ type: 'creation' }],
       });
 
-      const asWriter = (await protectedRefs(writer, 'branch').expect(200)).body.refs;
+      const asWriter = (await protectedRefs(writer, 'branch').expect(200)).body
+        .refs;
       expect(asWriter['refs/heads/feature/x']).toEqual({
         rules: expect.arrayContaining(['deletion', 'update']),
         bypass: 'pull_requests_only',
@@ -472,20 +578,33 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       expect(asWriter['refs/heads/feature/x'].rules).toHaveLength(2);
       expect(asWriter).not.toHaveProperty(['refs/heads/release/3.0/hotfix']);
 
-      const asReader = (await protectedRefs(reader, 'branch').expect(200)).body.refs;
+      const asReader = (await protectedRefs(reader, 'branch').expect(200)).body
+        .refs;
       expect(asReader['refs/heads/feature/x'].bypass).toBe('never');
     });
 
     it('leaves out refs whose rulesets have no rules', async () => {
-      await create({ name: 'no rules', include: ['release/3.0/hotfix'], rules: [] });
+      await create({
+        name: 'no rules',
+        include: ['release/3.0/hotfix'],
+        rules: [],
+      });
       const { body } = await protectedRefs(reader, 'branch').expect(200);
       expect(body.refs).not.toHaveProperty(['refs/heads/release/3.0/hotfix']);
     });
 
     it('covers tags with the tag target', async () => {
-      await create({ name: 'tag lock', target: 'tag', include: ['nightly'], rules: [{ type: 'update' }] });
+      await create({
+        name: 'tag lock',
+        target: 'tag',
+        include: ['nightly'],
+        rules: [{ type: 'update' }],
+      });
       const { body } = await protectedRefs(reader, 'tag').expect(200);
-      expect(body.refs['refs/tags/nightly']).toEqual({ rules: ['update'], bypass: 'never' });
+      expect(body.refs['refs/tags/nightly']).toEqual({
+        rules: ['update'],
+        bypass: 'never',
+      });
       expect(body.refs).not.toHaveProperty(['refs/heads/feature/x']);
     });
   });
@@ -511,12 +630,24 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
         ]),
       );
 
-      const fetched = (await api().get(at(`/${made.id}`)).set('cookie', owner.cookie).expect(200)).body;
+      const fetched = (
+        await api()
+          .get(at(`/${made.id}`))
+          .set('cookie', owner.cookie)
+          .expect(200)
+      ).body;
       expect(fetched.rules).toEqual(made.rules);
     });
 
     it('fills in the parameters left out', async () => {
-      const made = await create({ rules: [{ type: 'pull_request', parameters: { required_approving_review_count: 1 } }] });
+      const made = await create({
+        rules: [
+          {
+            type: 'pull_request',
+            parameters: { required_approving_review_count: 1 },
+          },
+        ],
+      });
       expect(made.rules).toEqual([
         {
           type: 'pull_request',
@@ -533,14 +664,22 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
     });
 
     it('replaces the parameters on update', async () => {
-      const made = await create({ rules: [{ type: 'pull_request', parameters }] });
-      const changed = { ...parameters, required_approving_review_count: 0, allowed_merge_methods: ['merge'] };
+      const made = await create({
+        rules: [{ type: 'pull_request', parameters }],
+      });
+      const changed = {
+        ...parameters,
+        required_approving_review_count: 0,
+        allowed_merge_methods: ['merge'],
+      };
       const { body } = await api()
         .put(at(`/${made.id}`))
         .set('cookie', owner.cookie)
         .send(valid({ rules: [{ type: 'pull_request', parameters: changed }] }))
         .expect(200);
-      expect(body.rules).toEqual([{ type: 'pull_request', parameters: changed }]);
+      expect(body.rules).toEqual([
+        { type: 'pull_request', parameters: changed },
+      ]);
     });
 
     it('refuses malformed parameters with 400', async () => {
@@ -555,19 +694,102 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
         { ...parameters, teleport: true },
       ];
       for (const bad of malformed) {
-        const { status } = await createAs(owner, valid({ rules: [{ type: 'pull_request', parameters: bad }] }));
+        const { status } = await createAs(
+          owner,
+          valid({ rules: [{ type: 'pull_request', parameters: bad }] }),
+        );
         expect({ bad, status }).toEqual({ bad, status: 400 });
       }
     });
 
     it('lists pull_request among the protected ref rules', async () => {
-      await create({ name: 'dev reviews', include: ['dev'], rules: [{ type: 'pull_request', parameters }] });
+      await create({
+        name: 'dev reviews',
+        include: ['dev'],
+        rules: [{ type: 'pull_request', parameters }],
+      });
       const { body } = await api()
         .get(`/api/repositories/${repo}/protected-refs`)
         .query({ target: 'branch' })
         .set('cookie', reader.cookie)
         .expect(200);
       expect(body.refs['refs/heads/dev'].rules).toContain('pull_request');
+    });
+  });
+
+  describe('required status checks and signatures', () => {
+    it('creates a status check rule with its defaults filled in', async () => {
+      const made = await create({
+        rules: [
+          {
+            type: 'required_status_checks',
+            parameters: { required_status_checks: [{ context: 'build' }] },
+          },
+        ],
+      });
+      expect(made.rules).toEqual([
+        {
+          type: 'required_status_checks',
+          parameters: {
+            required_status_checks: [{ context: 'build' }],
+            strict_required_status_checks_policy: false,
+            do_not_enforce_on_create: false,
+          },
+        },
+      ]);
+    });
+
+    it('refuses integration_id until Ghost Apps exist', async () => {
+      const refused = await createAs(
+        owner,
+        valid({
+          rules: [
+            {
+              type: 'required_status_checks',
+              parameters: {
+                required_status_checks: [
+                  { context: 'build', integration_id: 1 },
+                ],
+              },
+            },
+          ],
+        }),
+      ).expect(400);
+      expect(refused.body.message).toContain(
+        'integration_id needs Ghost Apps, which this server does not have yet',
+      );
+    });
+
+    it('refuses required signatures while the server has no signing key', async () => {
+      const refused = await createAs(
+        owner,
+        valid({ rules: [{ type: 'required_signatures' }] }),
+      ).expect(400);
+      expect(refused.body.message).toBe(
+        'Required signatures need a commit signing key on this server',
+      );
+    });
+
+    it('suggests the contexts this repository has seen, newest first', async () => {
+      const sha = git('rev-parse', 'HEAD');
+      for (const context of ['lint', 'build', 'lint'])
+        await api()
+          .post(`/api/repositories/${repo}/statuses/${sha}`)
+          .set('cookie', owner.cookie)
+          .send({ state: 'success', context })
+          .expect(201);
+      const { body } = await api()
+        .get(`/api/repositories/${repo}/status-contexts`)
+        .set('cookie', owner.cookie)
+        .expect(200);
+      expect(body.contexts.slice(0, 2)).toEqual(['lint', 'build']);
+    });
+
+    it('keeps context suggestions from readers', async () => {
+      await api()
+        .get(`/api/repositories/${repo}/status-contexts`)
+        .set('cookie', reader.cookie)
+        .expect(403);
     });
   });
 });

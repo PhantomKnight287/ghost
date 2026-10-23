@@ -36,9 +36,21 @@ export const rules: { type: RuleType; title: string; description: string }[] = [
       "Require all commits be made to a non-target branch and submitted via a pull request before they can be merged.",
   },
   {
+    type: "required_status_checks",
+    title: "Require status checks to pass",
+    description:
+      "Choose which status checks must pass before the ref is updated. When enabled, commits must first be pushed to another ref where the checks pass.",
+  },
+  {
     type: "required_linear_history",
     title: "Require linear history",
     description: "Prevent merge commits from being pushed to matching refs.",
+  },
+  {
+    type: "required_signatures",
+    title: "Require signed commits",
+    description:
+      "Commits pushed to matching refs must have verified signatures.",
   },
   {
     type: "non_fast_forward",
@@ -108,6 +120,19 @@ export const pullRequestFlags: {
   },
 ];
 
+export const statusCheckParametersSchema = z.object({
+  required_status_checks: z.array(z.object({ context: z.string().min(1) })),
+  strict_required_status_checks_policy: z.boolean(),
+  do_not_enforce_on_create: z.boolean(),
+});
+export type StatusCheckParameters = z.infer<typeof statusCheckParametersSchema>;
+
+export const defaultStatusCheckParameters: StatusCheckParameters = {
+  required_status_checks: [],
+  strict_required_status_checks_policy: false,
+  do_not_enforce_on_create: false,
+};
+
 export const bypassRoles = ["write", "maintain", "admin"] as const;
 
 export const rulesetBodySchema = z.object({
@@ -134,7 +159,12 @@ export const rulesetBodySchema = z.object({
           "deletion",
           "non_fast_forward",
           "required_linear_history",
+          "required_signatures",
         ]),
+      }),
+      z.object({
+        type: z.literal("required_status_checks"),
+        parameters: statusCheckParametersSchema,
       }),
       z.object({
         type: z.literal("pull_request"),

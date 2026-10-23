@@ -15,10 +15,16 @@ import type {
   RulesetEvaluation,
   RuleSuiteResult,
   RuleType,
+  StatusCheckRuleParameters,
   Violation,
 } from './rulesets.types.js';
 
-const MESSAGES: Record<Exclude<RuleType, 'pull_request'>, string> = {
+type RefRule = Exclude<
+  RuleType,
+  'pull_request' | 'required_status_checks' | 'required_signatures'
+>;
+
+const MESSAGES: Record<RefRule, string> = {
   creation: 'Cannot create ref due to creations being restricted',
   update: 'Cannot update this protected ref',
   deletion: 'Cannot delete this protected ref',
@@ -126,6 +132,56 @@ function unmetOnMerge(
   return unmet;
 }
 
+/** The required contexts a status check rule leaves unmet, then whether a merge is behind under strict. Missing statuses count against the write. */
+function unmetChecks(
+  parameters: StatusCheckRuleParameters,
+  facts: RefFacts | undefined,
+  merging: boolean,
+): [Requirement, string][] {
+  const unmet: [Requirement, string][] = [];
+  for (const { context } of parameters.required_status_checks) {
+    const state = facts?.statuses?.find(
+      (status) => status.context === context,
+    )?.state;
+    if (state !== 'success')
+      unmet.push([
+        'status_checks',
+        `Required status check "${context}" is ${state ?? 'expected'}.`,
+      ]);
+  }
+  if (
+    merging &&
+    parameters.strict_required_status_checks_policy &&
+    facts?.upToDate !== true
+  )
+    unmet.push([
+      'up_to_date',
+      'This branch is out-of-date with the base branch.',
+    ]);
+  return unmet;
+}
+
+const LISTED_COMMITS = 10;
+
+/** Every commit the write adds that does not verify, as one requirement. Missing facts count against the write. */
+function unmetSignatures(facts: RefFacts | undefined): [Requirement, string][] {
+  const commits = facts?.unverifiedCommits;
+  if (commits?.length === 0) return [];
+  if (!commits)
+    return [['signatures', 'Commits must have verified signatures.']];
+  const listed = commits
+    .slice(0, LISTED_COMMITS)
+    .map(({ sha, reason }) => `${sha.slice(0, 7)} ${reason}`);
+  if (commits.length > LISTED_COMMITS)
+    listed.push(`and ${commits.length - LISTED_COMMITS} more`);
+  return [
+    [
+      'signatures',
+      ['Commits must have verified signatures.', ...listed].join('\n'),
+    ],
+  ];
+}
+
 /** Every rule each write breaks. What the actor may bypass for this write goes to `bypassed`, the rest to `violations`, which refuse it. Evaluate rulesets refuse nothing: they only show in `suites`, which list every rule checked per ref. */
 export function evaluateRulesets(payload: {
   rulesets: Ruleset[];
@@ -164,7 +220,7 @@ export function evaluateRulesets(payload: {
       const updated = !created && !deleted;
       // Missing facts count against the write: a caller that forgot to compute them must not slip past the rule.
       const facts = payload.facts.get(ref);
-      const broken: Record<Exclude<RuleType, 'pull_request'>, boolean> = {
+      const broken: Record<RefRule, boolean> = {
         creation: created,
         update: updated,
         deletion: deleted,
@@ -185,23 +241,38 @@ export function evaluateRulesets(payload: {
       for (const rule of ruleset.rules) {
         // Creating and deleting are the creation and deletion rules' business, so the pull_request rule only weighs an update.
         const unmet: [Requirement | undefined, string][] =
-          rule.type !== 'pull_request'
-            ? broken[rule.type]
-              ? [[undefined, MESSAGES[rule.type]]]
-              : []
-            : !updated
+          rule.type === 'required_status_checks'
+            ? deleted ||
+              (created &&
+                (rule.parameters as StatusCheckRuleParameters)
+                  .do_not_enforce_on_create)
               ? []
-              : payload.write === 'push'
-                ? [
-                    [
-                      'pull_request',
-                      'Changes must be made through a pull request.',
-                    ],
-                  ]
-                : unmetOnMerge(
-                    rule.parameters as PullRequestRuleParameters,
-                    payload.pullRequest,
-                  );
+              : unmetChecks(
+                  rule.parameters as StatusCheckRuleParameters,
+                  facts,
+                  payload.write === 'pull_request_merge',
+                )
+            : rule.type === 'required_signatures'
+              ? deleted
+                ? []
+                : unmetSignatures(facts)
+              : rule.type !== 'pull_request'
+                ? broken[rule.type]
+                  ? [[undefined, MESSAGES[rule.type]]]
+                  : []
+                : !updated
+                  ? []
+                  : payload.write === 'push'
+                    ? [
+                        [
+                          'pull_request',
+                          'Changes must be made through a pull request.',
+                        ],
+                      ]
+                    : unmetOnMerge(
+                        rule.parameters as PullRequestRuleParameters,
+                        payload.pullRequest,
+                      );
         tally.evaluations.push({
           rulesetId: ruleset.id,
           rulesetName: ruleset.name,
@@ -281,4 +352,23 @@ export function allowedMergeMethods(
     }
   }
   return allowed;
+}
+
+/** The contexts active rulesets require on `ref`, sorted: what GitHub's `isRequired` and the merge box mark as required. */
+export function requiredContexts(
+  rulesets: Ruleset[],
+  ref: string,
+  defaultBranch: string,
+): string[] {
+  const contexts = new Set<string>();
+  for (const ruleset of rulesets) {
+    if (ruleset.enforcement !== 'active') continue;
+    if (!refTargeted(ruleset, ref, defaultBranch)) continue;
+    for (const rule of ruleset.rules)
+      if (rule.type === 'required_status_checks')
+        for (const { context } of (rule.parameters as StatusCheckRuleParameters)
+          .required_status_checks)
+          contexts.add(context);
+  }
+  return [...contexts].sort();
 }

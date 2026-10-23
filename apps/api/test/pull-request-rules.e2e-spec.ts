@@ -8,11 +8,16 @@ import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import request from 'supertest';
+import * as openpgp from 'openpgp';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
 import type { Auth } from '../src/lib/auth.js';
+import { insertSignature } from '../src/lib/git/commits/commit-signature.js';
 import { ZERO_OID } from '../src/lib/git/wal/wal.types.js';
+import { signPayload } from '../src/lib/gpg/openpgp.js';
+import { CommitStatusesService } from '../src/resources/commit-statuses/commit-statuses.service.js';
+import { CommitVerificationService } from '../src/services/gpg/commit-verification.service.js';
 import { PullRequestPushesService } from '../src/services/pull-requests/pull-request-pushes.service.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
@@ -29,6 +34,7 @@ type Requirements = {
   violations: Violation[];
   bypassed: Violation[];
   allowedMethods: string[];
+  requiredContexts: string[];
 };
 
 const ALL_METHODS = ['merge', 'squash', 'rebase'];
@@ -66,7 +72,16 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
   const git = (...args: string[]) =>
     execFileSync(
       'git',
-      ['-c', 'user.name=E2E', '-c', 'user.email=e2e@example.com', ...args],
+      // The machine's own signing config must not sign test commits, which the signature rules would then judge.
+      [
+        '-c',
+        'user.name=E2E',
+        '-c',
+        'user.email=e2e@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ],
       { cwd: work, encoding: 'utf8' },
     ).trim();
   const remote = (who: Account) =>
@@ -89,7 +104,9 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
   const commitOn = (
     branch: string,
     from: string,
-    files: Record<string, string> = { [`work/${++counter}.txt`]: `${counter}\n` },
+    files: Record<string, string> = {
+      [`work/${++counter}.txt`]: `${counter}\n`,
+    },
   ) => {
     git('checkout', '-q', '-B', branch, from);
     for (const [file, text] of Object.entries(files)) {
@@ -169,7 +186,10 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       name: `${base} ${Object.keys(parameters).join(' ')} ${++counter}`,
       include: [base],
       rules: [
-        { type: 'pull_request', parameters: { ...NO_REQUIREMENTS, ...parameters } },
+        {
+          type: 'pull_request',
+          parameters: { ...NO_REQUIREMENTS, ...parameters },
+        },
       ],
       ...extra,
     });
@@ -196,7 +216,8 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       .set('cookie', who.cookie)
       .send({ state, body })
       .expect(201);
-  const approve = (who: Account, number: number) => review(who, number, 'approved');
+  const approve = (who: Account, number: number) =>
+    review(who, number, 'approved');
   const lineComment = async (who: Account, number: number, file: string) =>
     (
       await api()
@@ -289,7 +310,15 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       .map((item: { event: object }) => item.event);
 
   beforeAll(async () => {
-    ({ app, origin } = await startApp());
+    const platform = await openpgp.generateKey({
+      userIDs: [{ name: 'Ghost', email: 'noreply@ghost.local' }],
+      format: 'object',
+    });
+    ({ app, origin } = await startApp({
+      COMMIT_SIGNING_KEY: Buffer.from(platform.privateKey.armor()).toString(
+        'base64',
+      ),
+    }));
     owner = await account('prrowner');
     author = await account('prrauthor');
     reviewer = await account('prrreviewer');
@@ -354,17 +383,25 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
   describe('facts', () => {
     it('no pull_request rule: no requirements, every merge method', async () => {
       const { base, number } = await pullRequest();
-      await ruleset({ name: `${base} deletion`, include: [base], rules: [{ type: 'deletion' }] });
+      await ruleset({
+        name: `${base} deletion`,
+        include: [base],
+        rules: [{ type: 'deletion' }],
+      });
 
       const answer = await requirements(number);
       expect(answer.violations).toEqual([]);
       expect(answer.bypassed).toEqual([]);
-      expect([...answer.allowedMethods].sort()).toEqual([...ALL_METHODS].sort());
+      expect([...answer.allowedMethods].sort()).toEqual(
+        [...ALL_METHODS].sort(),
+      );
     });
 
     it('names the ruleset, the ref and the requirement on each violation', async () => {
       const { base, number } = await pullRequest();
-      const made = await requireOn(base, { required_approving_review_count: 1 });
+      const made = await requireOn(base, {
+        required_approving_review_count: 1,
+      });
 
       expect((await requirements(number)).violations).toEqual([
         {
@@ -414,7 +451,12 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       await approve(reviewer, number);
       expect(await unmet(number)).toEqual([]);
 
-      const blocking = await review(second, number, 'changes_requested', 'Not yet');
+      const blocking = await review(
+        second,
+        number,
+        'changes_requested',
+        'Not yet',
+      );
       expect(await unmet(number)).toEqual(['changes_requested']);
       await api()
         .post(pull(number, `/reviews/${blocking.body.id}/dismiss`))
@@ -507,7 +549,9 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
     });
 
     it('merging the base into the head keeps approval when it brings no new changes to the diff', async () => {
-      const { base, head, number } = await pullRequest({ 'work/merged.txt': 'mine\n' });
+      const { base, head, number } = await pullRequest({
+        'work/merged.txt': 'mine\n',
+      });
       await approve(reviewer, number);
       commitOn(base, base, { 'elsewhere.txt': `moved ${counter}\n` });
       await pushAs(owner, `${base}:refs/heads/${base}`);
@@ -594,16 +638,20 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
     });
 
     it('headPushedById follows git push and suggestion apply', async () => {
-      const { head, number } = await pullRequest({ 'notes.txt': 'notes\nmore\n' });
+      const { head, number } = await pullRequest({
+        'notes.txt': 'notes\nmore\n',
+      });
       await vi.waitFor(
-        async () => expect((await rowOf(number)).headPushedById).toBe(author.userId),
+        async () =>
+          expect((await rowOf(number)).headPushedById).toBe(author.userId),
         { timeout: 15_000, interval: 100 },
       );
 
       commitOn(head, head);
       await pushAs(second, `${head}:refs/heads/${head}`);
       await vi.waitFor(
-        async () => expect((await rowOf(number)).headPushedById).toBe(second.userId),
+        async () =>
+          expect((await rowOf(number)).headPushedById).toBe(second.userId),
         { timeout: 15_000, interval: 100 },
       );
 
@@ -635,7 +683,8 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       commitOn(head, head);
       await pushAs(second, `${head}:refs/heads/${head}`);
       await vi.waitFor(
-        async () => expect((await rowOf(number)).headPushedById).toBe(second.userId),
+        async () =>
+          expect((await rowOf(number)).headPushedById).toBe(second.userId),
         { timeout: 15_000, interval: 100 },
       );
 
@@ -666,7 +715,8 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       commitOn(head, head);
       await pushAs(second, `${head}:refs/heads/${head}`);
       await vi.waitFor(
-        async () => expect((await rowOf(number)).headPushedById).toBe(second.userId),
+        async () =>
+          expect((await rowOf(number)).headPushedById).toBe(second.userId),
         { timeout: 15_000, interval: 100 },
       );
       // The earlier approval predates the push, and the pusher cannot approve their own push.
@@ -679,7 +729,9 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
     });
 
     it('unresolved thread counts; resolving clears it', async () => {
-      const { base, number } = await pullRequest({ 'work/threaded.txt': 'x\n' });
+      const { base, number } = await pullRequest({
+        'work/threaded.txt': 'x\n',
+      });
       await requireOn(base, { required_review_thread_resolution: true });
       expect(await unmet(number)).toEqual([]);
 
@@ -698,10 +750,14 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       await requireOn(base, { allowed_merge_methods: ['squash', 'rebase'] });
       await requireOn(base, { allowed_merge_methods: ['rebase', 'merge'] });
 
-      expect((await requirements(number, author, 'rebase')).allowedMethods).toEqual(['rebase']);
+      expect(
+        (await requirements(number, author, 'rebase')).allowedMethods,
+      ).toEqual(['rebase']);
       expect(await unmet(number)).toEqual(['merge_method']);
       const asMerge = await requirements(number, author, 'merge');
-      expect(asMerge.violations.map(({ requirement }) => requirement)).toEqual(['merge_method']);
+      expect(asMerge.violations.map(({ requirement }) => requirement)).toEqual([
+        'merge_method',
+      ]);
     });
   });
 
@@ -729,11 +785,19 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
         .where(
           and(
             eq(schema.outboxEvent.type, 'pull_request.review_dismissed'),
-            eq(sql`${schema.outboxEvent.payload}->>'reviewId'`, approval.body.id),
+            eq(
+              sql`${schema.outboxEvent.payload}->>'reviewId'`,
+              approval.body.id,
+            ),
           ),
         );
       expect(events).toEqual([
-        { payload: { issueId: (await rowOf(number)).issueId, reviewId: approval.body.id } },
+        {
+          payload: {
+            issueId: (await rowOf(number)).issueId,
+            reviewId: approval.body.id,
+          },
+        },
       ]);
       const { body } = await api()
         .get(`/api/repositories/${repo}/issues/${number}/timeline`)
@@ -752,16 +816,25 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       const { base, number } = await pullRequest();
       await requireOn(
         base,
-        { required_approving_review_count: 1, dismiss_stale_reviews_on_push: true },
+        {
+          required_approving_review_count: 1,
+          dismiss_stale_reviews_on_push: true,
+        },
         {
           bypassActors: [
-            { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'always' },
+            {
+              actorType: 'RepositoryRole',
+              role: 'maintain',
+              bypassMode: 'always',
+            },
           ],
         },
       );
       const approval = await approve(reviewer, number);
 
-      const moved = commitOn(base, base, { 'elsewhere.txt': `base moves ${counter}\n` });
+      const moved = commitOn(base, base, {
+        'elsewhere.txt': `base moves ${counter}\n`,
+      });
       await pushAs(maintainer, `${base}:refs/heads/${base}`);
       // The push event is published after the push answers; wait for it before waiting on its consumers.
       await vi.waitFor(
@@ -790,13 +863,18 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
         dismiss_stale_reviews_on_push: true,
       });
       const approval = await approve(reviewer, number);
-      await api().post(pull(number, '/draft')).set('cookie', author.cookie).expect(201);
+      await api()
+        .post(pull(number, '/draft'))
+        .set('cookie', author.cookie)
+        .expect(201);
 
       const after = commitOn(head, head);
       await pushAs(author, `${head}:refs/heads/${head}`);
       await synchronized(after);
       await settle();
-      expect((await reviewRow(approval.body.id)).dismissalMessage).not.toBeNull();
+      expect(
+        (await reviewRow(approval.body.id)).dismissalMessage,
+      ).not.toBeNull();
     });
 
     it('does nothing when dismiss_stale is off, and the old approval still counts', async () => {
@@ -815,8 +893,14 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
 
     it('lets an evaluate ruleset dismiss nothing, even while an active one elsewhere asks to', async () => {
       const { base, head, number } = await pullRequest();
-      await requireOn(`elsewhere-${++counter}`, { dismiss_stale_reviews_on_push: true });
-      await requireOn(base, { dismiss_stale_reviews_on_push: true }, { enforcement: 'evaluate' });
+      await requireOn(`elsewhere-${++counter}`, {
+        dismiss_stale_reviews_on_push: true,
+      });
+      await requireOn(
+        base,
+        { dismiss_stale_reviews_on_push: true },
+        { enforcement: 'evaluate' },
+      );
       const approval = await approve(reviewer, number);
 
       const after = commitOn(head, head);
@@ -831,15 +915,21 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
   describe('merging', () => {
     it('refuses with 422 listing every unmet requirement, each naming its ruleset', async () => {
       const { base, number } = await pullRequest({ 'owned/listed.txt': 'x\n' });
-      const approvals = await requireOn(base, { required_approving_review_count: 1 });
+      const approvals = await requireOn(base, {
+        required_approving_review_count: 1,
+      });
       const owners = await requireOn(base, { require_code_owner_review: true });
-      const threads = await requireOn(base, { required_review_thread_resolution: true });
+      const threads = await requireOn(base, {
+        required_review_thread_resolution: true,
+      });
       await lineComment(second, number, 'owned/listed.txt');
       const before = await serverTip(`refs/heads/${base}`);
 
       const listed = (await requirements(number, owner)).violations;
       expect(
-        listed.map(({ requirement, rulesetName }) => [requirement, rulesetName]).sort(),
+        listed
+          .map(({ requirement, rulesetName }) => [requirement, rulesetName])
+          .sort(),
       ).toEqual(
         [
           ['approvals', approvals.name],
@@ -862,7 +952,9 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
 
       await approve(reviewer, number);
       await merge(author, number).expect(201);
-      expect((await api().get(pull(number)).expect(200)).body.state).toBe('merged');
+      expect((await api().get(pull(number)).expect(200)).body.state).toBe(
+        'merged',
+      );
     });
 
     it('asks a bypasser to opt in, then merges with bypassRules and records the bypass', async () => {
@@ -872,7 +964,11 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
         { required_approving_review_count: 1 },
         {
           bypassActors: [
-            { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'always' },
+            {
+              actorType: 'RepositoryRole',
+              role: 'maintain',
+              bypassMode: 'always',
+            },
           ],
         },
       );
@@ -895,7 +991,10 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
           and(
             eq(schema.outboxEvent.repositoryId, repositoryId),
             eq(schema.outboxEvent.type, 'pull_request.rules_bypassed'),
-            eq(sql`${schema.outboxEvent.payload}->>'issueId'`, (await rowOf(number)).issueId),
+            eq(
+              sql`${schema.outboxEvent.payload}->>'issueId'`,
+              (await rowOf(number)).issueId,
+            ),
           ),
         );
       expect(recorded).toEqual([{ actorId: maintainer.userId }]);
@@ -908,7 +1007,11 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
         { required_approving_review_count: 1 },
         {
           bypassActors: [
-            { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'always' },
+            {
+              actorType: 'RepositoryRole',
+              role: 'maintain',
+              bypassMode: 'always',
+            },
           ],
         },
       );
@@ -924,7 +1027,11 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
         include: [base],
         rules: [{ type: 'update' }],
         bypassActors: [
-          { actorType: 'RepositoryRole', role: 'write', bypassMode: 'pull_request' },
+          {
+            actorType: 'RepositoryRole',
+            role: 'write',
+            bypassMode: 'pull_request',
+          },
         ],
       });
 
@@ -936,10 +1043,14 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
 
     it('still refuses a non-bypasser who sends bypassRules', async () => {
       const { base, number } = await pullRequest();
-      const made = await requireOn(base, { required_approving_review_count: 1 });
+      const made = await requireOn(base, {
+        required_approving_review_count: 1,
+      });
       const before = await serverTip(`refs/heads/${base}`);
 
-      const refused = await merge(author, number, { bypassRules: true }).expect(422);
+      const refused = await merge(author, number, { bypassRules: true }).expect(
+        422,
+      );
       expect(refused.body.message).toContain(made.name);
       expect(await serverTip(`refs/heads/${base}`)).toBe(before);
       expect(await timelineEvents(number, 'rules_bypassed')).toEqual([]);
@@ -956,10 +1067,17 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       const { base, number } = await pullRequest({ 'work/listed.txt': 'x\n' });
       const bypassable = await requireOn(
         base,
-        { required_approving_review_count: 1, allowed_merge_methods: ['squash', 'rebase'] },
+        {
+          required_approving_review_count: 1,
+          allowed_merge_methods: ['squash', 'rebase'],
+        },
         {
           bypassActors: [
-            { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'always' },
+            {
+              actorType: 'RepositoryRole',
+              role: 'maintain',
+              bypassMode: 'always',
+            },
           ],
         },
       );
@@ -972,33 +1090,49 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       const asMaintainer = await requirements(number, maintainer);
       expect(asMaintainer).toEqual({
         violations: [
-          expect.objectContaining({ requirement: 'threads', rulesetId: binding.id }),
+          expect.objectContaining({
+            requirement: 'threads',
+            rulesetId: binding.id,
+          }),
         ],
         bypassed: [
-          expect.objectContaining({ requirement: 'approvals', rulesetId: bypassable.id }),
+          expect.objectContaining({
+            requirement: 'approvals',
+            rulesetId: bypassable.id,
+          }),
         ],
         allowedMethods: ['squash'],
         reviewsRequired: true,
+        requiredContexts: [],
       });
 
       const asAuthor = await requirements(number, author);
       expect(asAuthor.bypassed).toEqual([]);
-      expect(asAuthor.violations.map(({ requirement }) => requirement).sort()).toEqual([
-        'approvals',
-        'threads',
-      ]);
+      expect(
+        asAuthor.violations.map(({ requirement }) => requirement).sort(),
+      ).toEqual(['approvals', 'threads']);
 
       const byMerge = await requirements(number, author, 'merge');
       expect(byMerge.violations).toContainEqual(
-        expect.objectContaining({ requirement: 'merge_method', rulesetId: bypassable.id }),
+        expect.objectContaining({
+          requirement: 'merge_method',
+          rulesetId: bypassable.id,
+        }),
       );
     });
 
     it('judges the first allowed method when merge-requirements is asked without one', async () => {
       const { base, number } = await pullRequest();
-      await ruleset({ name: `${base} linear`, include: [base], rules: [{ type: 'required_linear_history' }] });
+      await ruleset({
+        name: `${base} linear`,
+        include: [base],
+        rules: [{ type: 'required_linear_history' }],
+      });
       const answer = (
-        await api().get(pull(number, '/merge-requirements')).set('cookie', author.cookie).expect(200)
+        await api()
+          .get(pull(number, '/merge-requirements'))
+          .set('cookie', author.cookie)
+          .expect(200)
       ).body as Requirements;
       expect(answer.violations).toEqual([]);
       expect(answer.allowedMethods).toEqual(['squash', 'rebase']);
@@ -1011,7 +1145,9 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
 
     it('disabling the ruleset unblocks immediately', async () => {
       const { base, number } = await pullRequest();
-      const made = await requireOn(base, { required_approving_review_count: 1 });
+      const made = await requireOn(base, {
+        required_approving_review_count: 1,
+      });
       await merge(author, number).expect(422);
 
       await api()
@@ -1044,6 +1180,199 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       await pushAs(author, `${head}:refs/heads/${head}`);
       await merge(author, number).expect(422);
       expect(await serverTip(`refs/heads/${base}`)).toBe(before);
+    });
+  });
+
+  describe('required_status_checks', () => {
+    const checksOn = (base: string, parameters: object = {}) =>
+      ruleset({
+        name: `${base} checks ${++counter}`,
+        include: [base],
+        rules: [
+          {
+            type: 'required_status_checks',
+            parameters: {
+              required_status_checks: [{ context: 'build' }],
+              ...parameters,
+            },
+          },
+        ],
+      });
+    const status = (sha: string, state: string, context = 'build') =>
+      api()
+        .post(`/api/repositories/${repo}/statuses/${sha}`)
+        .set('cookie', owner.cookie)
+        .send({ state, context })
+        .expect(201);
+    const headOf = async (number: number) =>
+      (await api().get(pull(number)).set('cookie', owner.cookie).expect(200))
+        .body.headSha as string;
+
+    it('blocks the merge until the required context succeeds on the head', async () => {
+      const { base, number } = await pullRequest();
+      await checksOn(base);
+      const head = await headOf(number);
+
+      expect(await unmet(number)).toEqual(['status_checks']);
+      await merge(author, number).expect(422);
+      await status(head, 'pending');
+      expect(await unmet(number)).toEqual(['status_checks']);
+      await status(head, 'failure');
+      expect(await unmet(number)).toEqual(['status_checks']);
+
+      await status(head, 'success');
+      expect(await unmet(number)).toEqual([]);
+      await merge(author, number).expect(201);
+    });
+
+    it('lists the required contexts for the merge box', async () => {
+      const { base, number } = await pullRequest();
+      await checksOn(base, {
+        required_status_checks: [{ context: 'test' }, { context: 'build' }],
+      });
+      expect((await requirements(number)).requiredContexts).toEqual([
+        'build',
+        'test',
+      ]);
+    });
+
+    it('under strict, blocks a head behind its base until it catches up', async () => {
+      const { base, head, number } = await pullRequest();
+      // The base moves before the rule exists: the rule would refuse that push too.
+      commitOn(base, base);
+      await pushAs(owner, `${base}:refs/heads/${base}`);
+      await checksOn(base, { strict_required_status_checks_policy: true });
+      await status(await headOf(number), 'success');
+      expect(await unmet(number)).toEqual(['up_to_date']);
+
+      git('checkout', '-q', head);
+      git('merge', '-q', '--no-edit', base);
+      await pushAs(author, `${head}:refs/heads/${head}`);
+      const caughtUp = await headOf(number);
+      await status(caughtUp, 'success');
+      await vi.waitFor(async () => expect(await unmet(number)).toEqual([]));
+      await merge(author, number).expect(201);
+    });
+  });
+
+  describe('cost', () => {
+    it('gathers no status or signature facts for rules targeting other branches', async () => {
+      const { number } = await pullRequest();
+      await ruleset({
+        name: `elsewhere ${++counter}`,
+        include: ['release/*'],
+        rules: [
+          { type: 'required_signatures' },
+          {
+            type: 'required_status_checks',
+            parameters: { required_status_checks: [{ context: 'build' }] },
+          },
+        ],
+      });
+      const statuses = vi.spyOn(CommitStatusesService.prototype, 'combinedFor');
+      const verify = vi.spyOn(
+        CommitVerificationService.prototype,
+        'verifyCommits',
+      );
+      try {
+        expect(await unmet(number)).toEqual([]);
+        expect(statuses).not.toHaveBeenCalled();
+        expect(verify).not.toHaveBeenCalled();
+      } finally {
+        statuses.mockRestore();
+        verify.mockRestore();
+      }
+    });
+  });
+
+  describe('required_signatures', () => {
+    let authorKey: openpgp.PrivateKey;
+    const signaturesOn = (base: string) =>
+      ruleset({
+        name: `${base} signed ${++counter}`,
+        include: [base],
+        rules: [{ type: 'required_signatures' }],
+      });
+
+    beforeAll(async () => {
+      const generated = await openpgp.generateKey({
+        userIDs: [{ name: 'Author', email: `${author.username}@example.com` }],
+        format: 'object',
+      });
+      authorKey = generated.privateKey;
+      await api()
+        .post('/api/gpg-keys')
+        .set('cookie', author.cookie)
+        .send({ publicKey: generated.publicKey.armor() })
+        .expect(201);
+    });
+
+    it('refuses a merge commit that would bring in an unsigned commit, listing it', async () => {
+      const { base, number } = await pullRequest();
+      await signaturesOn(base);
+      const refused = await merge(author, number, { method: 'merge' }).expect(
+        422,
+      );
+      expect(refused.body.message).toContain(
+        'Commits must have verified signatures.',
+      );
+      expect(
+        (await requirements(number, author, 'merge')).violations.map(
+          ({ requirement }) => requirement,
+        ),
+      ).toEqual(['signatures']);
+    });
+
+    it('squashes the same unsigned commits into one Ghost signs', async () => {
+      const { base, number } = await pullRequest();
+      await signaturesOn(base);
+      expect((await requirements(number, author, 'squash')).violations).toEqual(
+        [],
+      );
+      await merge(author, number, { method: 'squash' }).expect(201);
+    });
+
+    it('merges signed commits with a merge commit Ghost signs', async () => {
+      const base = `base-${++counter}`;
+      git('checkout', '-q', '-B', base, 'main');
+      await pushAs(owner, `${base}:refs/heads/${base}`);
+      const head = `${base}-head`;
+      git('checkout', '-q', '-B', head, base);
+      writeFileSync(path.join(work, `signed-${counter}.txt`), 'signed\n');
+      git('add', '-A');
+      const email = `${author.username}@example.com`;
+      const payload = [
+        `tree ${git('write-tree')}`,
+        `parent ${git('rev-parse', 'HEAD')}`,
+        `author Author <${email}> 1700000000 +0000`,
+        `committer Author <${email}> 1700000000 +0000`,
+        '',
+        'signed change\n',
+      ].join('\n');
+      const signed = execFileSync(
+        'git',
+        ['hash-object', '-t', 'commit', '-w', '--stdin'],
+        {
+          cwd: work,
+          input: insertSignature(
+            payload,
+            await signPayload({ payload, privateKey: authorKey }),
+          ),
+          encoding: 'utf8',
+        },
+      ).trim();
+      git('reset', '-q', '--hard', signed);
+      await pushAs(author, `${head}:refs/heads/${head}`);
+      const number = (
+        await api()
+          .post(`/api/repositories/${repo}/pulls`)
+          .set('cookie', author.cookie)
+          .send({ title: head, base, head })
+          .expect(201)
+      ).body.number as number;
+      await signaturesOn(base);
+
+      await merge(author, number, { method: 'merge' }).expect(201);
     });
   });
 });

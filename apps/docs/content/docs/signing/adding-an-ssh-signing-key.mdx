@@ -1,0 +1,45 @@
+---
+title: Adding an SSH signing key
+description: Sign commits with an SSH key and upload its public half as a signing key.
+---
+
+Git can sign commits with an SSH key instead of a GPG key. Ghost verifies those
+signatures against **SSH signing keys**, which live apart from the SSH keys you
+push with. A key can be in both lists; adding it as a signing key never lets
+anyone connect over SSH.
+
+## Pick a key
+
+Any Ed25519, ECDSA or RSA key works, including the one you already push with.
+To make a new one:
+
+```bash
+ssh-keygen -t ed25519 -C "you@example.com"
+```
+
+Keys held on a hardware security key (`sk-ssh-ed25519`, `sk-ecdsa`) are not
+verified yet.
+
+## Add it in Ghost
+
+1. Go to **Settings → SSH and GPG keys**.
+2. Find the **SSH signing keys** card.
+3. Paste the contents of the `.pub` file, such as `~/.ssh/id_ed25519.pub`.
+4. Choose **Add signing key**.
+
+From the GitHub CLI, `gh ssh-key add ~/.ssh/id_ed25519.pub --type signing` does
+the same.
+
+## When a commit verifies
+
+The badge reads **Verified** when the signature is valid, the key is one of your
+signing keys, and the commit's author address is one you have verified. SSH keys
+carry no addresses of their own, so every verified address on your account
+counts. See [Email addresses and keys](/signing/email-addresses-and-keys).
+
+## Removing a key
+
+Use **Remove** on the key's row. Commits it signed stop reading as verified; the
+commits themselves are not changed.
+
+Next: [Telling git about your SSH key](/signing/telling-git-about-your-ssh-key).

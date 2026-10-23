@@ -4,7 +4,13 @@ import { inArray } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { readSignedCommits } from '../../lib/git/commits/commit-signature.js';
+import { fingerprintOf } from '../../lib/git/ssh/public-key.js';
 import { GITHUB_WEB_FLOW_KEYS } from '../../lib/gpg/github-web-flow.js';
+import {
+  readSshSignature,
+  type SshSignature,
+  verifySshSignature,
+} from '../../lib/ssh/sshsig.js';
 import {
   publicKeyIds,
   signingKeyIds,
@@ -58,21 +64,42 @@ export class CommitVerificationService {
 
     // The key id comes from the signature itself, so one lookup covers the whole page no matter how many people signed it.
     const claimed = new Map<string, string[]>();
-    for (const [sha, { signature }] of signed) {
-      claimed.set(sha, await signingKeyIds(signature).catch(() => []));
+    const ssh = new Map<string, SshSignature | null>();
+    for (const [sha, { signature, format }] of signed) {
+      if (format === 'ssh') ssh.set(sha, readSshSignature(signature));
+      else claimed.set(sha, await signingKeyIds(signature).catch(() => []));
     }
 
-    const keys = await this.keysById([...claimed.values()].flat());
-    const platform = await this.platformKeysById();
+    const [keys, sshKeys, platform] = await Promise.all([
+      this.keysById([...claimed.values()].flat()),
+      this.sshKeysByFingerprint(
+        [...ssh.values()].flatMap((parsed) =>
+          parsed ? [fingerprintOf(parsed.publicKey)] : [],
+        ),
+      ),
+      this.platformKeysById(),
+    ]);
 
     for (const commit of commits) {
       const entry = signed.get(commit.sha);
       if (!entry) continue;
 
-      const keyIds = claimed.get(commit.sha) ?? [];
       verdicts.set(
         commit.sha,
-        await this.judge({ ...commit, ...entry, keyIds, keys, platform }),
+        entry.format === 'ssh'
+          ? judgeSsh({
+              ...commit,
+              payload: entry.payload,
+              parsed: ssh.get(commit.sha) ?? null,
+              keys: sshKeys,
+            })
+          : await this.judge({
+              ...commit,
+              ...entry,
+              keyIds: claimed.get(commit.sha) ?? [],
+              keys,
+              platform,
+            }),
       );
     }
 
@@ -169,6 +196,34 @@ export class CommitVerificationService {
     return this.platformKeys;
   }
 
+  /** Uploaded SSH signing keys for these fingerprints, each with the addresses its owner proved. Authentication keys never sign. */
+  private async sshKeysByFingerprint(
+    fingerprints: string[],
+  ): Promise<Map<string, string[]>> {
+    const found = new Map<string, string[]>();
+    if (fingerprints.length === 0) return found;
+
+    const rows = await this.db
+      .select({
+        fingerprint: schema.userSshSigningKey.fingerprint,
+        userId: schema.userSshSigningKey.userId,
+      })
+      .from(schema.userSshSigningKey)
+      .where(
+        inArray(schema.userSshSigningKey.fingerprint, [
+          ...new Set(fingerprints),
+        ]),
+      );
+    if (rows.length === 0) return found;
+
+    const emails = await this.users.verifiedEmailsByUser(
+      rows.map((row) => row.userId),
+    );
+    for (const row of rows)
+      found.set(row.fingerprint, emails.get(row.userId) ?? []);
+    return found;
+  }
+
   /** Uploaded keys for these ids, each with the addresses its owner proved. */
   private async keysById(keyIds: string[]): Promise<Map<string, KnownKey>> {
     const wanted = [...new Set(keyIds)];
@@ -199,6 +254,47 @@ export class CommitVerificationService {
 
     return found;
   }
+}
+
+/** The same states as OpenPGP: the signature must hold, the key must be someone's signing key, and that someone must have proved the author address. */
+function judgeSsh({
+  authorEmail,
+  payload,
+  parsed,
+  keys,
+}: VerifiableCommit & {
+  payload: string;
+  parsed: SshSignature | null;
+  keys: Map<string, string[]>;
+}): CommitVerification {
+  if (!parsed)
+    return {
+      verified: false,
+      reason: 'Signature does not match the commit',
+      keyId: 'unknown',
+    };
+  const fingerprint = fingerprintOf(parsed.publicKey);
+  const keyId = `SHA256:${fingerprint}`;
+  const emails = keys.get(fingerprint);
+  if (!emails)
+    return {
+      verified: false,
+      reason: 'Signed with a key no Ghost account has uploaded',
+      keyId,
+    };
+  if (!verifySshSignature(payload, parsed))
+    return {
+      verified: false,
+      reason: 'Signature does not match the commit',
+      keyId,
+    };
+  if (!emails.includes(authorEmail.trim().toLowerCase()))
+    return {
+      verified: false,
+      reason: `The signing key is not linked to ${authorEmail}`,
+      keyId,
+    };
+  return { verified: true, reason: 'Signed and verified', keyId };
 }
 
 interface KnownKey {

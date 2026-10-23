@@ -1,13 +1,26 @@
 import { execFile, execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import * as openpgp from 'openpgp';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
+import { CommitStatusesService } from '../src/resources/commit-statuses/commit-statuses.service.js';
+import { CommitVerificationService } from '../src/services/gpg/commit-verification.service.js';
+import { insertSignature } from '../src/lib/git/commits/commit-signature.js';
+import { signPayload } from '../src/lib/gpg/openpgp.js';
 import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
@@ -40,7 +53,18 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
   const git = (...args: string[]) =>
     execFileSync(
       'git',
-      ['-c', 'user.name=E2E', '-c', 'user.email=e2e@example.com', ...args],
+      // The machine's own signing config must not sign test commits, which the signature rules would then judge.
+      [
+        '-c',
+        'user.name=E2E',
+        '-c',
+        'user.email=e2e@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        '-c',
+        'tag.gpgsign=false',
+        ...args,
+      ],
       { cwd: work, encoding: 'utf8' },
     ).trim();
   const remote = (account: Account) =>
@@ -62,7 +86,10 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
   /** A new commit on `branch`, started from `from`; returns its sha and leaves it checked out. */
   const commitOn = (branch: string, from: string) => {
     git('checkout', '-q', '-B', branch, from);
-    writeFileSync(path.join(work, `${branch.replaceAll('/', '-')}.txt`), `${++counter}\n`);
+    writeFileSync(
+      path.join(work, `${branch.replaceAll('/', '-')}.txt`),
+      `${++counter}\n`,
+    );
     git('add', '-A');
     git('commit', '-q', '-m', `commit ${counter} on ${branch}`);
     return git('rev-parse', 'HEAD');
@@ -120,7 +147,15 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
   };
 
   beforeAll(async () => {
-    ({ app, origin } = await startApp());
+    const platform = await openpgp.generateKey({
+      userIDs: [{ name: 'Ghost', email: 'noreply@ghost.local' }],
+      format: 'object',
+    });
+    ({ app, origin } = await startApp({
+      COMMIT_SIGNING_KEY: Buffer.from(platform.privateKey.armor()).toString(
+        'base64',
+      ),
+    }));
     owner = await account(`reowner${stamp}`);
     writer = await account(`rewriter${stamp}`);
     maintainer = await account(`remaint${stamp}`);
@@ -182,7 +217,9 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       commitOn('ff-guard', 'main');
 
       const refused = pushAs(writer, '+ff-guard:refs/heads/ff-guard');
-      await expect(refused).rejects.toThrow(violationsFor('refs/heads/ff-guard'));
+      await expect(refused).rejects.toThrow(
+        violationsFor('refs/heads/ff-guard'),
+      );
       await expect(refused).rejects.toThrow(/Cannot force-push to this branch/);
       await expect(refused).rejects.toThrow(/no rewrites/);
       await expect(refused).rejects.toThrow(REJECTED);
@@ -210,7 +247,9 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       });
 
       const refused = pushAs(writer, ':refs/heads/del-guard');
-      await expect(refused).rejects.toThrow(violationsFor('refs/heads/del-guard'));
+      await expect(refused).rejects.toThrow(
+        violationsFor('refs/heads/del-guard'),
+      );
       await expect(refused).rejects.toThrow(REJECTED);
       expect(await serverTip('refs/heads/del-guard')).toBe(before);
     });
@@ -296,9 +335,9 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       commitOn('ln', 'main');
       git('merge', '-q', '--no-ff', '-m', 'merge side', 'ln-side');
 
-      await expect(pushAs(writer, 'ln:refs/heads/linear-new/one')).rejects.toThrow(
-        violationsFor('refs/heads/linear-new/one'),
-      );
+      await expect(
+        pushAs(writer, 'ln:refs/heads/linear-new/one'),
+      ).rejects.toThrow(violationsFor('refs/heads/linear-new/one'));
     });
 
     it('refuses the whole push when one of its refs is refused', async () => {
@@ -311,7 +350,11 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       commitOn('atomic-new', 'main');
 
       await expect(
-        pushAs(writer, 'atomic-new:refs/heads/atomic-new', ':refs/heads/atomic-guard'),
+        pushAs(
+          writer,
+          'atomic-new:refs/heads/atomic-new',
+          ':refs/heads/atomic-guard',
+        ),
       ).rejects.toThrow(REJECTED);
       expect(await serverTip('refs/heads/atomic-new')).toBeNull();
       expect(await serverTip('refs/heads/atomic-guard')).not.toBeNull();
@@ -538,7 +581,9 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       });
 
       const refused = await api()
-        .post(`/api/repositories/${repo}/pulls/${number}/comments/${body.comments[0].id}/apply`)
+        .post(
+          `/api/repositories/${repo}/pulls/${number}/comments/${body.comments[0].id}/apply`,
+        )
         .set('cookie', owner.cookie)
         .expect(422);
       expect(refused.body.message).toContain('suggest freeze');
@@ -554,14 +599,18 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
         include: ['bp-role'],
         rules: [{ type: 'non_fast_forward' }],
         bypassActors: [
-          { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'always' },
+          {
+            actorType: 'RepositoryRole',
+            role: 'maintain',
+            bypassMode: 'always',
+          },
         ],
       });
       const rewritten = commitOn('bp-role', 'main');
 
-      await expect(pushAs(writer, '+bp-role:refs/heads/bp-role')).rejects.toThrow(
-        violationsFor('refs/heads/bp-role'),
-      );
+      await expect(
+        pushAs(writer, '+bp-role:refs/heads/bp-role'),
+      ).rejects.toThrow(violationsFor('refs/heads/bp-role'));
       await pushAs(maintainer, '+bp-role:refs/heads/bp-role');
       expect(await serverTip('refs/heads/bp-role')).toBe(rewritten);
     });
@@ -575,7 +624,9 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
         bypassActors: [{ actorType: 'Team', teamId, bypassMode: 'always' }],
       });
 
-      await expect(pushAs(writer, ':refs/heads/bp-team')).rejects.toThrow(REJECTED);
+      await expect(pushAs(writer, ':refs/heads/bp-team')).rejects.toThrow(
+        REJECTED,
+      );
       await pushAs(teammate, ':refs/heads/bp-team');
       expect(await serverTip('refs/heads/bp-team')).toBeNull();
     });
@@ -586,7 +637,9 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
         name: 'org admins may',
         include: ['bp-org'],
         rules: [{ type: 'deletion' }],
-        bypassActors: [{ actorType: 'OrganizationAdmin', bypassMode: 'always' }],
+        bypassActors: [
+          { actorType: 'OrganizationAdmin', bypassMode: 'always' },
+        ],
       });
       await pushAs(orgAdmin, ':refs/heads/bp-org');
       expect(await serverTip('refs/heads/bp-org')).toBeNull();
@@ -599,7 +652,9 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
         include: ['bp-none'],
         rules: [{ type: 'deletion' }],
       });
-      await expect(pushAs(owner, ':refs/heads/bp-none')).rejects.toThrow(REJECTED);
+      await expect(pushAs(owner, ':refs/heads/bp-none')).rejects.toThrow(
+        REJECTED,
+      );
       expect(await serverTip('refs/heads/bp-none')).toBe(before);
     });
 
@@ -613,12 +668,18 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
         include: ['bp-pr'],
         rules: [{ type: 'update' }],
         bypassActors: [
-          { actorType: 'RepositoryRole', role: 'write', bypassMode: 'pull_request' },
+          {
+            actorType: 'RepositoryRole',
+            role: 'write',
+            bypassMode: 'pull_request',
+          },
         ],
       });
 
       commitOn('bp-pr', 'bp-pr');
-      await expect(pushAs(writer, 'bp-pr:refs/heads/bp-pr')).rejects.toThrow(REJECTED);
+      await expect(pushAs(writer, 'bp-pr:refs/heads/bp-pr')).rejects.toThrow(
+        REJECTED,
+      );
       expect(await serverTip('refs/heads/bp-pr')).toBe(before);
 
       // A bypassed merge needs the opt-in, part A's rules included.
@@ -691,8 +752,12 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       commitOn('pr-only', 'pr-only');
 
       const refused = pushAs(writer, 'pr-only:refs/heads/pr-only');
-      await expect(refused).rejects.toThrow(violationsFor('refs/heads/pr-only'));
-      await expect(refused).rejects.toThrow(/Changes must be made through a pull request\./);
+      await expect(refused).rejects.toThrow(
+        violationsFor('refs/heads/pr-only'),
+      );
+      await expect(refused).rejects.toThrow(
+        /Changes must be made through a pull request\./,
+      );
       await expect(refused).rejects.toThrow(/pr-only via pull requests/);
       await expect(refused).rejects.toThrow(REJECTED);
       expect(await serverTip('refs/heads/pr-only')).toBe(before);
@@ -721,17 +786,26 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
         .send({
           state: 'commented',
           comments: [
-            { path: 'pr-suggest.txt', side: 'additions', line: 2, body: '```suggestion\nTWO\n```' },
+            {
+              path: 'pr-suggest.txt',
+              side: 'additions',
+              line: 2,
+              body: '```suggestion\nTWO\n```',
+            },
           ],
         })
         .expect(201);
       await reviews('pr-suggest');
 
       const refused = await api()
-        .post(`/api/repositories/${repo}/pulls/${number}/comments/${body.comments[0].id}/apply`)
+        .post(
+          `/api/repositories/${repo}/pulls/${number}/comments/${body.comments[0].id}/apply`,
+        )
         .set('cookie', owner.cookie)
         .expect(422);
-      expect(refused.body.message).toContain('Changes must be made through a pull request.');
+      expect(refused.body.message).toContain(
+        'Changes must be made through a pull request.',
+      );
       expect(await serverTip('refs/heads/pr-suggest')).toBe(before);
     });
 
@@ -742,8 +816,13 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
       ]);
       const next = commitOn('pr-bypass', 'pr-bypass');
 
-      const stderr = await pushOutput(maintainer, 'pr-bypass:refs/heads/pr-bypass');
-      expect(stderr).toContain('Bypassed rule violations for refs/heads/pr-bypass:');
+      const stderr = await pushOutput(
+        maintainer,
+        'pr-bypass:refs/heads/pr-bypass',
+      );
+      expect(stderr).toContain(
+        'Bypassed rule violations for refs/heads/pr-bypass:',
+      );
       expect(stderr).toContain('Changes must be made through a pull request.');
       expect(await serverTip('refs/heads/pr-bypass')).toBe(next);
     });
@@ -759,12 +838,18 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
     it("still refuses a pull_request-mode bypasser's direct push", async () => {
       const before = await seed('pr-mode');
       await reviews('pr-mode', [
-        { actorType: 'RepositoryRole', role: 'maintain', bypassMode: 'pull_request' },
+        {
+          actorType: 'RepositoryRole',
+          role: 'maintain',
+          bypassMode: 'pull_request',
+        },
       ]);
       commitOn('pr-mode', 'pr-mode');
 
       const refused = pushAs(maintainer, 'pr-mode:refs/heads/pr-mode');
-      await expect(refused).rejects.toThrow(/Changes must be made through a pull request\./);
+      await expect(refused).rejects.toThrow(
+        /Changes must be made through a pull request\./,
+      );
       expect(await serverTip('refs/heads/pr-mode')).toBe(before);
     });
   });
@@ -793,11 +878,401 @@ describe.skipIf(!hasBackends)('ruleset enforcement', () => {
         .expect(200);
 
       await pushAs(writer, '+rewrite:refs/heads/main');
-      expect(await serverTip('refs/heads/main')).toBe(git('rev-parse', 'rewrite'));
-      commitOn('trunk-rewrite', 'main');
-      await expect(pushAs(writer, '+trunk-rewrite:refs/heads/trunk')).rejects.toThrow(
-        violationsFor('refs/heads/trunk'),
+      expect(await serverTip('refs/heads/main')).toBe(
+        git('rev-parse', 'rewrite'),
       );
+      commitOn('trunk-rewrite', 'main');
+      await expect(
+        pushAs(writer, '+trunk-rewrite:refs/heads/trunk'),
+      ).rejects.toThrow(violationsFor('refs/heads/trunk'));
+    });
+  });
+
+  describe('required_status_checks', () => {
+    const checks = (
+      name: string,
+      include: string[],
+      parameters: Record<string, unknown> = {},
+      extra: object = {},
+    ) =>
+      ruleset({
+        name,
+        include,
+        rules: [
+          {
+            type: 'required_status_checks',
+            parameters: {
+              required_status_checks: [{ context: 'build' }],
+              ...parameters,
+            },
+          },
+        ],
+        ...extra,
+      });
+    const status = (sha: string, state: string, context = 'build') =>
+      api()
+        .post(`/api/repositories/${repo}/statuses/${sha}`)
+        .set('cookie', owner.cookie)
+        .send({ state, context })
+        .expect(201);
+
+    it('refuses pushing a commit without the required status, naming the context', async () => {
+      const before = await seed('ci-fresh');
+      await checks('ci gate', ['ci-fresh']);
+      commitOn('ci-fresh', 'ci-fresh');
+
+      const refused = pushAs(writer, 'ci-fresh:refs/heads/ci-fresh');
+      await expect(refused).rejects.toThrow(
+        violationsFor('refs/heads/ci-fresh'),
+      );
+      await expect(refused).rejects.toThrow(
+        /Required status check "build" is expected/,
+      );
+      await expect(refused).rejects.toThrow(/ci gate/);
+      expect(await serverTip('refs/heads/ci-fresh')).toBe(before);
+    });
+
+    it('takes the same commit once CI passed on it elsewhere', async () => {
+      await seed('ci-passed');
+      await checks('ci passed', ['ci-passed']);
+      const next = commitOn('ci-passed', 'ci-passed');
+      await pushAs(writer, 'ci-passed:refs/heads/ci-passed-feature');
+      await status(next, 'success');
+
+      await pushAs(writer, 'ci-passed:refs/heads/ci-passed');
+      expect(await serverTip('refs/heads/ci-passed')).toBe(next);
+    });
+
+    it('refuses a commit whose required status is still pending', async () => {
+      await seed('ci-pending');
+      await checks('ci pending', ['ci-pending']);
+      const next = commitOn('ci-pending', 'ci-pending');
+      await pushAs(writer, 'ci-pending:refs/heads/ci-pending-feature');
+      await status(next, 'pending');
+
+      await expect(
+        pushAs(writer, 'ci-pending:refs/heads/ci-pending'),
+      ).rejects.toThrow(/Required status check "build" is pending/);
+    });
+
+    it('lets an always-bypass push land with the bypassed notice', async () => {
+      await seed('ci-bypass');
+      await checks(
+        'ci bypass',
+        ['ci-bypass'],
+        {},
+        {
+          bypassActors: [
+            {
+              actorType: 'RepositoryRole',
+              role: 'maintain',
+              bypassMode: 'always',
+            },
+          ],
+        },
+      );
+      const next = commitOn('ci-bypass', 'ci-bypass');
+      const { stderr } = await promisify(execFile)(
+        'git',
+        ['push', remote(maintainer), 'ci-bypass:refs/heads/ci-bypass'],
+        { cwd: work, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+      );
+      expect(stderr).toContain(
+        'Bypassed rule violations for refs/heads/ci-bypass:',
+      );
+      expect(stderr).toContain('Required status check "build" is expected.');
+      expect(await serverTip('refs/heads/ci-bypass')).toBe(next);
+    });
+
+    it('judges a branch created through the API by the statuses of the commit it starts at', async () => {
+      const unchecked = await seed('ci-api-source');
+      await checks('ci api', ['ci-api/*']);
+      const refused = await api()
+        .post(`/api/repositories/${repo}/branches`)
+        .set('cookie', writer.cookie)
+        .send({ name: 'ci-api/refused', from: 'ci-api-source' })
+        .expect(422);
+      expect(refused.body.message).toContain(
+        'Required status check "build" is expected.',
+      );
+
+      await status(unchecked, 'success');
+      await api()
+        .post(`/api/repositories/${repo}/branches`)
+        .set('cookie', writer.cookie)
+        .send({ name: 'ci-api/allowed', from: 'ci-api-source' })
+        .expect(201);
+    });
+
+    it('lets a push create a targeted branch when the rule skips creations', async () => {
+      await checks('ci skip create', ['ci-create/*'], {
+        do_not_enforce_on_create: true,
+      });
+      const next = commitOn('ci-create-work', 'main');
+      await pushAs(writer, 'ci-create-work:refs/heads/ci-create/one');
+      expect(await serverTip('refs/heads/ci-create/one')).toBe(next);
+
+      commitOn('ci-create-work', 'ci-create-work');
+      await expect(
+        pushAs(writer, 'ci-create-work:refs/heads/ci-create/one'),
+      ).rejects.toThrow(/Required status check "build" is expected/);
+    });
+
+    it('judges an annotated tag by the statuses of its commit', async () => {
+      const tagged = commitOn('ci-tagged', 'main');
+      await pushAs(owner, 'ci-tagged:refs/heads/ci-tagged');
+      await checks('ci tags', ['ci-v*'], {}, { target: 'tag' });
+      git('tag', '-a', 'ci-v1', '-m', 'release', tagged);
+
+      // Another case's ruleset refuses every tag creation, so only whether this rule is listed tells.
+      await expect(pushAs(writer, 'refs/tags/ci-v1')).rejects.toThrow(
+        /Required status check "build" is expected/,
+      );
+      await status(tagged, 'success');
+      const refused = await pushAs(writer, 'refs/tags/ci-v1').catch(
+        (error: Error) => error.message,
+      );
+      expect(refused).not.toContain('Required status check');
+    });
+
+    it('refuses applying a suggestion to a head branch that requires checks', async () => {
+      await seed('ci-suggest-base');
+      git('checkout', '-q', '-B', 'ci-suggest', 'ci-suggest-base');
+      writeFileSync(path.join(work, 'ci-suggest.txt'), 'one\ntwo\n');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'to suggest on');
+      const before = git('rev-parse', 'HEAD');
+      await pushAs(owner, 'ci-suggest:refs/heads/ci-suggest');
+      const number = await openPull(owner, 'ci-suggest', 'ci-suggest-base');
+      const { body } = await api()
+        .post(`/api/repositories/${repo}/pulls/${number}/reviews`)
+        .set('cookie', writer.cookie)
+        .send({
+          state: 'commented',
+          comments: [
+            {
+              path: 'ci-suggest.txt',
+              side: 'additions',
+              line: 2,
+              body: '```suggestion\nTWO\n```',
+            },
+          ],
+        })
+        .expect(201);
+      await checks('ci suggest', ['ci-suggest']);
+
+      const refused = await api()
+        .post(
+          `/api/repositories/${repo}/pulls/${number}/comments/${body.comments[0].id}/apply`,
+        )
+        .set('cookie', owner.cookie)
+        .expect(422);
+      expect(refused.body.message).toContain(
+        'Required status check "build" is expected.',
+      );
+      expect(await serverTip('refs/heads/ci-suggest')).toBe(before);
+    });
+  });
+
+  describe('required_signatures', () => {
+    let gpgKey: openpgp.PrivateKey;
+    let sshKeyPath: string;
+
+    /** A commit on `branch` off `from`, authored as `email` and signed by `sign`, written straight into the working repository. */
+    const signedCommitOn = async (
+      branch: string,
+      from: string,
+      sign: (payload: string) => Promise<string> | string,
+      email = `${writer.username}@example.com`,
+    ) => {
+      git('checkout', '-q', '-B', branch, from);
+      writeFileSync(path.join(work, `${branch}.txt`), `${++counter}\n`);
+      git('add', '-A');
+      const tree = git('write-tree');
+      const payload = [
+        `tree ${tree}`,
+        `parent ${git('rev-parse', 'HEAD')}`,
+        `author E2E <${email}> 1700000000 +0000`,
+        `committer E2E <${email}> 1700000000 +0000`,
+        '',
+        `signed ${counter}\n`,
+      ].join('\n');
+      const sha = execFileSync(
+        'git',
+        ['hash-object', '-t', 'commit', '-w', '--stdin'],
+        {
+          cwd: work,
+          input: insertSignature(payload, await sign(payload)),
+          encoding: 'utf8',
+        },
+      ).trim();
+      git('reset', '-q', '--hard', sha);
+      return sha;
+    };
+    const gpgSign = (payload: string) =>
+      signPayload({ payload, privateKey: gpgKey });
+    const sshSign = (payload: string) => {
+      const file = path.join(work, '.git', `payload-${counter}`);
+      writeFileSync(file, payload);
+      execFileSync(
+        'ssh-keygen',
+        ['-Y', 'sign', '-n', 'git', '-f', sshKeyPath, file],
+        {
+          stdio: 'ignore',
+        },
+      );
+      return readFileSync(`${file}.sig`, 'utf8');
+    };
+    const signatures = (name: string, include: string[]) =>
+      ruleset({ name, include, rules: [{ type: 'required_signatures' }] });
+
+    beforeAll(async () => {
+      const email = `${writer.username}@example.com`;
+      const generated = await openpgp.generateKey({
+        userIDs: [{ name: 'Writer', email }],
+        format: 'object',
+      });
+      gpgKey = generated.privateKey;
+      await api()
+        .post('/api/gpg-keys')
+        .set('cookie', writer.cookie)
+        .send({ publicKey: generated.publicKey.armor() })
+        .expect(201);
+
+      sshKeyPath = path.join(work, '.git', 'id_signing');
+      execFileSync('ssh-keygen', [
+        '-q',
+        '-t',
+        'ed25519',
+        '-N',
+        '',
+        '-f',
+        sshKeyPath,
+      ]);
+      await api()
+        .post('/api/ssh-signing-keys')
+        .set('cookie', writer.cookie)
+        .send({ publicKey: readFileSync(`${sshKeyPath}.pub`, 'utf8') })
+        .expect(201);
+    });
+
+    it('refuses an unsigned push, listing the commit', async () => {
+      const before = await seed('sig-unsigned');
+      await signatures('signed only', ['sig-unsigned']);
+      const next = commitOn('sig-unsigned', 'sig-unsigned');
+
+      const refused = pushAs(writer, 'sig-unsigned:refs/heads/sig-unsigned');
+      await expect(refused).rejects.toThrow(
+        /Commits must have verified signatures/,
+      );
+      await expect(refused).rejects.toThrow(
+        new RegExp(`${next.slice(0, 7)} Unsigned`),
+      );
+      expect(await serverTip('refs/heads/sig-unsigned')).toBe(before);
+    });
+
+    it("takes a commit GPG-signed with the author's key", async () => {
+      await seed('sig-gpg');
+      await signatures('signed gpg', ['sig-gpg']);
+      const next = await signedCommitOn('sig-gpg', 'sig-gpg', gpgSign);
+      await pushAs(writer, 'sig-gpg:refs/heads/sig-gpg');
+      expect(await serverTip('refs/heads/sig-gpg')).toBe(next);
+    });
+
+    it("takes a commit SSH-signed with the author's signing key", async () => {
+      await seed('sig-ssh');
+      await signatures('signed ssh', ['sig-ssh']);
+      const next = await signedCommitOn('sig-ssh', 'sig-ssh', sshSign);
+      await pushAs(writer, 'sig-ssh:refs/heads/sig-ssh');
+      expect(await serverTip('refs/heads/sig-ssh')).toBe(next);
+    });
+
+    it('refuses a signed commit whose author address is not the signer’s', async () => {
+      await seed('sig-other');
+      await signatures('signed other', ['sig-other']);
+      await signedCommitOn(
+        'sig-other',
+        'sig-other',
+        gpgSign,
+        'someone@example.com',
+      );
+      await expect(
+        pushAs(writer, 'sig-other:refs/heads/sig-other'),
+      ).rejects.toThrow(/not linked to someone@example.com/);
+    });
+
+    it('judges every new ref a push creates, an unsigned commit under each', async () => {
+      await signatures('signed pair', ['sig-pair/*']);
+      const next = commitOn('sig-pair-work', 'main');
+      const refused = pushAs(
+        writer,
+        'sig-pair-work:refs/heads/sig-pair/a',
+        'sig-pair-work:refs/heads/sig-pair/b',
+      );
+      await expect(refused).rejects.toThrow(
+        violationsFor('refs/heads/sig-pair/a'),
+      );
+      await expect(refused).rejects.toThrow(
+        violationsFor('refs/heads/sig-pair/b'),
+      );
+      await expect(refused).rejects.toThrow(new RegExp(next.slice(0, 7)));
+    });
+
+    it('takes a suggestion Ghost applies and signs', async () => {
+      await seed('sig-suggest-base');
+      git('checkout', '-q', '-B', 'sig-suggest', 'sig-suggest-base');
+      writeFileSync(path.join(work, 'sig-suggest.txt'), 'one\ntwo\n');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'to suggest on');
+      await pushAs(owner, 'sig-suggest:refs/heads/sig-suggest');
+      const number = await openPull(owner, 'sig-suggest', 'sig-suggest-base');
+      const { body } = await api()
+        .post(`/api/repositories/${repo}/pulls/${number}/reviews`)
+        .set('cookie', writer.cookie)
+        .send({
+          state: 'commented',
+          comments: [
+            {
+              path: 'sig-suggest.txt',
+              side: 'additions',
+              line: 2,
+              body: '```suggestion\nTWO\n```',
+            },
+          ],
+        })
+        .expect(201);
+      await signatures('signed suggest', ['sig-suggest']);
+
+      await api()
+        .post(
+          `/api/repositories/${repo}/pulls/${number}/comments/${body.comments[0].id}/apply`,
+        )
+        .set('cookie', owner.cookie)
+        .expect(201);
+    });
+  });
+
+  describe('cost', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('reads no statuses and verifies nothing for refs no C or D rule targets', async () => {
+      const statuses = vi.spyOn(CommitStatusesService.prototype, 'combinedFor');
+      const verify = vi.spyOn(
+        CommitVerificationService.prototype,
+        'verifyCommits',
+      );
+      await seed('cost-free');
+      await ruleset({
+        name: 'cost',
+        include: ['cost-free'],
+        rules: [{ type: 'deletion' }],
+      });
+      commitOn('cost-free', 'cost-free');
+      await pushAs(writer, 'cost-free:refs/heads/cost-free');
+      expect(statuses).not.toHaveBeenCalled();
+      expect(verify).not.toHaveBeenCalled();
     });
   });
 });

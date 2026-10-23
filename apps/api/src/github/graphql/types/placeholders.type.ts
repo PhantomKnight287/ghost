@@ -182,6 +182,9 @@ export class CheckRunNode {
 export class StatusContextNode {
   kind = 'StatusContext';
 
+  /** The Ghost repository whose rollup holds this status, for isRequired's pull request number; not a GraphQL field. */
+  repositoryId: string;
+
   @Field(() => ID)
   id: string;
 

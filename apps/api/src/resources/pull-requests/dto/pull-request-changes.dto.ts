@@ -249,6 +249,14 @@ export class MergeRequirementsDTO {
   })
   @IsBoolean()
   reviewsRequired: boolean;
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Status check contexts the active rulesets require on the base branch, sorted.',
+  })
+  @IsString({ each: true })
+  requiredContexts: string[];
 }
 
 export class MergePullRequestResponseDTO {

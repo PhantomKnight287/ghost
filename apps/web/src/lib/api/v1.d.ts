@@ -821,6 +821,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{slug}/status-contexts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the status check contexts this repository has seen
+         * @description Most recently posted first, at most 50; the ruleset form suggests them as required checks.
+         */
+        get: operations["CommitStatusesController_getStatusContexts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/organizations": {
         parameters: {
             query?: never;
@@ -3035,6 +3055,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/user/ssh_signing_keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The authenticated user's SSH signing keys, in GitHub REST shape */
+        get: operations["UsersController_signingKeys"];
+        put?: never;
+        /** Add an SSH signing key to the authenticated user */
+        post: operations["UsersController_addSigningKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/user/ssh_signing_keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One SSH signing key of the authenticated user */
+        get: operations["UsersController_signingKey"];
+        put?: never;
+        post?: never;
+        /** Remove an SSH signing key from the authenticated user */
+        delete: operations["UsersController_removeSigningKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ssh-signing-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the SSH signing keys on the signed-in account */
+        get: operations["SshSigningKeysController_list"];
+        put?: never;
+        /**
+         * Add an SSH signing key to the signed-in account
+         * @description Commits signed with it verify when their author address is one this account has verified. It does not grant git access over SSH.
+         */
+        post: operations["SshSigningKeysController_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ssh-signing-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a signing key
+         * @description Commits it signed no longer verify.
+         */
+        delete: operations["SshSigningKeysController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/repos/{owner}/{repo}": {
         parameters: {
             query?: never;
@@ -4895,6 +4992,10 @@ export interface components {
              */
             context?: string;
         };
+        StatusContextsDTO: {
+            /** @description Contexts this repository's statuses have named, most recently posted first, at most 50. */
+            contexts: string[];
+        };
         /**
          * @description Highest built-in role held; null when only custom roles are held.
          * @enum {string}
@@ -5279,12 +5380,12 @@ export interface components {
             seq: number;
         };
         /** @enum {string} */
-        RuleType: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request";
+        RuleType: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request" | "required_status_checks" | "required_signatures";
         /**
          * @description Which part of a `pull_request` rule is unmet.
          * @enum {string}
          */
-        RuleRequirement: "pull_request" | "approvals" | "changes_requested" | "code_owners" | "last_push" | "threads" | "merge_method";
+        RuleRequirement: "pull_request" | "approvals" | "changes_requested" | "code_owners" | "last_push" | "threads" | "merge_method" | "status_checks" | "up_to_date" | "signatures";
         RuleViolationDTO: {
             /** @example refs/heads/main */
             ref: string;
@@ -5304,6 +5405,8 @@ export interface components {
             allowedMethods: components["schemas"]["MergeMethod"][];
             /** @description A rule on the base asks for approvals or code owner reviews. */
             reviewsRequired: boolean;
+            /** @description Status check contexts the active rulesets require on the base branch, sorted. */
+            requiredContexts: string[];
         };
         UpdatePullRequestRequestDTO: {
             /** @example Add a rate limiter */
@@ -5786,7 +5889,7 @@ export interface components {
         };
         ProtectedRefDTO: {
             /** @description Every rule an active ruleset applies to the ref. */
-            rules: ("creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request")[];
+            rules: ("creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request" | "required_status_checks" | "required_signatures")[];
             /**
              * @description How far the viewer may skip those rules: the least any one of the rulesets allows.
              * @enum {string}
@@ -5795,7 +5898,7 @@ export interface components {
         };
         RulesetRuleDTO: {
             /** @enum {string} */
-            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request";
+            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request" | "required_status_checks" | "required_signatures";
             /**
              * @description For `pull_request`: GitHub's parameters, defaults filled in for those left out. Other rules take none.
              * @example {
@@ -5919,11 +6022,11 @@ export interface components {
             /** @enum {string} */
             enforcement: "active" | "evaluate" | "deleted ruleset";
             /** @enum {string} */
-            rule: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request";
+            rule: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request" | "required_status_checks" | "required_signatures";
             /** @enum {string} */
             result: "pass" | "fail";
             /** @description What a failed `pull_request` rule left unmet. */
-            requirements: ("pull_request" | "approvals" | "changes_requested" | "code_owners" | "last_push" | "threads" | "merge_method")[];
+            requirements: ("pull_request" | "approvals" | "changes_requested" | "code_owners" | "last_push" | "threads" | "merge_method" | "status_checks" | "up_to_date" | "signatures")[];
             /** @description The message the writer saw for a failure. */
             details: string | null;
         };
@@ -6265,6 +6368,25 @@ export interface components {
             /** @description One authorized_keys line. */
             key: string;
         };
+        SshSigningKeyDTO: {
+            id: string;
+            /** @description What the key is called on this account. */
+            title: string;
+            /** @description Key algorithm, e.g. `ssh-ed25519`. */
+            type: string;
+            /**
+             * @description The key as `<type> <base64>`, without its comment.
+             * @example ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...
+             */
+            publicKey: string;
+            /** @description SHA256 fingerprint, base64, as `ssh-keygen -lf` prints it. */
+            fingerprint: string;
+            /** @description When the key was added, ISO 8601. */
+            createdAt: string;
+        };
+        ListSshSigningKeysResponseDTO: {
+            keys: components["schemas"]["SshSigningKeyDTO"][];
+        };
         GithubCreateRepositoryDTO: {
             /** @example tools */
             name: string;
@@ -6514,7 +6636,7 @@ export interface components {
         };
         GithubRulesetRuleDTO: {
             /** @enum {string} */
-            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request";
+            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request" | "required_status_checks" | "required_signatures";
             /** @description For `pull_request`: GitHub's parameters. The other rules Ghost supports take none. */
             parameters?: Record<string, never>;
         };
@@ -8470,6 +8592,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CombinedCommitStatusDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    CommitStatusesController_getStatusContexts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusContextsDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
             404: {
@@ -13897,6 +14057,167 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    UsersController_signingKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UsersController_addSigningKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubAddKeyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UsersController_signingKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UsersController_removeSigningKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SshSigningKeysController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSshSigningKeysResponseDTO"];
+                };
+            };
+        };
+    };
+    SshSigningKeysController_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSshKeyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SshSigningKeyDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SshSigningKeysController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
             };
         };
     };

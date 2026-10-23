@@ -326,10 +326,11 @@ export class GitService {
     let bypassed: Violation[] = [];
     await withVerifiedPack(
       { gitDir: repoDirectory, transitions, body, packOffset, factsFor },
-      async ({ facts, ...pack }) => {
+      async ({ facts, env, ...pack }) => {
         const verdict = await this.verdicts.judge({
           repository,
           gitDir: repoDirectory,
+          env,
           userId: pushedBy,
           write: 'push',
           transitions,
