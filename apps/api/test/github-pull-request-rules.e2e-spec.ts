@@ -722,6 +722,70 @@ describe.skipIf(!hasBackends)(
         ).toEqual([{ context: 'build', isRequired: false }]);
       });
 
+      it('marks contexts required on the default branch, which only HEAD names', async () => {
+        const head = `default-head-${++counter}`;
+        git('checkout', '-q', '-B', head, 'main');
+        writeFileSync(path.join(work, `${head}.txt`), `${head}\n`);
+        git('add', '-A');
+        git('commit', '-q', '-m', `work on ${head}`);
+        await pushAs(author, `${head}:refs/heads/${head}`);
+        const number = (
+          await http()
+            .post(`/api/repositories/${repo}/pulls`)
+            .set('cookie', author.cookie)
+            .send({ title: head, base: 'main', head })
+            .expect(201)
+        ).body.number as number;
+        await status(git('rev-parse', head), 'success', 'deploy');
+        const made = (
+          await http()
+            .post(`/api/repositories/${repo}/rulesets`)
+            .set('cookie', owner.cookie)
+            .send({
+              name: `default checks ${counter}`,
+              target: 'branch',
+              enforcement: 'active',
+              include: ['~DEFAULT_BRANCH'],
+              exclude: [],
+              bypassActors: [],
+              rules: [
+                {
+                  type: 'required_status_checks',
+                  parameters: {
+                    required_status_checks: [{ context: 'deploy' }],
+                  },
+                },
+              ],
+            })
+            .expect(201)
+        ).body;
+        try {
+          const body = await graphql(
+            author,
+            `query($owner: String!, $name: String!, $number: Int!) {
+            repository(owner: $owner, name: $name) {
+              pullRequest(number: $number) {
+                commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 10) { nodes {
+                  ... on StatusContext { context isRequired(pullRequestNumber: $number) }
+                } } } } } }
+              }
+            }
+          }`,
+            { owner: org, name, number },
+          );
+          expect(body.errors).toBeUndefined();
+          expect(
+            body.data.repository.pullRequest.commits.nodes[0].commit
+              .statusCheckRollup.contexts.nodes,
+          ).toEqual([{ context: 'deploy', isRequired: true }]);
+        } finally {
+          await http()
+            .delete(`/api/repositories/${repo}/rulesets/${made.id}`)
+            .set('cookie', owner.cookie)
+            .expect(204);
+        }
+      });
+
       it('marks the required contexts with isRequired', async () => {
         const { base, head, number } = await pullRequest();
         await checksOn(base);

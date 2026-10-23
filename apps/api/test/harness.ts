@@ -39,6 +39,8 @@ export async function startApp(
     GIT_SSH_HOST_KEY: '',
     OTEL_EXPORTER_OTLP_ENDPOINT: '',
     PYROSCOPE_SERVER_ADDRESS: '',
+    // Suites that need Ghost to sign pass their own key; a local one must not leak in.
+    COMMIT_SIGNING_KEY: '',
     ...env,
   });
 

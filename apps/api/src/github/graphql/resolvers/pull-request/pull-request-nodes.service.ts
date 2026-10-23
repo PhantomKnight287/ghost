@@ -8,7 +8,9 @@ import { orNull } from '../../../../lib/github/authorize.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
 import { encodeNodeId } from '../../../../lib/github/node-id.js';
 import { closingIssueIdsOf } from '../../../../lib/github/node-lookup.js';
+import { resolveDefaultRef } from '../../../../lib/git/tree/resolve-ref.js';
 import { mergeStateOf } from '../../../../lib/github/merge-state.js';
+import { RepositoryMaterializerService } from '../../../../services/git/materializer/repository-materializer.service.js';
 import { decodeNodeIdAs } from '../../../../lib/github/node-id.js';
 import { requiredContexts } from '../../../../lib/rulesets/evaluate-rulesets.js';
 import type { StatusContextNode } from '../../types/placeholders.type.js';
@@ -65,6 +67,7 @@ export class PullRequestNodesService {
     private readonly pulls: PullRequestsService,
     private readonly requested: ReviewRequestsService,
     private readonly config: ConfigService,
+    private readonly materializer: RepositoryMaterializerService,
   ) {}
 
   /** getPullRequest once per node: additions, mergeable and the live head all come from the same git reads. */
@@ -186,10 +189,24 @@ export class PullRequestNodesService {
         ),
       );
     if (!row) return false;
+    const rulesets = await loaders.activeRulesetsByRepositoryId.load(
+      row.baseRepositoryId,
+    );
+    if (rulesets.length === 0) return false;
+    // The row names a default branch only when one was chosen; otherwise HEAD does, as for merges.
+    const defaultBranch = (
+      await resolveDefaultRef({
+        gitDir: await this.materializer.open({
+          id: row.baseRepositoryId,
+          defaultBranch: row.defaultBranch,
+        }),
+        defaultBranch: row.defaultBranch,
+      })
+    ).replace(/^refs\/heads\//, '');
     return requiredContexts(
-      await loaders.activeRulesetsByRepositoryId.load(row.baseRepositoryId),
+      rulesets,
       `refs/heads/${row.baseRef}`,
-      row.defaultBranch ?? '',
+      defaultBranch,
     ).includes(status.context);
   }
 
