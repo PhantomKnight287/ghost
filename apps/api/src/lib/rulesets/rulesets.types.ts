@@ -2,6 +2,7 @@ import { schema } from '@ghost/db';
 import { Role } from '@ghost/permissions';
 import { z } from 'zod';
 
+import type { CommitStatusState } from '../commit-statuses/commit-statuses.js';
 import type { RefTransition } from '../git/wal/wal.types.js';
 
 export type RuleType = (typeof schema.rulesetRuleType.enumValues)[number];
@@ -45,6 +46,12 @@ export type RulesetActor = {
 export type RefFacts = {
   isFastForward: boolean;
   introducesMergeCommit: boolean;
+  /** The latest state of each context on the judged commit, posted to the base repository. */
+  statuses?: { context: string; state: CommitStatusState }[];
+  /** Merges only: whether the head contains the base tip. */
+  upToDate?: boolean;
+  /** The commits the write adds that do not verify. */
+  unverifiedCommits?: { sha: string; reason: string }[];
 };
 
 /** The facts of a create that points a ref at history the repository already holds, as API writes do: nothing it reaches is new. */
@@ -128,6 +135,36 @@ export type PullRequestRuleParameters = z.infer<
   typeof PullRequestRuleParametersZodSchema
 >;
 
+/** GitHub's REST schema for the `required_status_checks` rule's parameters. `integration_id` waits for Ghost Apps (#50), so a check names its context only. */
+export const StatusCheckRuleParametersZodSchema = z.strictObject({
+  required_status_checks: z.array(
+    z.strictObject({
+      context: z
+        .string({ error: 'context must be a string' })
+        .min(1, { error: 'context must not be empty' }),
+      integration_id: z
+        .never({
+          error:
+            'integration_id needs Ghost Apps, which this server does not have yet',
+        })
+        .optional(),
+    }),
+    { error: 'required_status_checks must be an array' },
+  ),
+  strict_required_status_checks_policy: z
+    .boolean({
+      error: 'strict_required_status_checks_policy must be a boolean',
+    })
+    .default(false),
+  do_not_enforce_on_create: z
+    .boolean({ error: 'do_not_enforce_on_create must be a boolean' })
+    .default(false),
+});
+
+export type StatusCheckRuleParameters = z.infer<
+  typeof StatusCheckRuleParametersZodSchema
+>;
+
 export const REQUIREMENTS = [
   'pull_request',
   'approvals',
@@ -136,6 +173,9 @@ export const REQUIREMENTS = [
   'last_push',
   'threads',
   'merge_method',
+  'status_checks',
+  'up_to_date',
+  'signatures',
 ] as const;
 export type Requirement = (typeof REQUIREMENTS)[number];
 
