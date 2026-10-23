@@ -15,6 +15,7 @@ import {
   refTargeted,
 } from '../../lib/rulesets/ref-pattern.js';
 import { parsePullRequestParameters } from '../../lib/rulesets/pull-request-parameters.js';
+import { parseStatusCheckParameters } from '../../lib/rulesets/status-check-parameters.js';
 import { rulesetColumns } from '../../lib/rulesets/ruleset-columns.js';
 import {
   InvalidBypassActorError,
@@ -298,7 +299,9 @@ export class RulesetsService {
           parameters:
             type === 'pull_request'
               ? this.pullRequestParameters(parameters)
-              : {},
+              : type === 'required_status_checks'
+                ? this.statusCheckParameters(parameters)
+                : {},
         })),
       );
     if (body.bypassActors.length > 0)
@@ -320,6 +323,16 @@ export class RulesetsService {
     const parsed = parsePullRequestParameters(input);
     if (!parsed.ok)
       throw new InvalidRuleParametersError('pull_request', parsed.message);
+    return parsed.value;
+  }
+
+  private statusCheckParameters(input: unknown) {
+    const parsed = parseStatusCheckParameters(input);
+    if (!parsed.ok)
+      throw new InvalidRuleParametersError(
+        'required_status_checks',
+        parsed.message,
+      );
     return parsed.value;
   }
 

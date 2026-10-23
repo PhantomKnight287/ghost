@@ -13,9 +13,12 @@ import { ReleaseAssetsController } from './release-assets.controller.js';
 import { ReleaseAssetsService } from './release-assets.service.js';
 import { ReleasesController } from './releases.controller.js';
 import { ReleasesService } from './releases.service.js';
+import { CommitStatusesModule } from '../../resources/commit-statuses/commit-statuses.module.js';
+import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 
 @Module({
-  imports: [MaterializerModule, StorageModule],
+  imports: [CommitStatusesModule, MaterializerModule, StorageModule],
   controllers: [ReleasesController, ReleaseAssetsController],
   providers: [
     ReleasesService,
@@ -25,6 +28,8 @@ import { ReleasesService } from './releases.service.js';
     PushTransactionService,
     RuleSuitesService,
     RulesetVerdictsService,
+    CommitSigningService,
+    CommitVerificationService,
     WalStoreService,
     UsersService,
   ],

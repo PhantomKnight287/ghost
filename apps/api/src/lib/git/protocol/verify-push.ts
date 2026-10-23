@@ -34,6 +34,8 @@ export async function withVerifiedPack<T>(
     body: GitRequestBody;
     packOffset: number;
     facts: Map<string, RefFacts>;
+    /** Points git at the pushed objects while they are still in quarantine; undefined when the push carried none. */
+    env: Record<string, string> | undefined;
   }) => Promise<T>,
 ): Promise<T> {
   const judged = transitions.filter(({ ref }) => factsFor.has(ref));
@@ -45,6 +47,7 @@ export async function withVerifiedPack<T>(
       body,
       packOffset,
       facts: await refFacts({ gitDir, transitions: judged }),
+      env: undefined,
     });
   }
 
@@ -63,14 +66,12 @@ export async function withVerifiedPack<T>(
       (file) => file.endsWith('.pack'),
     );
     const indexed = path.join(quarantine, 'pack', name);
+    const env = lend(gitDir, quarantine);
     return await commit({
       body: fileBody(indexed, (await stat(indexed)).size),
       packOffset: 0,
-      facts: await refFacts({
-        gitDir,
-        env: lend(gitDir, quarantine),
-        transitions: judged,
-      }),
+      facts: await refFacts({ gitDir, env, transitions: judged }),
+      env,
     });
   });
 }

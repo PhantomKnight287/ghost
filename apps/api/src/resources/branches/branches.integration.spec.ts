@@ -24,6 +24,11 @@ import { RepositoryMaterializerService } from '../../services/git/materializer/r
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
+import { CommitStatusesService } from '../../resources/commit-statuses/commit-statuses.service.js';
+import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
+import { UsersService } from '../../services/users/users.service.js';
+import { ConfigService } from '@nestjs/config';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
@@ -126,7 +131,19 @@ describe.skipIf(!CONNECTION)('branches', () => {
       new RepositoryAccessService(db),
       materializer,
       pushes,
-      new RulesetVerdictsService(db),
+      new RulesetVerdictsService(
+        db,
+        new CommitStatusesService(
+          db,
+          new RepositoryAccessService(db),
+          materializer,
+        ),
+        new CommitVerificationService(
+          db,
+          new UsersService(db),
+          new CommitSigningService(new ConfigService()),
+        ),
+      ),
       new RuleSuitesService(db, new RepositoryAccessService(db)),
     );
 
