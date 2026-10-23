@@ -141,7 +141,7 @@ function patchArgs(from: string, to: string, path?: string) {
   ];
 }
 
-/** `git patch-id --stable` of `from..to`: equal for two ranges that make the same change, whatever their commits. Empty for an empty diff. */
+/** `git patch-id --verbatim` of `from..to`: equal for two ranges that make the same change, whatever their commits. Whitespace counts, so re-indenting is a change. Empty for an empty diff. */
 export async function diffIdentity({
   gitDir,
   alternates,
@@ -150,7 +150,7 @@ export async function diffIdentity({
 }: DiffRange) {
   return (
     await runGit({
-      args: ['patch-id', '--stable'],
+      args: ['patch-id', '--verbatim'],
       gitDir,
       input: runGitReadable({
         args: patchArgs(from, to),

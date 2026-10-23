@@ -12,6 +12,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
 import type { Auth } from '../src/lib/auth.js';
+import { ZERO_OID } from '../src/lib/git/wal/wal.types.js';
+import { PullRequestPushesService } from '../src/services/pull-requests/pull-request-pushes.service.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 type Account = Awaited<ReturnType<typeof signUp>> & { username: string };
@@ -472,6 +474,25 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
       expect(await unmet(number)).toEqual([]);
     });
 
+    it('re-indenting a line makes approval stale: whitespace is part of the change', async () => {
+      const { base, head, number } = await pullRequest({
+        'work/indent.py': 'if ready:\n    start()\nfinish()\n',
+      });
+      await requireOn(base, {
+        required_approving_review_count: 1,
+        dismiss_stale_reviews_on_push: true,
+      });
+      await approve(reviewer, number);
+      expect(await unmet(number)).toEqual([]);
+
+      const after = commitOn(head, base, {
+        'work/indent.py': 'if ready:\n    start()\n    finish()\n',
+      });
+      await pushAs(author, `+${head}:refs/heads/${head}`);
+      expect(await unmet(number)).toEqual(['approvals']);
+      await synchronized(after);
+    });
+
     // GitHub dismisses an approval only once the pull request's own changes differ; the base moving on leaves them as they were.
     it('base move alone keeps approval: the diff the reviewer approved is unchanged', async () => {
       const { base, number } = await pullRequest({ 'work/mine.txt': 'mine\n' });
@@ -606,6 +627,31 @@ describe.skipIf(!hasBackends)('pull request rules', { timeout: 30_000 }, () => {
         .set('cookie', owner.cookie)
         .expect(201);
       expect((await rowOf(number)).headPushedById).toBe(owner.userId);
+    });
+
+    it('a push recorded after a newer one does not take over headPushedById', async () => {
+      const { head, number } = await pullRequest();
+      const before = git('rev-parse', head);
+      commitOn(head, head);
+      await pushAs(second, `${head}:refs/heads/${head}`);
+      await vi.waitFor(
+        async () => expect((await rowOf(number)).headPushedById).toBe(second.userId),
+        { timeout: 15_000, interval: 100 },
+      );
+
+      // The author's push of the old tip, recorded late, as overlapping pushes can be.
+      await app.get(PullRequestPushesService).recordPush({
+        repositoryId,
+        transitions: [
+          {
+            ref: `refs/heads/${head}`,
+            oldOid: ZERO_OID,
+            newOid: Buffer.from(before, 'hex'),
+          },
+        ],
+        pushedBy: author.userId,
+      });
+      expect((await rowOf(number)).headPushedById).toBe(second.userId);
     });
 
     it('last push approval: someone other than the last pusher must approve the current head', async () => {
