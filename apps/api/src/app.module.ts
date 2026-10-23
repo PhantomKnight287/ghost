@@ -41,6 +41,7 @@ import { S3Module } from './s3/s3.module.js';
 import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
 import { AppStatsService } from './services/stats/app-stats.service.js';
 import { RepositoryTemplatesModule } from './resources/repository-templates/repository-templates.module.js';
+import { SshSigningKeysModule } from './resources/ssh-signing-keys/ssh-signing-keys.module.js';
 
 /** Body parsing for `type`, except on GitHub's asset uploads, which stream raw bytes of any type to object storage. */
 const parses = (type: string) => (req: IncomingMessage) => {
@@ -141,6 +142,7 @@ const parses = (type: string) => (req: IncomingMessage) => {
     GithubModule,
     OauthAppsModule,
     RepositoryTemplatesModule,
+    SshSigningKeysModule,
   ],
   controllers: [AppController],
   providers: [AppStatsService],

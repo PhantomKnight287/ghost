@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
@@ -12,6 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { DATABASE } from '../../database/database.module.js';
 import { insertSignature } from '../../lib/git/commits/commit-signature.js';
+import { readPublicKey } from '../../lib/git/ssh/public-key.js';
 import { GITHUB_MERGE_COMMIT_OBJECT } from '../../lib/gpg/__fixtures__/github-commits.js';
 import { signPayload } from '../../lib/gpg/openpgp.js';
 import { UsersService } from '../users/users.service.js';
@@ -265,5 +266,148 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
 
     expect(verdict?.verified).toBe(false);
     expect(verdict?.reason).toBe('Signature does not match the commit');
+  });
+  describe('SSH signatures', () => {
+    let sshKeyPath: string;
+    let sshPublicKey: string;
+    const OTHER_USER = 'user_ssh_other_spec';
+
+    /** Signs like `git commit -S` with `gpg.format=ssh`: ssh-keygen over the unsigned object, namespace git. */
+    function sshSignCommit(
+      message: string,
+      authorEmail = SIGNER_EMAIL,
+      namespace = 'git',
+    ) {
+      const payload = [
+        'tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904',
+        `author Spec <${authorEmail}> 1700000000 +0000`,
+        `committer Spec <${authorEmail}> 1700000000 +0000`,
+        '',
+        `${message}\n`,
+      ].join('\n');
+      const file = path.join(root, `payload-${message.replaceAll(' ', '-')}`);
+      writeFileSync(file, payload);
+      execFileSync(
+        'ssh-keygen',
+        ['-Y', 'sign', '-n', namespace, '-f', sshKeyPath, file],
+        {
+          stdio: 'ignore',
+        },
+      );
+      return writeCommit(
+        insertSignature(payload, readFileSync(`${file}.sig`, 'utf8')),
+      );
+    }
+
+    async function addSigningKey(userId = USER_ID) {
+      const key = readPublicKey(sshPublicKey);
+      await db.insert(schema.userSshSigningKey).values({
+        id: `sshsig_${userId}`,
+        userId,
+        title: 'laptop',
+        fingerprint: key.fingerprint,
+        publicKey: key.blob,
+      });
+    }
+
+    beforeAll(() => {
+      sshKeyPath = path.join(root, 'id_ed25519');
+      execFileSync('ssh-keygen', [
+        '-q',
+        '-t',
+        'ed25519',
+        '-N',
+        '',
+        '-f',
+        sshKeyPath,
+      ]);
+      sshPublicKey = readFileSync(`${sshKeyPath}.pub`, 'utf8');
+    });
+
+    beforeEach(async () => {
+      await db.delete(schema.user).where(eq(schema.user.id, OTHER_USER));
+    });
+
+    afterAll(async () => {
+      await db.delete(schema.user).where(eq(schema.user.id, OTHER_USER));
+    });
+
+    async function verdictFor(commit: string, authorEmail = SIGNER_EMAIL) {
+      return (
+        await service.verifyCommits({
+          gitDir,
+          commits: [{ sha: commit, authorEmail }],
+        })
+      ).get(commit);
+    }
+
+    it("verifies a commit signed with the author's signing key", async () => {
+      await addSigningKey();
+      const verdict = await verdictFor(sshSignCommit('ssh signed'));
+      expect(verdict).toEqual({
+        verified: true,
+        reason: 'Signed and verified',
+        keyId: `SHA256:${readPublicKey(sshPublicKey).fingerprint}`,
+      });
+    });
+
+    it('refuses a key no account has uploaded as a signing key', async () => {
+      const verdict = await verdictFor(sshSignCommit('ssh unknown'));
+      expect(verdict?.verified).toBe(false);
+      expect(verdict?.reason).toContain('no Ghost account');
+    });
+
+    it('does not accept an authentication key as a signing key', async () => {
+      const key = readPublicKey(sshPublicKey);
+      await db.insert(schema.userSshKey).values({
+        id: 'ssh_auth_spec',
+        userId: USER_ID,
+        title: 'auth only',
+        fingerprint: key.fingerprint,
+        publicKey: key.blob,
+      });
+      const verdict = await verdictFor(sshSignCommit('ssh auth key'));
+      expect(verdict?.verified).toBe(false);
+      expect(verdict?.reason).toContain('no Ghost account');
+    });
+
+    it('refuses a key that belongs to someone other than the author', async () => {
+      await db.insert(schema.user).values({
+        id: OTHER_USER,
+        name: 'Other',
+        email: 'other-ssh@ghost.local',
+        emailVerified: true,
+      });
+      await addSigningKey(OTHER_USER);
+      const verdict = await verdictFor(sshSignCommit('ssh other owner'));
+      expect(verdict?.verified).toBe(false);
+      expect(verdict?.reason).toContain(SIGNER_EMAIL);
+    });
+
+    it('refuses an author address the key owner has not verified', async () => {
+      const unverified = 'secondary-ssh@ghost.local';
+      await db.insert(schema.userEmail).values({
+        id: 'email_ssh_spec',
+        userId: USER_ID,
+        email: unverified,
+        verified: false,
+      });
+      await addSigningKey();
+      const verdict = await verdictFor(
+        sshSignCommit('ssh unverified email', unverified),
+        unverified,
+      );
+      expect(verdict?.verified).toBe(false);
+      expect(verdict?.reason).toContain(unverified);
+    });
+
+    it('refuses a signature made for another namespace', async () => {
+      await addSigningKey();
+      const verdict = await verdictFor(
+        sshSignCommit('ssh file namespace', SIGNER_EMAIL, 'file'),
+      );
+      expect(verdict?.verified).toBe(false);
+      expect(verdict?.reason).toBe('Signature does not match the commit');
+    });
   });
 });

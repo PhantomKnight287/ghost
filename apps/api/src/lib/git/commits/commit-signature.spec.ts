@@ -87,10 +87,20 @@ describe('splitSignature', () => {
     ).toBeNull();
   });
 
-  it('ignores an SSH signature, which this does not verify', () => {
+  it('splits an SSH signature, marking its format', () => {
     const commit = SIGNED_COMMIT_OBJECT.replace(
       '-----BEGIN PGP SIGNATURE-----',
       '-----BEGIN SSH SIGNATURE-----',
+    );
+
+    expect(splitSignature(commit)?.format).toBe('ssh');
+    expect(splitSignature(SIGNED_COMMIT_OBJECT)?.format).toBe('openpgp');
+  });
+
+  it('ignores an X.509 signature, which this does not verify', () => {
+    const commit = SIGNED_COMMIT_OBJECT.replace(
+      '-----BEGIN PGP SIGNATURE-----',
+      '-----BEGIN SIGNED MESSAGE-----',
     );
 
     expect(splitSignature(commit)).toBeNull();

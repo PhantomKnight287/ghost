@@ -957,6 +957,28 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
     await ok(['ssh-key', 'add', keyFile, '--title', 'gh-e2e']);
     expect(await ok(['ssh-key', 'list'])).toContain('gh-e2e');
   });
+
+  it('adds and lists SSH signing keys', async () => {
+    await promisify(execFile)('ssh-keygen', [
+      '-q',
+      '-t',
+      'ed25519',
+      '-N',
+      '',
+      '-f',
+      path.join(configDir, 'signing'),
+    ]);
+    await ok([
+      'ssh-key',
+      'add',
+      path.join(configDir, 'signing.pub'),
+      '--title',
+      'gh-e2e-signing',
+      '--type',
+      'signing',
+    ]);
+    expect(await ok(['ssh-key', 'list'])).toMatch(/gh-e2e-signing.*signing/);
+  });
   it('logs in through the device flow', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'gh-e2e-web-'));
     const login = startGh(

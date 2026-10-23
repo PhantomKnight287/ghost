@@ -11982,6 +11982,198 @@
         ]
       }
     },
+    "/api/v3/user/ssh_signing_keys": {
+      "get": {
+        "operationId": "UsersController_signingKeys",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "The authenticated user's SSH signing keys, in GitHub REST shape",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_addSigningKey",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubAddKeyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add an SSH signing key to the authenticated user",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/user/ssh_signing_keys/{id}": {
+      "get": {
+        "operationId": "UsersController_signingKey",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "One SSH signing key of the authenticated user",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_removeSigningKey",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Remove an SSH signing key from the authenticated user",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/ssh-signing-keys": {
+      "get": {
+        "operationId": "SshSigningKeysController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSshSigningKeysResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the SSH signing keys on the signed-in account",
+        "tags": [
+          "SSH signing keys"
+        ]
+      },
+      "post": {
+        "description": "Commits signed with it verify when their author address is one this account has verified. It does not grant git access over SSH.",
+        "operationId": "SshSigningKeysController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSshKeyDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SshSigningKeyDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Add an SSH signing key to the signed-in account",
+        "tags": [
+          "SSH signing keys"
+        ]
+      }
+    },
+    "/api/ssh-signing-keys/{id}": {
+      "delete": {
+        "description": "Commits it signed no longer verify.",
+        "operationId": "SshSigningKeysController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove a signing key",
+        "tags": [
+          "SSH signing keys"
+        ]
+      }
+    },
     "/api/v3/repos/{owner}/{repo}": {
       "get": {
         "operationId": "ReposController_get",
@@ -20203,7 +20395,9 @@
           "deletion",
           "non_fast_forward",
           "required_linear_history",
-          "pull_request"
+          "pull_request",
+          "required_status_checks",
+          "required_signatures"
         ]
       },
       "RuleRequirement": {
@@ -20215,7 +20409,10 @@
           "code_owners",
           "last_push",
           "threads",
-          "merge_method"
+          "merge_method",
+          "status_checks",
+          "up_to_date",
+          "signatures"
         ],
         "description": "Which part of a `pull_request` rule is unmet."
       },
@@ -21899,7 +22096,9 @@
                 "deletion",
                 "non_fast_forward",
                 "required_linear_history",
-                "pull_request"
+                "pull_request",
+                "required_status_checks",
+                "required_signatures"
               ]
             }
           },
@@ -21929,7 +22128,9 @@
               "deletion",
               "non_fast_forward",
               "required_linear_history",
-              "pull_request"
+              "pull_request",
+              "required_status_checks",
+              "required_signatures"
             ]
           },
           "parameters": {
@@ -22266,7 +22467,9 @@
               "deletion",
               "non_fast_forward",
               "required_linear_history",
-              "pull_request"
+              "pull_request",
+              "required_status_checks",
+              "required_signatures"
             ]
           },
           "result": {
@@ -22288,7 +22491,10 @@
                 "code_owners",
                 "last_push",
                 "threads",
-                "merge_method"
+                "merge_method",
+                "status_checks",
+                "up_to_date",
+                "signatures"
               ]
             }
           },
@@ -23443,6 +23649,57 @@
           "key"
         ]
       },
+      "SshSigningKeyDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "description": "What the key is called on this account."
+          },
+          "type": {
+            "type": "string",
+            "description": "Key algorithm, e.g. `ssh-ed25519`."
+          },
+          "publicKey": {
+            "type": "string",
+            "description": "The key as `<type> <base64>`, without its comment.",
+            "example": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "SHA256 fingerprint, base64, as `ssh-keygen -lf` prints it."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the key was added, ISO 8601."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "type",
+          "publicKey",
+          "fingerprint",
+          "createdAt"
+        ]
+      },
+      "ListSshSigningKeysResponseDTO": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SshSigningKeyDTO"
+            }
+          }
+        },
+        "required": [
+          "keys"
+        ]
+      },
       "GithubCreateRepositoryDTO": {
         "type": "object",
         "properties": {
@@ -24086,7 +24343,9 @@
               "deletion",
               "non_fast_forward",
               "required_linear_history",
-              "pull_request"
+              "pull_request",
+              "required_status_checks",
+              "required_signatures"
             ]
           },
           "parameters": {

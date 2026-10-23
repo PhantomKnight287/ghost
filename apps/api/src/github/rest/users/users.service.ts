@@ -12,12 +12,14 @@ import { githubOrigins } from '../../../lib/github/origins.js';
 import { toUserRest } from '../../../lib/github/rest.js';
 import type { SshKeyDTO } from '../../../resources/ssh-keys/dto/ssh-key.dto.js';
 import { SshKeysService } from '../../../resources/ssh-keys/ssh-keys.service.js';
+import type { SshSigningKeyDTO } from '../../../resources/ssh-signing-keys/dto/ssh-signing-key.dto.js';
+import { SshSigningKeysService } from '../../../resources/ssh-signing-keys/ssh-signing-keys.service.js';
 import { UsersService } from '../../../services/users/users.service.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { requireScope } from '../../auth/require-scopes.js';
 import type { GithubAddKeyDTO } from './dto/add-key.dto.js';
 
-/** GitHub's REST users and the authenticated user's SSH keys. */
+/** GitHub's REST users and the authenticated user's SSH authentication and signing keys. */
 @Injectable()
 export class GithubUsersService {
   constructor(
@@ -25,6 +27,7 @@ export class GithubUsersService {
     private readonly users: UsersService,
     private readonly config: ConfigService,
     private readonly sshKeys: SshKeysService,
+    private readonly sshSigningKeys: SshSigningKeysService,
   ) {}
 
   async me(viewer: GithubViewer | null) {
@@ -82,6 +85,56 @@ export class GithubUsersService {
         viewer.oauthClientId,
       ),
     );
+  }
+
+  async signingKeys(viewer: GithubViewer | null) {
+    if (!viewer) throw new RequiresAuthenticationError();
+    requireScope(viewer, 'GET /user/ssh_signing_keys', 'read:ssh_signing_key');
+    const { keys } = await this.sshSigningKeys.list(viewer.userId);
+    return keys.map((key) => this.restSigningKey(key));
+  }
+
+  async signingKey(viewer: GithubViewer | null, id: number) {
+    if (!viewer) throw new RequiresAuthenticationError();
+    requireScope(
+      viewer,
+      'GET /user/ssh_signing_keys/{id}',
+      'read:ssh_signing_key',
+    );
+    return this.restSigningKey(
+      await this.sshSigningKeys.findByNumericId(viewer.userId, id),
+    );
+  }
+
+  async addSigningKey(viewer: GithubViewer | null, body: GithubAddKeyDTO) {
+    if (!viewer) throw new RequiresAuthenticationError();
+    requireScope(
+      viewer,
+      'POST /user/ssh_signing_keys',
+      'write:ssh_signing_key',
+    );
+    return this.restSigningKey(
+      await this.sshSigningKeys.add(viewer.userId, body.key, body.title),
+    );
+  }
+
+  async removeSigningKey(viewer: GithubViewer | null, id: number) {
+    if (!viewer) throw new RequiresAuthenticationError();
+    requireScope(
+      viewer,
+      'DELETE /user/ssh_signing_keys/{id}',
+      'admin:ssh_signing_key',
+    );
+    await this.sshSigningKeys.remove(viewer.userId, { numericId: id });
+  }
+
+  private restSigningKey(key: SshSigningKeyDTO & { numericId: number }) {
+    return {
+      id: key.numericId,
+      key: key.publicKey,
+      title: key.title,
+      created_at: key.createdAt,
+    };
   }
 
   private restKey(key: SshKeyDTO) {

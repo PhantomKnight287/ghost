@@ -42,6 +42,7 @@ import {
   ReleaseAssetExistsError,
   TagTargetNotFoundError,
 } from '../../lib/releases/releases.errors.js';
+import { SshKeyAlreadyExistsError } from '../../lib/ssh-keys/ssh-keys.errors.js';
 
 /** Ghost errors GitHub answers as a 422 naming the field at fault. */
 const FIELD_ERRORS: [
@@ -79,6 +80,10 @@ const FIELD_ERRORS: [
   [
     TooManyStatusesError,
     { resource: 'Status', field: 'context', code: 'invalid' },
+  ],
+  [
+    SshKeyAlreadyExistsError,
+    { resource: 'PublicKey', field: 'key', code: 'already_exists' },
   ],
 ];
 

@@ -11,6 +11,9 @@ export const KNOWN_SCOPES = [
   'admin:public_key',
   'write:public_key',
   'read:public_key',
+  'admin:ssh_signing_key',
+  'write:ssh_signing_key',
+  'read:ssh_signing_key',
   'delete_repo',
   'gist',
 ] as const;
@@ -27,6 +30,8 @@ const IMPLIES: Partial<Record<Scope, readonly Scope[]>> = {
   'write:org': ['read:org'],
   'admin:public_key': ['write:public_key', 'read:public_key'],
   'write:public_key': ['read:public_key'],
+  'admin:ssh_signing_key': ['write:ssh_signing_key', 'read:ssh_signing_key'],
+  'write:ssh_signing_key': ['read:ssh_signing_key'],
   user: ['read:user', 'user:email'],
 };
 

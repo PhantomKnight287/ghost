@@ -28,10 +28,7 @@ const routes = Object.entries(openapi.paths).flatMap(([route, methods]) =>
 );
 
 /** Routes gh calls that Ghost does not serve, and why gh copes without them. */
-const UNSERVED: Record<string, string> = {
-  'GET /api/v3/user/ssh_signing_keys':
-    'Ghost has SSH authentication keys (/user/keys) but no SSH signing keys, since it verifies commit signatures with GPG only; gh ssh-key list lists the authentication keys alone when this answers 404. #121 adds them.',
-};
+const UNSERVED: Record<string, string> = {};
 
 const captures = existsSync(fixtures)
   ? readdirSync(fixtures)
