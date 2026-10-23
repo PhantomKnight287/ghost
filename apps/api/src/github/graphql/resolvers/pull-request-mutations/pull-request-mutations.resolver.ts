@@ -84,6 +84,34 @@ export class PullRequestMutationsResolver {
     return this.mutations.requestReviews(input, viewer, context.loaders);
   }
 
+  @Mutation(() => M.ResolveReviewThreadPayload, { nullable: true })
+  resolveReviewThread(
+    @Args('input') input: M.ResolveReviewThreadInput,
+    @Viewer() viewer: GithubViewer | null,
+    @Context() context: GraphqlContext,
+  ) {
+    return this.mutations.resolveReviewThread(
+      input,
+      viewer,
+      context.loaders,
+      true,
+    );
+  }
+
+  @Mutation(() => M.UnresolveReviewThreadPayload, { nullable: true })
+  unresolveReviewThread(
+    @Args('input') input: M.UnresolveReviewThreadInput,
+    @Viewer() viewer: GithubViewer | null,
+    @Context() context: GraphqlContext,
+  ) {
+    return this.mutations.resolveReviewThread(
+      input,
+      viewer,
+      context.loaders,
+      false,
+    );
+  }
+
   @Mutation(() => M.MergePullRequestPayload, { nullable: true })
   mergePullRequest(
     @Args('input') input: M.MergePullRequestInput,

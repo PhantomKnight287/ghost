@@ -15,6 +15,7 @@ import {
 import { errorMessage } from '../../lib/error-message.js';
 import { OUTBOX_CHANNEL, type StoredEvent } from '../../lib/events/events.js';
 import { CodeownerRequestsService } from '../codeowners/codeowner-requests.service.js';
+import { StaleApprovalsService } from '../rulesets/stale-approvals.service.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { WebhookFanoutService } from '../webhooks/webhook-fanout.service.js';
 
@@ -48,6 +49,7 @@ export class OutboxService
     private readonly notifier: NotifierService,
     private readonly webhooks: WebhookFanoutService,
     private readonly codeownerRequests: CodeownerRequestsService,
+    private readonly staleApprovals: StaleApprovalsService,
     @Inject(DATABASE_CONNECTION)
     private readonly connection: { pool: Pool },
   ) {}
@@ -163,6 +165,7 @@ export class OutboxService
           await this.notifier.handle(stored);
           await this.webhooks.handle(stored);
           await this.codeownerRequests.handle(stored);
+          await this.staleApprovals.handle(stored);
           await tx
             .update(schema.outboxEvent)
             .set({ attempts, processedAt: new Date() })

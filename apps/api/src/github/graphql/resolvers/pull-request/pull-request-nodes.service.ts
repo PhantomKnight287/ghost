@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../../database/database.module.js';
 import { orNull } from '../../../../lib/github/authorize.js';
@@ -15,12 +15,15 @@ import {
   toUserNode,
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
+import { canResolveThreads } from '../../../../lib/pull-requests/reviews.js';
 import { teamSlug } from '../../../../lib/organizations/team-slug.js';
+import { MERGE_METHODS } from '../../../../resources/pull-requests/dto/pull-request-changes.dto.js';
 import { PullRequestsService } from '../../../../resources/pull-requests/pull-requests.service.js';
 import { ReviewRequestsService } from '../../../../resources/pull-requests/review-requests.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { sliceConnection } from '../../connection.js';
 import {
+  DiffSide,
   MergeableState,
   MergeStateStatus,
   PatchStatus,
@@ -34,7 +37,9 @@ import { TeamNode } from '../../types/placeholders.type.js';
 import {
   GitActorNode,
   PullRequestNode,
+  PullRequestReviewCommentNode,
   PullRequestReviewNode,
+  PullRequestReviewThreadNode,
 } from '../../types/pull-request.type.js';
 import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
 
@@ -62,6 +67,30 @@ export class PullRequestNodesService {
   private detail(pull: PullRequestNode, viewer: GithubViewer | null) {
     pull.detail ??= this.pulls.getPullRequest(this.ref(pull, viewer));
     return pull.detail;
+  }
+
+  /** The merge requirements once per node, for the viewer; a repository without rulesets costs the loader's one query. */
+  private requirements(
+    pull: PullRequestNode,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+  ) {
+    pull.requirements ??= loaders.activeRulesetsByRepositoryId
+      .load(pull.baseRepositoryGhostId)
+      .then((rulesets) =>
+        rulesets.length === 0
+          ? {
+              violations: [],
+              bypassed: [],
+              allowedMethods: [...MERGE_METHODS],
+              reviewsRequired: false,
+            }
+          : this.pulls.mergeRequirements({
+              ...this.ref(pull, viewer),
+              rulesets,
+            }),
+      );
+    return pull.requirements;
   }
 
   headRef(pull: PullRequestNode) {
@@ -123,19 +152,48 @@ export class PullRequestNodesService {
       : MergeableState.UNKNOWN;
   }
 
-  async mergeStateStatus(pull: PullRequestNode, viewer: GithubViewer | null) {
+  /** BLOCKED for a bypass actor too, as GitHub answers, which is why gh tells them to pass `--admin`. */
+  async mergeStateStatus(
+    pull: PullRequestNode,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+  ) {
     if (pull.state === PullRequestState.OPEN && pull.isDraft)
       return MergeStateStatus.DRAFT;
     const mergeable = await this.mergeable(pull, viewer);
-    return mergeable === MergeableState.MERGEABLE
-      ? MergeStateStatus.CLEAN
-      : mergeable === MergeableState.CONFLICTING
-        ? MergeStateStatus.DIRTY
-        : MergeStateStatus.UNKNOWN;
+    if (mergeable === MergeableState.CONFLICTING) return MergeStateStatus.DIRTY;
+    if (mergeable !== MergeableState.MERGEABLE) return MergeStateStatus.UNKNOWN;
+    const { violations, bypassed } = await this.requirements(
+      pull,
+      viewer,
+      loaders,
+    );
+    return violations.length + bypassed.length > 0
+      ? MergeStateStatus.BLOCKED
+      : MergeStateStatus.CLEAN;
   }
 
-  /** Ghost never requires a review, so there is no REVIEW_REQUIRED: a request with no standing verdict has no decision. */
-  async reviewDecision(pull: PullRequestNode, loaders: Loaders) {
+  /** As GitHub answers: null unless a rule on the base asks for reviews, though a standing change request a rule blocks on shows either way. A closed or merged request, whose rules are no longer judged, falls back to each reviewer's standing verdict. */
+  async reviewDecision(
+    pull: PullRequestNode,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+  ) {
+    if (pull.state === PullRequestState.OPEN) {
+      const { violations, bypassed, reviewsRequired } = await this.requirements(
+        pull,
+        viewer,
+        loaders,
+      );
+      const unmet = new Set(
+        [...violations, ...bypassed].map(({ requirement }) => requirement),
+      );
+      if (unmet.has('changes_requested'))
+        return PullRequestReviewDecision.CHANGES_REQUESTED;
+      if (unmet.has('approvals') || unmet.has('code_owners'))
+        return PullRequestReviewDecision.REVIEW_REQUIRED;
+      return reviewsRequired ? PullRequestReviewDecision.APPROVED : null;
+    }
     const verdicts = (await this.latestReviews(pull, loaders)).nodes
       .map((review) => review.state)
       .filter(
@@ -190,6 +248,97 @@ export class PullRequestNodesService {
         .map((row) => toPullRequestReviewNode(row, pull)),
       { first, last, after },
     );
+  }
+
+  /** Submitted threads, oldest first, each with its comments; `commentId` picks the one that comment starts. */
+  async reviewThreads(
+    pull: PullRequestNode,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+    commentId?: string,
+  ) {
+    const comment = schema.pullRequestReviewComment;
+    const [rows, headSha, repository, viewerRow] = await Promise.all([
+      this.db
+        .select({
+          id: comment.id,
+          inReplyToId: comment.inReplyToId,
+          authorLogin: sql<string>`coalesce(${schema.user.username}, '')`,
+          body: comment.body,
+          createdAt: comment.createdAt,
+          path: comment.path,
+          side: comment.side,
+          line: comment.line,
+          startLine: comment.startLine,
+          commitSha: comment.commitSha,
+          resolvedById: comment.resolvedById,
+          resolvedAt: comment.resolvedAt,
+        })
+        .from(comment)
+        .innerJoin(
+          schema.pullRequestReview,
+          eq(schema.pullRequestReview.id, comment.reviewId),
+        )
+        .innerJoin(schema.user, eq(schema.user.id, comment.authorId))
+        .where(
+          and(
+            eq(comment.pullRequestId, pull.pullRequestGhostId),
+            isNotNull(schema.pullRequestReview.submittedAt),
+            commentId
+              ? or(
+                  eq(comment.id, commentId),
+                  eq(comment.inReplyToId, commentId),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(asc(comment.createdAt), asc(comment.id)),
+      this.headRefOid(pull),
+      this.repositories.load(pull.repositoryGhostId, viewer),
+      viewer ? loaders.usersById.load(viewer.userId) : null,
+    ]);
+    const canResolve = canResolveThreads(
+      repository.viewerRole,
+      viewerRow?.username === pull.authorLogin,
+    );
+    return rows
+      .filter((thread) => thread.inReplyToId === null)
+      .map((thread) =>
+        Object.assign(new PullRequestReviewThreadNode(), {
+          id: encodeNodeId(
+            'PullRequestReviewThread',
+            `${pull.ghostId}:${thread.id}`,
+          ),
+          resolvedById: thread.resolvedById,
+          isResolved: thread.resolvedAt !== null,
+          isCollapsed: thread.resolvedAt !== null,
+          isOutdated: thread.commitSha !== headSha,
+          path: thread.path,
+          line: thread.line,
+          startLine: thread.startLine,
+          diffSide:
+            thread.side === 'additions' ? DiffSide.RIGHT : DiffSide.LEFT,
+          viewerCanResolve: canResolve && thread.resolvedAt === null,
+          viewerCanUnresolve: canResolve && thread.resolvedAt !== null,
+          threadComments: rows
+            .filter((row) => (row.inReplyToId ?? row.id) === thread.id)
+            .map((row) =>
+              Object.assign(new PullRequestReviewCommentNode(), {
+                authorLogin: row.authorLogin,
+                id: encodeNodeId('PullRequestReviewComment', row.id),
+                body: row.body,
+                createdAt: row.createdAt,
+              }),
+            ),
+        }),
+      );
+  }
+
+  async resolvedBy(thread: PullRequestReviewThreadNode, loaders: Loaders) {
+    const row =
+      thread.resolvedById &&
+      (await loaders.usersById.load(thread.resolvedById));
+    return row ? toUserNode(row, githubOrigins(this.config)) : null;
   }
 
   /** Pending requests, users before teams, each in the order they were asked. */

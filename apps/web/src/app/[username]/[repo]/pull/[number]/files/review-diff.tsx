@@ -100,6 +100,7 @@ export function ReviewDiff({
         <ReviewThread
           {...viewing}
           thread={thread}
+          canResolve={viewing.canModerate || isAuthor}
           pending={review === pending}
           canApply={
             canReview && (viewing.canModerate || isAuthor) && review !== pending

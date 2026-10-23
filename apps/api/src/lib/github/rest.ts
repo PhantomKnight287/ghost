@@ -307,6 +307,8 @@ export type PullRestSource = {
 export type PullRestDetail = {
   mergeable: boolean | null;
   conflicted: boolean;
+  /** Mergeable, but held back by ruleset requirements. */
+  blocked: boolean;
   commits: number;
   additions: number;
   deletions: number;
@@ -406,9 +408,11 @@ export function toPullRest(
         ? 'draft'
         : detail.conflicted
           ? 'dirty'
-          : detail.mergeable
-            ? 'clean'
-            : 'unknown',
+          : detail.blocked
+            ? 'blocked'
+            : detail.mergeable
+              ? 'clean'
+              : 'unknown',
       merged_by: merged ? user(issue.closedByUsername) : null,
       comments: issue.commentCount,
       review_comments: detail.reviewComments,

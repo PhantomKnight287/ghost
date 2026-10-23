@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ruleset_rule_type" ADD VALUE 'pull_request';

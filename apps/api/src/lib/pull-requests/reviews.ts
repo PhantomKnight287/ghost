@@ -1,4 +1,5 @@
 import { schema } from '@ghost/db';
+import { atLeast, type Role } from '@ghost/permissions';
 import { and, eq, isNotNull, or, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
@@ -24,11 +25,14 @@ export interface ReviewThread extends ReviewReply {
   startLine: number | null;
   commitSha: string;
   diffHunk: string | null;
+  resolved: boolean;
+  resolvedBy: { username: string } | null;
   replies: ReviewReply[];
 }
 
 const thread = alias(schema.pullRequestReviewComment, 'thread');
 const threadAuthor = alias(schema.user, 'thread_author');
+const resolver = alias(schema.user, 'resolver');
 const reply = alias(schema.pullRequestReviewComment, 'reply');
 const replyAuthor = alias(schema.user, 'reply_author');
 const reviewAuthor = alias(schema.user, 'review_author');
@@ -38,7 +42,7 @@ const replies = sql`(select coalesce(json_agg(json_build_object('id', ${reply.id
 
 const threads = sql<
   ReviewThread[]
->`(select coalesce(json_agg(json_build_object('id', ${thread.id}, 'path', ${thread.path}, 'side', ${thread.side}, 'line', ${thread.line}, 'startSide', ${thread.startSide}, 'startLine', ${thread.startLine}, 'commitSha', ${thread.commitSha}, 'diffHunk', ${thread.diffHunk}, 'body', ${thread.body}, 'authorUsername', coalesce(${threadAuthor.username}, ''), 'authorImage', ${threadAuthor.image}, 'createdAt', ${isoTimestamp(thread.createdAt)}, 'updatedAt', ${isoTimestamp(thread.updatedAt)}, 'replies', ${replies}) order by ${thread.path}, ${thread.line}, ${thread.createdAt}), '[]') from ${schema.pullRequestReviewComment} ${thread} join ${schema.user} ${threadAuthor} on ${threadAuthor.id} = ${thread.authorId} where ${thread.reviewId} = ${schema.pullRequestReview.id} and ${thread.inReplyToId} is null)`;
+>`(select coalesce(json_agg(json_build_object('id', ${thread.id}, 'path', ${thread.path}, 'side', ${thread.side}, 'line', ${thread.line}, 'startSide', ${thread.startSide}, 'startLine', ${thread.startLine}, 'commitSha', ${thread.commitSha}, 'diffHunk', ${thread.diffHunk}, 'body', ${thread.body}, 'authorUsername', coalesce(${threadAuthor.username}, ''), 'authorImage', ${threadAuthor.image}, 'createdAt', ${isoTimestamp(thread.createdAt)}, 'updatedAt', ${isoTimestamp(thread.updatedAt)}, 'resolved', ${thread.resolvedAt} is not null, 'resolvedBy', case when ${resolver.id} is null then null else json_build_object('username', coalesce(${resolver.username}, '')) end, 'replies', ${replies}) order by ${thread.path}, ${thread.line}, ${thread.createdAt}), '[]') from ${schema.pullRequestReviewComment} ${thread} join ${schema.user} ${threadAuthor} on ${threadAuthor.id} = ${thread.authorId} left join ${schema.user} ${resolver} on ${resolver.id} = ${thread.resolvedById} where ${thread.reviewId} = ${schema.pullRequestReview.id} and ${thread.inReplyToId} is null)`;
 
 /** Submitted reviews, and with `viewerId` that viewer's pending one; a line comment is visible with its review. */
 export const visibleReview = (viewerId?: string) =>
@@ -84,4 +88,9 @@ export function selectReviews(db: Executor, where: SQL | undefined) {
     )
     .where(and(where, notReplyOnly))
     .orderBy(submittedAt, schema.pullRequestReview.id);
+}
+
+/** The pull request's author resolves threads on it, as does anyone with `write`. */
+export function canResolveThreads(role: Role | null, isAuthor: boolean) {
+  return isAuthor || atLeast(role, 'write');
 }

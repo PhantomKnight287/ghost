@@ -20,6 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
   type BypassActor,
+  defaultPullRequestParameters,
+  type PullRequestParameters,
   type Ruleset,
   type RulesetTarget,
   type RuleType,
@@ -30,6 +32,7 @@ import { createRuleset, updateRuleset } from "./actions";
 import { BypassActorsField } from "./bypass-actors-field";
 import { PatternListField } from "./pattern-list-field";
 import { PatternPreview } from "./pattern-preview";
+import { PullRequestParametersField } from "./pull-request-parameters-field";
 
 const targets = ["branch", "tag"] as const;
 const targetLabels = { branch: "Branch", tag: "Tag" };
@@ -73,6 +76,14 @@ export function RulesetForm({
   const [rules, setRules] = useState<RuleType[]>(
     ruleset?.rules.map(({ type }) => type) ?? [],
   );
+  const [pullRequest, setPullRequest] = useState<PullRequestParameters>(
+    () =>
+      ({
+        ...defaultPullRequestParameters,
+        ...ruleset?.rules.find(({ type }) => type === "pull_request")
+          ?.parameters,
+      }) as PullRequestParameters,
+  );
 
   const onError = ({ error }: { error: { serverError?: string } }) =>
     toast.error(error.serverError ?? "Could not save this ruleset.");
@@ -95,7 +106,9 @@ export function RulesetForm({
       include,
       exclude,
       bypassActors,
-      rules: rules.map((type) => ({ type })),
+      rules: rules.map((type) =>
+        type === "pull_request" ? { type, parameters: pullRequest } : { type },
+      ),
     };
     if (ruleset) update.execute({ username, repo, id: ruleset.id, body });
     else create.execute({ username, repo, body });
@@ -192,34 +205,51 @@ export function RulesetForm({
           <fieldset className="flex flex-col gap-4">
             <legend className="mb-3 text-sm font-semibold">Rules</legend>
             {allRules.map((rule) => (
-              <label
-                key={rule.type}
-                htmlFor={`rule-${rule.type}`}
-                className="flex items-start gap-3 text-sm"
-              >
-                <Checkbox
-                  id={`rule-${rule.type}`}
-                  className="mt-0.5"
-                  checked={rules.includes(rule.type)}
-                  onCheckedChange={(checked) =>
-                    setRules(
-                      checked === true
-                        ? [...rules, rule.type]
-                        : rules.filter((type) => type !== rule.type),
-                    )
-                  }
-                />
-                <span className="flex flex-col gap-0.5">
-                  <span className="font-medium">{rule.title}</span>
-                  <FieldDescription>{rule.description}</FieldDescription>
-                </span>
-              </label>
+              <div key={rule.type} className="flex flex-col gap-3">
+                <label
+                  htmlFor={`rule-${rule.type}`}
+                  className="flex items-start gap-3 text-sm"
+                >
+                  <Checkbox
+                    id={`rule-${rule.type}`}
+                    className="mt-0.5"
+                    checked={rules.includes(rule.type)}
+                    onCheckedChange={(checked) =>
+                      setRules(
+                        checked === true
+                          ? [...rules, rule.type]
+                          : rules.filter((type) => type !== rule.type),
+                      )
+                    }
+                  />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium">{rule.title}</span>
+                    <FieldDescription>{rule.description}</FieldDescription>
+                  </span>
+                </label>
+                {rule.type === "pull_request" &&
+                  rules.includes("pull_request") && (
+                    <PullRequestParametersField
+                      value={pullRequest}
+                      onChange={setPullRequest}
+                    />
+                  )}
+              </div>
             ))}
           </fieldset>
         </CardContent>
         <CardFooter className="flex flex-col items-start gap-3 border-t py-4 sm:flex-row sm:items-center sm:justify-between">
           {serverError ? <FieldError>{serverError}</FieldError> : <span />}
-          <Button type="submit" size="sm" disabled={pending || !name.trim()}>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={
+              pending ||
+              !name.trim() ||
+              (rules.includes("pull_request") &&
+                pullRequest.allowed_merge_methods.length === 0)
+            }
+          >
             {pending && <Spinner />}
             {ruleset ? "Save changes" : "Create ruleset"}
           </Button>

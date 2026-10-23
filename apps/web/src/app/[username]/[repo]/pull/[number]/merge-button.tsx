@@ -12,10 +12,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
 import { mergePullRequest } from "@/components/pull-requests/actions";
-import {
-  type MergeMethod,
-  mergeMethods,
-} from "@/components/pull-requests/common";
+import type { MergeMethod } from "@/components/pull-requests/common";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -59,17 +56,25 @@ export function MergeButton({
   repo,
   number,
   disabled,
+  methods: offered,
+  bypassRules,
   squash,
 }: {
   username: string;
   repo: string;
   number: number;
   disabled: boolean;
+  /** The methods the rulesets allow; the first is picked to start with. */
+  methods: MergeMethod[];
+  /** The viewer ticked the box to merge over requirements they may bypass. */
+  bypassRules: boolean;
   /** The message a squash commits unless it is rewritten. */
   squash: { title: string; message: string } | null;
 }) {
   const router = useRouter();
-  const [method, setMethod] = useState<MergeMethod>("merge");
+  const [picked, setPicked] = useState<MergeMethod | null>(null);
+  const method =
+    picked && offered.includes(picked) ? picked : (offered[0] ?? "merge");
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
@@ -103,6 +108,7 @@ export function MergeButton({
             method: "squash",
             title: title.trim(),
             message,
+            bypassRules,
           });
         }}
       >
@@ -152,7 +158,7 @@ export function MergeButton({
         onClick={() =>
           method === "squash"
             ? startSquash()
-            : merge.execute({ username, repo, number, method })
+            : merge.execute({ username, repo, number, method, bypassRules })
         }
       >
         {merge.isExecuting ? <Spinner /> : <Icon data-icon="inline-start" />}
@@ -172,9 +178,9 @@ export function MergeButton({
         <DropdownMenuContent align="start" className="w-72">
           <DropdownMenuRadioGroup
             value={method}
-            onValueChange={(next) => setMethod(next as MergeMethod)}
+            onValueChange={(next) => setPicked(next as MergeMethod)}
           >
-            {mergeMethods.map((option) => {
+            {offered.map((option) => {
               const {
                 icon: OptionIcon,
                 option: label,

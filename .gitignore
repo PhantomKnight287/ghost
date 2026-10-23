@@ -14,3 +14,6 @@ coverage
 apps/docs/.source
 
 .superpowers/
+
+# not gonna push it until I decide how that thing works and if it is even good for the project.
+graphify-out/

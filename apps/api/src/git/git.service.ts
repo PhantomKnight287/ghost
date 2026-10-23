@@ -158,8 +158,9 @@ export class GitService {
       await readReceivePackHeader(body);
     let importing: boolean;
     let repoDirectory: string;
+    let bypassed: Violation[];
     try {
-      ({ importing, repoDirectory } = await this.commitToLog({
+      ({ importing, repoDirectory, bypassed } = await this.commitToLog({
         repository,
         transitions,
         body,
@@ -259,7 +260,10 @@ export class GitService {
 
     return {
       headers: resultHeaders('git-receive-pack'),
-      body: withRemoteMessages(result, { lines: await hints, capabilities }),
+      body: withRemoteMessages(result, {
+        lines: [...bypassNoticeLines(bypassed), ...(await hints)],
+        capabilities,
+      }),
     };
   }
 
@@ -317,6 +321,7 @@ export class GitService {
         .map(({ ref }) => ref),
     );
 
+    let bypassed: Violation[] = [];
     await withVerifiedPack(
       { gitDir: repoDirectory, transitions, body, packOffset, factsFor },
       async ({ facts, ...pack }) => {
@@ -331,6 +336,7 @@ export class GitService {
         });
         if (verdict.violations.length > 0)
           throw new RulesetViolationError(verdict.violations);
+        bypassed = verdict.bypassed;
         const ulid = createUlid();
         const size = pack.body.size - pack.packOffset;
         const entry = { repositoryId, ulid, size };
@@ -367,7 +373,7 @@ export class GitService {
           });
       },
     );
-    return { importing, repoDirectory };
+    return { importing, repoDirectory, bypassed };
   }
 
   /** Published after the push, not with it: refs live in object storage, outside any database transaction, so a crash in between loses the event but never invents one. */
@@ -469,6 +475,18 @@ function resultHeaders(service: GitServiceName) {
     'Content-Type': `application/x-${service}-result`,
     'Cache-Control': 'no-cache',
   };
+}
+
+/** GitHub's notice to a pusher who went over rules they may bypass: each ref, then each rule. */
+function bypassNoticeLines(bypassed: Violation[]) {
+  return [...new Set(bypassed.map(({ ref }) => ref))].flatMap((ref) => [
+    `Bypassed rule violations for ${ref}:`,
+    '',
+    ...bypassed
+      .filter((violation) => violation.ref === ref)
+      .map(({ message }) => `- ${message}`),
+    '',
+  ]);
 }
 
 /** GitHub's GH013 report: each refused ref, then each rule that refused it, naming the ruleset. */

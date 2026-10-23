@@ -14,6 +14,7 @@ import {
 
 import { publishEvent } from '../../lib/events/events.js';
 import type { CodeownerRequestsService } from '../codeowners/codeowner-requests.service.js';
+import type { StaleApprovalsService } from '../rulesets/stale-approvals.service.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
 import type { MailService } from '../../mail/mail.service.js';
 import { IssuesService } from '../../resources/issues/issues.service.js';
@@ -32,6 +33,9 @@ const noWebhooks = {
 const noCodeownerRequests = {
   handle: async () => {},
 } as unknown as CodeownerRequestsService;
+const noStaleApprovals = {
+  handle: async () => {},
+} as unknown as StaleApprovalsService;
 const MIGRATIONS = path.resolve(
   import.meta.dirname,
   '../../../../../packages/db/drizzle',
@@ -109,9 +113,14 @@ describe.skipIf(!CONNECTION)('notifications', () => {
     notifier = new NotifierService(db, access, {
       sendThreadEmail,
     } as unknown as MailService);
-    outbox = new OutboxService(db, notifier, noWebhooks, noCodeownerRequests, {
-      pool,
-    });
+    outbox = new OutboxService(
+      db,
+      notifier,
+      noWebhooks,
+      noCodeownerRequests,
+      noStaleApprovals,
+      { pool },
+    );
     inbox = new NotificationsService(db, access, issues);
 
     await db.delete(schema.user).where(inArray(schema.user.id, USERS));
@@ -752,6 +761,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
       } as unknown as NotifierService,
       noWebhooks,
       noCodeownerRequests,
+      noStaleApprovals,
       { pool },
     );
     const issue = await open(null);
@@ -789,6 +799,7 @@ describe.skipIf(!CONNECTION)('notifications', () => {
       } as unknown as NotifierService,
       noWebhooks,
       noCodeownerRequests,
+      noStaleApprovals,
       { pool },
     );
 

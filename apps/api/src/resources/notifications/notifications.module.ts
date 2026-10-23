@@ -5,6 +5,7 @@ import { CodeownersService } from '../../services/codeowners/codeowners.service.
 import { OutboxService } from '../../services/events/outbox.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { NotifierService } from '../../services/notifications/notifier.service.js';
+import { StaleApprovalsService } from '../../services/rulesets/stale-approvals.service.js';
 import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
 import { IssuesModule } from '../issues/issues.module.js';
 import { PullRequestsModule } from '../pull-requests/pull-requests.module.js';
@@ -22,6 +23,7 @@ import { SubscriptionsController } from './subscriptions.controller.js';
     NotifierService,
     OutboxService,
     RepositoryAccessService,
+    StaleApprovalsService,
     WebhookFanoutService,
   ],
 })

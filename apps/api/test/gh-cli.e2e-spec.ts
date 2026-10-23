@@ -674,6 +674,59 @@ describe.skipIf(!hasBackends || !GH_E2E_HOST)('gh CLI', () => {
         closingIssuesReferences: [],
       });
     });
+
+    // After the merge above: the ruleset on main blocks the reopened chore request.
+    it('refuses to merge a pull request a ruleset blocks', async () => {
+      await api
+        .post(`/api/repositories/${username}/tools/rulesets`)
+        .set('cookie', owner.cookie)
+        .send({
+          name: 'main reviews',
+          target: 'branch',
+          enforcement: 'active',
+          include: ['main'],
+          exclude: [],
+          bypassActors: [],
+          rules: [
+            {
+              type: 'pull_request',
+              parameters: {
+                required_approving_review_count: 1,
+                dismiss_stale_reviews_on_push: false,
+                require_code_owner_review: false,
+                require_last_push_approval: false,
+                required_review_thread_resolution: false,
+                allowed_merge_methods: ['merge', 'squash', 'rebase'],
+              },
+            },
+          ],
+        })
+        .expect(201);
+      const chore = JSON.parse(
+        await ok(['pr', 'list', '-R', repo(), '--head', 'chore', '--json', 'number']),
+      )[0].number.toString();
+
+      expect(
+        JSON.parse(
+          await ok([
+            'pr',
+            'view',
+            chore,
+            '-R',
+            repo(),
+            '--json',
+            'reviewDecision,mergeStateStatus',
+          ]),
+        ),
+      ).toEqual({ reviewDecision: 'REVIEW_REQUIRED', mergeStateStatus: 'BLOCKED' });
+
+      const refused = await gh(['pr', 'merge', chore, '-R', repo(), '--squash']);
+      expect(refused.code).not.toBe(0);
+      expect(refused.stderr).toMatch(/base branch policy prohibits the merge/);
+      expect(
+        JSON.parse(await ok(['pr', 'view', chore, '-R', repo(), '--json', 'state'])),
+      ).toEqual({ state: 'OPEN' });
+    });
   });
 
   describe('gh release', () => {

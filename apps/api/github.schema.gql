@@ -227,6 +227,11 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+enum DiffSide {
+  LEFT
+  RIGHT
+}
+
 type GitActor {
   email: String
   name: String
@@ -471,6 +476,8 @@ type Mutation {
   reopenIssue(input: ReopenIssueInput!): ReopenIssuePayload
   reopenPullRequest(input: ReopenPullRequestInput!): ReopenPullRequestPayload
   requestReviews(input: RequestReviewsInput!): RequestReviewsPayload
+  resolveReviewThread(input: ResolveReviewThreadInput!): ResolveReviewThreadPayload
+  unresolveReviewThread(input: UnresolveReviewThreadInput!): UnresolveReviewThreadPayload
   updateIssue(input: UpdateIssueInput!): UpdateIssuePayload
   updatePullRequest(input: UpdatePullRequestInput!): UpdatePullRequestPayload
 }
@@ -587,12 +594,19 @@ type PullRequest implements Assignable & Labelable & Node & UniformResourceLocat
   resourcePath: URI!
   reviewDecision: PullRequestReviewDecision
   reviewRequests(after: String, first: Int): ReviewRequestConnection
+  reviewThreads(after: String, first: Int, last: Int): PullRequestReviewThreadConnection!
   reviews(after: String, first: Int, last: Int): PullRequestReviewConnection
   state: PullRequestState!
   title: String!
   updatedAt: DateTime!
   url: URI!
   viewerCanUpdate: Boolean!
+}
+
+enum PullRequestAllowedMergeMethods {
+  MERGE
+  REBASE
+  SQUASH
 }
 
 type PullRequestChangedFile {
@@ -639,6 +653,15 @@ enum PullRequestMergeMethod {
   SQUASH
 }
 
+type PullRequestParameters {
+  allowedMergeMethods: [PullRequestAllowedMergeMethods!]
+  dismissStaleReviewsOnPush: Boolean!
+  requireCodeOwnerReview: Boolean!
+  requireLastPushApproval: Boolean!
+  requiredApprovingReviewCount: Int!
+  requiredReviewThreadResolution: Boolean!
+}
+
 type PullRequestReview implements Node {
   author: Actor
   authorAssociation: CommentAuthorAssociation!
@@ -654,6 +677,19 @@ type PullRequestReview implements Node {
   state: PullRequestReviewState!
   submittedAt: DateTime
   url: URI!
+}
+
+type PullRequestReviewComment implements Node {
+  author: Actor
+  body: String!
+  createdAt: DateTime!
+  id: ID!
+}
+
+type PullRequestReviewCommentConnection {
+  nodes: [PullRequestReviewComment]
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 type PullRequestReviewConnection {
@@ -674,6 +710,27 @@ enum PullRequestReviewState {
   COMMENTED
   DISMISSED
   PENDING
+}
+
+type PullRequestReviewThread implements Node {
+  comments(after: String, first: Int, last: Int): PullRequestReviewCommentConnection!
+  diffSide: DiffSide!
+  id: ID!
+  isCollapsed: Boolean!
+  isOutdated: Boolean!
+  isResolved: Boolean!
+  line: Int
+  path: String!
+  resolvedBy: User
+  startLine: Int
+  viewerCanResolve: Boolean!
+  viewerCanUnresolve: Boolean!
+}
+
+type PullRequestReviewThreadConnection {
+  nodes: [PullRequestReviewThread]
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 enum PullRequestState {
@@ -725,6 +782,11 @@ type Ref implements Node {
   id: ID!
   name: String!
   prefix: String!
+}
+
+type RefNameConditionTarget {
+  exclude: [String!]!
+  include: [String!]!
 }
 
 type Release implements Node & UniformResourceLocatable {
@@ -832,6 +894,7 @@ type Repository implements Node & UniformResourceLocatable {
   release(tagName: String!): Release
   releases(after: String, first: Int, orderBy: ReleaseOrder): ReleaseConnection!
   resourcePath: URI!
+  rulesets(after: String, first: Int): RepositoryRulesetConnection
   squashMergeAllowed: Boolean!
   sshUrl: GitSSHRemote!
   updatedAt: DateTime!
@@ -857,6 +920,75 @@ enum RepositoryPermission {
   WRITE
 }
 
+type RepositoryRule implements Node {
+  id: ID!
+  parameters: RuleParameters
+  type: RepositoryRuleType!
+}
+
+type RepositoryRuleConditions {
+  refName: RefNameConditionTarget
+}
+
+type RepositoryRuleConnection {
+  nodes: [RepositoryRule]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+enum RepositoryRuleType {
+  CREATION
+  DELETION
+  NON_FAST_FORWARD
+  PULL_REQUEST
+  REQUIRED_LINEAR_HISTORY
+  UPDATE
+}
+
+type RepositoryRuleset implements Node {
+  bypassActors(after: String, first: Int): RepositoryRulesetBypassActorConnection
+  conditions: RepositoryRuleConditions!
+  createdAt: DateTime!
+  databaseId: Int
+  enforcement: RuleEnforcement!
+  id: ID!
+  name: String!
+  rules(after: String, first: Int): RepositoryRuleConnection
+  target: RepositoryRulesetTarget
+  updatedAt: DateTime!
+}
+
+type RepositoryRulesetBypassActor implements Node {
+  bypassMode: RepositoryRulesetBypassActorBypassMode
+  deployKey: Boolean!
+  id: ID!
+  organizationAdmin: Boolean!
+  repositoryRoleDatabaseId: Int
+  repositoryRoleName: String
+}
+
+enum RepositoryRulesetBypassActorBypassMode {
+  ALWAYS
+  PULL_REQUEST
+}
+
+type RepositoryRulesetBypassActorConnection {
+  nodes: [RepositoryRulesetBypassActor]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type RepositoryRulesetConnection {
+  nodes: [RepositoryRuleset]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+enum RepositoryRulesetTarget {
+  BRANCH
+  TAG
+}
+
 enum RepositoryVisibility {
   PRIVATE
   PUBLIC
@@ -877,6 +1009,16 @@ type RequestReviewsPayload {
 
 union RequestedReviewer = Bot | Team | User
 
+input ResolveReviewThreadInput {
+  clientMutationId: String
+  threadId: ID!
+}
+
+type ResolveReviewThreadPayload {
+  clientMutationId: String
+  thread: PullRequestReviewThread
+}
+
 type ReviewRequest implements Node {
   asCodeOwner: Boolean!
   id: ID!
@@ -888,6 +1030,13 @@ type ReviewRequestConnection {
   pageInfo: PageInfo!
   totalCount: Int!
 }
+
+enum RuleEnforcement {
+  ACTIVE
+  DISABLED
+}
+
+union RuleParameters = PullRequestParameters
 
 union SearchResultItem = Issue | PullRequest
 
@@ -967,6 +1116,16 @@ scalar URI
 interface UniformResourceLocatable {
   resourcePath: URI!
   url: URI!
+}
+
+input UnresolveReviewThreadInput {
+  clientMutationId: String
+  threadId: ID!
+}
+
+type UnresolveReviewThreadPayload {
+  clientMutationId: String
+  thread: PullRequestReviewThread
 }
 
 input UpdateIssueInput {

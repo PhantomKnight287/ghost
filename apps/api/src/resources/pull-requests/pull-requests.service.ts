@@ -61,7 +61,16 @@ import {
   type RepositoryOperation,
 } from '../../lib/repositories/access/repository-access.js';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
-import { RulesetViolationError } from '../../lib/rulesets/rulesets.errors.js';
+import {
+  MergeMethodNotAllowedError,
+  RulesetBypassRequiredError,
+  RulesetViolationError,
+} from '../../lib/rulesets/rulesets.errors.js';
+import type {
+  PullRequestRuleParameters,
+  Ruleset,
+} from '../../lib/rulesets/rulesets.types.js';
+import { PullRequestRulesService } from '../../services/rulesets/pull-request-rules.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
 import { lfsPointersIn } from '../../lib/git/lfs/lfs-pointer.js';
@@ -96,7 +105,10 @@ import {
   GetPullRequestsQueryDTO,
   GetReviewRequestsQueryDTO,
 } from './dto/pull-request.dto.js';
-import type { MergeMethod } from './dto/pull-request-changes.dto.js';
+import {
+  MERGE_METHODS,
+  type MergeMethod,
+} from './dto/pull-request-changes.dto.js';
 import {
   NothingToMergeError,
   PullRequestAlreadyOpenError,
@@ -129,6 +141,7 @@ const pullRequestColumns = {
   headRepositoryId: schema.pullRequest.headRepositoryId,
   headRef: schema.pullRequest.headRef,
   headSha: schema.pullRequest.headSha,
+  headPushedById: schema.pullRequest.headPushedById,
   mergeCommitSha: schema.pullRequest.mergeCommitSha,
   pullRefsBlocked: schema.pullRequest.pullRefsBlocked,
   createdAt: schema.issue.createdAt,
@@ -163,6 +176,7 @@ export class PullRequestsService {
     private readonly lfs: LfsService,
     private readonly statuses: CommitStatusesService,
     private readonly verdicts: RulesetVerdictsService,
+    private readonly rules: PullRequestRulesService,
   ) {}
 
   async createPullRequest({
@@ -233,6 +247,8 @@ export class PullRequestsService {
           headRepositoryId: head.id,
           headRef,
           headSha,
+          // Who pushed the branch before the request existed is unknown, so the opener stands in.
+          headPushedById: requesterId,
           draft: body.draft ?? false,
         });
         await recordCommitEvents(tx, {
@@ -644,6 +660,10 @@ export class PullRequestsService {
       title?: string;
       message?: string;
       method?: MergeMethod;
+      /** The merger ticked the box to merge over what they may bypass. */
+      bypassRules?: boolean;
+      /** GitHub's APIs merge over bypassable requirements without asking, as GitHub does. */
+      compat?: boolean;
     },
   ) {
     const { pullRequest, base } = await this.load({
@@ -677,29 +697,22 @@ export class PullRequestsService {
           });
     // A rebase drops merge commits, so a head made only of them replays to nothing.
     if (mergeCommitSha === git.baseSha) throw new NothingToMergeError();
-    const transitions = [
-      {
-        ref: `refs/heads/${pullRequest.baseRef}`,
-        oldOid: Buffer.from(git.baseSha, 'hex'),
-        newOid: Buffer.from(mergeCommitSha, 'hex'),
-      },
-    ];
     // Judged before anything is copied or packed, so a refused merge leaves nothing behind.
-    const verdict = await this.verdicts.judge({
-      repository: base,
-      gitDir: git.baseDirectory,
-      userId: params.requesterId,
-      write: 'pull_request_merge',
-      transitions,
-      facts: new Map([
-        [
-          transitions[0].ref,
-          { isFastForward: true, introducesMergeCommit: method === 'merge' },
-        ],
-      ]),
+    const { verdict } = await this.judgeMerge(git, {
+      requesterId: params.requesterId,
+      method,
+      mergeCommitSha,
     });
+    const { transitions } = verdict;
+    const methodRefused = verdict.violations.find(
+      ({ requirement }) => requirement === 'merge_method',
+    );
+    if (params.compat && methodRefused)
+      throw new MergeMethodNotAllowedError(methodRefused.message);
     if (verdict.violations.length > 0)
       throw new RulesetViolationError(verdict.violations);
+    if (verdict.bypassed.length > 0 && !params.bypassRules && !params.compat)
+      throw new RulesetBypassRequiredError(verdict.bypassed);
 
     return await withTempDir('ghost-merge-', async (directory) => {
       // The pull head ref is in the base log, so whatever it reaches was already written there by the last sync and only the merge itself is new.
@@ -785,6 +798,20 @@ export class PullRequestsService {
           type: 'merged',
           commitSha: mergeCommitSha,
         });
+        if (verdict.bypassed.length > 0) {
+          await tx.insert(schema.issueEvent).values({
+            issueId: pullRequest.issueId,
+            actorId: params.requesterId,
+            type: 'rules_bypassed',
+            details: { violations: verdict.bypassed },
+          });
+          await publishEvent(tx, {
+            type: 'pull_request.rules_bypassed',
+            repositoryId: base.id,
+            actorId: params.requesterId,
+            payload: { issueId: pullRequest.issueId },
+          });
+        }
         return seq;
       });
 
@@ -830,6 +857,116 @@ export class PullRequestsService {
 
       return { mergeCommitSha, seq };
     });
+  }
+
+  /** What stands between the viewer and merging with `method`: what they cannot bypass, what they may, and the methods the rulesets allow. */
+  async mergeRequirements(
+    params: PullRequestRef & {
+      method?: MergeMethod;
+      /** The repository's active rulesets, when the caller already loaded them. */
+      rulesets?: Ruleset[];
+    },
+  ) {
+    const { pullRequest, base } = await this.load(params);
+    if (pullRequest.state !== 'open') {
+      throw new PullRequestNotOpenError(pullRequest.state);
+    }
+    // Checked before opening anything, so a repository without rulesets runs no git command here.
+    const rulesets = params.rulesets ?? (await this.verdicts.active(base.id));
+    if (rulesets.length === 0) {
+      return {
+        violations: [],
+        bypassed: [],
+        allowedMethods: [...MERGE_METHODS],
+        reviewsRequired: false,
+      };
+    }
+    const git = await this.openLive(
+      pullRequest,
+      base,
+      pullRequest.headRepositoryId!,
+    );
+    const { verdict, allowedMethods, reviewsRequired } = await this.judgeMerge(
+      git,
+      {
+        requesterId: params.requesterId ?? null,
+        method: params.method,
+        // Nothing is merged yet; the rules only ask whether the base moves.
+        mergeCommitSha: git.headSha,
+        rulesets,
+      },
+    );
+    return {
+      violations: verdict.violations,
+      bypassed: verdict.bypassed,
+      allowedMethods,
+      reviewsRequired,
+    };
+  }
+
+  /** The verdict on moving the base to `mergeCommitSha`, with the pull request facts the rules need, judged against the head `git` loaded. */
+  private async judgeMerge(
+    git: LiveComparison,
+    {
+      requesterId,
+      method,
+      mergeCommitSha,
+      rulesets,
+    }: {
+      requesterId: string | null;
+      /** Left out, the first method the rules allow is judged, so the answer does not hinge on one they forbid. */
+      method?: MergeMethod;
+      mergeCommitSha: string;
+      rulesets?: Ruleset[];
+    },
+  ) {
+    const ref = `refs/heads/${git.pullRequest.baseRef}`;
+    const applicable = await this.rules.applicable(
+      git.base,
+      git.baseDirectory,
+      git.pullRequest.baseRef,
+      rulesets,
+    );
+    const judged = method ?? applicable.allowedMethods[0] ?? 'merge';
+    const verdict = await this.verdicts.judge({
+      repository: git.base,
+      gitDir: git.baseDirectory,
+      userId: requesterId,
+      write: 'pull_request_merge',
+      transitions: [
+        {
+          ref,
+          oldOid: Buffer.from(git.baseSha, 'hex'),
+          newOid: Buffer.from(mergeCommitSha, 'hex'),
+        },
+      ],
+      facts: new Map([
+        [
+          ref,
+          { isFastForward: true, introducesMergeCommit: judged === 'merge' },
+        ],
+      ]),
+      rulesets: applicable.rulesets,
+      pullRequest:
+        applicable.pullRequestRules.length > 0
+          ? await this.rules.factsOf(git, applicable.pullRequestRules, judged)
+          : undefined,
+    });
+    return {
+      verdict,
+      allowedMethods: applicable.allowedMethods,
+      // What GitHub's reviewDecision answers to: a rule that asks for approvals or code owners.
+      reviewsRequired: applicable.pullRequestRules.some((ruleset) =>
+        ruleset.rules.some((rule) => {
+          if (rule.type !== 'pull_request') return false;
+          const parameters = rule.parameters as PullRequestRuleParameters;
+          return (
+            parameters.required_approving_review_count > 0 ||
+            parameters.require_code_owner_review
+          );
+        }),
+      ),
+    };
   }
 
   /** The bookkeeping after the API itself pushed to a branch: merges and applied suggestions. */
@@ -1207,8 +1344,8 @@ export class PullRequestsService {
     };
   }
 
-  /** The open, ready request on issue `issueId`, resolved as `open` does but without an actor to authorize, for work done on nobody's behalf. Null when there is none. */
-  async openReady(issueId: string) {
+  /** The open, ready request on issue `issueId` (a draft too with `drafts`), resolved as `open` does but without an actor to authorize, for work done on nobody's behalf. Null when there is none. */
+  async openReady(issueId: string, { drafts = false } = {}) {
     const [row] = await this.db
       .select({
         pullRequest: pullRequestColumns,
@@ -1224,7 +1361,7 @@ export class PullRequestsService {
         and(
           eq(schema.pullRequest.issueId, issueId),
           eq(schema.pullRequest.state, 'open'),
-          eq(schema.pullRequest.draft, false),
+          drafts ? undefined : eq(schema.pullRequest.draft, false),
         ),
       );
     if (!row) return null;

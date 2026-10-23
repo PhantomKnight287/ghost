@@ -291,7 +291,8 @@ describe.skipIf(!hasBackends)('GitHub review comments', () => {
       }
     }`);
     expect(data.repository.pullRequest).toEqual({
-      reviewDecision: 'CHANGES_REQUESTED',
+      // GitHub answers null while no rule on the base asks for reviews.
+      reviewDecision: null,
       latestReviews: { nodes: [{ state: 'CHANGES_REQUESTED' }] },
     });
     await send('delete', `${repo}/pulls/comments/${still.id}`, {}).expect(204);

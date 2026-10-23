@@ -30,7 +30,7 @@ export class RefNode {
   @Field()
   prefix: string;
 
-  /** Ghost has no branch protection; always null. */
+  /** Always null: Ghost has no classic branch protection, and GitHub answers null for a branch only a ruleset protects. */
   @Field(() => BranchProtectionRuleNode, { nullable: true })
   branchProtectionRule: BranchProtectionRuleNode | null;
 }

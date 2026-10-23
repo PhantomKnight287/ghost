@@ -1,8 +1,10 @@
 import { type Database, schema } from '@ghost/db';
 import DataLoader from 'dataloader';
-import { inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { GithubRequest } from '../../github/auth/github-request.js';
+import { rulesetColumns } from '../rulesets/ruleset-columns.js';
+import type { Ruleset } from '../rulesets/rulesets.types.js';
 import { reviewsOf, usersByEmailOf } from './node-lookup.js';
 import type { UserRow } from './nodes.js';
 
@@ -60,6 +62,24 @@ export function createLoaders(db: Database) {
       );
       return ids.map((id) => found.get(id) ?? null);
     }),
+    /** Active rulesets per repository id, read once however many pull requests a query lists. */
+    activeRulesetsByRepositoryId: new DataLoader<string, Ruleset[]>(
+      async (ids) => {
+        const rows = await db
+          .select({
+            ...rulesetColumns,
+            repositoryId: schema.ruleset.repositoryId,
+          })
+          .from(schema.ruleset)
+          .where(
+            and(
+              inArray(schema.ruleset.repositoryId, [...ids]),
+              eq(schema.ruleset.enforcement, 'active'),
+            ),
+          );
+        return ids.map((id) => rows.filter((row) => row.repositoryId === id));
+      },
+    ),
     /** Submitted reviews per pull_request id, oldest first; pending ones are their author's alone. */
     reviewsByPullRequestId: new DataLoader<string, ReviewRow[]>(async (ids) => {
       const rows = await reviewsOf(db, [...ids]);

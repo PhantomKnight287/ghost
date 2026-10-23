@@ -15,7 +15,9 @@ import {
   CommitResolver,
   GitActorResolver,
   PullRequestResolver,
+  PullRequestReviewCommentResolver,
   PullRequestReviewResolver,
+  PullRequestReviewThreadResolver,
   StatusCheckRollupResolver,
   StatusContextResolver,
 } from '../../graphql/resolvers/pull-request/pull-request.resolver.js';
@@ -23,6 +25,7 @@ import { PullRequestNodesService } from '../../graphql/resolvers/pull-request/pu
 import {
   RepositoryOwnerResolver,
   RepositoryResolver,
+  RepositoryRulesetResolver,
 } from '../../graphql/resolvers/repository/repository.resolver.js';
 import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
 import { GithubCodeownersController } from './codeowners.controller.js';
@@ -44,17 +47,20 @@ import { GithubReposService } from './repos.service.js';
     PullRequestNodesService,
     RepositoryResolver,
     RepositoryOwnerResolver,
+    RepositoryRulesetResolver,
     IssueResolver,
     PullRequestResolver,
     CommitResolver,
     GitActorResolver,
     PullRequestReviewResolver,
+    PullRequestReviewThreadResolver,
+    PullRequestReviewCommentResolver,
     StatusCheckRollupResolver,
     StatusContextResolver,
     CheckRunResolver,
     ProjectV2ItemResolver,
     RepositoryAccessService,
   ],
-  exports: [RepositoryNodesService, IssueNodesService],
+  exports: [RepositoryNodesService, IssueNodesService, PullRequestNodesService],
 })
 export class ReposModule {}

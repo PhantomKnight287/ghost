@@ -217,3 +217,48 @@ export enum PullRequestUpdateState {
   CLOSED = 'CLOSED',
 }
 registerEnumType(PullRequestUpdateState, { name: 'PullRequestUpdateState' });
+
+export enum DiffSide {
+  LEFT = 'LEFT',
+  RIGHT = 'RIGHT',
+}
+registerEnumType(DiffSide, { name: 'DiffSide' });
+
+export enum RepositoryRulesetTarget {
+  BRANCH = 'BRANCH',
+  TAG = 'TAG',
+}
+registerEnumType(RepositoryRulesetTarget, { name: 'RepositoryRulesetTarget' });
+
+export enum RuleEnforcement {
+  ACTIVE = 'ACTIVE',
+  DISABLED = 'DISABLED',
+}
+registerEnumType(RuleEnforcement, { name: 'RuleEnforcement' });
+
+export enum RepositoryRuleType {
+  CREATION = 'CREATION',
+  UPDATE = 'UPDATE',
+  DELETION = 'DELETION',
+  NON_FAST_FORWARD = 'NON_FAST_FORWARD',
+  REQUIRED_LINEAR_HISTORY = 'REQUIRED_LINEAR_HISTORY',
+  PULL_REQUEST = 'PULL_REQUEST',
+}
+registerEnumType(RepositoryRuleType, { name: 'RepositoryRuleType' });
+
+export enum RepositoryRulesetBypassActorBypassMode {
+  ALWAYS = 'ALWAYS',
+  PULL_REQUEST = 'PULL_REQUEST',
+}
+registerEnumType(RepositoryRulesetBypassActorBypassMode, {
+  name: 'RepositoryRulesetBypassActorBypassMode',
+});
+
+export enum PullRequestAllowedMergeMethods {
+  MERGE = 'MERGE',
+  SQUASH = 'SQUASH',
+  REBASE = 'REBASE',
+}
+registerEnumType(PullRequestAllowedMergeMethods, {
+  name: 'PullRequestAllowedMergeMethods',
+});

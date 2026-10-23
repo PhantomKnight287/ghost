@@ -30,6 +30,7 @@ export const rulesetRuleType = pgEnum("ruleset_rule_type", [
   "deletion",
   "non_fast_forward",
   "required_linear_history",
+  "pull_request",
 ]);
 
 export const rulesetBypassActorType = pgEnum("ruleset_bypass_actor_type", [

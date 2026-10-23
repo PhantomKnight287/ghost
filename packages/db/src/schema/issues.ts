@@ -4,6 +4,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -11,6 +12,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+
 import { user } from "./auth.js";
 import { repository } from "./repository.js";
 
@@ -34,6 +36,7 @@ export const issueEventType = pgEnum("issue_event_type", [
   "head_force_pushed",
   "review_requested",
   "review_request_removed",
+  "rules_bypassed",
 ]);
 
 export const issueReferenceSource = pgEnum("issue_reference_source", [
@@ -210,7 +213,8 @@ export const issueEvent = pgTable(
     // a `review_requested` or `review_request_removed` event names a user or a team, kept as written since either can be renamed or deleted later
     requestedReviewerUsername: text(),
     requestedTeamSlug: text(),
-
+    // currently only filled for rules_bypassed, with the ruleset ids and names, rules and requirements.
+    details: jsonb(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("issue_event_issue_idx").on(t.issueId, t.createdAt)],

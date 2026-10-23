@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 
 import { MaterializerModule } from '../../materializer/materializer.module.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { CodeownersService } from '../../services/codeowners/codeowners.service.js';
+import { PullRequestRulesService } from '../../services/rulesets/pull-request-rules.service.js';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
@@ -20,6 +22,7 @@ import {
 import { PullRequestsService } from './pull-requests.service.js';
 import { ReviewRequestsController } from './review-requests.controller.js';
 import { ReviewRequestsService } from './review-requests.service.js';
+import { ReviewThreadsService } from './review-threads.service.js';
 import { ReviewsController } from './reviews.controller.js';
 import { ReviewsService } from './reviews.service.js';
 
@@ -41,15 +44,24 @@ import { ReviewsService } from './reviews.service.js';
     PullRequestsService,
     ReviewsService,
     ReviewRequestsService,
+    ReviewThreadsService,
     UsersService,
     RepositoryAccessService,
     PushTransactionService,
     RulesetVerdictsService,
+    PullRequestRulesService,
+    CodeownersService,
     WalStoreService,
     LfsService,
     CommitSigningService,
     CommitVerificationService,
   ],
-  exports: [PullRequestsService, ReviewsService, ReviewRequestsService],
+  exports: [
+    PullRequestsService,
+    ReviewsService,
+    ReviewRequestsService,
+    ReviewThreadsService,
+    PullRequestRulesService,
+  ],
 })
 export class PullRequestsModule {}

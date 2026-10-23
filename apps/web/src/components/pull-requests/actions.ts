@@ -44,18 +44,27 @@ export const mergePullRequest = actionClient
       title: z.string().optional(),
       message: z.string().optional(),
       method: z.enum(mergeMethods),
+      bypassRules: z.boolean().optional(),
     }),
   )
   .action(
     async ({
-      parsedInput: { username, repo, number, title, message, method },
+      parsedInput: {
+        username,
+        repo,
+        number,
+        title,
+        message,
+        method,
+        bypassRules,
+      },
     }) => {
       const data = await callApi((client) =>
         client.POST(
           "/api/repositories/{username}/{repo}/pulls/{number}/merge",
           {
             params: { path: { username, repo, number } },
-            body: { title, message, method },
+            body: { title, message, method, bypassRules },
           },
         ),
       );
@@ -229,6 +238,29 @@ export const replyToReviewComment = actionClient
             body: { body },
           },
         ),
+      );
+
+      revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");
+    },
+  );
+
+export const resolveReviewThread = actionClient
+  .inputSchema(target.extend({ commentId: z.string(), resolved: z.boolean() }))
+  .action(
+    async ({
+      parsedInput: { username, repo, number, commentId, resolved },
+    }) => {
+      const params = { path: { username, repo, number, commentId } };
+      await callApi((client) =>
+        resolved
+          ? client.POST(
+              "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/resolve",
+              { params },
+            )
+          : client.POST(
+              "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/unresolve",
+              { params },
+            ),
       );
 
       revalidatePath(`/${username}/${repo}/pull/${number}`, "layout");

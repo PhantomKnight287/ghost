@@ -15,6 +15,7 @@ import {
   applySuggestion,
   dismissReview,
   replyToReviewComment,
+  resolveReviewThread,
 } from "@/components/pull-requests/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,8 @@ type Viewing = {
   viewer?: string | null;
   /** May delete anyone's comments and dismiss reviews; editing stays with each comment's author. */
   canModerate: boolean;
+  /** May resolve threads: the pull request's author or anyone with write access. Defaults to `canModerate`. */
+  canResolve?: boolean;
 };
 
 /** A submitted review in the conversation, laid out like GitHub's: a line saying who reviewed and how, then the summary and each file thread as cards of their own beneath it. */
@@ -87,8 +90,14 @@ export function ReviewItem({
         <div className="ml-6 flex flex-col gap-3 border-l-2 pl-4">
           {review.dismissalMessage && (
             <p className="text-xs text-muted-foreground">
-              <UserLink username={review.dismissedByUsername ?? ""} /> dismissed
-              this review: {review.dismissalMessage}
+              {review.dismissedByUsername ? (
+                <>
+                  <UserLink username={review.dismissedByUsername} /> dismissed
+                  this review: {review.dismissalMessage}
+                </>
+              ) : (
+                "This review was dismissed as stale: new changes were pushed after it."
+              )}
             </p>
           )}
 
@@ -156,7 +165,7 @@ export function ThreadCard({
           <Badge variant="outline">Outdated</Badge>
         )}
       </div>
-      {thread.diffHunk && (
+      {thread.diffHunk && !thread.resolved && (
         <div className="border-b">
           <DiffHunk path={thread.path} hunk={thread.diffHunk} />
         </div>
@@ -179,9 +188,10 @@ export function ReviewThread({
   canApply?: boolean;
 }) {
   const { username, repo, viewer } = viewing;
+  const canResolve = viewing.canResolve ?? viewing.canModerate;
 
-  return (
-    <div className="bg-background font-sans">
+  const comments = (
+    <>
       {[thread, ...thread.replies].map((comment) => (
         <div key={comment.id} className="border-b last:border-b-0">
           <CommentItem
@@ -210,6 +220,81 @@ export function ReviewThread({
         </div>
       ))}
       {viewer && !pending && <ReplyBox {...viewing} commentId={thread.id} />}
+    </>
+  );
+
+  return (
+    <div className="bg-background font-sans">
+      {!pending && (thread.resolved || (viewer && canResolve)) && (
+        <ResolveBar
+          {...viewing}
+          thread={thread}
+          canResolve={Boolean(viewer && canResolve)}
+        />
+      )}
+      {thread.resolved ? (
+        <details className="group">
+          <summary className="cursor-pointer px-4 py-2 text-xs text-muted-foreground hover:text-foreground">
+            <span className="group-open:hidden">Show resolved</span>
+            <span className="hidden group-open:inline">Hide resolved</span>
+          </summary>
+          {comments}
+        </details>
+      ) : (
+        comments
+      )}
+    </div>
+  );
+}
+
+/** Who resolved the thread, and the button that flips it. */
+function ResolveBar({
+  username,
+  repo,
+  number,
+  thread,
+  canResolve,
+}: Viewing & { thread: ReviewThreadData; canResolve: boolean }) {
+  const router = useRouter();
+  const resolve = useAction(resolveReviewThread, {
+    onSuccess: () => router.refresh(),
+    onError: ({ error }) =>
+      toast.error(error.serverError ?? "Could not change this conversation."),
+  });
+
+  return (
+    <div className="flex items-center justify-between gap-2 border-b bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
+      <span>
+        {thread.resolved && (
+          <>
+            {thread.resolvedBy ? (
+              <UserLink username={thread.resolvedBy.username} />
+            ) : (
+              "Someone"
+            )}{" "}
+            marked this conversation as resolved.
+          </>
+        )}
+      </span>
+      {canResolve && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={resolve.isExecuting}
+          onClick={() =>
+            resolve.execute({
+              username,
+              repo,
+              number,
+              commentId: thread.id,
+              resolved: !thread.resolved,
+            })
+          }
+        >
+          {resolve.isExecuting && <Spinner />}
+          {thread.resolved ? "Unresolve conversation" : "Resolve conversation"}
+        </Button>
+      )}
     </div>
   );
 }

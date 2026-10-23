@@ -12,7 +12,10 @@ import { GitObjectID, URI } from '../scalars.js';
 import { IssueCommentNode } from './issue-comment.type.js';
 import { IssueNode } from './issue.type.js';
 import { Assignable, Labelable } from './node.interface.js';
-import { PullRequestNode } from './pull-request.type.js';
+import {
+  PullRequestNode,
+  PullRequestReviewThreadNode,
+} from './pull-request.type.js';
 import { RepositoryNode } from './repository.type.js';
 
 // GraphQL already checks every input's types and nullability; @Allow only keeps fields through the global ValidationPipe's whitelist.
@@ -483,3 +486,36 @@ export class ConvertPullRequestToDraftPayload extends PullRequestPayload {}
 
 @ObjectType('RequestReviewsPayload')
 export class RequestReviewsPayload extends PullRequestPayload {}
+
+/** The input of every mutation that names a review thread and nothing else. */
+@InputType({ isAbstract: true })
+abstract class ReviewThreadIdInput {
+  @Allow()
+  @Field(() => ID)
+  threadId: string;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+}
+
+@InputType('ResolveReviewThreadInput')
+export class ResolveReviewThreadInput extends ReviewThreadIdInput {}
+
+@InputType('UnresolveReviewThreadInput')
+export class UnresolveReviewThreadInput extends ReviewThreadIdInput {}
+
+@ObjectType({ isAbstract: true })
+abstract class ReviewThreadPayload {
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+
+  @Field(() => PullRequestReviewThreadNode, { nullable: true })
+  thread: PullRequestReviewThreadNode | null;
+}
+
+@ObjectType('ResolveReviewThreadPayload')
+export class ResolveReviewThreadPayload extends ReviewThreadPayload {}
+
+@ObjectType('UnresolveReviewThreadPayload')
+export class UnresolveReviewThreadPayload extends ReviewThreadPayload {}

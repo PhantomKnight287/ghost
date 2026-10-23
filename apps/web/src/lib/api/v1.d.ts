@@ -1365,6 +1365,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/pulls/{number}/merge-requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What stands between the viewer and merging a pull request */
+        get: operations["PullRequestsController_getMergeRequirements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{repo}/pulls/{number}/close": {
         parameters: {
             query?: never;
@@ -1568,6 +1585,40 @@ export interface paths {
         put?: never;
         /** Commit a comment's suggested change to the head branch */
         post: operations["ReviewsController_applySuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve the thread a line comment starts */
+        post: operations["ReviewsController_resolveThread"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/unresolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen the thread a line comment starts */
+        post: operations["ReviewsController_unresolveThread"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5164,12 +5215,41 @@ export interface components {
              * @default merge
              */
             method?: components["schemas"]["MergeMethod"];
+            /** @description The viewer chose to merge over the ruleset requirements they may bypass. Without it a merge that would bypass any is refused. */
+            bypassRules?: boolean;
         };
         MergePullRequestResponseDTO: {
             /** @description The new base tip: the merge commit, the squashed commit, or the last rebased one. */
             mergeCommitSha: string;
             /** @description Sequence the merge landed at in the base log. */
             seq: number;
+        };
+        /** @enum {string} */
+        RuleType: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request";
+        /**
+         * @description Which part of a `pull_request` rule is unmet.
+         * @enum {string}
+         */
+        RuleRequirement: "pull_request" | "approvals" | "changes_requested" | "code_owners" | "last_push" | "threads" | "merge_method";
+        RuleViolationDTO: {
+            /** @example refs/heads/main */
+            ref: string;
+            rulesetId: string;
+            rulesetName: string;
+            rule: components["schemas"]["RuleType"];
+            /** @description Which part of a `pull_request` rule is unmet. */
+            requirement?: components["schemas"]["RuleRequirement"];
+            message: string;
+        };
+        MergeRequirementsDTO: {
+            /** @description Unmet requirements the viewer cannot bypass; any one blocks the merge. */
+            violations: components["schemas"]["RuleViolationDTO"][];
+            /** @description Unmet requirements the viewer may bypass by merging with `bypassRules`. */
+            bypassed: components["schemas"]["RuleViolationDTO"][];
+            /** @description The merge methods every applicable ruleset allows. */
+            allowedMethods: components["schemas"]["MergeMethod"][];
+            /** @description A rule on the base asks for approvals or code owner reviews. */
+            reviewsRequired: boolean;
         };
         UpdatePullRequestRequestDTO: {
             /** @example Add a rate limiter */
@@ -5206,6 +5286,9 @@ export interface components {
             body?: string;
             comments?: components["schemas"]["ReviewCommentRequestDTO"][];
         };
+        ThreadResolverDTO: {
+            username: string;
+        };
         ReviewReplyDTO: {
             id: string;
             body: string;
@@ -5223,6 +5306,9 @@ export interface components {
             authorImage: string | null;
             createdAt: string;
             updatedAt: string;
+            resolved: boolean;
+            /** @description Who resolved the thread; null while it is unresolved, or once their account is deleted. */
+            resolvedBy: components["schemas"]["ThreadResolverDTO"] | null;
             path: string;
             side: components["schemas"]["DiffSide"];
             line: number;
@@ -5276,6 +5362,11 @@ export interface components {
         ApplySuggestionResponseDTO: {
             /** @description The commit pushed to the head branch. */
             commitSha: string;
+        };
+        ReviewThreadResolutionDTO: {
+            resolved: boolean;
+            /** @description Who resolved the thread; null while it is unresolved, or once their account is deleted. */
+            resolvedBy: components["schemas"]["ThreadResolverDTO"] | null;
         };
         RequestedUserDTO: {
             id: string;
@@ -5465,7 +5556,10 @@ export interface components {
             updatedAt: string;
         };
         /** @enum {string} */
-        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft" | "committed" | "head_force_pushed" | "review_requested" | "review_request_removed";
+        IssueEventType: "opened" | "closed" | "reopened" | "renamed" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned" | "merged" | "ready_for_review" | "converted_to_draft" | "committed" | "head_force_pushed" | "review_requested" | "review_request_removed" | "rules_bypassed";
+        IssueEventDetailsDTO: {
+            violations: components["schemas"]["RuleViolationDTO"][];
+        };
         IssueTimelineEventDTO: {
             id: string;
             type: components["schemas"]["IssueEventType"];
@@ -5494,6 +5588,8 @@ export interface components {
              */
             sourceRepository: string | null;
             sourceNumber: number | null;
+            /** @description What a `rules_bypassed` merge went over. */
+            details: components["schemas"]["IssueEventDetailsDTO"] | null;
             createdAt: string;
         };
         IssueTimelineEventItemDTO: {
@@ -5636,7 +5732,7 @@ export interface components {
         };
         ProtectedRefDTO: {
             /** @description Every rule an active ruleset applies to the ref. */
-            rules: ("creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history")[];
+            rules: ("creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request")[];
             /**
              * @description How far the viewer may skip those rules: the least any one of the rulesets allows.
              * @enum {string}
@@ -5645,7 +5741,24 @@ export interface components {
         };
         RulesetRuleDTO: {
             /** @enum {string} */
-            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history";
+            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request";
+            /**
+             * @description For `pull_request`: GitHub's parameters, defaults filled in for those left out. Other rules take none.
+             * @example {
+             *       "required_approving_review_count": 1,
+             *       "dismiss_stale_reviews_on_push": true,
+             *       "require_code_owner_review": false,
+             *       "require_last_push_approval": false,
+             *       "required_review_thread_resolution": true,
+             *       "allowed_merge_methods": [
+             *         "squash",
+             *         "rebase"
+             *       ]
+             *     }
+             */
+            parameters?: {
+                [key: string]: unknown;
+            };
         };
         RulesetBypassActorDTO: {
             /** @enum {string} */
@@ -6296,8 +6409,8 @@ export interface components {
         };
         GithubRulesetRuleDTO: {
             /** @enum {string} */
-            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history";
-            /** @description None of the rules Ghost supports takes any. */
+            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request";
+            /** @description For `pull_request`: GitHub's parameters. The other rules Ghost supports take none. */
             parameters?: Record<string, never>;
         };
         GithubCreateRulesetDTO: {
@@ -9550,6 +9663,48 @@ export interface operations {
             };
         };
     };
+    PullRequestsController_getMergeRequirements: {
+        parameters: {
+            query?: {
+                /** @description Left out, the first method the rulesets allow is judged. */
+                method?: components["schemas"]["MergeMethod"];
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeRequirementsDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
     PullRequestsController_closePullRequest: {
         parameters: {
             query?: never;
@@ -10084,6 +10239,102 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_resolveThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewThreadResolutionDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ReviewsController_unresolveThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewThreadResolutionDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

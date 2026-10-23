@@ -265,7 +265,8 @@ describe.skipIf(!hasBackends)('GitHub pull requests', () => {
       state: 'OPEN',
       merged: false,
       isDraft: false,
-      reviewDecision: 'APPROVED',
+      // GitHub answers null while no rule on the base asks for reviews, approved or not.
+      reviewDecision: null,
       mergeable: 'MERGEABLE',
       mergeStateStatus: 'CLEAN',
       reviews: {

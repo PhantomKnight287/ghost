@@ -190,6 +190,8 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
       return onThread(`converted ${about} to a draft`, GREY);
     case 'pull_request.merged':
       return onThread(`merged ${about}`, PURPLE);
+    case 'pull_request.rules_bypassed':
+      return onThread(`bypassed ruleset requirements to merge ${about}`, RED);
     case 'pull_request.synchronized':
       return pushed(
         `${body.forced ? 'force-pushed' : 'pushed'} ${commitCount(body)} to ${about}`,
@@ -218,6 +220,10 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
         BLUE,
         body.comment?.body ?? null,
       );
+    case 'pull_request_review_thread.resolved':
+      return onThread(`resolved a conversation on ${about}`, GREY);
+    case 'pull_request_review_thread.unresolved':
+      return onThread(`unresolved a conversation on ${about}`, GREY);
     case 'label.created':
     case 'label.edited':
     case 'label.deleted':

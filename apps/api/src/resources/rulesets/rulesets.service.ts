@@ -14,9 +14,11 @@ import {
   normalizeRefPattern,
   refTargeted,
 } from '../../lib/rulesets/ref-pattern.js';
+import { parsePullRequestParameters } from '../../lib/rulesets/pull-request-parameters.js';
 import { rulesetColumns } from '../../lib/rulesets/ruleset-columns.js';
 import {
   InvalidBypassActorError,
+  InvalidRuleParametersError,
   RulesetNameTakenError,
   RulesetNotFoundError,
 } from '../../lib/rulesets/rulesets.errors.js';
@@ -267,7 +269,9 @@ export class RulesetsService {
     };
   }
 
-  private row(body: RulesetRequestDTO) {
+  private row(
+    body: RulesetRequestDTO,
+  ): Omit<typeof schema.ruleset.$inferInsert, 'repositoryId'> {
     return {
       name: body.name,
       target: body.target,
@@ -287,9 +291,16 @@ export class RulesetsService {
     body: RulesetRequestDTO,
   ) {
     if (body.rules.length > 0)
-      await tx
-        .insert(schema.rulesetRule)
-        .values(body.rules.map(({ type }) => ({ rulesetId, type })));
+      await tx.insert(schema.rulesetRule).values(
+        body.rules.map(({ type, parameters }) => ({
+          rulesetId,
+          type,
+          parameters:
+            type === 'pull_request'
+              ? this.pullRequestParameters(parameters)
+              : {},
+        })),
+      );
     if (body.bypassActors.length > 0)
       await tx
         .insert(schema.rulesetBypassActor)
@@ -303,6 +314,13 @@ export class RulesetsService {
           })),
         )
         .onConflictDoNothing();
+  }
+
+  private pullRequestParameters(input: unknown) {
+    const parsed = parsePullRequestParameters(input);
+    if (!parsed.ok)
+      throw new InvalidRuleParametersError('pull_request', parsed.message);
+    return parsed.value;
   }
 
   /** Teams and organization admins exist only on an organization's repository, and a team must be one of that organization's. */

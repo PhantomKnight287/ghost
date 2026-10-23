@@ -130,6 +130,7 @@ export class ReviewsService {
               state,
               body,
               commitSha: commit.sha,
+              baseSha: git.baseSha,
               submittedAt: new Date(),
             })
             .where(eq(schema.pullRequestReview.id, pending.id))
@@ -142,6 +143,7 @@ export class ReviewsService {
               state,
               body,
               commitSha: commit.sha,
+              baseSha: git.baseSha,
               submittedAt: new Date(),
             })
             .returning({ id: schema.pullRequestReview.id });

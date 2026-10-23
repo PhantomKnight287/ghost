@@ -87,23 +87,41 @@ describe('refTargeted', () => {
 
   it('reads a trailing `**` as `*`, as Ruby fnmatch does: only `**/` crosses segments', () => {
     expect(targets(branches(['release/**']), branch('release/1.0'))).toBe(true);
-    expect(targets(branches(['release/**']), branch('release/1.0/hotfix'))).toBe(false);
-    expect(targets(branches(['~ALL'], ['release/**']), branch('release/1.0/hotfix'))).toBe(true);
+    expect(
+      targets(branches(['release/**']), branch('release/1.0/hotfix')),
+    ).toBe(false);
+    expect(
+      targets(branches(['~ALL'], ['release/**']), branch('release/1.0/hotfix')),
+    ).toBe(true);
   });
 
   it('matches a run of `**/` as one, and quickly', () => {
     expect(targets(branches(['**/**/x']), branch('a/b/x'))).toBe(true);
     expect(targets(branches(['**/**/x']), branch('x'))).toBe(true);
     const started = performance.now();
-    expect(targets(branches([`${'**/'.repeat(40)}x`]), branch(`${'a/'.repeat(60)}y`))).toBe(false);
+    expect(
+      targets(
+        branches([`${'**/'.repeat(40)}x`]),
+        branch(`${'a/'.repeat(60)}y`),
+      ),
+    ).toBe(false);
     expect(performance.now() - started).toBeLessThan(100);
   });
 
   it('stays fast when wildcards are apart, which a backtracking matcher is not', () => {
     const started = performance.now();
-    expect(targets(branches([`${'**/a/'.repeat(8)}b`]), branch(`${'a/'.repeat(60)}a`))).toBe(false);
-    expect(targets(branches([`${'a*'.repeat(40)}b`]), branch('a'.repeat(200)))).toBe(false);
-    expect(targets(branches([`${'**/a/'.repeat(3)}b`]), branch('x/a/y/a/a/b'))).toBe(true);
+    expect(
+      targets(
+        branches([`${'**/a/'.repeat(8)}b`]),
+        branch(`${'a/'.repeat(60)}a`),
+      ),
+    ).toBe(false);
+    expect(
+      targets(branches([`${'a*'.repeat(40)}b`]), branch('a'.repeat(200))),
+    ).toBe(false);
+    expect(
+      targets(branches([`${'**/a/'.repeat(3)}b`]), branch('x/a/y/a/a/b')),
+    ).toBe(true);
     expect(performance.now() - started).toBeLessThan(100);
   });
 
@@ -134,9 +152,7 @@ describe('refTargeted', () => {
 
   it('resolves ~DEFAULT_BRANCH against the default branch it is given', () => {
     expect(targets(branches(['~DEFAULT_BRANCH']), branch('main'))).toBe(true);
-    expect(targets(branches(['~DEFAULT_BRANCH']), branch('trunk'))).toBe(
-      false,
-    );
+    expect(targets(branches(['~DEFAULT_BRANCH']), branch('trunk'))).toBe(false);
     expect(
       targets(branches(['~DEFAULT_BRANCH']), branch('trunk'), 'trunk'),
     ).toBe(true);
@@ -155,11 +171,12 @@ describe('refTargeted', () => {
     expect(targets(branches(['~ALL'], ['main']), branch('main'))).toBe(false);
     expect(targets(branches(['~ALL'], ['main']), branch('dev'))).toBe(true);
     expect(
-      targets(branches(['release/**/*'], ['release/old/*']), branch('release/old/1')),
+      targets(
+        branches(['release/**/*'], ['release/old/*']),
+        branch('release/old/1'),
+      ),
     ).toBe(false);
-    expect(
-      targets(branches(['main', 'dev']), branch('dev')),
-    ).toBe(true);
+    expect(targets(branches(['main', 'dev']), branch('dev'))).toBe(true);
     expect(
       targets(branches(['~ALL'], ['~DEFAULT_BRANCH']), branch('main')),
     ).toBe(false);

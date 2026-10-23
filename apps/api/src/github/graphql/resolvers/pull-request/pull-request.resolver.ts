@@ -41,8 +41,12 @@ import {
   PullRequestChangedFileConnection,
   PullRequestCommitConnection,
   PullRequestNode,
+  PullRequestReviewCommentConnection,
+  PullRequestReviewCommentNode,
   PullRequestReviewConnection,
   PullRequestReviewNode,
+  PullRequestReviewThreadConnection,
+  PullRequestReviewThreadNode,
   ReviewRequestConnection,
   TeamConnection,
 } from '../../types/pull-request.type.js';
@@ -274,16 +278,18 @@ export class PullRequestResolver {
   mergeStateStatus(
     @Parent() pull: PullRequestNode,
     @Viewer() viewer: GithubViewer | null,
+    @Context() context: GraphqlContext,
   ) {
-    return this.pulls.mergeStateStatus(pull, viewer);
+    return this.pulls.mergeStateStatus(pull, viewer, context.loaders);
   }
 
   @ResolveField(() => PullRequestReviewDecision, { nullable: true })
   reviewDecision(
     @Parent() pull: PullRequestNode,
+    @Viewer() viewer: GithubViewer | null,
     @Context() context: GraphqlContext,
   ) {
-    return this.pulls.reviewDecision(pull, context.loaders);
+    return this.pulls.reviewDecision(pull, viewer, context.loaders);
   }
 
   @ResolveField(() => PullRequestReviewConnection, { nullable: true })
@@ -306,6 +312,21 @@ export class PullRequestResolver {
     @Args('after', { type: () => String, nullable: true }) after?: string,
   ) {
     return this.pulls.latestReviews(pull, loaders, first, last, after);
+  }
+
+  @ResolveField(() => PullRequestReviewThreadConnection)
+  async reviewThreads(
+    @Parent() pull: PullRequestNode,
+    @Viewer() viewer: GithubViewer | null,
+    @Context() { loaders }: GraphqlContext,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('last', { type: () => Int, nullable: true }) last?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
+  ) {
+    return sliceConnection(
+      await this.pulls.reviewThreads(pull, viewer, loaders),
+      { first, last, after },
+    );
   }
 
   @ResolveField(() => ReviewRequestConnection, { nullable: true })
@@ -457,5 +478,43 @@ export class PullRequestReviewResolver {
   @ResolveField(() => [ReactionGroup], { nullable: true })
   reactionGroups() {
     return [];
+  }
+}
+
+@Resolver(() => PullRequestReviewThreadNode)
+@AllowAnonymous()
+export class PullRequestReviewThreadResolver {
+  constructor(private readonly pulls: PullRequestNodesService) {}
+
+  @ResolveField(() => UserNode, { nullable: true })
+  resolvedBy(
+    @Parent() thread: PullRequestReviewThreadNode,
+    @Context() { loaders }: GraphqlContext,
+  ) {
+    return this.pulls.resolvedBy(thread, loaders);
+  }
+
+  @ResolveField(() => PullRequestReviewCommentConnection)
+  comments(
+    @Parent() thread: PullRequestReviewThreadNode,
+    @Args('first', { type: () => Int, nullable: true }) first?: number,
+    @Args('last', { type: () => Int, nullable: true }) last?: number,
+    @Args('after', { type: () => String, nullable: true }) after?: string,
+  ) {
+    return sliceConnection(thread.threadComments, { first, last, after });
+  }
+}
+
+@Resolver(() => PullRequestReviewCommentNode)
+@AllowAnonymous()
+export class PullRequestReviewCommentResolver {
+  constructor(private readonly issues: IssueNodesService) {}
+
+  @ResolveField(() => Actor, { nullable: true })
+  author(
+    @Parent() comment: PullRequestReviewCommentNode,
+    @Context() { loaders }: GraphqlContext,
+  ) {
+    return this.issues.author(comment, loaders);
   }
 }

@@ -1,3 +1,4 @@
+import { schema } from '@ghost/db';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -17,6 +18,10 @@ import {
   CommitDTO,
   CommitFileDTO,
 } from '../../repositories/dto/get-repository-commits.dto.js';
+import {
+  REQUIREMENTS,
+  type Requirement,
+} from '../../../lib/rulesets/rulesets.types.js';
 
 export class GetPullRequestCommitsQueryDTO {
   @ApiPropertyOptional({
@@ -156,6 +161,94 @@ export class MergePullRequestRequestDTO {
   @IsIn(MERGE_METHODS)
   @IsOptional()
   method?: MergeMethod;
+
+  @ApiPropertyOptional({
+    description:
+      'The viewer chose to merge over the ruleset requirements they may bypass. Without it a merge that would bypass any is refused.',
+  })
+  @IsBoolean()
+  @IsOptional()
+  bypassRules?: boolean;
+}
+
+export class MergeRequirementsQueryDTO {
+  @ApiPropertyOptional({
+    enumName: 'MergeMethod',
+    enum: MERGE_METHODS,
+    description: 'Left out, the first method the rulesets allow is judged.',
+  })
+  @IsIn(MERGE_METHODS)
+  @IsOptional()
+  method?: MergeMethod;
+}
+
+export class RuleViolationDTO {
+  @ApiProperty({ example: 'refs/heads/main' })
+  @IsString()
+  ref: string;
+
+  @ApiProperty()
+  @IsString()
+  rulesetId: string;
+
+  @ApiProperty()
+  @IsString()
+  rulesetName: string;
+
+  @ApiProperty({
+    enumName: 'RuleType',
+    enum: schema.rulesetRuleType.enumValues,
+  })
+  @IsIn(schema.rulesetRuleType.enumValues)
+  rule: (typeof schema.rulesetRuleType.enumValues)[number];
+
+  @ApiPropertyOptional({
+    enumName: 'RuleRequirement',
+    enum: REQUIREMENTS,
+    description: 'Which part of a `pull_request` rule is unmet.',
+  })
+  @IsIn(REQUIREMENTS)
+  @IsOptional()
+  requirement?: Requirement;
+
+  @ApiProperty()
+  @IsString()
+  message: string;
+}
+
+export class MergeRequirementsDTO {
+  @ApiProperty({
+    type: [RuleViolationDTO],
+    description:
+      'Unmet requirements the viewer cannot bypass; any one blocks the merge.',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => RuleViolationDTO)
+  violations: RuleViolationDTO[];
+
+  @ApiProperty({
+    type: [RuleViolationDTO],
+    description:
+      'Unmet requirements the viewer may bypass by merging with `bypassRules`.',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => RuleViolationDTO)
+  bypassed: RuleViolationDTO[];
+
+  @ApiProperty({
+    enumName: 'MergeMethod',
+    enum: MERGE_METHODS,
+    isArray: true,
+    description: 'The merge methods every applicable ruleset allows.',
+  })
+  @IsIn(MERGE_METHODS, { each: true })
+  allowedMethods: MergeMethod[];
+
+  @ApiProperty({
+    description: 'A rule on the base asks for approvals or code owner reviews.',
+  })
+  @IsBoolean()
+  reviewsRequired: boolean;
 }
 
 export class MergePullRequestResponseDTO {

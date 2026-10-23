@@ -174,6 +174,14 @@ export class ReviewCommentNotFoundError extends DomainError {
   }
 }
 
+export class ReviewThreadReplyError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('Only the first comment of a thread can resolve it; this is a reply');
+  }
+}
+
 export class ReviewNotDismissableError extends DomainError {
   status: number = HttpStatus.CONFLICT;
 

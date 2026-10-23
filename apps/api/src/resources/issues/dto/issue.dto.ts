@@ -19,6 +19,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { RuleViolationDTO } from '../../pull-requests/dto/pull-request-changes.dto.js';
 import { PullRequestReviewDTO } from '../../pull-requests/dto/pull-request-review.dto.js';
 import { LabelDTO } from './label.dto.js';
 
@@ -193,6 +194,13 @@ export class GetIssuesResponseDTO {
   hasMore: boolean;
 }
 
+export class IssueEventDetailsDTO {
+  @ApiProperty({ type: [RuleViolationDTO] })
+  @ValidateNested({ each: true })
+  @Type(() => RuleViolationDTO)
+  violations: RuleViolationDTO[];
+}
+
 export class IssueTimelineEventDTO {
   @ApiProperty()
   @IsString()
@@ -307,6 +315,16 @@ export class IssueTimelineEventDTO {
   @IsInt()
   @IsOptional()
   sourceNumber: number | null;
+
+  @ApiProperty({
+    type: IssueEventDetailsDTO,
+    nullable: true,
+    description: 'What a `rules_bypassed` merge went over.',
+  })
+  @ValidateNested()
+  @Type(() => IssueEventDetailsDTO)
+  @IsOptional()
+  details: IssueEventDetailsDTO | null;
 
   @ApiProperty()
   @IsISO8601()

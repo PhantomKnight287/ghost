@@ -122,7 +122,18 @@ export class PullRequestPushesService {
         tip: after,
         exclude: [baseSha, previous].filter((sha) => sha !== null),
       });
+      // pushes are recorded unawaited and can finish out of order; only the one that left the head where it is names the last pusher
+      const current = await resolveCommit(
+        await directoryOf(repositoryId),
+        `${BRANCH_PREFIX}${pull.headRef}`,
+      );
       await this.db.transaction(async (tx) => {
+        if (current === after) {
+          await tx
+            .update(schema.pullRequest)
+            .set({ headPushedById: pushedBy })
+            .where(eq(schema.pullRequest.issueId, pull.issueId));
+        }
         await recordCommitEvents(tx, {
           issueId: pull.issueId,
           actorId: pushedBy,

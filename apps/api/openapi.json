@@ -5197,6 +5197,82 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/pulls/{number}/merge-requirements": {
+      "get": {
+        "operationId": "PullRequestsController_getMergeRequirements",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "method",
+            "required": false,
+            "in": "query",
+            "description": "Left out, the first method the rulesets allow is judged.",
+            "schema": {
+              "$ref": "#/components/schemas/MergeMethod"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeRequirementsDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "What stands between the viewer and merging a pull request",
+        "tags": [
+          "Pull requests"
+        ]
+      }
+    },
     "/api/repositories/{username}/{repo}/pulls/{number}/close": {
       "patch": {
         "operationId": "PullRequestsController_closePullRequest",
@@ -6190,6 +6266,176 @@
           }
         },
         "summary": "Commit a comment's suggested change to the head branch",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/resolve": {
+      "post": {
+        "operationId": "ReviewsController_resolveThread",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewThreadResolutionDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resolve the thread a line comment starts",
+        "tags": [
+          "Pull request reviews"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/pulls/{number}/comments/{commentId}/unresolve": {
+      "post": {
+        "operationId": "ReviewsController_unresolveThread",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewThreadResolutionDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reopen the thread a line comment starts",
         "tags": [
           "Pull request reviews"
         ]
@@ -19603,6 +19849,10 @@
                 "$ref": "#/components/schemas/MergeMethod"
               }
             ]
+          },
+          "bypassRules": {
+            "type": "boolean",
+            "description": "The viewer chose to merge over the ruleset requirements they may bypass. Without it a merge that would bypass any is refused."
           }
         }
       },
@@ -19621,6 +19871,106 @@
         "required": [
           "mergeCommitSha",
           "seq"
+        ]
+      },
+      "RuleType": {
+        "type": "string",
+        "enum": [
+          "creation",
+          "update",
+          "deletion",
+          "non_fast_forward",
+          "required_linear_history",
+          "pull_request"
+        ]
+      },
+      "RuleRequirement": {
+        "type": "string",
+        "enum": [
+          "pull_request",
+          "approvals",
+          "changes_requested",
+          "code_owners",
+          "last_push",
+          "threads",
+          "merge_method"
+        ],
+        "description": "Which part of a `pull_request` rule is unmet."
+      },
+      "RuleViolationDTO": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "example": "refs/heads/main"
+          },
+          "rulesetId": {
+            "type": "string"
+          },
+          "rulesetName": {
+            "type": "string"
+          },
+          "rule": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RuleType"
+              }
+            ]
+          },
+          "requirement": {
+            "description": "Which part of a `pull_request` rule is unmet.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RuleRequirement"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref",
+          "rulesetId",
+          "rulesetName",
+          "rule",
+          "message"
+        ]
+      },
+      "MergeRequirementsDTO": {
+        "type": "object",
+        "properties": {
+          "violations": {
+            "description": "Unmet requirements the viewer cannot bypass; any one blocks the merge.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleViolationDTO"
+            }
+          },
+          "bypassed": {
+            "description": "Unmet requirements the viewer may bypass by merging with `bypassRules`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleViolationDTO"
+            }
+          },
+          "allowedMethods": {
+            "type": "array",
+            "description": "The merge methods every applicable ruleset allows.",
+            "items": {
+              "$ref": "#/components/schemas/MergeMethod"
+            }
+          },
+          "reviewsRequired": {
+            "type": "boolean",
+            "description": "A rule on the base asks for approvals or code owner reviews."
+          }
+        },
+        "required": [
+          "violations",
+          "bypassed",
+          "allowedMethods",
+          "reviewsRequired"
         ]
       },
       "UpdatePullRequestRequestDTO": {
@@ -19721,6 +20071,17 @@
           "state"
         ]
       },
+      "ThreadResolverDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ]
+      },
       "ReviewReplyDTO": {
         "type": "object",
         "properties": {
@@ -19777,6 +20138,19 @@
           "updatedAt": {
             "type": "string"
           },
+          "resolved": {
+            "type": "boolean"
+          },
+          "resolvedBy": {
+            "nullable": true,
+            "description": "Who resolved the thread; null while it is unresolved, or once their account is deleted.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ThreadResolverDTO"
+              }
+            ]
+          },
           "path": {
             "type": "string"
           },
@@ -19826,6 +20200,8 @@
           "authorImage",
           "createdAt",
           "updatedAt",
+          "resolved",
+          "resolvedBy",
           "path",
           "side",
           "line",
@@ -19973,6 +20349,28 @@
         },
         "required": [
           "commitSha"
+        ]
+      },
+      "ReviewThreadResolutionDTO": {
+        "type": "object",
+        "properties": {
+          "resolved": {
+            "type": "boolean"
+          },
+          "resolvedBy": {
+            "nullable": true,
+            "description": "Who resolved the thread; null while it is unresolved, or once their account is deleted.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ThreadResolverDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "resolved",
+          "resolvedBy"
         ]
       },
       "RequestedUserDTO": {
@@ -20577,7 +20975,22 @@
           "committed",
           "head_force_pushed",
           "review_requested",
-          "review_request_removed"
+          "review_request_removed",
+          "rules_bypassed"
+        ]
+      },
+      "IssueEventDetailsDTO": {
+        "type": "object",
+        "properties": {
+          "violations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleViolationDTO"
+            }
+          }
+        },
+        "required": [
+          "violations"
         ]
       },
       "IssueTimelineEventDTO": {
@@ -20657,6 +21070,16 @@
             "type": "number",
             "nullable": true
           },
+          "details": {
+            "nullable": true,
+            "description": "What a `rules_bypassed` merge went over.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IssueEventDetailsDTO"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string"
           }
@@ -20678,6 +21101,7 @@
           "requestedTeamSlug",
           "sourceRepository",
           "sourceNumber",
+          "details",
           "createdAt"
         ]
       },
@@ -21152,7 +21576,8 @@
                 "update",
                 "deletion",
                 "non_fast_forward",
-                "required_linear_history"
+                "required_linear_history",
+                "pull_request"
               ]
             }
           },
@@ -21181,8 +21606,25 @@
               "update",
               "deletion",
               "non_fast_forward",
-              "required_linear_history"
+              "required_linear_history",
+              "pull_request"
             ]
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "For `pull_request`: GitHub's parameters, defaults filled in for those left out. Other rules take none.",
+            "example": {
+              "required_approving_review_count": 1,
+              "dismiss_stale_reviews_on_push": true,
+              "require_code_owner_review": false,
+              "require_last_push_approval": false,
+              "required_review_thread_resolution": true,
+              "allowed_merge_methods": [
+                "squash",
+                "rebase"
+              ]
+            }
           }
         },
         "required": [
@@ -23112,12 +23554,13 @@
               "update",
               "deletion",
               "non_fast_forward",
-              "required_linear_history"
+              "required_linear_history",
+              "pull_request"
             ]
           },
           "parameters": {
             "type": "object",
-            "description": "None of the rules Ghost supports takes any."
+            "description": "For `pull_request`: GitHub's parameters. The other rules Ghost supports take none."
           }
         },
         "required": [

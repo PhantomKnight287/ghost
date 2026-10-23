@@ -17,6 +17,7 @@ export function Timeline({
   number,
   viewer,
   canModerate,
+  canResolve,
   items,
   noun,
   headSha,
@@ -27,6 +28,8 @@ export function Timeline({
   viewer?: string | null;
   /** May edit and delete anyone's comments. */
   canModerate: boolean;
+  /** May resolve review threads; defaults to `canModerate`. */
+  canResolve?: boolean;
   items: IssueTimelineItem[];
   noun: "issue" | "pull request";
   /** The request's current head, which line comments on another commit are outdated against. */
@@ -42,6 +45,7 @@ export function Timeline({
           number={number}
           viewer={viewer}
           canModerate={canModerate}
+          canResolve={canResolve}
           review={item}
           headSha={headSha ?? item.commitSha}
         />
@@ -169,6 +173,39 @@ export function Timeline({
           )}{" "}
           · <FromNowHoverCard date={event.createdAt} />
         </p>
+      );
+    }
+
+    if (item.kind === "event" && item.event.type === "rules_bypassed") {
+      const { event } = item;
+      return (
+        <div key={item.id} className="px-4 text-xs text-muted-foreground">
+          <p>
+            <UserLink
+              username={event.actorUsername}
+              image={event.actorImage}
+              avatar="xs"
+              className="align-middle"
+            />{" "}
+            bypassed ruleset requirements to merge this {noun} ·{" "}
+            <FromNowHoverCard date={event.createdAt} />
+          </p>
+          <ul className="mt-1 ml-6 list-disc">
+            {event.details?.violations.map((violation) => (
+              <li
+                key={`${violation.rulesetId}:${violation.requirement ?? violation.rule}`}
+              >
+                {violation.message}{" "}
+                <Link
+                  href={`/${username}/${repo}/settings/rules/${violation.rulesetId}`}
+                  className="hover:underline"
+                >
+                  ({violation.rulesetName})
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       );
     }
 
