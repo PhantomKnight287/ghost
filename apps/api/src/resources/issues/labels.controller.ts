@@ -27,6 +27,7 @@ import {
   UpdateLabelRequestDTO,
 } from './dto/label.dto.js';
 import { IssuesService } from './issues.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/labels')
 @ApiTags('Labels')
@@ -39,8 +40,8 @@ export class LabelsController {
   @ApiOkResponse({ type: GetLabelsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   listLabels(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Session() session: UserSession,
   ) {
     return this.issues.listLabels({
@@ -56,8 +57,8 @@ export class LabelsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   createLabel(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Body() body: CreateLabelRequestDTO,
     @Session() session: UserSession,
   ) {
@@ -75,8 +76,8 @@ export class LabelsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   updateLabel(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('labelId') labelId: string,
     @Body() body: UpdateLabelRequestDTO,
     @Session() session: UserSession,
@@ -95,8 +96,8 @@ export class LabelsController {
   @ApiOkResponse({ schema: { type: 'object' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   deleteLabel(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('labelId') labelId: string,
     @Session() session: UserSession,
   ) {

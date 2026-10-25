@@ -24,6 +24,7 @@ import {
   GithubCommentDTO,
   GithubListCommentsQueryDTO,
 } from './dto/issue.dto.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -41,8 +42,8 @@ export class CommentsController {
     summary: "Every comment in a repository's issues and pull requests",
   })
   listForRepository(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Query() query: GithubListCommentsQueryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -52,8 +53,8 @@ export class CommentsController {
   @Get('comments/:comment_id')
   @ApiOperation({ summary: 'A comment by id' })
   get(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('comment_id', ID) id: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -63,8 +64,8 @@ export class CommentsController {
   @Patch('comments/:comment_id')
   @ApiOperation({ summary: 'Edit a comment; only its author may' })
   update(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('comment_id', ID) id: number,
     @Body() body: GithubCommentDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -76,8 +77,8 @@ export class CommentsController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a comment' })
   delete(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('comment_id', ID) id: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -87,8 +88,8 @@ export class CommentsController {
   @Get(':number/comments')
   @ApiOperation({ summary: "An issue's comments, oldest first" })
   list(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Query() query: GithubListCommentsQueryDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -99,8 +100,8 @@ export class CommentsController {
   @Post(':number/comments')
   @ApiOperation({ summary: 'Comment on an issue or pull request' })
   create(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Body() body: GithubCommentDTO,
     @Viewer() viewer: GithubViewer | null,

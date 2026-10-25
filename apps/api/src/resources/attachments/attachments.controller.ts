@@ -32,6 +32,7 @@ import {
   AttachmentDTO,
   UploadAttachmentQueryDTO,
 } from './dto/attachment.dto.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller()
 @ApiTags('Attachments')
@@ -63,8 +64,8 @@ export class AttachmentsController {
     type: ErrorResponseDTO,
   })
   uploadAttachment(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Query() query: UploadAttachmentQueryDTO,
     // read off the request rather than `@Headers()`, which would publish them as parameters a browser is not allowed to set
     @Req() request: Request,

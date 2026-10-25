@@ -35,10 +35,16 @@ export class RepositoryAccessService {
     operation?: RepositoryOperation;
   }): Promise<AuthorizedRepository> {
     const actor: Actor = requesterId ? { userId: requesterId } : null;
+    // Names are unique ignoring case, as on GitHub; slugs are stored lowercase already.
+    username = username.toLowerCase();
+    repo = repo.toLowerCase();
     let [row] = await this.lookup(
       actor,
       and(
-        eq(ownerNameOf(schema.user, schema.organization), username),
+        eq(
+          sql`lower(${ownerNameOf(schema.user, schema.organization)})`,
+          username,
+        ),
         eq(schema.repository.slug, repo),
       ),
     );
@@ -51,7 +57,7 @@ export class RepositoryAccessService {
           and(
             eq(
               sql`lower(${schema.repositoryRedirect.ownerName})`,
-              username.toLowerCase(),
+              username,
             ),
             eq(schema.repositoryRedirect.slug, repo),
           ),

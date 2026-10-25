@@ -99,6 +99,7 @@ import { UpdateRepositoryRequestDTO } from './dto/update-repository.dto.js';
 import { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
 import { RepositoryEntity } from './entities/repository.entity.js';
 import { RepositoriesService } from './repositories.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories')
 @ApiTags('Repositories')
@@ -160,7 +161,7 @@ export class RepositoriesController {
   })
   @SignInOptional()
   getRepositories(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Session() session: UserSession,
     @Query() query: GetRepositoriesQueryDTO,
   ) {
@@ -184,8 +185,8 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepository(
-    @Param('username') username: string,
-    @Param('slug') slug: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('slug',TransformToLowercasePipe) slug: string,
     @Session() session: UserSession | undefined,
   ) {
     return this.repositoriesService.getRepository({
@@ -213,7 +214,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   updateRepository(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Body() body: UpdateRepositoryRequestDTO,
     @Session() session: UserSession,
@@ -246,7 +247,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   deleteRepository(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession,
   ): Promise<void> {
@@ -273,7 +274,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   forkRepository(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Body() body: ForkRepositoryRequestDTO,
     @Session() session: UserSession,
@@ -309,7 +310,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   transferRepository(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Body() body: TransferRepositoryRequestDTO,
     @Session() session: UserSession,
@@ -335,7 +336,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   starRepository(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession,
   ) {
@@ -358,7 +359,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   unstarRepository(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession,
   ) {
@@ -388,7 +389,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryContents(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryContentsQueryDTO,
@@ -418,7 +419,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryPaths(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryPathsQueryDTO,
@@ -445,7 +446,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryReadme(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryReadmeQueryDTO,
@@ -478,7 +479,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryBlob(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryBlobQueryDTO,
@@ -504,7 +505,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   async getRawBlob(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryBlobQueryDTO,
@@ -546,7 +547,7 @@ export class RepositoriesController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiServiceUnavailableResponse({ type: ErrorResponseDTO })
   async getArchive(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryArchiveQueryDTO,
@@ -585,7 +586,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryCommits(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryCommitsQueryDTO,
@@ -612,7 +613,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryCommit(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Param('sha') sha: string,
     @Session() session: UserSession | undefined,
@@ -642,7 +643,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   async getCommitPatch(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Param('sha') sha: string,
     @Query() query: GetCommitPatchQueryDTO,
@@ -679,7 +680,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryBranches(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
   ): Promise<GetRepositoryBranchesResponseDTO> {
@@ -707,7 +708,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryTags(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryTagsQueryDTO,
@@ -733,7 +734,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryLanguages(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
   ): Promise<GetRepositoryLanguagesResponseDTO> {
@@ -766,7 +767,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   searchRepositoryCode(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: SearchCodeQueryDTO,
@@ -798,7 +799,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryStargazers(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryStargazersQueryDTO,
@@ -828,7 +829,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryForks(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryForksQueryDTO,
@@ -855,7 +856,7 @@ export class RepositoriesController {
     type: ErrorResponseDTO,
   })
   getRepositoryContributors(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetRepositoryContributorsQueryDTO,

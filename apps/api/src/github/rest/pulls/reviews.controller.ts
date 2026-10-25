@@ -24,6 +24,7 @@ import {
   GithubSubmitReviewDTO,
 } from './dto/review-comment.dto.js';
 import { GithubReviewsService } from './reviews.service.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -40,8 +41,8 @@ export class GithubReviewsController {
     summary: "A pull request's reviews, oldest first, then your pending one",
   })
   list(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Query() query: GithubPageQueryDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -52,8 +53,8 @@ export class GithubReviewsController {
   @Get(':review_id')
   @ApiOperation({ summary: 'One review of a pull request, by its integer id' })
   get(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Param('review_id', ID) reviewId: number,
     @Viewer() viewer: GithubViewer | null,
@@ -67,8 +68,8 @@ export class GithubReviewsController {
     summary: 'Submit a review with its line comments, or start a pending one',
   })
   create(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Body() body: GithubCreateReviewDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -80,8 +81,8 @@ export class GithubReviewsController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Submit your pending review' })
   submit(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Param('review_id', ID) reviewId: number,
     @Body() body: GithubSubmitReviewDTO,
@@ -98,8 +99,8 @@ export class GithubReviewsController {
   @Delete(':review_id')
   @ApiOperation({ summary: 'Discard your pending review and its comments' })
   delete(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Param('review_id', ID) reviewId: number,
     @Viewer() viewer: GithubViewer | null,

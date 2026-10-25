@@ -10,6 +10,7 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { StorageUsageDTO } from './dto/storage.dto.js';
 import { StorageService } from './storage.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('storage')
 @ApiTags('Storage')
@@ -25,7 +26,7 @@ export class StorageController {
   @ApiOkResponse({ type: StorageUsageDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getStorageUsage(
-    @Param('owner') owner: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
     @Session() session: UserSession,
   ): Promise<StorageUsageDTO> {
     return this.storage.usage(owner, session.user.id);

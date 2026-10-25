@@ -23,6 +23,7 @@ import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubPageQueryDTO } from './dto/issue.dto.js';
 import { GithubCreateLabelDTO, GithubUpdateLabelDTO } from './dto/label.dto.js';
 import { GithubLabelsService } from './labels.service.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -43,8 +44,8 @@ export class LabelsController {
   @Get('labels')
   @ApiOperation({ summary: "A repository's labels, by name" })
   list(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Query() query: GithubPageQueryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -54,8 +55,8 @@ export class LabelsController {
   @Post('labels')
   @ApiOperation({ summary: 'Create a label' })
   create(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Body() body: GithubCreateLabelDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -65,8 +66,8 @@ export class LabelsController {
   @Get('labels/:name')
   @ApiOperation({ summary: 'A label by name' })
   get(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('name') name: string,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -76,8 +77,8 @@ export class LabelsController {
   @Patch('labels/:name')
   @ApiOperation({ summary: 'Rename, recolor or describe a label' })
   update(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('name') name: string,
     @Body() body: GithubUpdateLabelDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -89,8 +90,8 @@ export class LabelsController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a label' })
   delete(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('name') name: string,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -100,8 +101,8 @@ export class LabelsController {
   @Get('issues/:number/labels')
   @ApiOperation({ summary: "An issue's labels" })
   listOnIssue(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Query() query: GithubPageQueryDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -116,8 +117,8 @@ export class LabelsController {
     summary: "Add labels to an issue; answers all of the issue's labels",
   })
   add(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: unknown,
     @Viewer() viewer: GithubViewer | null,
@@ -129,8 +130,8 @@ export class LabelsController {
   @ApiBody(LABELS_BODY)
   @ApiOperation({ summary: "Replace an issue's labels" })
   set(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: unknown,
     @Viewer() viewer: GithubViewer | null,
@@ -142,8 +143,8 @@ export class LabelsController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Remove every label from an issue' })
   clear(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -155,8 +156,8 @@ export class LabelsController {
     summary: 'Remove one label from an issue; answers the labels left',
   })
   remove(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Param('name') name: string,
     @Viewer() viewer: GithubViewer | null,

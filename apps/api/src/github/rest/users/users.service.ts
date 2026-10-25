@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import {
@@ -41,12 +41,12 @@ export class GithubUsersService {
     const [user] = await this.db
       .select()
       .from(schema.user)
-      .where(eq(schema.user.username, login));
+      .where(eq(sql`lower(${schema.user.username})`, login));
     if (user) return this.restUser(user);
     const [organization] = await this.db
       .select()
       .from(schema.organization)
-      .where(eq(schema.organization.slug, login));
+      .where(eq(sql`lower(${schema.organization.slug})`, login));
     if (!organization)
       throw new CouldNotResolveError(
         `Could not resolve to a User or Organization with the login of '${login}'.`,

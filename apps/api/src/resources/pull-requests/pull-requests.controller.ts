@@ -50,6 +50,7 @@ import {
   MergeRequirementsQueryDTO,
 } from './dto/pull-request-changes.dto.js';
 import { PullRequestsService } from './pull-requests.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/pulls')
 @ApiTags('Pull requests')
@@ -62,8 +63,8 @@ export class PullRequestsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   createPullRequest(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Body() body: CreatePullRequestRequestDTO,
     @Session() session: UserSession,
   ) {
@@ -81,8 +82,8 @@ export class PullRequestsController {
   @ApiOkResponse({ type: GetPullRequestsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getPullRequests(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Query() query: GetPullRequestsQueryDTO,
     @Session() session: UserSession,
   ) {
@@ -99,8 +100,8 @@ export class PullRequestsController {
   @ApiOkResponse({ schema: { type: 'string' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async comparePatch(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Query() query: ComparePatchQueryDTO,
     @Session() session: UserSession,
   ) {
@@ -122,8 +123,8 @@ export class PullRequestsController {
   @ApiOkResponse({ type: CompareResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   compare(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Query() query: CompareQueryDTO,
     @Session() session: UserSession,
   ) {
@@ -142,8 +143,8 @@ export class PullRequestsController {
   @ApiOkResponse({ type: PullRequestDetailDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getPullRequest(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -161,8 +162,8 @@ export class PullRequestsController {
   @ApiOkResponse({ type: GetPullRequestCommitsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getCommits(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Query() query: GetPullRequestCommitsQueryDTO,
     @Session() session: UserSession,
@@ -186,8 +187,8 @@ export class PullRequestsController {
   @ApiOkResponse({ type: PullRequestCommitPositionDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   locateCommit(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('sha') sha: string,
     @Session() session: UserSession,
@@ -207,8 +208,8 @@ export class PullRequestsController {
   @ApiOkResponse({ type: GetPullRequestFilesResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getFiles(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -226,8 +227,8 @@ export class PullRequestsController {
   @ApiOkResponse({ schema: { type: 'string' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async getPatch(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Query() query: GetPullRequestPatchQueryDTO,
     @Session() session: UserSession,
@@ -250,8 +251,8 @@ export class PullRequestsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   mergePullRequest(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: MergePullRequestRequestDTO,
     @Session() session: UserSession,
@@ -276,8 +277,8 @@ export class PullRequestsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   getMergeRequirements(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Query() query: MergeRequirementsQueryDTO,
     @Session() session: UserSession,
@@ -296,8 +297,8 @@ export class PullRequestsController {
   @ApiOkResponse({ type: PullRequestDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   updatePullRequest(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: UpdatePullRequestRequestDTO,
     @Session() session: UserSession,
@@ -317,8 +318,8 @@ export class PullRequestsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   closePullRequest(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -336,8 +337,8 @@ export class PullRequestsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   markReadyForReview(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -356,8 +357,8 @@ export class PullRequestsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   convertToDraft(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {

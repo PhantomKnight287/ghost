@@ -1,6 +1,7 @@
 import { type Database, schema } from '@ghost/db';
-import { Inject, Injectable } from '@nestjs/common';
 import type { OrganizationRole } from '@ghost/permissions';
+import { administers, organizationRoleOf } from '@ghost/permissions';
+import { Inject, Injectable } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { APIError } from 'better-auth/api';
 import {
@@ -18,24 +19,23 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
+import type { Auth } from '../../lib/auth.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
 import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
-import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
-import type { UpdateOrganizationSettingsDTO } from './dto/organization.dto.js';
+import {
+  InvitationRefusedError,
+  OrganizationNotFoundError,
+} from '../../lib/organizations/organization.errors.js';
 import {
   acceptedCollaboration,
   type CollaboratorRole,
   organizationMembership,
   readableBy,
 } from '../../lib/repositories/access/repository-access.js';
-import { administers, organizationRoleOf } from '@ghost/permissions';
 import { RepositoryNotFoundError } from '../../lib/repositories/repositories.errors.js';
+import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { isoTimestamp } from '../../lib/db/sql.js';
-import {
-  InvitationRefusedError,
-  OrganizationNotFoundError,
-} from '../../lib/organizations/organization.errors.js';
-import type { Auth } from '../../lib/auth.js';
+import type { UpdateOrganizationSettingsDTO } from './dto/organization.dto.js';
 
 const summaryColumns = {
   slug: schema.organization.slug,
@@ -209,7 +209,7 @@ export class OrganizationsService {
         schema.organizationSettings,
         eq(schema.organizationSettings.organizationId, schema.organization.id),
       )
-      .where(eq(schema.organization.slug, slug));
+      .where(eq(sql`lower(${schema.organization.slug})`, slug));
     if (!organization) throw new OrganizationNotFoundError(slug);
 
     const [membership] = requesterId

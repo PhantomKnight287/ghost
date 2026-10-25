@@ -31,6 +31,7 @@ import {
   StartImportRequestDTO,
 } from './dto/import.dto.js';
 import { ImportsService } from './imports.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller()
 @ApiTags('Imports')
@@ -91,8 +92,8 @@ export class ImportsController {
   @ApiOkResponse({ type: RepositoryImportDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   status(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Session() session: UserSession | undefined,
   ): Promise<RepositoryImportDTO> {
     return this.imports.status({
@@ -114,8 +115,8 @@ export class ImportsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   retry(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Session() session: UserSession,
   ) {
     return this.imports.retry({ username, repo, requesterId: session.user.id });

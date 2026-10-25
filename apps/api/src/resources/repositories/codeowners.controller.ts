@@ -17,6 +17,7 @@ import {
   GetCodeownersResponseDTO,
 } from './dto/codeowners.dto.js';
 import { RepositoriesService } from './repositories.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories')
 @ApiTags('Repositories')
@@ -33,7 +34,7 @@ export class CodeownersController {
   @ApiOkResponse({ type: GetCodeownersResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getCodeowners(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetCodeownersQueryDTO,
@@ -60,7 +61,7 @@ export class CodeownersController {
   })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getCodeownersOwners(
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetCodeownersOwnersQueryDTO,

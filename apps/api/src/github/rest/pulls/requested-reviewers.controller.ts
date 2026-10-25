@@ -18,6 +18,7 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubRequestedReviewersDTO } from './dto/pull.dto.js';
 import { GithubPullsService } from './pulls.service.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -32,8 +33,8 @@ export class RequestedReviewersController {
   @Get()
   @ApiOperation({ summary: 'Users and teams asked to review a pull request' })
   list(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -43,8 +44,8 @@ export class RequestedReviewersController {
   @Post()
   @ApiOperation({ summary: 'Request reviews from users and teams' })
   request(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: GithubRequestedReviewersDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -55,8 +56,8 @@ export class RequestedReviewersController {
   @Delete()
   @ApiOperation({ summary: 'Remove requested reviewers' })
   remove(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: GithubRequestedReviewersDTO,
     @Viewer() viewer: GithubViewer | null,

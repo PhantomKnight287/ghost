@@ -25,6 +25,7 @@ import {
   OrganizationTeamDTO,
 } from './dto/organization.dto.js';
 import { TeamsService } from './teams.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @ApiTags('Organizations')
 @Controller('organizations/:slug/teams')
@@ -72,7 +73,7 @@ export class OrganizationTeamsController {
   addMember(
     @Param('slug') slug: string,
     @Param('team') team: string,
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Session() session: UserSession,
   ): Promise<void> {
     return this.teams.addMember(slug, team, username, session.user.id);
@@ -90,7 +91,7 @@ export class OrganizationTeamsController {
   removeMember(
     @Param('slug') slug: string,
     @Param('team') team: string,
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Session() session: UserSession,
   ): Promise<void> {
     return this.teams.removeMember(slug, team, username, session.user.id);
@@ -109,7 +110,7 @@ export class OrganizationTeamsController {
   appoint(
     @Param('slug') slug: string,
     @Param('team') team: string,
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Session() session: UserSession,
   ): Promise<void> {
     return this.teams.setMaintainer(
@@ -130,7 +131,7 @@ export class OrganizationTeamsController {
   dismiss(
     @Param('slug') slug: string,
     @Param('team') team: string,
-    @Param('username') username: string,
+    @Param('username',TransformToLowercasePipe) username: string,
     @Session() session: UserSession,
   ): Promise<void> {
     return this.teams.setMaintainer(

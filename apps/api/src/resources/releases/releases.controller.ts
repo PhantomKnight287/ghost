@@ -34,6 +34,7 @@ import {
   UpdateReleaseRequestDTO,
 } from './dto/release.dto.js';
 import { ReleasesService } from './releases.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/releases')
 @ApiTags('Releases')
@@ -51,8 +52,8 @@ export class ReleasesController {
   @ApiBadRequestResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   listReleases(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Query() query: GetReleasesQueryDTO,
     @Session() session: UserSession | undefined,
   ): Promise<GetReleasesResponseDTO> {
@@ -85,8 +86,8 @@ export class ReleasesController {
     type: ErrorResponseDTO,
   })
   createRelease(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Body() body: CreateReleaseRequestDTO,
     @Session() session: UserSession,
   ): Promise<ReleaseDTO> {
@@ -108,8 +109,8 @@ export class ReleasesController {
   @ApiOkResponse({ type: ReleaseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getLatestRelease(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Session() session: UserSession | undefined,
   ): Promise<ReleaseDTO> {
     return this.releases.getLatestRelease({
@@ -128,8 +129,8 @@ export class ReleasesController {
   @ApiOkResponse({ type: ReleaseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getReleaseByTag(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('tag') tagName: string,
     @Session() session: UserSession | undefined,
   ): Promise<ReleaseDTO> {
@@ -150,8 +151,8 @@ export class ReleasesController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   updateRelease(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('id') id: string,
     @Body() body: UpdateReleaseRequestDTO,
     @Session() session: UserSession,
@@ -175,8 +176,8 @@ export class ReleasesController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   deleteRelease(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('id') id: string,
     @Session() session: UserSession,
   ): Promise<void> {

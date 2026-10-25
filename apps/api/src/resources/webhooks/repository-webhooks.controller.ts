@@ -34,6 +34,7 @@ import {
   WebhookSecretDTO,
 } from './dto/webhook.dto.js';
 import { WebhooksService } from './webhooks.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @ApiTags('Webhooks')
 @Controller('repositories/:username/:repo/webhooks')
@@ -46,8 +47,8 @@ export class RepositoryWebhooksController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async list(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Session() session: UserSession,
   ): Promise<ListWebhooksResponseDTO> {
     return this.webhooks.list(await this.owner(username, repo, session));
@@ -65,8 +66,8 @@ export class RepositoryWebhooksController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiServiceUnavailableResponse({ type: ErrorResponseDTO })
   async create(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Body() body: CreateWebhookRequestDTO,
     @Session() session: UserSession,
   ): Promise<CreatedWebhookDTO> {
@@ -83,8 +84,8 @@ export class RepositoryWebhooksController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async update(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('webhookId') webhookId: string,
     @Body() body: UpdateWebhookRequestDTO,
     @Session() session: UserSession,
@@ -106,8 +107,8 @@ export class RepositoryWebhooksController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async remove(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('webhookId') webhookId: string,
     @Session() session: UserSession,
   ): Promise<void> {
@@ -129,8 +130,8 @@ export class RepositoryWebhooksController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiServiceUnavailableResponse({ type: ErrorResponseDTO })
   async rollSecret(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('webhookId') webhookId: string,
     @Session() session: UserSession,
   ): Promise<WebhookSecretDTO> {
@@ -150,8 +151,8 @@ export class RepositoryWebhooksController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async ping(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('webhookId') webhookId: string,
     @Session() session: UserSession,
   ): Promise<void> {
@@ -170,8 +171,8 @@ export class RepositoryWebhooksController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async deliveries(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('webhookId') webhookId: string,
     @Session() session: UserSession,
   ): Promise<ListDeliveriesResponseDTO> {
@@ -192,8 +193,8 @@ export class RepositoryWebhooksController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async redeliver(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('webhookId') webhookId: string,
     @Param('deliveryId') deliveryId: string,
     @Session() session: UserSession,

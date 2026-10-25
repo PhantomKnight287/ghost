@@ -17,6 +17,7 @@ import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubAddKeyDTO } from './dto/add-key.dto.js';
 import { GithubUsersService } from './users.service.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -37,7 +38,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'A user or organization by login, in GitHub REST shape',
   })
-  byLogin(@Param('login') login: string) {
+  byLogin(@Param('login',TransformToLowercasePipe) login: string) {
     return this.users.byLogin(login);
   }
 

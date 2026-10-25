@@ -21,6 +21,7 @@ import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubCreateRepositoryDTO } from './dto/create-repository.dto.js';
 import { GithubReposService } from './repos.service.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
@@ -34,8 +35,8 @@ export class ReposController {
   @Get('repos/:owner/:repo')
   @ApiOperation({ summary: 'A repository, in GitHub REST shape' })
   get(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Viewer() viewer: GithubViewer | null,
   ) {
     return this.repos.get({ owner, repo, viewer });
@@ -47,8 +48,8 @@ export class ReposController {
       "The repository's README at the default branch, base64 as GitHub returns it",
   })
   readme(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Viewer() viewer: GithubViewer | null,
   ) {
     return this.repos.readme({ owner, repo, viewer });
@@ -58,8 +59,8 @@ export class ReposController {
   @Get('repos/:owner/:repo/zipball{/*ref}')
   @ApiOperation({ summary: 'A zip of the repository at a ref' })
   zipball(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('ref') ref: string[] | undefined,
     @Viewer() viewer: GithubViewer | null,
     @Headers('if-none-match') ifNoneMatch: string | undefined,
@@ -75,8 +76,8 @@ export class ReposController {
   @Get('repos/:owner/:repo/tarball{/*ref}')
   @ApiOperation({ summary: 'A gzipped tarball of the repository at a ref' })
   tarball(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('repo',TransformToLowercasePipe) repo: string,
     @Param('ref') ref: string[] | undefined,
     @Viewer() viewer: GithubViewer | null,
     @Headers('if-none-match') ifNoneMatch: string | undefined,
