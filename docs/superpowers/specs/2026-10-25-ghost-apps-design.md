@@ -1,12 +1,12 @@
 # Ghost Apps
 
-Issue: #50 on Ghost (migrated from #109 on GitHub). Unblocks `integration_id` in rulesets part C (#89, `2026-10-23-rulesets-cd-design.md`). The Checks API is out of scope; it is #79 on Ghost and becomes its own slice after this work. #79 gets a comment once apps land.
+Issue: #50 on Ghost (migrated from #109 on GitHub). Unblocks `integration_id` in rulesets part C (#89 on Ghost, `2026-10-23-rulesets-cd-design.md`). The Checks API is out of scope; it is #79 on Ghost and becomes its own slice after this work. #79 gets a comment once apps land.
 
 This work ships as ordered slices, one issue and one pull request each (user decision, 2026-10-25). Each slice is useful on its own and builds on the ones before it.
 
 ## Intent
 
-Ghost has OAuth apps (#104). An OAuth app always acts as the user who authorized it, with broad scopes such as `repo`, and its token proves nothing about which app is speaking: the device flow hands an app-tagged key to anyone who knows the app's public `client_id`.
+Ghost has OAuth apps ([GitHub PR #104](https://github.com/PhantomKnight287/ghost/pull/104)). An OAuth app always acts as the user who authorized it, with broad scopes such as `repo`, and its token proves nothing about which app is speaking: the device flow hands an app-tagged key to anyone who knows the app's public `client_id`.
 
 The apps the user wants on Ghost are bots that act as themselves:
 
@@ -38,7 +38,7 @@ An app built for GitHub with Octokit or Probot should run against Ghost **mostly
 6. Everything the app does is attributed to its bot user `slug[bot]`, with a `bot` badge linking to the app page.
 7. The app gets webhooks for its installations and for events on its installed repositories, through the existing delivery pipeline.
 8. Commit statuses record the installation that posted them, and rulesets part C can pin a required check to an app with `integration_id`.
-9. An app can opt in to acting for a user with expiring user-to-server tokens and refresh tokens, reusing #110.
+9. An app can opt in to acting for a user with expiring user-to-server tokens and refresh tokens, reusing [GitHub PR #110](https://github.com/PhantomKnight287/ghost/pull/110).
 10. When an app asks for new permissions, an installation keeps its old ones until the owner reviews and accepts the new set.
 11. GraphQL knows bots and apps, and the docs have a Ghost Apps section.
 
@@ -107,7 +107,7 @@ Rules:
 
 Each slice is one issue on Ghost, created from this document. The order matters: each one builds on the slices before it.
 
-### Slice 1: App registration and identity
+### Slice 1: App registration and identity (Ghost #103)
 
 - Schema: apps, private keys (public halves), bot user. The `bun db:generate` migration is the builder's to run.
 - Owner endpoints and UI to create, edit and delete an app, and to generate and delete keys. Org apps are managed by org admins.
@@ -117,7 +117,7 @@ Each slice is one issue on Ghost, created from this document. The order matters:
 
 **Done when:** an app can be registered, a key generated, and Octokit's `App` class authenticates as the app and reads `GET /app`.
 
-### Slice 2: Installations and installation tokens
+### Slice 2: Installations and installation tokens (Ghost #104)
 
 - Install page `/apps/:slug/installations/new`. It picks the account (you or an org you admin), all or selected repositories, and shows the permissions. On install it redirects to the app's setup URL if one is set (an optional app field; add it in slice 1 if that's cheaper).
 - Installed-apps settings for users and orgs: configure repositories, suspend, unsuspend, uninstall.
@@ -134,7 +134,7 @@ Each slice is one issue on Ghost, created from this document. The order matters:
 
 **Done when:** a Probot-style app can install on a repository, mint a token, read a pull request's diff, post a review with inline comments and a status as `slug[bot]`, and is refused on a repository outside its installation or without the permission. A ruleset pinning a context to the app is satisfied only by that app's status.
 
-### Slice 3: App webhooks
+### Slice 3: App webhooks (Ghost #105)
 
 - Each app has one webhook URL and secret, set at registration. It gets the events it subscribed to, from every repository in each of its installations, filtered so it never gets an event its accepted permissions could not read. For example, `issue.*` needs `issues:read`, and `push` needs `contents:read`.
 - New events in Ghost's `noun.verb` style:
@@ -148,18 +148,18 @@ Each slice is one issue on Ghost, created from this document. The order matters:
 
 **Done when:** installing, changing repositories, suspending and uninstalling each deliver an event to the app. A push or a new pull request on an installed repository reaches the app with `installation.id` set, and does not reach it on a repository outside the installation.
 
-### Slice 4: Checks API
+### Slice 4: Checks API (Ghost #79)
 
 This is #79, not part of this design. Once slice 3 merges, comment on #79 that apps exist and that check runs should be attributed to installations the same way statuses are.
 
-### Slice 5: User-to-server tokens
+### Slice 5: User-to-server tokens (Ghost #106)
 
 - This slice is committed; the per-app opt-in is what the issue's "optional" means. An app can turn on "Request user authorization". A user then authorizes the app through the web flow or the device flow, and the app gets an expiring token (8 hours) and a refresh token (6 months), the same as GitHub's `ghu_`/`ghr_` tokens.
-- Reuse #110: the `oauth_app_refresh_token` table, `issueRefreshToken`, `spendRefreshToken` and `lockGrant` in `apps/api/src/lib/github/refresh-tokens.ts`, and the `grant_type=refresh_token` branch of `POST /login/oauth/access_token`. What's left is keying grants to an app instead of only to an `oauth_client.client_id`.
+- Reuse [GitHub PR #110](https://github.com/PhantomKnight287/ghost/pull/110): the `oauth_app_refresh_token` table, `issueRefreshToken`, `spendRefreshToken` and `lockGrant` in `apps/api/src/lib/github/refresh-tokens.ts`, and the `grant_type=refresh_token` branch of `POST /login/oauth/access_token`. What's left is keying grants to an app instead of only to an `oauth_client.client_id`.
 - A user-to-server token acts as the user, limited to the intersection of the user's access, the app's permissions and the repositories the app is installed on. Actions show as the user, never as the bot (see anti-goals). On GitHub they also show "via app"; doing that is the builder's call.
 - The app gets a client id and client secret for this flow.
 
-### Slice 6: Permission changes, GraphQL and docs
+### Slice 6: Permission changes, GraphQL and docs (Ghost #107)
 
 - **Permission changes.** When the app owner raises permissions or adds events, each installation keeps its accepted set and its owner sees a "review new permissions" prompt in installed-apps settings. Accepting applies the new set and sends an `installation.new_permissions_accepted` event (name adjustable). Lowering permissions applies immediately.
 - **GraphQL.** A `Bot` type for actor fields (`author`, `actor` and the rest, as on GitHub) and `App` where GitHub exposes it. Installation tokens are accepted on GraphQL, with the same permission mapping per field: unmapped fields are denied.
