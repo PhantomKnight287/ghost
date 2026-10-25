@@ -37,10 +37,7 @@ function setup({
   const reflector = {
     getAllAndOverride: (flag: string) => flags.includes(flag),
   } as unknown as Reflector;
-  const guard = new ApiKeyAuthGuard(reflector, {
-    api: instance.api,
-    instance,
-  } as never);
+  const guard = new ApiKeyAuthGuard(reflector, { auth: instance } as never);
   const context = {
     getType: () => 'http',
     getHandler: () => undefined,

@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthGuard, AuthService } from '@thallesp/nestjs-better-auth';
+import { AuthGuard } from '@thallesp/nestjs-better-auth';
 import type { Request } from 'express';
 
 import type { Auth } from '../lib/auth.js';
@@ -24,11 +24,12 @@ export const CookieOnly = () => SetMetadata(COOKIE_ONLY, true);
  */
 @Injectable()
 export class ApiKeyAuthGuard extends AuthGuard {
+  // Nest injects what AuthGuard's own @Inject metadata names: the Reflector and the auth module's options.
   constructor(
     private readonly metadata: Reflector,
-    private readonly authService: AuthService<Auth>,
+    private readonly options_: { auth: Auth },
   ) {
-    super(metadata, { auth: authService.instance });
+    super(metadata, options_);
   }
 
   override async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -44,7 +45,7 @@ export class ApiKeyAuthGuard extends AuthGuard {
     )
       return super.canActivate(context);
 
-    const { valid, key: apiKey } = await this.authService.api.verifyApiKey({
+    const { valid, key: apiKey } = await this.options_.auth.api.verifyApiKey({
       body: { key },
     });
     if (!valid || !apiKey) throw new UnauthorizedException('Bad credentials');
@@ -57,7 +58,7 @@ export class ApiKeyAuthGuard extends AuthGuard {
         'Personal access tokens cannot use this route; sign in instead',
       );
 
-    const auth = await this.authService.instance.$context;
+    const auth = await this.options_.auth.$context;
     const user = await auth.internalAdapter.findUserById(apiKey.referenceId);
     if (!user) throw new UnauthorizedException('Bad credentials');
 
