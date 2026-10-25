@@ -92,8 +92,8 @@ export class ImportsController {
   @ApiOkResponse({ type: RepositoryImportDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   status(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Session() session: UserSession | undefined,
   ): Promise<RepositoryImportDTO> {
     return this.imports.status({
@@ -115,8 +115,8 @@ export class ImportsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   retry(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Session() session: UserSession,
   ) {
     return this.imports.retry({ username, repo, requesterId: session.user.id });

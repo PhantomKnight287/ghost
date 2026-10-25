@@ -43,8 +43,8 @@ export class CollaboratorsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   list(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Session() session: UserSession,
   ): Promise<ListCollaboratorsResponseDTO> {
     return this.collaborators.list({
@@ -65,8 +65,8 @@ export class CollaboratorsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   invite(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('collaborator') collaborator: string,
     @Body() body: InviteCollaboratorRequestDTO,
     @Session() session: UserSession,
@@ -91,8 +91,8 @@ export class CollaboratorsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   remove(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('collaborator') collaborator: string,
     @Session() session: UserSession,
   ): Promise<void> {

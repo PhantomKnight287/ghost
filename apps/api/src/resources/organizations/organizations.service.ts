@@ -20,7 +20,7 @@ import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
-import { isoTimestamp } from '../../lib/db/sql.js';
+import { isoTimestamp, sameName } from '../../lib/db/sql.js';
 import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
 import {
   InvitationRefusedError,
@@ -209,7 +209,7 @@ export class OrganizationsService {
         schema.organizationSettings,
         eq(schema.organizationSettings.organizationId, schema.organization.id),
       )
-      .where(eq(sql`lower(${schema.organization.slug})`, slug));
+      .where(sameName(schema.organization.slug, slug));
     if (!organization) throw new OrganizationNotFoundError(slug);
 
     const [membership] = requesterId
@@ -363,7 +363,7 @@ export class OrganizationsService {
       )
       .where(
         and(
-          eq(schema.organization.slug, slug),
+          sameName(schema.organization.slug, slug),
           eq(schema.member.userId, requesterId),
         ),
       );

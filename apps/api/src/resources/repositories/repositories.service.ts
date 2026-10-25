@@ -29,7 +29,7 @@ import { DATABASE } from '../../database/database.module.js';
 import { attachmentKey } from '../../lib/attachments/attachments.js';
 import { ownerToken } from '../../lib/codeowners/codeowners.js';
 import { InvalidCursorError, keyset } from '../../lib/db/keyset.js';
-import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
+import { escapeLike, isoTimestamp, sameName } from '../../lib/db/sql.js';
 import { errorMessage } from '../../lib/error-message.js';
 import { publishEvent } from '../../lib/events/events.js';
 import {
@@ -437,8 +437,8 @@ export class RepositoriesService {
           isNotNull(ownerNameOf(schema.user, schema.organization)),
           matching(search.rest),
           search.owner
-            ? eq(
-                sql`lower(${ownerNameOf(schema.user, schema.organization)})`,
+            ? sameName(
+                ownerNameOf(schema.user, schema.organization),
                 search.owner,
               )
             : undefined,
@@ -511,7 +511,10 @@ export class RepositoriesService {
           isNotNull(ownerNameOf(schema.user, schema.organization)),
           matching(search.rest),
           search.owner
-            ? eq(ownerNameOf(schema.user, schema.organization), search.owner)
+            ? sameName(
+                ownerNameOf(schema.user, schema.organization),
+                search.owner,
+              )
             : undefined,
           list.where,
         ),
@@ -548,7 +551,7 @@ export class RepositoriesService {
           )
           .where(
             and(
-              eq(ownerNameOf(schema.user, schema.organization), owner),
+              sameName(ownerNameOf(schema.user, schema.organization), owner),
               eq(schema.repository.visibility, 'public'),
             ),
           )
@@ -1267,7 +1270,7 @@ export class RepositoriesService {
     const [organization] = await this.db
       .select({ id: schema.organization.id })
       .from(schema.organization)
-      .where(eq(schema.organization.slug, name));
+      .where(sameName(schema.organization.slug, name));
     if (organization) return { organizationId: organization.id };
 
     const user = await this.usersService.getUserByUsername(name);

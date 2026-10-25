@@ -33,8 +33,8 @@ export class RuleSuitesController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   list(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: ListRuleSuitesQueryDTO,
     @Session() session: UserSession,
   ): Promise<ListRuleSuitesResponseDTO> {

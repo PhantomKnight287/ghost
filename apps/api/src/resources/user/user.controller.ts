@@ -106,7 +106,7 @@ export class UserController {
   @ApiOperation({ summary: "Read a user's public profile" })
   @ApiOkResponse({ type: UserProfileResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
-  getProfile(@Param('username',TransformToLowercasePipe) username: string) {
+  getProfile(@Param('username', TransformToLowercasePipe) username: string) {
     return this.users.getProfile(username);
   }
 
@@ -120,7 +120,7 @@ export class UserController {
   @ApiOkResponse({ type: GetUserContributionsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getContributions(
-    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Query() query: GetUserContributionsQueryDTO,
     @Session() session: UserSession | undefined,
   ) {

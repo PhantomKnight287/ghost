@@ -56,8 +56,8 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
       const { actor, apiKeyId, scope, scopes, oauthClientId } =
         await this.resolveKey(req);
       req.repository = await this.access.authorize({
-        username: username?.toLowerCase(),
-        repo: repo.replace(/\.git$/, '')?.toLowerCase(),
+        username,
+        repo: repo.replace(/\.git$/i, ''),
         requesterId: actor?.userId,
         operation: isPush ? 'write' : 'read',
       });

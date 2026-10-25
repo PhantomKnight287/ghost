@@ -46,8 +46,8 @@ export class GithubReleasesController {
   @Get()
   @ApiOperation({ summary: "A repository's releases, newest first" })
   list(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: GithubPageQueryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -59,8 +59,8 @@ export class GithubReleasesController {
     summary: 'Create a release, and its tag when the tag does not exist',
   })
   create(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: GithubCreateReleaseDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -72,8 +72,8 @@ export class GithubReleasesController {
     summary: 'The newest published release that is not a prerelease',
   })
   latest(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Viewer() viewer: GithubViewer | null,
   ) {
     return this.releases.latest({ owner, repo, viewer });
@@ -82,8 +82,8 @@ export class GithubReleasesController {
   @Get('tags/*tag')
   @ApiOperation({ summary: 'A published release by its tag' })
   byTag(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('tag') tag: string[],
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -96,8 +96,8 @@ export class GithubReleasesController {
       'A release asset, or its bytes when asked for application/octet-stream',
   })
   async asset(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('asset_id', ID) assetId: number,
     @Headers('accept') accept: string | undefined,
     @Viewer() viewer: GithubViewer | null,
@@ -122,8 +122,8 @@ export class GithubReleasesController {
   @Patch('assets/:asset_id')
   @ApiOperation({ summary: 'Rename a release asset or set its label' })
   updateAsset(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('asset_id', ID) assetId: number,
     @Body() body: GithubUpdateReleaseAssetDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -135,8 +135,8 @@ export class GithubReleasesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a release asset' })
   deleteAsset(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('asset_id', ID) assetId: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -148,8 +148,8 @@ export class GithubReleasesController {
     summary: 'A release by its integer id, drafts included for writers',
   })
   get(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('release_id', ID) releaseId: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -159,8 +159,8 @@ export class GithubReleasesController {
   @Patch(':release_id')
   @ApiOperation({ summary: 'Edit a release: name, notes, draft, prerelease' })
   update(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('release_id', ID) releaseId: number,
     @Body() body: GithubUpdateReleaseDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -172,8 +172,8 @@ export class GithubReleasesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a release and its assets' })
   delete(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('release_id', ID) releaseId: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -183,8 +183,8 @@ export class GithubReleasesController {
   @Get(':release_id/assets')
   @ApiOperation({ summary: "A release's assets, by name" })
   listAssets(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('release_id', ID) releaseId: number,
     @Query() query: GithubPageQueryDTO,
     @Viewer() viewer: GithubViewer | null,

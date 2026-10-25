@@ -33,7 +33,7 @@ export class LfsController {
   @HttpCode(HttpStatus.OK)
   @Header('Content-Type', LFS_MEDIA_TYPE)
   batch(
-    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Body() body: LfsBatchRequestDTO,
     @Req() req: GitAuthorizedRequest,
   ) {

@@ -40,8 +40,8 @@ export class LabelsController {
   @ApiOkResponse({ type: GetLabelsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   listLabels(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Session() session: UserSession,
   ) {
     return this.issues.listLabels({
@@ -57,8 +57,8 @@ export class LabelsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   createLabel(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: CreateLabelRequestDTO,
     @Session() session: UserSession,
   ) {
@@ -76,8 +76,8 @@ export class LabelsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   updateLabel(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('labelId') labelId: string,
     @Body() body: UpdateLabelRequestDTO,
     @Session() session: UserSession,
@@ -96,8 +96,8 @@ export class LabelsController {
   @ApiOkResponse({ schema: { type: 'object' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   deleteLabel(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('labelId') labelId: string,
     @Session() session: UserSession,
   ) {

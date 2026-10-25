@@ -37,8 +37,8 @@ export class GithubUploadsController {
   @ApiConsumes('application/octet-stream')
   @ApiBody({ schema: { type: 'string', format: 'binary' } })
   upload(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('release_id', new ParseIntPipe({ errorHttpStatusCode: 404 }))
     releaseId: number,
     @Query() query: GithubUploadReleaseAssetQueryDTO,

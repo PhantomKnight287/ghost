@@ -18,6 +18,7 @@ import { UsersService } from '../../../services/users/users.service.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { requireScope } from '../../auth/require-scopes.js';
 import type { GithubAddKeyDTO } from './dto/add-key.dto.js';
+import { sameName } from '../../../lib/db/sql.js';
 
 /** GitHub's REST users and the authenticated user's SSH authentication and signing keys. */
 @Injectable()
@@ -41,12 +42,12 @@ export class GithubUsersService {
     const [user] = await this.db
       .select()
       .from(schema.user)
-      .where(eq(sql`lower(${schema.user.username})`, login));
+      .where(sameName(schema.user.username, login));
     if (user) return this.restUser(user);
     const [organization] = await this.db
       .select()
       .from(schema.organization)
-      .where(eq(sql`lower(${schema.organization.slug})`, login));
+      .where(sameName(schema.organization.slug, login));
     if (!organization)
       throw new CouldNotResolveError(
         `Could not resolve to a User or Organization with the login of '${login}'.`,

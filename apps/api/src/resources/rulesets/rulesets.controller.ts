@@ -56,8 +56,8 @@ export class RulesetsController {
   @ApiOkResponse({ type: ListRulesetsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async list(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Session() session: UserSession | undefined,
   ): Promise<ListRulesetsResponseDTO> {
     return {
@@ -87,8 +87,8 @@ export class RulesetsController {
     type: ErrorResponseDTO,
   })
   create(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: RulesetRequestDTO,
     @Session() session: UserSession,
   ): Promise<RulesetDTO> {
@@ -111,8 +111,8 @@ export class RulesetsController {
   @ApiBadRequestResponse({ type: ErrorResponseDTO })
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   preview(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() patterns: RulesetPatternsDTO,
     @Session() session: UserSession,
   ): Promise<RulesetPreviewResponseDTO> {
@@ -133,8 +133,8 @@ export class RulesetsController {
   @ApiOkResponse({ type: RulesetDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   get(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('id') id: string,
     @Session() session: UserSession | undefined,
   ): Promise<RulesetDTO> {
@@ -159,8 +159,8 @@ export class RulesetsController {
   @ApiConflictResponse({ type: ErrorResponseDTO })
   @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
   update(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('id') id: string,
     @Body() body: RulesetRequestDTO,
     @Session() session: UserSession,
@@ -181,8 +181,8 @@ export class RulesetsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   remove(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('id') id: string,
     @Session() session: UserSession,
   ): Promise<void> {
@@ -204,8 +204,8 @@ export class RulesetsController {
   @ApiOkResponse({ type: ProtectedRefsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   protectedRefs(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: ProtectedRefsQueryDTO,
     @Session() session: UserSession | undefined,
   ): Promise<ProtectedRefsResponseDTO> {

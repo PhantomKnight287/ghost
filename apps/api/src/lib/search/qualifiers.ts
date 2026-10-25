@@ -10,8 +10,5 @@ export function ownerQualifier(query: string) {
     })
     .join(' ')
     .trim();
-  return {
-    owner: (owner as string | null)?.toLowerCase(),
-    rest: rest?.toLowerCase(),
-  };
+  return { owner, rest };
 }

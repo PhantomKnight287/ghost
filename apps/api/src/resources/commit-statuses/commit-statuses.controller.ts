@@ -46,7 +46,7 @@ export class CommitStatusesController {
     type: ErrorResponseDTO,
   })
   createCommitStatus(
-    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Param('sha') sha: string,
     @Body() body: CreateCommitStatusRequestDTO,
@@ -71,7 +71,7 @@ export class CommitStatusesController {
   @ApiOkResponse({ type: CombinedCommitStatusDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getCombinedCommitStatus(
-    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Param('ref') ref: string,
     @Session() session: UserSession | undefined,
@@ -94,7 +94,7 @@ export class CommitStatusesController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getStatusContexts(
-    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession,
   ): Promise<StatusContextsDTO> {

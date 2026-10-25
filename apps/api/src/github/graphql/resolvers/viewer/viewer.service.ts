@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE } from '../../../../database/database.module.js';
-import { isoTimestamp } from '../../../../lib/db/sql.js';
+import { isoTimestamp, sameName } from '../../../../lib/db/sql.js';
 import { orNull } from '../../../../lib/github/authorize.js';
 import {
   CouldNotResolveError,
@@ -61,7 +61,7 @@ export class ViewerService {
     const [row] = await this.db
       .select()
       .from(schema.organization)
-      .where(eq(schema.organization.slug, login));
+      .where(sameName(schema.organization.slug, login));
     if (!row)
       throw new CouldNotResolveError(
         `Could not resolve to an Organization with the login of '${login}'.`,
@@ -73,7 +73,7 @@ export class ViewerService {
     const [organization] = await this.db
       .select()
       .from(schema.organization)
-      .where(eq(schema.organization.slug, login));
+      .where(sameName(schema.organization.slug, login));
     if (organization)
       return toOrganizationNode(organization, githubOrigins(this.config));
     const user = await loaders.usersByLogin.load(login);

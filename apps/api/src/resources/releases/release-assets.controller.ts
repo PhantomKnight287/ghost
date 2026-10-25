@@ -74,8 +74,8 @@ export class ReleaseAssetsController {
     type: ErrorResponseDTO,
   })
   uploadReleaseAsset(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('id') releaseId: string,
     @Query() query: UploadReleaseAssetQueryDTO,
     // read off the request rather than `@Headers()`, which would publish them as parameters a browser is not allowed to set
@@ -116,8 +116,8 @@ export class ReleaseAssetsController {
   })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   async downloadReleaseAsset(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('tag') tagName: string,
     @Param('name') name: string,
     @Session() session: UserSession | undefined,
@@ -153,8 +153,8 @@ export class ReleaseAssetsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   deleteReleaseAsset(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('assetId') assetId: string,
     @Session() session: UserSession,
   ): Promise<void> {

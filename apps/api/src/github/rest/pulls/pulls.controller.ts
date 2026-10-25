@@ -45,8 +45,8 @@ export class PullsController {
   @Get()
   @ApiOperation({ summary: "A repository's pull requests" })
   list(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: GithubListPullsQueryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -56,8 +56,8 @@ export class PullsController {
   @Post()
   @ApiOperation({ summary: 'Open a pull request' })
   create(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: GithubCreatePullDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -68,8 +68,8 @@ export class PullsController {
   @Get(':number')
   @ApiOperation({ summary: 'A pull request, or its diff or patch' })
   async get(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Headers('accept') accept: string | undefined,
     @Viewer() viewer: GithubViewer | null,
@@ -89,8 +89,8 @@ export class PullsController {
   @Patch(':number')
   @ApiOperation({ summary: 'Edit a pull request: title, body, state' })
   update(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: GithubUpdatePullDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -101,8 +101,8 @@ export class PullsController {
   @Get(':number/commits')
   @ApiOperation({ summary: "A pull request's commits, oldest first" })
   commits(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Query() query: GithubPageQueryDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -113,8 +113,8 @@ export class PullsController {
   @Get(':number/files')
   @ApiOperation({ summary: 'The files a pull request changes' })
   files(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Query() query: GithubPageQueryDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -127,8 +127,8 @@ export class PullsController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Whether a pull request has been merged' })
   merged(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -138,8 +138,8 @@ export class PullsController {
   @Put(':number/merge')
   @ApiOperation({ summary: 'Merge a pull request' })
   merge(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: GithubMergePullDTO,
     @Viewer() viewer: GithubViewer | null,

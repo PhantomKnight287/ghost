@@ -57,8 +57,8 @@ export class IssuesController {
   @ApiCreatedResponse({ type: IssueDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   createIssue(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: CreateIssueRequestDTO,
     @Session() session: UserSession,
   ) {
@@ -76,8 +76,8 @@ export class IssuesController {
   @ApiOkResponse({ type: GetIssuesResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getIssues(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: GetIssuesQueryDTO,
     @Session() session: UserSession,
   ) {
@@ -95,8 +95,8 @@ export class IssuesController {
   @ApiOkResponse({ type: IssueDetailDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getIssue(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -113,8 +113,8 @@ export class IssuesController {
   @ApiOkResponse({ type: IssueDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   updateIssue(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: UpdateIssueRequestDTO,
     @Session() session: UserSession,
@@ -134,8 +134,8 @@ export class IssuesController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   closeIssue(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -153,8 +153,8 @@ export class IssuesController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   reopenIssue(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -172,8 +172,8 @@ export class IssuesController {
   @ApiOkResponse({ type: GetIssueCommentsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getComments(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -190,8 +190,8 @@ export class IssuesController {
   @ApiCreatedResponse({ type: IssueCommentDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   createComment(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: CreateIssueCommentRequestDTO,
     @Session() session: UserSession,
@@ -210,8 +210,8 @@ export class IssuesController {
   @ApiOkResponse({ type: IssueCommentDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   updateComment(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('commentId') commentId: string,
     @Body() body: UpdateIssueCommentRequestDTO,
@@ -232,8 +232,8 @@ export class IssuesController {
   @ApiOkResponse({ schema: { type: 'object' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   deleteComment(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('commentId') commentId: string,
     @Session() session: UserSession,
@@ -253,8 +253,8 @@ export class IssuesController {
   @ApiOkResponse({ type: GetIssueTimelineResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getTimeline(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -271,8 +271,8 @@ export class IssuesController {
   @ApiOkResponse({ schema: { type: 'object' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   setIssueLabels(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: SetIssueLabelsRequestDTO,
     @Session() session: UserSession,
@@ -291,8 +291,8 @@ export class IssuesController {
   @ApiOkResponse({ schema: { type: 'object' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   setIssueAssignees(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: SetIssueAssigneesRequestDTO,
     @Session() session: UserSession,

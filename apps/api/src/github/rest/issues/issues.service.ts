@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { isoTimestamp } from '../../../lib/db/sql.js';
+import { isoTimestamp, sameName } from '../../../lib/db/sql.js';
 import {
   GithubNotFoundError,
   GithubValidationError,
@@ -433,7 +433,7 @@ export class GithubIssuesService {
     const [user] = await this.db
       .select({ id: schema.user.id })
       .from(schema.user)
-      .where(eq(schema.user.username, login));
+      .where(sameName(schema.user.username, login));
     if (!user) throw new GithubNotFoundError();
   }
 

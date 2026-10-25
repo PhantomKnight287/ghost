@@ -32,8 +32,8 @@ export class SuggestionsController {
   @ApiOkResponse({ type: SuggestedUsersResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   suggestUsers(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: SuggestionQueryDTO,
     @Session() session: UserSession | undefined,
   ) {
@@ -55,8 +55,8 @@ export class SuggestionsController {
   @ApiOkResponse({ type: SuggestedIssuesResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   suggestIssues(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: SuggestionQueryDTO,
     @Session() session: UserSession | undefined,
   ) {

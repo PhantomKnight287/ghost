@@ -4,6 +4,7 @@ import type { Role } from '@ghost/permissions';
 import { and, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
+import { sameName } from '../../../lib/db/sql.js';
 import {
   acceptedCollaboration,
   type Actor,
@@ -35,16 +36,12 @@ export class RepositoryAccessService {
     operation?: RepositoryOperation;
   }): Promise<AuthorizedRepository> {
     const actor: Actor = requesterId ? { userId: requesterId } : null;
-    // Names are unique ignoring case, as on GitHub; slugs are stored lowercase already.
-    username = username.toLowerCase();
+    // Slugs are stored lowercase, so lowering the requested one keeps the index usable.
     repo = repo.toLowerCase();
     let [row] = await this.lookup(
       actor,
       and(
-        eq(
-          sql`lower(${ownerNameOf(schema.user, schema.organization)})`,
-          username,
-        ),
+        sameName(ownerNameOf(schema.user, schema.organization), username),
         eq(schema.repository.slug, repo),
       ),
     );
@@ -55,10 +52,7 @@ export class RepositoryAccessService {
         .from(schema.repositoryRedirect)
         .where(
           and(
-            eq(
-              sql`lower(${schema.repositoryRedirect.ownerName})`,
-              username,
-            ),
+            sameName(schema.repositoryRedirect.ownerName, username),
             eq(schema.repositoryRedirect.slug, repo),
           ),
         );

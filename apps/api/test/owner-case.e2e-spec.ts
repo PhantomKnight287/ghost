@@ -173,6 +173,43 @@ describe.skipIf(!hasBackends)(
       await v3(`/repos/${username}/MISSING`).expect(404);
     });
 
+    it('serves git over HTTP when the .git suffix is in capitals', async () => {
+      await api()
+        .get(`/${shouted}/MINE.GIT/info/refs?service=git-upload-pack`)
+        .expect(200);
+    });
+
+    it('lets an owner administer an organization whose slug has capitals, in any case', async () => {
+      for (const slug of [org, org.toLowerCase()]) {
+        await api()
+          .get(`/api/organizations/${slug}/settings`)
+          .set('cookie', owner.cookie)
+          .expect(200);
+      }
+    });
+
+    it('lists the repositories of an organization whose slug has capitals, in any case', async () => {
+      for (const slug of [org, org.toLowerCase()]) {
+        const { body } = await api()
+          .get(`/api/repositories/${slug}`)
+          .expect(200);
+        expect(body.repositories).toEqual([
+          expect.objectContaining({ slug: 'theirs' }),
+        ]);
+      }
+    });
+
+    it('searches public repositories under an org: qualifier in any case', async () => {
+      for (const slug of [org, org.toLowerCase()]) {
+        const { body } = await api()
+          .get(`/api/search/repositories?q=org:${slug}`)
+          .expect(200);
+        expect(body.repositories).toEqual([
+          expect.objectContaining({ owner: org, slug: 'theirs' }),
+        ]);
+      }
+    });
+
     it('still answers 404 for an owner that does not exist in any case', async () => {
       await v3(`/repos/nobody${stamp}/mine`).expect(404);
       await v3(`/users/nobody${stamp}`).expect(404);

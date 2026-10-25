@@ -8,7 +8,7 @@ import { DATABASE } from '../../database/database.module.js';
 import type { Commit } from '../../lib/git/commits/list-commits.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
 import type { Executor } from '../../lib/db/executor.js';
-import { isoTimestamp, excluded } from '../../lib/db/sql.js';
+import { isoTimestamp, excluded, sameName } from '../../lib/db/sql.js';
 import {
   acceptedCollaboration,
   type Actor,
@@ -365,11 +365,11 @@ export class IssueReferencesService {
             or(
               ...named.map((entry) =>
                 and(
-                  eq(
+                  sameName(
                     ownerNameOf(schema.user, schema.organization),
                     entry.owner,
                   ),
-                  eq(schema.repository.slug, entry.repo),
+                  eq(schema.repository.slug, entry.repo.toLowerCase()),
                 ),
               ),
             ),

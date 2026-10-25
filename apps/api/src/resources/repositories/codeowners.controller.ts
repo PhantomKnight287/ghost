@@ -34,7 +34,7 @@ export class CodeownersController {
   @ApiOkResponse({ type: GetCodeownersResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getCodeowners(
-    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetCodeownersQueryDTO,
@@ -61,7 +61,7 @@ export class CodeownersController {
   })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getCodeownersOwners(
-    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession | undefined,
     @Query() query: GetCodeownersOwnersQueryDTO,

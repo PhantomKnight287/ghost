@@ -78,7 +78,7 @@ export class OrganizationsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiUnsupportedMediaTypeResponse({ type: ErrorResponseDTO })
   setLogo(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Req() request: Request,
     @Headers('content-type') contentType: string,
     @Session() session: UserSession,
@@ -97,7 +97,7 @@ export class OrganizationsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getSettings(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Session() session: UserSession,
   ): Promise<OrganizationSettingsDTO> {
     return this.organizations.getSettings(slug, session.user.id);
@@ -114,7 +114,7 @@ export class OrganizationsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   updateSettings(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Body() body: UpdateOrganizationSettingsDTO,
     @Session() session: UserSession,
   ): Promise<OrganizationSettingsDTO> {
@@ -131,7 +131,7 @@ export class OrganizationsController {
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   publicize(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Session() session: UserSession,
   ): Promise<void> {
     return this.organizations.setMembershipPublic(slug, session.user.id, true);
@@ -143,7 +143,7 @@ export class OrganizationsController {
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   conceal(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Session() session: UserSession,
   ): Promise<void> {
     return this.organizations.setMembershipPublic(slug, session.user.id, false);
@@ -161,7 +161,7 @@ export class OrganizationsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   setPinned(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Body() body: SetPinnedRepositoriesDTO,
     @Session() session: UserSession,
   ): Promise<void> {
@@ -182,7 +182,7 @@ export class OrganizationsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   listOutsideCollaborators(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Session() session: UserSession,
   ): Promise<ListOutsideCollaboratorsResponseDTO> {
     return this.organizations.listOutsideCollaborators(slug, session.user.id);
@@ -199,8 +199,8 @@ export class OrganizationsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   removeOutsideCollaborator(
-    @Param('slug',TransformToLowercasePipe) slug: string,
-    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Session() session: UserSession,
   ): Promise<void> {
     return this.organizations.removeOutsideCollaborator(
@@ -223,7 +223,7 @@ export class OrganizationsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   inviteByUsername(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Body() body: InviteByUsernameRequestDTO,
     @Req() request: Request,
     @Session() session: UserSession,
@@ -244,7 +244,7 @@ export class OrganizationsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   removeLogo(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Session() session: UserSession,
   ): Promise<void> {
     return this.organizations.removeLogo(slug, session.user.id);
@@ -260,7 +260,7 @@ export class OrganizationsController {
   @ApiOkResponse({ type: OrganizationProfileDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getProfile(
-    @Param('slug',TransformToLowercasePipe) slug: string,
+    @Param('slug', TransformToLowercasePipe) slug: string,
     @Session() session: UserSession | undefined,
   ): Promise<OrganizationProfileDTO> {
     return this.organizations.getProfile(slug, session?.user?.id);
@@ -282,7 +282,7 @@ export class UserOrganizationsController {
   @ApiOkResponse({ type: ListOrganizationsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   listForUser(
-    @Param('username',TransformToLowercasePipe) username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Session() session: UserSession | undefined,
   ): Promise<ListOrganizationsResponseDTO> {
     return this.organizations.listForUser(username, session?.user?.id);

@@ -38,7 +38,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'A user or organization by login, in GitHub REST shape',
   })
-  byLogin(@Param('login',TransformToLowercasePipe) login: string) {
+  byLogin(@Param('login', TransformToLowercasePipe) login: string) {
     return this.users.byLogin(login);
   }
 

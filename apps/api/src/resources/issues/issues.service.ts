@@ -37,7 +37,7 @@ import {
 } from '../../lib/repositories/access/repository-access.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
+import { escapeLike, isoTimestamp, sameName } from '../../lib/db/sql.js';
 import { keyset } from '../../lib/db/keyset.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
 import type { LabelDTO } from './dto/label.dto.js';
@@ -391,7 +391,7 @@ export class IssuesService {
                         ),
                       )
                       .where(
-                        eq(
+                        sameName(
                           ownerNameOf(schema.user, schema.organization),
                           pulls.headOwner,
                         ),

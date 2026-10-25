@@ -43,8 +43,8 @@ export class ReviewCommentsController {
     summary: "Every review comment in a repository's pull requests",
   })
   listForRepository(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: GithubListCommentsQueryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -54,8 +54,8 @@ export class ReviewCommentsController {
   @Get('comments/:comment_id')
   @ApiOperation({ summary: 'A review comment by id' })
   get(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('comment_id', ID) id: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -65,8 +65,8 @@ export class ReviewCommentsController {
   @Patch('comments/:comment_id')
   @ApiOperation({ summary: 'Edit a review comment; only its author may' })
   update(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('comment_id', ID) id: number,
     @Body() body: GithubCommentDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -78,8 +78,8 @@ export class ReviewCommentsController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a review comment and its replies' })
   delete(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('comment_id', ID) id: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -89,8 +89,8 @@ export class ReviewCommentsController {
   @Get(':number/comments')
   @ApiOperation({ summary: "A pull request's review comments" })
   list(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Query() query: GithubListCommentsQueryDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -101,8 +101,8 @@ export class ReviewCommentsController {
   @Post(':number/comments')
   @ApiOperation({ summary: 'Comment on a line of a pull request, or reply' })
   create(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Body() body: GithubCreateReviewCommentDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -113,8 +113,8 @@ export class ReviewCommentsController {
   @Get(':number/reviews/:review_id/comments')
   @ApiOperation({ summary: "A review's line comments" })
   listForReview(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ID) number: number,
     @Param('review_id', ID) reviewId: number,
     @Query() query: GithubListCommentsQueryDTO,

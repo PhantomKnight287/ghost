@@ -33,8 +33,8 @@ export class RequestedReviewersController {
   @Get()
   @ApiOperation({ summary: 'Users and teams asked to review a pull request' })
   list(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -44,8 +44,8 @@ export class RequestedReviewersController {
   @Post()
   @ApiOperation({ summary: 'Request reviews from users and teams' })
   request(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: GithubRequestedReviewersDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -56,8 +56,8 @@ export class RequestedReviewersController {
   @Delete()
   @ApiOperation({ summary: 'Remove requested reviewers' })
   remove(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: GithubRequestedReviewersDTO,
     @Viewer() viewer: GithubViewer | null,

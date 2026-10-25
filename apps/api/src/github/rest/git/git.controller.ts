@@ -27,8 +27,8 @@ export class GithubGitController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a branch or a tag' })
   delete(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('ref') ref: string[],
     @Viewer() viewer: GithubViewer | null,
   ) {

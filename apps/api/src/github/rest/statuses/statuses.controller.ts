@@ -33,8 +33,8 @@ export class GithubStatusesController {
     summary: 'Report a status on a commit, by its full sha',
   })
   create(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('sha') sha: string,
     @Body() body: GithubCreateStatusDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -46,8 +46,8 @@ export class GithubStatusesController {
   @Get('repos/:owner/:repo/commits/*ref/statuses')
   @ApiOperation({ summary: "Every status on a ref's commit, newest first" })
   list(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('ref') ref: string[],
     @Query() query: GithubPageQueryDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -61,8 +61,8 @@ export class GithubStatusesController {
       "The combined status of a ref's commit: the newest status of each context",
   })
   combined(
-    @Param('owner',TransformToLowercasePipe) owner: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('ref') ref: string[],
     @Viewer() viewer: GithubViewer | null,
   ) {

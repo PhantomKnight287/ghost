@@ -42,8 +42,8 @@ export class ReviewRequestsController {
   @ApiOkResponse({ type: RequestedReviewersDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   listRequestedReviewers(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -65,8 +65,8 @@ export class ReviewRequestsController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   listRequestableReviewers(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Query() query: SuggestionQueryDTO,
     @Session() session: UserSession,
@@ -87,8 +87,8 @@ export class ReviewRequestsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
   requestReviewers(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: ReviewRequestsBodyDTO,
     @Session() session: UserSession,
@@ -110,8 +110,8 @@ export class ReviewRequestsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
   removeRequestedReviewers(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: ReviewRequestsBodyDTO,
     @Session() session: UserSession,

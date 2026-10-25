@@ -52,8 +52,8 @@ export class BranchesController {
     type: ErrorResponseDTO,
   })
   createBranch(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: CreateBranchRequestDTO,
     @Session() session: UserSession,
   ): Promise<BranchDTO> {
@@ -81,8 +81,8 @@ export class BranchesController {
     type: ErrorResponseDTO,
   })
   deleteBranch(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('branch') branch: string,
     @Session() session: UserSession,
   ): Promise<void> {

@@ -26,7 +26,7 @@ export class StorageController {
   @ApiOkResponse({ type: StorageUsageDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getStorageUsage(
-    @Param('owner',TransformToLowercasePipe) owner: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
     @Session() session: UserSession,
   ): Promise<StorageUsageDTO> {
     return this.storage.usage(owner, session.user.id);

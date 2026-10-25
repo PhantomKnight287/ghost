@@ -64,8 +64,8 @@ export class AttachmentsController {
     type: ErrorResponseDTO,
   })
   uploadAttachment(
-    @Param('username',TransformToLowercasePipe) username: string,
-    @Param('repo',TransformToLowercasePipe) repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: UploadAttachmentQueryDTO,
     // read off the request rather than `@Headers()`, which would publish them as parameters a browser is not allowed to set
     @Req() request: Request,
