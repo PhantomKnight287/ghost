@@ -15,6 +15,7 @@ import {
   ListRuleSuitesQueryDTO,
   ListRuleSuitesResponseDTO,
 } from './dto/rule-suite.dto.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo')
 @ApiTags('Rulesets')
@@ -32,8 +33,8 @@ export class RuleSuitesController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   list(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: ListRuleSuitesQueryDTO,
     @Session() session: UserSession,
   ): Promise<ListRuleSuitesResponseDTO> {

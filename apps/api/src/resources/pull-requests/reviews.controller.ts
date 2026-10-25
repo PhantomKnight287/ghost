@@ -39,6 +39,7 @@ import {
 } from './dto/pull-request-review.dto.js';
 import { ReviewThreadsService } from './review-threads.service.js';
 import { ReviewsService } from './reviews.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/pulls/:number')
 @ApiTags('Pull request reviews')
@@ -57,8 +58,8 @@ export class ReviewsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   submitReview(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: CreateReviewRequestDTO,
     @Session() session: UserSession,
@@ -77,8 +78,8 @@ export class ReviewsController {
   @ApiOkResponse({ type: GetPendingReviewResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getPendingReview(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -97,8 +98,8 @@ export class ReviewsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   addPendingComment(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: ReviewCommentRequestDTO,
     @Session() session: UserSession,
@@ -117,8 +118,8 @@ export class ReviewsController {
   @ApiOkResponse({ schema: { type: 'object' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   discardPendingReview(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ) {
@@ -135,8 +136,8 @@ export class ReviewsController {
   @ApiOkResponse({ type: PullRequestReviewDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   updateReview(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('reviewId') reviewId: string,
     @Body() body: UpdateReviewRequestDTO,
@@ -158,8 +159,8 @@ export class ReviewsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   dismissReview(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('reviewId') reviewId: string,
     @Body() body: DismissReviewRequestDTO,
@@ -181,8 +182,8 @@ export class ReviewsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   replyToComment(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('commentId') commentId: string,
     @Body() body: ReviewCommentBodyDTO,
@@ -203,8 +204,8 @@ export class ReviewsController {
   @ApiOkResponse({ type: ReviewReplyDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   updateComment(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('commentId') commentId: string,
     @Body() body: ReviewCommentBodyDTO,
@@ -227,8 +228,8 @@ export class ReviewsController {
   @ApiOkResponse({ schema: { type: 'object' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   deleteComment(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('commentId') commentId: string,
     @Session() session: UserSession,
@@ -251,8 +252,8 @@ export class ReviewsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiConflictResponse({ type: ErrorResponseDTO })
   applySuggestion(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('commentId') commentId: string,
     @Session() session: UserSession,
@@ -274,8 +275,8 @@ export class ReviewsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
   resolveThread(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('commentId') commentId: string,
     @Session() session: UserSession,
@@ -298,8 +299,8 @@ export class ReviewsController {
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
   unresolveThread(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Param('commentId') commentId: string,
     @Session() session: UserSession,

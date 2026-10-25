@@ -37,6 +37,7 @@ import {
 } from './dto/contributions.dto.js';
 import { UserProfileResponseDTO } from './dto/profile.dto.js';
 import { UserService } from './user.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @ApiTags('Users')
 @Controller('users')
@@ -105,7 +106,7 @@ export class UserController {
   @ApiOperation({ summary: "Read a user's public profile" })
   @ApiOkResponse({ type: UserProfileResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
-  getProfile(@Param('username') username: string) {
+  getProfile(@Param('username', TransformToLowercasePipe) username: string) {
     return this.users.getProfile(username);
   }
 
@@ -119,7 +120,7 @@ export class UserController {
   @ApiOkResponse({ type: GetUserContributionsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getContributions(
-    @Param('username') username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Query() query: GetUserContributionsQueryDTO,
     @Session() session: UserSession | undefined,
   ) {

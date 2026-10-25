@@ -526,6 +526,13 @@
       "when": 1792769007473,
       "tag": "0074_mixed_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1792949286023,
+      "tag": "0075_even_ricochet",
+      "breakpoints": true
     }
   ]
 }

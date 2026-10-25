@@ -7,6 +7,7 @@ import {
   OrganizationForbiddenError,
   OrganizationNotFoundError,
 } from './organization.errors.js';
+import { sameName } from '../db/sql.js';
 
 type Visibility = (typeof schema.repositoryVisiblity.enumValues)[number];
 
@@ -31,7 +32,7 @@ export async function membershipIn(
       schema.organizationSettings,
       eq(schema.organizationSettings.organizationId, schema.organization.id),
     )
-    .where(eq(schema.organization.slug, slug));
+    .where(sameName(schema.organization.slug, slug));
 
   if (!membership?.memberRole) throw new OrganizationNotFoundError(slug);
   return { ...membership, role: organizationRoleOf(membership.memberRole) };

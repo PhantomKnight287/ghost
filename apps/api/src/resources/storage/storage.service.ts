@@ -7,6 +7,7 @@ import type { StorageAccount } from '../../lib/storage/storage-account.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import type { StorageUsageDTO } from './dto/storage.dto.js';
+import { sameName } from '../../lib/db/sql.js';
 
 @Injectable()
 export class StorageService {
@@ -51,14 +52,17 @@ export class StorageService {
           eq(schema.member.userId, requesterId),
         ),
       )
-      .where(eq(schema.organization.slug, owner));
+      .where(sameName(schema.organization.slug, owner));
     if (organization) return { organizationId: organization.id };
 
     const [user] = await this.db
       .select({ id: schema.user.id })
       .from(schema.user)
       .where(
-        and(eq(schema.user.username, owner), eq(schema.user.id, requesterId)),
+        and(
+          sameName(schema.user.username, owner),
+          eq(schema.user.id, requesterId),
+        ),
       );
     if (user) return { userId: user.id };
 

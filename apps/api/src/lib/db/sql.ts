@@ -16,3 +16,8 @@ export function excluded(column: AnyPgColumn) {
 export function escapeLike(value: string) {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
+
+/** Usernames, organization slugs and owner names are unique ignoring case, as on GitHub, so a name in any case matches. */
+export function sameName(column: AnyPgColumn | SQL, name: string) {
+  return sql`lower(${column}) = ${name.toLowerCase()}`;
+}

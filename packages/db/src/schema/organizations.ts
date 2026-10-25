@@ -96,7 +96,7 @@ export const repositoryRedirect = pgTable(
   (t) => [
     uniqueIndex("repository_redirect_name_idx").on(
       sql`lower(${t.ownerName})`,
-      t.slug,
+      sql`lower(${t.slug})`,
     ),
     index("repository_redirect_repository_idx").on(t.repositoryId),
   ],

@@ -1,6 +1,14 @@
+import path from 'node:path';
+
+import { type Database, schema } from '@ghost/db';
+import { administers, atLeast, organizationRoleOf } from '@ghost/permissions';
+import {
+  fillLicense,
+  findGitignoreTemplate,
+  findLicense,
+} from '@ghost/templates';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { type Database, schema } from '@ghost/db';
 import {
   and,
   asc,
@@ -17,27 +25,83 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import path from 'node:path';
-
-import {
-  fillLicense,
-  findGitignoreTemplate,
-  findLicense,
-} from '@ghost/templates';
-
 import { DATABASE } from '../../database/database.module.js';
-import { fileBody } from '../../lib/git/protocol/git-request-body.js';
-import { packRange } from '../../lib/git/merge/merge.js';
-import { rootCommit } from '../../lib/git/tree/root-commit.js';
-import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import { withTempDir } from '../../lib/temp-dir.js';
-import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
-import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { attachmentKey } from '../../lib/attachments/attachments.js';
+import { ownerToken } from '../../lib/codeowners/codeowners.js';
+import { InvalidCursorError, keyset } from '../../lib/db/keyset.js';
+import { escapeLike, isoTimestamp, sameName } from '../../lib/db/sql.js';
+import { errorMessage } from '../../lib/error-message.js';
 import { publishEvent } from '../../lib/events/events.js';
-import { CreateRepositoryRequestDTO } from './dto/create-repository.dto.js';
-import { GetRepositoriesQueryDTO } from './dto/get-repositories.dto.js';
-import { UpdateRepositoryRequestDTO } from './dto/update-repository.dto.js';
-import { UsersService } from '../../services/users/users.service.js';
+import {
+  type ArchiveFormat,
+  archiveName,
+  type SourceArchive,
+  streamArchive,
+} from '../../lib/git/archive/archive.js';
+import { findReadmePath } from '../../lib/git/blob/find-readme.js';
+import { mediaTypeFor } from '../../lib/git/blob/media-type.js';
+import {
+  isTextBlob,
+  MAX_BLOB_BYTES,
+  readBlob,
+  statBlob,
+  streamBlob,
+} from '../../lib/git/blob/read-blob.js';
+import {
+  countCommits,
+  isSha,
+  listCommits,
+  readCommit,
+  readCommitSummary,
+} from '../../lib/git/commits/list-commits.js';
+import { runGit, runGitBuffer } from '../../lib/git/exec/run-git.js';
+import {
+  LFS_POINTER_MAX_BYTES,
+  parseLfsPointer,
+} from '../../lib/git/lfs/lfs-pointer.js';
+import { packRange } from '../../lib/git/merge/merge.js';
+import { fileBody } from '../../lib/git/protocol/git-request-body.js';
+import { listBranches } from '../../lib/git/refs/list-refs.js';
+import { readSubmoduleUrls } from '../../lib/git/submodules/read-submodule-urls.js';
+import { submoduleHref } from '../../lib/git/submodules/submodule-href.js';
+import { listTags } from '../../lib/git/tags/list-tags.js';
+import {
+  listPaths,
+  listTree,
+  type TreeEntry,
+} from '../../lib/git/tree/list-tree.js';
+import {
+  FALLBACK_REF,
+  isBranch,
+  resolveCommit,
+  resolveDefaultRef,
+  resolveRevision,
+  toBranchRef,
+} from '../../lib/git/tree/resolve-ref.js';
+import { rootCommit } from '../../lib/git/tree/root-commit.js';
+import {
+  normalizeBlobPath,
+  normalizeTreePath,
+} from '../../lib/git/tree/tree-path.js';
+import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
+import { githubOrigins } from '../../lib/github/origins.js';
+import { closeIssue } from '../../lib/issues/close-issue.js';
+import { organizationToCreateIn } from '../../lib/organizations/administered-organization.js';
+import { PrivateForkingDisabledError } from '../../lib/organizations/organization.errors.js';
+import { releaseAssetKey } from '../../lib/releases/release-assets.js';
+import { RepositoryForbiddenError } from '../../lib/repositories/access/repository-access.errors.js';
+import {
+  type Actor,
+  acceptedCollaboration,
+  basePermissionOf,
+  grantedTo,
+  organizationMembership,
+  ownerNameOf,
+  type Repository,
+  readableBy,
+  roleOf,
+  teamRoleOf,
+} from '../../lib/repositories/access/repository-access.js';
 import {
   ArchivesBusyError,
   BlobNotFoundError,
@@ -50,136 +114,71 @@ import {
   TransferNotFoundError,
   TransferTargetError,
 } from '../../lib/repositories/repositories.errors.js';
-import { closeIssue } from '../../lib/issues/close-issue.js';
-import { ownerQualifier } from '../../lib/search/qualifiers.js';
-import { organizationToCreateIn } from '../../lib/organizations/administered-organization.js';
-import { PrivateForkingDisabledError } from '../../lib/organizations/organization.errors.js';
-import { escapeLike, isoTimestamp } from '../../lib/db/sql.js';
 import { titleToSlug } from '../../lib/repositories/slug.js';
-import { InvalidCursorError, keyset } from '../../lib/db/keyset.js';
-import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
+import { ownerQualifier } from '../../lib/search/qualifiers.js';
+import { withTempDir } from '../../lib/temp-dir.js';
+import { CodeownersService } from '../../services/codeowners/codeowners.service.js';
+import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
+import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
+import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
+import { LfsService } from '../../services/git/lfs/lfs.service.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryPathIndexService } from '../../services/git/path-index/repository-path-index.service.js';
-import { RepositoryLanguageService } from '../../services/git/languages/repository-language.service.js';
-import { runGit, runGitBuffer } from '../../lib/git/exec/run-git.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
+import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
+import { S3Service } from '../../services/s3/s3.service.js';
+import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
+import { UsersService } from '../../services/users/users.service.js';
 import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
-import { readSubmoduleUrls } from '../../lib/git/submodules/read-submodule-urls.js';
-import { submoduleHref } from '../../lib/git/submodules/submodule-href.js';
-import {
-  listPaths,
-  listTree,
-  type TreeEntry,
-} from '../../lib/git/tree/list-tree.js';
-import { githubOrigins } from '../../lib/github/origins.js';
-import { listTags } from '../../lib/git/tags/list-tags.js';
-import {
-  countCommits,
-  isSha,
-  listCommits,
-  readCommit,
-  readCommitSummary,
-} from '../../lib/git/commits/list-commits.js';
-import {
-  isTextBlob,
-  MAX_BLOB_BYTES,
-  readBlob,
-  statBlob,
-  streamBlob,
-} from '../../lib/git/blob/read-blob.js';
-import { findReadmePath } from '../../lib/git/blob/find-readme.js';
-import { mediaTypeFor } from '../../lib/git/blob/media-type.js';
-import {
-  normalizeBlobPath,
-  normalizeTreePath,
-} from '../../lib/git/tree/tree-path.js';
-import {
-  FALLBACK_REF,
-  toBranchRef,
-  isBranch,
-  resolveCommit,
-  resolveDefaultRef,
-  resolveRevision,
-} from '../../lib/git/tree/resolve-ref.js';
-import {
-  type ArchiveFormat,
-  archiveName,
-  type SourceArchive,
-  streamArchive,
-} from '../../lib/git/archive/archive.js';
-import type {
-  GetRepositoryContentsResponseDTO,
-  SubmoduleDTO,
-} from './dto/get-repository-contents.dto.js';
-import type { GetRepositoryPathsResponseDTO } from './dto/get-repository-paths.dto.js';
-import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
-import type {
-  GetRepositoryTagsQueryDTO,
-  GetRepositoryTagsResponseDTO,
-} from './dto/get-repository-tags.dto.js';
-import type { GetRepositoryLanguagesResponseDTO } from './dto/get-repository-languages.dto.js';
-import type {
-  GetRepositoryForksQueryDTO,
-  GetRepositoryForksResponseDTO,
-} from './dto/get-repository-forks.dto.js';
-import type {
-  GetRepositoryContributorsQueryDTO,
-  GetRepositoryContributorsResponseDTO,
-} from './dto/get-repository-contributors.dto.js';
-import type {
-  GetRepositoryStargazersQueryDTO,
-  GetRepositoryStargazersResponseDTO,
-} from './dto/get-repository-stargazers.dto.js';
-import type { GetRepositoryBlobResponseDTO } from './dto/get-repository-blob.dto.js';
-import type { GetRepositoryReadmeResponseDTO } from './dto/get-repository-readme.dto.js';
+import { ReleaseArchivesService } from '../releases/release-archives.service.js';
 import type {
   GetCodeownersOwnersResponseDTO,
   GetCodeownersResponseDTO,
 } from './dto/codeowners.dto.js';
-import { ownerToken } from '../../lib/codeowners/codeowners.js';
-import { CodeownersService } from '../../services/codeowners/codeowners.service.js';
+import { CreateRepositoryRequestDTO } from './dto/create-repository.dto.js';
+import { GetRepositoriesQueryDTO } from './dto/get-repositories.dto.js';
+import type { GetRepositoryBlobResponseDTO } from './dto/get-repository-blob.dto.js';
+import type { GetRepositoryBranchesResponseDTO } from './dto/get-repository-branches.dto.js';
 import type {
   GetRepositoryCommitResponseDTO,
   GetRepositoryCommitsQueryDTO,
   GetRepositoryCommitsResponseDTO,
 } from './dto/get-repository-commits.dto.js';
-import { RepositoryContributionService } from '../../services/git/contributions/repository-contribution.service.js';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import {
-  acceptedCollaboration,
-  type Actor,
-  basePermissionOf,
-  grantedTo,
-  organizationMembership,
-  ownerNameOf,
-  readableBy,
-  type Repository,
-  roleOf,
-  teamRoleOf,
-} from '../../lib/repositories/access/repository-access.js';
-import { administers, atLeast, organizationRoleOf } from '@ghost/permissions';
-import { RepositoryForbiddenError } from '../../lib/repositories/access/repository-access.errors.js';
-import { WalStoreService } from '../../services/git/wal/wal-store.service.js';
-import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
-import { CodeSearchService } from '../../services/git/code-search/code-search.service.js';
-import { S3Service } from '../../services/s3/s3.service.js';
-import { LfsService } from '../../services/git/lfs/lfs.service.js';
-import { ReleaseArchivesService } from '../releases/release-archives.service.js';
-import {
-  LFS_POINTER_MAX_BYTES,
-  parseLfsPointer,
-} from '../../lib/git/lfs/lfs-pointer.js';
-import { attachmentKey } from '../../lib/attachments/attachments.js';
-import { releaseAssetKey } from '../../lib/releases/release-assets.js';
+import type {
+  GetRepositoryContentsResponseDTO,
+  SubmoduleDTO,
+} from './dto/get-repository-contents.dto.js';
+import type {
+  GetRepositoryContributorsQueryDTO,
+  GetRepositoryContributorsResponseDTO,
+} from './dto/get-repository-contributors.dto.js';
+import type {
+  GetRepositoryForksQueryDTO,
+  GetRepositoryForksResponseDTO,
+} from './dto/get-repository-forks.dto.js';
+import type { GetRepositoryLanguagesResponseDTO } from './dto/get-repository-languages.dto.js';
+import type { GetRepositoryPathsResponseDTO } from './dto/get-repository-paths.dto.js';
+import type { GetRepositoryReadmeResponseDTO } from './dto/get-repository-readme.dto.js';
+import type {
+  GetRepositoryStargazersQueryDTO,
+  GetRepositoryStargazersResponseDTO,
+} from './dto/get-repository-stargazers.dto.js';
+import type {
+  GetRepositoryTagsQueryDTO,
+  GetRepositoryTagsResponseDTO,
+} from './dto/get-repository-tags.dto.js';
+import type { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
 import type {
   SearchCodeRepositoryDTO,
   SearchCodeResponseDTO,
   SearchRepositoryCodeResponseDTO,
 } from './dto/search-code.dto.js';
 import type { SearchRepositoriesResponseDTO } from './dto/search-repositories.dto.js';
-import type { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
-import { errorMessage } from '../../lib/error-message.js';
-import { listBranches } from '../../lib/git/refs/list-refs.js';
+import { UpdateRepositoryRequestDTO } from './dto/update-repository.dto.js';
 
 // `/owner/settings` and `/org/teams` are pages of the owner's own, so no repository may live there.
 const RESERVED_REPOSITORY_SLUGS = new Set(['settings', 'teams']);
@@ -438,7 +437,10 @@ export class RepositoriesService {
           isNotNull(ownerNameOf(schema.user, schema.organization)),
           matching(search.rest),
           search.owner
-            ? eq(ownerNameOf(schema.user, schema.organization), search.owner)
+            ? sameName(
+                ownerNameOf(schema.user, schema.organization),
+                search.owner,
+              )
             : undefined,
           list.where,
         ),
@@ -509,7 +511,10 @@ export class RepositoriesService {
           isNotNull(ownerNameOf(schema.user, schema.organization)),
           matching(search.rest),
           search.owner
-            ? eq(ownerNameOf(schema.user, schema.organization), search.owner)
+            ? sameName(
+                ownerNameOf(schema.user, schema.organization),
+                search.owner,
+              )
             : undefined,
           list.where,
         ),
@@ -546,7 +551,7 @@ export class RepositoriesService {
           )
           .where(
             and(
-              eq(ownerNameOf(schema.user, schema.organization), owner),
+              sameName(ownerNameOf(schema.user, schema.organization), owner),
               eq(schema.repository.visibility, 'public'),
             ),
           )
@@ -816,7 +821,7 @@ export class RepositoriesService {
       return {
         id: repository.id,
         slug: repository.slug,
-        username: owner,
+        username: await this.namespaceName(target),
         pending: false,
       };
     }
@@ -981,7 +986,9 @@ export class RepositoriesService {
     const [clash] = await this.db
       .select({ id: schema.repository.id })
       .from(schema.repository)
-      .where(and(inNamespace(namespace), eq(schema.repository.slug, slug)));
+      .where(
+        and(inNamespace(namespace), sameName(schema.repository.slug, slug)),
+      );
     if (clash) throw new RepositoryNameTakenError(owner, slug);
   }
 
@@ -1036,11 +1043,8 @@ export class RepositoriesService {
       .delete(schema.repositoryRedirect)
       .where(
         and(
-          eq(
-            sql`lower(${schema.repositoryRedirect.ownerName})`,
-            ownerName.toLowerCase(),
-          ),
-          eq(schema.repositoryRedirect.slug, slug),
+          sameName(schema.repositoryRedirect.ownerName, ownerName),
+          sameName(schema.repositoryRedirect.slug, slug),
         ),
       );
     await tx
@@ -1255,7 +1259,10 @@ export class RepositoriesService {
       .select({ id: schema.repository.id })
       .from(schema.repository)
       .where(
-        and(inNamespace(namespace), eq(schema.repository.slug, slugified)),
+        and(
+          inNamespace(namespace),
+          sameName(schema.repository.slug, slugified),
+        ),
       );
     return !taken || taken.id === ownId ? slugified : slugifiedWithSuffix;
   }
@@ -1265,7 +1272,7 @@ export class RepositoriesService {
     const [organization] = await this.db
       .select({ id: schema.organization.id })
       .from(schema.organization)
-      .where(eq(schema.organization.slug, name));
+      .where(sameName(schema.organization.slug, name));
     if (organization) return { organizationId: organization.id };
 
     const user = await this.usersService.getUserByUsername(name);

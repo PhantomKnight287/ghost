@@ -21,6 +21,7 @@ import {
   RepositoryWatchDTO,
 } from './dto/notification.dto.js';
 import { NotificationsService } from './notifications.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo')
 @ApiTags('Notifications')
@@ -32,8 +33,8 @@ export class SubscriptionsController {
   @ApiOkResponse({ type: RepositoryWatchDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getWatch(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Session() session: UserSession,
   ): Promise<RepositoryWatchDTO> {
     return this.notifications.getWatch({
@@ -48,8 +49,8 @@ export class SubscriptionsController {
   @ApiOkResponse({ type: RepositoryWatchDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   setWatch(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: RepositoryWatchDTO,
     @Session() session: UserSession,
   ): Promise<RepositoryWatchDTO> {
@@ -69,8 +70,8 @@ export class SubscriptionsController {
   @ApiOkResponse({ type: IssueSubscriptionDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getSubscription(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Session() session: UserSession,
   ): Promise<IssueSubscriptionDTO> {
@@ -91,8 +92,8 @@ export class SubscriptionsController {
   @ApiOkResponse({ type: IssueSubscriptionDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   setSubscription(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', ParseIntPipe) number: number,
     @Body() body: IssueSubscriptionDTO,
     @Session() session: UserSession,

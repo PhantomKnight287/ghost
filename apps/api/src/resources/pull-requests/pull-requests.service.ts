@@ -130,6 +130,7 @@ import { withTempDir } from '../../lib/temp-dir.js';
 import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
 import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import { canEditThread } from '../../lib/issues/can-edit-thread.js';
+import { sameName } from '../../lib/db/sql.js';
 
 // Number, title, body and author live on the issue a request is attached to.
 const pullRequestColumns = {
@@ -1590,7 +1591,7 @@ export class PullRequestsService {
         schema.organization,
         eq(schema.organization.id, schema.repository.organizationId),
       )
-      .where(eq(ownerNameOf(schema.user, schema.organization), owner));
+      .where(sameName(ownerNameOf(schema.user, schema.organization), owner));
 
     const related = candidates.find(
       (candidate) =>

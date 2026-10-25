@@ -27,6 +27,7 @@ import {
   GithubUpdateIssueDTO,
 } from './dto/issue.dto.js';
 import { GithubIssuesService } from './issues.service.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -41,8 +42,8 @@ export class IssuesController {
   @Get('issues')
   @ApiOperation({ summary: "A repository's issues and pull requests" })
   list(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: GithubListIssuesQueryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -52,8 +53,8 @@ export class IssuesController {
   @Post('issues')
   @ApiOperation({ summary: 'Open an issue' })
   create(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: GithubCreateIssueDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -63,8 +64,8 @@ export class IssuesController {
   @Get('issues/:number')
   @ApiOperation({ summary: 'An issue or pull request by number' })
   get(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -76,8 +77,8 @@ export class IssuesController {
     summary: 'Edit an issue: title, body, state, labels, assignees',
   })
   update(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: GithubUpdateIssueDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -88,8 +89,8 @@ export class IssuesController {
   @Post('issues/:number/assignees')
   @ApiOperation({ summary: 'Add up to 10 assignees to an issue' })
   addAssignees(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: GithubAssigneesDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -104,8 +105,8 @@ export class IssuesController {
   @Delete('issues/:number/assignees')
   @ApiOperation({ summary: 'Remove assignees from an issue' })
   removeAssignees(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Body() body: GithubAssigneesDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -121,8 +122,8 @@ export class IssuesController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Whether a user can be assigned to an issue' })
   canBeAssignedToIssue(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('number', NUMBER) number: number,
     @Param('assignee') assignee: string,
     @Viewer() viewer: GithubViewer | null,
@@ -137,8 +138,8 @@ export class IssuesController {
   @Get('assignees')
   @ApiOperation({ summary: 'People with access to the repository' })
   assignees(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: GithubPageQueryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -149,8 +150,8 @@ export class IssuesController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Whether a user can be assigned in the repository' })
   canBeAssigned(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('assignee') assignee: string,
     @Viewer() viewer: GithubViewer | null,
   ) {

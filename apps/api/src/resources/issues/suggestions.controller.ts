@@ -15,6 +15,7 @@ import {
   SuggestionQueryDTO,
 } from './dto/suggestion.dto.js';
 import { SuggestionsService } from './suggestions.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/suggestions')
 @ApiTags('Issues')
@@ -31,8 +32,8 @@ export class SuggestionsController {
   @ApiOkResponse({ type: SuggestedUsersResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   suggestUsers(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: SuggestionQueryDTO,
     @Session() session: UserSession | undefined,
   ) {
@@ -54,8 +55,8 @@ export class SuggestionsController {
   @ApiOkResponse({ type: SuggestedIssuesResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   suggestIssues(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: SuggestionQueryDTO,
     @Session() session: UserSession | undefined,
   ) {

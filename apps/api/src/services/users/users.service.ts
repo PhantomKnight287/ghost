@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
+import { sameName } from '../../lib/db/sql.js';
 
 @Injectable()
 export class UsersService {
@@ -66,7 +67,7 @@ export class UsersService {
     const [user] = await this.database
       .select()
       .from(schema.user)
-      .where(eq(schema.user.username, username));
+      .where(sameName(schema.user.username, username));
     if (!user) throw new UserNotFoundError(username);
     return user;
   }

@@ -20,6 +20,7 @@ import { LFS_MEDIA_TYPE } from '../lib/git/lfs/lfs-objects.js';
 import { LfsService } from '../services/git/lfs/lfs.service.js';
 import { LfsBatchRequestDTO } from './dto/lfs-batch.dto.js';
 import type { GitAuthorizedRequest } from './types.js';
+import { TransformToLowercasePipe } from '../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 /** Git LFS's batch API and its `basic` transfer. `GitBasicAuthMiddleware` has already authorized the repository for the operation. */
 @Controller(':username/:repo/info/lfs/objects')
@@ -32,7 +33,7 @@ export class LfsController {
   @HttpCode(HttpStatus.OK)
   @Header('Content-Type', LFS_MEDIA_TYPE)
   batch(
-    @Param('username') username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Body() body: LfsBatchRequestDTO,
     @Req() req: GitAuthorizedRequest,
   ) {

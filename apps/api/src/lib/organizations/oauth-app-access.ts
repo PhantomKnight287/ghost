@@ -2,6 +2,7 @@ import { type Database, schema } from '@ghost/db';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { OauthAppRestrictedError } from './organization.errors.js';
+import { sameName } from '../db/sql.js';
 
 /** Whether the organization's OAuth app restrictions keep the app out of its repositories: they are on, and the app is neither built into the instance, nor the organization's own, nor approved by it. A null `clientId` is an app that cannot be identified, which restrictions always keep out. */
 export async function oauthAppBlocked(
@@ -34,7 +35,7 @@ export async function requireOauthAppAllowed(
   const [organization] = await db
     .select({ id: schema.organization.id })
     .from(schema.organization)
-    .where(eq(schema.organization.slug, slug));
+    .where(sameName(schema.organization.slug, slug));
   if (
     organization &&
     (await oauthAppBlocked(db, { clientId, organizationId: organization.id }))

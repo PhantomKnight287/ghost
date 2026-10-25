@@ -18,6 +18,7 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubUploadReleaseAssetQueryDTO } from './dto/release.dto.js';
 import { GithubReleasesService } from './releases.service.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 /** The `upload_url` every release carries, under `/api/uploads` as on GitHub Enterprise. No body parser runs here, so a file of any type streams through untouched. */
 @Controller('uploads/repos/:owner/:repo/releases')
@@ -36,8 +37,8 @@ export class GithubUploadsController {
   @ApiConsumes('application/octet-stream')
   @ApiBody({ schema: { type: 'string', format: 'binary' } })
   upload(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('release_id', new ParseIntPipe({ errorHttpStatusCode: 404 }))
     releaseId: number,
     @Query() query: GithubUploadReleaseAssetQueryDTO,

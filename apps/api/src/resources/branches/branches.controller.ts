@@ -23,6 +23,7 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { BranchDTO, CreateBranchRequestDTO } from './dto/branch.dto.js';
 import { RepositoryBranchesService } from './repository-branches.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/branches')
 @ApiTags('Branches')
@@ -51,8 +52,8 @@ export class BranchesController {
     type: ErrorResponseDTO,
   })
   createBranch(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: CreateBranchRequestDTO,
     @Session() session: UserSession,
   ): Promise<BranchDTO> {
@@ -80,8 +81,8 @@ export class BranchesController {
     type: ErrorResponseDTO,
   })
   deleteBranch(
-    @Param('username') username: string,
-    @Param('repo') repo: string,
+    @Param('username', TransformToLowercasePipe) username: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('branch') branch: string,
     @Session() session: UserSession,
   ): Promise<void> {

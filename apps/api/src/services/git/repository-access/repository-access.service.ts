@@ -4,6 +4,7 @@ import type { Role } from '@ghost/permissions';
 import { and, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
+import { sameName } from '../../../lib/db/sql.js';
 import {
   acceptedCollaboration,
   type Actor,
@@ -38,8 +39,8 @@ export class RepositoryAccessService {
     let [row] = await this.lookup(
       actor,
       and(
-        eq(ownerNameOf(schema.user, schema.organization), username),
-        eq(schema.repository.slug, repo),
+        sameName(ownerNameOf(schema.user, schema.organization), username),
+        sameName(schema.repository.slug, repo),
       ),
     );
     // A renamed or transferred repository is still reachable at its old name, as long as nothing took that name since.
@@ -49,11 +50,8 @@ export class RepositoryAccessService {
         .from(schema.repositoryRedirect)
         .where(
           and(
-            eq(
-              sql`lower(${schema.repositoryRedirect.ownerName})`,
-              username.toLowerCase(),
-            ),
-            eq(schema.repositoryRedirect.slug, repo),
+            sameName(schema.repositoryRedirect.ownerName, username),
+            sameName(schema.repositoryRedirect.slug, repo),
           ),
         );
       if (redirect) {

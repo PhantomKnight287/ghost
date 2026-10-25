@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { Suspense, cache } from "react";
 
 import { AppHeader } from "@/components/app-header";
 import { pageLinks } from "@/lib/agent-pages";
 import { createServerClient, getServerSession } from "@/lib/api/server";
+import { canonicalPath, PATH_HEADER } from "@/lib/canonical-path";
 import { plural } from "@/lib/og";
 
 import { Profile, ProfileSkeleton } from "./profile";
@@ -64,6 +66,11 @@ export default async function ProfilePage({
   // Before the Suspense boundary, so an unknown name answers a real 404 rather than a 200 with the not-found page streamed into it.
   const [user, organization] = await loadOwner(username);
   if (!organization.data && user.response.status === 404) notFound();
+  // The name in another case leads to the profile under its canonical name.
+  const canonical = organization.data?.slug ?? user.data?.username;
+  if (canonical && canonical !== username) {
+    redirect(canonicalPath((await headers()).get(PATH_HEADER), [canonical]));
+  }
 
   return (
     <div className="flex min-h-full flex-col">

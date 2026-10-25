@@ -20,6 +20,7 @@ import {
   CommitStatusDTO,
   CreateCommitStatusRequestDTO,
 } from './dto/commit-status.dto.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:slug')
 @ApiTags('Commit statuses')
@@ -45,7 +46,7 @@ export class CommitStatusesController {
     type: ErrorResponseDTO,
   })
   createCommitStatus(
-    @Param('username') username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Param('sha') sha: string,
     @Body() body: CreateCommitStatusRequestDTO,
@@ -70,7 +71,7 @@ export class CommitStatusesController {
   @ApiOkResponse({ type: CombinedCommitStatusDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getCombinedCommitStatus(
-    @Param('username') username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Param('ref') ref: string,
     @Session() session: UserSession | undefined,
@@ -93,7 +94,7 @@ export class CommitStatusesController {
   @ApiForbiddenResponse({ type: ErrorResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
   getStatusContexts(
-    @Param('username') username: string,
+    @Param('username', TransformToLowercasePipe) username: string,
     @Param('slug') slug: string,
     @Session() session: UserSession,
   ): Promise<StatusContextsDTO> {

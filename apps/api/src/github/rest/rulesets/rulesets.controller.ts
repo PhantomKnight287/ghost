@@ -28,6 +28,7 @@ import {
   GithubUpdateRulesetDTO,
 } from './dto/rulesets.dto.js';
 import { GithubRulesetsService } from './rulesets.service.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 // numeric_id is a bigint, read as a JavaScript number: an id past the safe range could only round onto another ruleset or overflow Postgres, so it is as absent as any unknown id.
 const ID: PipeTransform<string, number> = {
@@ -54,8 +55,8 @@ export class GithubRulesetsController {
       '`includes_parents` is ignored until organization rulesets exist.',
   })
   list(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Viewer() viewer: GithubViewer | null,
   ) {
     return this.rulesets.list({ owner, repo, viewer });
@@ -64,8 +65,8 @@ export class GithubRulesetsController {
   @Post('rulesets')
   @ApiOperation({ summary: 'Create a ruleset' })
   create(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Body() body: GithubCreateRulesetDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -79,8 +80,8 @@ export class GithubRulesetsController {
       'Rule insights: every write the rulesets checked, one suite per ref',
   })
   ruleSuites(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Query() query: GithubRuleSuitesQueryDTO,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -90,8 +91,8 @@ export class GithubRulesetsController {
   @Get('rulesets/rule-suites/:id')
   @ApiOperation({ summary: 'One rule suite with its rule evaluations' })
   ruleSuite(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('id', ID) id: number,
     @Query() query: GithubRuleSuiteQueryDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -102,8 +103,8 @@ export class GithubRulesetsController {
   @Get('rulesets/:id')
   @ApiOperation({ summary: 'A ruleset' })
   get(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('id', ID) id: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -115,8 +116,8 @@ export class GithubRulesetsController {
     summary: 'Update a ruleset; fields left out keep their value',
   })
   update(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('id', ID) id: number,
     @Body() body: GithubUpdateRulesetDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -128,8 +129,8 @@ export class GithubRulesetsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a ruleset' })
   remove(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('id', ID) id: number,
     @Viewer() viewer: GithubViewer | null,
   ) {
@@ -139,8 +140,8 @@ export class GithubRulesetsController {
   @Get('rules/branches/*branch')
   @ApiOperation({ summary: 'The active rules that apply to a branch' })
   branchRules(
-    @Param('owner') owner: string,
-    @Param('repo') repo: string,
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
     @Param('branch') branch: string[],
     @Viewer() viewer: GithubViewer | null,
   ) {
