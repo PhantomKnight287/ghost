@@ -11,32 +11,17 @@ import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@thallesp/nestjs-better-auth';
 import type { Request } from 'express';
 
-import type { Auth } from '../lib/auth.js';
+import { type Auth, AUTHORIZATION_TOKEN } from '../lib/auth.js';
 
-const TOKEN = /^(?:token|bearer)\s+(\S+)$/i;
 const COOKIE_ONLY = 'COOKIE_ONLY';
 /** Bad tokens one address may send per window before it waits; `verifyApiKey` runs server-side, past Better Auth's own rate limiter. */
 const FAILURE_LIMIT = 20;
 const FAILURE_WINDOW_MS = 60_000;
 
-/** Railway's proxy sets `X-Real-IP`, as `lib/auth.ts` trusts; elsewhere the header is the client's to forge. */
-function clientIp(request: Request) {
-  const real = request.headers['x-real-ip'];
-  return (
-    (process.env.RAILWAY_SERVICE_ID && typeof real === 'string' && real) ||
-    request.ip ||
-    'unknown'
-  );
-}
-
 /** Routes that could take the account over or hand out its access (addresses, OAuth apps) refuse personal access tokens and want the browser session. */
 export const CookieOnly = () => SetMetadata(COOKIE_ONLY, true);
 
-/**
- * The global guard: `Authorization: token|Bearer <key>` signs the request in as the key's owner; without one, the session cookie decides as before.
- * Public and optional routes (git, LFS, GitHub's paths) authenticate themselves, so a token there is left to them.
- * Keys that carry scopes are OAuth app tokens, which reach only GitHub's paths until native routes check scopes.
- */
+/** Signs a personal access token in as its owner, else defers to the session cookie; public and optional routes (git, LFS, GitHub's paths) authenticate tokens themselves, and scoped keys are OAuth app tokens, held to GitHub's paths until native routes check scopes. */
 @Injectable()
 export class ApiKeyAuthGuard extends AuthGuard {
   // Nest injects what AuthGuard's own @Inject metadata names: the Reflector and the auth module's options.
@@ -52,7 +37,9 @@ export class ApiKeyAuthGuard extends AuthGuard {
     const request = context
       .switchToHttp()
       .getRequest<Request & { session?: unknown; user?: unknown }>();
-    const key = TOKEN.exec(request.headers.authorization ?? '')?.[1];
+    const key = AUTHORIZATION_TOKEN.exec(
+      request.headers.authorization ?? '',
+    )?.[1];
     if (
       !key ||
       this.marked(context, 'PUBLIC') ||
@@ -60,8 +47,20 @@ export class ApiKeyAuthGuard extends AuthGuard {
     )
       return super.canActivate(context);
 
-    const ip = clientIp(request);
-    if (this.throttled(ip))
+    // Railway's proxy sets `X-Real-IP`, as `lib/auth.ts` trusts; elsewhere the header is the client's to forge.
+    const realIp = request.headers['x-real-ip'];
+    const ip =
+      (process.env.RAILWAY_SERVICE_ID &&
+        typeof realIp === 'string' &&
+        realIp) ||
+      request.ip ||
+      'unknown';
+    const failures = this.failures.get(ip);
+    if (
+      failures &&
+      failures.resetAt > Date.now() &&
+      failures.count >= FAILURE_LIMIT
+    )
       throw new HttpException(
         'Too many bad credentials; try again in a minute',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -113,13 +112,6 @@ export class ApiKeyAuthGuard extends AuthGuard {
     string,
     { count: number; resetAt: number }
   >();
-
-  private throttled(ip: string) {
-    const entry = this.failures.get(ip);
-    return (
-      !!entry && entry.resetAt > Date.now() && entry.count >= FAILURE_LIMIT
-    );
-  }
 
   private nextSweepAt = 0;
 

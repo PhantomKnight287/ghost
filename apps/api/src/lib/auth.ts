@@ -87,6 +87,9 @@ export function withWebCallback(url: string, webAppUrl?: string): string {
   return parsed.href;
 }
 
+/** `Authorization: token|Bearer <key>`, the two schemes gh and other GitHub clients send. */
+export const AUTHORIZATION_TOKEN = /^(?:token|bearer)\s+(\S+)$/i;
+
 /** How recent a sign-in must be to create an access token from the browser. */
 const KEY_REAUTH_WINDOW_MS = 15 * 60 * 1000;
 

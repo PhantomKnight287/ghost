@@ -19,17 +19,20 @@ function setup({
   verify = { valid: true, key: key() },
   flags = [] as string[],
   verification = false,
-  owner = user,
+  owner = user as typeof user | null,
+  type = 'http',
 }: {
   authorization?: string;
   verify?: { valid: boolean; key: ReturnType<typeof key> | null };
   flags?: string[];
   verification?: boolean;
-  owner?: typeof user;
+  owner?: typeof user | null;
+  type?: string;
 }) {
-  const request: Record<string, unknown> = {
-    headers: authorization ? { authorization } : {},
-  };
+  const request: { headers: Record<string, string>; [field: string]: unknown } =
+    {
+      headers: authorization ? { authorization } : {},
+    };
   const getSession = vi.fn().mockResolvedValue(null);
   const verifyApiKey = vi.fn().mockResolvedValue(verify);
   const instance = {
@@ -46,7 +49,7 @@ function setup({
   } as unknown as Reflector;
   const guard = new ApiKeyAuthGuard(reflector, { auth: instance } as never);
   const context = {
-    getType: () => 'http',
+    getType: () => type,
     getHandler: () => undefined,
     getClass: () => undefined,
     switchToHttp: () => ({ getRequest: () => request }),
@@ -156,5 +159,76 @@ describe('ApiKeyAuthGuard checks', () => {
       status: 429,
     });
     expect(verifyApiKey).toHaveBeenCalledTimes(20);
+  });
+});
+
+describe('ApiKeyAuthGuard edges', () => {
+  it('leaves non-HTTP requests to the session cookie', async () => {
+    const { guard, context, verifyApiKey } = setup({
+      authorization: 'Bearer ghost_pat_abc',
+      type: 'graphql',
+    });
+    await expect(guard.canActivate(context)).rejects.toThrow();
+    expect(verifyApiKey).not.toHaveBeenCalled();
+  });
+
+  it('leaves tokens on public routes to the route', async () => {
+    const { guard, context, verifyApiKey } = setup({
+      authorization: 'Bearer ghost_pat_abc',
+      flags: ['PUBLIC'],
+    });
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(verifyApiKey).not.toHaveBeenCalled();
+  });
+
+  it('refuses a key whose owner is gone', async () => {
+    const { guard, context } = setup({
+      authorization: 'Bearer ghost_pat_abc',
+      owner: null,
+    });
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('lets a throttled address back in once the window passes', async () => {
+    vi.useFakeTimers();
+    try {
+      const { guard, context } = setup({
+        authorization: 'Bearer nope',
+        verify: { valid: false, key: null },
+      });
+      for (let i = 0; i < 20; i++)
+        await guard.canActivate(context).catch(() => undefined);
+      vi.advanceTimersByTime(60_000);
+      await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('counts each X-Real-IP apart on Railway, and ignores the header elsewhere', async () => {
+    const { guard, context, request } = setup({
+      authorization: 'Bearer nope',
+      verify: { valid: false, key: null },
+    });
+    request.headers['x-real-ip'] = '203.0.113.1';
+    for (let i = 0; i < 20; i++)
+      await guard.canActivate(context).catch(() => undefined);
+    request.headers['x-real-ip'] = '203.0.113.2';
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      status: 429,
+    });
+
+    vi.stubEnv('RAILWAY_SERVICE_ID', 'svc');
+    try {
+      await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
