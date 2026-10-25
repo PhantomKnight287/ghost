@@ -14,8 +14,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import { GithubNotFoundError } from '../../../lib/github/github.errors.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
@@ -41,7 +41,7 @@ const ID: PipeTransform<string, number> = {
 
 @Controller('v3/repos/:owner/:repo')
 @ApiTags('GitHub compatibility')
-@AllowAnonymous()
+@SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
 export class GithubRulesetsController {

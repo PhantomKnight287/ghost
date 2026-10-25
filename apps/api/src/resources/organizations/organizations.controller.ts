@@ -27,9 +27,9 @@ import {
 } from '@nestjs/swagger';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Request } from 'express';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
-import { CookieOnly } from '../../auth/api-key-auth.guard.js';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { CookieOnly, SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   InviteByUsernameRequestDTO,
@@ -250,7 +250,7 @@ export class OrganizationsController {
   }
 
   @Get(':slug')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Organization profile',
     description:
@@ -272,7 +272,7 @@ export class UserOrganizationsController {
   constructor(private readonly organizations: OrganizationsService) {}
 
   @Get(':username/organizations')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List the organizations a user belongs to',
     description:

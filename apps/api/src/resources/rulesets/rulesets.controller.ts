@@ -24,8 +24,9 @@ import {
   ApiTags,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   ListRulesetsResponseDTO,
@@ -46,7 +47,7 @@ export class RulesetsController {
   constructor(private readonly rulesets: RulesetsService) {}
 
   @Get('rulesets')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List rulesets',
     description: 'Oldest first. `bypassActors` is shown to admins only.',
@@ -123,7 +124,7 @@ export class RulesetsController {
   }
 
   @Get('rulesets/:id')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Get a ruleset',
     description: '`bypassActors` is shown to admins only.',
@@ -193,7 +194,7 @@ export class RulesetsController {
   }
 
   @Get('protected-refs')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Refs guarded by rulesets',
     description:

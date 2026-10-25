@@ -22,8 +22,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   CreateReleaseRequestDTO,
@@ -40,7 +41,7 @@ export class ReleasesController {
   constructor(private readonly releases: ReleasesService) {}
 
   @Get()
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List releases',
     description:
@@ -98,7 +99,7 @@ export class ReleasesController {
   }
 
   @Get('latest')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Read the latest release',
     description:
@@ -119,7 +120,7 @@ export class ReleasesController {
   }
 
   @Get('tags/:tag')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Read a release by tag',
     description: 'A tag containing `/` is sent percent-encoded.',

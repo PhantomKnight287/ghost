@@ -15,8 +15,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
@@ -35,7 +35,7 @@ const RAW = /application\/vnd\.github(?:\.v3)?\.(diff|patch)\b/i;
 
 @Controller('v3/repos/:owner/:repo/pulls')
 @ApiTags('GitHub compatibility')
-@AllowAnonymous()
+@SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
 export class PullsController {

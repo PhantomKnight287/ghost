@@ -5,8 +5,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   SuggestedIssuesResponseDTO,
@@ -21,7 +22,7 @@ export class SuggestionsController {
   constructor(private readonly suggestions: SuggestionsService) {}
 
   @Get('users')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Suggest people to mention or assign',
     description:
@@ -44,7 +45,7 @@ export class SuggestionsController {
   }
 
   @Get('issues')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Suggest issues and pull requests to reference',
     description:

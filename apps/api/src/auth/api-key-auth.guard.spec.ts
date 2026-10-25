@@ -2,7 +2,11 @@ import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ApiKeyAuthGuard } from './api-key-auth.guard.js';
+import {
+  Anonymous,
+  ApiKeyAuthGuard,
+  SignInOptional,
+} from './api-key-auth.guard.js';
 
 const user = { id: 'user_1', name: 'Owner', emailVerified: true };
 const key = (permissions: Record<string, string[]> | null = null) => ({
@@ -230,5 +234,29 @@ describe('ApiKeyAuthGuard edges', () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+});
+
+describe('sign-in decorators', () => {
+  class Routes {
+    @Anonymous()
+    open() {}
+
+    @SignInOptional()
+    either() {}
+  }
+
+  it('shows anonymous routes with no sign-in in the reference', () => {
+    expect(
+      Reflect.getMetadata('swagger/apiSecurity', Routes.prototype.open),
+    ).toEqual([{}]);
+    expect(Reflect.getMetadata('PUBLIC', Routes.prototype.open)).toBe(true);
+  });
+
+  it('shows optional routes as anonymous, token or session in the reference', () => {
+    expect(
+      Reflect.getMetadata('swagger/apiSecurity', Routes.prototype.either),
+    ).toEqual([{}, { token: [] }, { session: [] }]);
+    expect(Reflect.getMetadata('OPTIONAL', Routes.prototype.either)).toBe(true);
   });
 });

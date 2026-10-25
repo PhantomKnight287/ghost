@@ -24,9 +24,10 @@ import {
   ApiTags,
   ApiUnsupportedMediaTypeResponse,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import { UploadAvatarResponseDTO } from './dto/avatar.dto.js';
@@ -77,7 +78,7 @@ export class UserController {
   }
 
   @Get('avatars/:userId/:name')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'Serve a stored avatar' })
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -100,7 +101,7 @@ export class UserController {
   }
 
   @Get(':username')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: "Read a user's public profile" })
   @ApiOkResponse({ type: UserProfileResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -109,7 +110,7 @@ export class UserController {
   }
 
   @Get(':username/contributions')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: "Read a user's contribution calendar",
     description:

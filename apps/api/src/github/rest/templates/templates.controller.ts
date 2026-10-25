@@ -1,13 +1,13 @@
 import { Controller, Get, Param, UseFilters } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { TemplatesService } from './templates.service.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
-@AllowAnonymous()
+@SignInOptional()
 @UseFilters(GithubRestFilter)
 export class TemplatesController {
   constructor(private readonly templates: TemplatesService) {}

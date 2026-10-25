@@ -9,9 +9,9 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import type { Request } from 'express';
 
+import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
@@ -22,7 +22,7 @@ import { GithubReleasesService } from './releases.service.js';
 /** The `upload_url` every release carries, under `/api/uploads` as on GitHub Enterprise. No body parser runs here, so a file of any type streams through untouched. */
 @Controller('uploads/repos/:owner/:repo/releases')
 @ApiTags('GitHub compatibility')
-@AllowAnonymous()
+@SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
 export class GithubUploadsController {

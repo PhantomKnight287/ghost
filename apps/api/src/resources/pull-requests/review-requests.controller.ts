@@ -18,8 +18,9 @@ import {
   ApiTags,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { SuggestionQueryDTO } from '../issues/dto/suggestion.dto.js';
 import {
@@ -35,7 +36,7 @@ export class ReviewRequestsController {
   constructor(private readonly reviewRequests: ReviewRequestsService) {}
 
   @Get(':number/requested-reviewers')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'Users and teams asked to review a pull request' })
   @ApiOkResponse({ type: RequestedReviewersDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })

@@ -8,8 +8,8 @@ import {
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import { OptionalAuth } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { GetRepositoriesQueryDTO } from './dto/get-repositories.dto.js';
 import {
@@ -25,7 +25,7 @@ export class SearchController {
   constructor(private readonly repositoriesService: RepositoriesService) {}
 
   @Get('repositories')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Search repositories',
     description:
@@ -42,7 +42,7 @@ export class SearchController {
   @Get('code')
   @UseGuards(ThrottlerGuard)
   @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Search code',
     description:

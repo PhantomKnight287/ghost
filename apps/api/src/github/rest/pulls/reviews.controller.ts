@@ -12,8 +12,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
@@ -29,7 +29,7 @@ const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
 @Controller('v3/repos/:owner/:repo/pulls/:number/reviews')
 @ApiTags('GitHub compatibility')
-@AllowAnonymous()
+@SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
 export class GithubReviewsController {

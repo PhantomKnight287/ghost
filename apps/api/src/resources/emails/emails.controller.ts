@@ -21,9 +21,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
-import { CookieOnly } from '../../auth/api-key-auth.guard.js';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { CookieOnly, SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   AddEmailDTO,
@@ -58,7 +58,7 @@ export class EmailsController {
   }
 
   @Get('verify')
-  @OptionalAuth()
+  @SignInOptional()
   @Redirect()
   @ApiOperation({
     summary: 'Follow an address verification link',

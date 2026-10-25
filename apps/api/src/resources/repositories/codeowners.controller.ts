@@ -6,8 +6,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   GetCodeownersOwnersQueryDTO,
@@ -23,7 +24,7 @@ export class CodeownersController {
   constructor(private readonly repositoriesService: RepositoriesService) {}
 
   @Get(':username/:slug/codeowners')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Check the CODEOWNERS file',
     description:
@@ -46,7 +47,7 @@ export class CodeownersController {
   }
 
   @Get(':username/:slug/codeowners/owners')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Name the code owners of files',
     description:

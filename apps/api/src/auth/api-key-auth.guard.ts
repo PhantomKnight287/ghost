@@ -1,4 +1,5 @@
 import {
+  applyDecorators,
   type ExecutionContext,
   ForbiddenException,
   HttpException,
@@ -8,7 +9,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthGuard } from '@thallesp/nestjs-better-auth';
+import { ApiSecurity } from '@nestjs/swagger';
+import {
+  AllowAnonymous,
+  AuthGuard,
+  OptionalAuth,
+} from '@thallesp/nestjs-better-auth';
 import type { Request } from 'express';
 
 import { type Auth, AUTHORIZATION_TOKEN } from '../lib/auth.js';
@@ -20,6 +26,19 @@ const FAILURE_WINDOW_MS = 60_000;
 
 /** Routes that could take the account over or hand out its access (addresses, OAuth apps) refuse personal access tokens and want the browser session. */
 export const CookieOnly = () => SetMetadata(COOKIE_ONLY, true);
+
+/** Open to anyone, and the reference shows no sign-in. */
+export const Anonymous = () =>
+  applyDecorators(AllowAnonymous(), ApiSecurity({}));
+
+/** Answers anyone, and more to someone signed in; the reference shows sign-in as optional. */
+export const SignInOptional = () =>
+  applyDecorators(
+    OptionalAuth(),
+    ApiSecurity({}),
+    ApiSecurity('token'),
+    ApiSecurity('session'),
+  );
 
 /** Signs a personal access token in as its owner, else defers to the session cookie; public and optional routes (git, LFS, GitHub's paths) authenticate tokens themselves, and scoped keys are OAuth app tokens, held to GitHub's paths until native routes check scopes. */
 @Injectable()

@@ -19,8 +19,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   CreateIssueRequestDTO,
@@ -69,7 +70,7 @@ export class IssuesController {
   }
 
   @Get()
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'List issues' })
   @ApiOkResponse({ type: GetIssuesResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -88,7 +89,7 @@ export class IssuesController {
   }
 
   @Get(':number')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'Get an issue' })
   @ApiOkResponse({ type: IssueDetailDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -165,7 +166,7 @@ export class IssuesController {
   }
 
   @Get(':number/comments')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'Comments on an issue' })
   @ApiOkResponse({ type: GetIssueCommentsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -246,7 +247,7 @@ export class IssuesController {
   }
 
   @Get(':number/timeline')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'Comments and events interleaved oldest-first' })
   @ApiOkResponse({ type: GetIssueTimelineResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })

@@ -21,9 +21,10 @@ import {
   ApiTags,
   ApiUnsupportedMediaTypeResponse,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { isInlineAttachment } from '../../lib/attachments/attachments.js';
 import { AttachmentsService } from './attachments.service.js';
@@ -81,7 +82,7 @@ export class AttachmentsController {
   }
 
   @Get('attachments/:id')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Download an attachment',
     description:

@@ -11,9 +11,9 @@ import {
   UseFilters,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import type { Response } from 'express';
 
+import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { ArchiveFormat } from '../../../lib/git/archive/archive.js';
 import { sendArchive } from '../../../lib/http/send-archive.js';
 import type { GithubViewer } from '../../auth/github-request.js';
@@ -24,7 +24,7 @@ import { GithubReposService } from './repos.service.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
-@AllowAnonymous()
+@SignInOptional()
 @UseFilters(GithubRestFilter)
 export class ReposController {
   private readonly logger = new Logger(ReposController.name);

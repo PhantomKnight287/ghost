@@ -30,8 +30,9 @@ import {
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 import type { Response } from 'express';
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { sendArchive } from '../../lib/http/send-archive.js';
 import {
@@ -157,7 +158,7 @@ export class RepositoriesController {
   @ApiNotFoundResponse({
     type: ErrorResponseDTO,
   })
-  @OptionalAuth()
+  @SignInOptional()
   getRepositories(
     @Param('username') username: string,
     @Session() session: UserSession,
@@ -171,7 +172,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Get repository details',
     description: 'Get a single repository by owner username and slug',
@@ -369,7 +370,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/contents')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List repository contents',
     description:
@@ -404,7 +405,7 @@ export class RepositoriesController {
   @Get(':username/:slug/paths')
   @UseGuards(ThrottlerGuard)
   @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List every file path',
     description:
@@ -431,7 +432,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/readme')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Read the README',
     description:
@@ -459,7 +460,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/blob')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Read a file',
     description:
@@ -492,7 +493,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/raw')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Download a file',
     description:
@@ -535,7 +536,7 @@ export class RepositoriesController {
   @Get(':username/:slug/archive')
   @UseGuards(ThrottlerGuard)
   @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Download a source archive',
     description:
@@ -568,7 +569,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/commits')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List commits',
     description:
@@ -598,7 +599,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/commits/:sha')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Read a commit',
     description:
@@ -625,7 +626,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/commits/:sha/patch')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Read a commit as a patch',
     description: 'The commit as a git patch file, unparsed.',
@@ -666,7 +667,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/branches')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List repository branches',
     description: 'Every branch of the repository, and which one it opens on.',
@@ -690,7 +691,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/tags')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List repository tags',
     description:
@@ -720,7 +721,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/languages')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Language breakdown',
     description: 'Bytes per language on the default branch, largest first',
@@ -746,7 +747,7 @@ export class RepositoriesController {
   @Get(':username/:slug/search')
   @UseGuards(ThrottlerGuard)
   @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Search code',
     description:
@@ -781,7 +782,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/stargazers')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List stargazers',
     description:
@@ -811,7 +812,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/forks')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List forks',
     description:
@@ -841,7 +842,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/contributors')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'List contributors',
     description:

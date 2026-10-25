@@ -27,9 +27,10 @@ import {
   ApiTags,
   ApiUnsupportedMediaTypeResponse,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { UploadNotOctetStreamError } from '../../lib/releases/releases.errors.js';
 import {
@@ -99,7 +100,7 @@ export class ReleaseAssetsController {
   }
 
   @Get('tags/:tag/assets/:name')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Download a release asset',
     description:

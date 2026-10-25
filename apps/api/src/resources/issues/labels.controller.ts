@@ -16,8 +16,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   CreateLabelRequestDTO,
@@ -33,7 +34,7 @@ export class LabelsController {
   constructor(private readonly issues: IssuesService) {}
 
   @Get()
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'List labels in a repository' })
   @ApiOkResponse({ type: GetLabelsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })

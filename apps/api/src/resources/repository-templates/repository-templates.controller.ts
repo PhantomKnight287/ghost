@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
+import { Anonymous } from '../../auth/api-key-auth.guard.js';
 import { GetRepositoryTemplatesResponseDTO } from './dto/repository-templates.dto.js';
 import { RepositoryTemplatesService } from './repository-templates.service.js';
 
@@ -11,7 +11,7 @@ export class RepositoryTemplatesController {
   constructor(private readonly templates: RepositoryTemplatesService) {}
 
   @Get()
-  @AllowAnonymous()
+  @Anonymous()
   @ApiOperation({
     summary: 'List .gitignore and license templates',
     description:

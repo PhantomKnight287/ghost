@@ -18,8 +18,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   ComparePatchQueryDTO,
@@ -75,7 +76,7 @@ export class PullRequestsController {
   }
 
   @Get()
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'List pull requests' })
   @ApiOkResponse({ type: GetPullRequestsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -136,7 +137,7 @@ export class PullRequestsController {
   }
 
   @Get(':number')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'Get a pull request' })
   @ApiOkResponse({ type: PullRequestDetailDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -155,7 +156,7 @@ export class PullRequestsController {
   }
 
   @Get(':number/commits')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'Commits a pull request adds' })
   @ApiOkResponse({ type: GetPullRequestCommitsResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -177,7 +178,7 @@ export class PullRequestsController {
   }
 
   @Get(':number/commits/:sha')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary:
       "Where a commit falls among a pull request's commits, with its neighbours",
@@ -201,7 +202,7 @@ export class PullRequestsController {
   }
 
   @Get(':number/files')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'Paths a pull request changes' })
   @ApiOkResponse({ type: GetPullRequestFilesResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -220,7 +221,7 @@ export class PullRequestsController {
   }
 
   @Get(':number/patch')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({ summary: 'The patch itself, as text' })
   @ApiOkResponse({ schema: { type: 'string' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })

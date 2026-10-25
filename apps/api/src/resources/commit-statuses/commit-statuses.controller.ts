@@ -9,8 +9,9 @@ import {
   ApiNotFoundResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { CommitStatusesService } from './commit-statuses.service.js';
 import {
@@ -60,7 +61,7 @@ export class CommitStatusesController {
   }
 
   @Get('commits/:ref/status')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Read the combined status of a commit',
     description:

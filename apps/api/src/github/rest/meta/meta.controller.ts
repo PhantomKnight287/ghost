@@ -1,13 +1,13 @@
 import { Controller, Get, UseFilters } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { MetaService } from './meta.service.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
-@AllowAnonymous()
+@SignInOptional()
 @UseFilters(GithubRestFilter)
 export class MetaController {
   constructor(private readonly metadata: MetaService) {}

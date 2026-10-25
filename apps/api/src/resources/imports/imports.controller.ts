@@ -19,8 +19,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
+import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { CreateRepositoryResponseDTO } from '../repositories/dto/create-repository.dto.js';
 import {
@@ -82,7 +83,7 @@ export class ImportsController {
   }
 
   @Get('repositories/:username/:repo/import')
-  @OptionalAuth()
+  @SignInOptional()
   @ApiOperation({
     summary: 'Get import progress',
     description: 'How the GitHub import that created this repository is going.',
