@@ -28,6 +28,7 @@ import {
   ApiUnsupportedMediaTypeResponse,
 } from '@nestjs/swagger';
 import type { UserSession } from '@thallesp/nestjs-better-auth';
+import { CookieOnly } from '../../auth/api-key-auth.guard.js';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Request } from 'express';
 
@@ -46,6 +47,7 @@ import {
 import { OauthAppsService } from './oauth-apps.service.js';
 
 @ApiTags('OAuth apps')
+@CookieOnly()
 @Controller('oauth-apps')
 export class OauthAppsController {
   constructor(private readonly apps: OauthAppsService) {}
@@ -228,6 +230,7 @@ export class OauthAppsController {
 
 /** An organization's OAuth apps, for its admins. Once an app exists it is managed at `/oauth-apps/:clientId`, like a user's. */
 @ApiTags('OAuth apps')
+@CookieOnly()
 @Controller('organizations/:slug/oauth-apps')
 export class OrganizationOauthAppsController {
   constructor(private readonly apps: OauthAppsService) {}

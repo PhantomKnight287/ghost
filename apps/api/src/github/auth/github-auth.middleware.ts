@@ -3,11 +3,10 @@ import { AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { NextFunction, Response } from 'express';
 
-import type { Auth } from '../../lib/auth.js';
+import { type Auth, AUTHORIZATION_TOKEN } from '../../lib/auth.js';
 import { KNOWN_SCOPES, scopesOfKey } from '../../lib/github/scopes.js';
 import type { GithubRequest, GithubViewer } from './github-request.js';
 
-const TOKEN = /^(?:token|bearer)\s+(\S+)$/i;
 const GITHUB_MEDIA_TYPE = /application\/vnd\.github\b/i;
 /** `gh pr diff` asks for the raw diff or patch, which is not JSON and which the pulls controller answers by this header. */
 const RAW_MEDIA_TYPE = /application\/vnd\.github(?:\.v3)?\.(?:diff|patch)\b/i;
@@ -24,7 +23,7 @@ export class GithubAuthMiddleware implements NestMiddleware {
     if (GITHUB_MEDIA_TYPE.test(accept) && !RAW_MEDIA_TYPE.test(accept))
       req.headers.accept = 'application/json';
     const header = req.headers.authorization;
-    const token = header ? TOKEN.exec(header)?.[1] : undefined;
+    const token = header ? AUTHORIZATION_TOKEN.exec(header)?.[1] : undefined;
 
     if (header && !token) return this.badCredentials(res);
     const viewer = token

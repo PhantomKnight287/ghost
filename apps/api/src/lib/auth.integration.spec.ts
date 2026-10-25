@@ -272,3 +272,71 @@ describe.skipIf(!CONNECTION)('a GitHub sign-up losing its username', () => {
     ).rejects.toThrow();
   });
 });
+
+describe.skipIf(!CONNECTION)('createAuth minting access tokens', () => {
+  const EMAIL = 'auth-spec-keys@example.com';
+  let db: Database;
+  let pool: Pool;
+  let auth: Auth;
+  let userId: string;
+  let cookie: string;
+
+  const mint = () =>
+    auth.handler(
+      new Request('http://localhost:3001/api/auth/api-key/create', {
+        method: 'POST',
+        headers: {
+          cookie,
+          origin: 'http://localhost:3001',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ name: 'spec' }),
+      }),
+    );
+
+  beforeAll(async () => {
+    ({ db, pool } = createDatabase({ connectionString: CONNECTION }));
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+    auth = createAuth(db, {
+      secret: 'auth-spec-secret-auth-spec-secret',
+      baseURL: 'http://localhost:3001',
+    });
+    await db.delete(schema.user).where(eq(schema.user.email, EMAIL));
+    ({
+      user: { id: userId },
+    } = await auth.api.signUpEmail({
+      body: { name: 'Key Spec', email: EMAIL, password: PASSWORD },
+    }));
+    const { headers } = await auth.api.signInEmail({
+      body: { email: EMAIL, password: PASSWORD },
+      returnHeaders: true,
+    });
+    cookie = headers.get('set-cookie') ?? '';
+  });
+
+  afterAll(async () => {
+    await db.delete(schema.user).where(eq(schema.user.email, EMAIL));
+    await pool.end();
+  });
+
+  it('mints a key from a recent sign-in', async () => {
+    expect((await mint()).status).toBe(200);
+  });
+
+  it('asks a session older than 15 minutes to sign in again', async () => {
+    await db
+      .update(schema.session)
+      .set({ createdAt: new Date(Date.now() - 16 * 60 * 1000) })
+      .where(eq(schema.session.userId, userId));
+    const response = await mint();
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: 'SESSION_NOT_FRESH' });
+  });
+
+  it('mints server-side keys whatever the session age', async () => {
+    const created = await auth.api.createApiKey({
+      body: { userId, name: 'server' },
+    });
+    expect(created.key).toMatch(/^ghost_pat_/);
+  });
+});

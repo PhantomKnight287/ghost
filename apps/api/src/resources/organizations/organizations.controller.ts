@@ -28,6 +28,7 @@ import {
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Request } from 'express';
 import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import { CookieOnly } from '../../auth/api-key-auth.guard.js';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
@@ -208,6 +209,7 @@ export class OrganizationsController {
     );
   }
 
+  @CookieOnly()
   @Post(':slug/invitations')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

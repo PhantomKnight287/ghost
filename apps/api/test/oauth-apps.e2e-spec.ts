@@ -374,7 +374,11 @@ describe.skipIf(!hasBackends)('OAuth apps', () => {
     await api()
       .get('/api/oauth-apps')
       .set('authorization', `Bearer ${key}`)
-      .expect(401);
+      .expect(403);
+    await api()
+      .get('/api/oauth-apps')
+      .set('authorization', `Bearer ${owner.key}`)
+      .expect(403);
     await api().get('/api/oauth-apps').set('x-api-key', owner.key).expect(401);
   });
 

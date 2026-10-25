@@ -87,6 +87,12 @@ export function withWebCallback(url: string, webAppUrl?: string): string {
   return parsed.href;
 }
 
+/** `Authorization: token|Bearer <key>`, the two schemes gh and other GitHub clients send. */
+export const AUTHORIZATION_TOKEN = /^(?:token|bearer)\s+(\S+)$/i;
+
+/** How recent a sign-in must be to create an access token from the browser. */
+const KEY_REAUTH_WINDOW_MS = 15 * 60 * 1000;
+
 /** Endpoints that take an address in the body and look a user up by it. */
 const EMAIL_LOOKUP_PATHS = ['/sign-in/email', '/request-password-reset'];
 
@@ -96,6 +102,21 @@ function beforeAuthHooks(db: Database) {
     if (ctx.path === '/organization/check-slug') {
       const body = ctx.body as { slug?: unknown } | undefined;
       await assertNameFree(db, body?.slug, 'organization');
+      return;
+    }
+
+    // A key outlives the session and skips 2FA, so minting one from the browser needs a recent sign-in; server-side mints (OAuth apps, imports) carry no request.
+    if (ctx.path === '/api-key/create' && ctx.request) {
+      const session = await getSessionFromCtx(ctx);
+      const age = session
+        ? Date.now() - new Date(session.session.createdAt).getTime()
+        : 0;
+      if (age > KEY_REAUTH_WINDOW_MS) {
+        throw APIError.from('FORBIDDEN', {
+          message: 'Sign in again to create an access token',
+          code: 'SESSION_NOT_FRESH',
+        });
+      }
       return;
     }
 

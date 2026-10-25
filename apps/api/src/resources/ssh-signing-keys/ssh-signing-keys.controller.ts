@@ -20,6 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { UserSession } from '@thallesp/nestjs-better-auth';
+import { CookieOnly } from '../../auth/api-key-auth.guard.js';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { AddSshKeyDTO } from '../ssh-keys/dto/ssh-key.dto.js';
@@ -30,6 +31,7 @@ import {
 import { SshSigningKeysService } from './ssh-signing-keys.service.js';
 
 @ApiTags('SSH signing keys')
+@CookieOnly()
 @Controller('ssh-signing-keys')
 export class SshSigningKeysController {
   constructor(private readonly keys: SshSigningKeysService) {}
