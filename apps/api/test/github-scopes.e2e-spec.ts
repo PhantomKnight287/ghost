@@ -1,7 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, scopedKey, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('GitHub scopes', () => {
@@ -48,16 +50,26 @@ describe.skipIf(!hasBackends)('GitHub scopes', () => {
     expect(full.headers['x-oauth-scopes']).toContain('repo');
   });
 
-  it("never lets an API key into Ghost's own API", async () => {
+  it("keeps an OAuth app's scoped key off Ghost's own API", async () => {
     const key = await scopedKey(app, owner.userId, ['repo']);
     await request(app.getHttpServer())
       .get('/api/notifications')
       .set('authorization', `Bearer ${key}`)
-      .expect(401);
+      .expect(403);
     await request(app.getHttpServer())
       .get('/api/notifications')
       .set('x-api-key', key)
       .expect(401);
+  });
+
+  it("lets a personal access token, which carries no scopes, into Ghost's own API", async () => {
+    const { key } = await app
+      .get<AuthService<Auth>>(AuthService)
+      .api.createApiKey({ body: { userId: owner.userId } });
+    await request(app.getHttpServer())
+      .get('/api/notifications')
+      .set('authorization', `Bearer ${key}`)
+      .expect(200);
   });
 
   it('hides a private repository from a key without repo, and shows it to one with repo', async () => {

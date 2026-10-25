@@ -276,7 +276,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
     await api()
       .get('/api/notifications')
       .set('authorization', `Bearer ${token.access_token}`)
-      .expect(401);
+      .expect(403);
     const live = await app
       .get<Database>(DATABASE)
       .select({ id: schema.oauthAccessToken.id })
