@@ -121,14 +121,19 @@ export class ApiKeyAuthGuard extends AuthGuard {
     );
   }
 
+  private nextSweepAt = 0;
+
   private fail(ip: string) {
     const now = Date.now();
     const entry = this.failures.get(ip);
     if (entry && entry.resetAt > now) entry.count++;
     else this.failures.set(ip, { count: 1, resetAt: now + FAILURE_WINDOW_MS });
-    if (this.failures.size > 10_000)
+    // At most one sweep per window; only expired entries go, so no address loses its count.
+    if (now >= this.nextSweepAt) {
+      this.nextSweepAt = now + FAILURE_WINDOW_MS;
       for (const [stale, { resetAt }] of this.failures)
         if (resetAt <= now) this.failures.delete(stale);
+    }
   }
 
   private marked(context: ExecutionContext, flag: string) {
