@@ -20,6 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { UserSession } from '@thallesp/nestjs-better-auth';
+import { CookieOnly } from '../../auth/api-key-auth.guard.js';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
@@ -30,6 +31,7 @@ import {
 import { GpgKeysService } from './gpg-keys.service.js';
 
 @ApiTags('GPG keys')
+@CookieOnly()
 @Controller('gpg-keys')
 export class GpgKeysController {
   constructor(private readonly keys: GpgKeysService) {}

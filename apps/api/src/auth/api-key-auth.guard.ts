@@ -1,6 +1,8 @@
 import {
   type ExecutionContext,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   SetMetadata,
   UnauthorizedException,
@@ -13,6 +15,19 @@ import type { Auth } from '../lib/auth.js';
 
 const TOKEN = /^(?:token|bearer)\s+(\S+)$/i;
 const COOKIE_ONLY = 'COOKIE_ONLY';
+/** Bad tokens one address may send per window before it waits; `verifyApiKey` runs server-side, past Better Auth's own rate limiter. */
+const FAILURE_LIMIT = 20;
+const FAILURE_WINDOW_MS = 60_000;
+
+/** Railway's proxy sets `X-Real-IP`, as `lib/auth.ts` trusts; elsewhere the header is the client's to forge. */
+function clientIp(request: Request) {
+  const real = request.headers['x-real-ip'];
+  return (
+    (process.env.RAILWAY_SERVICE_ID && typeof real === 'string' && real) ||
+    request.ip ||
+    'unknown'
+  );
+}
 
 /** Routes that could take the account over or hand out its access (addresses, OAuth apps) refuse personal access tokens and want the browser session. */
 export const CookieOnly = () => SetMetadata(COOKIE_ONLY, true);
@@ -45,10 +60,20 @@ export class ApiKeyAuthGuard extends AuthGuard {
     )
       return super.canActivate(context);
 
+    const ip = clientIp(request);
+    if (this.throttled(ip))
+      throw new HttpException(
+        'Too many bad credentials; try again in a minute',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+
     const { valid, key: apiKey } = await this.options_.auth.api.verifyApiKey({
       body: { key },
     });
-    if (!valid || !apiKey) throw new UnauthorizedException('Bad credentials');
+    if (!valid || !apiKey) {
+      this.fail(ip);
+      throw new UnauthorizedException('Bad credentials');
+    }
     if (apiKey.permissions?.scopes)
       throw new ForbiddenException(
         'OAuth app tokens reach only the GitHub-compatible API',
@@ -61,6 +86,11 @@ export class ApiKeyAuthGuard extends AuthGuard {
     const auth = await this.options_.auth.$context;
     const user = await auth.internalAdapter.findUserById(apiKey.referenceId);
     if (!user) throw new UnauthorizedException('Bad credentials');
+    if (
+      auth.options.emailAndPassword?.requireEmailVerification &&
+      !user.emailVerified
+    )
+      throw new ForbiddenException('Verify your email address first');
 
     // No `token`: the raw key must never travel on as a session token.
     request.session = {
@@ -76,6 +106,29 @@ export class ApiKeyAuthGuard extends AuthGuard {
     };
     request.user = user;
     return true;
+  }
+
+  // ponytail: per-process counts; move to a shared store once the API runs more than one instance.
+  private readonly failures = new Map<
+    string,
+    { count: number; resetAt: number }
+  >();
+
+  private throttled(ip: string) {
+    const entry = this.failures.get(ip);
+    return (
+      !!entry && entry.resetAt > Date.now() && entry.count >= FAILURE_LIMIT
+    );
+  }
+
+  private fail(ip: string) {
+    const now = Date.now();
+    const entry = this.failures.get(ip);
+    if (entry && entry.resetAt > now) entry.count++;
+    else this.failures.set(ip, { count: 1, resetAt: now + FAILURE_WINDOW_MS });
+    if (this.failures.size > 10_000)
+      for (const [stale, { resetAt }] of this.failures)
+        if (resetAt <= now) this.failures.delete(stale);
   }
 
   private marked(context: ExecutionContext, flag: string) {

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ApiKeyAuthGuard } from './api-key-auth.guard.js';
 
-const user = { id: 'user_1', name: 'Owner' };
+const user = { id: 'user_1', name: 'Owner', emailVerified: true };
 const key = (permissions: Record<string, string[]> | null = null) => ({
   id: 'key_1',
   referenceId: 'user_1',
@@ -18,10 +18,14 @@ function setup({
   authorization,
   verify = { valid: true, key: key() },
   flags = [] as string[],
+  verification = false,
+  owner = user,
 }: {
   authorization?: string;
   verify?: { valid: boolean; key: ReturnType<typeof key> | null };
   flags?: string[];
+  verification?: boolean;
+  owner?: typeof user;
 }) {
   const request: Record<string, unknown> = {
     headers: authorization ? { authorization } : {},
@@ -31,7 +35,10 @@ function setup({
   const instance = {
     api: { getSession, verifyApiKey },
     $context: Promise.resolve({
-      internalAdapter: { findUserById: vi.fn().mockResolvedValue(user) },
+      internalAdapter: { findUserById: vi.fn().mockResolvedValue(owner) },
+      options: {
+        emailAndPassword: { requireEmailVerification: verification },
+      },
     }),
   };
   const reflector = {
@@ -113,5 +120,41 @@ describe('ApiKeyAuthGuard', () => {
     await expect(guard.canActivate(context)).rejects.toThrow();
     expect(getSession).toHaveBeenCalled();
     expect(verifyApiKey).not.toHaveBeenCalled();
+  });
+});
+
+describe('ApiKeyAuthGuard checks', () => {
+  it('refuses an unverified owner when verification is required', async () => {
+    const { guard, context } = setup({
+      authorization: 'Bearer ghost_pat_abc',
+      verification: true,
+      owner: { ...user, emailVerified: false },
+    });
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('lets an unverified owner in where mail is not configured', async () => {
+    const { guard, context } = setup({
+      authorization: 'Bearer ghost_pat_abc',
+      owner: { ...user, emailVerified: false },
+    });
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('throttles an address after 20 bad tokens', async () => {
+    const { guard, context, verifyApiKey } = setup({
+      authorization: 'Bearer nope',
+      verify: { valid: false, key: null },
+    });
+    for (let i = 0; i < 20; i++)
+      await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      status: 429,
+    });
+    expect(verifyApiKey).toHaveBeenCalledTimes(20);
   });
 });
