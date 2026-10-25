@@ -1043,11 +1043,8 @@ export class RepositoriesService {
       .delete(schema.repositoryRedirect)
       .where(
         and(
-          eq(
-            sql`lower(${schema.repositoryRedirect.ownerName})`,
-            ownerName.toLowerCase(),
-          ),
-          eq(schema.repositoryRedirect.slug, slug),
+          sameName(schema.repositoryRedirect.ownerName, ownerName),
+          sameName(schema.repositoryRedirect.slug, slug),
         ),
       );
     await tx

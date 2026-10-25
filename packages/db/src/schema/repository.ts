@@ -12,7 +12,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { organization, user } from "./auth.js";
-import { isNotNull, isNull } from "drizzle-orm";
+import { isNotNull, isNull, sql } from "drizzle-orm";
 
 export const repositoryVisiblity = pgEnum("repository_visibility", [
   "public",
@@ -59,12 +59,13 @@ export const repository = pgTable(
       .$onUpdateFn(() => new Date()),
   },
   (t) => [
+    // Slugs match ignoring case, so two may not differ only in case.
     uniqueIndex("repository_org_slug_idx")
-      .on(t.organizationId, t.slug)
+      .on(t.organizationId, sql`lower(${t.slug})`)
       .where(isNotNull(t.organizationId)),
 
     uniqueIndex("repository_owner_slug_idx")
-      .on(t.ownerId, t.slug)
+      .on(t.ownerId, sql`lower(${t.slug})`)
       .where(isNull(t.organizationId)),
   ],
 );
