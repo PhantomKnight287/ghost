@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -12,6 +12,7 @@ import {
   getServerSession,
   notFoundIfHidden,
 } from "@/lib/api/server";
+import { canonicalPath, PATH_HEADER } from "@/lib/canonical-path";
 
 import { FILE_TREE_COLLAPSED_COOKIE } from "./file-tree-cookie";
 import { ImportBanner } from "./import-banner";
@@ -56,9 +57,14 @@ export default async function RepositoryLayout({
   if (repository.error || !repository.data) {
     throw new Error(`Failed to load ${username}/${repo}`);
   }
-  // ponytail: an old name after a rename or transfer redirects to the repository root, since a layout does not know the rest of the path; a proxy could keep it.
+  // An old name after a rename or transfer, or the name in another case, leads to the same page under the canonical name.
   if (repository.data.owner !== username || repository.data.slug !== repo) {
-    redirect(`/${repository.data.owner}/${repository.data.slug}`);
+    redirect(
+      canonicalPath((await headers()).get(PATH_HEADER), [
+        repository.data.owner,
+        repository.data.slug,
+      ]),
+    );
   }
 
   const [branches, pulls, issues, watch, imported] = await Promise.all([
