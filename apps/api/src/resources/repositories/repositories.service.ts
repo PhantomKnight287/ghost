@@ -821,7 +821,7 @@ export class RepositoriesService {
       return {
         id: repository.id,
         slug: repository.slug,
-        username: owner,
+        username: await this.namespaceName(target),
         pending: false,
       };
     }
@@ -986,7 +986,9 @@ export class RepositoriesService {
     const [clash] = await this.db
       .select({ id: schema.repository.id })
       .from(schema.repository)
-      .where(and(inNamespace(namespace), eq(schema.repository.slug, slug)));
+      .where(
+        and(inNamespace(namespace), sameName(schema.repository.slug, slug)),
+      );
     if (clash) throw new RepositoryNameTakenError(owner, slug);
   }
 
@@ -1260,7 +1262,10 @@ export class RepositoriesService {
       .select({ id: schema.repository.id })
       .from(schema.repository)
       .where(
-        and(inNamespace(namespace), eq(schema.repository.slug, slugified)),
+        and(
+          inNamespace(namespace),
+          sameName(schema.repository.slug, slugified),
+        ),
       );
     return !taken || taken.id === ownId ? slugified : slugifiedWithSuffix;
   }

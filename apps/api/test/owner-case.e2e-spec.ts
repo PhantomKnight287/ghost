@@ -210,6 +210,44 @@ describe.skipIf(!hasBackends)(
       }
     });
 
+    it('links a cross-repository reference written in another case', async () => {
+      const issues = (repo: string) => `/api/repositories/${repo}/issues`;
+      const target = await api()
+        .post(issues(`${org}/theirs`))
+        .set('cookie', owner.cookie)
+        .send({ title: 'Target' })
+        .expect(201);
+      await api()
+        .post(issues(`${username}/mine`))
+        .set('cookie', owner.cookie)
+        .send({
+          title: 'Source',
+          body: `See ${org.toLowerCase()}/THEIRS#${target.body.number}`,
+        })
+        .expect(201);
+      const { body } = await api()
+        .get(`${issues(`${org}/theirs`)}/${target.body.number}/timeline`)
+        .set('cookie', owner.cookie)
+        .expect(200);
+      expect(body.timeline).toContainEqual(
+        expect.objectContaining({ kind: 'reference' }),
+      );
+    });
+
+    it('answers an immediate transfer with the canonical destination', async () => {
+      await api()
+        .post('/api/repositories')
+        .set('cookie', owner.cookie)
+        .send({ name: 'moving', visibility: 'public' })
+        .expect(201);
+      const { body } = await api()
+        .post(`/api/repositories/${username}/moving/transfer`)
+        .set('cookie', owner.cookie)
+        .send({ owner: org.toLowerCase() })
+        .expect(201);
+      expect(body).toMatchObject({ username: org, pending: false });
+    });
+
     it('still answers 404 for an owner that does not exist in any case', async () => {
       await v3(`/repos/nobody${stamp}/mine`).expect(404);
       await v3(`/users/nobody${stamp}`).expect(404);

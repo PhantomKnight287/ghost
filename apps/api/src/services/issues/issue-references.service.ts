@@ -381,12 +381,13 @@ export class IssueReferencesService {
         .filter((repository) =>
           canAccess(repository, roleOf(repository, repository, author), 'read'),
         )
-        .map((repository) => [repository.key, repository.id]),
+        // Names match in any case, so `alice/repo#1` finds `Alice/Repo`.
+        .map((repository) => [repository.key.toLowerCase(), repository.id]),
     );
     repositoryIdOf.set('/', source.repository.id);
 
     const scopes = [...wanted].flatMap(([key, entry]) => {
-      const repositoryId = repositoryIdOf.get(key);
+      const repositoryId = repositoryIdOf.get(key.toLowerCase());
       return repositoryId
         ? [{ key, repositoryId, numbers: entry.numbers }]
         : [];
