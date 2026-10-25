@@ -369,7 +369,7 @@ export class IssueReferencesService {
                     ownerNameOf(schema.user, schema.organization),
                     entry.owner,
                   ),
-                  eq(schema.repository.slug, entry.repo.toLowerCase()),
+                  sameName(schema.repository.slug, entry.repo),
                 ),
               ),
             ),

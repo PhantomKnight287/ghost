@@ -36,13 +36,11 @@ export class RepositoryAccessService {
     operation?: RepositoryOperation;
   }): Promise<AuthorizedRepository> {
     const actor: Actor = requesterId ? { userId: requesterId } : null;
-    // Slugs are stored lowercase, so lowering the requested one keeps the index usable.
-    repo = repo.toLowerCase();
     let [row] = await this.lookup(
       actor,
       and(
         sameName(ownerNameOf(schema.user, schema.organization), username),
-        eq(schema.repository.slug, repo),
+        sameName(schema.repository.slug, repo),
       ),
     );
     // A renamed or transferred repository is still reachable at its old name, as long as nothing took that name since.
@@ -53,7 +51,7 @@ export class RepositoryAccessService {
         .where(
           and(
             sameName(schema.repositoryRedirect.ownerName, username),
-            eq(schema.repositoryRedirect.slug, repo),
+            sameName(schema.repositoryRedirect.slug, repo),
           ),
         );
       if (redirect) {
