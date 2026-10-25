@@ -3,10 +3,12 @@ import type { IncomingMessage } from 'node:http';
 import type { Database } from '@ghost/db';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 import type { Request } from 'express';
 
 import { AppController } from './app.controller.js';
+import { ApiKeyAuthGuard } from './auth/api-key-auth.guard.js';
 import { AvatarsModule } from './avatars/avatars.module.js';
 import { DATABASE, DatabaseModule } from './database/database.module.js';
 import { GitModule } from './git/git.module.js';
@@ -64,6 +66,7 @@ const parses = (type: string) => (req: IncomingMessage) => {
     DatabaseModule,
     MailModule,
     AuthModule.forRootAsync({
+      disableGlobalAuthGuard: true,
       imports: [DatabaseModule, MailModule, AvatarsModule],
       inject: [DATABASE, ConfigService, MailService, AvatarStorageService],
       useFactory: (
@@ -145,6 +148,9 @@ const parses = (type: string) => (req: IncomingMessage) => {
     SshSigningKeysModule,
   ],
   controllers: [AppController],
-  providers: [AppStatsService],
+  providers: [
+    AppStatsService,
+    { provide: APP_GUARD, useClass: ApiKeyAuthGuard },
+  ],
 })
 export class AppModule {}

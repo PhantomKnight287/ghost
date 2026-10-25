@@ -22,6 +22,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { OptionalAuth, type UserSession } from '@thallesp/nestjs-better-auth';
+import { CookieOnly } from '../../auth/api-key-auth.guard.js';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
@@ -32,6 +33,7 @@ import {
 import { EmailsService } from './emails.service.js';
 
 @ApiTags('Emails')
+@CookieOnly()
 @Controller('emails')
 export class EmailsController {
   constructor(private readonly emails: EmailsService) {}

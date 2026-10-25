@@ -20,6 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { UserSession } from '@thallesp/nestjs-better-auth';
+import { CookieOnly } from '../../auth/api-key-auth.guard.js';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
 import {
@@ -32,6 +33,7 @@ import { OauthAppAccessService } from './oauth-app-access.service.js';
 
 /** An organization's OAuth app access restrictions, turned on in its settings. */
 @ApiTags('Organizations')
+@CookieOnly()
 @Controller('organizations/:slug/oauth-app-access')
 export class OauthAppAccessController {
   constructor(private readonly access: OauthAppAccessService) {}
@@ -100,6 +102,7 @@ export class OauthAppAccessController {
 
 /** Where an OAuth app reaches among the signed-in account's organizations. */
 @ApiTags('OAuth apps')
+@CookieOnly()
 @Controller('oauth-apps/:clientId/organizations')
 export class OauthAppOrganizationsController {
   constructor(private readonly access: OauthAppAccessService) {}
