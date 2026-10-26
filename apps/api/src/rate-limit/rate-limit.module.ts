@@ -9,6 +9,7 @@ import { Redis } from 'ioredis';
 
 import { REDIS } from '../lib/rate-limit/redis.js';
 import { RateLimiterService } from '../services/rate-limit/rate-limiter.service.js';
+import { AuthRateLimitMiddleware } from './auth-rate-limit.middleware.js';
 import { RateLimitGuard } from './rate-limit.guard.js';
 
 @Global()
@@ -30,8 +31,9 @@ import { RateLimitGuard } from './rate-limit.guard.js';
     },
     RateLimiterService,
     RateLimitGuard,
+    AuthRateLimitMiddleware,
   ],
-  exports: [REDIS, RateLimiterService, RateLimitGuard],
+  exports: [REDIS, RateLimiterService, RateLimitGuard, AuthRateLimitMiddleware],
 })
 export class RateLimitModule implements OnApplicationShutdown {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}

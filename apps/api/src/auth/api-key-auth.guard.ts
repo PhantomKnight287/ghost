@@ -2,8 +2,6 @@ import {
   applyDecorators,
   type ExecutionContext,
   ForbiddenException,
-  HttpException,
-  HttpStatus,
   Injectable,
   SetMetadata,
   UnauthorizedException,
@@ -19,11 +17,12 @@ import type { Request } from 'express';
 
 import { verifyApiKey } from '../lib/api-keys/verify-api-key.js';
 import { type Auth, AUTHORIZATION_TOKEN } from '../lib/auth.js';
+import { clientIp } from '../lib/http/client-ip.js';
+import { BAD_TOKEN_BUDGET } from '../lib/rate-limit/budgets.js';
+import { RateLimitedError } from '../lib/rate-limit/rate-limit.errors.js';
+import { RateLimiterService } from '../services/rate-limit/rate-limiter.service.js';
 
 const COOKIE_ONLY = 'COOKIE_ONLY';
-/** Bad tokens one address may send per window before it waits; `verifyApiKey` runs server-side, past Better Auth's own rate limiter. */
-const FAILURE_LIMIT = 20;
-const FAILURE_WINDOW_MS = 60_000;
 
 /** Routes that could take the account over or hand out its access (addresses, OAuth apps) refuse personal access tokens and want the browser session. */
 export const CookieOnly = () => SetMetadata(COOKIE_ONLY, true);
@@ -48,6 +47,7 @@ export class ApiKeyAuthGuard extends AuthGuard {
   constructor(
     private readonly metadata: Reflector,
     private readonly options_: { auth: Auth },
+    private readonly limiter: RateLimiterService,
   ) {
     super(metadata, options_);
   }
@@ -66,28 +66,13 @@ export class ApiKeyAuthGuard extends AuthGuard {
     if (!key || request.githubViewer !== undefined || 'actor' in request)
       return super.canActivate(context);
 
-    // Railway's proxy sets `X-Real-IP`, as `lib/auth.ts` trusts; elsewhere the header is the client's to forge.
-    const realIp = request.headers['x-real-ip'];
-    const ip =
-      (process.env.RAILWAY_SERVICE_ID &&
-        typeof realIp === 'string' &&
-        realIp) ||
-      request.ip ||
-      'unknown';
-    const failures = this.failures.get(ip);
-    if (
-      failures &&
-      failures.resetAt > Date.now() &&
-      failures.count >= FAILURE_LIMIT
-    )
-      throw new HttpException(
-        'Too many bad credentials; try again in a minute',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+    const ip = clientIp(request);
+    const throttled = await this.limiter.peek(BAD_TOKEN_BUDGET, ip);
+    if (!throttled.allowed) throw new RateLimitedError(throttled);
 
     const apiKey = await verifyApiKey(this.options_.auth.api, key);
     if (!apiKey) {
-      this.fail(ip);
+      await this.limiter.consume(BAD_TOKEN_BUDGET, ip);
       throw new UnauthorizedException('Bad credentials');
     }
     if (apiKey.permissions?.scopes)
@@ -122,27 +107,6 @@ export class ApiKeyAuthGuard extends AuthGuard {
     };
     request.user = user;
     return true;
-  }
-
-  // ponytail: per-process counts; move to a shared store once the API runs more than one instance.
-  private readonly failures = new Map<
-    string,
-    { count: number; resetAt: number }
-  >();
-
-  private nextSweepAt = 0;
-
-  private fail(ip: string) {
-    const now = Date.now();
-    const entry = this.failures.get(ip);
-    if (entry && entry.resetAt > now) entry.count++;
-    else this.failures.set(ip, { count: 1, resetAt: now + FAILURE_WINDOW_MS });
-    // At most one sweep per window; only expired entries go, so no address loses its count.
-    if (now >= this.nextSweepAt) {
-      this.nextSweepAt = now + FAILURE_WINDOW_MS;
-      for (const [stale, { resetAt }] of this.failures)
-        if (resetAt <= now) this.failures.delete(stale);
-    }
   }
 
   private marked(context: ExecutionContext, flag: string) {

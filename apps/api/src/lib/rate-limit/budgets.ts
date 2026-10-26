@@ -20,6 +20,13 @@ export type Budgets = Record<
   Budget
 >;
 
+/** Bad tokens one address may send a minute; fixed, as it guards against guessing rather than pacing real clients. */
+export const BAD_TOKEN_BUDGET: Budget = {
+  name: 'bad-token',
+  resource: 'auth',
+  limit: 20,
+};
+
 export function rateLimitBudgets(config: ConfigService): Budgets {
   const limit = (name: string, fallback: number) =>
     Number(config.get<string>(name) || fallback);
@@ -69,6 +76,6 @@ export function rateLimitBudgets(config: ConfigService): Budgets {
       resource: 'git',
       limit: limit('RATE_LIMIT_GIT_PER_MINUTE', 60),
     },
-    badToken: { name: 'bad-token', resource: 'auth', limit: 20 },
+    badToken: BAD_TOKEN_BUDGET,
   };
 }

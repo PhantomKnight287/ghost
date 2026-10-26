@@ -2,6 +2,10 @@ import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { Budget } from '../lib/rate-limit/budgets.js';
+import { RateLimitedError } from '../lib/rate-limit/rate-limit.errors.js';
+import type { RateLimiterService } from '../services/rate-limit/rate-limiter.service.js';
+
 import {
   Anonymous,
   ApiKeyAuthGuard,
@@ -55,7 +59,32 @@ function setup({
   const reflector = {
     getAllAndOverride: (flag: string) => flags.includes(flag),
   } as unknown as Reflector;
-  const guard = new ApiKeyAuthGuard(reflector, { auth: instance } as never);
+  // An in-memory window that never expires, keyed as the real limiter keys Redis.
+  const counts = new Map<string, number>();
+  const decide = async (budget: Budget, key: string, count: boolean) => {
+    const counter = `${budget.name}:${key}`;
+    const before = counts.get(counter) ?? 0;
+    const allowed = before < budget.limit;
+    const used = allowed && count ? before + 1 : before;
+    counts.set(counter, used);
+    return {
+      budget,
+      used,
+      remaining: Math.max(0, budget.limit - used),
+      resetAt: 0,
+      retryAfter: 60,
+      allowed,
+    };
+  };
+  const limiter = {
+    consume: (budget: Budget, key: string) => decide(budget, key, true),
+    peek: (budget: Budget, key: string) => decide(budget, key, false),
+  } as unknown as RateLimiterService;
+  const guard = new ApiKeyAuthGuard(
+    reflector,
+    { auth: instance } as never,
+    limiter,
+  );
   const context = {
     getType: () => type,
     getHandler: () => undefined,
@@ -183,10 +212,20 @@ describe('ApiKeyAuthGuard checks', () => {
       await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
-    await expect(guard.canActivate(context)).rejects.toMatchObject({
-      status: 429,
+    const refused = await guard.canActivate(context).catch((error) => error);
+    expect(refused).toBeInstanceOf(RateLimitedError);
+    expect(refused.headers).toMatchObject({
+      'Retry-After': '60',
+      'X-RateLimit-Remaining': '0',
+      'X-RateLimit-Resource': 'auth',
     });
     expect(verifyApiKey).toHaveBeenCalledTimes(20);
+  });
+
+  it('does not count good tokens against the bad-token budget', async () => {
+    const { guard, context } = setup({ authorization: 'Bearer ghost_pat_abc' });
+    for (let i = 0; i < 25; i++)
+      await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 });
 
@@ -228,24 +267,6 @@ describe('ApiKeyAuthGuard edges', () => {
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
-  });
-
-  it('lets a throttled address back in once the window passes', async () => {
-    vi.useFakeTimers();
-    try {
-      const { guard, context } = setup({
-        authorization: 'Bearer nope',
-        verify: { valid: false, key: null },
-      });
-      for (let i = 0; i < 20; i++)
-        await guard.canActivate(context).catch(() => undefined);
-      vi.advanceTimersByTime(60_000);
-      await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
-        UnauthorizedException,
-      );
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it('counts each X-Real-IP apart on Railway, and ignores the header elsewhere', async () => {
