@@ -40,6 +40,7 @@ export type RateLimitedRequest = Request & {
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly budgets: Budgets;
+  private readonly webSecret: string | undefined;
 
   constructor(
     private readonly limiter: RateLimiterService,
@@ -47,6 +48,7 @@ export class RateLimitGuard implements CanActivate {
     config: ConfigService,
   ) {
     this.budgets = rateLimitBudgets(config);
+    this.webSecret = config.get<string>('WEB_API_SECRET');
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -63,7 +65,7 @@ export class RateLimitGuard implements CanActivate {
       decisions.push(
         await this.limiter.consume(
           this.budgets.search,
-          rateLimitIdentity(request).key,
+          rateLimitIdentity(request, this.webSecret).key,
         ),
       );
     const shown = tightest(decisions);
@@ -75,11 +77,15 @@ export class RateLimitGuard implements CanActivate {
   /** The request's main-budget decision, counted on the first call only. */
   async count(request: RateLimitedRequest): Promise<RateLimitDecision> {
     if (request.rateLimit) return request.rateLimit;
-    const { signedIn, key } = rateLimitIdentity(request);
-    request.rateLimit = await this.limiter.consume(
-      signedIn ? this.budgets.core : this.budgets.coreAnonymous,
-      key,
-    );
+    const { signedIn, key, web } = rateLimitIdentity(request, this.webSecret);
+    const budget = web
+      ? signedIn
+        ? this.budgets.web
+        : this.budgets.webAnonymous
+      : signedIn
+        ? this.budgets.core
+        : this.budgets.coreAnonymous;
+    request.rateLimit = await this.limiter.consume(budget, key);
     return request.rateLimit;
   }
 }

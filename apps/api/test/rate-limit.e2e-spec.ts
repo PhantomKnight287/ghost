@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { apiKey, hasBackends, REDIS_URL, signUp, startApp } from './harness.js';
 
@@ -204,5 +204,68 @@ describe.skipIf(!hasBackends)('Rate limits on the API', () => {
       .expect(401);
     expect(response.body.message).toBe('Bad credentials');
     expect(response.headers['retry-after']).toBeUndefined();
+  });
+});
+
+describe.skipIf(!hasBackends)('Rate limits on the web app', () => {
+  let app: INestApplication;
+  const http = () => request(app.getHttpServer());
+
+  beforeAll(async () => {
+    ({ app } = await startApp({
+      WEB_API_SECRET: 'web-secret',
+      RATE_LIMIT_WEB_PER_MINUTE: '7',
+      RATE_LIMIT_PER_MINUTE: '5',
+    }));
+  });
+
+  afterAll(async () => {
+    await app?.close();
+  });
+
+  it('counts the web app against its own budget', async () => {
+    const { cookie } = await signUp(app, `rlweb${Date.now()}`);
+    const web = await http()
+      .get('/api/notifications')
+      .set('cookie', cookie)
+      .set('x-ghost-web-secret', 'web-secret')
+      .expect(200);
+    expect(web.headers['x-ratelimit-limit']).toBe('7');
+    expect(web.headers['x-ratelimit-resource']).toBe('web');
+    const direct = await http()
+      .get('/api/notifications')
+      .set('cookie', cookie)
+      .expect(200);
+    expect(direct.headers['x-ratelimit-limit']).toBe('5');
+    expect(direct.headers['x-ratelimit-remaining']).toBe('4');
+  });
+
+  it('counts a wrong secret against core', async () => {
+    const { cookie } = await signUp(app, `rlwrong${Date.now()}`);
+    const response = await http()
+      .get('/api/notifications')
+      .set('cookie', cookie)
+      .set('x-ghost-web-secret', 'wrong')
+      .expect(200);
+    expect(response.headers['x-ratelimit-resource']).toBe('core');
+  });
+
+  it('counts anonymous web traffic by the forwarded IP', async () => {
+    vi.stubEnv('RAILWAY_SERVICE_ID', 'svc');
+    try {
+      const username = `rlanon${Date.now()}`;
+      await signUp(app, username);
+      for (const ip of ['198.51.100.7', '198.51.100.8']) {
+        const response = await http()
+          .get(`/api/v3/users/${username}`)
+          .set('x-ghost-web-secret', 'web-secret')
+          .set('x-real-ip', ip)
+          .expect(200);
+        expect(response.headers['x-ratelimit-resource']).toBe('web');
+        expect(response.headers['x-ratelimit-used']).toBe('1');
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

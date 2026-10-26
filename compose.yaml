@@ -95,6 +95,7 @@ services:
     environment:
       PORT: 3001
       REDIS_URL: redis://redis:6379
+      WEB_API_SECRET: ${WEB_API_SECRET:-devwebsecretdevwebsecret}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
       PYROSCOPE_SERVER_ADDRESS: http://lgtm:4040
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/ghost
@@ -167,6 +168,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
       # The Next.js server is inside the network, where `localhost` is itself.
       INTERNAL_API_URL: http://api:3001
+      WEB_API_SECRET: ${WEB_API_SECRET:-devwebsecretdevwebsecret}
     ports:
       - "3000:3000"
 

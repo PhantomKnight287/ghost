@@ -119,6 +119,7 @@ those works.
 | `GIT_SSH_HOST_KEY` | The server's SSH identity, base64 of an OpenSSH private key. Empty turns SSH off | see below |
 | `COMMIT_SIGNING_KEY` | Signs the commits Ghost writes: pull request merges, squashes and rebases, and applied suggestions. Base64 of an armored OpenPGP private key with no passphrase. Empty leaves them unsigned. Changing it unverifies every commit the old key signed | see below |
 | `POSTGRES_PASSWORD` | Database password. Also inside `DATABASE_URL` | `openssl rand -hex 24` |
+| `WEB_API_SECRET` | Shared by `api` and `web`. Proves a request comes from the web server, so browsing draws from the `web` rate limit, not each visitor's API limit. Never sent to browsers | `openssl rand -hex 32` |
 
 The setup script never replaces a secret that is already in `.env`.
 
@@ -148,7 +149,7 @@ setup.
 
 The API counts requests in Redis, one window a minute per caller. `REDIS_URL`
 is required: the API does not start without it, and answers `503` rather than
-letting requests through if Redis goes away. The setup script points it at the
+letting requests through if Redis goes away. `compose.yaml` points it at the
 bundled `redis` container.
 
 Every response from the API carries GitHub's `X-RateLimit-*` headers, and a
@@ -169,6 +170,9 @@ by account, however many tokens and sessions they use; everyone else by address.
 | `RATE_LIMIT_GIT_PER_MINUTE` | Git commands over HTTP and SSH per account, or per address without sign-in | `60` |
 
 Twenty bad tokens from one address within a minute also get `429`.
+
+The web limits apply only to requests carrying `WEB_API_SECRET` (see [Secrets](#secrets)).
+Without it, page renders count against each visitor's API limit.
 
 ## Git over SSH
 
@@ -242,8 +246,8 @@ docker compose up -d --build
 ```
 
 `DATABASE_URL` has to be
-`postgres://ghost:<POSTGRES_PASSWORD>@postgres:5432/ghost`, `ZOEKT_URL`
-`http://zoekt:6070`, and `REDIS_URL` `redis://redis:6379`.
+`postgres://ghost:<POSTGRES_PASSWORD>@postgres:5432/ghost`, and `ZOEKT_URL`
+`http://zoekt:6070`.
 
 ## Troubleshooting
 
