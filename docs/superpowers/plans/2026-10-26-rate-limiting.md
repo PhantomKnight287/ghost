@@ -43,11 +43,11 @@
 
 ## Review Focus
 
-1. **A token on a `SignInOptional` Ghost route** (public repository reads). `ApiKeyAuthGuard` defers these to Better Auth, which ignores `Authorization: Bearer`. `request.user` is then null, and a Terraform provider would be counted as anonymous at 30 a minute by IP. The limiter must resolve the token's account itself. Test in Task 2.
-2. **GraphQL with several top-level fields.** Nest runs guards once per resolver, so one request could count three times. Counting happens once per HTTP request, remembered on the request. Test in Task 2.
-3. **The e2e suite itself.** Every suite shares Redis and anonymous `127.0.0.1`, and `gh-cli` sends well over 120 requests a minute. The harness raises every limit unless a test lowers it, and global setup flushes Redis. Done in Task 1, checked by running the whole e2e suite in Task 2.
+1. **LFS and git requests after Task 2's guard change.** Git controllers are `@OptionalAuth()`, and LFS sends `Authorization: Bearer <lfs jwt>`. If the guard verifies that as an API key, every LFS transfer gets a 401. The guard must skip requests that `GitBasicAuthMiddleware` already handled. Test in Task 2; `lfs.e2e-spec.ts` must stay green.
+2. **GraphQL with several top-level fields.** Nest runs guards once per resolver, so one request could count three times. Counting happens once per HTTP request, remembered on the request. Test in Task 3.
+3. **The e2e suite itself.** Every suite shares Redis and anonymous `127.0.0.1`, and `gh-cli` sends well over 120 requests a minute. The harness raises every limit unless a test lowers it, and global setup flushes Redis. Done in Task 1, checked by running the whole e2e suite in Task 3.
 4. **A key without a TTL in Redis** (a crash between `INCR` and `PEXPIRE`) would lock a caller out forever. The Lua script increments and sets the expiry in one atomic call. Test in Task 1.
-5. **A wrong `X-Ghost-Web-Secret` header.** It must count against `core`, not `web`, and it must not be compared in variable time. Test in Task 3.
+5. **A wrong `X-Ghost-Web-Secret` header.** It must count against `core`, not `web`, and it must not be compared in variable time. Test in Task 4.
 
 ---
 
@@ -159,7 +159,38 @@ Run the Step 2 command. Expected: PASS. Then audit the diff for weakened tests.
 
 ---
 
-### Task 2: Core and search budgets on Ghost's API, GitHub REST and GraphQL
+### Task 2: Tokens sign in on public and optional routes
+
+**Issue slice:** same as Task 1 (1/4). The budget counts by account only if the account is known.
+
+**Files:**
+- Modify: `auth/api-key-auth.guard.ts`. With a token on a `PUBLIC` or `OPTIONAL` route, verify it and sign in exactly as on a protected route: same 401, scope 403 and `COOKIE_ONLY` 403 checks, and the same session shape. Skip this when `request.githubViewer !== undefined` or `'actor' in request`, because the transport's middleware already authenticated it. Without a token, keep `super.canActivate`.
+- Modify: `lib/openapi.ts`, the token scheme description: "A token on a public route acts as its owner; a bad one is refused with 401."
+- Test: `auth/api-key-auth.guard.spec.ts`, `test/github-scopes.e2e-spec.ts` (or a new `test/public-route-tokens.e2e-spec.ts`)
+
+**Interfaces:** none new. `request.user` and `request.session` are now set for token callers on every Nest route except git and the GitHub-compatible API.
+
+- [ ] **Step 1 (Claude): Write the failing tests**
+
+Unit (`api-key-auth.guard.spec.ts`), replacing `leaves tokens on optional routes to their own auth, as git and LFS do` and `leaves tokens on public routes to the route`:
+- `signs a token in on a public route`: flag `PUBLIC` gives `resolves true`, and `request.user` is the owner.
+- `signs a token in on an optional route`: same with `OPTIONAL`.
+- `refuses a bad token on a public route`: rejects with `UnauthorizedException`.
+- `leaves requests git already authenticated alone`: `request.actor = null` and an LFS-style `Bearer` give `verifyApiKey` not called.
+- `leaves requests the GitHub middleware authenticated alone`: `request.githubViewer = null` gives `verifyApiKey` not called.
+
+e2e:
+- `a token on a public route sees what its owner sees`: the owner creates a private repository. `GET /api/repositories/{owner}/{private}` with the owner's PAT is 200, and without it is 404.
+- `a bad token on a public route is 401`: `GET /api/repositories/{owner}/{public}` with `Bearer ghost_pat_nope` gives 401.
+
+- [ ] **Step 2 (Claude): Run red.** Expected: the new unit tests fail, and the private-repository e2e gets 404.
+- [ ] **Step 3 (user): Implement.**
+- [ ] **Step 4 (Claude): Run green, plus `lfs`, `github-scopes`, `oauth-app-access`, `github-rest` e2e. Audit.**
+- [ ] **Step 5: Commit** `git commit -m "Sign a token in on public routes too, as GitHub does"`
+
+---
+
+### Task 3: Core and search budgets on Ghost's API, GitHub REST and GraphQL
 
 **Issue slice:** same as Task 1 (1/4). After this task the provider gets honest headers.
 
@@ -181,13 +212,13 @@ Run the Step 2 command. Expected: PASS. Then audit the diff for weakened tests.
 - Test: `test/rate-limit.e2e-spec.ts`
 
 **Interfaces:**
-- Consumes: Task 1's `RateLimiterService`, `rateLimitBudgets`, `rateLimitHeaders`, `tightest`, `RateLimitedError`.
+- Consumes: Task 2's signed-in `request.user` for token callers; Task 1's `RateLimiterService`, `rateLimitBudgets`, `rateLimitHeaders`, `tightest`, `RateLimitedError`.
 - Produces:
 ```ts
 // lib/rate-limit/request-identity.ts
 export type RateLimitIdentity = { kind: 'account'; id: string } | { kind: 'ip'; ip: string };
-export function rateLimitIdentity(request: Request & { user?: { id: string } | null; githubViewer?: { userId: string } | null }, onRailway?: boolean): RateLimitIdentity | null;
-// null = has a token but no resolved account yet; the guard then verifies it with verifyApiKey(auth.api, key) and counts by its referenceId (bad token: by IP)
+export function rateLimitIdentity(request: Request & { user?: { id: string } | null; githubViewer?: { userId: string } | null }, onRailway?: boolean): RateLimitIdentity;
+// account from request.user ?? request.githubViewer, else the client IP; Task 2's guard change guarantees a token has been resolved by then
 
 // rate-limit/rate-limit.guard.ts
 export const ExpensiveRead: () => MethodDecorator;   // also counts `search`
@@ -234,7 +265,7 @@ Expected: `rate-limit.e2e-spec.ts` passes, and the full suite shows no failures 
 
 ---
 
-### Task 3: Web app budget
+### Task 4: Web app budget
 
 **Issue slice:** "Rate limiting 2/4: separate budget for the web app"
 
@@ -272,7 +303,7 @@ The app runs with `WEB_API_SECRET: 'web-secret'`, `RATE_LIMIT_WEB_PER_MINUTE: '7
 
 ---
 
-### Task 4: Sign-in, sign-up and reset budgets; bad tokens in Redis
+### Task 5: Sign-in, sign-up and reset budgets; bad tokens in Redis
 
 **Issue slice:** "Rate limiting 3/4: authentication budgets"
 
@@ -312,7 +343,7 @@ The app runs with `RATE_LIMIT_SIGN_IN_PER_MINUTE: '4'`, `RATE_LIMIT_FAILED_SIGN_
 
 ---
 
-### Task 5: Git over HTTP and SSH
+### Task 6: Git over HTTP and SSH
 
 **Issue slice:** "Rate limiting 4/4: git over HTTP and SSH"
 

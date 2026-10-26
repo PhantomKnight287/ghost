@@ -93,7 +93,14 @@ Plus `REDIS_URL`, required, and `WEB_API_SECRET` (see "The web app").
 
 A global guard runs after authentication and before the handler. It counts the request against `core` (and `search` on the routes marked as expensive), sets the headers, and throws a `DomainError` subclass when over budget, so `DomainErrorFilter` and `GithubRestFilter` answer in their own shapes. A response that leaves before the guard runs carries no headers. That covers bad-credential 401s from `GithubAuthMiddleware`, which is accepted.
 
-Constraint: on `/api/v3/...` and other `SignInOptional` routes, `ApiKeyAuthGuard` does not set `request.user`, because `GithubAuthMiddleware` resolves the viewer into `request.githubViewer`. The account key must come from whichever is set.
+On `/api/v3/...`, `GithubAuthMiddleware` resolves the viewer into `request.githubViewer`, and the account comes from there.
+
+### Tokens on public and optional routes
+
+Today `ApiKeyAuthGuard` leaves a token on a public or sign-in-optional Ghost route (a public repository read, for one) to Better Auth, which ignores `Authorization: Bearer`. The request runs as anonymous. The user decided this changes, as on GitHub: a token on any route signs the request in as its owner, so it sees what the owner sees and is counted against the owner's budget. A bad token on a public route is `401 Bad credentials`, not anonymous. GitHub does the same.
+
+- An OAuth app token (one with scopes) on a public or optional Ghost route is refused with 403, like on any other Ghost route, until native routes check scopes.
+- A request a transport's middleware has already authenticated is not verified again. That covers `GithubAuthMiddleware` (`request.githubViewer` is set, even to null) and `GitBasicAuthMiddleware` (`request.actor` is set). Git's own controllers are sign-in-optional, and LFS sends its own Bearer token, which is not an API key.
 
 ### The web app
 
@@ -141,6 +148,8 @@ My calls, to keep the guard where Nest can run it and to keep Ghost's own plumbi
 - The e2e harness (`apps/api/test/harness.ts`) needs a Redis to point at, and the throwaway-backends recipe gains a Redis container.
 
 ## Testing
+
+- A token on a public Ghost route signs in as its owner (sees the owner's private repository through a public-route listing, counted against the account); a bad token there is 401; git and LFS with their own credentials are unaffected.
 
 Per the usual workflow, tests come first and must fail before the backend exists. At minimum:
 
