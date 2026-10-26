@@ -2,7 +2,6 @@ import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ApiKeyRateLimitedError } from '../lib/api-keys/api-keys.errors.js';
 import {
   Anonymous,
   ApiKeyAuthGuard,
@@ -188,22 +187,6 @@ describe('ApiKeyAuthGuard checks', () => {
       status: 429,
     });
     expect(verifyApiKey).toHaveBeenCalledTimes(20);
-  });
-
-  it('answers a good key over its budget as rate limited, without counting it as a bad token', async () => {
-    const { guard, context, verifyApiKey } = setup({
-      authorization: 'Bearer ghost_pat_abc',
-      verify: {
-        valid: false,
-        key: null,
-        error: { code: 'RATE_LIMITED', details: { tryAgainIn: 30_000 } },
-      },
-    });
-    for (let i = 0; i < 21; i++)
-      await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
-        ApiKeyRateLimitedError,
-      );
-    expect(verifyApiKey).toHaveBeenCalledTimes(21);
   });
 });
 

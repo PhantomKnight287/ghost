@@ -39,6 +39,7 @@ import { RepositoriesModule } from './resources/repositories/repositories.module
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
 import { WebhooksModule } from './resources/webhooks/webhooks.module.js';
+import { RateLimitGuard } from './rate-limit/rate-limit.guard.js';
 import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { S3Module } from './s3/s3.module.js';
 import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
@@ -153,6 +154,8 @@ const parses = (type: string) => (req: IncomingMessage) => {
   providers: [
     AppStatsService,
     { provide: APP_GUARD, useClass: ApiKeyAuthGuard },
+    // After authentication, so a token or session is counted against its account.
+    { provide: APP_GUARD, useExisting: RateLimitGuard },
   ],
 })
 export class AppModule {}

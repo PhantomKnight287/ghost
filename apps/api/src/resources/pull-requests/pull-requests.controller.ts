@@ -22,6 +22,7 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { ExpensiveRead } from '../../rate-limit/rate-limit.guard.js';
 import {
   ComparePatchQueryDTO,
   CompareQueryDTO,
@@ -96,6 +97,7 @@ export class PullRequestsController {
   }
 
   @Get('compare/patch')
+  @ExpensiveRead()
   @ApiOperation({ summary: 'The patch two branches would open a request with' })
   @ApiOkResponse({ schema: { type: 'string' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -119,6 +121,7 @@ export class PullRequestsController {
   }
 
   @Get('compare')
+  @ExpensiveRead()
   @ApiOperation({ summary: 'The files two branches would open a request with' })
   @ApiOkResponse({ type: CompareResponseDTO })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })
@@ -203,6 +206,7 @@ export class PullRequestsController {
   }
 
   @Get(':number/files')
+  @ExpensiveRead()
   @SignInOptional()
   @ApiOperation({ summary: 'Paths a pull request changes' })
   @ApiOkResponse({ type: GetPullRequestFilesResponseDTO })

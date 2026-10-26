@@ -1,10 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ThrottlerModule } from '@nestjs/throttler';
-import type { Request } from 'express';
-import {
-  rateLimitPerMinute,
-  rateLimitTracker,
-} from '../../lib/http/rate-limit.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { RepositoriesService } from './repositories.service.js';
 import { RepositoriesController } from './repositories.controller.js';
@@ -34,18 +28,6 @@ import { CodeownersController } from './codeowners.controller.js';
     MaterializerModule,
     ReleasesModule,
     CommitStatusesModule,
-    // Only endpoints whose cost the caller decides are guarded: code search, the path list and source archives. Counters live in this process, so with N replicas a client gets N times the limit.
-    ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          ttl: 60_000,
-          limit: (context) =>
-            rateLimitPerMinute(context.switchToHttp().getRequest()),
-        },
-      ],
-      getTracker: (request) => rateLimitTracker(request as Request),
-      errorMessage: 'Too many requests. Try again in a minute.',
-    }),
   ],
   controllers: [
     RepositoriesController,

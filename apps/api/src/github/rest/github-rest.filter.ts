@@ -43,6 +43,10 @@ import {
   ReleaseAssetExistsError,
   TagTargetNotFoundError,
 } from '../../lib/releases/releases.errors.js';
+import {
+  GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
+  RateLimitedError,
+} from '../../lib/rate-limit/rate-limit.errors.js';
 import { SshKeyAlreadyExistsError } from '../../lib/ssh-keys/ssh-keys.errors.js';
 
 /** Ghost errors GitHub answers as a 422 naming the field at fault. */
@@ -112,6 +116,13 @@ export class GithubRestFilter
 
   catch(exception: DomainError | HttpException, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
+    if (exception instanceof RateLimitedError) {
+      response.set(exception.headers).status(exception.status).json({
+        message: exception.message,
+        documentation_url: GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
+      });
+      return;
+    }
     const failed = this.validationFailureOf(exception);
     if (failed) {
       response.status(HttpStatus.UNPROCESSABLE_ENTITY).json({

@@ -20,7 +20,6 @@ export type Budgets = Record<
   Budget
 >;
 
-/** Every budget's size per minute, from its env var or the default self-hosters see in the docs. */
 export function rateLimitBudgets(config: ConfigService): Budgets {
   const limit = (name: string, fallback: number) =>
     Number(config.get<string>(name) || fallback);

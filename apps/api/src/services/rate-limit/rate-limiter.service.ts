@@ -4,8 +4,7 @@ import type { Redis } from 'ioredis';
 import type { Budget } from '../../lib/rate-limit/budgets.js';
 import type { RateLimitDecision } from '../../lib/rate-limit/headers.js';
 import { RateLimiterUnavailableError } from '../../lib/rate-limit/rate-limit.errors.js';
-
-export const REDIS = Symbol('REDIS');
+import { REDIS } from '../../lib/rate-limit/redis.js';
 
 const CONSUME = `
 local used = tonumber(redis.call('GET', KEYS[1]) or '0')

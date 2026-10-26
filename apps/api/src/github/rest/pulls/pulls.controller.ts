@@ -28,6 +28,7 @@ import {
   GithubMergePullDTO,
   GithubUpdatePullDTO,
 } from './dto/pull.dto.js';
+import { ExpensiveRead } from '../../../rate-limit/rate-limit.guard.js';
 import { GithubPullsService } from './pulls.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
@@ -66,6 +67,7 @@ export class PullsController {
 
   /** JSON, or the raw diff or patch when the Accept header asks for one, as `gh pr diff` does. */
   @Get(':number')
+  @ExpensiveRead((request) => RAW.test(request.headers.accept ?? ''))
   @ApiOperation({ summary: 'A pull request, or its diff or patch' })
   async get(
     @Param('owner', TransformToLowercasePipe) owner: string,
@@ -111,6 +113,7 @@ export class PullsController {
   }
 
   @Get(':number/files')
+  @ExpensiveRead()
   @ApiOperation({ summary: 'The files a pull request changes' })
   files(
     @Param('owner', TransformToLowercasePipe) owner: string,

@@ -7,10 +7,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 
-import {
-  REDIS,
-  RateLimiterService,
-} from '../services/rate-limit/rate-limiter.service.js';
+import { REDIS } from '../lib/rate-limit/redis.js';
+import { RateLimiterService } from '../services/rate-limit/rate-limiter.service.js';
+import { RateLimitGuard } from './rate-limit.guard.js';
 
 @Global()
 @Module({
@@ -30,8 +29,9 @@ import {
       },
     },
     RateLimiterService,
+    RateLimitGuard,
   ],
-  exports: [REDIS, RateLimiterService],
+  exports: [REDIS, RateLimiterService, RateLimitGuard],
 })
 export class RateLimitModule implements OnApplicationShutdown {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}

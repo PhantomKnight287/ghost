@@ -3,10 +3,15 @@ import { AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { NextFunction, Response } from 'express';
 
-import { ApiKeyRateLimitedError } from '../../lib/api-keys/api-keys.errors.js';
 import { verifyApiKey } from '../../lib/api-keys/verify-api-key.js';
 import { type Auth, AUTHORIZATION_TOKEN } from '../../lib/auth.js';
 import { KNOWN_SCOPES, scopesOfKey } from '../../lib/github/scopes.js';
+import { rateLimitHeaders } from '../../lib/rate-limit/headers.js';
+import {
+  GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
+  RateLimitedError,
+} from '../../lib/rate-limit/rate-limit.errors.js';
+import { RateLimitGuard } from '../../rate-limit/rate-limit.guard.js';
 import type { GithubRequest, GithubViewer } from './github-request.js';
 
 const GITHUB_MEDIA_TYPE = /application\/vnd\.github\b/i;
@@ -16,7 +21,10 @@ const RAW_MEDIA_TYPE = /application\/vnd\.github(?:\.v3)?\.(?:diff|patch)\b/i;
 /** Resolves `Authorization: token|Bearer <key>` (what gh sends) or a session cookie (GraphiQL in a browser) to a viewer, and sets the headers gh reads on every compat response. */
 @Injectable()
 export class GithubAuthMiddleware implements NestMiddleware {
-  constructor(private readonly auth: AuthService<Auth>) {}
+  constructor(
+    private readonly auth: AuthService<Auth>,
+    private readonly rateLimit: RateLimitGuard,
+  ) {}
 
   async use(req: GithubRequest, res: Response, next: NextFunction) {
     res.setHeader('X-GitHub-Media-Type', 'github.v3; format=json');
@@ -28,21 +36,23 @@ export class GithubAuthMiddleware implements NestMiddleware {
     const token = header ? AUTHORIZATION_TOKEN.exec(header)?.[1] : undefined;
 
     if (header && !token) return this.badCredentials(res);
-    let viewer: GithubViewer | null;
-    try {
-      viewer = token ? await this.fromKey(token) : await this.fromSession(req);
-    } catch (error) {
-      if (!(error instanceof ApiKeyRateLimitedError)) throw error;
-      res.set(error.headers).status(error.status).json({
-        message: error.message,
-        documentation_url:
-          'https://docs.github.com/rest/using-the-rest-api/rate-limits-for-the-rest-api',
-      });
-      return;
-    }
+    const viewer = token
+      ? await this.fromKey(token)
+      : await this.fromSession(req);
     if (token && !viewer) return this.badCredentials(res);
 
     req.githubViewer = viewer;
+    // Counted here rather than only in RateLimitGuard, so GraphQL over budget is refused before Apollo, whatever the query.
+    const decision = await this.rateLimit.count(req);
+    if (!decision.allowed) {
+      const refused = new RateLimitedError(decision);
+      res.set(refused.headers).status(refused.status).json({
+        message: refused.message,
+        documentation_url: GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
+      });
+      return;
+    }
+    res.set(rateLimitHeaders(decision));
     res.setHeader('X-OAuth-Scopes', viewer ? viewer.scopes.join(', ') : '');
     next();
   }

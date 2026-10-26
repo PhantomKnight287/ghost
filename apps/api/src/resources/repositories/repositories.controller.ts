@@ -14,7 +14,6 @@ import {
   Res,
   Session,
   StreamableFile,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -29,7 +28,6 @@ import {
   ApiTags,
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
-import { ThrottlerGuard } from '@nestjs/throttler';
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 import type { Response } from 'express';
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
@@ -97,6 +95,7 @@ import {
 } from './dto/search-code.dto.js';
 import { UpdateRepositoryRequestDTO } from './dto/update-repository.dto.js';
 import { GetViewerRepositoriesResponseDTO } from './dto/get-viewer-repositories.dto.js';
+import { ExpensiveRead } from '../../rate-limit/rate-limit.guard.js';
 import { RepositoryEntity } from './entities/repository.entity.js';
 import { RepositoriesService } from './repositories.service.js';
 import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
@@ -404,7 +403,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/paths')
-  @UseGuards(ThrottlerGuard)
+  @ExpensiveRead()
   @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
   @SignInOptional()
   @ApiOperation({
@@ -535,7 +534,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/archive')
-  @UseGuards(ThrottlerGuard)
+  @ExpensiveRead()
   @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
   @SignInOptional()
   @ApiOperation({
@@ -746,7 +745,7 @@ export class RepositoriesController {
   }
 
   @Get(':username/:slug/search')
-  @UseGuards(ThrottlerGuard)
+  @ExpensiveRead()
   @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
   @SignInOptional()
   @ApiOperation({
