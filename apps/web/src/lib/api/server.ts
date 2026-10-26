@@ -6,13 +6,13 @@ import createFetchClient from "openapi-fetch";
 import { authClient } from "@/lib/auth-client";
 import { administers } from "@ghost/permissions";
 import { unwrap } from "@/lib/api/client";
-import { INTERNAL_API_URL } from "@/lib/env";
+import { INTERNAL_API_URL, WEB_API_SECRET } from "@/lib/env";
 import { splitRevision } from "@/lib/revision";
 import { codeownersBatches } from "@/lib/codeowners";
 
 import type { paths } from "@/lib/api/v1";
 
-/** What the API needs from the browser's request: its cookies, and the client address the proxy set (x-real-ip on Railway, x-forwarded-for behind Caddy), which Better Auth and code search rate-limit by. */
+/** What the API needs from the browser's request: its cookies, and the client address the proxy set (x-real-ip on Railway, x-forwarded-for behind Caddy), which the API rate-limits by; and the secret that puts the request on the web app's own budget. */
 export async function forwardedHeaders(): Promise<Record<string, string>> {
   const incoming = await headers();
   const forwarded: Record<string, string> = {};
@@ -20,6 +20,7 @@ export async function forwardedHeaders(): Promise<Record<string, string>> {
     const value = incoming.get(name);
     if (value) forwarded[name] = value;
   }
+  if (WEB_API_SECRET) forwarded["x-ghost-web-secret"] = WEB_API_SECRET;
   return forwarded;
 }
 

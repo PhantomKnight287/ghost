@@ -4,9 +4,12 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 
+import { Redis } from 'ioredis';
+
 import {
   DATABASE_URL,
   hasBackends,
+  REDIS_URL,
   S3_ENDPOINT,
   s3Credentials,
 } from './harness.js';
@@ -19,6 +22,11 @@ export default async function setup() {
   if (!hasBackends || !DATABASE_URL) return;
 
   await migrateTestDatabase(DATABASE_URL);
+
+  // Counters left by an earlier run would carry over into this one's windows.
+  const redis = new Redis(REDIS_URL!);
+  await redis.flushdb();
+  await redis.quit();
 
   await new S3Client({
     endpoint: S3_ENDPOINT,

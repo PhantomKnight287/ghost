@@ -43,11 +43,16 @@ import {
 } from '../../../lib/repositories/access/repository-access.js';
 import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
 import { SshKeysService } from '../../../resources/ssh-keys/ssh-keys.service.js';
+import {
+  type Budget,
+  rateLimitBudgets,
+} from '../../../lib/rate-limit/budgets.js';
 import { LfsService } from '../lfs/lfs.service.js';
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 import { PackProcessService } from '../pack-process/pack-process.service.js';
 import { RefAdvertisementService } from '../ref-advertisement/ref-advertisement.service.js';
 import { RepositoryAccessService } from '../repository-access/repository-access.service.js';
+import { RateLimiterService } from '../../rate-limit/rate-limiter.service.js';
 
 /** 10-31. Railway already answers on 2222, and a ghost may as well keep Halloween. */
 const DEFAULT_PORT = 1031;
@@ -77,6 +82,7 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
   /** net.Server.close() leaves open connections alone, so shutdown ends them itself. */
   private readonly clients = new Set<Connection>();
   private retryTimer?: NodeJS.Timeout;
+  private readonly gitBudget: Budget;
 
   constructor(
     private readonly config: ConfigService,
@@ -87,8 +93,11 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     private readonly refAdvertisement: RefAdvertisementService,
     private readonly materializer: RepositoryMaterializerService,
     private readonly lfs: LfsService,
+    private readonly limiter: RateLimiterService,
     @Inject(DATABASE) private readonly db: Database,
-  ) {}
+  ) {
+    this.gitBudget = rateLimitBudgets(config).git;
+  }
 
   onModuleInit() {
     const hostKey = this.config.get<string>('GIT_SSH_HOST_KEY');
@@ -257,6 +266,19 @@ export class SshServerService implements OnModuleInit, OnApplicationShutdown {
     }
 
     try {
+      // Anonymous SSH is not counted: Railway's TCP proxy hides the client's address, so every anonymous caller would share one budget.
+      if (actor) {
+        const decision = await this.limiter.consume(
+          this.gitBudget,
+          actor.userId,
+        );
+        if (!decision.allowed) {
+          channel.stderr.write(
+            `ghost: API rate limit exceeded; try again in ${decision.retryAfter} seconds\n`,
+          );
+          return end(channel, 1);
+        }
+      }
       const repository = await this.access.authorize({
         username: parsed.username,
         repo: parsed.repo,

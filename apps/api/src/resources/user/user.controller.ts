@@ -38,6 +38,7 @@ import {
 import { UserProfileResponseDTO } from './dto/profile.dto.js';
 import { UserService } from './user.service.js';
 import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { NotRateLimited } from '../../rate-limit/rate-limit.guard.js';
 
 @ApiTags('Users')
 @Controller('users')
@@ -80,6 +81,8 @@ export class UserController {
 
   @Get('avatars/:userId/:name')
   @SignInOptional()
+  // Pages load these as images, dozens at a time; counting them would break a page for a visitor with budget to spare.
+  @NotRateLimited()
   @ApiOperation({ summary: 'Serve a stored avatar' })
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @ApiNotFoundResponse({ type: ErrorResponseDTO })

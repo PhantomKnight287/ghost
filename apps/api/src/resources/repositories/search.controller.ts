@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiOkResponse,
@@ -7,10 +7,10 @@ import {
   ApiTags,
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
-import { ThrottlerGuard } from '@nestjs/throttler';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { ExpensiveRead } from '../../rate-limit/rate-limit.guard.js';
 import { GetRepositoriesQueryDTO } from './dto/get-repositories.dto.js';
 import {
   SearchCodeQueryDTO,
@@ -40,7 +40,7 @@ export class SearchController {
   }
 
   @Get('code')
-  @UseGuards(ThrottlerGuard)
+  @ExpensiveRead()
   @ApiTooManyRequestsResponse({ type: ErrorResponseDTO })
   @SignInOptional()
   @ApiOperation({

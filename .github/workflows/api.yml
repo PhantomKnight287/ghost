@@ -33,9 +33,18 @@ jobs:
           RUSTFS_VOLUMES: /data
           RUSTFS_ADDRESS: 0.0.0.0:9000
         ports: ['9000:9000']
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
       TEST_S3_ENDPOINT: http://localhost:9000
+      TEST_REDIS_URL: redis://localhost:6379
       GH_E2E_HOST: ghost.test
     steps:
       - uses: actions/checkout@v4

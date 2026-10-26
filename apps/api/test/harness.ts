@@ -8,6 +8,7 @@ import type { Auth } from '../src/lib/auth.js';
 
 export const DATABASE_URL = process.env.TEST_DATABASE_URL;
 export const S3_ENDPOINT = process.env.TEST_S3_ENDPOINT;
+export const REDIS_URL = process.env.TEST_REDIS_URL;
 
 export const s3Credentials = {
   S3_ACCESS_KEY_ID: process.env.TEST_S3_ACCESS_KEY_ID ?? 'ghost',
@@ -15,8 +16,11 @@ export const s3Credentials = {
   S3_BUCKET: process.env.TEST_S3_BUCKET ?? 'ghost-e2e',
 };
 
-/** Suites need a throwaway Postgres and an S3 endpoint (RustFS from compose.yaml works), and are skipped without them. */
-export const hasBackends = Boolean(DATABASE_URL && S3_ENDPOINT);
+/** Suites need a throwaway Postgres, an S3 endpoint (RustFS from compose.yaml works) and a Redis, and are skipped without them. */
+export const hasBackends = Boolean(DATABASE_URL && S3_ENDPOINT && REDIS_URL);
+
+// Every suite shares one Redis and calls from 127.0.0.1, so limits stay out of the way unless a suite lowers them.
+const UNLIMITED = '100000';
 
 /** Serves the whole app on `port`, random unless given, against the database and bucket global-setup.ts prepared. `env` overrides the defaults below, such as turning the SSH transport on. `configure` runs before anything else is mounted, so middleware it adds sees every request. */
 export async function startApp(
@@ -28,7 +32,18 @@ export async function startApp(
   Object.assign(process.env, {
     DATABASE_URL,
     S3_ENDPOINT,
+    REDIS_URL,
     ...s3Credentials,
+    RATE_LIMIT_PER_MINUTE: UNLIMITED,
+    RATE_LIMIT_ANONYMOUS_PER_MINUTE: UNLIMITED,
+    RATE_LIMIT_SEARCH_PER_MINUTE: UNLIMITED,
+    RATE_LIMIT_SIGN_IN_PER_MINUTE: UNLIMITED,
+    RATE_LIMIT_FAILED_SIGN_IN_PER_MINUTE: UNLIMITED,
+    RATE_LIMIT_SIGN_UP_PER_MINUTE: UNLIMITED,
+    RATE_LIMIT_WEB_PER_MINUTE: UNLIMITED,
+    RATE_LIMIT_WEB_ANONYMOUS_PER_MINUTE: UNLIMITED,
+    RATE_LIMIT_GIT_PER_MINUTE: UNLIMITED,
+    WEB_API_SECRET: '',
     BETTER_AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret',
     BETTER_AUTH_URL: 'http://127.0.0.1',
     EMAIL_VERIFICATION_ENABLED: 'false',

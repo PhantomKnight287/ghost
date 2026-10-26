@@ -5,7 +5,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 import { AppController } from './app.controller.js';
 import { ApiKeyAuthGuard } from './auth/api-key-auth.guard.js';
@@ -39,6 +39,9 @@ import { RepositoriesModule } from './resources/repositories/repositories.module
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
 import { WebhooksModule } from './resources/webhooks/webhooks.module.js';
+import { AuthRateLimitMiddleware } from './rate-limit/auth-rate-limit.middleware.js';
+import { RateLimitGuard } from './rate-limit/rate-limit.guard.js';
+import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { S3Module } from './s3/s3.module.js';
 import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
 import { AppStatsService } from './services/stats/app-stats.service.js';
@@ -64,17 +67,28 @@ const parses = (type: string) => (req: IncomingMessage) => {
       envFilePath: ['.env.local', '.env', '../../.env'],
     }),
     DatabaseModule,
+    RateLimitModule,
     MailModule,
     AuthModule.forRootAsync({
       disableGlobalAuthGuard: true,
       imports: [DatabaseModule, MailModule, AvatarsModule],
-      inject: [DATABASE, ConfigService, MailService, AvatarStorageService],
+      inject: [
+        DATABASE,
+        ConfigService,
+        MailService,
+        AvatarStorageService,
+        AuthRateLimitMiddleware,
+      ],
       useFactory: (
         db: Database,
         config: ConfigService,
         mail: MailService,
         avatars: AvatarStorageService,
+        authRateLimit: AuthRateLimitMiddleware,
       ) => ({
+        // Runs ahead of Better Auth's handler, which Nest's guards never see.
+        middleware: (req: Request, res: Response, next: () => void) =>
+          authRateLimit.use(req, res, next),
         // Importer batches carry whole issue bodies, which GitHub allows up to 64K characters each.
         bodyParser: {
           json: { limit: '2mb', type: parses('application/json') },
@@ -151,6 +165,8 @@ const parses = (type: string) => (req: IncomingMessage) => {
   providers: [
     AppStatsService,
     { provide: APP_GUARD, useClass: ApiKeyAuthGuard },
+    // After authentication, so a token or session is counted against its account.
+    { provide: APP_GUARD, useExisting: RateLimitGuard },
   ],
 })
 export class AppModule {}

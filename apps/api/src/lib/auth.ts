@@ -24,7 +24,6 @@ import {
 } from 'better-auth/plugins';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
-import { API_KEY_REQUESTS_PER_MINUTE } from './api-keys/verify-api-key.js';
 import { callbackMatches } from './github/callback.js';
 import {
   findOauthApp,
@@ -363,6 +362,8 @@ export function createAuth(db: Database, config: AuthConfig) {
       .filter((path) => !BROWSER_OAUTH_PATHS.has(path)),
     baseURL: config.baseURL,
     appName: 'Ghost',
+    // Redis budgets in RateLimitModule count every caller; Better Auth's own in-memory limiter would be a second, unreported counter.
+    rateLimit: { enabled: false },
     trustedOrigins: config.trustedOrigins ?? [],
     advanced: {
       ...(config.cookieDomain
@@ -549,11 +550,8 @@ export function createAuth(db: Database, config: AuthConfig) {
         keyExpiration: { minExpiresIn: ACCESS_TOKEN_EXPIRES_IN / 86400 },
         // Device-flow keys record the OAuth app that minted them.
         enableMetadata: true,
-        rateLimit: {
-          enabled: true,
-          maxRequests: API_KEY_REQUESTS_PER_MINUTE,
-          timeWindow: 60000,
-        },
+        // Keys are counted by account, with every other way in, by RateLimitGuard.
+        rateLimit: { enabled: false },
       }),
       deviceAuthorization({
         verificationUri: `${config.webAppUrl ?? ''}/device`,

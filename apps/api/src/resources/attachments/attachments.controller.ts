@@ -33,6 +33,7 @@ import {
   UploadAttachmentQueryDTO,
 } from './dto/attachment.dto.js';
 import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { NotRateLimited } from '../../rate-limit/rate-limit.guard.js';
 
 @Controller()
 @ApiTags('Attachments')
@@ -84,6 +85,8 @@ export class AttachmentsController {
 
   @Get('attachments/:id')
   @SignInOptional()
+  // Pages load these as images, dozens at a time; counting them would break a page for a visitor with budget to spare.
+  @NotRateLimited()
   @ApiOperation({
     summary: 'Download an attachment',
     description:

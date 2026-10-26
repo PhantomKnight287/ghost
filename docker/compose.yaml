@@ -39,6 +39,16 @@ services:
       timeout: 5s
       retries: 20
 
+  # Rate-limit counters. Nothing to keep: a restart only resets the current minute.
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   rustfs:
     image: rustfs/rustfs:latest
     profiles: [rustfs]
@@ -98,8 +108,11 @@ services:
         condition: service_completed_successfully
       bucket:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     environment:
       PORT: 3001
+      REDIS_URL: redis://redis:6379
     ports:
       # SSH does not go through Caddy.
       - "${GIT_SSH_PORT:-1031}:${GIT_SSH_PORT:-1031}"
@@ -151,6 +164,7 @@ services:
     environment:
       PORT: 3000
       INTERNAL_API_URL: http://api:3001
+      WEB_API_SECRET: ${WEB_API_SECRET:-}
 
   docs:
     build:

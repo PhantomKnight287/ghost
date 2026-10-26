@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 
 import { DomainError } from '../../domain/errors.js';
 import { GqlContextType } from '@nestjs/graphql';
-import { ApiKeyRateLimitedError } from '../../lib/api-keys/api-keys.errors.js';
+import { RateLimitedError } from '../../lib/rate-limit/rate-limit.errors.js';
 
 @Catch(DomainError)
 export class DomainErrorFilter implements ExceptionFilter<DomainError> {
@@ -17,8 +17,7 @@ export class DomainErrorFilter implements ExceptionFilter<DomainError> {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    if (exception instanceof ApiKeyRateLimitedError)
-      response.set(exception.headers);
+    if (exception instanceof RateLimitedError) response.set(exception.headers);
     response.status(exception.status).json({
       statusCode: exception.status,
       error: exception.name,

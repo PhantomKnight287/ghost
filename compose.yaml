@@ -18,6 +18,17 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   rustfs:
     image: rustfs/rustfs:latest
     restart: unless-stopped
@@ -79,8 +90,12 @@ services:
         condition: service_completed_successfully
       lgtm:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       PORT: 3001
+      REDIS_URL: redis://redis:6379
+      WEB_API_SECRET: ${WEB_API_SECRET:-devwebsecretdevwebsecret}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
       PYROSCOPE_SERVER_ADDRESS: http://lgtm:4040
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/ghost
@@ -153,6 +168,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
       # The Next.js server is inside the network, where `localhost` is itself.
       INTERNAL_API_URL: http://api:3001
+      WEB_API_SECRET: ${WEB_API_SECRET:-devwebsecretdevwebsecret}
     ports:
       - "3000:3000"
 

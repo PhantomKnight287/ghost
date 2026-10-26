@@ -5,9 +5,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash, timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 
+import { secretsMatch } from '../../lib/http/secrets-match.js';
 import { githubImportConfig } from '../../lib/imports/importer.js';
 
 /** The importer's callbacks carry the secret the API sent its jobs with. */
@@ -19,13 +19,11 @@ export class ImporterSecretGuard implements CanActivate {
     const secret = githubImportConfig(this.config)?.importerSecret;
     const header = context.switchToHttp().getRequest<Request>()
       .headers.authorization;
-    if (!secret || !header?.startsWith('Bearer '))
+    if (
+      !header?.startsWith('Bearer ') ||
+      !secretsMatch(header.slice(7), secret)
+    )
       throw new UnauthorizedException();
-
-    // Hashing first gives both sides one length, which `timingSafeEqual` needs.
-    const given = createHash('sha256').update(header.slice(7)).digest();
-    const expected = createHash('sha256').update(secret).digest();
-    if (!timingSafeEqual(given, expected)) throw new UnauthorizedException();
     return true;
   }
 }
