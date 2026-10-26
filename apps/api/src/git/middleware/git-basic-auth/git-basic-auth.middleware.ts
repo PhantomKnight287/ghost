@@ -12,6 +12,12 @@ import {
   verifyLfsToken,
 } from '../../../lib/git/lfs/lfs-token.js';
 import { hasScope, scopesOfKey } from '../../../lib/github/scopes.js';
+import { clientIp } from '../../../lib/http/client-ip.js';
+import {
+  type Budget,
+  rateLimitBudgets,
+} from '../../../lib/rate-limit/budgets.js';
+import { rateLimitHeaders } from '../../../lib/rate-limit/headers.js';
 import { oauthAppBlocked } from '../../../lib/organizations/oauth-app-access.js';
 import {
   AuthenticationRequiredError,
@@ -19,21 +25,28 @@ import {
 } from '../../../lib/repositories/access/repository-access.errors.js';
 import { type Actor } from '../../../lib/repositories/access/repository-access.js';
 import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
+import { RateLimiterService } from '../../../services/rate-limit/rate-limiter.service.js';
 import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
 import { GitAuthenticatedBufferedRequest } from '../../types.js';
+
+/** LFS object transfers, which the batch call already bounds; the batch call itself counts. */
+const LFS_TRANSFER = /\/info\/lfs\/objects\/(?!batch$)[^/]+$/;
 
 /** Runs before the body is spooled, so a rejected push never reaches disk. */
 @Injectable()
 export class GitBasicAuthMiddleware implements NestMiddleware {
   private readonly secret: string;
+  private readonly budget: Budget;
 
   constructor(
     private readonly auth: AuthService<Auth>,
     private readonly access: RepositoryAccessService,
+    private readonly limiter: RateLimiterService,
     @Inject(DATABASE) private readonly db: Database,
     config: ConfigService,
   ) {
     this.secret = config.getOrThrow<string>('BETTER_AUTH_SECRET');
+    this.budget = rateLimitBudgets(config).git;
   }
 
   async use(
@@ -56,6 +69,23 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     try {
       const { actor, apiKeyId, scope, scopes, oauthClientId } =
         await this.resolveKey(req);
+      if (!LFS_TRANSFER.test(req.path)) {
+        const decision = await this.limiter.consume(
+          this.budget,
+          actor?.userId ?? clientIp(req),
+        );
+        res.set(rateLimitHeaders(decision));
+        // Plain text without `WWW-Authenticate`, so git prints the reason instead of asking for a password.
+        if (!decision.allowed) {
+          res
+            .status(429)
+            .type('text/plain')
+            .send(
+              `API rate limit exceeded; try again in ${decision.retryAfter} seconds\n`,
+            );
+          return;
+        }
+      }
       req.repository = await this.access.authorize({
         username,
         repo: repo.replace(/\.git$/i, ''),

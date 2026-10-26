@@ -34,14 +34,27 @@ function harness({
     }),
   };
   const auth = { api: { verifyApiKey: vi.fn().mockResolvedValue(verify) } };
+  // Rate limiting has its own e2e suite; here every request has budget left.
+  const limiter = {
+    consume: vi.fn().mockResolvedValue({
+      budget: { name: 'git', resource: 'git', limit: 60 },
+      used: 1,
+      remaining: 59,
+      resetAt: 0,
+      retryAfter: 60,
+      allowed: true,
+    }),
+  };
   const middleware = new GitBasicAuthMiddleware(
     auth as never,
     { authorize } as never,
+    limiter as never,
     db as never,
     new ConfigService({ BETTER_AUTH_SECRET: SECRET }),
   );
 
   const res = {
+    set: vi.fn().mockReturnThis(),
     setHeader: vi.fn(),
     status: vi.fn().mockReturnThis(),
     end: vi.fn(),

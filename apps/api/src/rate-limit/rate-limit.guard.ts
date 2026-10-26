@@ -57,6 +57,8 @@ export class RateLimitGuard implements CanActivate {
     if (this.reflector.getAllAndOverride<boolean>(NOT_RATE_LIMITED, targets))
       return true;
     const request = context.switchToHttp().getRequest<RateLimitedRequest>();
+    // GitBasicAuthMiddleware set `actor` and counted the request against `git` itself.
+    if ('actor' in request) return true;
     const decisions = [await this.count(request)];
     const expensive = this.reflector.getAllAndOverride<
       ((request: Request) => boolean) | undefined
