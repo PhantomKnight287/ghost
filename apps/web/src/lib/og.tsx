@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { type ReactNode, createElement } from "react";
 
+import { forwardedHeaders } from "./api/server";
 import { API_URL, INTERNAL_API_URL } from "./env";
 import { type IconName, icons } from "./og-icons";
 import { languageColor } from "@ghost/languages";
@@ -368,6 +369,8 @@ export async function inlineApiImage(url?: string | null) {
   if (!url?.startsWith(`${API_URL}/`)) return url;
   try {
     const response = await fetch(INTERNAL_API_URL + url.slice(API_URL.length), {
+      // Counted as the web app's request for this visitor, like every other call it makes for a page.
+      headers: await forwardedHeaders(),
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) return null;
