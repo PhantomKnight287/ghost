@@ -118,11 +118,31 @@ describe('ApiKeyAuthGuard', () => {
     );
   });
 
-  it('leaves tokens on optional routes to their own auth, as git and LFS do', async () => {
-    const { guard, context, verifyApiKey } = setup({
+  it('signs a token in on an optional route', async () => {
+    const { guard, context, request } = setup({
+      authorization: 'Bearer ghost_pat_abc',
+      flags: ['OPTIONAL'],
+    });
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(request.user).toBe(user);
+  });
+
+  it('leaves requests git already authenticated alone', async () => {
+    const { guard, context, request, verifyApiKey } = setup({
       authorization: 'Bearer lfs-token',
       flags: ['OPTIONAL'],
     });
+    request.actor = null;
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(verifyApiKey).not.toHaveBeenCalled();
+  });
+
+  it('leaves requests the GitHub middleware authenticated alone', async () => {
+    const { guard, context, request, verifyApiKey } = setup({
+      authorization: 'Bearer ghost_pat_abc',
+      flags: ['PUBLIC'],
+    });
+    request.githubViewer = null;
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(verifyApiKey).not.toHaveBeenCalled();
   });
@@ -197,13 +217,24 @@ describe('ApiKeyAuthGuard edges', () => {
     expect(verifyApiKey).not.toHaveBeenCalled();
   });
 
-  it('leaves tokens on public routes to the route', async () => {
-    const { guard, context, verifyApiKey } = setup({
+  it('signs a token in on a public route', async () => {
+    const { guard, context, request } = setup({
       authorization: 'Bearer ghost_pat_abc',
       flags: ['PUBLIC'],
     });
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(verifyApiKey).not.toHaveBeenCalled();
+    expect(request.user).toBe(user);
+  });
+
+  it('refuses a bad token on a public route', async () => {
+    const { guard, context } = setup({
+      authorization: 'Bearer nope',
+      verify: { valid: false, key: null },
+      flags: ['PUBLIC'],
+    });
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('refuses a key whose owner is gone', async () => {

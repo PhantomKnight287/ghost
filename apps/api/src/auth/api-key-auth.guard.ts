@@ -41,7 +41,7 @@ export const SignInOptional = () =>
     ApiSecurity('session'),
   );
 
-/** Signs a personal access token in as its owner, else defers to the session cookie; public and optional routes (git, LFS, GitHub's paths) authenticate tokens themselves, and scoped keys are OAuth app tokens, held to GitHub's paths until native routes check scopes. */
+/** Signs a personal access token in as its owner on every route, public ones included, else defers to the session cookie; git, LFS and GitHub's paths authenticate tokens in their middleware, and scoped keys are OAuth app tokens, held to GitHub's paths until native routes check scopes. */
 @Injectable()
 export class ApiKeyAuthGuard extends AuthGuard {
   // Nest injects what AuthGuard's own @Inject metadata names: the Reflector and the auth module's options.
@@ -56,15 +56,14 @@ export class ApiKeyAuthGuard extends AuthGuard {
     if (context.getType() !== 'http') return super.canActivate(context);
     const request = context
       .switchToHttp()
-      .getRequest<Request & { session?: unknown; user?: unknown }>();
+      .getRequest<
+        Request & { session?: unknown; user?: unknown; githubViewer?: unknown }
+      >();
     const key = AUTHORIZATION_TOKEN.exec(
       request.headers.authorization ?? '',
     )?.[1];
-    if (
-      !key ||
-      this.marked(context, 'PUBLIC') ||
-      this.marked(context, 'OPTIONAL')
-    )
+    // Git and GitHub's paths authenticate in their own middleware, which LFS tokens and scoped keys rely on.
+    if (!key || request.githubViewer !== undefined || 'actor' in request)
       return super.canActivate(context);
 
     // Railway's proxy sets `X-Real-IP`, as `lib/auth.ts` trusts; elsewhere the header is the client's to forge.
