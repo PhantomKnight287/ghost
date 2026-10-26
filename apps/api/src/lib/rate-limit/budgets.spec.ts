@@ -34,4 +34,22 @@ describe('rateLimitBudgets', () => {
     expect(budgets.core.limit).toBe(7);
     expect(budgets.git.limit).toBe(9);
   });
+
+  it('uses the default for an empty setting', () => {
+    const budgets = rateLimitBudgets(
+      new ConfigService({ RATE_LIMIT_PER_MINUTE: '' }),
+    );
+    expect(budgets.core.limit).toBe(120);
+  });
+
+  it.each(['abc', '0', '-5', '1.5', '10req'])(
+    'refuses to start with %j as a limit, naming the setting',
+    (value) => {
+      expect(() =>
+        rateLimitBudgets(new ConfigService({ RATE_LIMIT_PER_MINUTE: value })),
+      ).toThrow(
+        `RATE_LIMIT_PER_MINUTE must be a positive whole number, not "${value}"`,
+      );
+    },
+  );
 });

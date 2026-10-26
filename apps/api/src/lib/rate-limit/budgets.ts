@@ -28,8 +28,16 @@ export const BAD_TOKEN_BUDGET: Budget = {
 };
 
 export function rateLimitBudgets(config: ConfigService): Budgets {
-  const limit = (name: string, fallback: number) =>
-    Number(config.get<string>(name) || fallback);
+  // Read at boot: a typo must stop the API, not leave a budget that refuses everyone (0) or no one (NaN).
+  const limit = (name: string, fallback: number) => {
+    const value = config.get<string>(name);
+    if (value === undefined || value === '') return fallback;
+    if (!/^[1-9]\d*$/.test(String(value)))
+      throw new Error(
+        `${name} must be a positive whole number, not "${value}"`,
+      );
+    return Number(value);
+  };
   return {
     core: {
       name: 'core',
