@@ -3,6 +3,8 @@ import { AuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { NextFunction, Response } from 'express';
 
+import { ApiKeyRateLimitedError } from '../../lib/api-keys/api-keys.errors.js';
+import { verifyApiKey } from '../../lib/api-keys/verify-api-key.js';
 import { type Auth, AUTHORIZATION_TOKEN } from '../../lib/auth.js';
 import { KNOWN_SCOPES, scopesOfKey } from '../../lib/github/scopes.js';
 import type { GithubRequest, GithubViewer } from './github-request.js';
@@ -26,9 +28,18 @@ export class GithubAuthMiddleware implements NestMiddleware {
     const token = header ? AUTHORIZATION_TOKEN.exec(header)?.[1] : undefined;
 
     if (header && !token) return this.badCredentials(res);
-    const viewer = token
-      ? await this.fromKey(token)
-      : await this.fromSession(req);
+    let viewer: GithubViewer | null;
+    try {
+      viewer = token ? await this.fromKey(token) : await this.fromSession(req);
+    } catch (error) {
+      if (!(error instanceof ApiKeyRateLimitedError)) throw error;
+      res.set(error.headers).status(error.status).json({
+        message: error.message,
+        documentation_url:
+          'https://docs.github.com/rest/using-the-rest-api/rate-limits-for-the-rest-api',
+      });
+      return;
+    }
     if (token && !viewer) return this.badCredentials(res);
 
     req.githubViewer = viewer;
@@ -37,10 +48,8 @@ export class GithubAuthMiddleware implements NestMiddleware {
   }
 
   private async fromKey(key: string): Promise<GithubViewer | null> {
-    const { valid, key: apiKey } = await this.auth.api.verifyApiKey({
-      body: { key },
-    });
-    return valid && apiKey
+    const apiKey = await verifyApiKey(this.auth.api, key);
+    return apiKey
       ? {
           userId: apiKey.referenceId,
           scopes: scopesOfKey(apiKey.permissions),

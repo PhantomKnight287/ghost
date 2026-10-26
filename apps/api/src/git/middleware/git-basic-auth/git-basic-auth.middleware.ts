@@ -5,6 +5,7 @@ import { AuthService } from '@thallesp/nestjs-better-auth';
 import type { NextFunction, Request, Response } from 'express';
 
 import { DATABASE } from '../../../database/database.module.js';
+import { verifyApiKey } from '../../../lib/api-keys/verify-api-key.js';
 import type { Auth } from '../../../lib/auth.js';
 import {
   type LfsTokenClaims,
@@ -127,12 +128,10 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     const key = decoded.slice(decoded.indexOf(':') + 1);
     if (!key) return anonymous;
 
-    const { valid, key: apiKey } = await this.auth.api.verifyApiKey({
-      body: { key },
-    });
+    const apiKey = await verifyApiKey(this.auth.api, key);
 
     // A bad key is treated as no key, so the caller is challenged again.
-    return valid && apiKey
+    return apiKey
       ? {
           actor: { userId: apiKey.referenceId },
           apiKeyId: apiKey.id,

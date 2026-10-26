@@ -24,6 +24,7 @@ import {
 } from 'better-auth/plugins';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
+import { API_KEY_REQUESTS_PER_MINUTE } from './api-keys/verify-api-key.js';
 import { callbackMatches } from './github/callback.js';
 import {
   findOauthApp,
@@ -550,7 +551,7 @@ export function createAuth(db: Database, config: AuthConfig) {
         enableMetadata: true,
         rateLimit: {
           enabled: true,
-          maxRequests: 120,
+          maxRequests: API_KEY_REQUESTS_PER_MINUTE,
           timeWindow: 60000,
         },
       }),

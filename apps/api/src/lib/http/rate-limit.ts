@@ -1,9 +1,9 @@
 import type { Request } from 'express';
 
+import { API_KEY_REQUESTS_PER_MINUTE } from '../api-keys/verify-api-key.js';
 import { clientIp } from './client-ip.js';
 
-// The same budget Better Auth's apiKey plugin gives a key; anonymous callers share an address, so they get less.
-const SIGNED_IN_PER_MINUTE = 120;
+// Signed-in callers get the budget Better Auth's apiKey plugin gives a key; anonymous callers share an address, so they get less.
 const ANONYMOUS_PER_MINUTE = 30;
 
 /** What the global auth guard leaves on the request: the account behind a session or an API key, or null. */
@@ -17,5 +17,5 @@ export function rateLimitTracker(request: AuthedRequest) {
 }
 
 export function rateLimitPerMinute(request: AuthedRequest) {
-  return request.user ? SIGNED_IN_PER_MINUTE : ANONYMOUS_PER_MINUTE;
+  return request.user ? API_KEY_REQUESTS_PER_MINUTE : ANONYMOUS_PER_MINUTE;
 }
