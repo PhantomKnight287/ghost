@@ -39,6 +39,16 @@ services:
       timeout: 5s
       retries: 20
 
+  # Rate-limit counters. Nothing to keep: a restart only resets the current minute.
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   rustfs:
     image: rustfs/rustfs:latest
     profiles: [rustfs]
@@ -98,6 +108,8 @@ services:
         condition: service_completed_successfully
       bucket:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     environment:
       PORT: 3001
     ports:

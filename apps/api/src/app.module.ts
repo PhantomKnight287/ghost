@@ -39,6 +39,7 @@ import { RepositoriesModule } from './resources/repositories/repositories.module
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
 import { WebhooksModule } from './resources/webhooks/webhooks.module.js';
+import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { S3Module } from './s3/s3.module.js';
 import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
 import { AppStatsService } from './services/stats/app-stats.service.js';
@@ -64,6 +65,7 @@ const parses = (type: string) => (req: IncomingMessage) => {
       envFilePath: ['.env.local', '.env', '../../.env'],
     }),
     DatabaseModule,
+    RateLimitModule,
     MailModule,
     AuthModule.forRootAsync({
       disableGlobalAuthGuard: true,

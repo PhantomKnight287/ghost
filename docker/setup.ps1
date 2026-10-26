@@ -153,13 +153,14 @@ $c.DATABASE_URL = "postgres://ghost:$($c.POSTGRES_PASSWORD)@postgres:5432/ghost"
 $c.BETTER_AUTH_URL = $c.API_URL
 $c.AUTH_TRUSTED_ORIGINS = $c.WEB_APP_URL
 $c.ZOEKT_URL = 'http://zoekt:6070'
+$c.REDIS_URL = 'redis://redis:6379'
 $keys = 'COMPOSE_PROFILES', 'DOMAIN', 'WEB_APP_URL', 'API_URL', 'DOCS_URL', 'SSH_CLONE_HOST',
   'POSTGRES_PASSWORD', 'BETTER_AUTH_SECRET', 'AUTH_COOKIE_DOMAIN', 'WEBHOOK_SECRET_KEY',
   'GIT_SSH_HOST_KEY', 'COMMIT_SIGNING_KEY', 'GIT_SSH_PORT', 'S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY',
   'EMAIL_SENDER', 'EMAIL_VERIFICATION_ENABLED', 'EMAIL_PROXY', 'EMAIL_PROXY_SECRET', 'DELIVERY_EMAIL',
   'MAIL_HOST', 'MAIL_PORT', 'MAIL_SECURE', 'MAIL_USER', 'MAIL_PASSWORD',
   'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'IMPORTER_URL', 'IMPORTER_SECRET',
-  'DATABASE_URL', 'BETTER_AUTH_URL', 'AUTH_TRUSTED_ORIGINS', 'ZOEKT_URL'
+  'DATABASE_URL', 'BETTER_AUTH_URL', 'AUTH_TRUSTED_ORIGINS', 'ZOEKT_URL', 'REDIS_URL'
 $lines = @('# Written by setup.ps1. Re-run it to change answers, or edit and run: docker compose up -d --build')
 # Empty values are left out: the API reads `EMAIL_PROXY=''` as set.
 $lines += $keys | Where-Object { $c[$_] } | ForEach-Object { "$_='$($c[$_])'" }

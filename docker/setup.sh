@@ -173,6 +173,7 @@ umask 077
   echo "DATABASE_URL='postgres://ghost:$POSTGRES_PASSWORD@postgres:5432/ghost'"
   echo "BETTER_AUTH_URL='$API_URL'"
   echo "AUTH_TRUSTED_ORIGINS='$WEB_APP_URL'"
+  echo "REDIS_URL='redis://redis:6379'"
   echo "ZOEKT_URL='http://zoekt:6070'"
 } >"$ENV_FILE"
 
