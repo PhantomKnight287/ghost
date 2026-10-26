@@ -152,9 +152,15 @@ is required: the API does not start without it, and answers `503` rather than
 letting requests through if Redis goes away. `compose.yaml` points it at the
 bundled `redis` container.
 
-Every response from the API carries GitHub's `X-RateLimit-*` headers, and a
-caller over a limit gets `429` with `Retry-After`. Signed-in callers are counted
-by account, however many tokens and sessions they use; everyone else by address.
+Responses from the API carry GitHub's `X-RateLimit-*` headers, and a caller
+over a limit gets `429` with `Retry-After`. Signed-in callers are counted by
+account, however many tokens and sessions they use; everyone else by address.
+
+Some responses are not counted and carry no `X-RateLimit-*` headers: the health
+check `GET /api`, avatar and attachment downloads (pages load them as images),
+the importer's callbacks under `/api/internal`, Better Auth routes outside the
+sign-in and sign-up limits (such as `get-session`), Git LFS object transfers,
+and a `401` for a bad token. Git over HTTP reports its own `git` limit.
 
 | Variable | Meaning | Default |
 | --- | --- | --- |
