@@ -40,8 +40,9 @@ export function decodeNodeId(
 ): { type: NodeType; id: string } | null {
   const separator = nodeId.indexOf('_');
   if (separator < 1) return null;
-  //@ts-expect-error: idk how to type this properly TODO
-  const type = TYPES.get(nodeId.slice(0, separator));
+  const type = TYPES.get(
+    nodeId.slice(0, separator) as Parameters<typeof TYPES.get>[0],
+  );
   const id = Buffer.from(nodeId.slice(separator + 1), 'base64url').toString(
     'utf8',
   );
