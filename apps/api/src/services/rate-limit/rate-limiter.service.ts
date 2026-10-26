@@ -6,16 +6,28 @@ import type { RateLimitDecision } from '../../lib/rate-limit/headers.js';
 import { RateLimiterUnavailableError } from '../../lib/rate-limit/rate-limit.errors.js';
 import { REDIS } from '../../lib/rate-limit/redis.js';
 
+// KEYS are the counters; ARGV[1] the window, ARGV[2] whether to count, then one limit per key. Nothing is counted unless every counter has room.
 const CONSUME = `
-local used = tonumber(redis.call('GET', KEYS[1]) or '0')
-if used >= tonumber(ARGV[1]) then return {used, redis.call('PTTL', KEYS[1]), 0} end
-if ARGV[3] == '1' then
-  used = redis.call('INCR', KEYS[1])
-  if used == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[2]) end
+local window = tonumber(ARGV[1])
+local used, room = {}, true
+for i, key in ipairs(KEYS) do
+  used[i] = tonumber(redis.call('GET', key) or '0')
+  if used[i] >= tonumber(ARGV[i + 2]) then room = false end
 end
-local ttl = redis.call('PTTL', KEYS[1])
-if ttl < 0 then ttl = tonumber(ARGV[2]) end
-return {used, ttl, 1}
+local reply = {}
+for i, key in ipairs(KEYS) do
+  local allowed = used[i] < tonumber(ARGV[i + 2])
+  if room and ARGV[2] == '1' then
+    used[i] = redis.call('INCR', key)
+    if used[i] == 1 then redis.call('PEXPIRE', key, window) end
+  end
+  local ttl = redis.call('PTTL', key)
+  if ttl < 0 then ttl = window end
+  table.insert(reply, used[i])
+  table.insert(reply, ttl)
+  table.insert(reply, allowed and 1 or 0)
+end
+return reply
 `;
 
 /** Fixed windows in Redis, one counter per budget and caller, counted and expired in one atomic script. */
@@ -26,40 +38,54 @@ export class RateLimiterService {
     @Optional() private readonly windowMs: number = 60_000,
   ) {}
 
-  consume(budget: Budget, key: string): Promise<RateLimitDecision> {
-    return this.run(budget, key, true);
+  async consume(budget: Budget, key: string): Promise<RateLimitDecision> {
+    return (await this.run(key, [budget], true))[0]!;
   }
 
-  peek(budget: Budget, key: string): Promise<RateLimitDecision> {
-    return this.run(budget, key, false);
+  async peek(budget: Budget, key: string): Promise<RateLimitDecision> {
+    return (await this.run(key, [budget], false))[0]!;
+  }
+
+  /** One decision per budget, in order; every budget is charged, or none when any is spent. */
+  consumeTogether(
+    key: string,
+    budgets: Budget[],
+  ): Promise<RateLimitDecision[]> {
+    return this.run(key, budgets, true);
   }
 
   private async run(
-    budget: Budget,
     key: string,
+    budgets: Budget[],
     count: boolean,
-  ): Promise<RateLimitDecision> {
-    let reply: [number, number, number];
+  ): Promise<RateLimitDecision[]> {
+    let reply: number[];
     try {
       reply = (await this.redis.eval(
         CONSUME,
-        1,
-        `ratelimit:${budget.name}:${key}`,
-        budget.limit,
+        budgets.length,
+        ...budgets.map((budget) => `ratelimit:${budget.name}:${key}`),
         this.windowMs,
         count ? '1' : '0',
-      )) as [number, number, number];
+        ...budgets.map((budget) => budget.limit),
+      )) as number[];
     } catch {
       throw new RateLimiterUnavailableError();
     }
-    const [used, ttl, allowed] = reply;
-    return {
-      budget,
-      used,
-      remaining: Math.max(0, budget.limit - used),
-      resetAt: Math.ceil((Date.now() + ttl) / 1000),
-      retryAfter: Math.max(1, Math.ceil(ttl / 1000)),
-      allowed: allowed === 1,
-    };
+    return budgets.map((budget, i) => {
+      const [used, ttl, allowed] = reply.slice(i * 3, i * 3 + 3) as [
+        number,
+        number,
+        number,
+      ];
+      return {
+        budget,
+        used,
+        remaining: Math.max(0, budget.limit - used),
+        resetAt: Math.ceil((Date.now() + ttl) / 1000),
+        retryAfter: Math.max(1, Math.ceil(ttl / 1000)),
+        allowed: allowed === 1,
+      };
+    });
   }
 }

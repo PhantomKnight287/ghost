@@ -177,6 +177,18 @@ describe.skipIf(!hasBackends)('Rate limits on the API', () => {
     expect(third.headers['x-ratelimit-resource']).toBe('search');
   });
 
+  it('does not charge core for a read the search budget refuses', async () => {
+    const { username, key, userId } = await account();
+    const files = () =>
+      http()
+        .get(`/api/v3/repos/${username}/nothing/pulls/1/files`)
+        .set('authorization', `Bearer ${key}`);
+    await files();
+    await files();
+    await files().expect(429);
+    expect(await redis.get(`ratelimit:core:${userId}`)).toBe('2');
+  });
+
   it('counts a pull request as a search only when asked for as a diff', async () => {
     const { username, key } = await account();
     const pull = (accept: string) =>

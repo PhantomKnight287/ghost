@@ -81,6 +81,16 @@ describe.skipIf(!REDIS_URL)('RateLimiterService', () => {
     });
   });
 
+  it('charges several budgets together, or none when one is spent', async () => {
+    const caller = key();
+    const small: Budget = { name: 'spec-small', resource: 'search', limit: 1 };
+    const both = await limiter.consumeTogether(caller, [budget, small]);
+    expect(both.map((decision) => decision.used)).toEqual([1, 1]);
+    const refused = await limiter.consumeTogether(caller, [budget, small]);
+    expect(refused.map((decision) => decision.allowed)).toEqual([true, false]);
+    expect(await limiter.peek(budget, caller)).toMatchObject({ used: 1 });
+  });
+
   it('fails closed when Redis is unreachable', async () => {
     const down = new Redis('redis://127.0.0.1:1', {
       lazyConnect: true,

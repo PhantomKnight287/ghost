@@ -17,6 +17,7 @@ import type { GithubRequest, GithubViewer } from './github-request.js';
 const GITHUB_MEDIA_TYPE = /application\/vnd\.github\b/i;
 /** `gh pr diff` asks for the raw diff or patch, which is not JSON and which the pulls controller answers by this header. */
 const RAW_MEDIA_TYPE = /application\/vnd\.github(?:\.v3)?\.(?:diff|patch)\b/i;
+const GRAPHQL_PATH = /^\/api\/graphql(?:[/?]|$)/;
 
 /** Resolves `Authorization: token|Bearer <key>` (what gh sends) or a session cookie (GraphiQL in a browser) to a viewer, and sets the headers gh reads on every compat response. */
 @Injectable()
@@ -42,18 +43,20 @@ export class GithubAuthMiddleware implements NestMiddleware {
     if (token && !viewer) return this.badCredentials(res);
 
     req.githubViewer = viewer;
-    // Counted here rather than only in RateLimitGuard, so GraphQL over budget is refused before Apollo, whatever the query.
-    const decision = await this.rateLimit.count(req);
-    if (!decision.allowed) {
-      const refused = new RateLimitedError(decision);
-      res.set(refused.headers).status(refused.status).json({
-        message: refused.message,
-        documentation_url: GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
-      });
-      return;
-    }
-    res.set(rateLimitHeaders(decision));
     res.setHeader('X-OAuth-Scopes', viewer ? viewer.scopes.join(', ') : '');
+    // GraphQL never reaches RateLimitGuard as HTTP, so it is counted here, before Apollo, once whatever the query; REST is counted by the guard.
+    if (GRAPHQL_PATH.test(req.originalUrl)) {
+      const decision = (await this.rateLimit.count(req))[0]!;
+      if (!decision.allowed) {
+        const refused = new RateLimitedError(decision);
+        res.set(refused.headers).status(refused.status).json({
+          message: refused.message,
+          documentation_url: GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
+        });
+        return;
+      }
+      res.set(rateLimitHeaders(decision));
+    }
     next();
   }
 

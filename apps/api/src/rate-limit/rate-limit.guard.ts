@@ -36,7 +36,7 @@ export type RateLimitedRequest = Request & {
   rateLimit?: RateLimitDecision;
 };
 
-/** Counts every HTTP request against its caller's main budget, and expensive reads against `search` too, then reports the tighter one in GitHub's headers. GraphQL is counted by GithubAuthMiddleware, before Apollo. */
+/** Counts every HTTP request against its caller's main budget, and expensive reads against `search` too, then reports the tighter one in GitHub's headers. GraphQL, which never reaches a guard as HTTP, is counted by GithubAuthMiddleware before Apollo. */
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly budgets: Budgets;
@@ -59,35 +59,35 @@ export class RateLimitGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<RateLimitedRequest>();
     // GitBasicAuthMiddleware set `actor` and counted the request against `git` itself.
     if ('actor' in request) return true;
-    const decisions = [await this.count(request)];
     const expensive = this.reflector.getAllAndOverride<
       ((request: Request) => boolean) | undefined
     >(EXPENSIVE_READ, targets);
-    if (decisions[0].allowed && expensive?.(request))
-      decisions.push(
-        await this.limiter.consume(
-          this.budgets.search,
-          rateLimitIdentity(request, this.webSecret).key,
-        ),
-      );
+    const decisions = await this.count(request, Boolean(expensive?.(request)));
     const shown = tightest(decisions);
     context.switchToHttp().getResponse<Response>().set(rateLimitHeaders(shown));
     if (!shown.allowed) throw new RateLimitedError(shown);
     return true;
   }
 
-  /** The request's main-budget decision, counted on the first call only. */
-  async count(request: RateLimitedRequest): Promise<RateLimitDecision> {
-    if (request.rateLimit) return request.rateLimit;
+  /** The request's decisions, main budget first, counted on the first call only; an expensive read charges `search` with it, or neither. */
+  async count(
+    request: RateLimitedRequest,
+    expensive = false,
+  ): Promise<RateLimitDecision[]> {
+    if (request.rateLimit) return [request.rateLimit];
     const { signedIn, key, web } = rateLimitIdentity(request, this.webSecret);
-    const budget = web
+    const main = web
       ? signedIn
         ? this.budgets.web
         : this.budgets.webAnonymous
       : signedIn
         ? this.budgets.core
         : this.budgets.coreAnonymous;
-    request.rateLimit = await this.limiter.consume(budget, key);
-    return request.rateLimit;
+    const decisions = await this.limiter.consumeTogether(
+      key,
+      expensive ? [main, this.budgets.search] : [main],
+    );
+    request.rateLimit = decisions[0];
+    return decisions;
   }
 }
