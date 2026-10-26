@@ -17,6 +17,7 @@ import {
 } from '@thallesp/nestjs-better-auth';
 import type { Request } from 'express';
 
+import { verifyApiKey } from '../lib/api-keys/verify-api-key.js';
 import { type Auth, AUTHORIZATION_TOKEN } from '../lib/auth.js';
 
 const COOKIE_ONLY = 'COOKIE_ONLY';
@@ -85,10 +86,8 @@ export class ApiKeyAuthGuard extends AuthGuard {
         HttpStatus.TOO_MANY_REQUESTS,
       );
 
-    const { valid, key: apiKey } = await this.options_.auth.api.verifyApiKey({
-      body: { key },
-    });
-    if (!valid || !apiKey) {
+    const apiKey = await verifyApiKey(this.options_.auth.api, key);
+    if (!apiKey) {
       this.fail(ip);
       throw new UnauthorizedException('Bad credentials');
     }
