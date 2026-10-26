@@ -12,7 +12,7 @@ import {
 import { RateLimiterService } from '../services/rate-limit/rate-limiter.service.js';
 
 const AUTH_BASE_PATH = '/api/auth';
-/** Every Better Auth path that checks a credential. */
+/** Every enabled Better Auth path that checks a password or a second factor; signed-in ones included, so a stolen session cannot guess the password behind it. */
 const SIGN_IN_PATHS = new Set([
   '/sign-in/email',
   '/sign-in/username',
@@ -20,14 +20,21 @@ const SIGN_IN_PATHS = new Set([
   '/two-factor/verify-otp',
   '/two-factor/verify-backup-code',
   '/passkey/verify-authentication',
+  '/change-password',
+  '/verify-password',
+  '/delete-user',
+  '/two-factor/enable',
+  '/two-factor/disable',
+  '/two-factor/get-totp-uri',
+  '/two-factor/generate-backup-codes',
 ]);
-/** Every Better Auth path that creates an account or sends mail to an address the caller names. */
+/** Every enabled Better Auth path that creates an account, redeems a reset token, or sends mail to an address the caller names. */
 const SIGN_UP_PATHS = new Set([
   '/sign-up/email',
   '/request-password-reset',
-  '/forget-password',
   '/reset-password',
   '/send-verification-email',
+  '/change-email',
 ]);
 
 /** Counts sign-in, sign-up and reset per client address ahead of Better Auth's handler, and failed sign-ins against a tighter budget. */

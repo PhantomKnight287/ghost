@@ -162,9 +162,9 @@ by account, however many tokens and sessions they use; everyone else by address.
 | `RATE_LIMIT_PER_MINUTE` | API requests per signed-in account | `120` |
 | `RATE_LIMIT_ANONYMOUS_PER_MINUTE` | API requests per address without sign-in | `30` |
 | `RATE_LIMIT_SEARCH_PER_MINUTE` | Expensive reads (code search, path lists, archives, diffs), on top of the above | `30` |
-| `RATE_LIMIT_SIGN_IN_PER_MINUTE` | Sign-in attempts per address | `5` |
-| `RATE_LIMIT_FAILED_SIGN_IN_PER_MINUTE` | Failed sign-ins per address | `3` |
-| `RATE_LIMIT_SIGN_UP_PER_MINUTE` | Sign-ups and password resets per address | `3` |
+| `RATE_LIMIT_SIGN_IN_PER_MINUTE` | Sign-ins and other password or two-factor checks per address | `5` |
+| `RATE_LIMIT_FAILED_SIGN_IN_PER_MINUTE` | Failed password or two-factor checks per address | `3` |
+| `RATE_LIMIT_SIGN_UP_PER_MINUTE` | Sign-ups, password resets, verification mails and email changes per address | `3` |
 | `RATE_LIMIT_WEB_PER_MINUTE` | Requests the web app makes for one signed-in account | `300` |
 | `RATE_LIMIT_WEB_ANONYMOUS_PER_MINUTE` | Requests the web app makes for one address without sign-in | `120` |
 | `RATE_LIMIT_GIT_PER_MINUTE` | Git commands over HTTP and SSH per account, or per address without sign-in | `60` |

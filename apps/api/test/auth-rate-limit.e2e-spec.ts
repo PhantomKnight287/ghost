@@ -82,6 +82,47 @@ describe.skipIf(!hasBackends)(
         .expect(429);
     });
 
+    it('counts a wrong current password as a failed sign-in', async () => {
+      const email = await account();
+      const ip = address();
+      const { headers } = await signIn(address(), email).expect(200);
+      const cookie = headers['set-cookie'] as unknown as string[];
+      for (let i = 0; i < 2; i++) {
+        const response = await request(app.getHttpServer())
+          .post('/api/auth/change-password')
+          .set('x-real-ip', ip)
+          .set('origin', 'http://localhost:3000')
+          .set('Cookie', cookie)
+          .send({
+            currentPassword: 'wrong',
+            newPassword: 'another horse battery',
+          });
+        expect(response.status).toBeGreaterThanOrEqual(400);
+        expect(response.status).toBeLessThan(500);
+      }
+      await signIn(ip, email).expect(429);
+    });
+
+    it('limits change-email with sign-up, as it sends mail', async () => {
+      const email = await account();
+      const ip = address();
+      const { headers } = await signIn(address(), email).expect(200);
+      const cookie = headers['set-cookie'] as unknown as string[];
+      const changeEmail = (to: string) =>
+        request(app.getHttpServer())
+          .post('/api/auth/change-email')
+          .set('x-real-ip', ip)
+          .set('origin', 'http://localhost:3000')
+          .set('Cookie', cookie)
+          .send({ newEmail: to });
+      const stamp = Date.now();
+      await changeEmail(`rlchange${stamp}a@example.com`);
+      await changeEmail(`rlchange${stamp}b@example.com`);
+      const refused = await changeEmail(`rlchange${stamp}c@example.com`);
+      expect(refused.status).toBe(429);
+      expect(refused.headers['x-ratelimit-resource']).toBe('auth');
+    });
+
     it('counts IPs apart', async () => {
       const email = await account();
       const blocked = address();
