@@ -190,6 +190,18 @@ describe.skipIf(!hasBackends)('Rate limits on the API', () => {
     expect(diff.headers['x-ratelimit-resource']).toBe('search');
   });
 
+  it('leaves avatars and attachments, which pages load as images, uncounted', async () => {
+    for (let i = 0; i < 5; i++)
+      for (const path of [
+        '/api/users/avatars/nobody/missing.png',
+        '/api/attachments/missing',
+      ]) {
+        const response = await http().get(path);
+        expect(response.status).not.toBe(429);
+        expect(response.headers['x-ratelimit-limit']).toBeUndefined();
+      }
+  });
+
   it('leaves health checks and internal routes uncounted', async () => {
     for (let i = 0; i < 20; i++) {
       const response = await http().get('/api').expect(200);
