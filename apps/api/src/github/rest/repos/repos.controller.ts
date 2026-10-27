@@ -1,17 +1,22 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
   Logger,
   Param,
+  Patch,
   Post,
+  Query,
   Res,
   UseFilters,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -24,7 +29,14 @@ import { sendArchive } from '../../../lib/http/send-archive.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
+import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubCreateRepositoryDTO } from './dto/create-repository.dto.js';
+import {
+  GithubListOrganizationRepositoriesQueryDTO,
+  GithubListUserRepositoriesQueryDTO,
+  GithubListViewerRepositoriesQueryDTO,
+} from './dto/list-repositories.dto.js';
+import { GithubUpdateRepositoryDTO } from './dto/update-repository.dto.js';
 import { GithubReposService } from './repos.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { GithubReadmeDTO, GithubRepositoryDTO } from './dto/repository.dto.js';
@@ -145,5 +157,75 @@ export class ReposController {
     @Viewer() viewer: GithubViewer | null,
   ) {
     return this.repos.create(viewer, body, org, 'POST /orgs/:org/repos');
+  }
+
+  @Get('user/repos')
+  @UseInterceptors(GithubRestInterceptor)
+  @ApiOperation({
+    summary: "The authenticated user's repositories, private ones included",
+    description:
+      "Every repository the user holds a role on: their own, the ones shared with them, and their organizations'.",
+  })
+  @ApiOkResponse({ type: [GithubRepositoryDTO] })
+  listForViewer(
+    @Query() query: GithubListViewerRepositoriesQueryDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.repos.listForViewer(viewer, query);
+  }
+
+  @Get('users/:username/repos')
+  @UseInterceptors(GithubRestInterceptor)
+  @ApiOperation({ summary: "A user's or organization's public repositories" })
+  @ApiOkResponse({ type: [GithubRepositoryDTO] })
+  listForUser(
+    @Param('username') username: string,
+    @Query() query: GithubListUserRepositoriesQueryDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.repos.listForUser(username, viewer, query);
+  }
+
+  @Get('orgs/:org/repos')
+  @UseInterceptors(GithubRestInterceptor)
+  @ApiOperation({
+    summary: "An organization's repositories the viewer can read",
+  })
+  @ApiOkResponse({ type: [GithubRepositoryDTO] })
+  listForOrganization(
+    @Param('org') org: string,
+    @Query() query: GithubListOrganizationRepositoriesQueryDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.repos.listForOrganization(org, viewer, query);
+  }
+
+  @Patch('repos/:owner/:repo')
+  @ApiOperation({
+    summary:
+      'Rename, describe, change the visibility or the default branch of a repository',
+  })
+  @ApiOkResponse({ type: GithubRepositoryDTO })
+  update(
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
+    @Body() body: GithubUpdateRepositoryDTO,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.repos.update({ owner, repo, viewer }, body);
+  }
+
+  @Delete('repos/:owner/:repo')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Delete a repository; the token needs `delete_repo`',
+  })
+  @ApiNoContentResponse()
+  delete(
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.repos.delete({ owner, repo, viewer });
   }
 }

@@ -13020,6 +13020,121 @@
         "tags": [
           "GitHub compatibility"
         ]
+      },
+      "patch": {
+        "operationId": "ReposController_update",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubUpdateRepositoryDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubRepositoryDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Rename, describe, change the visibility or the default branch of a repository",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "delete": {
+        "operationId": "ReposController_delete",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a repository; the token needs `delete_repo`",
+        "tags": [
+          "GitHub compatibility"
+        ]
       }
     },
     "/api/v3/repos/{owner}/{repo}/readme": {
@@ -13285,6 +13400,138 @@
         "tags": [
           "GitHub compatibility"
         ]
+      },
+      "get": {
+        "description": "Every repository the user holds a role on: their own, the ones shared with them, and their organizations'.",
+        "operationId": "ReposController_listForViewer",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "`full_name` sorts ignoring case. The default depends on the list.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated",
+                "pushed",
+                "full_name"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "`asc` when sorting by `full_name`, else `desc`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "visibility",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "all",
+              "type": "string",
+              "enum": [
+                "all",
+                "public",
+                "private"
+              ]
+            }
+          },
+          {
+            "name": "affiliation",
+            "required": false,
+            "in": "query",
+            "description": "A comma-separated list of `owner`, `collaborator` and `organization_member`. All three by default.",
+            "schema": {
+              "example": "owner,collaborator",
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Refused with 422 alongside `visibility` or `affiliation`.",
+            "schema": {
+              "default": "all",
+              "type": "string",
+              "enum": [
+                "all",
+                "owner",
+                "public",
+                "private",
+                "member"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubRepositoryDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "The authenticated user's repositories, private ones included",
+        "tags": [
+          "GitHub compatibility"
+        ]
       }
     },
     "/api/v3/orgs/{org}/repos": {
@@ -13342,6 +13589,237 @@
           }
         ],
         "summary": "Create a repository in an organization",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "get": {
+        "operationId": "ReposController_listForOrganization",
+        "parameters": [
+          {
+            "name": "org",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "`full_name` sorts ignoring case. The default depends on the list.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated",
+                "pushed",
+                "full_name"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "`asc` when sorting by `full_name`, else `desc`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "`member` keeps the repositories the viewer holds a role on.",
+            "schema": {
+              "default": "all",
+              "type": "string",
+              "enum": [
+                "all",
+                "public",
+                "private",
+                "forks",
+                "sources",
+                "member"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubRepositoryDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "An organization's repositories the viewer can read",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/users/{username}/repos": {
+      "get": {
+        "operationId": "ReposController_listForUser",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "`full_name` sorts ignoring case. The default depends on the list.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated",
+                "pushed",
+                "full_name"
+              ]
+            }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "description": "`asc` when sorting by `full_name`, else `desc`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "`member` lists the public repositories the user collaborates on.",
+            "schema": {
+              "default": "owner",
+              "type": "string",
+              "enum": [
+                "all",
+                "owner",
+                "member"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubRepositoryDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "A user's or organization's public repositories",
         "tags": [
           "GitHub compatibility"
         ]
@@ -27286,6 +27764,33 @@
         "required": [
           "name"
         ]
+      },
+      "GithubUpdateRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Renaming also changes the slug, so the old URL stops resolving."
+          },
+          "description": {
+            "type": "string"
+          },
+          "private": {
+            "type": "boolean",
+            "description": "Ignored when `visibility` is given."
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "private"
+            ]
+          },
+          "default_branch": {
+            "type": "string",
+            "description": "An existing branch, without `refs/heads/`; 404 when there is none."
+          }
+        }
       },
       "GithubCodeownersErrorsDTO": {
         "type": "object",
