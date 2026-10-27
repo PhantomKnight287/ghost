@@ -300,6 +300,35 @@ describe.skipIf(!hasBackends)(
         expect(unchanged.body.name).toBe('epsilon-two');
       });
 
+      it('refuses null for a setting rather than reading it as a change', async () => {
+        for (const body of [
+          { private: null },
+          { visibility: null },
+          { name: null },
+          { default_branch: null },
+        ])
+          await send(
+            'patch',
+            `/repos/${username}/beta`,
+            body,
+            owner.key,
+          ).expect(422);
+        for (const body of [
+          { visibility: null },
+          { name: null },
+          { defaultBranch: null },
+        ])
+          await api()
+            .patch(`/api/repositories/${username}/beta`)
+            .set('cookie', owner.cookie)
+            .send(body)
+            .expect(400);
+        const { body } = await get(`/repos/${username}/beta`, owner.key).expect(
+          200,
+        );
+        expect(body).toMatchObject({ name: 'beta', private: true });
+      });
+
       it('refuses anyone but an admin, and a token without the scope', async () => {
         await send('patch', `/repos/${username}/alpha`, {
           description: 'x',

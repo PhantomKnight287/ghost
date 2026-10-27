@@ -5,15 +5,16 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  ValidateIf,
 } from 'class-validator';
 
-/** GitHub's update-repository body, as far as Ghost keeps the setting; other fields are dropped. */
+/** GitHub's update-repository body, as far as Ghost keeps the setting; other fields are dropped. Only `description` takes null: a null visibility would otherwise read as a change to public. */
 export class GithubUpdateRepositoryDTO {
   @ApiPropertyOptional({
     description:
       'Renaming also changes the slug, so the old URL stops resolving.',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @IsNotEmpty()
   name?: string;
@@ -24,12 +25,12 @@ export class GithubUpdateRepositoryDTO {
   description?: string;
 
   @ApiPropertyOptional({ description: 'Ignored when `visibility` is given.' })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   private?: boolean;
 
   @ApiPropertyOptional({ enum: ['public', 'private'] })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsIn(['public', 'private'])
   visibility?: 'public' | 'private';
 
@@ -37,7 +38,7 @@ export class GithubUpdateRepositoryDTO {
     description:
       'An existing branch, without `refs/heads/`; 404 when there is none.',
   })
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @IsNotEmpty()
   default_branch?: string;
