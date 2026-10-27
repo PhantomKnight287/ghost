@@ -8,7 +8,13 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
@@ -16,7 +22,10 @@ import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
-import { GithubUploadReleaseAssetQueryDTO } from './dto/release.dto.js';
+import {
+  GithubReleaseAssetDTO,
+  GithubUploadReleaseAssetQueryDTO,
+} from './dto/release.dto.js';
 import { GithubReleasesService } from './releases.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
@@ -36,6 +45,7 @@ export class GithubUploadsController {
   })
   @ApiConsumes('application/octet-stream')
   @ApiBody({ schema: { type: 'string', format: 'binary' } })
+  @ApiCreatedResponse({ type: GithubReleaseAssetDTO })
   upload(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

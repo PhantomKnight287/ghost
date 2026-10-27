@@ -12,6 +12,9 @@ import {
   MinLength,
 } from 'class-validator';
 
+import { GithubSimpleUserDTO } from '../../users/dto/user.dto.js';
+import { GithubLabelDTO } from './label.dto.js';
+
 /** GitHub's issue list query; `milestone`, `mentioned`, `type` and `issue_field_values` are dropped by the whitelist, as GitHub ignores filters it cannot apply. */
 export class GithubListIssuesQueryDTO {
   @ApiPropertyOptional({ enum: ['open', 'closed', 'all'], default: 'open' })
@@ -203,4 +206,161 @@ export class GithubCommentDTO {
   @IsString()
   @MinLength(1)
   body: string;
+}
+
+export const AUTHOR_ASSOCIATION = {
+  enum: ['OWNER', 'NONE'],
+  description:
+    '`OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here.',
+};
+
+export class GithubIssuePullRequestLinksDTO {
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  html_url: string;
+
+  @ApiProperty()
+  diff_url: string;
+
+  @ApiProperty()
+  patch_url: string;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  merged_at: string | null;
+}
+
+export class GithubIssueDTO {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  repository_url: string;
+
+  @ApiProperty()
+  labels_url: string;
+
+  @ApiProperty()
+  comments_url: string;
+
+  @ApiProperty()
+  events_url: string;
+
+  @ApiProperty()
+  timeline_url: string;
+
+  @ApiProperty()
+  html_url: string;
+
+  @ApiProperty()
+  number: number;
+
+  @ApiProperty({ enum: ['open', 'closed'] })
+  state: string;
+
+  @ApiProperty({
+    type: String,
+    enum: ['completed'],
+    nullable: true,
+    description:
+      'Ghost records no close reason, so every closed issue reads as `completed`.',
+  })
+  state_reason: 'completed' | null;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  body: string | null;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  user: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ type: [GithubLabelDTO] })
+  labels: GithubLabelDTO[];
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  assignee: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ type: [GithubSimpleUserDTO] })
+  assignees: GithubSimpleUserDTO[];
+
+  @ApiProperty({
+    type: Object,
+    nullable: true,
+    description: 'Always null: Ghost has no milestones on this API.',
+  })
+  milestone: null;
+
+  @ApiProperty({ example: false })
+  locked: boolean;
+
+  @ApiProperty({ type: String, nullable: true })
+  active_lock_reason: null;
+
+  @ApiProperty()
+  comments: number;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  closed_at: string | null;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  closed_by: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ format: 'date-time' })
+  created_at: string;
+
+  @ApiProperty({ format: 'date-time' })
+  updated_at: string;
+
+  @ApiProperty(AUTHOR_ASSOCIATION)
+  author_association: string;
+
+  @ApiPropertyOptional({ description: 'Pull requests only.' })
+  draft?: boolean;
+
+  @ApiPropertyOptional({
+    type: GithubIssuePullRequestLinksDTO,
+    description: 'Pull requests only: what marks the issue as one.',
+  })
+  pull_request?: GithubIssuePullRequestLinksDTO;
+}
+
+export class GithubIssueCommentDTO {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  html_url: string;
+
+  @ApiProperty()
+  issue_url: string;
+
+  @ApiProperty()
+  body: string;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  user: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ format: 'date-time' })
+  created_at: string;
+
+  @ApiProperty({ format: 'date-time' })
+  updated_at: string;
+
+  @ApiProperty(AUTHOR_ASSOCIATION)
+  author_association: string;
 }

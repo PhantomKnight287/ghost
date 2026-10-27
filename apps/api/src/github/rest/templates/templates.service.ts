@@ -9,6 +9,10 @@ import {
 
 import { GithubNotFoundError } from '../../../lib/github/github.errors.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
+import type {
+  GithubLicenseDTO,
+  GithubLicenseSummaryDTO,
+} from './dto/template.dto.js';
 
 /** The .gitignore and license templates repository creation takes, as GitHub lists them. */
 @Injectable()
@@ -25,7 +29,7 @@ export class TemplatesService {
     return template;
   }
 
-  licenses() {
+  licenses(): GithubLicenseSummaryDTO[] {
     return LICENSES.map(({ key, name, spdx_id, node_id }) => ({
       key,
       name,
@@ -35,7 +39,7 @@ export class TemplatesService {
     }));
   }
 
-  license(key: string) {
+  license(key: string): GithubLicenseDTO {
     const license = findLicense(key);
     if (!license) throw new GithubNotFoundError();
     return { ...license, url: this.licenseUrl(license.key) };

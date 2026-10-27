@@ -26,7 +26,10 @@ import type {
   GithubListCommentsQueryDTO,
 } from '../issues/dto/issue.dto.js';
 import { GithubIssuesService } from '../issues/issues.service.js';
-import type { GithubCreateReviewCommentDTO } from './dto/review-comment.dto.js';
+import type {
+  GithubCreateReviewCommentDTO,
+  GithubReviewCommentDTO,
+} from './dto/review-comment.dto.js';
 import { GithubReviewsService } from './reviews.service.js';
 
 const comment = schema.pullRequestReviewComment;
@@ -260,7 +263,7 @@ export class GithubReviewCommentsService {
     viewer: GithubViewer | null,
     where: SQL | undefined,
     list?: { page: Page; orderBy: SQL },
-  ) {
+  ): Promise<{ total: number; items: GithubReviewCommentDTO[] }> {
     const query = this.db
       .select({
         id: comment.id,

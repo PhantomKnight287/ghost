@@ -16,7 +16,15 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiExtraModels,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
@@ -27,11 +35,14 @@ import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubPageQueryDTO } from '../issues/dto/issue.dto.js';
 import {
   GithubCreateReleaseDTO,
+  GithubReleaseAssetDTO,
+  GithubReleaseDTO,
   GithubUpdateReleaseAssetDTO,
   GithubUpdateReleaseDTO,
 } from './dto/release.dto.js';
 import { GithubReleasesService } from './releases.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -40,11 +51,13 @@ const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class GithubReleasesController {
   constructor(private readonly releases: GithubReleasesService) {}
 
   @Get()
   @ApiOperation({ summary: "A repository's releases, newest first" })
+  @ApiOkResponse({ type: [GithubReleaseDTO] })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -58,6 +71,7 @@ export class GithubReleasesController {
   @ApiOperation({
     summary: 'Create a release, and its tag when the tag does not exist',
   })
+  @ApiCreatedResponse({ type: GithubReleaseDTO })
   create(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -71,6 +85,7 @@ export class GithubReleasesController {
   @ApiOperation({
     summary: 'The newest published release that is not a prerelease',
   })
+  @ApiOkResponse({ type: GithubReleaseDTO })
   latest(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -81,6 +96,7 @@ export class GithubReleasesController {
 
   @Get('tags/*tag')
   @ApiOperation({ summary: 'A published release by its tag' })
+  @ApiOkResponse({ type: GithubReleaseDTO })
   byTag(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -94,6 +110,17 @@ export class GithubReleasesController {
   @ApiOperation({
     summary:
       'A release asset, or its bytes when asked for application/octet-stream',
+  })
+  @ApiExtraModels(GithubReleaseAssetDTO)
+  @ApiOkResponse({
+    content: {
+      'application/json': {
+        schema: { $ref: getSchemaPath(GithubReleaseAssetDTO) },
+      },
+      'application/octet-stream': {
+        schema: { type: 'string', format: 'binary' },
+      },
+    },
   })
   async asset(
     @Param('owner', TransformToLowercasePipe) owner: string,
@@ -121,6 +148,7 @@ export class GithubReleasesController {
 
   @Patch('assets/:asset_id')
   @ApiOperation({ summary: 'Rename a release asset or set its label' })
+  @ApiOkResponse({ type: GithubReleaseAssetDTO })
   updateAsset(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -134,6 +162,7 @@ export class GithubReleasesController {
   @Delete('assets/:asset_id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a release asset' })
+  @ApiNoContentResponse()
   deleteAsset(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -147,6 +176,7 @@ export class GithubReleasesController {
   @ApiOperation({
     summary: 'A release by its integer id, drafts included for writers',
   })
+  @ApiOkResponse({ type: GithubReleaseDTO })
   get(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -158,6 +188,7 @@ export class GithubReleasesController {
 
   @Patch(':release_id')
   @ApiOperation({ summary: 'Edit a release: name, notes, draft, prerelease' })
+  @ApiOkResponse({ type: GithubReleaseDTO })
   update(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -171,6 +202,7 @@ export class GithubReleasesController {
   @Delete(':release_id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a release and its assets' })
+  @ApiNoContentResponse()
   delete(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -182,6 +214,7 @@ export class GithubReleasesController {
 
   @Get(':release_id/assets')
   @ApiOperation({ summary: "A release's assets, by name" })
+  @ApiOkResponse({ type: [GithubReleaseAssetDTO] })
   listAssets(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

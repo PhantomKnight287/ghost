@@ -10,7 +10,12 @@ import {
   Res,
   UseFilters,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
@@ -22,11 +27,14 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubCreateRepositoryDTO } from './dto/create-repository.dto.js';
 import { GithubReposService } from './repos.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { GithubReadmeDTO, GithubRepositoryDTO } from './dto/repository.dto.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
 @SignInOptional()
 @UseFilters(GithubRestFilter)
+@ApiGithubErrors()
 export class ReposController {
   private readonly logger = new Logger(ReposController.name);
 
@@ -34,6 +42,7 @@ export class ReposController {
 
   @Get('repos/:owner/:repo')
   @ApiOperation({ summary: 'A repository, in GitHub REST shape' })
+  @ApiOkResponse({ type: GithubRepositoryDTO })
   get(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -47,6 +56,7 @@ export class ReposController {
     summary:
       "The repository's README at the default branch, base64 as GitHub returns it",
   })
+  @ApiOkResponse({ type: GithubReadmeDTO })
   readme(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -58,6 +68,7 @@ export class ReposController {
   // A ref may hold slashes (`feat/x`, `refs/heads/feat/x`), so it is the rest of the path.
   @Get('repos/:owner/:repo/zipball{/*ref}')
   @ApiOperation({ summary: 'A zip of the repository at a ref' })
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   zipball(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -75,6 +86,7 @@ export class ReposController {
 
   @Get('repos/:owner/:repo/tarball{/*ref}')
   @ApiOperation({ summary: 'A gzipped tarball of the repository at a ref' })
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   tarball(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -115,6 +127,7 @@ export class ReposController {
   @Post('user/repos')
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a repository for the authenticated user' })
+  @ApiCreatedResponse({ type: GithubRepositoryDTO })
   createForUser(
     @Body() body: GithubCreateRepositoryDTO,
     @Viewer() viewer: GithubViewer | null,
@@ -125,6 +138,7 @@ export class ReposController {
   @Post('orgs/:org/repos')
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a repository in an organization' })
+  @ApiCreatedResponse({ type: GithubRepositoryDTO })
   createForOrganization(
     @Param('org') org: string,
     @Body() body: GithubCreateRepositoryDTO,

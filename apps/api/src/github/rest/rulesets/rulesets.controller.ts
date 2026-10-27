@@ -13,7 +13,13 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import { GithubNotFoundError } from '../../../lib/github/github.errors.js';
@@ -22,13 +28,19 @@ import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import {
+  GithubBranchRuleDTO,
   GithubCreateRulesetDTO,
+  GithubRulesetDTO,
+  GithubRulesetSummaryDTO,
+  GithubRuleSuiteDetailDTO,
+  GithubRuleSuiteDTO,
   GithubRuleSuiteQueryDTO,
   GithubRuleSuitesQueryDTO,
   GithubUpdateRulesetDTO,
 } from './dto/rulesets.dto.js';
 import { GithubRulesetsService } from './rulesets.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 // numeric_id is a bigint, read as a JavaScript number: an id past the safe range could only round onto another ruleset or overflow Postgres, so it is as absent as any unknown id.
 const ID: PipeTransform<string, number> = {
@@ -45,6 +57,7 @@ const ID: PipeTransform<string, number> = {
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class GithubRulesetsController {
   constructor(private readonly rulesets: GithubRulesetsService) {}
 
@@ -54,6 +67,7 @@ export class GithubRulesetsController {
     description:
       '`includes_parents` is ignored until organization rulesets exist.',
   })
+  @ApiOkResponse({ type: [GithubRulesetSummaryDTO] })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -64,6 +78,7 @@ export class GithubRulesetsController {
 
   @Post('rulesets')
   @ApiOperation({ summary: 'Create a ruleset' })
+  @ApiCreatedResponse({ type: GithubRulesetDTO })
   create(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -79,6 +94,7 @@ export class GithubRulesetsController {
     summary:
       'Rule insights: every write the rulesets checked, one suite per ref',
   })
+  @ApiOkResponse({ type: [GithubRuleSuiteDTO] })
   ruleSuites(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -90,6 +106,7 @@ export class GithubRulesetsController {
 
   @Get('rulesets/rule-suites/:id')
   @ApiOperation({ summary: 'One rule suite with its rule evaluations' })
+  @ApiOkResponse({ type: GithubRuleSuiteDetailDTO })
   ruleSuite(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -102,6 +119,7 @@ export class GithubRulesetsController {
 
   @Get('rulesets/:id')
   @ApiOperation({ summary: 'A ruleset' })
+  @ApiOkResponse({ type: GithubRulesetDTO })
   get(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -115,6 +133,7 @@ export class GithubRulesetsController {
   @ApiOperation({
     summary: 'Update a ruleset; fields left out keep their value',
   })
+  @ApiOkResponse({ type: GithubRulesetDTO })
   update(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -128,6 +147,7 @@ export class GithubRulesetsController {
   @Delete('rulesets/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a ruleset' })
+  @ApiNoContentResponse()
   remove(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -139,6 +159,7 @@ export class GithubRulesetsController {
 
   @Get('rules/branches/*branch')
   @ApiOperation({ summary: 'The active rules that apply to a branch' })
+  @ApiOkResponse({ type: [GithubBranchRuleDTO] })
   branchRules(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

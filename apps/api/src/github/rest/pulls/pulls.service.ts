@@ -53,7 +53,11 @@ import type {
   GithubCreatePullDTO,
   GithubListPullsQueryDTO,
   GithubMergePullDTO,
+  GithubMergeResultDTO,
+  GithubPullCommitDTO,
+  GithubPullFileDTO,
   GithubRequestedReviewersDTO,
+  GithubRequestedReviewersResponseDTO,
   GithubUpdatePullDTO,
 } from './dto/pull.dto.js';
 
@@ -166,7 +170,7 @@ export class GithubPullsService {
   async listRequestedReviewers(
     { owner, repo, viewer }: GithubRepositoryTarget,
     number: number,
-  ) {
+  ): Promise<GithubRequestedReviewersResponseDTO> {
     const repository = await this.github.readable(owner, repo, viewer);
     const issue = await this.issue(repository, viewer, number);
     const [pull] = await this.rest(repository, viewer, [issue]);
@@ -284,7 +288,7 @@ export class GithubPullsService {
     );
     const userOf = (email: string) => users.get(email.toLowerCase()) ?? null;
     const apiUrl = `${githubOrigins(this.config).api}/api/v3/repos/${repository.nameWithOwner}`;
-    return new RestPage(
+    return new RestPage<GithubPullCommitDTO>(
       commits.slice(page.offset, page.offset + page.perPage).map((commit) => ({
         sha: commit.sha,
         node_id: encodeNodeId('Commit', `${repository.ghostId}:${commit.sha}`),
@@ -337,7 +341,7 @@ export class GithubPullsService {
       ...this.github.ref(repository, viewer),
       number,
     });
-    return new RestPage(
+    return new RestPage<GithubPullFileDTO>(
       files.slice(page.offset, page.offset + page.perPage).map((file) => ({
         filename: file.path,
         status: FILE_STATUS[file.status] ?? 'modified',
@@ -369,7 +373,7 @@ export class GithubPullsService {
     { owner, repo, viewer }: GithubRepositoryTarget,
     number: number,
     body: GithubMergePullDTO,
-  ) {
+  ): Promise<GithubMergeResultDTO> {
     const { repository, viewer: signedIn } = await this.github.writable(
       owner,
       repo,

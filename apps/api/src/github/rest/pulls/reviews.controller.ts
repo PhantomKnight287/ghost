@@ -11,7 +11,7 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
@@ -21,10 +21,12 @@ import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubPageQueryDTO } from '../issues/dto/issue.dto.js';
 import {
   GithubCreateReviewDTO,
+  GithubReviewDTO,
   GithubSubmitReviewDTO,
 } from './dto/review-comment.dto.js';
 import { GithubReviewsService } from './reviews.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -33,6 +35,7 @@ const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class GithubReviewsController {
   constructor(private readonly reviews: GithubReviewsService) {}
 
@@ -40,6 +43,7 @@ export class GithubReviewsController {
   @ApiOperation({
     summary: "A pull request's reviews, oldest first, then your pending one",
   })
+  @ApiOkResponse({ type: [GithubReviewDTO] })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -52,6 +56,7 @@ export class GithubReviewsController {
 
   @Get(':review_id')
   @ApiOperation({ summary: 'One review of a pull request, by its integer id' })
+  @ApiOkResponse({ type: GithubReviewDTO })
   get(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -67,6 +72,7 @@ export class GithubReviewsController {
   @ApiOperation({
     summary: 'Submit a review with its line comments, or start a pending one',
   })
+  @ApiOkResponse({ type: GithubReviewDTO })
   create(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -80,6 +86,7 @@ export class GithubReviewsController {
   @Post(':review_id/events')
   @HttpCode(200)
   @ApiOperation({ summary: 'Submit your pending review' })
+  @ApiOkResponse({ type: GithubReviewDTO })
   submit(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -98,6 +105,7 @@ export class GithubReviewsController {
 
   @Delete(':review_id')
   @ApiOperation({ summary: 'Discard your pending review and its comments' })
+  @ApiOkResponse({ type: GithubReviewDTO })
   delete(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

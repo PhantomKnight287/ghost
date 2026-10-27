@@ -35,8 +35,13 @@ import type {
 import type { RepositoryNode } from '../../graphql/types/repository.type.js';
 import { GithubIssuesService } from '../issues/issues.service.js';
 import type {
+  GithubBranchRuleDTO,
   GithubBypassActorDTO,
   GithubCreateRulesetDTO,
+  GithubRulesetDTO,
+  GithubRulesetSummaryDTO,
+  GithubRuleSuiteDetailDTO,
+  GithubRuleSuiteDTO,
   GithubRuleSuiteQueryDTO,
   GithubRuleSuitesQueryDTO,
   GithubUpdateRulesetDTO,
@@ -175,7 +180,7 @@ export class GithubRulesetsService {
   async branchRules(
     { owner, repo, viewer }: GithubRepositoryTarget,
     branch: string,
-  ) {
+  ): Promise<GithubBranchRuleDTO[]> {
     const repository = await this.github.readable(owner, repo, viewer);
     const rows = await this.rows(
       and(
@@ -231,7 +236,7 @@ export class GithubRulesetsService {
         .offset(page.offset),
       this.db.select({ total: count() }).from(schema.ruleSuite).where(where),
     ]);
-    return new RestPage(
+    return new RestPage<GithubRuleSuiteDTO>(
       suites.map((suite) => ({
         ...suite,
         repository_id: repository.databaseId,
@@ -246,7 +251,7 @@ export class GithubRulesetsService {
     { owner, repo, viewer }: GithubRepositoryTarget,
     numericId: number,
     query: GithubRuleSuiteQueryDTO,
-  ) {
+  ): Promise<GithubRuleSuiteDetailDTO> {
     const repository = await this.github.readable(owner, repo, viewer);
     if (!atLeast(repository.viewerRole, 'admin'))
       throw new GithubNotFoundError();
@@ -386,7 +391,10 @@ export class GithubRulesetsService {
   }
 
   /** What GitHub lists: no conditions, rules or bypass actors. */
-  private summary(repository: RepositoryNode, row: Row) {
+  private summary(
+    repository: RepositoryNode,
+    row: Row,
+  ): GithubRulesetSummaryDTO {
     const { api } = githubOrigins(this.config);
     return {
       id: row.numericId,
@@ -412,7 +420,7 @@ export class GithubRulesetsService {
     repository: RepositoryNode,
     viewer: GithubViewer | null,
     row: Row,
-  ) {
+  ): Promise<GithubRulesetDTO> {
     const actor = await this.verdicts.actorOf(
       repository.ghostId,
       viewer?.userId ?? null,

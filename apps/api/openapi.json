@@ -10,6 +10,9 @@
             "description": ""
           }
         },
+        "security": [
+          {}
+        ],
         "tags": [
           "App"
         ]
@@ -188,6 +191,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Get repositories for username",
         "tags": [
           "Repositories"
@@ -238,6 +250,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Get repository details",
         "tags": [
           "Repositories"
@@ -706,6 +727,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List repository contents",
         "tags": [
           "Repositories"
@@ -776,6 +806,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List every file path",
         "tags": [
           "Repositories"
@@ -846,6 +885,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Read the README",
         "tags": [
           "Repositories"
@@ -927,6 +975,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Read a file",
         "tags": [
           "Repositories"
@@ -999,6 +1056,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Download a file",
         "tags": [
           "Repositories"
@@ -1101,6 +1167,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Download a source archive",
         "tags": [
           "Repositories"
@@ -1202,6 +1277,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List commits",
         "tags": [
           "Repositories"
@@ -1260,6 +1344,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Read a commit",
         "tags": [
           "Repositories"
@@ -1325,6 +1418,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Read a commit as a patch",
         "tags": [
           "Repositories"
@@ -1375,6 +1477,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List repository branches",
         "tags": [
           "Repositories"
@@ -1456,6 +1567,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List repository tags",
         "tags": [
           "Repositories"
@@ -1506,6 +1626,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Language breakdown",
         "tags": [
           "Repositories"
@@ -1617,6 +1746,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Search code",
         "tags": [
           "Repositories"
@@ -1698,6 +1836,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List stargazers",
         "tags": [
           "Repositories"
@@ -1779,6 +1926,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List forks",
         "tags": [
           "Repositories"
@@ -1841,6 +1997,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List contributors",
         "tags": [
           "Repositories"
@@ -1906,6 +2071,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Search repositories",
         "tags": [
           "Search"
@@ -1991,6 +2165,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Search code",
         "tags": [
           "Search"
@@ -2160,6 +2343,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Check the CODEOWNERS file",
         "tags": [
           "Repositories"
@@ -2246,6 +2438,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Name the code owners of files",
         "tags": [
           "Repositories"
@@ -2369,6 +2570,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List releases",
         "tags": [
           "Releases"
@@ -2507,6 +2717,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Read the latest release",
         "tags": [
           "Releases"
@@ -2565,6 +2784,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Read a release by tag",
         "tags": [
           "Releases"
@@ -2908,6 +3136,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Download a release asset",
         "tags": [
           "Releases"
@@ -3125,6 +3362,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Read the combined status of a commit",
         "tags": [
           "Commit statuses"
@@ -3812,6 +4058,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Organization profile",
         "tags": [
           "Organizations"
@@ -3854,6 +4109,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List the organizations a user belongs to",
         "tags": [
           "Organizations"
@@ -4644,6 +4908,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List pull requests",
         "tags": [
           "Pull requests"
@@ -4844,6 +5117,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Get a pull request",
         "tags": [
           "Pull requests"
@@ -4986,6 +5268,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Commits a pull request adds",
         "tags": [
           "Pull requests"
@@ -5051,6 +5342,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Where a commit falls among a pull request's commits, with its neighbours",
         "tags": [
           "Pull requests"
@@ -5108,6 +5408,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Paths a pull request changes",
         "tags": [
           "Pull requests"
@@ -5174,6 +5483,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "The patch itself, as text",
         "tags": [
           "Pull requests"
@@ -6552,6 +6870,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Users and teams asked to review a pull request",
         "tags": [
           "Pull request reviews"
@@ -6996,6 +7323,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List issues",
         "tags": [
           "Issues"
@@ -7053,6 +7389,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Get an issue",
         "tags": [
           "Issues"
@@ -7309,6 +7654,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Comments on an issue",
         "tags": [
           "Issues"
@@ -7569,6 +7923,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Comments and events interleaved oldest-first",
         "tags": [
           "Issues"
@@ -7752,6 +8115,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List labels in a repository",
         "tags": [
           "Labels"
@@ -8010,6 +8382,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Suggest people to mention or assign",
         "tags": [
           "Issues"
@@ -8069,6 +8450,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Suggest issues and pull requests to reference",
         "tags": [
           "Issues"
@@ -8248,6 +8638,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Get import progress",
         "tags": [
           "Imports"
@@ -8361,6 +8760,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "List rulesets",
         "tags": [
           "Rulesets"
@@ -8577,6 +8985,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Get a ruleset",
         "tags": [
           "Rulesets"
@@ -8804,6 +9221,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Refs guarded by rulesets",
         "tags": [
           "Rulesets"
@@ -9108,6 +9534,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Download an attachment",
         "tags": [
           "Attachments"
@@ -11357,6 +11792,15 @@
             "description": ""
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Follow an address verification link",
         "tags": [
           "Emails"
@@ -11836,6 +12280,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Serve a stored avatar",
         "tags": [
           "Users"
@@ -11877,6 +12330,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Read a user's public profile",
         "tags": [
           "Users"
@@ -11929,6 +12391,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Read a user's contribution calendar",
         "tags": [
           "Users"
@@ -11941,9 +12412,35 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "GitHub API root; gh reads the X-OAuth-Scopes header it carries",
         "tags": [
           "GitHub compatibility"
@@ -11956,9 +12453,35 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubMetaDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "GitHub Enterprise meta; installed_version decides which search syntax gh uses",
         "tags": [
           "GitHub compatibility"
@@ -11971,9 +12494,35 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubAuthenticatedUserDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "The authenticated user, in GitHub REST shape",
         "tags": [
           "GitHub compatibility"
@@ -11995,9 +12544,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubUserDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A user or organization by login, in GitHub REST shape",
         "tags": [
           "GitHub compatibility"
@@ -12010,9 +12585,38 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubKeyDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "The authenticated user's SSH keys, in GitHub REST shape",
         "tags": [
           "GitHub compatibility"
@@ -12033,9 +12637,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubKeyDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Add an SSH key to the authenticated user",
         "tags": [
           "GitHub compatibility"
@@ -12048,9 +12678,38 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubSigningKeyDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "The authenticated user's SSH signing keys, in GitHub REST shape",
         "tags": [
           "GitHub compatibility"
@@ -12071,9 +12730,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubSigningKeyDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Add an SSH signing key to the authenticated user",
         "tags": [
           "GitHub compatibility"
@@ -12095,9 +12780,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubSigningKeyDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "One SSH signing key of the authenticated user",
         "tags": [
           "GitHub compatibility"
@@ -12118,8 +12829,27 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Remove an SSH signing key from the authenticated user",
         "tags": [
           "GitHub compatibility"
@@ -12257,9 +12987,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubRepositoryDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A repository, in GitHub REST shape",
         "tags": [
           "GitHub compatibility"
@@ -12289,9 +13045,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReadmeDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "The repository's README at the default branch, base64 as GitHub returns it",
         "tags": [
           "GitHub compatibility"
@@ -12340,9 +13122,36 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A zip of the repository at a ref",
         "tags": [
           "GitHub compatibility"
@@ -12391,9 +13200,36 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A gzipped tarball of the repository at a ref",
         "tags": [
           "GitHub compatibility"
@@ -12416,9 +13252,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubRepositoryDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Create a repository for the authenticated user",
         "tags": [
           "GitHub compatibility"
@@ -12450,9 +13312,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubRepositoryDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Create a repository in an organization",
         "tags": [
           "GitHub compatibility"
@@ -12490,9 +13378,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCodeownersErrorsDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Errors in the CODEOWNERS file at a ref, the default branch when none is given",
         "tags": [
           "GitHub compatibility"
@@ -12576,9 +13490,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubIssueCommentDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Every comment in a repository's issues and pull requests",
         "tags": [
           "GitHub compatibility"
@@ -12616,9 +13559,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubIssueCommentDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A comment by id",
         "tags": [
           "GitHub compatibility"
@@ -12664,9 +13633,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubIssueCommentDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Edit a comment; only its author may",
         "tags": [
           "GitHub compatibility"
@@ -12703,8 +13698,27 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Delete a comment",
         "tags": [
           "GitHub compatibility"
@@ -12796,9 +13810,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubIssueCommentDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "An issue's comments, oldest first",
         "tags": [
           "GitHub compatibility"
@@ -12844,9 +13887,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubIssueCommentDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Comment on an issue or pull request",
         "tags": [
           "GitHub compatibility"
@@ -12895,9 +13964,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubLabelDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A repository's labels, by name",
         "tags": [
           "GitHub compatibility"
@@ -12935,9 +14033,45 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubLabelDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Failed: the name is taken ignoring case (`already_exists`), or is refused (`invalid`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Create a label",
         "tags": [
           "GitHub compatibility"
@@ -12975,9 +14109,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubLabelDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A label by name",
         "tags": [
           "GitHub compatibility"
@@ -13023,9 +14183,45 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubLabelDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Failed: the name is taken ignoring case (`already_exists`), or is refused (`invalid`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Rename, recolor or describe a label",
         "tags": [
           "GitHub compatibility"
@@ -13062,8 +14258,27 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Delete a label",
         "tags": [
           "GitHub compatibility"
@@ -13120,9 +14335,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubLabelDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "An issue's labels",
         "tags": [
           "GitHub compatibility"
@@ -13167,9 +14411,38 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubLabelDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Add labels to an issue; answers all of the issue's labels",
         "tags": [
           "GitHub compatibility"
@@ -13214,9 +14487,38 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubLabelDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Replace an issue's labels",
         "tags": [
           "GitHub compatibility"
@@ -13253,8 +14555,27 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Remove every label from an issue",
         "tags": [
           "GitHub compatibility"
@@ -13300,9 +14621,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubLabelDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Remove one label from an issue; answers the labels left",
         "tags": [
           "GitHub compatibility"
@@ -13427,9 +14777,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubIssueDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A repository's issues and pull requests",
         "tags": [
           "GitHub compatibility"
@@ -13467,9 +14846,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubIssueDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Open an issue",
         "tags": [
           "GitHub compatibility"
@@ -13507,9 +14912,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubIssueDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "An issue or pull request by number",
         "tags": [
           "GitHub compatibility"
@@ -13555,9 +14986,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubIssueDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Edit an issue: title, body, state, labels, assignees",
         "tags": [
           "GitHub compatibility"
@@ -13605,9 +15062,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubIssueDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Add up to 10 assignees to an issue",
         "tags": [
           "GitHub compatibility"
@@ -13653,9 +15136,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubIssueDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Remove assignees from an issue",
         "tags": [
           "GitHub compatibility"
@@ -13701,9 +15210,28 @@
         ],
         "responses": {
           "204": {
-            "description": ""
+            "description": "The user can be assigned; 404 otherwise."
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Whether a user can be assigned to an issue",
         "tags": [
           "GitHub compatibility"
@@ -13752,9 +15280,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubSimpleUserDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "People with access to the repository",
         "tags": [
           "GitHub compatibility"
@@ -13792,9 +15349,28 @@
         ],
         "responses": {
           "204": {
-            "description": ""
+            "description": "The user can be assigned; 404 otherwise."
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Whether a user can be assigned in the repository",
         "tags": [
           "GitHub compatibility"
@@ -13878,9 +15454,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubReviewCommentDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Every review comment in a repository's pull requests",
         "tags": [
           "GitHub compatibility"
@@ -13918,9 +15523,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReviewCommentDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A review comment by id",
         "tags": [
           "GitHub compatibility"
@@ -13966,9 +15597,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReviewCommentDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Edit a review comment; only its author may",
         "tags": [
           "GitHub compatibility"
@@ -14005,8 +15662,27 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Delete a review comment and its replies",
         "tags": [
           "GitHub compatibility"
@@ -14098,9 +15774,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubReviewCommentDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A pull request's review comments",
         "tags": [
           "GitHub compatibility"
@@ -14146,9 +15851,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReviewCommentDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Comment on a line of a pull request, or reply",
         "tags": [
           "GitHub compatibility"
@@ -14248,9 +15979,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubReviewCommentDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A review's line comments",
         "tags": [
           "GitHub compatibility"
@@ -14307,9 +16067,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubReviewDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A pull request's reviews, oldest first, then your pending one",
         "tags": [
           "GitHub compatibility"
@@ -14355,9 +16144,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReviewDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Submit a review with its line comments, or start a pending one",
         "tags": [
           "GitHub compatibility"
@@ -14403,9 +16218,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReviewDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "One review of a pull request, by its integer id",
         "tags": [
           "GitHub compatibility"
@@ -14449,9 +16290,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReviewDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Discard your pending review and its comments",
         "tags": [
           "GitHub compatibility"
@@ -14507,9 +16374,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReviewDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Submit your pending review",
         "tags": [
           "GitHub compatibility"
@@ -14547,9 +16440,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubRequestedReviewersResponseDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Users and teams asked to review a pull request",
         "tags": [
           "GitHub compatibility"
@@ -14595,9 +16514,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubPullDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Request reviews from users and teams",
         "tags": [
           "GitHub compatibility"
@@ -14643,9 +16588,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubPullDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Remove requested reviewers",
         "tags": [
           "GitHub compatibility"
@@ -14753,9 +16724,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubPullDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A repository's pull requests",
         "tags": [
           "GitHub compatibility"
@@ -14793,9 +16793,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubPullDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Open a pull request",
         "tags": [
           "GitHub compatibility"
@@ -14841,9 +16867,41 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubPullDTO"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "description": "The diff, or the patch, as `git` writes it."
+                }
+              }
+            },
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A pull request, or its diff or patch",
         "tags": [
           "GitHub compatibility"
@@ -14889,9 +16947,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubPullDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Edit a pull request: title, body, state",
         "tags": [
           "GitHub compatibility"
@@ -14948,9 +17032,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubPullCommitDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A pull request's commits, oldest first",
         "tags": [
           "GitHub compatibility"
@@ -15007,9 +17120,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubPullFileDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "The files a pull request changes",
         "tags": [
           "GitHub compatibility"
@@ -15047,9 +17189,28 @@
         ],
         "responses": {
           "204": {
-            "description": ""
+            "description": "Merged; 404 otherwise."
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Whether a pull request has been merged",
         "tags": [
           "GitHub compatibility"
@@ -15095,9 +17256,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubMergeResultDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Merge a pull request",
         "tags": [
           "GitHub compatibility"
@@ -15146,9 +17333,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubReleaseDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A repository's releases, newest first",
         "tags": [
           "GitHub compatibility"
@@ -15186,9 +17402,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReleaseDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Create a release, and its tag when the tag does not exist",
         "tags": [
           "GitHub compatibility"
@@ -15218,9 +17460,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReleaseDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "The newest published release that is not a prerelease",
         "tags": [
           "GitHub compatibility"
@@ -15261,9 +17529,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReleaseDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A published release by its tag",
         "tags": [
           "GitHub compatibility"
@@ -15309,9 +17603,41 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReleaseAssetDTO"
+                }
+              },
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A release asset, or its bytes when asked for application/octet-stream",
         "tags": [
           "GitHub compatibility"
@@ -15357,9 +17683,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReleaseAssetDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Rename a release asset or set its label",
         "tags": [
           "GitHub compatibility"
@@ -15396,8 +17748,27 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Delete a release asset",
         "tags": [
           "GitHub compatibility"
@@ -15435,9 +17806,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReleaseDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A release by its integer id, drafts included for writers",
         "tags": [
           "GitHub compatibility"
@@ -15483,9 +17880,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReleaseDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Edit a release: name, notes, draft, prerelease",
         "tags": [
           "GitHub compatibility"
@@ -15522,8 +17945,27 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Delete a release and its assets",
         "tags": [
           "GitHub compatibility"
@@ -15580,9 +18022,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubReleaseAssetDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A release's assets, by name",
         "tags": [
           "GitHub compatibility"
@@ -15647,9 +18118,25 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubReleaseAssetDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Upload a release asset: the raw bytes, served afterwards with the request's Content-Type",
         "tags": [
           "GitHub compatibility"
@@ -15697,9 +18184,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubStatusDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Report a status on a commit, by its full sha",
         "tags": [
           "GitHub compatibility"
@@ -15759,9 +18272,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubStatusDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Every status on a ref's commit, newest first",
         "tags": [
           "GitHub compatibility"
@@ -15802,9 +18344,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCombinedStatusDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "The combined status of a ref's commit: the newest status of each context",
         "tags": [
           "GitHub compatibility"
@@ -15864,6 +18432,15 @@
             }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Attach a file to embed in an issue, pull request, comment or release, as `gh --attach` does on github.com",
         "tags": [
           "GitHub compatibility"
@@ -15905,8 +18482,27 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Delete a branch or a tag",
         "tags": [
           "GitHub compatibility"
@@ -15919,9 +18515,38 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Names `gitignore_template` takes when creating a repository",
         "tags": [
           "GitHub compatibility"
@@ -15943,9 +18568,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubGitignoreTemplateDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "One .gitignore template and its source",
         "tags": [
           "GitHub compatibility"
@@ -15958,9 +18609,38 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubLicenseSummaryDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Licenses `license_template` takes when creating a repository",
         "tags": [
           "GitHub compatibility"
@@ -15982,9 +18662,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubLicenseDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "One license with its full text",
         "tags": [
           "GitHub compatibility"
@@ -16015,9 +18721,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubRulesetSummaryDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A repository's rulesets, as summaries",
         "tags": [
           "GitHub compatibility"
@@ -16055,9 +18790,35 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubRulesetDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Create a ruleset",
         "tags": [
           "GitHub compatibility"
@@ -16167,9 +18928,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubRuleSuiteDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Rule insights: every write the rulesets checked, one suite per ref",
         "tags": [
           "GitHub compatibility"
@@ -16217,9 +19007,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubRuleSuiteDetailDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "One rule suite with its rule evaluations",
         "tags": [
           "GitHub compatibility"
@@ -16257,9 +19073,35 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubRulesetDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "A ruleset",
         "tags": [
           "GitHub compatibility"
@@ -16305,9 +19147,35 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubRulesetDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Update a ruleset; fields left out keep their value",
         "tags": [
           "GitHub compatibility"
@@ -16344,8 +19212,27 @@
         "responses": {
           "204": {
             "description": ""
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "Delete a ruleset",
         "tags": [
           "GitHub compatibility"
@@ -16386,9 +19273,38 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubBranchRuleDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
         "summary": "The active rules that apply to a branch",
         "tags": [
           "GitHub compatibility"
@@ -17039,6 +19955,9 @@
             }
           }
         },
+        "security": [
+          {}
+        ],
         "summary": "List .gitignore and license templates",
         "tags": [
           "Repositories"
@@ -17055,6 +19974,20 @@
   "tags": [],
   "servers": [],
   "components": {
+    "securitySchemes": {
+      "token": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "A personal access token (`ghost_pat_…`) from Settings, sent as `Authorization: Bearer <token>` or `Authorization: token <token>`. It acts as the account that created it. A token on a public route acts as its owner; a bad one is refused with 401. Email addresses, SSH, GPG and signing keys, OAuth apps and invitations by username refuse it with 403 and need a signed-in browser session. Tokens issued to OAuth apps carry scopes and work only on the GitHub-compatible API under `/api/v3` and `/api/graphql`. Twenty bad tokens from one address within a minute get 429. Each account gets 120 requests a minute by default, shared by its tokens and sessions; responses carry the GitHub `X-RateLimit-*` headers, and a 429 carries `Retry-After`. `GET /api`, avatar and attachment downloads and the importer callbacks are not counted and carry no such headers, nor does a 401 for a bad token."
+      },
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "better-auth.session_token",
+        "description": "The session cookie the web app signs in with; served with a `__Secure-` prefix over HTTPS."
+      }
+    },
     "schemas": {
       "RepositoryVisibility": {
         "type": "string",
@@ -23715,6 +26648,329 @@
           "days"
         ]
       },
+      "GithubValidationFailureDTO": {
+        "type": "object",
+        "properties": {
+          "resource": {
+            "type": "string",
+            "example": "Label",
+            "description": "Left out when a body field failed its own validation."
+          },
+          "field": {
+            "type": "string",
+            "example": "name"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "missing_field",
+              "invalid",
+              "already_exists"
+            ],
+            "example": "already_exists"
+          },
+          "message": {
+            "type": "string",
+            "description": "What a body field failed, when it failed its own validation."
+          }
+        },
+        "required": [
+          "field",
+          "code"
+        ]
+      },
+      "GithubErrorDTO": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Validation Failed"
+          },
+          "documentation_url": {
+            "type": "string",
+            "example": "https://docs.github.com/rest"
+          },
+          "status": {
+            "type": "string",
+            "example": "422",
+            "description": "The HTTP status as a string. A 429 leaves it out."
+          },
+          "errors": {
+            "description": "On a 422 only: the fields that failed.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubValidationFailureDTO"
+            }
+          }
+        },
+        "required": [
+          "message",
+          "documentation_url"
+        ]
+      },
+      "GithubMetaDTO": {
+        "type": "object",
+        "properties": {
+          "installed_version": {
+            "type": "string",
+            "example": "3.17.0",
+            "description": "The GitHub Enterprise Server version Ghost answers as, which decides the search syntax gh uses."
+          },
+          "verifiable_password_authentication": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "installed_version",
+          "verifiable_password_authentication"
+        ]
+      },
+      "GithubAuthenticatedUserDTO": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "example": "octocat"
+          },
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "avatar_url": {
+            "type": "string",
+            "description": "Empty when the account has no avatar."
+          },
+          "gravatar_id": {
+            "type": "string",
+            "example": ""
+          },
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "followers_url": {
+            "type": "string"
+          },
+          "following_url": {
+            "type": "string"
+          },
+          "gists_url": {
+            "type": "string"
+          },
+          "starred_url": {
+            "type": "string"
+          },
+          "subscriptions_url": {
+            "type": "string"
+          },
+          "organizations_url": {
+            "type": "string"
+          },
+          "repos_url": {
+            "type": "string"
+          },
+          "events_url": {
+            "type": "string"
+          },
+          "received_events_url": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "User",
+              "Organization"
+            ]
+          },
+          "site_admin": {
+            "type": "boolean",
+            "example": false
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Users only; an organization leaves it out."
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "login",
+          "id",
+          "node_id",
+          "avatar_url",
+          "gravatar_id",
+          "url",
+          "html_url",
+          "followers_url",
+          "following_url",
+          "gists_url",
+          "starred_url",
+          "subscriptions_url",
+          "organizations_url",
+          "repos_url",
+          "events_url",
+          "received_events_url",
+          "type",
+          "site_admin",
+          "name",
+          "created_at",
+          "email"
+        ]
+      },
+      "GithubUserDTO": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "example": "octocat"
+          },
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "avatar_url": {
+            "type": "string",
+            "description": "Empty when the account has no avatar."
+          },
+          "gravatar_id": {
+            "type": "string",
+            "example": ""
+          },
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "followers_url": {
+            "type": "string"
+          },
+          "following_url": {
+            "type": "string"
+          },
+          "gists_url": {
+            "type": "string"
+          },
+          "starred_url": {
+            "type": "string"
+          },
+          "subscriptions_url": {
+            "type": "string"
+          },
+          "organizations_url": {
+            "type": "string"
+          },
+          "repos_url": {
+            "type": "string"
+          },
+          "events_url": {
+            "type": "string"
+          },
+          "received_events_url": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "User",
+              "Organization"
+            ]
+          },
+          "site_admin": {
+            "type": "boolean",
+            "example": false
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Users only; an organization leaves it out."
+          }
+        },
+        "required": [
+          "login",
+          "id",
+          "node_id",
+          "avatar_url",
+          "gravatar_id",
+          "url",
+          "html_url",
+          "followers_url",
+          "following_url",
+          "gists_url",
+          "starred_url",
+          "subscriptions_url",
+          "organizations_url",
+          "repos_url",
+          "events_url",
+          "received_events_url",
+          "type",
+          "site_admin",
+          "name",
+          "created_at"
+        ]
+      },
+      "GithubKeyDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "nullable": true,
+            "description": "Ghost keeps no integer id for authentication keys."
+          },
+          "key": {
+            "type": "string",
+            "description": "The authorized_keys line."
+          },
+          "title": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "read_only": {
+            "type": "boolean",
+            "example": false
+          },
+          "verified": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "title",
+          "created_at",
+          "read_only",
+          "verified"
+        ]
+      },
       "GithubAddKeyDTO": {
         "type": "object",
         "properties": {
@@ -23730,6 +26986,31 @@
         },
         "required": [
           "key"
+        ]
+      },
+      "GithubSigningKeyDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "key": {
+            "type": "string",
+            "description": "The authorized_keys line."
+          },
+          "title": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "title",
+          "created_at"
         ]
       },
       "SshSigningKeyDTO": {
@@ -23783,6 +27064,189 @@
           "keys"
         ]
       },
+      "GithubRepositoryOwnerDTO": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "example": "octocat"
+          },
+          "html_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "login",
+          "html_url"
+        ]
+      },
+      "GithubRepositoryPermissionsDTO": {
+        "type": "object",
+        "properties": {
+          "admin": {
+            "type": "boolean"
+          },
+          "maintain": {
+            "type": "boolean"
+          },
+          "push": {
+            "type": "boolean"
+          },
+          "triage": {
+            "type": "boolean"
+          },
+          "pull": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "admin",
+          "maintain",
+          "push",
+          "triage",
+          "pull"
+        ]
+      },
+      "GithubRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "nullable": true
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "hello-world"
+          },
+          "full_name": {
+            "type": "string",
+            "example": "octocat/hello-world"
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "private"
+            ]
+          },
+          "owner": {
+            "$ref": "#/components/schemas/GithubRepositoryOwnerDTO"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "fork": {
+            "type": "boolean"
+          },
+          "url": {
+            "type": "string"
+          },
+          "clone_url": {
+            "type": "string"
+          },
+          "ssh_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "default_branch": {
+            "type": "string",
+            "example": "main"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pushed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "has_issues": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "nullable": true,
+            "description": "The viewer's access; null when the viewer has no role on the repository.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubRepositoryPermissionsDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "name",
+          "full_name",
+          "private",
+          "visibility",
+          "owner",
+          "html_url",
+          "description",
+          "fork",
+          "url",
+          "clone_url",
+          "ssh_url",
+          "default_branch",
+          "created_at",
+          "updated_at",
+          "pushed_at",
+          "has_issues",
+          "permissions"
+        ]
+      },
+      "GithubReadmeDTO": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "file"
+          },
+          "encoding": {
+            "type": "string",
+            "example": "base64"
+          },
+          "size": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string",
+            "example": "README.md"
+          },
+          "path": {
+            "type": "string",
+            "example": "README.md"
+          },
+          "content": {
+            "type": "string",
+            "description": "The file, base64-encoded."
+          }
+        },
+        "required": [
+          "type",
+          "encoding",
+          "size",
+          "name",
+          "path",
+          "content"
+        ]
+      },
       "GithubCreateRepositoryDTO": {
         "type": "object",
         "properties": {
@@ -23823,6 +27287,167 @@
           "name"
         ]
       },
+      "GithubCodeownersErrorsDTO": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeownersErrorDTO"
+            }
+          }
+        },
+        "required": [
+          "errors"
+        ]
+      },
+      "GithubSimpleUserDTO": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "example": "octocat"
+          },
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "avatar_url": {
+            "type": "string",
+            "description": "Empty when the account has no avatar."
+          },
+          "gravatar_id": {
+            "type": "string",
+            "example": ""
+          },
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "followers_url": {
+            "type": "string"
+          },
+          "following_url": {
+            "type": "string"
+          },
+          "gists_url": {
+            "type": "string"
+          },
+          "starred_url": {
+            "type": "string"
+          },
+          "subscriptions_url": {
+            "type": "string"
+          },
+          "organizations_url": {
+            "type": "string"
+          },
+          "repos_url": {
+            "type": "string"
+          },
+          "events_url": {
+            "type": "string"
+          },
+          "received_events_url": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "User",
+              "Organization"
+            ]
+          },
+          "site_admin": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "login",
+          "id",
+          "node_id",
+          "avatar_url",
+          "gravatar_id",
+          "url",
+          "html_url",
+          "followers_url",
+          "following_url",
+          "gists_url",
+          "starred_url",
+          "subscriptions_url",
+          "organizations_url",
+          "repos_url",
+          "events_url",
+          "received_events_url",
+          "type",
+          "site_admin"
+        ]
+      },
+      "GithubIssueCommentDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "issue_url": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "user": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "author_association": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "NONE"
+            ],
+            "description": "`OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here."
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "url",
+          "html_url",
+          "issue_url",
+          "body",
+          "user",
+          "created_at",
+          "updated_at",
+          "author_association"
+        ]
+      },
       "GithubCommentDTO": {
         "type": "object",
         "properties": {
@@ -23834,20 +27459,81 @@
           "body"
         ]
       },
+      "GithubLabelDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "nullable": true
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "The label by name, percent-encoded."
+          },
+          "name": {
+            "type": "string",
+            "example": "bug",
+            "description": "As stored, whatever case a lookup used."
+          },
+          "color": {
+            "type": "string",
+            "example": "d73a4a",
+            "description": "Six lowercase hex digits, no `#`."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "default": {
+            "type": "boolean",
+            "example": false
+          },
+          "archived_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "Always null: Ghost does not archive labels."
+          },
+          "archived_by": {
+            "type": "object",
+            "nullable": true,
+            "description": "Always null: Ghost does not archive labels."
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "url",
+          "name",
+          "color",
+          "description",
+          "default",
+          "archived_at",
+          "archived_by"
+        ]
+      },
       "GithubCreateLabelDTO": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
-            "example": "bug"
+            "example": "bug",
+            "minLength": 1,
+            "maxLength": 50,
+            "description": "Up to 50 characters, counted in code points. A name with leading or trailing whitespace, or one that is `.` or `..`, is refused with 422 `invalid`. Names are unique in a repository ignoring case: one that differs from another label only by case is refused with 422 `already_exists`."
           },
           "color": {
             "type": "string",
             "example": "d73a4a",
+            "pattern": "^#?[0-9a-fA-F]{6}$",
+            "description": "Six hex digits, with or without a leading `#`. Stored and returned lowercase without the `#`: `#FF00AA` reads back as `ff00aa`.",
             "default": "ededed"
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 100
           }
         },
         "required": [
@@ -23859,17 +27545,226 @@
         "properties": {
           "new_name": {
             "type": "string",
-            "example": "bug"
+            "example": "bug",
+            "minLength": 1,
+            "maxLength": 50,
+            "description": "Up to 50 characters, counted in code points. A name with leading or trailing whitespace, or one that is `.` or `..`, is refused with 422 `invalid`. Names are unique in a repository ignoring case: one that differs from another label only by case is refused with 422 `already_exists`."
           },
           "color": {
             "type": "string",
-            "example": "d73a4a"
+            "example": "d73a4a",
+            "pattern": "^#?[0-9a-fA-F]{6}$",
+            "description": "Six hex digits, with or without a leading `#`. Stored and returned lowercase without the `#`: `#FF00AA` reads back as `ff00aa`."
           },
           "description": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "maxLength": 100
           }
         }
+      },
+      "GithubIssuePullRequestLinksDTO": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "diff_url": {
+            "type": "string"
+          },
+          "patch_url": {
+            "type": "string"
+          },
+          "merged_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "url",
+          "html_url",
+          "diff_url",
+          "patch_url",
+          "merged_at"
+        ]
+      },
+      "GithubIssueDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "repository_url": {
+            "type": "string"
+          },
+          "labels_url": {
+            "type": "string"
+          },
+          "comments_url": {
+            "type": "string"
+          },
+          "events_url": {
+            "type": "string"
+          },
+          "timeline_url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "number": {
+            "type": "number"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "state_reason": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ],
+            "nullable": true,
+            "description": "Ghost records no close reason, so every closed issue reads as `completed`."
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "user": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubLabelDTO"
+            }
+          },
+          "assignee": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "assignees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubSimpleUserDTO"
+            }
+          },
+          "milestone": {
+            "type": "object",
+            "nullable": true,
+            "description": "Always null: Ghost has no milestones on this API."
+          },
+          "locked": {
+            "type": "boolean",
+            "example": false
+          },
+          "active_lock_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "comments": {
+            "type": "number"
+          },
+          "closed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "closed_by": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "author_association": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "NONE"
+            ],
+            "description": "`OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here."
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "Pull requests only."
+          },
+          "pull_request": {
+            "description": "Pull requests only: what marks the issue as one.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubIssuePullRequestLinksDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "url",
+          "repository_url",
+          "labels_url",
+          "comments_url",
+          "events_url",
+          "timeline_url",
+          "html_url",
+          "number",
+          "state",
+          "state_reason",
+          "title",
+          "body",
+          "user",
+          "labels",
+          "assignee",
+          "assignees",
+          "milestone",
+          "locked",
+          "active_lock_reason",
+          "comments",
+          "closed_at",
+          "closed_by",
+          "created_at",
+          "updated_at",
+          "author_association"
+        ]
       },
       "GithubCreateIssueDTO": {
         "type": "object",
@@ -23967,6 +27862,168 @@
           "assignees"
         ]
       },
+      "GithubLinkDTO": {
+        "type": "object",
+        "properties": {
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "href"
+        ]
+      },
+      "GithubReviewCommentLinksDTO": {
+        "type": "object",
+        "properties": {
+          "html": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "pull_request": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "self": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          }
+        },
+        "required": [
+          "html",
+          "pull_request",
+          "self"
+        ]
+      },
+      "GithubReviewCommentDTO": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "pull_request_review_id": {
+            "type": "number"
+          },
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "diff_hunk": {
+            "type": "string",
+            "description": "Empty when Ghost kept none; a reply shows its thread's."
+          },
+          "path": {
+            "type": "string"
+          },
+          "commit_id": {
+            "type": "string"
+          },
+          "original_commit_id": {
+            "type": "string",
+            "description": "The same as `commit_id`."
+          },
+          "in_reply_to_id": {
+            "type": "number",
+            "description": "Replies only: the comment that opened the thread."
+          },
+          "user": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "pull_request_url": {
+            "type": "string"
+          },
+          "author_association": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "NONE"
+            ],
+            "description": "`OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here."
+          },
+          "_links": {
+            "$ref": "#/components/schemas/GithubReviewCommentLinksDTO"
+          },
+          "start_line": {
+            "type": "number",
+            "nullable": true
+          },
+          "original_start_line": {
+            "type": "number",
+            "nullable": true
+          },
+          "start_side": {
+            "type": "string",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ],
+            "nullable": true
+          },
+          "line": {
+            "type": "number",
+            "nullable": true
+          },
+          "original_line": {
+            "type": "number",
+            "nullable": true
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ]
+          },
+          "subject_type": {
+            "type": "string",
+            "example": "line"
+          }
+        },
+        "required": [
+          "url",
+          "pull_request_review_id",
+          "id",
+          "node_id",
+          "diff_hunk",
+          "path",
+          "commit_id",
+          "original_commit_id",
+          "user",
+          "body",
+          "created_at",
+          "updated_at",
+          "html_url",
+          "pull_request_url",
+          "author_association",
+          "_links",
+          "start_line",
+          "original_start_line",
+          "start_side",
+          "line",
+          "original_line",
+          "side",
+          "subject_type"
+        ]
+      },
       "GithubCreateReviewCommentDTO": {
         "type": "object",
         "properties": {
@@ -24011,6 +28068,95 @@
         },
         "required": [
           "body"
+        ]
+      },
+      "GithubReviewLinksDTO": {
+        "type": "object",
+        "properties": {
+          "html": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "pull_request": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          }
+        },
+        "required": [
+          "html",
+          "pull_request"
+        ]
+      },
+      "GithubReviewDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "user": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "body": {
+            "type": "string",
+            "description": "Empty when the review has none."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "COMMENTED",
+              "APPROVED",
+              "CHANGES_REQUESTED",
+              "DISMISSED"
+            ]
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "pull_request_url": {
+            "type": "string"
+          },
+          "author_association": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "NONE"
+            ],
+            "description": "`OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here."
+          },
+          "_links": {
+            "$ref": "#/components/schemas/GithubReviewLinksDTO"
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Null while the review is pending."
+          },
+          "commit_id": {
+            "type": "string",
+            "description": "The head the review read."
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "user",
+          "body",
+          "state",
+          "html_url",
+          "pull_request_url",
+          "author_association",
+          "_links",
+          "submitted_at",
+          "commit_id"
         ]
       },
       "GithubDraftReviewCommentDTO": {
@@ -24099,6 +28245,66 @@
           "event"
         ]
       },
+      "GithubTeamDTO": {
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "privacy": {
+            "type": "string",
+            "example": "closed"
+          },
+          "permission": {
+            "type": "string",
+            "example": "pull"
+          },
+          "parent": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "node_id",
+          "name",
+          "slug",
+          "description",
+          "privacy",
+          "permission",
+          "parent"
+        ]
+      },
+      "GithubRequestedReviewersResponseDTO": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubSimpleUserDTO"
+            }
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubTeamDTO"
+            }
+          }
+        },
+        "required": [
+          "users",
+          "teams"
+        ]
+      },
       "GithubRequestedReviewersDTO": {
         "type": "object",
         "properties": {
@@ -24115,6 +28321,355 @@
             }
           }
         }
+      },
+      "GithubPullBranchDTO": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "octocat:feature"
+          },
+          "ref": {
+            "type": "string",
+            "example": "feature"
+          },
+          "sha": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null for a base the repository no longer resolves."
+          },
+          "user": {
+            "nullable": true,
+            "description": "The repository's owner; null for an organization or a deleted fork.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "repo": {
+            "nullable": true,
+            "description": "Null once the head fork is deleted or the viewer cannot read it.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubRepositoryDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "label",
+          "ref",
+          "sha",
+          "user",
+          "repo"
+        ]
+      },
+      "GithubPullLinksDTO": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "html": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "issue": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "comments": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "review_comments": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "review_comment": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "commits": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "statuses": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          }
+        },
+        "required": [
+          "self",
+          "html",
+          "issue",
+          "comments",
+          "review_comments",
+          "review_comment",
+          "commits",
+          "statuses"
+        ]
+      },
+      "GithubPullDTO": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "diff_url": {
+            "type": "string"
+          },
+          "patch_url": {
+            "type": "string"
+          },
+          "issue_url": {
+            "type": "string"
+          },
+          "commits_url": {
+            "type": "string"
+          },
+          "review_comments_url": {
+            "type": "string"
+          },
+          "review_comment_url": {
+            "type": "string"
+          },
+          "comments_url": {
+            "type": "string"
+          },
+          "statuses_url": {
+            "type": "string"
+          },
+          "number": {
+            "type": "number"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "description": "A merged pull request reads as `closed`; see `merged_at`."
+          },
+          "locked": {
+            "type": "boolean",
+            "example": false
+          },
+          "title": {
+            "type": "string"
+          },
+          "user": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubLabelDTO"
+            }
+          },
+          "milestone": {
+            "type": "object",
+            "nullable": true,
+            "description": "Always null: Ghost has no milestones on this API."
+          },
+          "active_lock_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "merged_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "merge_commit_sha": {
+            "type": "string",
+            "nullable": true
+          },
+          "assignee": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "assignees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubSimpleUserDTO"
+            }
+          },
+          "requested_reviewers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubSimpleUserDTO"
+            }
+          },
+          "requested_teams": {
+            "description": "Teams carry no integer `id`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubTeamDTO"
+            }
+          },
+          "head": {
+            "$ref": "#/components/schemas/GithubPullBranchDTO"
+          },
+          "base": {
+            "$ref": "#/components/schemas/GithubPullBranchDTO"
+          },
+          "_links": {
+            "$ref": "#/components/schemas/GithubPullLinksDTO"
+          },
+          "author_association": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "NONE"
+            ],
+            "description": "`OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here."
+          },
+          "auto_merge": {
+            "type": "object",
+            "nullable": true,
+            "description": "Always null: Ghost has no auto-merge."
+          },
+          "draft": {
+            "type": "boolean"
+          },
+          "merged": {
+            "type": "boolean",
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list."
+          },
+          "mergeable": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. Null while Ghost has not worked it out."
+          },
+          "rebaseable": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. The same as `mergeable`."
+          },
+          "mergeable_state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "dirty",
+              "behind",
+              "blocked",
+              "unstable",
+              "clean",
+              "unknown"
+            ],
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list."
+          },
+          "merged_by": {
+            "nullable": true,
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "comments": {
+            "type": "number",
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list."
+          },
+          "review_comments": {
+            "type": "number",
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list."
+          },
+          "maintainer_can_modify": {
+            "type": "boolean",
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list."
+          },
+          "commits": {
+            "type": "number",
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list."
+          },
+          "additions": {
+            "type": "number",
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list."
+          },
+          "deletions": {
+            "type": "number",
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list."
+          },
+          "changed_files": {
+            "type": "number",
+            "description": "Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list."
+          }
+        },
+        "required": [
+          "url",
+          "id",
+          "node_id",
+          "html_url",
+          "diff_url",
+          "patch_url",
+          "issue_url",
+          "commits_url",
+          "review_comments_url",
+          "review_comment_url",
+          "comments_url",
+          "statuses_url",
+          "number",
+          "state",
+          "locked",
+          "title",
+          "user",
+          "body",
+          "labels",
+          "milestone",
+          "active_lock_reason",
+          "created_at",
+          "updated_at",
+          "closed_at",
+          "merged_at",
+          "merge_commit_sha",
+          "assignee",
+          "assignees",
+          "requested_reviewers",
+          "requested_teams",
+          "head",
+          "base",
+          "_links",
+          "author_association",
+          "auto_merge",
+          "draft"
+        ]
       },
       "GithubCreatePullDTO": {
         "type": "object",
@@ -24176,6 +28731,186 @@
           }
         }
       },
+      "GithubGitActorDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "date"
+        ]
+      },
+      "GithubCommitVerificationDTO": {
+        "type": "object",
+        "properties": {
+          "verified": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "unknown_key",
+              "unsigned"
+            ]
+          },
+          "signature": {
+            "type": "string",
+            "nullable": true
+          },
+          "payload": {
+            "type": "string",
+            "nullable": true
+          },
+          "verified_at": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "verified",
+          "reason",
+          "signature",
+          "payload",
+          "verified_at"
+        ]
+      },
+      "GithubGitCommitDTO": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/GithubGitActorDTO"
+          },
+          "committer": {
+            "$ref": "#/components/schemas/GithubGitActorDTO"
+          },
+          "message": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "comment_count": {
+            "type": "number",
+            "example": 0
+          },
+          "verification": {
+            "$ref": "#/components/schemas/GithubCommitVerificationDTO"
+          }
+        },
+        "required": [
+          "author",
+          "committer",
+          "message",
+          "url",
+          "comment_count",
+          "verification"
+        ]
+      },
+      "GithubPullCommitDTO": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "commit": {
+            "$ref": "#/components/schemas/GithubGitCommitDTO"
+          },
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "comments_url": {
+            "type": "string"
+          },
+          "author": {
+            "nullable": true,
+            "description": "The account whose verified email the commit was authored with.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "committer": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "sha",
+          "node_id",
+          "commit",
+          "url",
+          "html_url",
+          "comments_url",
+          "author",
+          "committer"
+        ]
+      },
+      "GithubPullFileDTO": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "modified",
+              "changed"
+            ]
+          },
+          "additions": {
+            "type": "number"
+          },
+          "deletions": {
+            "type": "number"
+          },
+          "changes": {
+            "type": "number"
+          },
+          "blob_url": {
+            "type": "string"
+          },
+          "raw_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "status",
+          "additions",
+          "deletions",
+          "changes",
+          "blob_url",
+          "raw_url"
+        ]
+      },
       "GithubMergePullDTO": {
         "type": "object",
         "properties": {
@@ -24199,6 +28934,208 @@
             "default": "merge"
           }
         }
+      },
+      "GithubMergeResultDTO": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "merged": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Pull Request successfully merged"
+          }
+        },
+        "required": [
+          "sha",
+          "merged",
+          "message"
+        ]
+      },
+      "GithubReleaseAssetDTO": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "browser_download_url": {
+            "type": "string"
+          },
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "example": "uploaded",
+            "description": "Assets still uploading are never listed."
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          },
+          "digest": {
+            "type": "string",
+            "nullable": true
+          },
+          "download_count": {
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uploader": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "url",
+          "browser_download_url",
+          "id",
+          "node_id",
+          "name",
+          "label",
+          "state",
+          "content_type",
+          "size",
+          "digest",
+          "download_count",
+          "created_at",
+          "updated_at",
+          "uploader"
+        ]
+      },
+      "GithubReleaseDTO": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "assets_url": {
+            "type": "string"
+          },
+          "upload_url": {
+            "type": "string",
+            "description": "A URI template taking `name` and `label`."
+          },
+          "tarball_url": {
+            "type": "string"
+          },
+          "zipball_url": {
+            "type": "string"
+          },
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "tag_name": {
+            "type": "string",
+            "example": "v1.0.0"
+          },
+          "target_commitish": {
+            "type": "string",
+            "description": "The commit the tag points at, or the default branch once the tag is deleted. Ghost does not keep the branch a release was cut from."
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "draft": {
+            "type": "boolean"
+          },
+          "prerelease": {
+            "type": "boolean"
+          },
+          "immutable": {
+            "type": "boolean",
+            "example": false
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "author": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "assets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubReleaseAssetDTO"
+            }
+          }
+        },
+        "required": [
+          "url",
+          "html_url",
+          "assets_url",
+          "upload_url",
+          "tarball_url",
+          "zipball_url",
+          "id",
+          "node_id",
+          "tag_name",
+          "target_commitish",
+          "name",
+          "body",
+          "draft",
+          "prerelease",
+          "immutable",
+          "created_at",
+          "published_at",
+          "updated_at",
+          "author",
+          "assets"
+        ]
       },
       "GithubCreateReleaseDTO": {
         "type": "object",
@@ -24330,6 +29267,122 @@
           "state"
         ]
       },
+      "GithubStatusDTO": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "avatar_url": {
+            "type": "string",
+            "description": "The creator's avatar; empty when there is none."
+          },
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "target_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "context": {
+            "type": "string",
+            "example": "default"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The same as `created_at`: each report is a new status."
+          },
+          "creator": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "url",
+          "avatar_url",
+          "id",
+          "node_id",
+          "state",
+          "description",
+          "target_url",
+          "context",
+          "created_at",
+          "updated_at",
+          "creator"
+        ]
+      },
+      "GithubCombinedStatusDTO": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ],
+            "description": "The worst state among the latest status of each context."
+          },
+          "statuses": {
+            "description": "The latest status of each context.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubStatusDTO"
+            }
+          },
+          "sha": {
+            "type": "string"
+          },
+          "total_count": {
+            "type": "number"
+          },
+          "repository": {
+            "$ref": "#/components/schemas/GithubRepositoryDTO"
+          },
+          "commit_url": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "statuses",
+          "sha",
+          "total_count",
+          "repository",
+          "commit_url",
+          "url"
+        ]
+      },
       "GithubUserAttachmentDTO": {
         "type": "object",
         "properties": {
@@ -24356,6 +29409,200 @@
           "size",
           "content_type",
           "url"
+        ]
+      },
+      "GithubGitignoreTemplateDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Node"
+          },
+          "source": {
+            "type": "string",
+            "description": "The .gitignore file."
+          }
+        },
+        "required": [
+          "name",
+          "source"
+        ]
+      },
+      "GithubLicenseSummaryDTO": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "mit"
+          },
+          "name": {
+            "type": "string",
+            "example": "MIT License"
+          },
+          "spdx_id": {
+            "type": "string",
+            "example": "MIT"
+          },
+          "url": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "spdx_id",
+          "url",
+          "node_id"
+        ]
+      },
+      "GithubLicenseDTO": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "mit"
+          },
+          "name": {
+            "type": "string",
+            "example": "MIT License"
+          },
+          "spdx_id": {
+            "type": "string",
+            "example": "MIT"
+          },
+          "url": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "implementation": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "body": {
+            "type": "string",
+            "description": "The license text, with placeholders such as `[year]`."
+          },
+          "featured": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "spdx_id",
+          "url",
+          "node_id",
+          "html_url",
+          "description",
+          "implementation",
+          "permissions",
+          "conditions",
+          "limitations",
+          "body",
+          "featured"
+        ]
+      },
+      "GithubRulesetLinksDTO": {
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          },
+          "html": {
+            "$ref": "#/components/schemas/GithubLinkDTO"
+          }
+        },
+        "required": [
+          "self",
+          "html"
+        ]
+      },
+      "GithubRulesetSummaryDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "branch",
+              "tag"
+            ]
+          },
+          "source_type": {
+            "type": "string",
+            "example": "Repository"
+          },
+          "source": {
+            "type": "string",
+            "example": "octocat/hello-world"
+          },
+          "enforcement": {
+            "type": "string",
+            "enum": [
+              "active",
+              "evaluate",
+              "disabled"
+            ]
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "_links": {
+            "$ref": "#/components/schemas/GithubRulesetLinksDTO"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "target",
+          "source_type",
+          "source",
+          "enforcement",
+          "node_id",
+          "created_at",
+          "updated_at",
+          "_links"
         ]
       },
       "GithubBypassActorDTO": {
@@ -24483,6 +29730,392 @@
           "enforcement"
         ]
       },
+      "GithubRulesetDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "branch",
+              "tag"
+            ]
+          },
+          "source_type": {
+            "type": "string",
+            "example": "Repository"
+          },
+          "source": {
+            "type": "string",
+            "example": "octocat/hello-world"
+          },
+          "enforcement": {
+            "type": "string",
+            "enum": [
+              "active",
+              "evaluate",
+              "disabled"
+            ]
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "_links": {
+            "$ref": "#/components/schemas/GithubRulesetLinksDTO"
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/GithubRulesetConditionsDTO"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubRulesetRuleDTO"
+            }
+          },
+          "bypass_actors": {
+            "description": "Admins only.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubBypassActorDTO"
+            }
+          },
+          "current_user_can_bypass": {
+            "type": "string",
+            "enum": [
+              "always",
+              "pull_requests_only",
+              "never"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "target",
+          "source_type",
+          "source",
+          "enforcement",
+          "node_id",
+          "created_at",
+          "updated_at",
+          "_links",
+          "conditions",
+          "rules",
+          "current_user_can_bypass"
+        ]
+      },
+      "GithubRuleSuiteDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "actor_id": {
+            "type": "number",
+            "nullable": true,
+            "description": "Null once the account is deleted."
+          },
+          "actor_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "The login at the time of the write."
+          },
+          "before_sha": {
+            "type": "string"
+          },
+          "after_sha": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string",
+            "example": "refs/heads/main"
+          },
+          "pushed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "bypass"
+            ]
+          },
+          "evaluation_result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "bypass"
+            ],
+            "nullable": true,
+            "description": "What the rules in evaluate mode would have decided; null when none ran."
+          },
+          "repository_id": {
+            "type": "number"
+          },
+          "repository_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor_id",
+          "actor_name",
+          "before_sha",
+          "after_sha",
+          "ref",
+          "pushed_at",
+          "result",
+          "evaluation_result",
+          "repository_id",
+          "repository_name"
+        ]
+      },
+      "GithubRuleSourceDTO": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "ruleset"
+          },
+          "id": {
+            "type": "number",
+            "nullable": true,
+            "description": "Null once the ruleset is deleted."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name at the time of the write."
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name"
+        ]
+      },
+      "GithubRuleSuiteReviewDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "user": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "COMMENTED",
+              "APPROVED",
+              "CHANGES_REQUESTED",
+              "DISMISSED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "user",
+          "state"
+        ]
+      },
+      "GithubRuleSuitePullRequestDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "number": {
+            "type": "number"
+          },
+          "user": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubSimpleUserDTO"
+              }
+            ]
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubRuleSuiteReviewDTO"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "user",
+          "reviews"
+        ]
+      },
+      "GithubRuleEvaluationMetadataDTO": {
+        "type": "object",
+        "properties": {
+          "pull_request": {
+            "$ref": "#/components/schemas/GithubRuleSuitePullRequestDTO"
+          }
+        },
+        "required": [
+          "pull_request"
+        ]
+      },
+      "GithubRuleEvaluationDTO": {
+        "type": "object",
+        "properties": {
+          "rule_source": {
+            "$ref": "#/components/schemas/GithubRuleSourceDTO"
+          },
+          "enforcement": {
+            "type": "string",
+            "enum": [
+              "active",
+              "evaluate",
+              "disabled",
+              "deleted ruleset"
+            ]
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail"
+            ]
+          },
+          "rule_type": {
+            "type": "string",
+            "enum": [
+              "creation",
+              "update",
+              "deletion",
+              "non_fast_forward",
+              "required_linear_history",
+              "pull_request",
+              "required_status_checks",
+              "required_signatures"
+            ]
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "metadata": {
+            "description": "With `include_metadata=true`, on the `pull_request` rule of a merge only.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubRuleEvaluationMetadataDTO"
+              }
+            ]
+          }
+        },
+        "required": [
+          "rule_source",
+          "enforcement",
+          "result",
+          "rule_type",
+          "details"
+        ]
+      },
+      "GithubRuleSuiteDetailDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "actor_id": {
+            "type": "number",
+            "nullable": true,
+            "description": "Null once the account is deleted."
+          },
+          "actor_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "The login at the time of the write."
+          },
+          "before_sha": {
+            "type": "string"
+          },
+          "after_sha": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string",
+            "example": "refs/heads/main"
+          },
+          "pushed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "bypass"
+            ]
+          },
+          "evaluation_result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "bypass"
+            ],
+            "nullable": true,
+            "description": "What the rules in evaluate mode would have decided; null when none ran."
+          },
+          "repository_id": {
+            "type": "number"
+          },
+          "repository_name": {
+            "type": "string"
+          },
+          "rule_evaluations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubRuleEvaluationDTO"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "actor_id",
+          "actor_name",
+          "before_sha",
+          "after_sha",
+          "ref",
+          "pushed_at",
+          "result",
+          "evaluation_result",
+          "repository_id",
+          "repository_name",
+          "rule_evaluations"
+        ]
+      },
       "GithubUpdateRulesetDTO": {
         "type": "object",
         "properties": {
@@ -24521,6 +30154,45 @@
             }
           }
         }
+      },
+      "GithubBranchRuleDTO": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "creation",
+              "update",
+              "deletion",
+              "non_fast_forward",
+              "required_linear_history",
+              "pull_request",
+              "required_status_checks",
+              "required_signatures"
+            ]
+          },
+          "parameters": {
+            "type": "object",
+            "description": "For `pull_request`: GitHub's parameters. The other rules Ghost supports take none."
+          },
+          "ruleset_source_type": {
+            "type": "string",
+            "example": "Repository"
+          },
+          "ruleset_source": {
+            "type": "string",
+            "example": "octocat/hello-world"
+          },
+          "ruleset_id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "type",
+          "ruleset_source_type",
+          "ruleset_source",
+          "ruleset_id"
+        ]
       },
       "OauthAppDTO": {
         "type": "object",
@@ -24874,5 +30546,13 @@
         ]
       }
     }
-  }
+  },
+  "security": [
+    {
+      "token": []
+    },
+    {
+      "session": []
+    }
+  ]
 }

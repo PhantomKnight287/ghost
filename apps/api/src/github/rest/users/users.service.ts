@@ -18,6 +18,12 @@ import { UsersService } from '../../../services/users/users.service.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { requireScope } from '../../auth/require-scopes.js';
 import type { GithubAddKeyDTO } from './dto/add-key.dto.js';
+import type {
+  GithubAuthenticatedUserDTO,
+  GithubKeyDTO,
+  GithubSigningKeyDTO,
+  GithubUserDTO,
+} from './dto/user.dto.js';
 import { sameName } from '../../../lib/db/sql.js';
 
 /** GitHub's REST users and the authenticated user's SSH authentication and signing keys. */
@@ -31,14 +37,14 @@ export class GithubUsersService {
     private readonly sshSigningKeys: SshSigningKeysService,
   ) {}
 
-  async me(viewer: GithubViewer | null) {
+  async me(viewer: GithubViewer | null): Promise<GithubAuthenticatedUserDTO> {
     if (!viewer) throw new RequiresAuthenticationError();
     const user = await this.users.getUserById(viewer.userId);
     return { ...this.restUser(user), email: user.email };
   }
 
   /** A user, or else an organization, by login. */
-  async byLogin(login: string) {
+  async byLogin(login: string): Promise<GithubUserDTO> {
     const [user] = await this.db
       .select()
       .from(schema.user)
@@ -129,7 +135,9 @@ export class GithubUsersService {
     await this.sshSigningKeys.remove(viewer.userId, { numericId: id });
   }
 
-  private restSigningKey(key: SshSigningKeyDTO & { numericId: number }) {
+  private restSigningKey(
+    key: SshSigningKeyDTO & { numericId: number },
+  ): GithubSigningKeyDTO {
     return {
       id: key.numericId,
       key: key.publicKey,
@@ -138,7 +146,7 @@ export class GithubUsersService {
     };
   }
 
-  private restKey(key: SshKeyDTO) {
+  private restKey(key: SshKeyDTO): GithubKeyDTO {
     return {
       id: null,
       key: key.publicKey,
@@ -149,7 +157,7 @@ export class GithubUsersService {
     };
   }
 
-  private restUser(user: typeof schema.user.$inferSelect) {
+  private restUser(user: typeof schema.user.$inferSelect): GithubUserDTO {
     return {
       ...toUserRest(
         {

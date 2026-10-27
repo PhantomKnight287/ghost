@@ -12,7 +12,13 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
@@ -22,9 +28,11 @@ import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubCommentsService } from './comments.service.js';
 import {
   GithubCommentDTO,
+  GithubIssueCommentDTO,
   GithubListCommentsQueryDTO,
 } from './dto/issue.dto.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -34,6 +42,7 @@ const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class CommentsController {
   constructor(private readonly comments: GithubCommentsService) {}
 
@@ -41,6 +50,7 @@ export class CommentsController {
   @ApiOperation({
     summary: "Every comment in a repository's issues and pull requests",
   })
+  @ApiOkResponse({ type: [GithubIssueCommentDTO] })
   listForRepository(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -52,6 +62,7 @@ export class CommentsController {
 
   @Get('comments/:comment_id')
   @ApiOperation({ summary: 'A comment by id' })
+  @ApiOkResponse({ type: GithubIssueCommentDTO })
   get(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -63,6 +74,7 @@ export class CommentsController {
 
   @Patch('comments/:comment_id')
   @ApiOperation({ summary: 'Edit a comment; only its author may' })
+  @ApiOkResponse({ type: GithubIssueCommentDTO })
   update(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -76,6 +88,7 @@ export class CommentsController {
   @Delete('comments/:comment_id')
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a comment' })
+  @ApiNoContentResponse()
   delete(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -87,6 +100,7 @@ export class CommentsController {
 
   @Get(':number/comments')
   @ApiOperation({ summary: "An issue's comments, oldest first" })
+  @ApiOkResponse({ type: [GithubIssueCommentDTO] })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -99,6 +113,7 @@ export class CommentsController {
 
   @Post(':number/comments')
   @ApiOperation({ summary: 'Comment on an issue or pull request' })
+  @ApiCreatedResponse({ type: GithubIssueCommentDTO })
   create(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

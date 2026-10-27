@@ -23,6 +23,10 @@ import type {
 import { requireWriteScope } from '../../auth/require-scopes.js';
 import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
 import type { GithubCreateRepositoryDTO } from './dto/create-repository.dto.js';
+import type {
+  GithubCodeownersErrorsDTO,
+  GithubReadmeDTO,
+} from './dto/repository.dto.js';
 
 /** GitHub's REST repositories: reading one, its README, and creating one. */
 @Injectable()
@@ -60,7 +64,11 @@ export class GithubReposService {
     });
   }
 
-  async readme({ owner, repo, viewer }: GithubRepositoryTarget) {
+  async readme({
+    owner,
+    repo,
+    viewer,
+  }: GithubRepositoryTarget): Promise<GithubReadmeDTO> {
     const node = await this.repositoryNodes.repository(owner, repo, viewer);
     const gitDir = await this.materializer.open({
       id: node.ghostId,
@@ -78,7 +86,7 @@ export class GithubReposService {
       type: 'file',
       encoding: 'base64',
       size: blob.size,
-      name: path.split('/').at(-1),
+      name: path.slice(path.lastIndexOf('/') + 1),
       path,
       content: blob.content.toString('base64'),
     };
@@ -90,7 +98,9 @@ export class GithubReposService {
     repo,
     viewer,
     ref,
-  }: GithubRepositoryTarget & { ref?: string }) {
+  }: GithubRepositoryTarget & {
+    ref?: string;
+  }): Promise<GithubCodeownersErrorsDTO> {
     await this.repositoryNodes.repository(owner, repo, viewer);
     const { path, errors } = await this.repositories.getCodeowners({
       username: owner,

@@ -15,9 +15,14 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import type { RuleType } from '../../../../lib/rulesets/rulesets.types.js';
+import type {
+  BypassAnswer,
+  RuleType,
+} from '../../../../lib/rulesets/rulesets.types.js';
 import { PATTERN_MAX_LENGTH } from '../../../../resources/rulesets/dto/ruleset.dto.js';
 import { GithubPageQueryDTO } from '../../issues/dto/issue.dto.js';
+import { GithubLinkDTO } from '../../pulls/dto/pull.dto.js';
+import { GithubSimpleUserDTO } from '../../users/dto/user.dto.js';
 
 export class GithubBypassActorDTO {
   @ApiPropertyOptional({
@@ -175,4 +180,206 @@ export class GithubRuleSuiteQueryDTO {
   @IsIn(['true', 'false'])
   @IsOptional()
   include_metadata?: 'true' | 'false';
+}
+
+export class GithubRulesetLinksDTO {
+  @ApiProperty({ type: GithubLinkDTO })
+  self: GithubLinkDTO;
+
+  @ApiProperty({ type: GithubLinkDTO })
+  html: GithubLinkDTO;
+}
+
+/** A ruleset as GitHub lists it: no conditions, rules or bypass actors. */
+export class GithubRulesetSummaryDTO {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty({ enum: schema.rulesetTarget.enumValues })
+  target: (typeof schema.rulesetTarget.enumValues)[number];
+
+  @ApiProperty({ example: 'Repository' })
+  source_type: string;
+
+  @ApiProperty({ example: 'octocat/hello-world' })
+  source: string;
+
+  @ApiProperty({ enum: schema.rulesetEnforcement.enumValues })
+  enforcement: (typeof schema.rulesetEnforcement.enumValues)[number];
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty({ format: 'date-time' })
+  created_at: string;
+
+  @ApiProperty({ format: 'date-time' })
+  updated_at: string;
+
+  @ApiProperty({ type: GithubRulesetLinksDTO })
+  _links: GithubRulesetLinksDTO;
+}
+
+export class GithubRulesetDTO extends GithubRulesetSummaryDTO {
+  @ApiProperty({ type: GithubRulesetConditionsDTO })
+  conditions: GithubRulesetConditionsDTO;
+
+  @ApiProperty({ type: [GithubRulesetRuleDTO] })
+  rules: GithubRulesetRuleDTO[];
+
+  @ApiPropertyOptional({
+    type: [GithubBypassActorDTO],
+    description: 'Admins only.',
+  })
+  bypass_actors?: GithubBypassActorDTO[];
+
+  @ApiProperty({ enum: ['always', 'pull_requests_only', 'never'] })
+  current_user_can_bypass: BypassAnswer;
+}
+
+export class GithubBranchRuleDTO extends GithubRulesetRuleDTO {
+  @ApiProperty({ example: 'Repository' })
+  ruleset_source_type: string;
+
+  @ApiProperty({ example: 'octocat/hello-world' })
+  ruleset_source: string;
+
+  @ApiProperty()
+  ruleset_id: number;
+}
+
+export class GithubRuleSuiteDTO {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Null once the account is deleted.',
+  })
+  actor_id: number | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'The login at the time of the write.',
+  })
+  actor_name: string | null;
+
+  @ApiProperty()
+  before_sha: string;
+
+  @ApiProperty()
+  after_sha: string;
+
+  @ApiProperty({ example: 'refs/heads/main' })
+  ref: string;
+
+  @ApiProperty({ format: 'date-time' })
+  pushed_at: Date;
+
+  @ApiProperty({ enum: schema.ruleSuiteResult.enumValues })
+  result: (typeof schema.ruleSuiteResult.enumValues)[number];
+
+  @ApiProperty({
+    type: String,
+    enum: schema.ruleSuiteResult.enumValues,
+    nullable: true,
+    description:
+      'What the rules in evaluate mode would have decided; null when none ran.',
+  })
+  evaluation_result: (typeof schema.ruleSuiteResult.enumValues)[number] | null;
+
+  @ApiProperty()
+  repository_id: number;
+
+  @ApiProperty()
+  repository_name: string;
+}
+
+export class GithubRuleSourceDTO {
+  @ApiProperty({ example: 'ruleset' })
+  type: 'ruleset';
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Null once the ruleset is deleted.',
+  })
+  id: number | null;
+
+  @ApiProperty({ description: 'The name at the time of the write.' })
+  name: string;
+}
+
+export class GithubRuleSuiteReviewDTO {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  user: GithubSimpleUserDTO | null;
+
+  @ApiProperty({
+    enum: [
+      'PENDING',
+      'COMMENTED',
+      'APPROVED',
+      'CHANGES_REQUESTED',
+      'DISMISSED',
+    ],
+  })
+  state: string;
+}
+
+export class GithubRuleSuitePullRequestDTO {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  number: number;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  user: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ type: [GithubRuleSuiteReviewDTO] })
+  reviews: GithubRuleSuiteReviewDTO[];
+}
+
+export class GithubRuleEvaluationMetadataDTO {
+  @ApiProperty({ type: GithubRuleSuitePullRequestDTO })
+  pull_request: GithubRuleSuitePullRequestDTO;
+}
+
+export class GithubRuleEvaluationDTO {
+  @ApiProperty({ type: GithubRuleSourceDTO })
+  rule_source: GithubRuleSourceDTO;
+
+  @ApiProperty({
+    enum: [...schema.rulesetEnforcement.enumValues, 'deleted ruleset'],
+  })
+  enforcement: string;
+
+  @ApiProperty({ enum: schema.ruleEvaluationResult.enumValues })
+  result: (typeof schema.ruleEvaluationResult.enumValues)[number];
+
+  @ApiProperty({ enum: schema.rulesetRuleType.enumValues })
+  rule_type: RuleType;
+
+  @ApiProperty({ type: String, nullable: true })
+  details: string | null;
+
+  @ApiPropertyOptional({
+    type: GithubRuleEvaluationMetadataDTO,
+    description:
+      'With `include_metadata=true`, on the `pull_request` rule of a merge only.',
+  })
+  metadata?: GithubRuleEvaluationMetadataDTO;
+}
+
+export class GithubRuleSuiteDetailDTO extends GithubRuleSuiteDTO {
+  @ApiProperty({ type: [GithubRuleEvaluationDTO] })
+  rule_evaluations: GithubRuleEvaluationDTO[];
 }

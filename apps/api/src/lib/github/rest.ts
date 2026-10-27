@@ -1,5 +1,22 @@
 import type { RepositoryNode } from '../../github/graphql/types/repository.type.js';
 import type {
+  GithubIssueCommentDTO,
+  GithubIssueDTO,
+} from '../../github/rest/issues/dto/issue.dto.js';
+import type { GithubLabelDTO } from '../../github/rest/issues/dto/label.dto.js';
+import type { GithubPullDTO } from '../../github/rest/pulls/dto/pull.dto.js';
+import type { GithubReviewDTO } from '../../github/rest/pulls/dto/review-comment.dto.js';
+import type {
+  GithubReleaseAssetDTO,
+  GithubReleaseDTO,
+} from '../../github/rest/releases/dto/release.dto.js';
+import type { GithubRepositoryDTO } from '../../github/rest/repos/dto/repository.dto.js';
+import type {
+  GithubCombinedStatusDTO,
+  GithubStatusDTO,
+} from '../../github/rest/statuses/dto/status.dto.js';
+import type { GithubSimpleUserDTO } from '../../github/rest/users/dto/user.dto.js';
+import type {
   CombinedCommitStatusDTO,
   CommitStatusDTO,
 } from '../../resources/commit-statuses/dto/commit-status.dto.js';
@@ -27,7 +44,7 @@ export function toUserRest(
   user: RestUserSource,
   { api, web }: GithubOrigins,
   type: 'User' | 'Organization' = 'User',
-) {
+): GithubSimpleUserDTO {
   const url = `${api}/api/v3/users/${user.login}`;
   return {
     login: user.login,
@@ -51,13 +68,13 @@ export function toUserRest(
   };
 }
 
-export type RestUser = ReturnType<typeof toUserRest>;
+export type RestUser = GithubSimpleUserDTO;
 
 // Mapper: the repository node GraphQL already built, with its permission, in GitHub's REST shape.
 export function toRepositoryRest(
   node: RepositoryNode,
   { api, web }: GithubOrigins,
-) {
+): GithubRepositoryDTO {
   return {
     id: node.databaseId,
     node_id: node.id,
@@ -102,7 +119,10 @@ export type RestContext = {
 };
 
 // Mapper: labels come from IssuesService in Ghost's shape; GitHub's adds the numeric id and URLs.
-export function toLabelRest(label: LabelDTO, context: RestContext) {
+export function toLabelRest(
+  label: LabelDTO,
+  context: RestContext,
+): GithubLabelDTO {
   return {
     id: context.labelIds.get(label.id) ?? null,
     node_id: encodeNodeId('Label', label.id),
@@ -133,7 +153,7 @@ export function toIssueRest(
   issue: IssueDTO,
   extras: IssueExtras,
   context: RestContext,
-) {
+): GithubIssueDTO {
   const { apiUrl, webUrl } = context.repository;
   const url = `${apiUrl}/issues/${issue.number}`;
   const htmlUrl = `${webUrl}/${issue.isPullRequest ? 'pull' : 'issues'}/${issue.number}`;
@@ -201,7 +221,7 @@ export type RestCommentSource = {
 export function toCommentRest(
   comment: RestCommentSource,
   context: RestContext,
-) {
+): GithubIssueCommentDTO {
   const { apiUrl, webUrl } = context.repository;
   const path = comment.isPullRequest ? 'pull' : 'issues';
   return {
@@ -285,7 +305,7 @@ export function labelNamesOf(body: unknown) {
   return names as string[];
 }
 
-export type RestRepositoryObject = ReturnType<typeof toRepositoryRest>;
+export type RestRepositoryObject = GithubRepositoryDTO;
 
 /** What a pull request response adds to its issue: the pull_request row, its head as it stands, and both sides' repositories, null once deleted or unreadable. */
 export type PullRestSource = {
@@ -322,7 +342,7 @@ export function toPullRest(
   pull: PullRestSource,
   context: RestContext,
   detail?: PullRestDetail,
-) {
+): GithubPullDTO {
   const { apiUrl, webUrl } = context.repository;
   const url = `${apiUrl}/pulls/${issue.number}`;
   const issueUrl = `${apiUrl}/issues/${issue.number}`;
@@ -440,7 +460,7 @@ export function toReviewRest(
   review: RestReviewSource,
   number: number,
   context: RestContext,
-) {
+): GithubReviewDTO {
   const { apiUrl, webUrl } = context.repository;
   const htmlUrl = `${webUrl}/pull/${number}#pullrequestreview-${review.id}`;
   const pullUrl = `${apiUrl}/pulls/${number}`;
@@ -471,7 +491,7 @@ export function toReleaseAssetRest(
   extras: ReleaseAssetExtras,
   tagName: string,
   context: RestContext,
-) {
+): GithubReleaseAssetDTO {
   return {
     url: `${context.repository.apiUrl}/releases/assets/${extras.numericId}`,
     browser_download_url: `${context.repository.webUrl}/releases/download/${tagPath(tagName)}/${encodeURIComponent(asset.name)}`,
@@ -492,7 +512,7 @@ export function toReleaseAssetRest(
   };
 }
 
-export type RestReleaseAsset = ReturnType<typeof toReleaseAssetRest>;
+export type RestReleaseAsset = GithubReleaseAssetDTO;
 
 // Mapper: releases come from ReleasesService in Ghost's shape; GitHub's embeds the author and adds the integer id and URLs.
 export function toReleaseRest(
@@ -501,7 +521,7 @@ export function toReleaseRest(
   assets: RestReleaseAsset[],
   { uploadUrl, defaultBranch }: { uploadUrl: string; defaultBranch: string },
   context: RestContext,
-) {
+): GithubReleaseDTO {
   const url = `${context.repository.apiUrl}/releases/${numericId}`;
   return {
     url,
@@ -536,7 +556,7 @@ export function toStatusRest(
   numericId: number,
   sha: string,
   context: RestContext,
-) {
+): GithubStatusDTO {
   const creator =
     (status.creator && context.users.get(status.creator.username)) || null;
   return {
@@ -555,7 +575,7 @@ export function toStatusRest(
   };
 }
 
-export type RestStatus = ReturnType<typeof toStatusRest>;
+export type RestStatus = GithubStatusDTO;
 
 // Mapper: the combined status comes from CommitStatusesService in Ghost's shape; GitHub's embeds the repository and adds URLs.
 export function toCombinedStatusRest(
@@ -563,7 +583,7 @@ export function toCombinedStatusRest(
   statuses: RestStatus[],
   repository: RestRepositoryObject,
   context: RestContext,
-) {
+): GithubCombinedStatusDTO {
   const commitUrl = `${context.repository.apiUrl}/commits/${combined.sha}`;
   return {
     state: combined.state,

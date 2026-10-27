@@ -9,6 +9,8 @@ import {
   ValidateIf,
 } from 'class-validator';
 
+import { GithubSimpleUserDTO } from '../../users/dto/user.dto.js';
+
 const MAKE_LATEST = ['true', 'false', 'legacy'] as const;
 
 /** GitHub's create-release body. */
@@ -156,4 +158,116 @@ export class GithubUpdateReleaseAssetDTO {
   @IsString()
   @MaxLength(255)
   label?: string;
+}
+
+export class GithubReleaseAssetDTO {
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  browser_download_url: string;
+
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  label: string | null;
+
+  @ApiProperty({
+    example: 'uploaded',
+    description: 'Assets still uploading are never listed.',
+  })
+  state: string;
+
+  @ApiProperty()
+  content_type: string;
+
+  @ApiProperty()
+  size: number;
+
+  @ApiProperty({ type: String, nullable: true })
+  digest: null;
+
+  @ApiProperty()
+  download_count: number;
+
+  @ApiProperty({ format: 'date-time' })
+  created_at: string;
+
+  @ApiProperty({ format: 'date-time' })
+  updated_at: string;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  uploader: GithubSimpleUserDTO | null;
+}
+
+export class GithubReleaseDTO {
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  html_url: string;
+
+  @ApiProperty()
+  assets_url: string;
+
+  @ApiProperty({ description: 'A URI template taking `name` and `label`.' })
+  upload_url: string;
+
+  @ApiProperty()
+  tarball_url: string;
+
+  @ApiProperty()
+  zipball_url: string;
+
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty({ example: 'v1.0.0' })
+  tag_name: string;
+
+  @ApiProperty({
+    description:
+      'The commit the tag points at, or the default branch once the tag is deleted. Ghost does not keep the branch a release was cut from.',
+  })
+  target_commitish: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  name: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  body: string | null;
+
+  @ApiProperty()
+  draft: boolean;
+
+  @ApiProperty()
+  prerelease: boolean;
+
+  @ApiProperty({ example: false })
+  immutable: boolean;
+
+  @ApiProperty({ format: 'date-time' })
+  created_at: string;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  published_at: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  updated_at: string;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  author: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ type: [GithubReleaseAssetDTO] })
+  assets: GithubReleaseAssetDTO[];
 }

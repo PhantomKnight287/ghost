@@ -9,16 +9,26 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
-import { GithubRequestedReviewersDTO } from './dto/pull.dto.js';
+import {
+  GithubPullDTO,
+  GithubRequestedReviewersDTO,
+  GithubRequestedReviewersResponseDTO,
+} from './dto/pull.dto.js';
 import { GithubPullsService } from './pulls.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -27,11 +37,13 @@ const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class RequestedReviewersController {
   constructor(private readonly pulls: GithubPullsService) {}
 
   @Get()
   @ApiOperation({ summary: 'Users and teams asked to review a pull request' })
+  @ApiOkResponse({ type: GithubRequestedReviewersResponseDTO })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -43,6 +55,7 @@ export class RequestedReviewersController {
 
   @Post()
   @ApiOperation({ summary: 'Request reviews from users and teams' })
+  @ApiCreatedResponse({ type: GithubPullDTO })
   request(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -55,6 +68,7 @@ export class RequestedReviewersController {
 
   @Delete()
   @ApiOperation({ summary: 'Remove requested reviewers' })
+  @ApiOkResponse({ type: GithubPullDTO })
   remove(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

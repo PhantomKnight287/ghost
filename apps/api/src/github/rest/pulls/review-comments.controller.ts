@@ -12,7 +12,13 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
@@ -23,9 +29,13 @@ import {
   GithubCommentDTO,
   GithubListCommentsQueryDTO,
 } from '../issues/dto/issue.dto.js';
-import { GithubCreateReviewCommentDTO } from './dto/review-comment.dto.js';
+import {
+  GithubCreateReviewCommentDTO,
+  GithubReviewCommentDTO,
+} from './dto/review-comment.dto.js';
 import { GithubReviewCommentsService } from './review-comments.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -35,6 +45,7 @@ const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class ReviewCommentsController {
   constructor(private readonly comments: GithubReviewCommentsService) {}
 
@@ -42,6 +53,7 @@ export class ReviewCommentsController {
   @ApiOperation({
     summary: "Every review comment in a repository's pull requests",
   })
+  @ApiOkResponse({ type: [GithubReviewCommentDTO] })
   listForRepository(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -53,6 +65,7 @@ export class ReviewCommentsController {
 
   @Get('comments/:comment_id')
   @ApiOperation({ summary: 'A review comment by id' })
+  @ApiOkResponse({ type: GithubReviewCommentDTO })
   get(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -64,6 +77,7 @@ export class ReviewCommentsController {
 
   @Patch('comments/:comment_id')
   @ApiOperation({ summary: 'Edit a review comment; only its author may' })
+  @ApiOkResponse({ type: GithubReviewCommentDTO })
   update(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -77,6 +91,7 @@ export class ReviewCommentsController {
   @Delete('comments/:comment_id')
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a review comment and its replies' })
+  @ApiNoContentResponse()
   delete(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -88,6 +103,7 @@ export class ReviewCommentsController {
 
   @Get(':number/comments')
   @ApiOperation({ summary: "A pull request's review comments" })
+  @ApiOkResponse({ type: [GithubReviewCommentDTO] })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -100,6 +116,7 @@ export class ReviewCommentsController {
 
   @Post(':number/comments')
   @ApiOperation({ summary: 'Comment on a line of a pull request, or reply' })
+  @ApiCreatedResponse({ type: GithubReviewCommentDTO })
   create(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -112,6 +129,7 @@ export class ReviewCommentsController {
 
   @Get(':number/reviews/:review_id/comments')
   @ApiOperation({ summary: "A review's line comments" })
+  @ApiOkResponse({ type: [GithubReviewCommentDTO] })
   listForReview(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
