@@ -445,7 +445,9 @@ export class GithubIssuesService {
     const { labels } = await this.issueService.listLabels(
       this.ref(repository, viewer),
     );
-    const label = labels.find((candidate) => candidate.name === name);
+    const label = labels.find(
+      (candidate) => candidate.name.toLowerCase() === name.toLowerCase(),
+    );
     if (!label) throw new GithubNotFoundError();
     return label;
   }
@@ -460,10 +462,13 @@ export class GithubIssuesService {
     const { labels } = await this.issueService.listLabels(
       this.ref(repository, viewer),
     );
-    const existing = new Set(labels.map((label) => label.name));
-    const missing = [
-      ...new Set(names.map((name) => name.trim()).filter(Boolean)),
-    ].filter((name) => !existing.has(name));
+    const existing = new Set(labels.map((label) => label.name.toLowerCase()));
+    const missing: string[] = [];
+    for (const name of names.map((name) => name.trim()).filter(Boolean)) {
+      if (existing.has(name.toLowerCase())) continue;
+      existing.add(name.toLowerCase());
+      missing.push(name);
+    }
     if (missing.length === 0) return;
     if (!WRITE_OR_ABOVE.includes(repository.viewerPermission))
       throw new GithubValidationError([

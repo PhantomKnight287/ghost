@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -45,7 +45,6 @@ export class LabelDTO {
 export class CreateLabelRequestDTO {
   @ApiProperty({ example: 'bug' })
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MinLength(1)
   @MaxLength(50)
   name: string;
@@ -68,7 +67,6 @@ export class UpdateLabelRequestDTO {
   @ApiPropertyOptional({ example: 'bug' })
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MinLength(1)
   @MaxLength(50)
   name?: string;

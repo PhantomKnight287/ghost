@@ -11,7 +11,6 @@ import {
 const HEX_COLOR = /^[0-9a-fA-F]{6}$/;
 export class GithubCreateLabelDTO {
   @ApiProperty({ example: 'bug' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(1)
   @MaxLength(50)
@@ -36,7 +35,6 @@ export class GithubCreateLabelDTO {
 export class GithubUpdateLabelDTO {
   @ApiPropertyOptional({ example: 'bug' })
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(1)
   @MaxLength(50)
