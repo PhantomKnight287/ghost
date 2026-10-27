@@ -103,7 +103,7 @@ export const REDIS = Symbol('REDIS');
 }
 ```
 
-- [ ] **Step 1 (Claude): Write the failing tests**
+- [x] **Step 1 (Claude): Write the failing tests**
 
 `rate-limiter.service.spec.ts`. Each test uses a fresh random key.
 - `counts down and reports the window`: 3 consumes on a limit-3 budget give `used` 1, 2, 3, `remaining` 2, 1, 0, all `allowed`. `resetAt` is within `[now, now + 60]`.
@@ -118,12 +118,12 @@ export const REDIS = Symbol('REDIS');
 - A refused one adds `Retry-After` equal to `String(retryAfter)`.
 - `tightest` prefers a refused decision, else the lowest `remaining`.
 
-- [ ] **Step 2 (Claude): Run red**
+- [x] **Step 2 (Claude): Run red**
 
 Run: `TEST_REDIS_URL=redis://localhost:56379 npx vitest run src/services/rate-limit src/lib/rate-limit`
 Expected: FAIL. The modules do not exist.
 
-- [ ] **Step 3 (user): Implement**
+- [x] **Step 3 (user): Implement**
 
 - Key layout: `ratelimit:{budget.name}:{key}`.
 - Consume is a single `EVAL` of this script (`KEYS[1]` = key, `ARGV` = limit, windowMs, count 1/0), returning `{used, pttl, allowed}`:
@@ -149,11 +149,11 @@ Expected: FAIL. The modules do not exist.
     - Global setup runs `FLUSHDB`.
   - **docs:** add a "Rate limits" section to `configuration.mdx` with `REDIS_URL` and the table of env vars and defaults from the spec.
 
-- [ ] **Step 4 (Claude): Run green and audit**
+- [x] **Step 4 (Claude): Run green and audit**
 
 Run the Step 2 command. Expected: PASS. Then audit the diff for weakened tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git commit -m "Count requests in Redis, one atomic window per budget"`
 
@@ -170,7 +170,7 @@ Run the Step 2 command. Expected: PASS. Then audit the diff for weakened tests.
 
 **Interfaces:** none new. `request.user` and `request.session` are now set for token callers on every Nest route except git and the GitHub-compatible API.
 
-- [ ] **Step 1 (Claude): Write the failing tests**
+- [x] **Step 1 (Claude): Write the failing tests**
 
 Unit (`api-key-auth.guard.spec.ts`), replacing `leaves tokens on optional routes to their own auth, as git and LFS do` and `leaves tokens on public routes to the route`:
 - `signs a token in on a public route`: flag `PUBLIC` gives `resolves true`, and `request.user` is the owner.
@@ -183,10 +183,10 @@ e2e:
 - `a token on a public route sees what its owner sees`: the owner creates a private repository. `GET /api/repositories/{owner}/{private}` with the owner's PAT is 200, and without it is 404.
 - `a bad token on a public route is 401`: `GET /api/repositories/{owner}/{public}` with `Bearer ghost_pat_nope` gives 401.
 
-- [ ] **Step 2 (Claude): Run red.** Expected: the new unit tests fail, and the private-repository e2e gets 404.
-- [ ] **Step 3 (user): Implement.**
-- [ ] **Step 4 (Claude): Run green, plus `lfs`, `github-scopes`, `oauth-app-access`, `github-rest` e2e. Audit.**
-- [ ] **Step 5: Commit** `git commit -m "Sign a token in on public routes too, as GitHub does"`
+- [x] **Step 2 (Claude): Run red.** Expected: the new unit tests fail, and the private-repository e2e gets 404.
+- [x] **Step 3 (user): Implement.**
+- [x] **Step 4 (Claude): Run green, plus `lfs`, `github-scopes`, `oauth-app-access`, `github-rest` e2e. Audit.**
+- [x] **Step 5: Commit** `git commit -m "Sign a token in on public routes too, as GitHub does"`
 
 ---
 
