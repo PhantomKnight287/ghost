@@ -1,4 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -155,7 +156,7 @@ export const label = pgTable(
       .$onUpdateFn(() => new Date()),
   },
   (t) => [
-    uniqueIndex("label_repo_name_idx").on(t.repositoryId, t.name),
+    uniqueIndex("label_repo_name_idx").on(t.repositoryId, sql`lower(${t.name})`),
     index("label_repo_idx").on(t.repositoryId),
   ],
 );

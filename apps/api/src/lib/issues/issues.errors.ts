@@ -49,6 +49,16 @@ export class LabelAlreadyExistsError extends DomainError {
   }
 }
 
+export class InvalidLabelNameError extends DomainError {
+  status: number = HttpStatus.BAD_REQUEST;
+
+  constructor(name: string) {
+    super(
+      `Label names cannot start or end with whitespace, or be "." or "..": ${JSON.stringify(name)}`,
+    );
+  }
+}
+
 export class PullRequestReopenError extends DomainError {
   status: number = HttpStatus.CONFLICT;
 

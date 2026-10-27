@@ -21,6 +21,7 @@ import {
   type ValidationFailure,
 } from '../../lib/github/github.errors.js';
 import {
+  InvalidLabelNameError,
   LabelAlreadyExistsError,
   PullRequestReopenError,
 } from '../../lib/issues/issues.errors.js';
@@ -57,6 +58,10 @@ const FIELD_ERRORS: [
   [
     LabelAlreadyExistsError,
     { resource: 'Label', field: 'name', code: 'already_exists' },
+  ],
+  [
+    InvalidLabelNameError,
+    { resource: 'Label', field: 'name', code: 'invalid' },
   ],
   [
     ReleaseAlreadyExistsError,

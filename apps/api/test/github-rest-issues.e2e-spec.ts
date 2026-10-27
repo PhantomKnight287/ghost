@@ -434,6 +434,90 @@ describe.skipIf(!hasBackends)(
         expect(pagesIn(page.headers.link).next).toBe(2);
       });
 
+      it('matches label names ignoring case and keeps the stored spelling', async () => {
+        await send(
+          'post',
+          `${repo}/labels`,
+          { name: 'Bug Report' },
+          owner.key,
+        ).expect(201);
+        const duplicate = await send(
+          'post',
+          `${repo}/labels`,
+          { name: 'bug report' },
+          owner.key,
+        ).expect(422);
+        expect(duplicate.body.errors).toEqual([
+          { resource: 'Label', field: 'name', code: 'already_exists' },
+        ]);
+
+        const read = await get(`${repo}/labels/BUG%20REPORT`).expect(200);
+        expect(read.body.name).toBe('Bug Report');
+        const recased = await send(
+          'patch',
+          `${repo}/labels/bug%20report`,
+          { new_name: 'Bug report' },
+          owner.key,
+        ).expect(200);
+        expect(recased.body.name).toBe('Bug report');
+
+        const issue = await openIssue('Case-blind labels');
+        const at = `${repo}/issues/${issue.number}/labels`;
+        const added = await send('post', at, ['BUG REPORT'], owner.key).expect(
+          200,
+        );
+        expect(added.body.map((label: { name: string }) => label.name)).toEqual(
+          ['Bug report'],
+        );
+        const all = await get(`${repo}/labels?per_page=100`).expect(200);
+        expect(
+          all.body.filter(
+            (label: { name: string }) =>
+              label.name.toLowerCase() === 'bug report',
+          ),
+        ).toHaveLength(1);
+        await send('delete', `${at}/bug%20REPORT`, {}, owner.key).expect(200);
+
+        await send(
+          'delete',
+          `${repo}/labels/BUG%20report`,
+          {},
+          owner.key,
+        ).expect(204);
+        await get(`${repo}/labels/bug%20report`).expect(404);
+      });
+
+      it('refuses names with surrounding whitespace or made only of one or two dots', async () => {
+        for (const name of [
+          '  spaced  ',
+          ' nbsp ',
+          '　ideo　',
+          '\u000bvt\u000b',
+          '   ',
+          '.',
+          '..',
+        ]) {
+          const refused = await send(
+            'post',
+            `${repo}/labels`,
+            { name },
+            owner.key,
+          ).expect(422);
+          expect(refused.body.errors).toEqual([
+            { resource: 'Label', field: 'name', code: 'invalid' },
+          ]);
+        }
+        await send('post', `${repo}/labels`, { name: '...' }, owner.key).expect(
+          201,
+        );
+        await send(
+          'patch',
+          `${repo}/labels/...`,
+          { new_name: '.. ' },
+          owner.key,
+        ).expect(422);
+      });
+
       it("adds, replaces and removes an issue's labels in every body shape GitHub takes", async () => {
         const issue = await openIssue('Label me');
         const at = `${repo}/issues/${issue.number}/labels`;

@@ -11,6 +11,7 @@ import {
   gte,
   inArray,
   isNotNull,
+  ne,
   not,
   or,
   sql,
@@ -47,6 +48,7 @@ import {
   NotCommentAuthorError,
   IssueNotFoundError,
   IssueNotOpenError,
+  InvalidLabelNameError,
   LabelAlreadyExistsError,
   PullRequestReopenError,
   LabelNotFoundError,
@@ -54,6 +56,9 @@ import {
 import { touchIssue } from '../../lib/issues/touch-issue.js';
 import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 import type { Violation } from '../../lib/rulesets/rulesets.types.js';
+
+// A name with surrounding whitespace would come back different from what was sent, and `.` or `..` in a label's URL is a dot segment clients collapse.
+const LABEL_NAME = /^(?!\.\.?$)\S(?:[\s\S]*\S)?$/;
 
 /** Filters and paging the GitHub REST layer needs beyond Ghost's own list: offset pages, pull requests alongside issues, `since`, and any or no assignee. */
 export type IssueListOptions = {
@@ -969,14 +974,15 @@ export class IssuesService {
       ...params,
       operation: 'write',
     });
-    const name = params.body.name.trim();
+    const { name } = params.body;
+    if (!LABEL_NAME.test(name)) throw new InvalidLabelNameError(name);
     const [existing] = await this.db
       .select({ id: schema.label.id })
       .from(schema.label)
       .where(
         and(
           eq(schema.label.repositoryId, repository.id),
-          eq(schema.label.name, name),
+          sameName(schema.label.name, name),
         ),
       );
     if (existing) throw new LabelAlreadyExistsError(name);
@@ -1023,26 +1029,27 @@ export class IssuesService {
       );
     if (!label) throw new LabelNotFoundError(params.labelId);
 
-    if (params.body.name && params.body.name.trim() !== label.name) {
+    const { name } = params.body;
+    if (name !== undefined && name !== label.name) {
+      if (!LABEL_NAME.test(name)) throw new InvalidLabelNameError(name);
       const [clash] = await this.db
         .select({ id: schema.label.id })
         .from(schema.label)
         .where(
           and(
             eq(schema.label.repositoryId, repository.id),
-            eq(schema.label.name, params.body.name.trim()),
+            ne(schema.label.id, label.id),
+            sameName(schema.label.name, name),
           ),
         );
-      if (clash) throw new LabelAlreadyExistsError(params.body.name.trim());
+      if (clash) throw new LabelAlreadyExistsError(name);
     }
 
     return this.db.transaction(async (tx) => {
       const [updated] = await tx
         .update(schema.label)
         .set({
-          ...(params.body.name === undefined
-            ? {}
-            : { name: params.body.name.trim() }),
+          ...(name === undefined ? {} : { name }),
           ...(params.body.description === undefined
             ? {}
             : { description: params.body.description }),
@@ -1392,7 +1399,10 @@ export class IssuesService {
       .where(
         and(
           eq(schema.label.repositoryId, repositoryId),
-          inArray(schema.label.name, names),
+          inArray(
+            sql`lower(${schema.label.name})`,
+            names.map((name) => name.toLowerCase()),
+          ),
         ),
       );
   }
@@ -1400,8 +1410,8 @@ export class IssuesService {
   private async resolveLabels(repositoryId: string, names: string[]) {
     if (names.length === 0) return [];
     const rows = await this.labelsNamed(repositoryId, names);
-    const found = new Set(rows.map((row) => row.name));
-    const missing = names.find((name) => !found.has(name));
+    const found = new Set(rows.map((row) => row.name.toLowerCase()));
+    const missing = names.find((name) => !found.has(name.toLowerCase()));
     if (missing) throw new LabelNotFoundError(missing);
     return rows;
   }
@@ -1410,7 +1420,8 @@ export class IssuesService {
   private async labelIdsForFilter(repositoryId: string, names: string[]) {
     if (names.length === 0) return [];
     const rows = await this.labelsNamed(repositoryId, names);
-    if (rows.length !== names.length) return null;
+    if (rows.length !== new Set(names.map((name) => name.toLowerCase())).size)
+      return null;
     return rows.map((row) => row.id);
   }
 

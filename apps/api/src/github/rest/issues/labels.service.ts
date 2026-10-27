@@ -161,8 +161,11 @@ export class GithubLabelsService {
       'DELETE /repos/:owner/:repo/issues/:number/labels/:name',
       [],
       (current) => {
-        if (!current.includes(name)) throw new GithubNotFoundError();
-        return current.filter((label) => label !== name);
+        const left = current.filter(
+          (label) => label.toLowerCase() !== name.toLowerCase(),
+        );
+        if (left.length === current.length) throw new GithubNotFoundError();
+        return left;
       },
     );
   }
