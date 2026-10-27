@@ -13,7 +13,15 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnprocessableEntityResponse,
+} from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
@@ -21,9 +29,14 @@ import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubPageQueryDTO } from './dto/issue.dto.js';
-import { GithubCreateLabelDTO, GithubUpdateLabelDTO } from './dto/label.dto.js';
+import {
+  GithubCreateLabelDTO,
+  GithubLabelDTO,
+  GithubUpdateLabelDTO,
+} from './dto/label.dto.js';
 import { GithubLabelsService } from './labels.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { GithubErrorDTO, ApiGithubErrors } from '../dto/error.dto.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -38,11 +51,13 @@ const LABELS_BODY = {
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class LabelsController {
   constructor(private readonly labels: GithubLabelsService) {}
 
   @Get('labels')
   @ApiOperation({ summary: "A repository's labels, by name" })
+  @ApiOkResponse({ type: [GithubLabelDTO] })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -54,6 +69,12 @@ export class LabelsController {
 
   @Post('labels')
   @ApiOperation({ summary: 'Create a label' })
+  @ApiCreatedResponse({ type: GithubLabelDTO })
+  @ApiUnprocessableEntityResponse({
+    type: GithubErrorDTO,
+    description:
+      'Validation Failed: the name is taken ignoring case (`already_exists`), or is refused (`invalid`).',
+  })
   create(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -65,6 +86,7 @@ export class LabelsController {
 
   @Get('labels/:name')
   @ApiOperation({ summary: 'A label by name' })
+  @ApiOkResponse({ type: GithubLabelDTO })
   get(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -76,6 +98,12 @@ export class LabelsController {
 
   @Patch('labels/:name')
   @ApiOperation({ summary: 'Rename, recolor or describe a label' })
+  @ApiOkResponse({ type: GithubLabelDTO })
+  @ApiUnprocessableEntityResponse({
+    type: GithubErrorDTO,
+    description:
+      'Validation Failed: the name is taken ignoring case (`already_exists`), or is refused (`invalid`).',
+  })
   update(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -89,6 +117,7 @@ export class LabelsController {
   @Delete('labels/:name')
   @HttpCode(204)
   @ApiOperation({ summary: 'Delete a label' })
+  @ApiNoContentResponse()
   delete(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -100,6 +129,7 @@ export class LabelsController {
 
   @Get('issues/:number/labels')
   @ApiOperation({ summary: "An issue's labels" })
+  @ApiOkResponse({ type: [GithubLabelDTO] })
   listOnIssue(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -116,6 +146,7 @@ export class LabelsController {
   @ApiOperation({
     summary: "Add labels to an issue; answers all of the issue's labels",
   })
+  @ApiOkResponse({ type: [GithubLabelDTO] })
   add(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -129,6 +160,7 @@ export class LabelsController {
   @Put('issues/:number/labels')
   @ApiBody(LABELS_BODY)
   @ApiOperation({ summary: "Replace an issue's labels" })
+  @ApiOkResponse({ type: [GithubLabelDTO] })
   set(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -142,6 +174,7 @@ export class LabelsController {
   @Delete('issues/:number/labels')
   @HttpCode(204)
   @ApiOperation({ summary: 'Remove every label from an issue' })
+  @ApiNoContentResponse()
   clear(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -155,6 +188,7 @@ export class LabelsController {
   @ApiOperation({
     summary: 'Remove one label from an issue; answers the labels left',
   })
+  @ApiOkResponse({ type: [GithubLabelDTO] })
   remove(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

@@ -12,7 +12,13 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
@@ -22,12 +28,15 @@ import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import {
   GithubAssigneesDTO,
   GithubCreateIssueDTO,
+  GithubIssueDTO,
   GithubListIssuesQueryDTO,
   GithubPageQueryDTO,
   GithubUpdateIssueDTO,
 } from './dto/issue.dto.js';
 import { GithubIssuesService } from './issues.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { GithubSimpleUserDTO } from '../users/dto/user.dto.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -36,11 +45,13 @@ const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class IssuesController {
   constructor(private readonly issues: GithubIssuesService) {}
 
   @Get('issues')
   @ApiOperation({ summary: "A repository's issues and pull requests" })
+  @ApiOkResponse({ type: [GithubIssueDTO] })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -52,6 +63,7 @@ export class IssuesController {
 
   @Post('issues')
   @ApiOperation({ summary: 'Open an issue' })
+  @ApiCreatedResponse({ type: GithubIssueDTO })
   create(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -63,6 +75,7 @@ export class IssuesController {
 
   @Get('issues/:number')
   @ApiOperation({ summary: 'An issue or pull request by number' })
+  @ApiOkResponse({ type: GithubIssueDTO })
   get(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -76,6 +89,7 @@ export class IssuesController {
   @ApiOperation({
     summary: 'Edit an issue: title, body, state, labels, assignees',
   })
+  @ApiOkResponse({ type: GithubIssueDTO })
   update(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -88,6 +102,7 @@ export class IssuesController {
 
   @Post('issues/:number/assignees')
   @ApiOperation({ summary: 'Add up to 10 assignees to an issue' })
+  @ApiCreatedResponse({ type: GithubIssueDTO })
   addAssignees(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -104,6 +119,7 @@ export class IssuesController {
 
   @Delete('issues/:number/assignees')
   @ApiOperation({ summary: 'Remove assignees from an issue' })
+  @ApiOkResponse({ type: GithubIssueDTO })
   removeAssignees(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -121,6 +137,9 @@ export class IssuesController {
   @Get('issues/:number/assignees/:assignee')
   @HttpCode(204)
   @ApiOperation({ summary: 'Whether a user can be assigned to an issue' })
+  @ApiNoContentResponse({
+    description: 'The user can be assigned; 404 otherwise.',
+  })
   canBeAssignedToIssue(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -137,6 +156,7 @@ export class IssuesController {
 
   @Get('assignees')
   @ApiOperation({ summary: 'People with access to the repository' })
+  @ApiOkResponse({ type: [GithubSimpleUserDTO] })
   assignees(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -149,6 +169,9 @@ export class IssuesController {
   @Get('assignees/:assignee')
   @HttpCode(204)
   @ApiOperation({ summary: 'Whether a user can be assigned in the repository' })
+  @ApiNoContentResponse({
+    description: 'The user can be assigned; 404 otherwise.',
+  })
   canBeAssigned(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

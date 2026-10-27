@@ -1,5 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from 'class-validator';
 import { schema } from '@ghost/db';
 
 export class UpdateRepositoryRequestDTO {
@@ -9,7 +15,7 @@ export class UpdateRepositoryRequestDTO {
   })
   @IsString()
   @IsNotEmpty()
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   name?: string;
 
   @ApiPropertyOptional()
@@ -22,7 +28,7 @@ export class UpdateRepositoryRequestDTO {
     enum: schema.repositoryVisiblity.enumValues,
   })
   @IsIn(schema.repositoryVisiblity.enumValues)
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   visibility?: (typeof schema.repositoryVisiblity.enumValues)[number];
 
   @ApiPropertyOptional({
@@ -31,6 +37,6 @@ export class UpdateRepositoryRequestDTO {
   })
   @IsString()
   @IsNotEmpty()
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   defaultBranch?: string;
 }

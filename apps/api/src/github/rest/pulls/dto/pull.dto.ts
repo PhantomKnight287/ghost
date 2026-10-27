@@ -10,6 +10,11 @@ import {
   MinLength,
 } from 'class-validator';
 
+import { AUTHOR_ASSOCIATION } from '../../issues/dto/issue.dto.js';
+import { GithubLabelDTO } from '../../issues/dto/label.dto.js';
+import { GithubRepositoryDTO } from '../../repos/dto/repository.dto.js';
+import { GithubSimpleUserDTO } from '../../users/dto/user.dto.js';
+
 /** GitHub's pull request list query; `popularity` and `long-running` sort as `created`. */
 export class GithubListPullsQueryDTO {
   @ApiPropertyOptional({ enum: ['open', 'closed', 'all'], default: 'open' })
@@ -161,4 +166,396 @@ export class GithubRequestedReviewersDTO {
   @IsArray()
   @IsString({ each: true })
   team_reviewers?: string[];
+}
+
+export class GithubLinkDTO {
+  @ApiProperty()
+  href: string;
+}
+
+export class GithubPullBranchDTO {
+  @ApiProperty({ example: 'octocat:feature' })
+  label: string;
+
+  @ApiProperty({ example: 'feature' })
+  ref: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Null for a base the repository no longer resolves.',
+  })
+  sha: string | null;
+
+  @ApiProperty({
+    type: GithubSimpleUserDTO,
+    nullable: true,
+    description:
+      "The repository's owner; null for an organization or a deleted fork.",
+  })
+  user: GithubSimpleUserDTO | null;
+
+  @ApiProperty({
+    type: GithubRepositoryDTO,
+    nullable: true,
+    description:
+      'Null once the head fork is deleted or the viewer cannot read it.',
+  })
+  repo: GithubRepositoryDTO | null;
+}
+
+export class GithubTeamDTO {
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  slug: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  description: null;
+
+  @ApiProperty({ example: 'closed' })
+  privacy: string;
+
+  @ApiProperty({ example: 'pull' })
+  permission: string;
+
+  @ApiProperty({ type: Object, nullable: true })
+  parent: null;
+}
+
+export class GithubPullLinksDTO {
+  @ApiProperty({ type: GithubLinkDTO })
+  self: GithubLinkDTO;
+
+  @ApiProperty({ type: GithubLinkDTO })
+  html: GithubLinkDTO;
+
+  @ApiProperty({ type: GithubLinkDTO })
+  issue: GithubLinkDTO;
+
+  @ApiProperty({ type: GithubLinkDTO })
+  comments: GithubLinkDTO;
+
+  @ApiProperty({ type: GithubLinkDTO })
+  review_comments: GithubLinkDTO;
+
+  @ApiProperty({ type: GithubLinkDTO })
+  review_comment: GithubLinkDTO;
+
+  @ApiProperty({ type: GithubLinkDTO })
+  commits: GithubLinkDTO;
+
+  @ApiProperty({ type: GithubLinkDTO })
+  statuses: GithubLinkDTO;
+}
+
+const SINGLE =
+  'Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list.';
+
+export class GithubPullDTO {
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty()
+  html_url: string;
+
+  @ApiProperty()
+  diff_url: string;
+
+  @ApiProperty()
+  patch_url: string;
+
+  @ApiProperty()
+  issue_url: string;
+
+  @ApiProperty()
+  commits_url: string;
+
+  @ApiProperty()
+  review_comments_url: string;
+
+  @ApiProperty()
+  review_comment_url: string;
+
+  @ApiProperty()
+  comments_url: string;
+
+  @ApiProperty()
+  statuses_url: string;
+
+  @ApiProperty()
+  number: number;
+
+  @ApiProperty({
+    enum: ['open', 'closed'],
+    description: 'A merged pull request reads as `closed`; see `merged_at`.',
+  })
+  state: string;
+
+  @ApiProperty({ example: false })
+  locked: boolean;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  user: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  body: string | null;
+
+  @ApiProperty({ type: [GithubLabelDTO] })
+  labels: GithubLabelDTO[];
+
+  @ApiProperty({
+    type: Object,
+    nullable: true,
+    description: 'Always null: Ghost has no milestones on this API.',
+  })
+  milestone: null;
+
+  @ApiProperty({ type: String, nullable: true })
+  active_lock_reason: null;
+
+  @ApiProperty({ format: 'date-time' })
+  created_at: string;
+
+  @ApiProperty({ format: 'date-time' })
+  updated_at: string;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  closed_at: string | null;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  merged_at: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  merge_commit_sha: string | null;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  assignee: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ type: [GithubSimpleUserDTO] })
+  assignees: GithubSimpleUserDTO[];
+
+  @ApiProperty({ type: [GithubSimpleUserDTO] })
+  requested_reviewers: GithubSimpleUserDTO[];
+
+  @ApiProperty({
+    type: [GithubTeamDTO],
+    description: 'Teams carry no integer `id`.',
+  })
+  requested_teams: GithubTeamDTO[];
+
+  @ApiProperty({ type: GithubPullBranchDTO })
+  head: GithubPullBranchDTO;
+
+  @ApiProperty({ type: GithubPullBranchDTO })
+  base: GithubPullBranchDTO;
+
+  @ApiProperty({ type: GithubPullLinksDTO })
+  _links: GithubPullLinksDTO;
+
+  @ApiProperty(AUTHOR_ASSOCIATION)
+  author_association: string;
+
+  @ApiProperty({
+    type: Object,
+    nullable: true,
+    description: 'Always null: Ghost has no auto-merge.',
+  })
+  auto_merge: null;
+
+  @ApiProperty()
+  draft: boolean;
+
+  @ApiPropertyOptional({ description: SINGLE })
+  merged?: boolean;
+
+  @ApiPropertyOptional({
+    type: Boolean,
+    nullable: true,
+    description: `${SINGLE} Null while Ghost has not worked it out.`,
+  })
+  mergeable?: boolean | null;
+
+  @ApiPropertyOptional({
+    type: Boolean,
+    nullable: true,
+    description: `${SINGLE} The same as \`mergeable\`.`,
+  })
+  rebaseable?: boolean | null;
+
+  @ApiPropertyOptional({
+    enum: [
+      'draft',
+      'dirty',
+      'behind',
+      'blocked',
+      'unstable',
+      'clean',
+      'unknown',
+    ],
+    description: SINGLE,
+  })
+  mergeable_state?: string;
+
+  @ApiPropertyOptional({
+    type: GithubSimpleUserDTO,
+    nullable: true,
+    description: SINGLE,
+  })
+  merged_by?: GithubSimpleUserDTO | null;
+
+  @ApiPropertyOptional({ description: SINGLE })
+  comments?: number;
+
+  @ApiPropertyOptional({ description: SINGLE })
+  review_comments?: number;
+
+  @ApiPropertyOptional({ description: SINGLE })
+  maintainer_can_modify?: boolean;
+
+  @ApiPropertyOptional({ description: SINGLE })
+  commits?: number;
+
+  @ApiPropertyOptional({ description: SINGLE })
+  additions?: number;
+
+  @ApiPropertyOptional({ description: SINGLE })
+  deletions?: number;
+
+  @ApiPropertyOptional({ description: SINGLE })
+  changed_files?: number;
+}
+
+export class GithubRequestedReviewersResponseDTO {
+  @ApiProperty({ type: [GithubSimpleUserDTO] })
+  users: GithubSimpleUserDTO[];
+
+  @ApiProperty({ type: [GithubTeamDTO] })
+  teams: GithubTeamDTO[];
+}
+
+export class GithubGitActorDTO {
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty({ format: 'date-time' })
+  date: string;
+}
+
+export class GithubCommitVerificationDTO {
+  @ApiProperty()
+  verified: boolean;
+
+  @ApiProperty({ enum: ['valid', 'unknown_key', 'unsigned'] })
+  reason: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  signature: null;
+
+  @ApiProperty({ type: String, nullable: true })
+  payload: null;
+
+  @ApiProperty({ type: String, nullable: true })
+  verified_at: null;
+}
+
+export class GithubGitCommitDTO {
+  @ApiProperty({ type: GithubGitActorDTO })
+  author: GithubGitActorDTO;
+
+  @ApiProperty({ type: GithubGitActorDTO })
+  committer: GithubGitActorDTO;
+
+  @ApiProperty()
+  message: string;
+
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty({ example: 0 })
+  comment_count: number;
+
+  @ApiProperty({ type: GithubCommitVerificationDTO })
+  verification: GithubCommitVerificationDTO;
+}
+
+export class GithubPullCommitDTO {
+  @ApiProperty()
+  sha: string;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty({ type: GithubGitCommitDTO })
+  commit: GithubGitCommitDTO;
+
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  html_url: string;
+
+  @ApiProperty()
+  comments_url: string;
+
+  @ApiProperty({
+    type: GithubSimpleUserDTO,
+    nullable: true,
+    description:
+      'The account whose verified email the commit was authored with.',
+  })
+  author: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  committer: GithubSimpleUserDTO | null;
+}
+
+export class GithubPullFileDTO {
+  @ApiProperty()
+  filename: string;
+
+  @ApiProperty({ enum: ['added', 'removed', 'modified', 'changed'] })
+  status: string;
+
+  @ApiProperty()
+  additions: number;
+
+  @ApiProperty()
+  deletions: number;
+
+  @ApiProperty()
+  changes: number;
+
+  @ApiProperty()
+  blob_url: string;
+
+  @ApiProperty()
+  raw_url: string;
+}
+
+export class GithubMergeResultDTO {
+  @ApiProperty()
+  sha: string;
+
+  @ApiProperty({ example: true })
+  merged: boolean;
+
+  @ApiProperty({ example: 'Pull Request successfully merged' })
+  message: string;
 }

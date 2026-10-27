@@ -8,7 +8,12 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
@@ -16,15 +21,21 @@ import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubPageQueryDTO } from '../issues/dto/issue.dto.js';
-import { GithubCreateStatusDTO } from './dto/status.dto.js';
+import {
+  GithubCombinedStatusDTO,
+  GithubCreateStatusDTO,
+  GithubStatusDTO,
+} from './dto/status.dto.js';
 import { GithubStatusesService } from './statuses.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class GithubStatusesController {
   constructor(private readonly statuses: GithubStatusesService) {}
 
@@ -32,6 +43,7 @@ export class GithubStatusesController {
   @ApiOperation({
     summary: 'Report a status on a commit, by its full sha',
   })
+  @ApiCreatedResponse({ type: GithubStatusDTO })
   create(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -45,6 +57,7 @@ export class GithubStatusesController {
   // A ref may hold slashes (`feat/x`), so it is everything between `commits/` and the suffix.
   @Get('repos/:owner/:repo/commits/*ref/statuses')
   @ApiOperation({ summary: "Every status on a ref's commit, newest first" })
+  @ApiOkResponse({ type: [GithubStatusDTO] })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -60,6 +73,7 @@ export class GithubStatusesController {
     summary:
       "The combined status of a ref's commit: the newest status of each context",
   })
+  @ApiOkResponse({ type: GithubCombinedStatusDTO })
   combined(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

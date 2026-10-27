@@ -14,7 +14,15 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiExtraModels,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
@@ -26,11 +34,16 @@ import {
   GithubCreatePullDTO,
   GithubListPullsQueryDTO,
   GithubMergePullDTO,
+  GithubMergeResultDTO,
+  GithubPullCommitDTO,
+  GithubPullDTO,
+  GithubPullFileDTO,
   GithubUpdatePullDTO,
 } from './dto/pull.dto.js';
 import { ExpensiveRead } from '../../../rate-limit/rate-limit.guard.js';
 import { GithubPullsService } from './pulls.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 const RAW = /application\/vnd\.github(?:\.v3)?\.(diff|patch)\b/i;
@@ -40,11 +53,13 @@ const RAW = /application\/vnd\.github(?:\.v3)?\.(diff|patch)\b/i;
 @SignInOptional()
 @UseFilters(GithubRestFilter)
 @UseInterceptors(GithubRestInterceptor)
+@ApiGithubErrors()
 export class PullsController {
   constructor(private readonly pulls: GithubPullsService) {}
 
   @Get()
   @ApiOperation({ summary: "A repository's pull requests" })
+  @ApiOkResponse({ type: [GithubPullDTO] })
   list(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -56,6 +71,7 @@ export class PullsController {
 
   @Post()
   @ApiOperation({ summary: 'Open a pull request' })
+  @ApiCreatedResponse({ type: GithubPullDTO })
   create(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -69,6 +85,18 @@ export class PullsController {
   @Get(':number')
   @ExpensiveRead((request) => RAW.test(request.headers.accept ?? ''))
   @ApiOperation({ summary: 'A pull request, or its diff or patch' })
+  @ApiExtraModels(GithubPullDTO)
+  @ApiOkResponse({
+    content: {
+      'application/json': { schema: { $ref: getSchemaPath(GithubPullDTO) } },
+      'text/plain': {
+        schema: {
+          type: 'string',
+          description: 'The diff, or the patch, as `git` writes it.',
+        },
+      },
+    },
+  })
   async get(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -90,6 +118,7 @@ export class PullsController {
 
   @Patch(':number')
   @ApiOperation({ summary: 'Edit a pull request: title, body, state' })
+  @ApiOkResponse({ type: GithubPullDTO })
   update(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -102,6 +131,7 @@ export class PullsController {
 
   @Get(':number/commits')
   @ApiOperation({ summary: "A pull request's commits, oldest first" })
+  @ApiOkResponse({ type: [GithubPullCommitDTO] })
   commits(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -115,6 +145,7 @@ export class PullsController {
   @Get(':number/files')
   @ExpensiveRead()
   @ApiOperation({ summary: 'The files a pull request changes' })
+  @ApiOkResponse({ type: [GithubPullFileDTO] })
   files(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -129,6 +160,7 @@ export class PullsController {
   @Get(':number/merge')
   @HttpCode(204)
   @ApiOperation({ summary: 'Whether a pull request has been merged' })
+  @ApiNoContentResponse({ description: 'Merged; 404 otherwise.' })
   merged(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -140,6 +172,7 @@ export class PullsController {
 
   @Put(':number/merge')
   @ApiOperation({ summary: 'Merge a pull request' })
+  @ApiOkResponse({ type: GithubMergeResultDTO })
   merge(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

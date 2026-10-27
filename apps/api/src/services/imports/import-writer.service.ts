@@ -114,7 +114,7 @@ export class ImportWriterService {
           await tx.insert(schema.issueLabel).values(
             issue.labels.map((label) => ({
               issueId: row.id,
-              labelId: labelIds.get(label.name)!,
+              labelId: labelIds.get(label.name.toLowerCase())!,
             })),
           );
         }
@@ -199,10 +199,11 @@ export class ImportWriterService {
     repositoryId: string,
     issues: ImportedIssueDTO[],
   ) {
+    // Label names are unique ignoring case, so an imported `bug` lands on a `Bug` the repository already has.
     const labels = new Map(
       issues
         .flatMap((issue) => issue.labels)
-        .map((label) => [label.name, label]),
+        .map((label) => [label.name.toLowerCase(), label]),
     );
     if (!labels.size) return new Map<string, string>();
 
@@ -216,17 +217,19 @@ export class ImportWriterService {
           description: label.description,
         })),
       )
-      .onConflictDoNothing({
-        target: [schema.label.repositoryId, schema.label.name],
-      });
+      // No target: drizzle takes columns only, and the unique index is on `lower(name)`; nothing else here can conflict.
+      .onConflictDoNothing();
 
     const rows = await tx
-      .select({ id: schema.label.id, name: schema.label.name })
+      .select({
+        id: schema.label.id,
+        name: sql<string>`lower(${schema.label.name})`,
+      })
       .from(schema.label)
       .where(
         and(
           eq(schema.label.repositoryId, repositoryId),
-          inArray(schema.label.name, [...labels.keys()]),
+          inArray(sql`lower(${schema.label.name})`, [...labels.keys()]),
         ),
       );
     return new Map(rows.map((row) => [row.name, row.id]));

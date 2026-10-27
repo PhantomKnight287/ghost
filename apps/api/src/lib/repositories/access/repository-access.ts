@@ -81,25 +81,34 @@ export function basePermissionOf(organizationId: PgColumn) {
   return sql<CollaboratorRole | null>`(select ${schema.organizationSettings.basePermission} from ${schema.organizationSettings} where ${schema.organizationSettings.organizationId} = ${organizationId})`;
 }
 
-/** Repositories the actor holds any role on: their own, shared with them, through a team, or through an organization that gives its members access. Needs `repository_collaborator` and `member` left-joined by `acceptedCollaboration` and `organizationMembership`. */
-export function grantedTo(actor: Actor) {
-  return or(
-    actor
+/** Each way the actor can hold a role on a repository, named as GitHub's `affiliation` names them: their own, shared with them, or through an organization's teams, roles or base permission. Needs `repository_collaborator` and `member` left-joined by `acceptedCollaboration` and `organizationMembership`. */
+export function affiliationsOf(actor: Actor) {
+  return {
+    owner: actor
       ? and(
           eq(schema.repository.ownerId, actor.userId),
           isNull(schema.repository.organizationId),
         )
-      : undefined,
-    isNotNull(schema.repositoryCollaborator.id),
-    isNotNull(teamRoleOf(schema.repository.id, actor)),
-    and(
-      isNotNull(schema.member.id),
-      or(
-        holdsOrganizationRole(schema.member.role, ['owner', 'admin']),
-        isNotNull(basePermissionOf(schema.repository.organizationId)),
+      : sql`false`,
+    collaborator: isNotNull(schema.repositoryCollaborator.id),
+    organization_member: or(
+      isNotNull(teamRoleOf(schema.repository.id, actor)),
+      and(
+        isNotNull(schema.member.id),
+        or(
+          holdsOrganizationRole(schema.member.role, ['owner', 'admin']),
+          isNotNull(basePermissionOf(schema.repository.organizationId)),
+        ),
       ),
     ),
-  );
+  };
+}
+
+export type Affiliation = keyof ReturnType<typeof affiliationsOf>;
+
+/** Repositories the actor holds any role on, by any affiliation; same joins as `affiliationsOf`. */
+export function grantedTo(actor: Actor) {
+  return or(...Object.values(affiliationsOf(actor)));
 }
 
 /** Whether a `member.role` holds any of `roles`, as `organizationRoleOf` reads it: Better Auth joins several roles with commas. */

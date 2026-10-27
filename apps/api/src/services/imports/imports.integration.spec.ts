@@ -489,6 +489,21 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
       expect(labels).toEqual([{ name: 'bug' }]);
     });
 
+    it('attaches a label the repository already has in another case', async () => {
+      await db
+        .insert(schema.label)
+        .values({ repositoryId, name: 'Bug', color: 'ededed' });
+      await writer.writeIssues(repositoryId, [issue]);
+
+      const labels = await db
+        .select({ name: schema.label.name, color: schema.label.color })
+        .from(schema.issueLabel)
+        .innerJoin(schema.label, eq(schema.label.id, schema.issueLabel.labelId))
+        .innerJoin(schema.issue, eq(schema.issue.id, schema.issueLabel.issueId))
+        .where(eq(schema.issue.repositoryId, repositoryId));
+      expect(labels).toEqual([{ name: 'Bug', color: 'ededed' }]);
+    });
+
     it('keeps a same-repository head live', async () => {
       await writer.writeIssues(repositoryId, [
         {

@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 
 import { ReposController } from './repos.controller.js';
@@ -9,7 +10,10 @@ describe('ReposController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ReposController],
-      providers: [{ provide: GithubReposService, useValue: {} }],
+      providers: [
+        { provide: GithubReposService, useValue: {} },
+        { provide: ConfigService, useValue: {} },
+      ],
     }).compile();
 
     controller = module.get<ReposController>(ReposController);

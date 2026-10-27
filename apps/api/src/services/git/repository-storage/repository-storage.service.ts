@@ -24,7 +24,12 @@ export class RepositoryStorageService {
   }
 
   async remove(repositoryId: string) {
-    await rm(this.pathFor(repositoryId), { recursive: true, force: true });
+    // ponytail: a concurrent getRepoPath can re-init the directory mid-removal (ENOTEMPTY); rm retries, but a re-init that lands after it leaves an empty cache behind until the next purge.
+    await rm(this.pathFor(repositoryId), {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+    });
   }
 
   private pathFor(repositoryId: string) {

@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Query, UseFilters } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
@@ -7,11 +7,14 @@ import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubReposService } from './repos.service.js';
+import { GithubCodeownersErrorsDTO } from './dto/repository.dto.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
 @SignInOptional()
 @UseFilters(GithubRestFilter)
+@ApiGithubErrors()
 export class GithubCodeownersController {
   constructor(private readonly repos: GithubReposService) {}
 
@@ -20,6 +23,7 @@ export class GithubCodeownersController {
     summary:
       'Errors in the CODEOWNERS file at a ref, the default branch when none is given',
   })
+  @ApiOkResponse({ type: GithubCodeownersErrorsDTO })
   errors(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

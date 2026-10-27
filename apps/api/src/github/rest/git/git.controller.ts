@@ -6,7 +6,7 @@ import {
   Param,
   UseFilters,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
 import type { GithubViewer } from '../../auth/github-request.js';
@@ -14,11 +14,13 @@ import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubGitService } from './git.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 
 @Controller('v3/repos/:owner/:repo/git/refs')
 @ApiTags('GitHub compatibility')
 @SignInOptional()
 @UseFilters(GithubRestFilter)
+@ApiGithubErrors()
 export class GithubGitController {
   constructor(private readonly git: GithubGitService) {}
 
@@ -26,6 +28,7 @@ export class GithubGitController {
   @Delete('*ref')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a branch or a tag' })
+  @ApiNoContentResponse()
   delete(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

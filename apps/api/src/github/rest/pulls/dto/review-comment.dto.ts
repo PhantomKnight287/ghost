@@ -14,6 +14,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+import { AUTHOR_ASSOCIATION } from '../../issues/dto/issue.dto.js';
+import { GithubSimpleUserDTO } from '../../users/dto/user.dto.js';
+import { GithubLinkDTO } from './pull.dto.js';
+
 const SIDES = ['LEFT', 'RIGHT'] as const;
 type Side = (typeof SIDES)[number];
 
@@ -152,4 +156,143 @@ export class GithubSubmitReviewDTO {
   @IsString()
   @MaxLength(20000)
   body?: string;
+}
+
+export class GithubReviewLinksDTO {
+  @ApiProperty({ type: GithubLinkDTO })
+  html: GithubLinkDTO;
+
+  @ApiProperty({ type: GithubLinkDTO })
+  pull_request: GithubLinkDTO;
+}
+
+export class GithubReviewDTO {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  user: GithubSimpleUserDTO | null;
+
+  @ApiProperty({ description: 'Empty when the review has none.' })
+  body: string;
+
+  @ApiProperty({
+    enum: [
+      'PENDING',
+      'COMMENTED',
+      'APPROVED',
+      'CHANGES_REQUESTED',
+      'DISMISSED',
+    ],
+  })
+  state: string;
+
+  @ApiProperty()
+  html_url: string;
+
+  @ApiProperty()
+  pull_request_url: string;
+
+  @ApiProperty(AUTHOR_ASSOCIATION)
+  author_association: string;
+
+  @ApiProperty({ type: GithubReviewLinksDTO })
+  _links: GithubReviewLinksDTO;
+
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    description: 'Null while the review is pending.',
+  })
+  submitted_at: string | null;
+
+  @ApiProperty({ description: 'The head the review read.' })
+  commit_id: string;
+}
+
+export class GithubReviewCommentLinksDTO extends GithubReviewLinksDTO {
+  @ApiProperty({ type: GithubLinkDTO })
+  self: GithubLinkDTO;
+}
+
+export class GithubReviewCommentDTO {
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  pull_request_review_id: number;
+
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty({
+    description: "Empty when Ghost kept none; a reply shows its thread's.",
+  })
+  diff_hunk: string;
+
+  @ApiProperty()
+  path: string;
+
+  @ApiProperty()
+  commit_id: string;
+
+  @ApiProperty({ description: 'The same as `commit_id`.' })
+  original_commit_id: string;
+
+  @ApiPropertyOptional({
+    description: 'Replies only: the comment that opened the thread.',
+  })
+  in_reply_to_id?: number;
+
+  @ApiProperty({ type: GithubSimpleUserDTO, nullable: true })
+  user: GithubSimpleUserDTO | null;
+
+  @ApiProperty()
+  body: string;
+
+  @ApiProperty({ format: 'date-time' })
+  created_at: string;
+
+  @ApiProperty({ format: 'date-time' })
+  updated_at: string;
+
+  @ApiProperty()
+  html_url: string;
+
+  @ApiProperty()
+  pull_request_url: string;
+
+  @ApiProperty(AUTHOR_ASSOCIATION)
+  author_association: string;
+
+  @ApiProperty({ type: GithubReviewCommentLinksDTO })
+  _links: GithubReviewCommentLinksDTO;
+
+  @ApiProperty({ type: Number, nullable: true })
+  start_line: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  original_start_line: number | null;
+
+  @ApiProperty({ type: String, enum: ['LEFT', 'RIGHT'], nullable: true })
+  start_side: 'LEFT' | 'RIGHT' | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  line: number | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  original_line: number | null;
+
+  @ApiProperty({ enum: SIDES })
+  side: Side;
+
+  @ApiProperty({ example: 'line' })
+  subject_type: string;
 }

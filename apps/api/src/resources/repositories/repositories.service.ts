@@ -1110,6 +1110,13 @@ export class RepositoriesService {
         throw new BranchNotFoundError(defaultBranch);
     }
 
+    if (
+      [name, description, visibility, defaultBranch].every(
+        (change) => change === undefined,
+      )
+    )
+      return { id: repository.id, slug: repository.slug };
+
     // A form resends the name on every save; recomputing it could hand a suffixed slug a new suffix.
     const newSlug =
       name === undefined || name === repository.name
