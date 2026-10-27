@@ -9,6 +9,66 @@ export const CHANGELOG: {
   body: string;
 }[] = [
   {
+    date: "2026-10-27",
+    title: "Repositories through GitHub's REST API",
+    body: "GitHub's routes to list, edit and delete repositories work against Ghost. `GET /user/repos` lists everything you hold a role on, private repositories included, filtered by `visibility`, `affiliation` or `type`. `GET /users/{username}/repos` lists an account's public repositories, and `GET /orgs/{org}/repos` an organization's. All three sort and page as GitHub does. `PATCH /repos/{owner}/{repo}` renames a repository and changes its description, visibility or default branch, and `DELETE /repos/{owner}/{repo}` deletes it with a token that holds `delete_repo`.",
+  },
+  {
+    date: "2026-10-27",
+    title: "A complete API reference",
+    body: "`/openapi.json` describes the response of every GitHub-compatible route, so code generators produce typed clients for the whole API. It also documents GitHub's error body, which routes take a token or a session and which work signed out, and the limits on label names and colours.",
+  },
+  {
+    date: "2026-10-27",
+    title: "Label names ignore case",
+    body: "Label names are unique in a repository ignoring case, as on GitHub: `Bug` and `bug` cannot both exist, and `…/labels/BUG` finds `bug`. A name with leading or trailing spaces, or one that is `.` or `..`, is refused instead of being trimmed without a word. Imports from GitHub attach a label the repository already has in another case.",
+  },
+  {
+    date: "2026-10-26",
+    title: "Rate limits",
+    body: "Every account gets 120 API requests a minute, shared by its tokens and sessions across Ghost's API and GitHub's REST and GraphQL, and searches draw from a smaller budget of their own. Responses carry GitHub's `X-RateLimit-*` headers, so tools such as the Terraform provider pace themselves, and a 429 says when to retry. Git over HTTP and SSH has its own budget, and sign-in, sign-up and password resets are limited per address.",
+  },
+  {
+    date: "2026-10-25",
+    title: "Personal access tokens on Ghost's API",
+    body: "Personal access tokens work on Ghost's own API as well as the GitHub-compatible one: send `Authorization: Bearer <token>` and the request acts as the token's owner. Account security settings such as emails, keys and OAuth apps still need a signed-in browser session.",
+  },
+  {
+    date: "2026-10-25",
+    title: "Names match in any case",
+    body: "User names, organization names and repository names are matched ignoring case, as on GitHub, in URLs, the API, GraphQL and git. `/PippinMole/Ghost` and `/pippinmole/ghost` open the same repository, and two repositories in one account can no longer differ only by case.",
+  },
+  {
+    date: "2026-10-23",
+    title: "Required status checks and signed commits",
+    body: `Two more ruleset rules. **Required status checks** refuse a push and block a merge until the commit has passed every named check, optionally only once the branch is up to date with its base. **Required signatures** refuse any commit that does not verify. \`gh pr checks --required\` lists the required checks.`,
+  },
+  {
+    date: "2026-10-23",
+    title: "SSH signing keys",
+    body: `Sign commits with an SSH key. Signing keys are kept apart from the keys you push with: add them in Settings, or with \`gh ssh-key add --type signing\`. See [Adding an SSH signing key](${DOCS_URL}/signing/adding-an-ssh-signing-key).`,
+  },
+  {
+    date: "2026-10-23",
+    title: "Rule insights and evaluate mode",
+    body: "Every push and merge a ruleset checks is recorded: who wrote, to which ref, and what each rule decided. Admins read the record under Settings → Rules → Insights, filtered by ruleset, ref, actor, result and time, or through GitHub's rule suites API. A ruleset in **evaluate** mode checks every write the same way but never refuses one, so you can see what a rule would block before turning it on.",
+  },
+  {
+    date: "2026-10-23",
+    title: "Pull request rules",
+    body: "A ruleset can require changes to go through a pull request, with a number of approvals, code owner review, approval of the latest push, resolved conversations and a choice of merge methods. Stale approvals can be dismissed on new pushes. The merge box lists every requirement still unmet, and people allowed to bypass the ruleset can merge anyway, which leaves an entry on the timeline.",
+  },
+  {
+    date: "2026-10-23",
+    title: "Newer goes back one page",
+    body: "On every paged list, **Newer** steps back one page instead of jumping to the first.",
+  },
+  {
+    date: "2026-10-22",
+    title: "Faster file pages",
+    body: "Opening a file takes fewer steps in a row: its history is looked up while the file is read, and a branch is found without listing every branch and tag.",
+  },
+  {
     date: "2026-10-20",
     title: "Markdown for agents, richer Discord previews",
     body: "Ask for any public profile, repository, issue, pull request or release list with `Accept: text/markdown` and Ghost answers in Markdown, comments and README included. `/llms.txt` tells AI agents what Ghost serves, and `/openapi.json` describes the API. Links pasted in Discord show the title, state, stats and buttons to open the page.",
@@ -22,6 +82,11 @@ export const CHANGELOG: {
     date: "2026-10-19",
     title: "Review requests and CODEOWNERS",
     body: `Request reviews from people and teams on a pull request, and re-request them after changes. A \`CODEOWNERS\` file in \`.ghost/\`, \`.github/\`, \`docs/\` or the repository root requests the owners of changed files automatically. Review requests show on your dashboard and in notifications, pull request lists filter by them, and \`gh pr create --reviewer\` and \`gh pr edit --add-reviewer\` work. See [Review requests](${DOCS_URL}/pull-requests/review-requests).`,
+  },
+  {
+    date: "2026-10-17",
+    title: "A clearer merge box",
+    body: "The merge box sits above the comment box and is split into sections. Checks fold into one summary line that opens while any is not passing, and a merged or closed pull request says which branch went where, linking the merge commit.",
   },
   {
     date: "2026-10-17",
@@ -47,6 +112,21 @@ export const CHANGELOG: {
     date: "2026-10-16",
     title: "More fields in gh pr view --json",
     body: "`gh pr view --json` answers six fields it used to reject: `mergeCommit`, `mergedBy`, `baseRefOid`, `potentialMergeCommit`, `fullDatabaseId` and `closingIssuesReferences`.",
+  },
+  {
+    date: "2026-10-15",
+    title: "Two-factor authentication and passkeys",
+    body: "Protect your account with an authenticator app, with backup codes for when you lose it, and sign in with a passkey instead of a password. Set both up under Settings → Security.",
+  },
+  {
+    date: "2026-10-15",
+    title: "Link to a comment",
+    body: "Every comment has a menu with **Copy link**, next to Edit and Delete. Opening the link scrolls to the comment and highlights it, and the links match the ones GitHub's API returns.",
+  },
+  {
+    date: "2026-10-15",
+    title: "Review comments through GitHub's REST API",
+    body: "Tokens can read and write line comments and reviews through GitHub's REST API: comment on a line of any commit in a pull request, reply in a thread, and start, submit or delete a review.",
   },
   {
     date: "2026-10-15",
@@ -278,6 +358,12 @@ export const CHANGELOG: {
     title: "Issue and pull request references",
     body: "Issues and pull requests that mention each other show the reference in their timelines, and closing keywords such as `fixes #12` close the issue they name.",
   },
+];
+
+/** Newest first. A release holds the entries dated on or before its own date and after the release below it. */
+export const RELEASES: { version: string; date: string }[] = [
+  { version: "v0.4.0", date: "2026-10-27" },
+  { version: "v0.3.0", date: "2026-10-13" },
 ];
 
 const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {

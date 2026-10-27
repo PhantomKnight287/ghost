@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Ghost } from "lucide-react";
+import { Fragment } from "react";
 
 import { Markdown } from "@/components/markdown";
 import { ThemePicker } from "@/components/theme-picker";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
-import { CHANGELOG, DESCRIPTION, formatDate } from "./entries";
+import { CHANGELOG, DESCRIPTION, formatDate, RELEASES } from "./entries";
 
 export const metadata: Metadata = {
   title: "Changelog",
@@ -44,31 +47,61 @@ export default function ChangelogPage() {
         </header>
 
         {[...Map.groupBy(CHANGELOG, ({ date }) => date)].map(
-          ([date, entries]) => (
-            <section
-              key={date}
-              id={date}
-              className="flex flex-col gap-6 border-t pt-8 md:flex-row md:gap-10"
-            >
-              <h2 className="shrink-0 text-sm font-medium text-muted-foreground md:w-40">
-                <a href={`#${date}`} className="hover:text-foreground">
-                  <time dateTime={date}>{formatDate(date)}</time>
-                </a>
-              </h2>
-              <div className="flex min-w-0 flex-col gap-8">
-                {entries.map(({ title, body }) => (
-                  <article key={title} className="flex flex-col gap-2">
-                    <h3 className="text-xl font-semibold tracking-[-0.02em]">
-                      {title}
-                    </h3>
-                    <Markdown className="text-muted-foreground">
-                      {body}
-                    </Markdown>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ),
+          ([date, entries], index, groups) => {
+            const release = RELEASES.findLast(
+              (candidate) => candidate.date >= date,
+            );
+            const previous =
+              index > 0
+                ? RELEASES.findLast(
+                    (candidate) => candidate.date >= groups[index - 1]![0],
+                  )
+                : undefined;
+            const opens = release === previous ? undefined : release;
+            return (
+              <Fragment key={date}>
+                {opens && (
+                  <div
+                    id={opens.version}
+                    className="-mb-6 flex items-center gap-4"
+                  >
+                    <a
+                      href={`#${opens.version}`}
+                      className="shrink-0 rounded-full border px-3 py-1 font-mono text-sm font-medium hover:bg-muted"
+                    >
+                      {opens.version}
+                    </a>
+                    <Separator className="flex-1" />
+                  </div>
+                )}
+                <section
+                  id={date}
+                  className={cn(
+                    "flex flex-col gap-6 pt-8 md:flex-row md:gap-10",
+                    !opens && "border-t",
+                  )}
+                >
+                  <h2 className="shrink-0 text-sm font-medium text-muted-foreground md:w-40">
+                    <a href={`#${date}`} className="hover:text-foreground">
+                      <time dateTime={date}>{formatDate(date)}</time>
+                    </a>
+                  </h2>
+                  <div className="flex min-w-0 flex-col gap-8">
+                    {entries.map(({ title, body }) => (
+                      <article key={title} className="flex flex-col gap-2">
+                        <h3 className="text-xl font-semibold tracking-[-0.02em]">
+                          {title}
+                        </h3>
+                        <Markdown className="text-muted-foreground">
+                          {body}
+                        </Markdown>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </Fragment>
+            );
+          },
         )}
       </main>
     </div>
