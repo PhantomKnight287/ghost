@@ -13,7 +13,11 @@ import {
 export const MAX_APP_NAME_LENGTH = 34;
 export const MAX_APP_DESCRIPTION_LENGTH = 400;
 const MAX_URL_LENGTH = 2048;
-const URL_OPTIONS = { protocols: ['http', 'https'], require_tld: false };
+const URL_OPTIONS = {
+  protocols: ['http', 'https'],
+  require_tld: false,
+  require_protocol: true,
+};
 
 const permissionsProperty = {
   type: 'object' as const,

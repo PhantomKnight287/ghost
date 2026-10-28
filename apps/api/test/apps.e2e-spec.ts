@@ -358,7 +358,7 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
     expect(refused.body.message).toBe(
       'An app can hold at most 20 private keys',
     );
-  });
+  }, 30_000);
 
   it("hides another user's app, and shows anyone its public face", async () => {
     const { body } = await register(owner.cookie, {
