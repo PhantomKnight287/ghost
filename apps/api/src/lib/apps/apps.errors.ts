@@ -50,6 +50,14 @@ export class AppNameUnusableError extends DomainError {
   }
 }
 
+export class AppSlugReservedError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('That app slug is reserved');
+  }
+}
+
 /** GitHub's messages, word for word, for a JWT it cannot read, check or match to an app, and for its two time limits. */
 export const JWT_UNDECODABLE = 'A JSON web token could not be decoded';
 export const JWT_EXPIRED =

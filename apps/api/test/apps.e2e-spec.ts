@@ -147,8 +147,21 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
   });
 
   it('refuses a name with no letters or digits', async () => {
-    await register(owner.cookie, { name: '!!!' }).expect(422);
+    const { body } = await register(owner.cookie, { name: '!!!' }).expect(422);
+    expect(body.message).toBe('An app name needs at least one letter or digit');
   });
+
+  it.each(['new', 'NEW', ' New! '])(
+    'refuses the reserved slug from %j',
+    async (name) => {
+      const { body } = await register(owner.cookie, { name }).expect(422);
+      expect(body.message).toBe('That app slug is reserved');
+      expect(await botOf('new[bot]')).toBeUndefined();
+      expect(
+        await db.select().from(schema.app).where(eq(schema.app.slug, 'new')),
+      ).toEqual([]);
+    },
+  );
 
   it('keeps the slug on rename and renames the bot', async () => {
     const { body } = await register(owner.cookie).expect(201);
@@ -167,6 +180,7 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
 
   it('updates and clears optional fields', async () => {
     const { body } = await register(owner.cookie, {
+      description: 'App description',
       setupUrl: 'https://bot.example/setup',
       webhookUrl: 'https://bot.example/hook',
     }).expect(201);
@@ -184,6 +198,60 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
       webhookUrl: null,
       description: null,
     });
+  });
+
+  it.each(['name', 'homepageUrl', 'permissions', 'events'])(
+    'ignores null %s while updating other fields',
+    async (field) => {
+      const { body } = await register(owner.cookie, {
+        permissions: { contents: 'read' },
+        events: ['push'],
+      }).expect(201);
+      await api()
+        .patch(`/api/apps/${body.slug}`)
+        .set('cookie', owner.cookie)
+        .send({ [field]: null, description: 'Updated description' })
+        .expect(200);
+      const updated = await settings(body.slug).expect(200);
+      expect(updated.body).toMatchObject({
+        name: body.name,
+        homepageUrl: body.homepageUrl,
+        permissions: body.permissions,
+        events: body.events,
+        description: 'Updated description',
+      });
+      expect((await botOf(body.botLogin))?.name).toBe(body.name);
+    },
+  );
+
+  it('accepts empty permissions and events to clear them', async () => {
+    const { body } = await register(owner.cookie, {
+      permissions: { contents: 'read' },
+      events: ['push'],
+    }).expect(201);
+    const updated = await api()
+      .patch(`/api/apps/${body.slug}`)
+      .set('cookie', owner.cookie)
+      .send({ permissions: {}, events: [] })
+      .expect(200);
+    expect(updated.body).toMatchObject({
+      permissions: { metadata: 'read' },
+      events: [],
+    });
+  });
+
+  it('accepts a patch containing only null required fields', async () => {
+    const { body } = await register(owner.cookie, {
+      permissions: { contents: 'read' },
+      events: ['push'],
+    }).expect(201);
+    const updated = await api()
+      .patch(`/api/apps/${body.slug}`)
+      .set('cookie', owner.cookie)
+      .send({ name: null, homepageUrl: null, permissions: null, events: null })
+      .expect(200);
+    expect(updated.body).toEqual(body);
+    expect((await botOf(body.botLogin))?.name).toBe(body.name);
   });
 
   it('refuses bad permissions, events and fields', async () => {
@@ -355,6 +423,18 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
       .where(eq(schema.app.slug, body.slug));
     expect(row?.webhookSecret).toBeTruthy();
     expect(row?.webhookSecret).not.toContain(secret);
+
+    const cleared = await api()
+      .patch(`/api/apps/${body.slug}`)
+      .set('cookie', owner.cookie)
+      .send({ webhookSecret: null })
+      .expect(200);
+    expect(cleared.body.webhookSecretSet).toBe(false);
+    const [afterClear] = await db
+      .select({ webhookSecret: schema.app.webhookSecret })
+      .from(schema.app)
+      .where(eq(schema.app.slug, body.slug));
+    expect(afterClear?.webhookSecret).toBeNull();
   });
 
   it('sets and removes a logo, which the bot wears too', async () => {

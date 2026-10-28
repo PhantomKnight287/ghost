@@ -11,6 +11,7 @@ import {
   AppNameTakenError,
   AppNameUnusableError,
   AppNotFoundError,
+  AppSlugReservedError,
   InvalidAppPermissionsError,
   PrivateKeyNotFoundError,
   TooManyPrivateKeysError,
@@ -110,6 +111,7 @@ export class AppsService {
     if (problem) throw new InvalidAppPermissionsError(problem);
     const slug = appSlug(input.name);
     if (!slug) throw new AppNameUnusableError();
+    if (slug === 'new') throw new AppSlugReservedError();
     const webhookSecret = this.sealed(input.webhookSecret);
 
     const id = await this.db
@@ -170,11 +172,12 @@ export class AppsService {
       await tx
         .update(schema.app)
         .set({
-          ...(input.name !== undefined && { name: input.name }),
+          updatedAt: new Date(),
+          ...(input.name != null && { name: input.name }),
           ...(input.description !== undefined && {
             description: input.description,
           }),
-          ...(input.homepageUrl !== undefined && {
+          ...(input.homepageUrl != null && {
             homepageUrl: input.homepageUrl,
           }),
           ...(input.setupUrl !== undefined && { setupUrl: input.setupUrl }),
@@ -184,16 +187,16 @@ export class AppsService {
           ...(input.webhookSecret !== undefined && {
             webhookSecret: this.sealed(input.webhookSecret),
           }),
-          ...(input.permissions !== undefined && {
+          ...(input.permissions != null && {
             // appPermissionsProblem has checked every key and level.
             permissions: input.permissions as AppPermissions,
           }),
-          ...(input.events !== undefined && {
+          ...(input.events != null && {
             events: [...new Set(input.events)],
           }),
         })
         .where(eq(schema.app.id, app.id));
-      if (input.name !== undefined)
+      if (input.name != null)
         await tx
           .update(schema.user)
           .set({ name: input.name })

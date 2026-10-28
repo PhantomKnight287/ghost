@@ -209,7 +209,7 @@ if (body.discussion_category_name !== undefined) throw new DiscussionCategoryNot
 ```
 
 ## 14. Only 1 `@Controller` per file
-There should not be more than 1 exported class anotated with `@Controller` in a single typescript file inside `apps/api`.
+There should not be more than 1 exported class annotated with `@Controller` in a single typescript file inside `apps/api`.
 
 ## Philosophy
 
