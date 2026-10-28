@@ -7,7 +7,13 @@ export type GithubViewer = {
   oauthClientId: string | null;
 };
 
-export type GithubRequest = Request & { githubViewer: GithubViewer | null };
+/** A Ghost App that proved itself with a JWT signed by one of its private keys. */
+export type GithubApp = { appId: string; numericId: number };
+
+export type GithubRequest = Request & {
+  githubViewer: GithubViewer | null;
+  githubApp: GithubApp | null;
+};
 
 /** The repository a REST path names, and who is asking. */
 export type GithubRepositoryTarget = {

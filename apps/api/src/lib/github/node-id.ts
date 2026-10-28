@@ -22,6 +22,8 @@ const PREFIXES = {
   RepositoryRuleset: 'RRS',
   RepositoryRule: 'RRU',
   RepositoryRulesetBypassActor: 'RBA',
+  Bot: 'BOT',
+  App: 'APP',
 } as const;
 
 export type NodeType = keyof typeof PREFIXES;

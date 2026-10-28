@@ -43,7 +43,7 @@ export type RestUserSource = {
 export function toUserRest(
   user: RestUserSource,
   { api, web }: GithubOrigins,
-  type: 'User' | 'Organization' = 'User',
+  type: 'User' | 'Organization' | 'Bot' = 'User',
 ): GithubSimpleUserDTO {
   const url = `${api}/api/v3/users/${user.login}`;
   return {
@@ -53,7 +53,11 @@ export function toUserRest(
     avatar_url: user.avatarUrl ?? '',
     gravatar_id: '',
     url,
-    html_url: `${web}/${user.login}`,
+    // A bot's page is its app's, as GitHub links `dependabot[bot]` to /apps/dependabot.
+    html_url:
+      type === 'Bot'
+        ? `${web}/apps/${user.login.replace(/\[bot\]$/, '')}`
+        : `${web}/${user.login}`,
     followers_url: `${url}/followers`,
     following_url: `${url}/following{/other_user}`,
     gists_url: `${url}/gists{/gist_id}`,

@@ -50,8 +50,8 @@ export class GithubSimpleUserDTO {
   @ApiProperty()
   received_events_url: string;
 
-  @ApiProperty({ enum: ['User', 'Organization'] })
-  type: 'User' | 'Organization';
+  @ApiProperty({ enum: ['User', 'Organization', 'Bot'] })
+  type: 'User' | 'Organization' | 'Bot';
 
   @ApiProperty({ example: false })
   site_admin: boolean;
