@@ -158,7 +158,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     const key = decoded.slice(decoded.indexOf(':') + 1);
     if (!key) return anonymous;
 
-    const apiKey = await verifyApiKey(this.auth.api, key);
+    const apiKey = await verifyApiKey(this.auth.instance, key);
 
     // A bad key is treated as no key, so the caller is challenged again.
     return apiKey

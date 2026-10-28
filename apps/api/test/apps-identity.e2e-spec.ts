@@ -51,6 +51,10 @@ describe.skipIf(!hasBackends)('Ghost App identity', () => {
     await expect(signUp(app, 'apps')).rejects.toThrow('That name is reserved');
   });
 
+  it('keeps [bot] usernames for apps', async () => {
+    await expect(signUp(app, `human${stamp}[bot]`)).rejects.toThrow();
+  });
+
   it('defaults a person who signs up to kind user', async () => {
     const [row] = await db
       .select({ kind: schema.user.kind })

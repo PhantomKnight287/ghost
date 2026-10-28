@@ -31,6 +31,9 @@ export const user = pgTable("user", {
   username: text("username").unique(),
   displayUsername: text("display_username"),
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
+  kind: text("kind", { enum: ["user", "bot"] })
+    .notNull()
+    .default("user"),
 });
 
 export const session = pgTable(

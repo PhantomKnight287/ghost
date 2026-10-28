@@ -61,7 +61,7 @@ export class GithubAuthMiddleware implements NestMiddleware {
   }
 
   private async fromKey(key: string): Promise<GithubViewer | null> {
-    const apiKey = await verifyApiKey(this.auth.api, key);
+    const apiKey = await verifyApiKey(this.auth.instance, key);
     return apiKey
       ? {
           userId: apiKey.referenceId,

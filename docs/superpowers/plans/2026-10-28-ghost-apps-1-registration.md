@@ -22,7 +22,7 @@
 - Permission names, scopes and levels exactly as the spec's table: `metadata` (read, always granted), `contents`, `pull_requests`, `issues`, `statuses` (read/write), `members` (organization, read only), `administration` (read/write, stored, no behaviour). `write` includes `read`.
 - App ID: an integer identity, unique across Ghost, never reused. Slug: never reused, even after delete. `slug[bot]` always means one app.
 - Slug is derived from the name at creation and never changes, even on rename (Claude's call: the bot username and every attribution hang on it).
-- App name: 1 to 34 characters (GitHub's limit). Slug: lowercase name, every run of characters outside `[a-z0-9]` becomes one `-`, leading and trailing `-` trimmed. An empty slug is refused.
+- App name: 1 to 34 characters (GitHub's limit). Slug: `slugify(name, { lower: true, strict: true })`, as team slugs are made: accented letters transliterated, every run of other characters one `-`, ends trimmed. An empty slug is refused.
 - JWT rules: header `alg` must be `RS256`; `iss` is the App ID (number, or a string of digits); `iat <= now + 60`; `exp > now`; `exp - iat <= 600`. Signed by any of the app's current keys.
 - JWT error bodies are GitHub's: `401 { "message": "A JSON web token could not be decoded", "documentation_url": "https://docs.github.com/rest" }` for malformed tokens, a wrong signature, an unknown or deleted app, a non-RS256 `alg` or a bad `iat`; `401 "'Expiration time' claim ('exp') is too far in the future"` when `exp - iat > 600`; `401 "'Expiration time' claim ('exp') must be a numeric value representing the future time at which the assertion expires"` when expired.
 - A valid JWT on any path outside the allowlist: `403 { "message": "Resource not accessible by integration" }` (GitHub's message for integration callers). It never falls through as anonymous.
@@ -107,16 +107,16 @@ export const appPublicKey = pgTable('app_public_key', {
 }, (t) => [index('app_public_key_app_id_idx').on(t.appId)]);
 ```
 
-- [ ] **Step 1 (Claude): Write the failing tests** in `apps-identity.e2e-spec.ts`. Bot rows are inserted directly (`kind: 'bot'`, username `idbot<stamp>[bot]`) so this task stands alone.
+- [x] **Step 1 (Claude): Write the failing tests** in `apps-identity.e2e-spec.ts`. Bot rows are inserted directly (`kind: 'bot'`, username `idbot<stamp>[bot]`) so this task stands alone.
   - `refuses the username apps`: signing up as `apps` is refused with `That name is reserved`.
   - `never opens a session for a bot`: `(await auth.$context).internalAdapter.createSession(botId)` rejects.
   - `rejects an API key a bot owns`: a key created server-side for the bot gets `401` on `GET /api/v3/user` and on git `GET /:owner/:repo.git/info/refs?service=git-upload-pack` with it as Basic password.
   - `defaults existing users to kind user`: a fresh `signUp` row has `kind: 'user'`.
   - `refuses an app without an owner`: inserting an `app` row with both owner columns null and `deletedAt` null throws a check violation; with `deletedAt` set it succeeds.
-- [ ] **Step 2 (Claude): Run red.** `$E2E test/apps-identity.e2e-spec.ts`. Expected: FAIL (no `kind` column, no `app` table).
-- [ ] **Step 3 (user): Implement** the schema, `bun db:generate`, the reserved name, the session hook (look the user up by `session.userId`, throw `APIError('FORBIDDEN')` for `kind = 'bot'`), and the bot check in `verifyApiKey` (return null when `key.referenceId` is a bot).
-- [ ] **Step 4 (Claude): Run green and audit.** Same command, PASS. Run `test/oauth-apps.e2e-spec.ts` and `test/github-scopes.e2e-spec.ts` too: key verification changed under them.
-- [ ] **Step 5: Commit** `Add apps, private keys and bot users`.
+- [x] **Step 2 (Claude): Run red.** `$E2E test/apps-identity.e2e-spec.ts`. Expected: FAIL (no `kind` column, no `app` table).
+- [x] **Step 3 (user): Implement** the schema, `bun db:generate`, the reserved name, the session hook (look the user up by `session.userId`, throw `APIError('FORBIDDEN')` for `kind = 'bot'`), and the bot check in `verifyApiKey` (return null when `key.referenceId` is a bot).
+- [x] **Step 4 (Claude): Run green and audit.** Same command, PASS. Run `test/oauth-apps.e2e-spec.ts` and `test/github-scopes.e2e-spec.ts` too: key verification changed under them.
+- [x] **Step 5: Commit** `Add apps, private keys and bot users`.
 
 ### Task 2: Owner endpoints
 
@@ -174,7 +174,7 @@ Routes (all `@CookieOnly()` except the public read, which is anonymous):
 Someone else's app, or a deleted one, answers 404 on every management route.
 
 - [ ] **Step 1 (Claude): Write the failing tests.**
-  - `slug.spec.ts`: `'My CI Bot'` → `'my-ci-bot'`; `'  Lint!!  bot  '` → `'lint-bot'`; `'Ünïcode'` → `'n-code'`; `'!!!'` → `''`.
+  - `slug.spec.ts`: `'My CI Bot'` → `'my-ci-bot'`; `'  Lint!!  bot  '` → `'lint-bot'`; `'Ünïcode'` → `'unicode'`; `'!!!'` → `''`.
   - `permissions.spec.ts`: `grants({}, 'metadata', 'read')` true; `grants({ contents: 'write' }, 'contents', 'read')` true; `grants({ contents: 'read' }, 'contents', 'write')` false; `appPermissionsProblem({ members: 'write' }, [])` names `members`; `({ secrets: 'read' }, [])` names `secrets`; `({}, ['push'])` is `'push needs contents:read'`; `({ issues: 'read' }, ['issue.opened'])` is null; unknown event `'nope'` named; every `webhookEvents` entry has an `EVENT_PERMISSIONS` entry.
   - `apps.e2e-spec.ts`:
     - `registers an app with its bot user`: POST `{ name: 'CI Bot <stamp>', homepageUrl, permissions: { statuses: 'write' }, events: ['commit_status.created'] }` → 201 with integer `appId`, `slug`, `botLogin === slug + '[bot]'`, `permissions` `{ metadata: 'read', statuses: 'write' }`, `owner: { login, type: 'user' }`, `installUrl` ending `/apps/${slug}/installations/new`, `privateKeys: []`. DB: a `user` row with `kind: 'bot'`, `username: botLogin`, no `account` row.
