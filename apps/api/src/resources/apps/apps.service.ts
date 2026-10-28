@@ -1,7 +1,7 @@
 import { createHash, generateKeyPairSync, randomUUID } from 'node:crypto';
 
 import { type Database, schema } from '@ghost/db';
-import type { AppPermissions } from '@ghost/permissions';
+import { type AppPermissions, appSlug } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, asc, count, eq, isNull, type SQL, sql } from 'drizzle-orm';
@@ -17,7 +17,7 @@ import {
 } from '../../lib/apps/apps.errors.js';
 import { deleteApps } from '../../lib/apps/delete-apps.js';
 import { appPermissionsProblem } from '../../lib/apps/permissions.js';
-import { appSlug } from '../../lib/apps/slug.js';
+
 import { isoTimestamp } from '../../lib/db/sql.js';
 import { githubOrigins } from '../../lib/github/origins.js';
 import { administeredOrganization } from '../../lib/organizations/administered-organization.js';

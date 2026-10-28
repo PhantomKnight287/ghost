@@ -266,6 +266,9 @@
     "packages/permissions": {
       "name": "@ghost/permissions",
       "version": "0.0.0",
+      "dependencies": {
+        "slugify": "^1.6.9",
+      },
       "devDependencies": {
         "better-auth": "^1.7.7",
         "typescript": "^5.9.2",

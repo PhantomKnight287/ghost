@@ -1,3 +1,5 @@
+import slugify from "slugify";
+
 /** Ghost App permissions under GitHub's names, with the levels each allows. `write` includes `read`; `metadata: read` is always granted. */
 export const APP_PERMISSIONS = {
   metadata: ["read"],
@@ -52,3 +54,8 @@ export const EVENT_PERMISSIONS: Record<string, AppPermission> = {
   "member.added": "metadata",
   "member.removed": "metadata",
 };
+
+/** An app's slug, made once from its name: accented letters transliterated, every other run of characters one hyphen. The bot is `slug[bot]`. Empty when the name has no letter or digit. */
+export function appSlug(name: string) {
+  return slugify(name, { lower: true, strict: true });
+}

@@ -89,10 +89,12 @@ describe.skipIf(!hasBackends)('GET /app', () => {
       events: ['push'],
       installations_count: 0,
     });
-    expect(data.node_id).toEqual(expect.any(String));
-    expect(data.html_url).toMatch(new RegExp(`/apps/${reader.slug}$`));
-    expect(data.owner).toMatchObject({ login: ownerName, type: 'User' });
-    expect(Date.parse(data.created_at)).not.toBeNaN();
+    expect(data).toMatchObject({
+      node_id: expect.any(String),
+      html_url: expect.stringMatching(new RegExp(`/apps/${reader.slug}$`)),
+      owner: { login: ownerName, type: 'User' },
+      created_at: expect.stringMatching(/^\d{4}-\d\d-\d\dT/),
+    });
   });
 
   it('names an organization as the owner of its app', async () => {
@@ -103,9 +105,8 @@ describe.skipIf(!hasBackends)('GET /app', () => {
     });
     const reader = await register(`/api/organizations/${organization}/apps`);
     const { data } = await readApp(reader.appId, reader.privateKey);
-    expect(data.owner).toMatchObject({
-      login: organization,
-      type: 'Organization',
+    expect(data).toMatchObject({
+      owner: { login: organization, type: 'Organization' },
     });
   });
 

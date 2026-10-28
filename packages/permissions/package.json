@@ -28,5 +28,8 @@
   "devDependencies": {
     "better-auth": "^1.7.7",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "slugify": "^1.6.9"
   }
 }
