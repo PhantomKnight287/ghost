@@ -1,0 +1,20 @@
+import { schema } from '@ghost/db';
+import { and, inArray, isNull, type SQL } from 'drizzle-orm';
+
+import type { Executor } from '../db/executor.js';
+
+/** Soft-deletes the live apps `where` matches: the row keeps its App ID and slug so neither is reused, and its bot user stays for attribution. Keys and the webhook go, so nothing can act as the app again. */
+export async function deleteApps(db: Executor, where: SQL) {
+  const deleted = await db
+    .update(schema.app)
+    .set({ deletedAt: new Date(), webhookUrl: null, webhookSecret: null })
+    .where(and(where, isNull(schema.app.deletedAt)))
+    .returning({ id: schema.app.id });
+  if (deleted.length === 0) return;
+  await db.delete(schema.appPublicKey).where(
+    inArray(
+      schema.appPublicKey.appId,
+      deleted.map(({ id }) => id),
+    ),
+  );
+}

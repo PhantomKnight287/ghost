@@ -9,7 +9,10 @@ describe('appSlug', () => {
 
   it('collapses every run of other characters into one hyphen and trims the ends', () => {
     expect(appSlug('  Lint!!  bot  ')).toBe('lint-bot');
-    expect(appSlug('Ünïcode')).toBe('n-code');
+  });
+
+  it('transliterates accented letters, as team slugs do', () => {
+    expect(appSlug('Ünïcode')).toBe('unicode');
   });
 
   it('leaves nothing of a name without letters or digits', () => {

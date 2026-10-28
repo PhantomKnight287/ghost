@@ -24,6 +24,7 @@ import {
 } from 'better-auth/plugins';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
+import { deleteApps } from './apps/delete-apps.js';
 import { callbackMatches } from './github/callback.js';
 import {
   findOauthApp,
@@ -527,13 +528,17 @@ export function createAuth(db: Database, config: AuthConfig) {
               .from(schema.repository)
               .where(eq(schema.repository.organizationId, organization.id))
               .limit(1);
-            if (!repository) return;
-
-            throw APIError.from('CONFLICT', {
-              message:
-                'Delete or transfer the organization’s repositories first',
-              code: 'ORGANIZATION_HAS_REPOSITORIES',
-            });
+            if (repository)
+              throw APIError.from('CONFLICT', {
+                message:
+                  'Delete or transfer the organization’s repositories first',
+                code: 'ORGANIZATION_HAS_REPOSITORIES',
+              });
+            // Its apps' owner column would be set null under them, which the app_owner check refuses for a live app; deleting them first keeps their App IDs and slugs from being reused.
+            await deleteApps(
+              db,
+              eq(schema.app.ownerOrganizationId, organization.id),
+            );
           },
           afterCreateOrganization: async ({ organization }) => {
             await db
