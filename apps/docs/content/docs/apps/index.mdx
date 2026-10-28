@@ -1,0 +1,80 @@
+---
+title: Building a Ghost App
+description: Register a bot that acts as itself, give it a private key, and authenticate as it with a JWT
+---
+
+A Ghost App is a bot that acts as itself: a CI service posting commit statuses, a reviewer commenting on pull requests, a scanner reading pushes. It works the way a GitHub App does, so an app built with Octokit or Probot mostly runs against Ghost once you point it at your Ghost API.
+
+An app differs from an [OAuth app](/oauth-apps) in three ways:
+
+- **It has its own identity.** Everything it does shows as its bot, `<slug>[bot]`, not as a person.
+- **It has narrow access.** It asks for fine-grained permissions and gets them only on the repositories it is installed on.
+- **It proves who it is.** Only the holder of one of its private keys can authenticate as the app.
+
+In the examples below, `api.<domain>` is your Ghost API host and `<web>` is the Ghost web app.
+
+## Register the app
+
+Open **Settings → Ghost Apps** and choose **New Ghost App**. To register it for an organization, open `<web>/<org>/settings/apps` instead: every admin and owner of the organization can manage it there.
+
+Fill in the form:
+
+- **App name**: up to 34 characters. Ghost makes the app's **slug** from it, and its bot is `<slug>[bot]`. The slug never changes, even when you rename the app.
+- **Description** and **Homepage URL**: shown on the app's public page.
+- **Setup URL**: optional. Where Ghost sends someone after they install the app.
+- **Webhook URL** and **secret**: where Ghost will deliver the events the app subscribes to, signed with the secret. The secret is never shown again once saved.
+- **Permissions**: what the app may do on the repositories it is installed on. Ghost uses GitHub's permission names.
+- **Events**: what Ghost tells the app about. Each event needs read on the permission it belongs to, so the form offers only the events your permissions cover.
+
+| Permission | `read` | `write` |
+|---|---|---|
+| `metadata` | always granted: the repository, its branches and collaborators | — |
+| `contents` | files, commits, diffs, clone and fetch | push, refs, releases |
+| `pull_requests` | pull requests, reviews, review comments | open, edit, review, comment, merge |
+| `issues` | issues, comments, labels | create, edit, comment, label |
+| `statuses` | commit statuses | post commit statuses |
+| `members` | organization members and teams | — |
+
+Every app has a public page at `<web>/apps/<slug>` and an install link. Anyone with the link can see the page; there is no directory of apps.
+
+## Generate a private key
+
+On the app's settings page, choose **Generate a private key**. Your browser downloads a `.pem` file. Ghost keeps only the public half, so this is the only copy: store it as a secret on the server the app runs on.
+
+An app can hold up to 20 keys. To rotate one, generate a new key, deploy it, then delete the old one. A deleted key stops working at once.
+
+## Authenticate as the app
+
+The app signs a JSON Web Token with its private key and sends it as `Authorization: Bearer <jwt>`. The token must be:
+
+- signed with **RS256** by one of the app's current keys;
+- issued by the app: `iss` is the **App ID** shown on the settings page;
+- issued no more than 60 seconds in the future (`iat`), to allow for clock drift;
+- short-lived: `exp` no more than 10 minutes after `iat`, and not yet passed.
+
+Octokit does all of this for you:
+
+```ts
+import { App } from "@octokit/app";
+
+const app = new App({ appId: 12, privateKey: process.env.PRIVATE_KEY });
+const { data } = await app.octokit.request("GET /app", {
+  baseUrl: "https://api.<domain>/api/v3",
+});
+console.log(data.slug, data.permissions);
+```
+
+`GET /api/v3/app` answers with the app, in GitHub's shape. A JWT can call only the app's own endpoints; anywhere else Ghost answers `403 Resource not accessible by integration`. A token Ghost cannot verify gets `401 A JSON web token could not be decoded`.
+
+## Deleting an app
+
+Deleting an app stops its keys at once. Its bot stays, so issues, comments and statuses it made keep showing who made them, and its App ID, slug and bot name are never given to another app.
+
+## Coming next
+
+Ghost Apps arrive in steps. Still to come:
+
+- installing an app on an account or organization, and installation tokens that call the API and git as the bot;
+- webhooks for the app's installations;
+- acting on behalf of a user, with expiring user-to-server tokens;
+- reviewing an app's new permissions before it gets them, the bot in GraphQL, and a guide to porting a Probot app.

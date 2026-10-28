@@ -2969,6 +2969,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/app": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Ghost App a JWT signed by its private key authenticates */
+        get: operations["GithubAppController_authenticated"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3": {
         parameters: {
             query?: never;
@@ -3143,10 +3160,12 @@ export interface paths {
         get: operations["ReposController_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete a repository; the token needs `delete_repo` */
+        delete: operations["ReposController_delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Rename, describe, change the visibility or the default branch of a repository */
+        patch: operations["ReposController_update"];
         trace?: never;
     };
     "/api/v3/repos/{owner}/{repo}/readme": {
@@ -3207,7 +3226,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * The authenticated user's repositories, private ones included
+         * @description Every repository the user holds a role on: their own, the ones shared with them, and their organizations'.
+         */
+        get: operations["ReposController_listForViewer"];
         put?: never;
         /** Create a repository for the authenticated user */
         post: operations["ReposController_createForUser"];
@@ -3224,10 +3247,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** An organization's repositories the viewer can read */
+        get: operations["ReposController_listForOrganization"];
         put?: never;
         /** Create a repository in an organization */
         post: operations["ReposController_createForOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/users/{username}/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's or organization's public repositories */
+        get: operations["ReposController_listForUser"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4259,6 +4300,151 @@ export interface paths {
         get: operations["RepositoryTemplatesController_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the apps the signed-in account registered */
+        get: operations["AppsController_list"];
+        put?: never;
+        /**
+         * Register an app
+         * @description Creates its bot user, `slug[bot]`. The slug is made from the name now and never changes.
+         */
+        post: operations["AppsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{slug}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One app, as its owner sees it */
+        get: operations["AppsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An app's public page */
+        get: operations["PublicAppsController_describe"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an app
+         * @description Its keys stop working. Its bot stays, so what it did stays attributed, and its App ID and slug are never reused.
+         */
+        delete: operations["AppsController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Change an app
+         * @description Renaming keeps the slug and the bot login.
+         */
+        patch: operations["AppsController_update"];
+        trace?: never;
+    };
+    "/api/apps/{slug}/private-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate a private key
+         * @description The response carries the PEM. It is never shown again: Ghost keeps only the public half.
+         */
+        post: operations["AppsController_createPrivateKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{slug}/private-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a private key
+         * @description JWTs it signed stop working at once.
+         */
+        delete: operations["AppsController_removePrivateKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{slug}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload an app's logo
+         * @description Takes the raw image bytes, PNG or JPEG. The bot wears it as its avatar.
+         */
+        put: operations["AppsController_setLogo"];
+        post?: never;
+        /** Remove an app's logo */
+        delete: operations["AppsController_removeLogo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List an organization's apps */
+        get: operations["OrganizationAppsController_list"];
+        put?: never;
+        /**
+         * Register an app for an organization
+         * @description Creates its bot user, `slug[bot]`. The slug is made from the name now and never changes.
+         */
+        post: operations["OrganizationAppsController_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6363,10 +6549,181 @@ export interface components {
             /** @description Every day of the year, in order. */
             days: components["schemas"]["ContributionDayDTO"][];
         };
+        GithubValidationFailureDTO: {
+            /**
+             * @description Left out when a body field failed its own validation.
+             * @example Label
+             */
+            resource?: string;
+            /** @example name */
+            field: string;
+            /**
+             * @example already_exists
+             * @enum {string}
+             */
+            code: "missing_field" | "invalid" | "already_exists";
+            /** @description What a body field failed, when it failed its own validation. */
+            message?: string;
+        };
+        GithubErrorDTO: {
+            /** @example Validation Failed */
+            message: string;
+            /** @example https://docs.github.com/rest */
+            documentation_url: string;
+            /**
+             * @description The HTTP status as a string. A 429 leaves it out.
+             * @example 422
+             */
+            status?: string;
+            /** @description On a 422 only: the fields that failed. */
+            errors?: components["schemas"]["GithubValidationFailureDTO"][];
+        };
+        GithubSimpleUserDTO: {
+            /** @example octocat */
+            login: string;
+            id: number;
+            node_id: string;
+            /** @description Empty when the account has no avatar. */
+            avatar_url: string;
+            /** @example  */
+            gravatar_id: string;
+            url: string;
+            html_url: string;
+            followers_url: string;
+            following_url: string;
+            gists_url: string;
+            starred_url: string;
+            subscriptions_url: string;
+            organizations_url: string;
+            repos_url: string;
+            events_url: string;
+            received_events_url: string;
+            /** @enum {string} */
+            type: "User" | "Organization" | "Bot";
+            /** @example false */
+            site_admin: boolean;
+        };
+        GithubAppDTO: {
+            /** @description The App ID, the JWT `iss`. */
+            id: number;
+            slug: string;
+            node_id: string;
+            owner: components["schemas"]["GithubSimpleUserDTO"];
+            name: string;
+            description: string | null;
+            external_url: string;
+            html_url: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            permissions: {
+                [key: string]: "read" | "write";
+            };
+            events: string[];
+            installations_count: number;
+        };
+        GithubMetaDTO: {
+            /**
+             * @description The GitHub Enterprise Server version Ghost answers as, which decides the search syntax gh uses.
+             * @example 3.17.0
+             */
+            installed_version: string;
+            /** @example false */
+            verifiable_password_authentication: boolean;
+        };
+        GithubAuthenticatedUserDTO: {
+            /** @example octocat */
+            login: string;
+            id: number;
+            node_id: string;
+            /** @description Empty when the account has no avatar. */
+            avatar_url: string;
+            /** @example  */
+            gravatar_id: string;
+            url: string;
+            html_url: string;
+            followers_url: string;
+            following_url: string;
+            gists_url: string;
+            starred_url: string;
+            subscriptions_url: string;
+            organizations_url: string;
+            repos_url: string;
+            events_url: string;
+            received_events_url: string;
+            /** @enum {string} */
+            type: "User" | "Organization" | "Bot";
+            /** @example false */
+            site_admin: boolean;
+            name: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Users only; an organization leaves it out.
+             */
+            updated_at?: string;
+            email: string;
+        };
+        GithubUserDTO: {
+            /** @example octocat */
+            login: string;
+            id: number;
+            node_id: string;
+            /** @description Empty when the account has no avatar. */
+            avatar_url: string;
+            /** @example  */
+            gravatar_id: string;
+            url: string;
+            html_url: string;
+            followers_url: string;
+            following_url: string;
+            gists_url: string;
+            starred_url: string;
+            subscriptions_url: string;
+            organizations_url: string;
+            repos_url: string;
+            events_url: string;
+            received_events_url: string;
+            /** @enum {string} */
+            type: "User" | "Organization" | "Bot";
+            /** @example false */
+            site_admin: boolean;
+            name: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Users only; an organization leaves it out.
+             */
+            updated_at?: string;
+        };
+        GithubKeyDTO: {
+            /** @description Ghost keeps no integer id for authentication keys. */
+            id: number | null;
+            /** @description The authorized_keys line. */
+            key: string;
+            title: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @example false */
+            read_only: boolean;
+            /** @example true */
+            verified: boolean;
+        };
         GithubAddKeyDTO: {
             title?: string;
             /** @description One authorized_keys line. */
             key: string;
+        };
+        GithubSigningKeyDTO: {
+            id: number;
+            /** @description The authorized_keys line. */
+            key: string;
+            title: string;
+            /** Format: date-time */
+            created_at: string;
         };
         SshSigningKeyDTO: {
             id: string;
@@ -6386,6 +6743,60 @@ export interface components {
         };
         ListSshSigningKeysResponseDTO: {
             keys: components["schemas"]["SshSigningKeyDTO"][];
+        };
+        GithubRepositoryOwnerDTO: {
+            /** @example octocat */
+            login: string;
+            html_url: string;
+        };
+        GithubRepositoryPermissionsDTO: {
+            admin: boolean;
+            maintain: boolean;
+            push: boolean;
+            triage: boolean;
+            pull: boolean;
+        };
+        GithubRepositoryDTO: {
+            id: number | null;
+            node_id: string;
+            /** @example hello-world */
+            name: string;
+            /** @example octocat/hello-world */
+            full_name: string;
+            private: boolean;
+            /** @enum {string} */
+            visibility: "public" | "private";
+            owner: components["schemas"]["GithubRepositoryOwnerDTO"];
+            html_url: string;
+            description: string | null;
+            fork: boolean;
+            url: string;
+            clone_url: string;
+            ssh_url: string | null;
+            /** @example main */
+            default_branch: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            pushed_at: string | null;
+            has_issues: boolean;
+            /** @description The viewer's access; null when the viewer has no role on the repository. */
+            permissions: components["schemas"]["GithubRepositoryPermissionsDTO"] | null;
+        };
+        GithubReadmeDTO: {
+            /** @example file */
+            type: string;
+            /** @example base64 */
+            encoding: string;
+            size: number;
+            /** @example README.md */
+            name: string;
+            /** @example README.md */
+            path: string;
+            /** @description The file, base64-encoded. */
+            content: string;
         };
         GithubCreateRepositoryDTO: {
             /** @example tools */
@@ -6408,13 +6819,72 @@ export interface components {
              */
             license_template?: string;
         };
+        GithubUpdateRepositoryDTO: {
+            /** @description Renaming also changes the slug, so the old URL stops resolving. */
+            name?: string;
+            description?: string;
+            /** @description Ignored when `visibility` is given. */
+            private?: boolean;
+            /** @enum {string} */
+            visibility?: "public" | "private";
+            /** @description An existing branch, without `refs/heads/`; 404 when there is none. */
+            default_branch?: string;
+        };
+        GithubCodeownersErrorsDTO: {
+            errors: components["schemas"]["CodeownersErrorDTO"][];
+        };
+        GithubIssueCommentDTO: {
+            id: number;
+            node_id: string;
+            url: string;
+            html_url: string;
+            issue_url: string;
+            body: string;
+            user: components["schemas"]["GithubSimpleUserDTO"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /**
+             * @description `OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here.
+             * @enum {string}
+             */
+            author_association: "OWNER" | "NONE";
+        };
         GithubCommentDTO: {
             body: string;
         };
-        GithubCreateLabelDTO: {
-            /** @example bug */
+        GithubLabelDTO: {
+            id: number | null;
+            node_id: string;
+            /** @description The label by name, percent-encoded. */
+            url: string;
+            /**
+             * @description As stored, whatever case a lookup used.
+             * @example bug
+             */
             name: string;
             /**
+             * @description Six lowercase hex digits, no `#`.
+             * @example d73a4a
+             */
+            color: string;
+            description: string | null;
+            /** @example false */
+            default: boolean;
+            /** @description Always null: Ghost does not archive labels. */
+            archived_at: string | null;
+            /** @description Always null: Ghost does not archive labels. */
+            archived_by: Record<string, never> | null;
+        };
+        GithubCreateLabelDTO: {
+            /**
+             * @description Up to 50 characters, counted in code points. A name with leading or trailing whitespace, or one that is `.` or `..`, is refused with 422 `invalid`. Names are unique in a repository ignoring case: one that differs from another label only by case is refused with 422 `already_exists`.
+             * @example bug
+             */
+            name: string;
+            /**
+             * @description Six hex digits, with or without a leading `#`. Stored and returned lowercase without the `#`: `#FF00AA` reads back as `ff00aa`.
              * @default ededed
              * @example d73a4a
              */
@@ -6422,11 +6892,72 @@ export interface components {
             description?: string;
         };
         GithubUpdateLabelDTO: {
-            /** @example bug */
+            /**
+             * @description Up to 50 characters, counted in code points. A name with leading or trailing whitespace, or one that is `.` or `..`, is refused with 422 `invalid`. Names are unique in a repository ignoring case: one that differs from another label only by case is refused with 422 `already_exists`.
+             * @example bug
+             */
             new_name?: string;
-            /** @example d73a4a */
+            /**
+             * @description Six hex digits, with or without a leading `#`. Stored and returned lowercase without the `#`: `#FF00AA` reads back as `ff00aa`.
+             * @example d73a4a
+             */
             color?: string;
             description?: string | null;
+        };
+        GithubIssuePullRequestLinksDTO: {
+            url: string;
+            html_url: string;
+            diff_url: string;
+            patch_url: string;
+            /** Format: date-time */
+            merged_at: string | null;
+        };
+        GithubIssueDTO: {
+            id: number;
+            node_id: string;
+            url: string;
+            repository_url: string;
+            labels_url: string;
+            comments_url: string;
+            events_url: string;
+            timeline_url: string;
+            html_url: string;
+            number: number;
+            /** @enum {string} */
+            state: "open" | "closed";
+            /**
+             * @description Ghost records no close reason, so every closed issue reads as `completed`.
+             * @enum {string|null}
+             */
+            state_reason: "completed" | null;
+            title: string;
+            body: string | null;
+            user: components["schemas"]["GithubSimpleUserDTO"] | null;
+            labels: components["schemas"]["GithubLabelDTO"][];
+            assignee: components["schemas"]["GithubSimpleUserDTO"] | null;
+            assignees: components["schemas"]["GithubSimpleUserDTO"][];
+            /** @description Always null: Ghost has no milestones on this API. */
+            milestone: Record<string, never> | null;
+            /** @example false */
+            locked: boolean;
+            active_lock_reason: string | null;
+            comments: number;
+            /** Format: date-time */
+            closed_at: string | null;
+            closed_by: components["schemas"]["GithubSimpleUserDTO"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /**
+             * @description `OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here.
+             * @enum {string}
+             */
+            author_association: "OWNER" | "NONE";
+            /** @description Pull requests only. */
+            draft?: boolean;
+            /** @description Pull requests only: what marks the issue as one. */
+            pull_request?: components["schemas"]["GithubIssuePullRequestLinksDTO"];
         };
         GithubCreateIssueDTO: {
             /** @description A string, or a number GitHub turns into one. */
@@ -6461,6 +6992,52 @@ export interface components {
         GithubAssigneesDTO: {
             assignees: string[];
         };
+        GithubLinkDTO: {
+            href: string;
+        };
+        GithubReviewCommentLinksDTO: {
+            html: components["schemas"]["GithubLinkDTO"];
+            pull_request: components["schemas"]["GithubLinkDTO"];
+            self: components["schemas"]["GithubLinkDTO"];
+        };
+        GithubReviewCommentDTO: {
+            url: string;
+            pull_request_review_id: number;
+            id: number;
+            node_id: string;
+            /** @description Empty when Ghost kept none; a reply shows its thread's. */
+            diff_hunk: string;
+            path: string;
+            commit_id: string;
+            /** @description The same as `commit_id`. */
+            original_commit_id: string;
+            /** @description Replies only: the comment that opened the thread. */
+            in_reply_to_id?: number;
+            user: components["schemas"]["GithubSimpleUserDTO"] | null;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            html_url: string;
+            pull_request_url: string;
+            /**
+             * @description `OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here.
+             * @enum {string}
+             */
+            author_association: "OWNER" | "NONE";
+            _links: components["schemas"]["GithubReviewCommentLinksDTO"];
+            start_line: number | null;
+            original_start_line: number | null;
+            /** @enum {string|null} */
+            start_side: "LEFT" | "RIGHT" | null;
+            line: number | null;
+            original_line: number | null;
+            /** @enum {string} */
+            side: "LEFT" | "RIGHT";
+            /** @example line */
+            subject_type: string;
+        };
         GithubCreateReviewCommentDTO: {
             body: string;
             /** @description The id of the comment replied to. */
@@ -6482,6 +7059,34 @@ export interface components {
              * @enum {string}
              */
             start_side?: "LEFT" | "RIGHT";
+        };
+        GithubReviewLinksDTO: {
+            html: components["schemas"]["GithubLinkDTO"];
+            pull_request: components["schemas"]["GithubLinkDTO"];
+        };
+        GithubReviewDTO: {
+            id: number;
+            node_id: string;
+            user: components["schemas"]["GithubSimpleUserDTO"] | null;
+            /** @description Empty when the review has none. */
+            body: string;
+            /** @enum {string} */
+            state: "PENDING" | "COMMENTED" | "APPROVED" | "CHANGES_REQUESTED" | "DISMISSED";
+            html_url: string;
+            pull_request_url: string;
+            /**
+             * @description `OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here.
+             * @enum {string}
+             */
+            author_association: "OWNER" | "NONE";
+            _links: components["schemas"]["GithubReviewLinksDTO"];
+            /**
+             * Format: date-time
+             * @description Null while the review is pending.
+             */
+            submitted_at: string | null;
+            /** @description The head the review read. */
+            commit_id: string;
         };
         GithubDraftReviewCommentDTO: {
             path: string;
@@ -6517,9 +7122,127 @@ export interface components {
             /** @description Replaces the pending review's summary when given. */
             body?: string;
         };
+        GithubTeamDTO: {
+            node_id: string;
+            name: string;
+            slug: string;
+            description: string | null;
+            /** @example closed */
+            privacy: string;
+            /** @example pull */
+            permission: string;
+            parent: Record<string, never> | null;
+        };
+        GithubRequestedReviewersResponseDTO: {
+            users: components["schemas"]["GithubSimpleUserDTO"][];
+            teams: components["schemas"]["GithubTeamDTO"][];
+        };
         GithubRequestedReviewersDTO: {
             reviewers?: string[];
             team_reviewers?: string[];
+        };
+        GithubPullBranchDTO: {
+            /** @example octocat:feature */
+            label: string;
+            /** @example feature */
+            ref: string;
+            /** @description Null for a base the repository no longer resolves. */
+            sha: string | null;
+            /** @description The repository's owner; null for an organization or a deleted fork. */
+            user: components["schemas"]["GithubSimpleUserDTO"] | null;
+            /** @description Null once the head fork is deleted or the viewer cannot read it. */
+            repo: components["schemas"]["GithubRepositoryDTO"] | null;
+        };
+        GithubPullLinksDTO: {
+            self: components["schemas"]["GithubLinkDTO"];
+            html: components["schemas"]["GithubLinkDTO"];
+            issue: components["schemas"]["GithubLinkDTO"];
+            comments: components["schemas"]["GithubLinkDTO"];
+            review_comments: components["schemas"]["GithubLinkDTO"];
+            review_comment: components["schemas"]["GithubLinkDTO"];
+            commits: components["schemas"]["GithubLinkDTO"];
+            statuses: components["schemas"]["GithubLinkDTO"];
+        };
+        GithubPullDTO: {
+            url: string;
+            id: number;
+            node_id: string;
+            html_url: string;
+            diff_url: string;
+            patch_url: string;
+            issue_url: string;
+            commits_url: string;
+            review_comments_url: string;
+            review_comment_url: string;
+            comments_url: string;
+            statuses_url: string;
+            number: number;
+            /**
+             * @description A merged pull request reads as `closed`; see `merged_at`.
+             * @enum {string}
+             */
+            state: "open" | "closed";
+            /** @example false */
+            locked: boolean;
+            title: string;
+            user: components["schemas"]["GithubSimpleUserDTO"] | null;
+            body: string | null;
+            labels: components["schemas"]["GithubLabelDTO"][];
+            /** @description Always null: Ghost has no milestones on this API. */
+            milestone: Record<string, never> | null;
+            active_lock_reason: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            closed_at: string | null;
+            /** Format: date-time */
+            merged_at: string | null;
+            merge_commit_sha: string | null;
+            assignee: components["schemas"]["GithubSimpleUserDTO"] | null;
+            assignees: components["schemas"]["GithubSimpleUserDTO"][];
+            requested_reviewers: components["schemas"]["GithubSimpleUserDTO"][];
+            /** @description Teams carry no integer `id`. */
+            requested_teams: components["schemas"]["GithubTeamDTO"][];
+            head: components["schemas"]["GithubPullBranchDTO"];
+            base: components["schemas"]["GithubPullBranchDTO"];
+            _links: components["schemas"]["GithubPullLinksDTO"];
+            /**
+             * @description `OWNER` for the repository owner, `NONE` for everyone else: Ghost does not tell members and collaborators apart here.
+             * @enum {string}
+             */
+            author_association: "OWNER" | "NONE";
+            /** @description Always null: Ghost has no auto-merge. */
+            auto_merge: Record<string, never> | null;
+            draft: boolean;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. */
+            merged?: boolean;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. Null while Ghost has not worked it out. */
+            mergeable?: boolean | null;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. The same as `mergeable`. */
+            rebaseable?: boolean | null;
+            /**
+             * @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list.
+             * @enum {string}
+             */
+            mergeable_state?: "draft" | "dirty" | "behind" | "blocked" | "unstable" | "clean" | "unknown";
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. */
+            merged_by?: components["schemas"]["GithubSimpleUserDTO"] | null;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. */
+            comments?: number;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. */
+            review_comments?: number;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. */
+            maintainer_can_modify?: boolean;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. */
+            commits?: number;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. */
+            additions?: number;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. */
+            deletions?: number;
+            /** @description Only on a single pull request: `GET`, `PATCH`, create and reviewer changes, not the list. */
+            changed_files?: number;
         };
         GithubCreatePullDTO: {
             title: string;
@@ -6543,6 +7266,50 @@ export interface components {
             /** @description Accepted and ignored. */
             maintainer_can_modify?: boolean;
         };
+        GithubGitActorDTO: {
+            name: string;
+            email: string;
+            /** Format: date-time */
+            date: string;
+        };
+        GithubCommitVerificationDTO: {
+            verified: boolean;
+            /** @enum {string} */
+            reason: "valid" | "unknown_key" | "unsigned";
+            signature: string | null;
+            payload: string | null;
+            verified_at: string | null;
+        };
+        GithubGitCommitDTO: {
+            author: components["schemas"]["GithubGitActorDTO"];
+            committer: components["schemas"]["GithubGitActorDTO"];
+            message: string;
+            url: string;
+            /** @example 0 */
+            comment_count: number;
+            verification: components["schemas"]["GithubCommitVerificationDTO"];
+        };
+        GithubPullCommitDTO: {
+            sha: string;
+            node_id: string;
+            commit: components["schemas"]["GithubGitCommitDTO"];
+            url: string;
+            html_url: string;
+            comments_url: string;
+            /** @description The account whose verified email the commit was authored with. */
+            author: components["schemas"]["GithubSimpleUserDTO"] | null;
+            committer: components["schemas"]["GithubSimpleUserDTO"] | null;
+        };
+        GithubPullFileDTO: {
+            filename: string;
+            /** @enum {string} */
+            status: "added" | "removed" | "modified" | "changed";
+            additions: number;
+            deletions: number;
+            changes: number;
+            blob_url: string;
+            raw_url: string;
+        };
         GithubMergePullDTO: {
             commit_title?: string;
             commit_message?: string;
@@ -6553,6 +7320,64 @@ export interface components {
              * @enum {string}
              */
             merge_method?: "merge" | "squash" | "rebase";
+        };
+        GithubMergeResultDTO: {
+            sha: string;
+            /** @example true */
+            merged: boolean;
+            /** @example Pull Request successfully merged */
+            message: string;
+        };
+        GithubReleaseAssetDTO: {
+            url: string;
+            browser_download_url: string;
+            id: number;
+            node_id: string;
+            name: string;
+            label: string | null;
+            /**
+             * @description Assets still uploading are never listed.
+             * @example uploaded
+             */
+            state: string;
+            content_type: string;
+            size: number;
+            digest: string | null;
+            download_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            uploader: components["schemas"]["GithubSimpleUserDTO"] | null;
+        };
+        GithubReleaseDTO: {
+            url: string;
+            html_url: string;
+            assets_url: string;
+            /** @description A URI template taking `name` and `label`. */
+            upload_url: string;
+            tarball_url: string;
+            zipball_url: string;
+            id: number;
+            node_id: string;
+            /** @example v1.0.0 */
+            tag_name: string;
+            /** @description The commit the tag points at, or the default branch once the tag is deleted. Ghost does not keep the branch a release was cut from. */
+            target_commitish: string;
+            name: string | null;
+            body: string | null;
+            draft: boolean;
+            prerelease: boolean;
+            /** @example false */
+            immutable: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            published_at: string | null;
+            /** Format: date-time */
+            updated_at: string;
+            author: components["schemas"]["GithubSimpleUserDTO"] | null;
+            assets: components["schemas"]["GithubReleaseAssetDTO"][];
         };
         GithubCreateReleaseDTO: {
             tag_name: string;
@@ -6608,6 +7433,41 @@ export interface components {
             /** @default default */
             context?: string;
         };
+        GithubStatusDTO: {
+            url: string;
+            /** @description The creator's avatar; empty when there is none. */
+            avatar_url: string;
+            id: number;
+            node_id: string;
+            /** @enum {string} */
+            state: "pending" | "success" | "failure" | "error";
+            description: string | null;
+            target_url: string | null;
+            /** @example default */
+            context: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description The same as `created_at`: each report is a new status.
+             */
+            updated_at: string;
+            creator: components["schemas"]["GithubSimpleUserDTO"] | null;
+        };
+        GithubCombinedStatusDTO: {
+            /**
+             * @description The worst state among the latest status of each context.
+             * @enum {string}
+             */
+            state: "pending" | "success" | "failure" | "error";
+            /** @description The latest status of each context. */
+            statuses: components["schemas"]["GithubStatusDTO"][];
+            sha: string;
+            total_count: number;
+            repository: components["schemas"]["GithubRepositoryDTO"];
+            commit_url: string;
+            url: string;
+        };
         GithubUserAttachmentDTO: {
             id: string;
             name: string;
@@ -6615,6 +7475,63 @@ export interface components {
             content_type: string;
             /** @description Where the repository serves the file; embed it in any issue, pull request, comment or release of that repository. */
             url: string;
+        };
+        GithubGitignoreTemplateDTO: {
+            /** @example Node */
+            name: string;
+            /** @description The .gitignore file. */
+            source: string;
+        };
+        GithubLicenseSummaryDTO: {
+            /** @example mit */
+            key: string;
+            /** @example MIT License */
+            name: string;
+            /** @example MIT */
+            spdx_id: string;
+            url: string;
+            node_id: string;
+        };
+        GithubLicenseDTO: {
+            /** @example mit */
+            key: string;
+            /** @example MIT License */
+            name: string;
+            /** @example MIT */
+            spdx_id: string;
+            url: string;
+            node_id: string;
+            html_url: string;
+            description: string;
+            implementation: string;
+            permissions: string[];
+            conditions: string[];
+            limitations: string[];
+            /** @description The license text, with placeholders such as `[year]`. */
+            body: string;
+            featured: boolean;
+        };
+        GithubRulesetLinksDTO: {
+            self: components["schemas"]["GithubLinkDTO"];
+            html: components["schemas"]["GithubLinkDTO"];
+        };
+        GithubRulesetSummaryDTO: {
+            id: number;
+            name: string;
+            /** @enum {string} */
+            target: "branch" | "tag";
+            /** @example Repository */
+            source_type: string;
+            /** @example octocat/hello-world */
+            source: string;
+            /** @enum {string} */
+            enforcement: "active" | "evaluate" | "disabled";
+            node_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            _links: components["schemas"]["GithubRulesetLinksDTO"];
         };
         GithubBypassActorDTO: {
             /** @description A repository role (2 maintain, 4 write, 5 admin) or a team id; ignored for `OrganizationAdmin`. */
@@ -6653,6 +7570,110 @@ export interface components {
             conditions?: components["schemas"]["GithubRulesetConditionsDTO"];
             rules?: components["schemas"]["GithubRulesetRuleDTO"][];
         };
+        GithubRulesetDTO: {
+            id: number;
+            name: string;
+            /** @enum {string} */
+            target: "branch" | "tag";
+            /** @example Repository */
+            source_type: string;
+            /** @example octocat/hello-world */
+            source: string;
+            /** @enum {string} */
+            enforcement: "active" | "evaluate" | "disabled";
+            node_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            _links: components["schemas"]["GithubRulesetLinksDTO"];
+            conditions: components["schemas"]["GithubRulesetConditionsDTO"];
+            rules: components["schemas"]["GithubRulesetRuleDTO"][];
+            /** @description Admins only. */
+            bypass_actors?: components["schemas"]["GithubBypassActorDTO"][];
+            /** @enum {string} */
+            current_user_can_bypass: "always" | "pull_requests_only" | "never";
+        };
+        GithubRuleSuiteDTO: {
+            id: number;
+            /** @description Null once the account is deleted. */
+            actor_id: number | null;
+            /** @description The login at the time of the write. */
+            actor_name: string | null;
+            before_sha: string;
+            after_sha: string;
+            /** @example refs/heads/main */
+            ref: string;
+            /** Format: date-time */
+            pushed_at: string;
+            /** @enum {string} */
+            result: "pass" | "fail" | "bypass";
+            /**
+             * @description What the rules in evaluate mode would have decided; null when none ran.
+             * @enum {string|null}
+             */
+            evaluation_result: "pass" | "fail" | "bypass" | null;
+            repository_id: number;
+            repository_name: string;
+        };
+        GithubRuleSourceDTO: {
+            /** @example ruleset */
+            type: string;
+            /** @description Null once the ruleset is deleted. */
+            id: number | null;
+            /** @description The name at the time of the write. */
+            name: string;
+        };
+        GithubRuleSuiteReviewDTO: {
+            id: number;
+            user: components["schemas"]["GithubSimpleUserDTO"] | null;
+            /** @enum {string} */
+            state: "PENDING" | "COMMENTED" | "APPROVED" | "CHANGES_REQUESTED" | "DISMISSED";
+        };
+        GithubRuleSuitePullRequestDTO: {
+            id: number;
+            number: number;
+            user: components["schemas"]["GithubSimpleUserDTO"] | null;
+            reviews: components["schemas"]["GithubRuleSuiteReviewDTO"][];
+        };
+        GithubRuleEvaluationMetadataDTO: {
+            pull_request: components["schemas"]["GithubRuleSuitePullRequestDTO"];
+        };
+        GithubRuleEvaluationDTO: {
+            rule_source: components["schemas"]["GithubRuleSourceDTO"];
+            /** @enum {string} */
+            enforcement: "active" | "evaluate" | "disabled" | "deleted ruleset";
+            /** @enum {string} */
+            result: "pass" | "fail";
+            /** @enum {string} */
+            rule_type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request" | "required_status_checks" | "required_signatures";
+            details: string | null;
+            /** @description With `include_metadata=true`, on the `pull_request` rule of a merge only. */
+            metadata?: components["schemas"]["GithubRuleEvaluationMetadataDTO"];
+        };
+        GithubRuleSuiteDetailDTO: {
+            id: number;
+            /** @description Null once the account is deleted. */
+            actor_id: number | null;
+            /** @description The login at the time of the write. */
+            actor_name: string | null;
+            before_sha: string;
+            after_sha: string;
+            /** @example refs/heads/main */
+            ref: string;
+            /** Format: date-time */
+            pushed_at: string;
+            /** @enum {string} */
+            result: "pass" | "fail" | "bypass";
+            /**
+             * @description What the rules in evaluate mode would have decided; null when none ran.
+             * @enum {string|null}
+             */
+            evaluation_result: "pass" | "fail" | "bypass" | null;
+            repository_id: number;
+            repository_name: string;
+            rule_evaluations: components["schemas"]["GithubRuleEvaluationDTO"][];
+        };
         GithubUpdateRulesetDTO: {
             name?: string;
             /**
@@ -6665,6 +7686,17 @@ export interface components {
             bypass_actors?: components["schemas"]["GithubBypassActorDTO"][];
             conditions?: components["schemas"]["GithubRulesetConditionsDTO"];
             rules?: components["schemas"]["GithubRulesetRuleDTO"][];
+        };
+        GithubBranchRuleDTO: {
+            /** @enum {string} */
+            type: "creation" | "update" | "deletion" | "non_fast_forward" | "required_linear_history" | "pull_request" | "required_status_checks" | "required_signatures";
+            /** @description For `pull_request`: GitHub's parameters. The other rules Ghost supports take none. */
+            parameters?: Record<string, never>;
+            /** @example Repository */
+            ruleset_source_type: string;
+            /** @example octocat/hello-world */
+            ruleset_source: string;
+            ruleset_id: number;
         };
         OauthAppDTO: {
             clientId: string;
@@ -6789,6 +7821,148 @@ export interface components {
              */
             gitignore: string[];
             licenses: components["schemas"]["LicenseTemplateDTO"][];
+        };
+        AppOwnerDTO: {
+            /** @description Username, or organization slug. */
+            login: string;
+            /** @enum {string} */
+            type: "user" | "organization";
+        };
+        AppPrivateKeyDTO: {
+            id: string;
+            /**
+             * @description SHA-256 of the public key, base64.
+             * @example SHA256:0f3V…
+             */
+            fingerprint: string;
+            /** @description ISO 8601. */
+            createdAt: string;
+        };
+        AppDTO: {
+            /** @description The App ID: the JWT `iss`, and `integration_id` in rulesets. */
+            appId: number;
+            slug: string;
+            name: string;
+            description: string | null;
+            homepageUrl: string;
+            logoUrl: string | null;
+            owner: components["schemas"]["AppOwnerDTO"];
+            /** @description The web page an owner installs the app from. */
+            installUrl: string;
+            id: string;
+            /** @example ci-bot[bot] */
+            botLogin: string;
+            setupUrl: string | null;
+            webhookUrl: string | null;
+            webhookSecretSet: boolean;
+            /**
+             * @example {
+             *       "contents": "read",
+             *       "statuses": "write"
+             *     }
+             */
+            permissions: {
+                [key: string]: "read" | "write";
+            };
+            events: string[];
+            privateKeys: components["schemas"]["AppPrivateKeyDTO"][];
+            /** @description ISO 8601. */
+            createdAt: string;
+        };
+        ListAppsResponseDTO: {
+            apps: components["schemas"]["AppDTO"][];
+        };
+        CreateAppDTO: {
+            /**
+             * @description The slug, and the bot user `slug[bot]`, are made from it once and never change.
+             * @example CI Bot
+             */
+            name: string;
+            description?: string | null;
+            /** @example https://bot.example */
+            homepageUrl: string;
+            /** @description Where an owner is sent after installing the app. */
+            setupUrl?: string | null;
+            /** @description Where Ghost delivers the events the app subscribes to. */
+            webhookUrl?: string | null;
+            /** @description Signs every delivery. Never returned. */
+            webhookSecret?: string | null;
+            /**
+             * @description GitHub's permission names and levels. `metadata: read` is always granted.
+             * @example {
+             *       "contents": "read",
+             *       "statuses": "write"
+             *     }
+             */
+            permissions: {
+                [key: string]: "read" | "write";
+            };
+            /**
+             * @description Ghost webhook events. Each needs read on the permission it belongs to.
+             * @example [
+             *       "push",
+             *       "pull_request.synchronized"
+             *     ]
+             */
+            events: string[];
+        };
+        UpdateAppDTO: {
+            /**
+             * @description The slug, and the bot user `slug[bot]`, are made from it once and never change.
+             * @example CI Bot
+             */
+            name?: string;
+            description?: string | null;
+            /** @example https://bot.example */
+            homepageUrl?: string;
+            /** @description Where an owner is sent after installing the app. */
+            setupUrl?: string | null;
+            /** @description Where Ghost delivers the events the app subscribes to. */
+            webhookUrl?: string | null;
+            /** @description Signs every delivery. Never returned. */
+            webhookSecret?: string | null;
+            /**
+             * @description GitHub's permission names and levels. `metadata: read` is always granted.
+             * @example {
+             *       "contents": "read",
+             *       "statuses": "write"
+             *     }
+             */
+            permissions?: {
+                [key: string]: "read" | "write";
+            };
+            /**
+             * @description Ghost webhook events. Each needs read on the permission it belongs to.
+             * @example [
+             *       "push",
+             *       "pull_request.synchronized"
+             *     ]
+             */
+            events?: string[];
+        };
+        CreatedPrivateKeyDTO: {
+            id: string;
+            /**
+             * @description SHA-256 of the public key, base64.
+             * @example SHA256:0f3V…
+             */
+            fingerprint: string;
+            /** @description ISO 8601. */
+            createdAt: string;
+            /** @description PKCS#1 PEM, shown only now. Ghost keeps only the public half. */
+            privateKey: string;
+        };
+        PublicAppDTO: {
+            /** @description The App ID: the JWT `iss`, and `integration_id` in rulesets. */
+            appId: number;
+            slug: string;
+            name: string;
+            description: string | null;
+            homepageUrl: string;
+            logoUrl: string | null;
+            owner: components["schemas"]["AppOwnerDTO"];
+            /** @description The web page an owner installs the app from. */
+            installUrl: string;
         };
     };
     responses: never;
@@ -13952,6 +15126,34 @@ export interface operations {
             };
         };
     };
+    GithubAppController_authenticated: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubAppDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
     MetaController_root: {
         parameters: {
             query?: never;
@@ -13965,7 +15167,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -13982,7 +15195,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubMetaDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -13999,7 +15223,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubAuthenticatedUserDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14018,7 +15253,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubUserDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14035,7 +15281,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubKeyDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14056,7 +15313,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubKeyDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14073,7 +15341,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubSigningKeyDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14094,7 +15373,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubSigningKeyDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14113,7 +15403,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubSigningKeyDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14133,6 +15434,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14237,7 +15547,82 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
+                content: {
+                    "application/json": components["schemas"]["GithubRepositoryDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    ReposController_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    ReposController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubUpdateRepositoryDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubRepositoryDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14257,7 +15642,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReadmeDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14280,7 +15676,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": string;
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14303,7 +15710,58 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": string;
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    ReposController_listForViewer: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+                /** @description `full_name` sorts ignoring case. The default depends on the list. */
+                sort?: "created" | "updated" | "pushed" | "full_name";
+                /** @description `asc` when sorting by `full_name`, else `desc`. */
+                direction?: "asc" | "desc";
+                visibility?: "all" | "public" | "private";
+                /** @description A comma-separated list of `owner`, `collaborator` and `organization_member`. All three by default. */
+                affiliation?: string;
+                /** @description Refused with 422 alongside `visibility` or `affiliation`. */
+                type?: "all" | "owner" | "public" | "private" | "member";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubRepositoryDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14324,7 +15782,57 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubRepositoryDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    ReposController_listForOrganization: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+                /** @description `full_name` sorts ignoring case. The default depends on the list. */
+                sort?: "created" | "updated" | "pushed" | "full_name";
+                /** @description `asc` when sorting by `full_name`, else `desc`. */
+                direction?: "asc" | "desc";
+                /** @description `member` keeps the repositories the viewer holds a role on. */
+                type?: "all" | "public" | "private" | "forks" | "sources" | "member";
+            };
+            header?: never;
+            path: {
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubRepositoryDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14347,7 +15855,57 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubRepositoryDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    ReposController_listForUser: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+                /** @description `full_name` sorts ignoring case. The default depends on the list. */
+                sort?: "created" | "updated" | "pushed" | "full_name";
+                /** @description `asc` when sorting by `full_name`, else `desc`. */
+                direction?: "asc" | "desc";
+                /** @description `member` lists the public repositories the user collaborates on. */
+                type?: "all" | "owner" | "member";
+            };
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubRepositoryDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14369,7 +15927,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubCodeownersErrorsDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14398,7 +15967,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueCommentDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14419,7 +15999,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueCommentDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14441,6 +16032,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14465,7 +16065,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueCommentDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14495,7 +16106,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueCommentDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14520,7 +16142,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueCommentDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14543,7 +16176,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLabelDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14567,7 +16211,27 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLabelDTO"];
+                };
+            };
+            /** @description Validation Failed: the name is taken ignoring case (`already_exists`), or is refused (`invalid`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14588,7 +16252,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLabelDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14610,6 +16285,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14634,7 +16318,27 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLabelDTO"];
+                };
+            };
+            /** @description Validation Failed: the name is taken ignoring case (`already_exists`), or is refused (`invalid`). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14658,7 +16362,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLabelDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14684,7 +16399,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLabelDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14710,7 +16436,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLabelDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14733,6 +16470,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
         };
     };
     LabelsController_remove: {
@@ -14753,7 +16499,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLabelDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14786,7 +16543,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14810,7 +16578,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14831,7 +16610,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14856,7 +16646,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14881,7 +16682,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14906,7 +16718,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubIssueDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14924,11 +16747,21 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The user can be assigned; 404 otherwise. */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14951,7 +16784,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubSimpleUserDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -14968,11 +16812,21 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The user can be assigned; 404 otherwise. */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15001,7 +16855,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewCommentDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15022,7 +16887,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewCommentDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15044,6 +16920,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15068,7 +16953,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewCommentDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15098,7 +16994,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewCommentDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15123,7 +17030,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewCommentDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15154,7 +17072,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewCommentDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15178,7 +17107,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15203,7 +17143,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15225,7 +17176,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15247,7 +17209,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15273,7 +17246,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReviewDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15294,7 +17278,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubRequestedReviewersResponseDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15319,7 +17314,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubPullDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15344,7 +17350,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubPullDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15373,7 +17390,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubPullDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15397,7 +17425,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubPullDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15420,7 +17459,19 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubPullDTO"];
+                    "text/plain": string;
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15445,7 +17496,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubPullDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15469,7 +17531,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubPullCommitDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15493,7 +17566,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubPullFileDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15510,11 +17594,21 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Merged; 404 otherwise. */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15539,7 +17633,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubMergeResultDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15562,7 +17667,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15586,7 +17702,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15606,7 +17733,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15627,7 +17765,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15650,7 +17799,19 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseAssetDTO"];
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15672,6 +17833,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15696,7 +17866,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseAssetDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15717,7 +17898,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15739,6 +17931,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15763,7 +17964,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15787,7 +17999,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseAssetDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15815,7 +18038,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubReleaseAssetDTO"];
+                };
             };
         };
     };
@@ -15840,7 +18065,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubStatusDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15864,7 +18100,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubStatusDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15885,7 +18132,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubCombinedStatusDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15936,6 +18194,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
         };
     };
     TemplatesController_gitignoreTemplates: {
@@ -15951,7 +18218,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15970,7 +18248,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubGitignoreTemplateDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -15987,7 +18276,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLicenseSummaryDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -16006,7 +18306,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubLicenseDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -16026,7 +18337,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubRulesetSummaryDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -16050,7 +18372,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubRulesetDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -16079,7 +18412,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubRuleSuiteDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -16103,7 +18447,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubRuleSuiteDetailDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -16124,7 +18479,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubRulesetDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -16149,7 +18515,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubRulesetDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -16172,6 +18549,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
         };
     };
     GithubRulesetsController_branchRules: {
@@ -16191,7 +18577,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GithubBranchRuleDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
             };
         };
     };
@@ -16666,6 +19063,492 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetRepositoryTemplatesResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListAppsResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAppDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    PublicAppsController_describe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAppDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAppDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_createPrivateKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedPrivateKeyDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_removePrivateKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_setLogo: {
+        parameters: {
+            query?: never;
+            header: {
+                "content-type": string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadAvatarResponseDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_removeLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationAppsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListAppsResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationAppsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAppDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
         };

@@ -83,6 +83,7 @@ export default async function OrganizationSettingsLayout({
                 icon: "oauthApps",
                 group: "Developer",
               },
+              { href: `${base}/apps`, label: "Ghost Apps", icon: "apps" },
               {
                 href: `${base}/oauth-app-access`,
                 label: "OAuth app access",

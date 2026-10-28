@@ -2,6 +2,7 @@
 
 import {
   AppWindow,
+  Bot,
   Briefcase,
   HardDrive,
   KeyRound,
@@ -37,6 +38,7 @@ const icons = {
   tokens: KeySquare,
   organizations: Briefcase,
   oauthApps: AppWindow,
+  apps: Bot,
   authorizedApps: ShieldCheck,
 };
 

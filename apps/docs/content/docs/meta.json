@@ -10,6 +10,7 @@
     "submodules",
     "webhooks",
     "github-cli",
-    "oauth-apps"
+    "oauth-apps",
+    "apps"
   ]
 }
