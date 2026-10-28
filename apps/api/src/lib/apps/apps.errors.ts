@@ -49,3 +49,18 @@ export class AppNameUnusableError extends DomainError {
     super('An app name needs at least one letter or digit');
   }
 }
+
+/** GitHub's messages, word for word, for a JWT it cannot read, check or match to an app, and for its two time limits. */
+export const JWT_UNDECODABLE = 'A JSON web token could not be decoded';
+export const JWT_EXPIRED =
+  "'Expiration time' claim ('exp') must be a numeric value representing the future time at which the assertion expires";
+export const JWT_TOO_LONG =
+  "'Expiration time' claim ('exp') is too far in the future";
+
+export class AppJwtError extends DomainError {
+  status: number = HttpStatus.UNAUTHORIZED;
+
+  constructor(message: string = JWT_UNDECODABLE) {
+    super(message);
+  }
+}
