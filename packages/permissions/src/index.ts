@@ -78,3 +78,5 @@ const owner = ac.newRole({
 
 /** The roles Better Auth's organization plugin knows. */
 export const roles = { member, admin, owner };
+
+export * from "./apps.js";

@@ -16,16 +16,14 @@ import { CommitStatusesModule } from '../commit-statuses/commit-statuses.module.
 import { IssuesModule } from '../issues/issues.module.js';
 import { PullRefsModule } from '../../pull-refs/pull-refs.module.js';
 import { StorageModule } from '../storage/storage.module.js';
-import {
-  PullRequestsController,
-  ViewerPullRequestsController,
-} from './pull-requests.controller.js';
+import { PullRequestsController } from './pull-requests.controller.js';
 import { PullRequestsService } from './pull-requests.service.js';
 import { ReviewRequestsController } from './review-requests.controller.js';
 import { ReviewRequestsService } from './review-requests.service.js';
 import { ReviewThreadsService } from './review-threads.service.js';
 import { ReviewsController } from './reviews.controller.js';
 import { ReviewsService } from './reviews.service.js';
+import { ViewerPullRequestsController } from './viewer-pull-requests.controller.js';
 
 @Module({
   imports: [

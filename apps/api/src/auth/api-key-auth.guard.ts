@@ -70,7 +70,7 @@ export class ApiKeyAuthGuard extends AuthGuard {
     const throttled = await this.limiter.peek(BAD_TOKEN_BUDGET, ip);
     if (!throttled.allowed) throw new RateLimitedError(throttled);
 
-    const apiKey = await verifyApiKey(this.options_.auth.api, key);
+    const apiKey = await verifyApiKey(this.options_.auth, key);
     if (!apiKey) {
       await this.limiter.consume(BAD_TOKEN_BUDGET, ip);
       throw new UnauthorizedException('Bad credentials');

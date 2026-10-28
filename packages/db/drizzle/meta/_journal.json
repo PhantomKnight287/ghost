@@ -540,6 +540,13 @@
       "when": 1793077174149,
       "tag": "0076_glorious_hedge_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1793174050412,
+      "tag": "0077_worthless_oracle",
+      "breakpoints": true
     }
   ]
 }

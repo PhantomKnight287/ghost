@@ -156,7 +156,10 @@ export const label = pgTable(
       .$onUpdateFn(() => new Date()),
   },
   (t) => [
-    uniqueIndex("label_repo_name_idx").on(t.repositoryId, sql`lower(${t.name})`),
+    uniqueIndex("label_repo_name_idx").on(
+      t.repositoryId,
+      sql`lower(${t.name})`,
+    ),
     index("label_repo_idx").on(t.repositoryId),
   ],
 );

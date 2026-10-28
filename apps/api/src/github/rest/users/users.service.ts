@@ -167,6 +167,7 @@ export class GithubUsersService {
           avatarUrl: user.image,
         },
         githubOrigins(this.config),
+        user.kind === 'bot' ? 'Bot' : 'User',
       ),
       name: user.name,
       created_at: user.createdAt.toISOString(),

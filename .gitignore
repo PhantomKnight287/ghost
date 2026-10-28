@@ -17,3 +17,5 @@ apps/docs/.source
 
 # not gonna push it until I decide how that thing works and if it is even good for the project.
 graphify-out/
+
+dump.rdb

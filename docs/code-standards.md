@@ -208,6 +208,9 @@ refuseDiscussion(body.discussion_category_name);
 if (body.discussion_category_name !== undefined) throw new DiscussionCategoryNotFoundError();
 ```
 
+## 14. Only 1 `@Controller` per file
+There should not be more than 1 exported class annotated with `@Controller` in a single typescript file inside `apps/api`.
+
 ## Philosophy
 
 This codebase will outlive you. Every shortcut becomes someone else's burden. Every hack compounds into technical debt that slows the whole team down.

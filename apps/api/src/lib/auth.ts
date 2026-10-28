@@ -24,6 +24,7 @@ import {
 } from 'better-auth/plugins';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
+import { deleteApps } from './apps/delete-apps.js';
 import { callbackMatches } from './github/callback.js';
 import {
   findOauthApp,
@@ -209,6 +210,7 @@ const RESERVED_NAMES = new Set([
   'login',
   'search',
   'settings',
+  'apps',
 ]);
 
 /** Why `name` cannot be taken as a username or an organization slug, or null when it can. `/name/repo` resolves a name to a user or an organization, so the two must never share one. Case is ignored, as both are matched lowercase. */
@@ -434,6 +436,22 @@ export function createAuth(db: Database, config: AuthConfig) {
           },
         },
       },
+      session: {
+        create: {
+          // A bot acts only through its app's tokens; a session would let anyone holding one act as the bot.
+          before: async (session) => {
+            const [user] = await db
+              .select({ kind: schema.user.kind })
+              .from(schema.user)
+              .where(eq(schema.user.id, session.userId));
+            if (user?.kind === 'bot')
+              throw APIError.from('FORBIDDEN', {
+                code: 'BOT_USER_SESSION_NOT_ALLOWED',
+                message: 'A bot cannot sign in',
+              });
+          },
+        },
+      },
     },
     emailAndPassword: {
       enabled: true,
@@ -448,6 +466,10 @@ export function createAuth(db: Database, config: AuthConfig) {
         : undefined,
     },
     user: {
+      // Declared so the adapter returns it; `input: false` keeps sign-up and update-user from setting it.
+      additionalFields: {
+        kind: { type: ['user', 'bot'], input: false, defaultValue: 'user' },
+      },
       changeEmail: {
         enabled: true,
         // With no mail configured there is nobody to confirm with, and an unverified account would be stuck on its first address forever.
@@ -506,13 +528,17 @@ export function createAuth(db: Database, config: AuthConfig) {
               .from(schema.repository)
               .where(eq(schema.repository.organizationId, organization.id))
               .limit(1);
-            if (!repository) return;
-
-            throw APIError.from('CONFLICT', {
-              message:
-                'Delete or transfer the organization’s repositories first',
-              code: 'ORGANIZATION_HAS_REPOSITORIES',
-            });
+            if (repository)
+              throw APIError.from('CONFLICT', {
+                message:
+                  'Delete or transfer the organization’s repositories first',
+                code: 'ORGANIZATION_HAS_REPOSITORIES',
+              });
+            // Its apps' owner column would be set null under them, which the app_owner check refuses for a live app; deleting them first keeps their App IDs and slugs from being reused.
+            await deleteApps(
+              db,
+              eq(schema.app.ownerOrganizationId, organization.id),
+            );
           },
           afterCreateOrganization: async ({ organization }) => {
             await db

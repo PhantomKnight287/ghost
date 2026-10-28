@@ -7,19 +7,15 @@ import {
   AVATAR_MAX_BYTES,
 } from '../../lib/avatars/avatar.constants.js';
 import { UsersService } from '../../services/users/users.service.js';
-import {
-  OauthAppAccessController,
-  OauthAppOrganizationsController,
-} from './oauth-app-access.controller.js';
+import { OauthAppAccessController } from './oauth-app-access.controller.js';
+import { OauthAppOrganizationsController } from './oauth-app-organizations.controller.js';
 import { OauthAppAccessService } from './oauth-app-access.service.js';
-import {
-  OrganizationInvitationsController,
-  OrganizationsController,
-  UserOrganizationsController,
-} from './organizations.controller.js';
+import { OrganizationInvitationsController } from './organization-invitations.controller.js';
+import { OrganizationsController } from './organizations.controller.js';
 import { OrganizationsService } from './organizations.service.js';
 import { OrganizationTeamsController } from './teams.controller.js';
 import { TeamsService } from './teams.service.js';
+import { UserOrganizationsController } from './user-organizations.controller.js';
 
 @Module({
   imports: [AvatarsModule],

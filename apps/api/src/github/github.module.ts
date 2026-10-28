@@ -40,6 +40,8 @@ import { ViewerService } from './graphql/resolvers/viewer/viewer.service.js';
 import { OauthModule } from './oauth/oauth.module.js';
 import { GithubGitModule } from './rest/git/git.module.js';
 import { GithubIssuesModule } from './rest/issues/issues.module.js';
+import { AppJwtService } from '../services/apps/app-jwt.service.js';
+import { GithubAppModule } from './rest/app/app.module.js';
 import { MetaModule } from './rest/meta/meta.module.js';
 import { GithubPullsModule } from './rest/pulls/pulls.module.js';
 import { GithubReleasesModule } from './rest/releases/releases.module.js';
@@ -93,6 +95,7 @@ import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
         },
       }),
     }),
+    GithubAppModule,
     MetaModule,
     UsersModule,
     ReposModule,
@@ -112,6 +115,7 @@ import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
     GithubRulesetsModule,
   ],
   providers: [
+    AppJwtService,
     ViewerResolver,
     IssueCommentResolver,
     SearchResolver,

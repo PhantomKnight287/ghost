@@ -12406,6 +12406,47 @@
         ]
       }
     },
+    "/api/v3/app": {
+      "get": {
+        "operationId": "GithubAppController_authenticated",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubAppDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "The Ghost App a JWT signed by its private key authenticates",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3": {
       "get": {
         "operationId": "MetaController_root",
@@ -20441,6 +20482,682 @@
           "Repositories"
         ]
       }
+    },
+    "/api/apps": {
+      "get": {
+        "operationId": "AppsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAppsResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the apps the signed-in account registered",
+        "tags": [
+          "Apps"
+        ]
+      },
+      "post": {
+        "description": "Creates its bot user, `slug[bot]`. The slug is made from the name now and never changes.",
+        "operationId": "AppsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAppDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register an app",
+        "tags": [
+          "Apps"
+        ]
+      }
+    },
+    "/api/apps/{slug}/settings": {
+      "get": {
+        "operationId": "AppsController_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "One app, as its owner sees it",
+        "tags": [
+          "Apps"
+        ]
+      }
+    },
+    "/api/apps/{slug}": {
+      "patch": {
+        "description": "Renaming keeps the slug and the bot login.",
+        "operationId": "AppsController_update",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAppDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Change an app",
+        "tags": [
+          "Apps"
+        ]
+      },
+      "delete": {
+        "description": "Its keys stop working. Its bot stays, so what it did stays attributed, and its App ID and slug are never reused.",
+        "operationId": "AppsController_remove",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete an app",
+        "tags": [
+          "Apps"
+        ]
+      },
+      "get": {
+        "operationId": "PublicAppsController_describe",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAppDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "summary": "An app's public page",
+        "tags": [
+          "Apps"
+        ]
+      }
+    },
+    "/api/apps/{slug}/private-keys": {
+      "post": {
+        "description": "The response carries the PEM. It is never shown again: Ghost keeps only the public half.",
+        "operationId": "AppsController_createPrivateKey",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedPrivateKeyDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Generate a private key",
+        "tags": [
+          "Apps"
+        ]
+      }
+    },
+    "/api/apps/{slug}/private-keys/{id}": {
+      "delete": {
+        "description": "JWTs it signed stop working at once.",
+        "operationId": "AppsController_removePrivateKey",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a private key",
+        "tags": [
+          "Apps"
+        ]
+      }
+    },
+    "/api/apps/{slug}/logo": {
+      "put": {
+        "description": "Takes the raw image bytes, PNG or JPEG. The bot wears it as its avatar.",
+        "operationId": "AppsController_setLogo",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "content-type",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAvatarResponseDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload an app's logo",
+        "tags": [
+          "Apps"
+        ]
+      },
+      "delete": {
+        "operationId": "AppsController_removeLogo",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove an app's logo",
+        "tags": [
+          "Apps"
+        ]
+      }
+    },
+    "/api/organizations/{slug}/apps": {
+      "get": {
+        "operationId": "OrganizationAppsController_list",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAppsResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List an organization's apps",
+        "tags": [
+          "Apps"
+        ]
+      },
+      "post": {
+        "description": "Creates its bot user, `slug[bot]`. The slug is made from the name now and never changes.",
+        "operationId": "OrganizationAppsController_create",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAppDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register an app for an organization",
+        "tags": [
+          "Apps"
+        ]
+      }
     }
   },
   "info": {
@@ -27186,6 +27903,167 @@
           "documentation_url"
         ]
       },
+      "GithubSimpleUserDTO": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "example": "octocat"
+          },
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "avatar_url": {
+            "type": "string",
+            "description": "Empty when the account has no avatar."
+          },
+          "gravatar_id": {
+            "type": "string",
+            "example": ""
+          },
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "followers_url": {
+            "type": "string"
+          },
+          "following_url": {
+            "type": "string"
+          },
+          "gists_url": {
+            "type": "string"
+          },
+          "starred_url": {
+            "type": "string"
+          },
+          "subscriptions_url": {
+            "type": "string"
+          },
+          "organizations_url": {
+            "type": "string"
+          },
+          "repos_url": {
+            "type": "string"
+          },
+          "events_url": {
+            "type": "string"
+          },
+          "received_events_url": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "User",
+              "Organization",
+              "Bot"
+            ]
+          },
+          "site_admin": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "login",
+          "id",
+          "node_id",
+          "avatar_url",
+          "gravatar_id",
+          "url",
+          "html_url",
+          "followers_url",
+          "following_url",
+          "gists_url",
+          "starred_url",
+          "subscriptions_url",
+          "organizations_url",
+          "repos_url",
+          "events_url",
+          "received_events_url",
+          "type",
+          "site_admin"
+        ]
+      },
+      "GithubAppDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "The App ID, the JWT `iss`."
+          },
+          "slug": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/GithubSimpleUserDTO"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "external_url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "permissions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write"
+              ]
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "installations_count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "node_id",
+          "owner",
+          "name",
+          "description",
+          "external_url",
+          "html_url",
+          "created_at",
+          "updated_at",
+          "permissions",
+          "events",
+          "installations_count"
+        ]
+      },
       "GithubMetaDTO": {
         "type": "object",
         "properties": {
@@ -27262,7 +28140,8 @@
             "type": "string",
             "enum": [
               "User",
-              "Organization"
+              "Organization",
+              "Bot"
             ]
           },
           "site_admin": {
@@ -27368,7 +28247,8 @@
             "type": "string",
             "enum": [
               "User",
-              "Organization"
+              "Organization",
+              "Bot"
             ]
           },
           "site_admin": {
@@ -27804,93 +28684,6 @@
         },
         "required": [
           "errors"
-        ]
-      },
-      "GithubSimpleUserDTO": {
-        "type": "object",
-        "properties": {
-          "login": {
-            "type": "string",
-            "example": "octocat"
-          },
-          "id": {
-            "type": "number"
-          },
-          "node_id": {
-            "type": "string"
-          },
-          "avatar_url": {
-            "type": "string",
-            "description": "Empty when the account has no avatar."
-          },
-          "gravatar_id": {
-            "type": "string",
-            "example": ""
-          },
-          "url": {
-            "type": "string"
-          },
-          "html_url": {
-            "type": "string"
-          },
-          "followers_url": {
-            "type": "string"
-          },
-          "following_url": {
-            "type": "string"
-          },
-          "gists_url": {
-            "type": "string"
-          },
-          "starred_url": {
-            "type": "string"
-          },
-          "subscriptions_url": {
-            "type": "string"
-          },
-          "organizations_url": {
-            "type": "string"
-          },
-          "repos_url": {
-            "type": "string"
-          },
-          "events_url": {
-            "type": "string"
-          },
-          "received_events_url": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "User",
-              "Organization"
-            ]
-          },
-          "site_admin": {
-            "type": "boolean",
-            "example": false
-          }
-        },
-        "required": [
-          "login",
-          "id",
-          "node_id",
-          "avatar_url",
-          "gravatar_id",
-          "url",
-          "html_url",
-          "followers_url",
-          "following_url",
-          "gists_url",
-          "starred_url",
-          "subscriptions_url",
-          "organizations_url",
-          "repos_url",
-          "events_url",
-          "received_events_url",
-          "type",
-          "site_admin"
         ]
       },
       "GithubIssueCommentDTO": {
@@ -31048,6 +31841,364 @@
         "required": [
           "gitignore",
           "licenses"
+        ]
+      },
+      "AppOwnerDTO": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "description": "Username, or organization slug."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "user",
+              "organization"
+            ]
+          }
+        },
+        "required": [
+          "login",
+          "type"
+        ]
+      },
+      "AppPrivateKeyDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string",
+            "example": "SHA256:0f3V…",
+            "description": "SHA-256 of the public key, base64."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO 8601."
+          }
+        },
+        "required": [
+          "id",
+          "fingerprint",
+          "createdAt"
+        ]
+      },
+      "AppDTO": {
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "number",
+            "description": "The App ID: the JWT `iss`, and `integration_id` in rulesets."
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "homepageUrl": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "owner": {
+            "$ref": "#/components/schemas/AppOwnerDTO"
+          },
+          "installUrl": {
+            "type": "string",
+            "description": "The web page an owner installs the app from."
+          },
+          "id": {
+            "type": "string"
+          },
+          "botLogin": {
+            "type": "string",
+            "example": "ci-bot[bot]"
+          },
+          "setupUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "webhookUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "webhookSecretSet": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write"
+              ]
+            },
+            "example": {
+              "contents": "read",
+              "statuses": "write"
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "privateKeys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppPrivateKeyDTO"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO 8601."
+          }
+        },
+        "required": [
+          "appId",
+          "slug",
+          "name",
+          "description",
+          "homepageUrl",
+          "logoUrl",
+          "owner",
+          "installUrl",
+          "id",
+          "botLogin",
+          "setupUrl",
+          "webhookUrl",
+          "webhookSecretSet",
+          "permissions",
+          "events",
+          "privateKeys",
+          "createdAt"
+        ]
+      },
+      "ListAppsResponseDTO": {
+        "type": "object",
+        "properties": {
+          "apps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppDTO"
+            }
+          }
+        },
+        "required": [
+          "apps"
+        ]
+      },
+      "CreateAppDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 34,
+            "example": "CI Bot",
+            "description": "The slug, and the bot user `slug[bot]`, are made from it once and never change."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 400
+          },
+          "homepageUrl": {
+            "type": "string",
+            "example": "https://bot.example"
+          },
+          "setupUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Where an owner is sent after installing the app."
+          },
+          "webhookUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Where Ghost delivers the events the app subscribes to."
+          },
+          "webhookSecret": {
+            "type": "string",
+            "nullable": true,
+            "writeOnly": true,
+            "description": "Signs every delivery. Never returned."
+          },
+          "permissions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write"
+              ]
+            },
+            "example": {
+              "contents": "read",
+              "statuses": "write"
+            },
+            "description": "GitHub's permission names and levels. `metadata: read` is always granted."
+          },
+          "events": {
+            "example": [
+              "push",
+              "pull_request.synchronized"
+            ],
+            "description": "Ghost webhook events. Each needs read on the permission it belongs to.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "homepageUrl",
+          "permissions",
+          "events"
+        ]
+      },
+      "UpdateAppDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 34,
+            "example": "CI Bot",
+            "description": "The slug, and the bot user `slug[bot]`, are made from it once and never change."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 400
+          },
+          "homepageUrl": {
+            "type": "string",
+            "example": "https://bot.example"
+          },
+          "setupUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Where an owner is sent after installing the app."
+          },
+          "webhookUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Where Ghost delivers the events the app subscribes to."
+          },
+          "webhookSecret": {
+            "type": "string",
+            "nullable": true,
+            "writeOnly": true,
+            "description": "Signs every delivery. Never returned."
+          },
+          "permissions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write"
+              ]
+            },
+            "example": {
+              "contents": "read",
+              "statuses": "write"
+            },
+            "description": "GitHub's permission names and levels. `metadata: read` is always granted."
+          },
+          "events": {
+            "example": [
+              "push",
+              "pull_request.synchronized"
+            ],
+            "description": "Ghost webhook events. Each needs read on the permission it belongs to.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreatedPrivateKeyDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string",
+            "example": "SHA256:0f3V…",
+            "description": "SHA-256 of the public key, base64."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "ISO 8601."
+          },
+          "privateKey": {
+            "type": "string",
+            "description": "PKCS#1 PEM, shown only now. Ghost keeps only the public half."
+          }
+        },
+        "required": [
+          "id",
+          "fingerprint",
+          "createdAt",
+          "privateKey"
+        ]
+      },
+      "PublicAppDTO": {
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "number",
+            "description": "The App ID: the JWT `iss`, and `integration_id` in rulesets."
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "homepageUrl": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "owner": {
+            "$ref": "#/components/schemas/AppOwnerDTO"
+          },
+          "installUrl": {
+            "type": "string",
+            "description": "The web page an owner installs the app from."
+          }
+        },
+        "required": [
+          "appId",
+          "slug",
+          "name",
+          "description",
+          "homepageUrl",
+          "logoUrl",
+          "owner",
+          "installUrl"
         ]
       }
     }

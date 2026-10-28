@@ -77,6 +77,7 @@ export default async function SettingsLayout({
                 icon: "oauthApps",
                 group: "Developer",
               },
+              { href: "/settings/apps", label: "Ghost Apps", icon: "apps" },
             ]}
           />
           <div className="min-w-0 max-w-3xl">{children}</div>

@@ -33,7 +33,14 @@ function harness({
       from: () => ({ where: async () => (blocked ? [{ blocked: true }] : []) }),
     }),
   };
-  const auth = { api: { verifyApiKey: vi.fn().mockResolvedValue(verify) } };
+  const api = { verifyApiKey: vi.fn().mockResolvedValue(verify) };
+  const instance = {
+    api,
+    $context: Promise.resolve({
+      internalAdapter: { findUserById: async () => ({ kind: 'user' }) },
+    }),
+  };
+  const auth = { api, instance };
   // Rate limiting has its own e2e suite; here every request has budget left.
   const limiter = {
     consume: vi.fn().mockResolvedValue({
