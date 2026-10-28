@@ -1,4 +1,4 @@
-import { createPublicKey } from 'node:crypto';
+import { createPublicKey, randomBytes } from 'node:crypto';
 
 import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
@@ -56,7 +56,10 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
     )[0];
 
   beforeAll(async () => {
-    ({ app } = await startApp());
+    // CI has no WEBHOOK_SECRET_KEY, and an app's webhook secret is sealed with it.
+    ({ app } = await startApp({
+      WEBHOOK_SECRET_KEY: randomBytes(32).toString('base64'),
+    }));
     db = app.get<Database>(DATABASE);
     owner = await signUp(app, ownerName);
     other = await signUp(app, `apother${stamp}`);
