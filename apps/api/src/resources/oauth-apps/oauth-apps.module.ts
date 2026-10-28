@@ -6,10 +6,8 @@ import {
   AVATAR_CONTENT_TYPES,
   AVATAR_MAX_BYTES,
 } from '../../lib/avatars/avatar.constants.js';
-import {
-  OauthAppsController,
-  OrganizationOauthAppsController,
-} from './oauth-apps.controller.js';
+import { OauthAppsController } from './oauth-apps.controller.js';
+import { OrganizationOauthAppsController } from './organization-oauth-apps.controller.js';
 import { OauthAppsService } from './oauth-apps.service.js';
 
 @Module({

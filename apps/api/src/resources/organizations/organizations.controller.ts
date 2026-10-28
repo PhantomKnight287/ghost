@@ -34,12 +34,10 @@ import { ErrorResponseDTO } from '../../domain/http.js';
 import {
   InviteByUsernameRequestDTO,
   ListOutsideCollaboratorsResponseDTO,
-  ListReceivedOrganizationInvitationsResponseDTO,
   OrganizationSettingsDTO,
   SetPinnedRepositoriesDTO,
   UpdateOrganizationSettingsDTO,
   ListMyOrganizationsResponseDTO,
-  ListOrganizationsResponseDTO,
   OrganizationProfileDTO,
 } from './dto/organization.dto.js';
 import { UploadAvatarResponseDTO } from '../user/dto/avatar.dto.js';
@@ -264,46 +262,5 @@ export class OrganizationsController {
     @Session() session: UserSession | undefined,
   ): Promise<OrganizationProfileDTO> {
     return this.organizations.getProfile(slug, session?.user?.id);
-  }
-}
-
-@ApiTags('Organizations')
-@Controller('users')
-export class UserOrganizationsController {
-  constructor(private readonly organizations: OrganizationsService) {}
-
-  @Get(':username/organizations')
-  @SignInOptional()
-  @ApiOperation({
-    summary: 'List the organizations a user belongs to',
-    description:
-      'Membership is private: the user sees all of theirs, anyone else only the ones they share.',
-  })
-  @ApiOkResponse({ type: ListOrganizationsResponseDTO })
-  @ApiNotFoundResponse({ type: ErrorResponseDTO })
-  listForUser(
-    @Param('username', TransformToLowercasePipe) username: string,
-    @Session() session: UserSession | undefined,
-  ): Promise<ListOrganizationsResponseDTO> {
-    return this.organizations.listForUser(username, session?.user?.id);
-  }
-}
-
-@ApiTags('Organizations')
-@Controller('invitations/organizations')
-export class OrganizationInvitationsController {
-  constructor(private readonly organizations: OrganizationsService) {}
-
-  @Get()
-  @ApiOperation({
-    summary: 'List my organization invitations',
-    description:
-      "Pending invitations to organizations, addressed to the signed-in account's email. Accept or reject them through Better Auth's organization endpoints.",
-  })
-  @ApiOkResponse({ type: ListReceivedOrganizationInvitationsResponseDTO })
-  list(
-    @Session() session: UserSession,
-  ): Promise<ListReceivedOrganizationInvitationsResponseDTO> {
-    return this.organizations.listReceivedInvitations(session.user.id);
   }
 }

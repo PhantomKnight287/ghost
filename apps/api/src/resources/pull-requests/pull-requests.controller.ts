@@ -35,7 +35,6 @@ import {
 import {
   GetPullRequestsQueryDTO,
   GetPullRequestsResponseDTO,
-  GetReviewRequestsQueryDTO,
   PullRequestDetailDTO,
   PullRequestDTO,
 } from './dto/pull-request.dto.js';
@@ -372,29 +371,6 @@ export class PullRequestsController {
       number,
       requesterId: session.user.id,
       draft: true,
-    });
-  }
-}
-
-@Controller('user')
-@ApiTags('Pull requests')
-export class ViewerPullRequestsController {
-  constructor(private readonly pullRequests: PullRequestsService) {}
-
-  @Get('review-requests')
-  @ApiOperation({
-    summary: 'Open pull requests asking the signed-in user for a review',
-    description:
-      'Requests to the user directly or to one of their teams, in every repository the user can read.',
-  })
-  @ApiOkResponse({ type: GetPullRequestsResponseDTO })
-  getReviewRequests(
-    @Query() query: GetReviewRequestsQueryDTO,
-    @Session() session: UserSession,
-  ) {
-    return this.pullRequests.getReviewRequests({
-      requesterId: session.user.id,
-      query,
     });
   }
 }
