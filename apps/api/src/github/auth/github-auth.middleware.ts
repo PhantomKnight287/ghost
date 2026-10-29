@@ -6,6 +6,7 @@ import type { NextFunction, Response } from 'express';
 import { verifyApiKey } from '../../lib/api-keys/verify-api-key.js';
 import { APP_JWT } from '../../lib/apps/app-jwt.js';
 import { AppJwtError } from '../../lib/apps/apps.errors.js';
+import { INSTALLATION_TOKEN } from '../../lib/apps/installation-token.js';
 import { type Auth, AUTHORIZATION_TOKEN } from '../../lib/auth.js';
 import { KNOWN_SCOPES, scopesOfKey } from '../../lib/github/scopes.js';
 import { rateLimitHeaders } from '../../lib/rate-limit/headers.js';
@@ -15,6 +16,7 @@ import {
 } from '../../lib/rate-limit/rate-limit.errors.js';
 import { RateLimitGuard } from '../../rate-limit/rate-limit.guard.js';
 import { AppJwtService } from '../../services/apps/app-jwt.service.js';
+import { InstallationTokensService } from '../../services/apps/installation-tokens.service.js';
 import type { GithubRequest, GithubViewer } from './github-request.js';
 
 const GITHUB_MEDIA_TYPE = /application\/vnd\.github\b/i;
@@ -22,8 +24,33 @@ const GITHUB_MEDIA_TYPE = /application\/vnd\.github\b/i;
 const RAW_MEDIA_TYPE = /application\/vnd\.github(?:\.v3)?\.(?:diff|patch)\b/i;
 const GRAPHQL_PATH = /^\/api\/graphql(?:[/?]|$)/;
 const DOCUMENTATION_URL = 'https://docs.github.com/rest';
+const END = String.raw`\/?(?:\?|$)`;
+const SEGMENT = '[^/?]+';
 /** The only routes an app JWT may call; anything else is refused before it can be read as an anonymous request. */
-const APP_JWT_ROUTES = [{ method: 'GET', path: /^\/api\/v3\/app\/?(?:\?|$)/ }];
+const APP_JWT_ROUTES = [
+  { method: 'GET', path: new RegExp(`^/api/v3/app${END}`) },
+  { method: 'GET', path: new RegExp(`^/api/v3/app/installations${END}`) },
+  {
+    method: 'GET',
+    path: new RegExp(`^/api/v3/app/installations/\\d+${END}`),
+  },
+  {
+    method: 'DELETE',
+    path: new RegExp(`^/api/v3/app/installations/\\d+${END}`),
+  },
+  {
+    method: 'POST',
+    path: new RegExp(`^/api/v3/app/installations/\\d+/access_tokens${END}`),
+  },
+  {
+    method: 'GET',
+    path: new RegExp(`^/api/v3/repos/${SEGMENT}/${SEGMENT}/installation${END}`),
+  },
+  {
+    method: 'GET',
+    path: new RegExp(`^/api/v3/(?:orgs|users)/${SEGMENT}/installation${END}`),
+  },
+];
 
 /** Resolves `Authorization: token|Bearer <key>` (what gh sends) or a session cookie (GraphiQL in a browser) to a viewer, and sets the headers gh reads on every compat response. */
 @Injectable()
@@ -32,6 +59,7 @@ export class GithubAuthMiddleware implements NestMiddleware {
     private readonly auth: AuthService<Auth>,
     private readonly rateLimit: RateLimitGuard,
     private readonly appJwt: AppJwtService,
+    private readonly installationTokens: InstallationTokensService,
   ) {}
 
   async use(req: GithubRequest, res: Response, next: NextFunction) {
@@ -45,6 +73,9 @@ export class GithubAuthMiddleware implements NestMiddleware {
 
     if (header && !token) return this.badCredentials(res);
     req.githubApp = null;
+    req.appInstallation = null;
+    if (token && INSTALLATION_TOKEN.test(token))
+      return this.asInstallation(req, res, next, token);
     if (token && APP_JWT.test(token)) return this.asApp(req, res, next, token);
     const viewer = token
       ? await this.fromKey(token)
@@ -65,6 +96,34 @@ export class GithubAuthMiddleware implements NestMiddleware {
         return;
       }
       res.set(rateLimitHeaders(decision));
+    }
+    next();
+  }
+
+  // ponytail: every installation of an app shares its bot's budget; GitHub counts each installation on its own.
+  private async asInstallation(
+    req: GithubRequest,
+    res: Response,
+    next: NextFunction,
+    token: string,
+  ) {
+    const installation = await this.installationTokens.verify(token);
+    if (!installation) return this.badCredentials(res);
+    req.appInstallation = installation;
+    // `repo` lets the viewer reach private repositories at all; the installation's permissions and repositories narrow it per route.
+    req.githubViewer = {
+      userId: installation.botUserId,
+      scopes: ['repo'],
+      oauthClientId: null,
+      installation,
+    };
+    res.setHeader('X-OAuth-Scopes', '');
+    if (GRAPHQL_PATH.test(req.originalUrl)) {
+      res.status(403).json({
+        message: 'Resource not accessible by integration',
+        documentation_url: DOCUMENTATION_URL,
+      });
+      return;
     }
     next();
   }

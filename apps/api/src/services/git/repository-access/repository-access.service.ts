@@ -12,6 +12,7 @@ import {
   basePermissionOf,
   canAccess,
   decideAccess,
+  installationRoleOf,
   organizationMembership,
   ownerNameOf,
   type RepositoryOperation,
@@ -110,6 +111,7 @@ export class RepositoryAccessService {
         memberRole: schema.member.role,
         teamRole: teamRoleOf(schema.repository.id, actor),
         basePermission: basePermissionOf(schema.repository.organizationId),
+        installationRole: installationRoleOf(schema.repository, actor),
       })
       .from(schema.repository)
       .innerJoin(schema.user, inArray(schema.user.id, userIds))
@@ -138,6 +140,7 @@ export class RepositoryAccessService {
         memberRole: schema.member.role,
         teamRole: teamRoleOf(schema.repository.id, actor),
         basePermission: basePermissionOf(schema.repository.organizationId),
+        installationRole: installationRoleOf(schema.repository, actor),
       })
       .from(schema.repository)
       .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))

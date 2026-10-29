@@ -20,7 +20,9 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, openApiConfig);
   // Where agents look for a spec; the web app's /openapi.json redirects here.
-  app.use('/openapi.json', (_req: Request, res: Response) => res.json(document));
+  app.use('/openapi.json', (_req: Request, res: Response) =>
+    res.json(document),
+  );
   app.use(
     '/reference',
     apiReference({ content: document, theme: 'deepSpace' }),

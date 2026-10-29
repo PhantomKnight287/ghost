@@ -56,9 +56,7 @@
             "input": {
               "pullRequestId": "PR_<id>",
               "union": true,
-              "userIds": [
-                "U_<id>"
-              ]
+              "userIds": ["U_<id>"]
             }
           }
         },
@@ -99,9 +97,7 @@
             "headRefName": "feature",
             "owner": "<login>",
             "repo": "tools",
-            "states": [
-              "OPEN"
-            ]
+            "states": ["OPEN"]
           }
         },
         "status": 200

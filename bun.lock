@@ -74,6 +74,7 @@
         "@nestjs/schematics": "^12.0.0",
         "@nestjs/testing": "^12.0.1",
         "@octokit/app": "^16.1.2",
+        "@octokit/core": "^7.0.6",
         "@octokit/graphql-schema": "^15.26.1",
         "@react-email/ui": "^6.9.5",
         "@swc/cli": "^0.8.1",

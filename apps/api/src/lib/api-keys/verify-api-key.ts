@@ -9,5 +9,7 @@ export async function verifyApiKey(
   if (!result.valid || !result.key) return null;
   const { internalAdapter } = await auth.$context;
   const owner = await internalAdapter.findUserById(result.key.referenceId);
-  return (owner as { kind?: string } | null)?.kind === 'bot' ? null : result.key;
+  return (owner as { kind?: string } | null)?.kind === 'bot'
+    ? null
+    : result.key;
 }

@@ -72,7 +72,9 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
           name: `rules ${++counter}`,
           target: 'branch',
           enforcement: 'active',
-          conditions: { ref_name: { include: [`refs/heads/${branch}`], exclude: [] } },
+          conditions: {
+            ref_name: { include: [`refs/heads/${branch}`], exclude: [] },
+          },
           rules: [{ type: 'update' }],
           ...overrides,
         })
@@ -89,7 +91,10 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
   beforeAll(async () => {
     ({ app, origin } = await startApp());
     owner = { ...(await signUp(app, ownerName)), username: ownerName };
-    writer = { ...(await signUp(app, `ghsuwriter${stamp}`)), username: `ghsuwriter${stamp}` };
+    writer = {
+      ...(await signUp(app, `ghsuwriter${stamp}`)),
+      username: `ghsuwriter${stamp}`,
+    };
     await http()
       .post('/api/repositories')
       .set('cookie', owner.cookie)
@@ -101,7 +106,10 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
       .send({ role: 'write' })
       .expect(200);
     const invitation = (
-      await http().get('/api/invitations').set('cookie', writer.cookie).expect(200)
+      await http()
+        .get('/api/invitations')
+        .set('cookie', writer.cookie)
+        .expect(200)
     ).body.invitations[0];
     await http()
       .post(`/api/invitations/${invitation.id}/accept`)
@@ -130,7 +138,9 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
     const second = commitOn(branch, branch);
     await pushAs(writer, `${branch}:refs/heads/${branch}`);
 
-    const page = await rest(owner).get(`/rulesets/rule-suites?ref=${branch}&per_page=1`).expect(200);
+    const page = await rest(owner)
+      .get(`/rulesets/rule-suites?ref=${branch}&per_page=1`)
+      .expect(200);
     expect(page.headers.link).toContain('rel="next"');
     const repository = (await rest(owner).get('').expect(200)).body;
     expect(page.body).toEqual([
@@ -148,36 +158,62 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
         evaluation_result: null,
       },
     ]);
-    const next = await rest(owner).get(`/rulesets/rule-suites?ref=${branch}&per_page=1&page=2`).expect(200);
-    expect(next.body.map(({ before_sha }: { before_sha: string }) => before_sha)).toEqual([before]);
+    const next = await rest(owner)
+      .get(`/rulesets/rule-suites?ref=${branch}&per_page=1&page=2`)
+      .expect(200);
+    expect(
+      next.body.map(({ before_sha }: { before_sha: string }) => before_sha),
+    ).toEqual([before]);
   });
 
   it('filters by actor, result, evaluate status and time period', async () => {
     const branch = await seed('filtered');
     await ruleset(branch, {
-      bypass_actors: [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'always' }],
+      bypass_actors: [
+        { actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'always' },
+      ],
     });
-    await ruleset(branch, { enforcement: 'evaluate', rules: [{ type: 'deletion' }] });
+    await ruleset(branch, {
+      enforcement: 'evaluate',
+      rules: [{ type: 'deletion' }],
+    });
     commitOn(branch, branch);
     await pushAs(owner, `${branch}:refs/heads/${branch}`);
     commitOn(branch, branch);
-    await expect(pushAs(writer, `${branch}:refs/heads/${branch}`)).rejects.toThrow();
+    await expect(
+      pushAs(writer, `${branch}:refs/heads/${branch}`),
+    ).rejects.toThrow();
     const plain = await seed('filtered-plain');
     await ruleset(plain, { rules: [{ type: 'deletion' }] });
     commitOn(plain, plain);
     await pushAs(writer, `${plain}:refs/heads/${plain}`);
 
     const results = async (query: string) =>
-      (await rest(owner).get(`/rulesets/rule-suites?${query}`).expect(200)).body.map(
-        ({ result }: { result: string }) => result,
-      );
-    expect(await results(`ref=refs/heads/${branch}`)).toEqual(['fail', 'bypass']);
-    expect(await results(`ref=${branch}&actor_name=${writer.username}`)).toEqual(['fail']);
-    expect(await results(`ref=${branch}&rule_suite_result=bypass`)).toEqual(['bypass']);
-    expect(await results(`ref=${branch}&rule_suite_result=all`)).toEqual(['fail', 'bypass']);
-    expect(await results(`ref=${branch}&evaluate_status=evaluate`)).toEqual(['fail', 'bypass']);
+      (
+        await rest(owner).get(`/rulesets/rule-suites?${query}`).expect(200)
+      ).body.map(({ result }: { result: string }) => result);
+    expect(await results(`ref=refs/heads/${branch}`)).toEqual([
+      'fail',
+      'bypass',
+    ]);
+    expect(
+      await results(`ref=${branch}&actor_name=${writer.username}`),
+    ).toEqual(['fail']);
+    expect(await results(`ref=${branch}&rule_suite_result=bypass`)).toEqual([
+      'bypass',
+    ]);
+    expect(await results(`ref=${branch}&rule_suite_result=all`)).toEqual([
+      'fail',
+      'bypass',
+    ]);
+    expect(await results(`ref=${branch}&evaluate_status=evaluate`)).toEqual([
+      'fail',
+      'bypass',
+    ]);
     expect(await results(`ref=${plain}&evaluate_status=evaluate`)).toEqual([]);
-    expect(await results(`ref=${plain}&evaluate_status=active`)).toEqual(['pass']);
+    expect(await results(`ref=${plain}&evaluate_status=active`)).toEqual([
+      'pass',
+    ]);
 
     await db()
       .update(schema.ruleSuite)
@@ -191,10 +227,16 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
     const branch = await seed('detail');
     const made = await ruleset(branch);
     commitOn(branch, branch);
-    await expect(pushAs(writer, `${branch}:refs/heads/${branch}`)).rejects.toThrow();
-    const [listed] = (await rest(owner).get(`/rulesets/rule-suites?ref=${branch}`).expect(200)).body;
+    await expect(
+      pushAs(writer, `${branch}:refs/heads/${branch}`),
+    ).rejects.toThrow();
+    const [listed] = (
+      await rest(owner).get(`/rulesets/rule-suites?ref=${branch}`).expect(200)
+    ).body;
 
-    const { body } = await rest(owner).get(`/rulesets/rule-suites/${listed.id}`).expect(200);
+    const { body } = await rest(owner)
+      .get(`/rulesets/rule-suites/${listed.id}`)
+      .expect(200);
     expect(body).toEqual({
       ...listed,
       rule_evaluations: [
@@ -212,7 +254,9 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
       .delete(`/api/v3/repos/${repo}/rulesets/${made.id}`)
       .set('authorization', `token ${owner.key}`)
       .expect(204);
-    const after = await rest(owner).get(`/rulesets/rule-suites/${listed.id}`).expect(200);
+    const after = await rest(owner)
+      .get(`/rulesets/rule-suites/${listed.id}`)
+      .expect(200);
     expect(after.body.rule_evaluations[0]).toMatchObject({
       rule_source: { type: 'ruleset', id: null, name: made.name },
       enforcement: 'deleted ruleset',
@@ -224,7 +268,9 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
     commitOn(`${base}-work`, base);
     await pushAs(owner, `${base}-work:refs/heads/${base}-work`);
     const { number, id } = (
-      await rest(owner).post('/pulls', { title: 'work', head: `${base}-work`, base }).expect(201)
+      await rest(owner)
+        .post('/pulls', { title: 'work', head: `${base}-work`, base })
+        .expect(201)
     ).body;
     await ruleset(base, {
       rules: [
@@ -245,9 +291,13 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
       .set('authorization', `token ${owner.key}`)
       .send({ merge_method: 'squash' })
       .expect(200);
-    const [listed] = (await rest(owner).get(`/rulesets/rule-suites?ref=${base}`).expect(200)).body;
+    const [listed] = (
+      await rest(owner).get(`/rulesets/rule-suites?ref=${base}`).expect(200)
+    ).body;
 
-    const plain = await rest(owner).get(`/rulesets/rule-suites/${listed.id}`).expect(200);
+    const plain = await rest(owner)
+      .get(`/rulesets/rule-suites/${listed.id}`)
+      .expect(200);
     expect(plain.body.rule_evaluations[0].metadata).toBeUndefined();
     const { body } = await rest(owner)
       .get(`/rulesets/rule-suites/${listed.id}?include_metadata=true`)
@@ -259,7 +309,11 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
         pull_request: {
           id,
           number,
-          user: { id: await numericIdOf(owner.userId), login: owner.username, type: 'User' },
+          user: {
+            id: await numericIdOf(owner.userId),
+            login: owner.username,
+            type: 'User',
+          },
           reviews: [],
         },
       },
@@ -279,7 +333,11 @@ describe.skipIf(!hasBackends)('GitHub rule suites', { timeout: 30_000 }, () => {
   });
 
   it('refuses an unknown filter value with 422', async () => {
-    for (const query of ['time_period=year', 'rule_suite_result=maybe', 'evaluate_status=sometimes'])
+    for (const query of [
+      'time_period=year',
+      'rule_suite_result=maybe',
+      'evaluate_status=sometimes',
+    ])
       await rest(owner).get(`/rulesets/rule-suites?${query}`).expect(422);
   });
 });
