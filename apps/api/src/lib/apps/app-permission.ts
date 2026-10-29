@@ -32,3 +32,9 @@ export function neededLevels(
     ),
   );
 }
+
+export const PULL_REQUESTS_ON_PULLS = 'ghost:app-permission-pulls';
+
+/** On an issue route, a pull request's number (or a comment on one) also accepts `pull_requests` at the level `issues` needs, as GitHub does, so a bot with only `pull_requests` can comment on and label the pull requests it reviews. */
+export const PullRequestsOnPulls = () =>
+  SetMetadata(PULL_REQUESTS_ON_PULLS, true);

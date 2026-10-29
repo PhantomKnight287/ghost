@@ -29,4 +29,28 @@ export class InstallationAccessService {
       );
     return row !== undefined;
   }
+
+  /** Whether the issue `number`, or the issue comment with REST id `commentId`, belongs to a pull request of the repository. */
+  async onPullRequest(
+    repositoryId: string,
+    { number, commentId }: { number?: number; commentId?: number },
+  ) {
+    const [row] = await this.db
+      .select({ isPullRequest: schema.issue.isPullRequest })
+      .from(schema.issue)
+      .leftJoin(
+        schema.issueComment,
+        eq(schema.issueComment.issueId, schema.issue.id),
+      )
+      .where(
+        and(
+          eq(schema.issue.repositoryId, repositoryId),
+          number !== undefined
+            ? eq(schema.issue.number, number)
+            : eq(schema.issueComment.numericId, commentId!),
+        ),
+      )
+      .limit(1);
+    return row?.isPullRequest === true;
+  }
 }

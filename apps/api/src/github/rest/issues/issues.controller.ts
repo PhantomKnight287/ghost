@@ -37,11 +37,15 @@ import { GithubIssuesService } from './issues.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { GithubSimpleUserDTO } from '../users/dto/user.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
-import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
+import {
+  PullRequestsOnPulls,
+  RequireAppPermission,
+} from '../../../lib/apps/app-permission.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
 @RequireAppPermission('issues')
+@PullRequestsOnPulls()
 @Controller('v3/repos/:owner/:repo')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

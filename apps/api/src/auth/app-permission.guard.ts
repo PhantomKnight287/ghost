@@ -9,6 +9,7 @@ import {
   APP_PERMISSION,
   type AppPermissionNeeds,
   neededLevels,
+  PULL_REQUESTS_ON_PULLS,
 } from '../lib/apps/app-permission.js';
 import { IntegrationForbiddenError } from '../lib/apps/apps.errors.js';
 import { grants } from '../lib/apps/permissions.js';
@@ -61,6 +62,11 @@ export class AppPermissionGuard implements CanActivate {
       }));
     const covered = await this.installations.covers(caller, repository.id);
     if (covered && granted) return true;
+    if (
+      covered &&
+      (await this.pullRequestsSuffice(context, req, repository.id, levels))
+    )
+      return true;
     // A public repository answers a read the way it answers anyone; the bot is not who reads it then.
     if (
       repository.visibility === 'public' &&
@@ -74,5 +80,31 @@ export class AppPermissionGuard implements CanActivate {
     if (!covered && repository.visibility === 'private')
       throw new RepositoryNotFoundError();
     throw new IntegrationForbiddenError();
+  }
+
+  private async pullRequestsSuffice(
+    context: ExecutionContext,
+    req: Request,
+    repositoryId: string,
+    levels: [AppPermission, 'read' | 'write'][],
+  ) {
+    const { number, comment_id } = req.params as Record<string, string>;
+    if (
+      !this.reflector.getAllAndOverride<boolean>(PULL_REQUESTS_ON_PULLS, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ||
+      (!number && !comment_id) ||
+      !levels.every(
+        ([name, level]) =>
+          name === 'issues' &&
+          grants(req.appInstallation!.permissions, 'pull_requests', level),
+      )
+    )
+      return false;
+    return this.installations.onPullRequest(repositoryId, {
+      number: number ? Number(number) : undefined,
+      commentId: comment_id ? Number(comment_id) : undefined,
+    });
   }
 }

@@ -373,4 +373,34 @@ describe.skipIf(!hasBackends)('What an installation token writes', () => {
       .send({ title: 'Too much' })
       .expect(403);
   });
+  it('comments on a pull request with only pull_requests, as GitHub allows', async () => {
+    const { token } = await anotherApp({ pull_requests: 'write' });
+    const as = (call: request.Test) =>
+      call.set('authorization', `token ${token}`);
+    const { body: plain } = await api()
+      .post(`/api/v3${base()}/issues`)
+      .set('authorization', `token ${installer.key}`)
+      .send({ title: 'Just an issue' })
+      .expect(201);
+
+    const { body: comment } = await as(
+      api().post(`/api/v3${base()}/issues/${pull}/comments`),
+    )
+      .send({ body: 'Summary' })
+      .expect(201);
+    await as(api().patch(`/api/v3${base()}/issues/comments/${comment.id}`))
+      .send({ body: 'Updated summary' })
+      .expect(200);
+    await as(api().post(`/api/v3${base()}/issues/${pull}/labels`))
+      .send({ labels: ['bot'] })
+      .expect(200);
+
+    const { body } = await as(
+      api().post(`/api/v3${base()}/issues/${plain.number}/comments`),
+    )
+      .send({ body: 'Not mine' })
+      .expect(403);
+    expect(body.message).toBe('Resource not accessible by integration');
+    await as(api().get(`/api/v3${base()}/issues/${plain.number}`)).expect(403);
+  });
 });

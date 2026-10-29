@@ -105,6 +105,7 @@ The token works on the GitHub-compatible REST API (`Authorization: token ghs_...
 A token reaches only the repositories of its installation, and only as far as the installation's permissions allow:
 
 - each endpoint needs the permission it belongs to, at `read` for `GET` and `write` for anything else; git needs `contents`, at `write` to push;
+- the issue endpoints also take `pull_requests` when the issue is a pull request, so a reviewer bot can comment on and label pull requests without `issues`;
 - on a public repository outside the installation, or beyond its permissions, the token reads what anyone can read, and writes nothing;
 - a private repository outside the installation answers `404`;
 - anything else answers `403 Resource not accessible by integration`.
