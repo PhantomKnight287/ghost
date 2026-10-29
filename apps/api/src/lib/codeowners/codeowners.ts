@@ -56,7 +56,7 @@ const compiled = new WeakMap<CodeownersRule, ReturnType<typeof ignore>>();
 function parseOwner(token: string): CodeownersOwner | null {
   const team = /^@([\w.-]+)\/([\w.-]+)$/.exec(token);
   if (team) return { kind: 'team', organization: team[1], slug: team[2] };
-  const user = /^@([\w.-]+)$/.exec(token);
+  const user = /^@([\w.-]+(?:\[bot\])?)$/.exec(token);
   if (user) return { kind: 'user', username: user[1] };
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(token))
     return { kind: 'email', email: token };

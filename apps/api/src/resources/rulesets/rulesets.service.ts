@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Executor } from '../../lib/db/executor.js';
@@ -322,6 +322,10 @@ export class RulesetsService {
             bypassMode: actor.bypassMode,
             role: actor.actorType === 'RepositoryRole' ? actor.role : null,
             teamId: actor.actorType === 'Team' ? actor.teamId : null,
+            appId:
+              actor.actorType === 'Integration'
+                ? sql<string>`(select ${schema.app.id} from ${schema.app} where ${schema.app.numericId} = ${actor.appId})`
+                : null,
           })),
         )
         .onConflictDoNothing();
@@ -344,18 +348,20 @@ export class RulesetsService {
     return parsed.value;
   }
 
-  /** Teams and organization admins exist only on an organization's repository, and a team must be one of that organization's. */
+  /** Teams and organization admins exist only on an organization's repository, and a team must be one of that organization's. An app a bypass actor or a required check names must exist. */
   private async checkActors(
     repository: AuthorizedRepository,
     body: RulesetRequestDTO,
   ) {
+    await this.checkApps(body);
     const teamIds = body.bypassActors.flatMap((actor) =>
       actor.actorType === 'Team' ? [actor.teamId!] : [],
     );
     if (!repository.organizationId) {
       if (
         body.bypassActors.some(
-          ({ actorType }) => actorType !== 'RepositoryRole',
+          ({ actorType }) =>
+            actorType !== 'RepositoryRole' && actorType !== 'Integration',
         )
       )
         throw new InvalidBypassActorError(
@@ -377,6 +383,42 @@ export class RulesetsService {
     if (missing)
       throw new InvalidBypassActorError(
         `No team ${missing} in this repository's organization`,
+      );
+  }
+
+  private async checkApps(body: RulesetRequestDTO) {
+    const bypassing = body.bypassActors.flatMap((actor) =>
+      actor.actorType === 'Integration' ? [actor.appId!] : [],
+    );
+    const pinned = body.rules.flatMap(({ type, parameters }) =>
+      type === 'required_status_checks'
+        ? (
+            (parameters as { required_status_checks?: unknown[] } | undefined)
+              ?.required_status_checks ?? []
+          ).flatMap((check) => {
+            const id = (check as { integration_id?: unknown }).integration_id;
+            return typeof id === 'number' ? [id] : [];
+          })
+        : [],
+    );
+    const named = [...new Set([...bypassing, ...pinned])];
+    if (named.length === 0) return;
+    const found = await this.db
+      .select({ numericId: schema.app.numericId })
+      .from(schema.app)
+      .where(
+        and(inArray(schema.app.numericId, named), isNull(schema.app.deletedAt)),
+      );
+    const missing = (ids: number[]) =>
+      ids.find((id) => !found.some(({ numericId }) => numericId === id));
+    const unknownActor = missing(bypassing);
+    if (unknownActor !== undefined)
+      throw new InvalidBypassActorError(`No app with App ID ${unknownActor}`);
+    const unknownCheck = missing(pinned);
+    if (unknownCheck !== undefined)
+      throw new InvalidRuleParametersError(
+        'required_status_checks',
+        `integration_id ${unknownCheck} does not name an app`,
       );
   }
 

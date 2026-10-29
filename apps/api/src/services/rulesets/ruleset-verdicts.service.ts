@@ -95,6 +95,11 @@ export class RulesetVerdictsService {
         teamIds: sql<
           string[]
         >`array(select ${schema.teamMember.teamId} from ${schema.teamMember} where ${schema.teamMember.userId} = ${userId})`,
+        appId: sql<
+          number | null
+        >`(select ${schema.app.numericId} from ${schema.app} where ${schema.app.botUserId} = ${userId} and ${schema.app.deletedAt} is null)`.mapWith(
+          (value) => (value === null ? null : Number(value)),
+        ),
       })
       .from(schema.repository)
       .leftJoin(
@@ -108,9 +113,11 @@ export class RulesetVerdictsService {
       .where(eq(schema.repository.id, repositoryId));
     if (!row) return NOBODY;
     return {
+      // Without installationRole: what a bot's installation grants it never counts as a role a ruleset lets bypass.
       role: roleOf(row.repository, row, actor),
       teamIds: row.teamIds,
       organizationAdmin: administers(organizationRoleOf(row.memberRole)),
+      appId: row.appId,
     };
   }
 
@@ -235,13 +242,12 @@ export class RulesetVerdictsService {
         ),
       );
       // Only the repository's own statuses count: a fork's owner can post anything on their fork.
-      const combined = await this.statuses.combinedFor([repositoryId], tips);
+      const statuses = await this.statuses.requiredCheckStatuses(
+        repositoryId,
+        tips,
+      );
       checked.forEach(({ ref }, index) =>
-        update(ref, {
-          statuses: (combined.get(tips[index])?.statuses ?? []).map(
-            ({ context, state }) => ({ context, state }),
-          ),
-        }),
+        update(ref, { statuses: statuses.get(tips[index]) ?? [] }),
       );
     }
 

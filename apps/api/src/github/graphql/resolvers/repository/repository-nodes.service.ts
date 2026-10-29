@@ -489,7 +489,10 @@ function ruleParameters(rule: Ruleset['rules'][number]) {
       kind: 'RequiredStatusChecksParameters',
       doNotEnforceOnCreate: parameters.do_not_enforce_on_create,
       requiredStatusChecks: parameters.required_status_checks.map(
-        ({ context }) => ({ context, integrationId: null }),
+        ({ context, integration_id }) => ({
+          context,
+          integrationId: integration_id ?? null,
+        }),
       ),
       strictRequiredStatusChecksPolicy:
         parameters.strict_required_status_checks_policy,

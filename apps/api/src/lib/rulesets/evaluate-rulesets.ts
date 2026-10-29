@@ -53,7 +53,8 @@ export function bypassOf(
           atLeast(actor.role, bypass.role)) ||
         (bypass.actorType === 'Team' &&
           actor.teamIds.includes(bypass.teamId)) ||
-        (bypass.actorType === 'OrganizationAdmin' && actor.organizationAdmin),
+        (bypass.actorType === 'OrganizationAdmin' && actor.organizationAdmin) ||
+        (bypass.actorType === 'Integration' && actor.appId === bypass.appId),
     )
     .map(({ bypassMode }) => bypassMode);
   if (modes.includes('always')) return 'always';
@@ -139,9 +140,12 @@ function unmetChecks(
   merging: boolean,
 ): [Requirement, string][] {
   const unmet: [Requirement, string][] = [];
-  for (const { context } of parameters.required_status_checks) {
+  for (const { context, integration_id } of parameters.required_status_checks) {
+    // A pinned check counts only what its app posted; an unpinned one takes the newest from anyone.
     const state = facts?.statuses?.find(
-      (status) => status.context === context,
+      (status) =>
+        status.context === context &&
+        (integration_id === undefined || status.appId === integration_id),
     )?.state;
     if (state !== 'success')
       unmet.push([

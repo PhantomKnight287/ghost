@@ -18,5 +18,5 @@ export const rulesetColumns = {
   // json_strip_nulls drops the column the actor's type does not use, as the API shape leaves it out.
   bypassActors: sql<
     BypassActor[]
-  >`coalesce((select json_agg(json_strip_nulls(json_build_object('actorType', ${schema.rulesetBypassActor.actorType}, 'role', ${schema.rulesetBypassActor.role}, 'teamId', ${schema.rulesetBypassActor.teamId}, 'bypassMode', ${schema.rulesetBypassActor.bypassMode}))) from ${schema.rulesetBypassActor} where ${schema.rulesetBypassActor.rulesetId} = ${schema.ruleset.id}), '[]')`,
+  >`coalesce((select json_agg(json_strip_nulls(json_build_object('actorType', ${schema.rulesetBypassActor.actorType}, 'role', ${schema.rulesetBypassActor.role}, 'teamId', ${schema.rulesetBypassActor.teamId}, 'appId', (select ${schema.app.numericId} from ${schema.app} where ${schema.app.id} = ${schema.rulesetBypassActor.appId}), 'bypassMode', ${schema.rulesetBypassActor.bypassMode}))) from ${schema.rulesetBypassActor} where ${schema.rulesetBypassActor.rulesetId} = ${schema.ruleset.id}), '[]')`,
 };

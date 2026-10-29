@@ -453,7 +453,9 @@ export class GithubRulesetsService {
           ? GITHUB_ROLE_IDS[actor.role]
           : actor.actorType === 'Team'
             ? teams.find((team) => team.id === actor.teamId)!.numericId
-            : ORGANIZATION_ADMIN_ID,
+            : actor.actorType === 'Integration'
+              ? actor.appId
+              : ORGANIZATION_ADMIN_ID,
       actor_type: actor.actorType,
       bypass_mode: actor.bypassMode,
     }));
@@ -476,6 +478,13 @@ export class GithubRulesetsService {
     return actors.map(({ actor_id, actor_type, bypass_mode = 'always' }) => {
       if (actor_type === 'OrganizationAdmin')
         return { actorType: actor_type, bypassMode: bypass_mode };
+      // Ghost's API checks the App ID names an app, as it checks teams.
+      if (actor_type === 'Integration')
+        return {
+          actorType: actor_type,
+          appId: actor_id!,
+          bypassMode: bypass_mode,
+        };
       if (actor_type === 'Team') {
         const team = teams.find(({ numericId }) => numericId === actor_id);
         if (!team)
