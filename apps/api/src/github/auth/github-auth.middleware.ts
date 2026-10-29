@@ -6,6 +6,7 @@ import type { NextFunction, Response } from 'express';
 import { verifyApiKey } from '../../lib/api-keys/verify-api-key.js';
 import { APP_JWT } from '../../lib/apps/app-jwt.js';
 import { AppJwtError, JWT_UNDECODABLE } from '../../lib/apps/apps.errors.js';
+import { installationCaller } from '../../lib/apps/installation-context.js';
 import { INSTALLATION_TOKEN } from '../../lib/apps/installation-token.js';
 import { type Auth, AUTHORIZATION_TOKEN } from '../../lib/auth.js';
 import { KNOWN_SCOPES, scopesOfKey } from '../../lib/github/scopes.js';
@@ -133,7 +134,7 @@ export class GithubAuthMiddleware implements NestMiddleware {
       });
       return;
     }
-    next();
+    installationCaller.run(installation, next);
   }
 
   // ponytail: an app counts against the anonymous budget of its address until installations give it its own.

@@ -1,5 +1,5 @@
 import { type Database, schema } from '@ghost/db';
-import type { AppPermissions } from '@ghost/permissions';
+import type { AppPermission, AppPermissions } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, gt, inArray, isNull, or } from 'drizzle-orm';
 
@@ -14,6 +14,7 @@ import {
   INSTALLATION_TOKEN_TTL_MS,
   narrowPermissions,
 } from '../../lib/apps/installation-token.js';
+import { grants } from '../../lib/apps/permissions.js';
 import { GithubNotFoundError } from '../../lib/github/github.errors.js';
 import { installationCovers } from '../../lib/repositories/access/repository-access.js';
 import type {
@@ -83,6 +84,7 @@ export class InstallationTokensService {
         appId: schema.app.id,
         botUserId: schema.app.botUserId,
         permissions: schema.appInstallationToken.permissions,
+        granted: schema.appInstallation.permissions,
         repositoryIds: schema.appInstallationToken.repositoryIds,
       })
       .from(schema.appInstallationToken)
@@ -105,9 +107,22 @@ export class InstallationTokensService {
           isNull(schema.app.deletedAt),
         ),
       );
-    return caller
-      ? { ...caller, permissions: caller.permissions as AppPermissions }
-      : null;
+    if (!caller) return null;
+    const { granted, ...rest } = caller;
+    // A token minted while the app's permissions were being lowered must not outlast them.
+    return {
+      ...rest,
+      permissions: Object.fromEntries(
+        Object.entries(caller.permissions).flatMap(([name, level]) => {
+          const held = granted as AppPermissions;
+          if (grants(held, name as AppPermission, level))
+            return [[name, level]];
+          return grants(held, name as AppPermission, 'read')
+            ? [[name, 'read']]
+            : [];
+        }),
+      ) as AppPermissions,
+    };
   }
 
   /** The repositories a token is narrowed to by name or id, every one covered by the installation; null when the body narrows nothing. */

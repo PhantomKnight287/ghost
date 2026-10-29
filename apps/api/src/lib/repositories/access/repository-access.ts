@@ -118,13 +118,17 @@ export function installationCovers(repository: RepositoryColumns): SQL {
   )!;
 }
 
-/** `write` when the actor is the bot of an app with a live installation covering the repository, as a scalar subquery. What the bot may do with it is limited per route by the installation's permissions (AppPermissionGuard), not by this role. */
+/** `write` when the actor is the bot of an app with a live installation covering the repository, as a scalar subquery. With `token`, only that installation counts, and only the repositories the token was narrowed to. What the bot may do with it is limited per route by the installation's permissions (AppPermissionGuard), not by this role. */
 export function installationRoleOf(
   repository: RepositoryColumns,
   actor: ActorRef,
+  token?: { installationId: string; repositoryIds: string[] | null },
 ) {
   if (!actor) return sql<CollaboratorRole | null>`null`;
-  return sql<CollaboratorRole | null>`(select 'write'::repository_role from ${schema.appInstallation} inner join ${schema.app} on ${schema.app.id} = ${schema.appInstallation.appId} where ${schema.app.botUserId} = ${actor.userId} and ${schema.app.deletedAt} is null and ${schema.appInstallation.suspendedAt} is null and ${installationCovers(repository)} limit 1)`;
+  const scope = token
+    ? sql` and ${schema.appInstallation.id} = ${token.installationId}${token.repositoryIds ? sql` and ${repository.id} = any(${sql.param(token.repositoryIds)}::text[])` : sql``}`
+    : sql``;
+  return sql<CollaboratorRole | null>`(select 'write'::repository_role from ${schema.appInstallation} inner join ${schema.app} on ${schema.app.id} = ${schema.appInstallation.appId} where ${schema.app.botUserId} = ${actor.userId} and ${schema.app.deletedAt} is null and ${schema.appInstallation.suspendedAt} is null and ${installationCovers(repository)}${scope} limit 1)`;
 }
 
 /** Each way the actor can hold a role on a repository, named as GitHub's `affiliation` names them: their own, shared with them, or through an organization's teams, roles or base permission. Needs `repository_collaborator` and `member` left-joined by `acceptedCollaboration` and `organizationMembership`. */

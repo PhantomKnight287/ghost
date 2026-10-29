@@ -8,11 +8,14 @@ import { type Database, schema } from '@ghost/db';
 import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
 import type { INestApplication } from '@nestjs/common';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
+import type { Auth } from '../src/lib/auth.js';
+import { hashInstallationToken } from '../src/lib/apps/installation-token.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('What an installation token writes', () => {
@@ -268,5 +271,106 @@ describe.skipIf(!hasBackends)('What an installation token writes', () => {
       .get(`/api/v3/repos/atother${stamp}/${hidden}/issues`)
       .set('authorization', `token ${data.token}`)
       .expect(404);
+  });
+  let others = 0;
+  /** Another app on the installer's account, with its own installation id. */
+  const anotherApp = async (permissions: Record<string, string>) => {
+    const { body } = await api()
+      .post('/api/apps')
+      .set('cookie', appOwner.cookie)
+      .send({
+        name: `Other ${stamp} ${++others}`,
+        homepageUrl: 'https://bot.example',
+        permissions,
+        events: [],
+      })
+      .expect(201);
+    const { body: key } = await api()
+      .post(`/api/apps/${body.slug}/private-keys`)
+      .set('cookie', appOwner.cookie)
+      .expect(201);
+    const { body: installation } = await api()
+      .post(`/api/apps/${body.slug}/installations`)
+      .set('cookie', installer.cookie)
+      .send({ account: installerName, repositorySelection: 'all' })
+      .expect(201);
+    const other = new App({
+      appId: body.appId,
+      privateKey: key.privateKey,
+      Octokit: Octokit.defaults({ baseUrl: `${origin}/api/v3` }),
+    });
+    return {
+      slug: body.slug as string,
+      installation,
+      token: (
+        await other.octokit.request(
+          'POST /app/installations/{installation_id}/access_tokens',
+          { installation_id: installation.installationId },
+        )
+      ).data.token as string,
+    };
+  };
+
+  it('merges only with contents write', async () => {
+    const { token } = await anotherApp({
+      pull_requests: 'write',
+      contents: 'read',
+    });
+
+    const { body } = await api()
+      .put(`/api/v3${base()}/pulls/${pull}/merge`)
+      .set('authorization', `token ${token}`)
+      .send({ merge_method: 'merge' })
+      .expect(403);
+    expect(body.message).toBe('Resource not accessible by integration');
+  });
+
+  it("never reads another installation's repository through a pull request head", async () => {
+    const org = `atorg${stamp}`;
+    const auth = app.get<AuthService<Auth>>(AuthService).api;
+    await auth.createOrganization({
+      body: { name: 'Fork Org', slug: org },
+      headers: new Headers({ cookie: installer.cookie }),
+    });
+    await api()
+      .post(`/api/repositories/${installerName}/${repo}/fork`)
+      .set('cookie', installer.cookie)
+      .send({ name: repo, visibility: 'private', organization: org })
+      .expect(201);
+    const reviewer = await anotherApp({
+      pull_requests: 'write',
+      contents: 'write',
+    });
+    await api()
+      .post(`/api/apps/${reviewer.slug}/installations`)
+      .set('cookie', installer.cookie)
+      .send({ account: org, repositorySelection: 'all' })
+      .expect(201);
+
+    const { status } = await api()
+      .post(`/api/v3${base()}/pulls`)
+      .set('authorization', `token ${reviewer.token}`)
+      .send({ title: 'From the fork', head: `${org}:feature`, base: 'main' });
+    expect([404, 422]).toContain(status);
+  });
+
+  it('never lets a token hold more than its installation', async () => {
+    const { token, installation } = await anotherApp({ issues: 'read' });
+    await db
+      .update(schema.appInstallationToken)
+      .set({ permissions: { metadata: 'read', issues: 'write' } })
+      .where(
+        eq(schema.appInstallationToken.tokenHash, hashInstallationToken(token)),
+      );
+    expect(installation.permissions).toEqual({
+      metadata: 'read',
+      issues: 'read',
+    });
+
+    await api()
+      .post(`/api/v3${base()}/issues`)
+      .set('authorization', `token ${token}`)
+      .send({ title: 'Too much' })
+      .expect(403);
   });
 });

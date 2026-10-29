@@ -4,6 +4,7 @@ import type { Role } from '@ghost/permissions';
 import { and, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
+import { installationCaller } from '../../../lib/apps/installation-context.js';
 import { sameName } from '../../../lib/db/sql.js';
 import {
   acceptedCollaboration,
@@ -133,6 +134,8 @@ export class RepositoryAccessService {
   }
 
   private lookup(actor: Actor, where: SQL | undefined) {
+    const caller = installationCaller.getStore();
+    const token = caller?.botUserId === actor?.userId ? caller : undefined;
     return this.database
       .select({
         repository: schema.repository,
@@ -140,7 +143,7 @@ export class RepositoryAccessService {
         memberRole: schema.member.role,
         teamRole: teamRoleOf(schema.repository.id, actor),
         basePermission: basePermissionOf(schema.repository.organizationId),
-        installationRole: installationRoleOf(schema.repository, actor),
+        installationRole: installationRoleOf(schema.repository, actor, token),
       })
       .from(schema.repository)
       .innerJoin(schema.user, eq(schema.user.id, schema.repository.ownerId))

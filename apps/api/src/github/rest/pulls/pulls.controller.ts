@@ -173,6 +173,8 @@ export class PullsController {
   }
 
   @Put(':number/merge')
+  // Merging moves the base branch, which GitHub reserves for contents:write.
+  @RequireAppPermission({ pull_requests: 'write', contents: 'write' })
   @ApiOperation({ summary: 'Merge a pull request' })
   @ApiOkResponse({ type: GithubMergeResultDTO })
   merge(

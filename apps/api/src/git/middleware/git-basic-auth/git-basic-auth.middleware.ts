@@ -6,6 +6,7 @@ import type { NextFunction, Response } from 'express';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { verifyApiKey } from '../../../lib/api-keys/verify-api-key.js';
+import { installationCaller } from '../../../lib/apps/installation-context.js';
 import { INSTALLATION_TOKEN } from '../../../lib/apps/installation-token.js';
 import type { Auth } from '../../../lib/auth.js';
 import {
@@ -84,12 +85,16 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
           return;
         }
       }
-      req.repository = await this.access.authorize({
-        username,
-        repo: repo.replace(/\.git$/i, ''),
-        requesterId: actor?.userId,
-        operation: isPush ? 'write' : 'read',
-      });
+      const authorize = () =>
+        this.access.authorize({
+          username,
+          repo: repo.replace(/\.git$/i, ''),
+          requesterId: actor?.userId,
+          operation: isPush ? 'write' : 'read',
+        });
+      req.repository = req.appInstallation
+        ? await installationCaller.run(req.appInstallation, authorize)
+        : await authorize();
       // A scoped token reads private repositories only with `repo`, and pushes with `repo` or, to a public repository, `public_repo`. Unreadable reads as missing, as on GitHub.
       if (scopes) {
         const isPrivate = req.repository.visibility === 'private';
@@ -120,7 +125,9 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
 
       req.actor = actor;
       req.apiKeyId = apiKeyId;
-      next();
+      if (req.appInstallation)
+        installationCaller.run(req.appInstallation, next);
+      else next();
     } catch (error) {
       if (!(error instanceof AuthenticationRequiredError)) return next(error);
       // Git only sends credentials once challenged, so this is not a dead end.
