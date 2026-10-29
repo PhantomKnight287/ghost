@@ -43,7 +43,10 @@ export type RestUserSource = {
 export function toUserRest(
   user: RestUserSource,
   { api, web }: GithubOrigins,
-  type: 'User' | 'Organization' | 'Bot' = 'User',
+  // Only bot usernames can hold `[`, so the login alone tells a bot apart wherever an author is shown.
+  type: 'User' | 'Organization' | 'Bot' = user.login.endsWith('[bot]')
+    ? 'Bot'
+    : 'User',
 ): GithubSimpleUserDTO {
   const url = `${api}/api/v3/users/${user.login}`;
   return {

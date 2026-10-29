@@ -12,6 +12,7 @@ import {
   type LfsTokenClaims,
   verifyLfsToken,
 } from '../../../lib/git/lfs/lfs-token.js';
+import { isGitPush } from '../../../lib/git/git-push.js';
 import { hasScope, scopesOfKey } from '../../../lib/github/scopes.js';
 import { clientIp } from '../../../lib/http/client-ip.js';
 import {
@@ -61,13 +62,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     if (!username || !repo) return next(new RepositoryNotFoundError());
 
     const isLfs = req.path.includes('/info/lfs/');
-    // Git asks for the receive-pack advertisement before it pushes, so a read-only actor is turned away at `info/refs` rather than a round trip later. LFS names its operation in the batch body, which is parsed before this runs, uploads with PUT, and changes locks with POST.
-    const isPush =
-      req.path.endsWith('/git-receive-pack') ||
-      req.query.service === 'git-receive-pack' ||
-      req.method === 'PUT' ||
-      (req.method === 'POST' && req.path.includes('/info/lfs/locks')) ||
-      (req.body as { operation?: unknown } | undefined)?.operation === 'upload';
+    const isPush = isGitPush(req);
 
     try {
       const { actor, apiKeyId, scope, scopes, oauthClientId } =

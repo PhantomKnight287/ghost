@@ -41,6 +41,7 @@ import {
 import { GithubRulesetsService } from './rulesets.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 // numeric_id is a bigint, read as a JavaScript number: an id past the safe range could only round onto another ruleset or overflow Postgres, so it is as absent as any unknown id.
 const ID: PipeTransform<string, number> = {
@@ -62,6 +63,7 @@ export class GithubRulesetsController {
   constructor(private readonly rulesets: GithubRulesetsService) {}
 
   @Get('rulesets')
+  @RequireAppPermission('metadata')
   @ApiOperation({
     summary: "A repository's rulesets, as summaries",
     description:
@@ -118,6 +120,7 @@ export class GithubRulesetsController {
   }
 
   @Get('rulesets/:id')
+  @RequireAppPermission('metadata')
   @ApiOperation({ summary: 'A ruleset' })
   @ApiOkResponse({ type: GithubRulesetDTO })
   get(
@@ -158,6 +161,7 @@ export class GithubRulesetsController {
   }
 
   @Get('rules/branches/*branch')
+  @RequireAppPermission('metadata')
   @ApiOperation({ summary: 'The active rules that apply to a branch' })
   @ApiOkResponse({ type: [GithubBranchRuleDTO] })
   branchRules(

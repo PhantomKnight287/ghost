@@ -5,7 +5,7 @@ import type { NextFunction, Response } from 'express';
 
 import { verifyApiKey } from '../../lib/api-keys/verify-api-key.js';
 import { APP_JWT } from '../../lib/apps/app-jwt.js';
-import { AppJwtError } from '../../lib/apps/apps.errors.js';
+import { AppJwtError, JWT_UNDECODABLE } from '../../lib/apps/apps.errors.js';
 import { INSTALLATION_TOKEN } from '../../lib/apps/installation-token.js';
 import { type Auth, AUTHORIZATION_TOKEN } from '../../lib/auth.js';
 import { KNOWN_SCOPES, scopesOfKey } from '../../lib/github/scopes.js';
@@ -109,6 +109,14 @@ export class GithubAuthMiddleware implements NestMiddleware {
   ) {
     const installation = await this.installationTokens.verify(token);
     if (!installation) return this.badCredentials(res);
+    // The app routes take only a JWT, and GitHub answers anything else there as an undecodable one.
+    if (this.isAppRoute(req)) {
+      res.status(401).json({
+        message: JWT_UNDECODABLE,
+        documentation_url: DOCUMENTATION_URL,
+      });
+      return;
+    }
     req.appInstallation = installation;
     // `repo` lets the viewer reach private repositories at all; the installation's permissions and repositories narrow it per route.
     req.githubViewer = {
@@ -146,10 +154,7 @@ export class GithubAuthMiddleware implements NestMiddleware {
     }
     req.githubViewer = null;
     res.setHeader('X-OAuth-Scopes', '');
-    const allowed = APP_JWT_ROUTES.some(
-      ({ method, path }) => req.method === method && path.test(req.originalUrl),
-    );
-    if (!allowed) {
+    if (!this.isAppRoute(req)) {
       res.status(403).json({
         message: 'Resource not accessible by integration',
         documentation_url: DOCUMENTATION_URL,
@@ -157,6 +162,12 @@ export class GithubAuthMiddleware implements NestMiddleware {
       return;
     }
     next();
+  }
+
+  private isAppRoute(req: GithubRequest) {
+    return APP_JWT_ROUTES.some(
+      ({ method, path }) => req.method === method && path.test(req.originalUrl),
+    );
   }
 
   private async fromKey(key: string): Promise<GithubViewer | null> {

@@ -9,7 +9,9 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubPageQueryDTO } from '../issues/dto/issue.dto.js';
 import { GithubInstallationRepositoriesDTO } from './dto/installation.dto.js';
 import { GithubInstallationsService } from './installations.service.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
+@RequireAppPermission('metadata')
 @Controller('v3/installation/repositories')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

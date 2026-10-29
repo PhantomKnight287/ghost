@@ -9,7 +9,9 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubReposService } from './repos.service.js';
 import { GithubCodeownersErrorsDTO } from './dto/repository.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
+@RequireAppPermission('contents')
 @Controller('v3')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

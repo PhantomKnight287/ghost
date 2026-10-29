@@ -10,7 +10,9 @@ import {
   GithubLicenseSummaryDTO,
 } from './dto/template.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
+@RequireAppPermission('metadata')
 @Controller('v3')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

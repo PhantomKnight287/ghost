@@ -37,6 +37,7 @@ import {
 import { GithubLabelsService } from './labels.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { GithubErrorDTO, ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -46,6 +47,7 @@ const LABELS_BODY = {
   schema: {},
 };
 
+@RequireAppPermission('issues')
 @Controller('v3/repos/:owner/:repo')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

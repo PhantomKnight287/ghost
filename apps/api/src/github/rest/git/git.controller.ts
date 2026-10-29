@@ -15,7 +15,9 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubGitService } from './git.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
+@RequireAppPermission('contents')
 @Controller('v3/repos/:owner/:repo/git/refs')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

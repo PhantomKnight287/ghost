@@ -49,6 +49,9 @@ import { RepositoryTemplatesModule } from './resources/repository-templates/repo
 import { SshSigningKeysModule } from './resources/ssh-signing-keys/ssh-signing-keys.module.js';
 import { AppsModule } from './resources/apps/apps.module.js';
 import { InstallationsModule } from './resources/installations/installations.module.js';
+import { AppPermissionGuard } from './auth/app-permission.guard.js';
+import { InstallationAccessService } from './services/apps/installation-access.service.js';
+import { RepositoryAccessService } from './services/git/repository-access/repository-access.service.js';
 
 /** Body parsing for `type`, except on GitHub's asset uploads, which stream raw bytes of any type to object storage. */
 const parses = (type: string) => (req: IncomingMessage) => {
@@ -171,6 +174,9 @@ const parses = (type: string) => (req: IncomingMessage) => {
     { provide: APP_GUARD, useClass: ApiKeyAuthGuard },
     // After authentication, so a token or session is counted against its account.
     { provide: APP_GUARD, useExisting: RateLimitGuard },
+    RepositoryAccessService,
+    InstallationAccessService,
+    { provide: APP_GUARD, useClass: AppPermissionGuard },
   ],
 })
 export class AppModule {}

@@ -41,6 +41,7 @@ import { GithubReposService } from './repos.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { GithubReadmeDTO, GithubRepositoryDTO } from './dto/repository.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')
@@ -53,6 +54,7 @@ export class ReposController {
   constructor(private readonly repos: GithubReposService) {}
 
   @Get('repos/:owner/:repo')
+  @RequireAppPermission('metadata')
   @ApiOperation({ summary: 'A repository, in GitHub REST shape' })
   @ApiOkResponse({ type: GithubRepositoryDTO })
   get(
@@ -64,6 +66,7 @@ export class ReposController {
   }
 
   @Get('repos/:owner/:repo/readme')
+  @RequireAppPermission('contents')
   @ApiOperation({
     summary:
       "The repository's README at the default branch, base64 as GitHub returns it",
@@ -79,6 +82,7 @@ export class ReposController {
 
   // A ref may hold slashes (`feat/x`, `refs/heads/feat/x`), so it is the rest of the path.
   @Get('repos/:owner/:repo/zipball{/*ref}')
+  @RequireAppPermission('contents')
   @ApiOperation({ summary: 'A zip of the repository at a ref' })
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   zipball(
@@ -97,6 +101,7 @@ export class ReposController {
   }
 
   @Get('repos/:owner/:repo/tarball{/*ref}')
+  @RequireAppPermission('contents')
   @ApiOperation({ summary: 'A gzipped tarball of the repository at a ref' })
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   tarball(
