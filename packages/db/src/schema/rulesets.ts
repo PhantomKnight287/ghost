@@ -15,6 +15,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import { app } from "./apps.js";
 import { team, user } from "./auth.js";
 import { repositoryRole } from "./collaborators.js";
 import { pullRequest } from "./pull-requests.js";
@@ -43,6 +44,7 @@ export const rulesetBypassActorType = pgEnum("ruleset_bypass_actor_type", [
   "RepositoryRole",
   "Team",
   "OrganizationAdmin",
+  "Integration",
 ]);
 
 export const rulesetBypassMode = pgEnum("ruleset_bypass_mode", [
@@ -103,18 +105,22 @@ export const rulesetBypassActor = pgTable(
     actorType: rulesetBypassActorType().notNull(),
     role: repositoryRole(),
     teamId: text().references(() => team.id, { onDelete: "cascade" }),
+    appId: text().references(() => app.id, { onDelete: "cascade" }),
     bypassMode: rulesetBypassMode().notNull(),
   },
   (t) => [
+    // `::text` on Integration: the migration that adds the enum value cannot compare against it before it commits.
     check(
       "ruleset_bypass_actor_target",
-      sql`(actor_type = 'RepositoryRole' AND role IS NOT NULL AND team_id IS NULL)
-        OR (actor_type = 'Team' AND team_id IS NOT NULL AND role IS NULL)
-        OR (actor_type = 'OrganizationAdmin' AND role IS NULL AND team_id IS NULL)`,
+      sql`(actor_type = 'RepositoryRole' AND role IS NOT NULL AND team_id IS NULL AND app_id IS NULL)
+        OR (actor_type = 'Team' AND team_id IS NOT NULL AND role IS NULL AND app_id IS NULL)
+        OR (actor_type = 'OrganizationAdmin' AND role IS NULL AND team_id IS NULL AND app_id IS NULL)
+        OR (actor_type::text = 'Integration' AND app_id IS NOT NULL AND role IS NULL AND team_id IS NULL)`,
     ),
     // NULLs are distinct, so each index only constrains the actor type that sets its column. The first also serves lookups by ruleset.
     uniqueIndex("ruleset_bypass_actor_role_idx").on(t.rulesetId, t.role),
     uniqueIndex("ruleset_bypass_actor_team_idx").on(t.rulesetId, t.teamId),
+    uniqueIndex("ruleset_bypass_actor_app_idx").on(t.rulesetId, t.appId),
     // Organization admins set neither column, so only a partial index keeps them to one row.
     uniqueIndex("ruleset_bypass_actor_organization_admin_idx")
       .on(t.rulesetId)
