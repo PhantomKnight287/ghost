@@ -55,6 +55,7 @@ export function RulesetForm({
   username,
   repo,
   teams,
+  apps,
   ruleset,
   statusContexts,
 }: {
@@ -62,6 +63,8 @@ export function RulesetForm({
   repo: string;
   /** Null on a personal repository. */
   teams: { id: string; name: string }[] | null;
+  /** Apps installed on the repository, for pinning checks and bypassing. */
+  apps: { appId: number; name: string }[];
   ruleset?: Ruleset;
   /** Contexts this repository's statuses have named, suggested as required checks. */
   statusContexts: string[];
@@ -228,6 +231,7 @@ export function RulesetForm({
             value={bypassActors}
             onChange={setBypassActors}
             teams={teams}
+            apps={apps}
           />
 
           <fieldset className="flex flex-col gap-4">
@@ -268,6 +272,7 @@ export function RulesetForm({
                       value={statusChecks}
                       onChange={setStatusChecks}
                       suggestions={statusContexts}
+                      apps={apps}
                     />
                   )}
               </div>

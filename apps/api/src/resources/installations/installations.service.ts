@@ -17,9 +17,14 @@ import type { Executor } from '../../lib/db/executor.js';
 import { isoTimestamp, sameName } from '../../lib/db/sql.js';
 import { githubOrigins } from '../../lib/github/origins.js';
 import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
-import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
+import {
+  installationCovers,
+  repositoryFullNameOf,
+} from '../../lib/repositories/access/repository-access.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type {
   CreateInstallationDTO,
+  InstallationAppDTO,
   InstallationDTO,
   InstallationRepositoryDTO,
   ListInstallationsResponseDTO,
@@ -40,6 +45,7 @@ export class InstallationsService {
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
+    private readonly access: RepositoryAccessService,
     config: ConfigService,
   ) {
     this.web = githubOrigins(config).web;
@@ -127,6 +133,38 @@ export class InstallationsService {
       await this.selectRepositories(tx, id, account, input);
     });
     return this.one(id);
+  }
+
+  /** The live apps installed where they reach the repository, for its admins to name in rulesets. */
+  async forRepository(
+    userId: string,
+    username: string,
+    repo: string,
+  ): Promise<{ apps: InstallationAppDTO[] }> {
+    const repository = await this.access.authorize({
+      username,
+      repo,
+      requesterId: userId,
+      operation: 'admin',
+    });
+    const apps = await this.db
+      .select({
+        appId: schema.app.numericId,
+        slug: schema.app.slug,
+        name: schema.app.name,
+        logoUrl: schema.app.logoUrl,
+      })
+      .from(schema.repository)
+      .innerJoin(schema.appInstallation, installationCovers(schema.repository))
+      .innerJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
+      .where(
+        and(
+          eq(schema.repository.id, repository.id),
+          isNull(schema.app.deletedAt),
+        ),
+      )
+      .orderBy(asc(schema.app.name));
+    return { apps };
   }
 
   /** Every token of the installation stops working at once. */

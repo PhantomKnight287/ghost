@@ -487,6 +487,32 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
       expect(await tokensOf(body.id)).toEqual([]);
     });
 
+    it("lists the apps installed on a repository, for its admins", async () => {
+      const { slug, appId } = await register();
+      await install(slug, {
+        account: installerName(),
+        repositorySelection: 'selected',
+        repositoryIds: [r1],
+      }).expect(201);
+      const apps = (repo: string, cookie = installer.cookie) =>
+        api()
+          .get(`/api/repositories/${installerName()}/${repo}/apps`)
+          .set('cookie', cookie);
+
+      const { body } = await apps(`inr1${stamp}`).expect(200);
+      expect(body.apps).toContainEqual({
+        appId,
+        slug,
+        name: expect.any(String),
+        logoUrl: null,
+      });
+      const { body: elsewhere } = await apps(`inr2${stamp}`).expect(200);
+      expect(
+        elsewhere.apps.some((row: { slug: string }) => row.slug === slug),
+      ).toBe(false);
+      await apps(`inr1${stamp}`, other.cookie).expect(404);
+    });
+
     it('counts installations', async () => {
       const { slug } = await register();
       await install(slug, {

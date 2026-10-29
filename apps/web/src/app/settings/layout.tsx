@@ -72,6 +72,11 @@ export default async function SettingsLayout({
                 group: "Integrations",
               },
               {
+                href: "/settings/installations",
+                label: "Installed apps",
+                icon: "apps",
+              },
+              {
                 href: "/settings/oauth-apps",
                 label: "OAuth apps",
                 icon: "oauthApps",

@@ -115,3 +115,8 @@ export class ListInstallationsResponseDTO {
   @ApiProperty({ type: [InstallationDTO] })
   installations: InstallationDTO[];
 }
+
+export class ListRepositoryAppsResponseDTO {
+  @ApiProperty({ type: [InstallationAppDTO] })
+  apps: InstallationAppDTO[];
+}

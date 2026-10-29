@@ -2986,6 +2986,275 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/app/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The installations of the app a JWT authenticates */
+        get: operations["GithubInstallationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/app/installations/{installation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One installation of the app */
+        get: operations["GithubInstallationsController_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Uninstall the app from an account
+         * @description Its tokens stop working at once.
+         */
+        delete: operations["GithubInstallationsController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/app/installations/{installation_id}/access_tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint an installation token
+         * @description It expires in an hour, and can be narrowed to fewer permissions and repositories than the installation's.
+         */
+        post: operations["GithubInstallationsController_mint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/installation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The app's installation covering a repository */
+        get: operations["GithubInstallationLookupController_forRepository"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/orgs/{org}/installation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The app's installation on an organization */
+        get: operations["GithubInstallationLookupController_forOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/users/{username}/installation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The app's installation on a user */
+        get: operations["GithubInstallationLookupController_forUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/installation/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The repositories an installation token reaches */
+        get: operations["GithubInstallationRepositoriesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A repository, in GitHub REST shape */
+        get: operations["ReposController_get"];
+        put?: never;
+        post?: never;
+        /** Delete a repository; the token needs `delete_repo` */
+        delete: operations["ReposController_delete"];
+        options?: never;
+        head?: never;
+        /** Rename, describe, change the visibility or the default branch of a repository */
+        patch: operations["ReposController_update"];
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/readme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The repository's README at the default branch, base64 as GitHub returns it */
+        get: operations["ReposController_readme"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/zipball/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A zip of the repository at a ref */
+        get: operations["ReposController_zipball"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/tarball/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A gzipped tarball of the repository at a ref */
+        get: operations["ReposController_tarball"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/user/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The authenticated user's repositories, private ones included
+         * @description Every repository the user holds a role on: their own, the ones shared with them, and their organizations'.
+         */
+        get: operations["ReposController_listForViewer"];
+        put?: never;
+        /** Create a repository for the authenticated user */
+        post: operations["ReposController_createForUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/orgs/{org}/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An organization's repositories the viewer can read */
+        get: operations["ReposController_listForOrganization"];
+        put?: never;
+        /** Create a repository in an organization */
+        post: operations["ReposController_createForOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/users/{username}/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's or organization's public repositories */
+        get: operations["ReposController_listForUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/codeowners/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Errors in the CODEOWNERS file at a ref, the default branch when none is given */
+        get: operations["GithubCodeownersController_errors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3": {
         parameters: {
             query?: never;
@@ -3144,149 +3413,6 @@ export interface paths {
          * @description Commits it signed no longer verify.
          */
         delete: operations["SshSigningKeysController_remove"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/repos/{owner}/{repo}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A repository, in GitHub REST shape */
-        get: operations["ReposController_get"];
-        put?: never;
-        post?: never;
-        /** Delete a repository; the token needs `delete_repo` */
-        delete: operations["ReposController_delete"];
-        options?: never;
-        head?: never;
-        /** Rename, describe, change the visibility or the default branch of a repository */
-        patch: operations["ReposController_update"];
-        trace?: never;
-    };
-    "/api/v3/repos/{owner}/{repo}/readme": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The repository's README at the default branch, base64 as GitHub returns it */
-        get: operations["ReposController_readme"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/repos/{owner}/{repo}/zipball/{ref}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A zip of the repository at a ref */
-        get: operations["ReposController_zipball"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/repos/{owner}/{repo}/tarball/{ref}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A gzipped tarball of the repository at a ref */
-        get: operations["ReposController_tarball"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/user/repos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The authenticated user's repositories, private ones included
-         * @description Every repository the user holds a role on: their own, the ones shared with them, and their organizations'.
-         */
-        get: operations["ReposController_listForViewer"];
-        put?: never;
-        /** Create a repository for the authenticated user */
-        post: operations["ReposController_createForUser"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/orgs/{org}/repos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** An organization's repositories the viewer can read */
-        get: operations["ReposController_listForOrganization"];
-        put?: never;
-        /** Create a repository in an organization */
-        post: operations["ReposController_createForOrganization"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/users/{username}/repos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A user's or organization's public repositories */
-        get: operations["ReposController_listForUser"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/repos/{owner}/{repo}/codeowners/errors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Errors in the CODEOWNERS file at a ref, the default branch when none is given */
-        get: operations["GithubCodeownersController_errors"];
-        put?: never;
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4445,6 +4571,122 @@ export interface paths {
          * @description Creates its bot user, `slug[bot]`. The slug is made from the name now and never changes.
          */
         post: operations["OrganizationAppsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{slug}/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install an app
+         * @description On your account or an organization you administer, for all its repositories or selected ones. The installation accepts the permissions and events the app asks for now.
+         */
+        post: operations["InstallationsController_install"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the apps installed on your account */
+        get: operations["InstallationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/installations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Uninstall an app
+         * @description Its tokens stop working at once.
+         */
+        delete: operations["InstallationsController_uninstall"];
+        options?: never;
+        head?: never;
+        /** Change an installation's repositories */
+        patch: operations["InstallationsController_update"];
+        trace?: never;
+    };
+    "/api/installations/{id}/suspended": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Suspend an installation
+         * @description Its tokens stop working and it cannot mint new ones.
+         */
+        put: operations["InstallationsController_suspend"];
+        post?: never;
+        /** Unsuspend an installation */
+        delete: operations["InstallationsController_unsuspend"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/organizations/{slug}/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the apps installed on an organization */
+        get: operations["OrganizationInstallationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the apps installed on a repository
+         * @description Admins only. The apps a ruleset can pin a check to or let bypass.
+         */
+        get: operations["RepositoryAppsController_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6105,7 +6347,7 @@ export interface components {
         };
         RulesetBypassActorDTO: {
             /** @enum {string} */
-            actorType: "RepositoryRole" | "Team" | "OrganizationAdmin";
+            actorType: "RepositoryRole" | "Team" | "OrganizationAdmin" | "Integration";
             /**
              * @description For `RepositoryRole`: everyone with at least this role.
              * @enum {string}
@@ -6113,6 +6355,8 @@ export interface components {
             role?: "write" | "maintain" | "admin";
             /** @description For `Team`: a team of the repository's organization. */
             teamId?: string;
+            /** @description For `Integration`: an app's App ID. Its bot bypasses. */
+            appId?: number;
             /**
              * @description `pull_request` skips the ruleset only when merging a pull request.
              * @enum {string}
@@ -6623,6 +6867,164 @@ export interface components {
             events: string[];
             installations_count: number;
         };
+        GithubInstallationDTO: {
+            /** @description The id `access_tokens` takes. */
+            id: number;
+            account: components["schemas"]["GithubSimpleUserDTO"];
+            /** @enum {string} */
+            repository_selection: "all" | "selected";
+            access_tokens_url: string;
+            repositories_url: string;
+            html_url: string;
+            app_id: number;
+            app_slug: string;
+            target_id: number;
+            /** @enum {string} */
+            target_type: "User" | "Organization";
+            /**
+             * @example {
+             *       "metadata": "read",
+             *       "issues": "write"
+             *     }
+             */
+            permissions: {
+                [key: string]: "read" | "write";
+            };
+            events: string[];
+            created_at: string;
+            updated_at: string;
+            /** @example null */
+            single_file_name: string | null;
+            suspended_at: string | null;
+            suspended_by: components["schemas"]["GithubSimpleUserDTO"] | null;
+        };
+        GithubCreateInstallationTokenDTO: {
+            /**
+             * @description Lowers the installation's permissions for this token; never raises them.
+             * @example {
+             *       "metadata": "read",
+             *       "issues": "write"
+             *     }
+             */
+            permissions?: {
+                [key: string]: "read" | "write";
+            };
+            /** @description Repository names, each one the installation's. */
+            repositories?: string[];
+            repository_ids?: number[];
+        };
+        GithubInstallationTokenDTO: {
+            /** @example ghs_16C7e42F292c6912E7710c838347Ae178B4a */
+            token: string;
+            /** @description One hour after minting. */
+            expires_at: string;
+            /**
+             * @example {
+             *       "metadata": "read",
+             *       "issues": "write"
+             *     }
+             */
+            permissions: {
+                [key: string]: "read" | "write";
+            };
+            /** @enum {string} */
+            repository_selection: "all" | "selected";
+        };
+        GithubRepositoryOwnerDTO: {
+            /** @example octocat */
+            login: string;
+            html_url: string;
+        };
+        GithubRepositoryPermissionsDTO: {
+            admin: boolean;
+            maintain: boolean;
+            push: boolean;
+            triage: boolean;
+            pull: boolean;
+        };
+        GithubRepositoryDTO: {
+            id: number | null;
+            node_id: string;
+            /** @example hello-world */
+            name: string;
+            /** @example octocat/hello-world */
+            full_name: string;
+            private: boolean;
+            /** @enum {string} */
+            visibility: "public" | "private";
+            owner: components["schemas"]["GithubRepositoryOwnerDTO"];
+            html_url: string;
+            description: string | null;
+            fork: boolean;
+            url: string;
+            clone_url: string;
+            ssh_url: string | null;
+            /** @example main */
+            default_branch: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            pushed_at: string | null;
+            has_issues: boolean;
+            /** @description The viewer's access; null when the viewer has no role on the repository. */
+            permissions: components["schemas"]["GithubRepositoryPermissionsDTO"] | null;
+        };
+        GithubInstallationRepositoriesDTO: {
+            total_count: number;
+            /** @enum {string} */
+            repository_selection: "all" | "selected";
+            repositories: components["schemas"]["GithubRepositoryDTO"][];
+        };
+        GithubReadmeDTO: {
+            /** @example file */
+            type: string;
+            /** @example base64 */
+            encoding: string;
+            size: number;
+            /** @example README.md */
+            name: string;
+            /** @example README.md */
+            path: string;
+            /** @description The file, base64-encoded. */
+            content: string;
+        };
+        GithubCreateRepositoryDTO: {
+            /** @example tools */
+            name: string;
+            description?: string;
+            /** @description Ignored when `visibility` is given. */
+            private?: boolean;
+            /** @enum {string} */
+            visibility?: "public" | "private";
+            /** @description Starts the repository with a commit holding a README. */
+            auto_init?: boolean;
+            /**
+             * @description A name from `GET /gitignore/templates`, in any case; its `.gitignore` goes in the first commit.
+             * @example Node
+             */
+            gitignore_template?: string;
+            /**
+             * @description A key from `GET /licenses`, in any case; its text, with the owner and year filled in, goes in the first commit as `LICENSE`.
+             * @example mit
+             */
+            license_template?: string;
+        };
+        GithubUpdateRepositoryDTO: {
+            /** @description Renaming also changes the slug, so the old URL stops resolving. */
+            name?: string;
+            description?: string;
+            /** @description Ignored when `visibility` is given. */
+            private?: boolean;
+            /** @enum {string} */
+            visibility?: "public" | "private";
+            /** @description An existing branch, without `refs/heads/`; 404 when there is none. */
+            default_branch?: string;
+        };
+        GithubCodeownersErrorsDTO: {
+            errors: components["schemas"]["CodeownersErrorDTO"][];
+        };
         GithubMetaDTO: {
             /**
              * @description The GitHub Enterprise Server version Ghost answers as, which decides the search syntax gh uses.
@@ -6743,95 +7145,6 @@ export interface components {
         };
         ListSshSigningKeysResponseDTO: {
             keys: components["schemas"]["SshSigningKeyDTO"][];
-        };
-        GithubRepositoryOwnerDTO: {
-            /** @example octocat */
-            login: string;
-            html_url: string;
-        };
-        GithubRepositoryPermissionsDTO: {
-            admin: boolean;
-            maintain: boolean;
-            push: boolean;
-            triage: boolean;
-            pull: boolean;
-        };
-        GithubRepositoryDTO: {
-            id: number | null;
-            node_id: string;
-            /** @example hello-world */
-            name: string;
-            /** @example octocat/hello-world */
-            full_name: string;
-            private: boolean;
-            /** @enum {string} */
-            visibility: "public" | "private";
-            owner: components["schemas"]["GithubRepositoryOwnerDTO"];
-            html_url: string;
-            description: string | null;
-            fork: boolean;
-            url: string;
-            clone_url: string;
-            ssh_url: string | null;
-            /** @example main */
-            default_branch: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            pushed_at: string | null;
-            has_issues: boolean;
-            /** @description The viewer's access; null when the viewer has no role on the repository. */
-            permissions: components["schemas"]["GithubRepositoryPermissionsDTO"] | null;
-        };
-        GithubReadmeDTO: {
-            /** @example file */
-            type: string;
-            /** @example base64 */
-            encoding: string;
-            size: number;
-            /** @example README.md */
-            name: string;
-            /** @example README.md */
-            path: string;
-            /** @description The file, base64-encoded. */
-            content: string;
-        };
-        GithubCreateRepositoryDTO: {
-            /** @example tools */
-            name: string;
-            description?: string;
-            /** @description Ignored when `visibility` is given. */
-            private?: boolean;
-            /** @enum {string} */
-            visibility?: "public" | "private";
-            /** @description Starts the repository with a commit holding a README. */
-            auto_init?: boolean;
-            /**
-             * @description A name from `GET /gitignore/templates`, in any case; its `.gitignore` goes in the first commit.
-             * @example Node
-             */
-            gitignore_template?: string;
-            /**
-             * @description A key from `GET /licenses`, in any case; its text, with the owner and year filled in, goes in the first commit as `LICENSE`.
-             * @example mit
-             */
-            license_template?: string;
-        };
-        GithubUpdateRepositoryDTO: {
-            /** @description Renaming also changes the slug, so the old URL stops resolving. */
-            name?: string;
-            description?: string;
-            /** @description Ignored when `visibility` is given. */
-            private?: boolean;
-            /** @enum {string} */
-            visibility?: "public" | "private";
-            /** @description An existing branch, without `refs/heads/`; 404 when there is none. */
-            default_branch?: string;
-        };
-        GithubCodeownersErrorsDTO: {
-            errors: components["schemas"]["CodeownersErrorDTO"][];
         };
         GithubIssueCommentDTO: {
             id: number;
@@ -7534,10 +7847,10 @@ export interface components {
             _links: components["schemas"]["GithubRulesetLinksDTO"];
         };
         GithubBypassActorDTO: {
-            /** @description A repository role (2 maintain, 4 write, 5 admin) or a team id; ignored for `OrganizationAdmin`. */
+            /** @description A repository role (2 maintain, 4 write, 5 admin), a team id or an App ID; ignored for `OrganizationAdmin`. */
             actor_id?: number | null;
             /** @enum {string} */
-            actor_type: "RepositoryRole" | "Team" | "OrganizationAdmin";
+            actor_type: "RepositoryRole" | "Team" | "OrganizationAdmin" | "Integration";
             /**
              * @default always
              * @enum {string}
@@ -7849,13 +8162,8 @@ export interface components {
             owner: components["schemas"]["AppOwnerDTO"];
             /** @description The web page an owner installs the app from. */
             installUrl: string;
-            id: string;
-            /** @example ci-bot[bot] */
-            botLogin: string;
-            setupUrl: string | null;
-            webhookUrl: string | null;
-            webhookSecretSet: boolean;
             /**
+             * @description What an installation accepts, shown before installing.
              * @example {
              *       "contents": "read",
              *       "statuses": "write"
@@ -7865,6 +8173,14 @@ export interface components {
                 [key: string]: "read" | "write";
             };
             events: string[];
+            id: string;
+            /** @example ci-bot[bot] */
+            botLogin: string;
+            setupUrl: string | null;
+            webhookUrl: string | null;
+            webhookSecretSet: boolean;
+            /** @description Accounts the app is installed on. */
+            installationsCount: number;
             privateKeys: components["schemas"]["AppPrivateKeyDTO"][];
             /** @description ISO 8601. */
             createdAt: string;
@@ -7963,6 +8279,70 @@ export interface components {
             owner: components["schemas"]["AppOwnerDTO"];
             /** @description The web page an owner installs the app from. */
             installUrl: string;
+            /**
+             * @description What an installation accepts, shown before installing.
+             * @example {
+             *       "contents": "read",
+             *       "statuses": "write"
+             *     }
+             */
+            permissions: {
+                [key: string]: "read" | "write";
+            };
+            events: string[];
+        };
+        CreateInstallationDTO: {
+            /** @enum {string} */
+            repositorySelection: "all" | "selected";
+            /** @description Required, and at least one, when the selection is `selected`. Each must be one of the account's repositories. */
+            repositoryIds?: string[];
+            /** @description Your username, or the slug of an organization you administer. */
+            account: string;
+        };
+        InstallationAppDTO: {
+            appId: number;
+            slug: string;
+            name: string;
+            logoUrl: string | null;
+        };
+        InstallationRepositoryDTO: {
+            id: string;
+            /** @example octo/tools */
+            fullName: string;
+        };
+        InstallationDTO: {
+            id: string;
+            /** @description The id the app passes to `POST /app/installations/{id}/access_tokens`. */
+            installationId: number;
+            app: components["schemas"]["InstallationAppDTO"];
+            account: components["schemas"]["AppOwnerDTO"];
+            /** @enum {string} */
+            repositorySelection: "all" | "selected";
+            /** @description Empty when the selection is `all`. */
+            repositories: components["schemas"]["InstallationRepositoryDTO"][];
+            /** @description What the account accepted. The installation can do no more. */
+            permissions: {
+                [key: string]: "read" | "write";
+            };
+            events: string[];
+            /** @description ISO 8601. */
+            suspendedAt: string | null;
+            /** @description ISO 8601. */
+            createdAt: string;
+            /** @description Where to send the installer next: the app's setup URL with `installation_id` and `setup_action`, or the installed-apps settings. */
+            redirectUrl: string;
+        };
+        ListInstallationsResponseDTO: {
+            installations: components["schemas"]["InstallationDTO"][];
+        };
+        UpdateInstallationDTO: {
+            /** @enum {string} */
+            repositorySelection: "all" | "selected";
+            /** @description Required, and at least one, when the selection is `selected`. Each must be one of the account's repositories. */
+            repositoryIds?: string[];
+        };
+        ListRepositoryAppsResponseDTO: {
+            apps: components["schemas"]["InstallationAppDTO"][];
         };
     };
     responses: never;
@@ -15154,9 +15534,12 @@ export interface operations {
             };
         };
     };
-    MetaController_root: {
+    GithubInstallationsController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -15168,7 +15551,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["GithubInstallationDTO"][];
                 };
             };
             /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
@@ -15182,68 +15565,12 @@ export interface operations {
             };
         };
     };
-    MetaController_meta: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubMetaDTO"];
-                };
-            };
-            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubErrorDTO"];
-                };
-            };
-        };
-    };
-    UsersController_me: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubAuthenticatedUserDTO"];
-                };
-            };
-            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubErrorDTO"];
-                };
-            };
-        };
-    };
-    UsersController_byLogin: {
+    GithubInstallationsController_get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                login: string;
+                installation_id: number;
             };
             cookie?: never;
         };
@@ -15254,7 +15581,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GithubUserDTO"];
+                    "application/json": components["schemas"]["GithubInstallationDTO"];
                 };
             };
             /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
@@ -15268,162 +15595,12 @@ export interface operations {
             };
         };
     };
-    UsersController_keys: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubKeyDTO"][];
-                };
-            };
-            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubErrorDTO"];
-                };
-            };
-        };
-    };
-    UsersController_addKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GithubAddKeyDTO"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubKeyDTO"];
-                };
-            };
-            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubErrorDTO"];
-                };
-            };
-        };
-    };
-    UsersController_signingKeys: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubSigningKeyDTO"][];
-                };
-            };
-            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubErrorDTO"];
-                };
-            };
-        };
-    };
-    UsersController_addSigningKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GithubAddKeyDTO"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubSigningKeyDTO"];
-                };
-            };
-            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubErrorDTO"];
-                };
-            };
-        };
-    };
-    UsersController_signingKey: {
+    GithubInstallationsController_remove: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubSigningKeyDTO"];
-                };
-            };
-            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GithubErrorDTO"];
-                };
-            };
-        };
-    };
-    UsersController_removeSigningKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
+                installation_id: number;
             };
             cookie?: never;
         };
@@ -15446,9 +15623,137 @@ export interface operations {
             };
         };
     };
-    SshSigningKeysController_list: {
+    GithubInstallationsController_mint: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                installation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCreateInstallationTokenDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubInstallationTokenDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubInstallationLookupController_forRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubInstallationDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubInstallationLookupController_forOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubInstallationDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubInstallationLookupController_forUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubInstallationDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubInstallationRepositoriesController_list: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -15460,73 +15765,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListSshSigningKeysResponseDTO"];
+                    "application/json": components["schemas"]["GithubInstallationRepositoriesDTO"];
                 };
             };
-        };
-    };
-    SshSigningKeysController_add: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddSshKeyDTO"];
-            };
-        };
-        responses: {
-            201: {
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SshSigningKeyDTO"];
-                };
-            };
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
-                };
-            };
-        };
-    };
-    SshSigningKeysController_remove: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                    "application/json": components["schemas"]["GithubErrorDTO"];
                 };
             };
         };
@@ -15938,6 +16186,383 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    MetaController_root: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    MetaController_meta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubMetaDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    UsersController_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubAuthenticatedUserDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    UsersController_byLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                login: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubUserDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    UsersController_keys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubKeyDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    UsersController_addKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubAddKeyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubKeyDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    UsersController_signingKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubSigningKeyDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    UsersController_addSigningKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubAddKeyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubSigningKeyDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    UsersController_signingKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubSigningKeyDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    UsersController_removeSigningKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    SshSigningKeysController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSshSigningKeysResponseDTO"];
+                };
+            };
+        };
+    };
+    SshSigningKeysController_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSshKeyDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SshSigningKeyDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    SshSigningKeysController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
                 };
             };
         };
@@ -19544,6 +20169,319 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    InstallationsController_install: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInstallationDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallationDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    InstallationsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListInstallationsResponseDTO"];
+                };
+            };
+        };
+    };
+    InstallationsController_uninstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    InstallationsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInstallationDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallationDTO"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    InstallationsController_suspend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    InstallationsController_unsuspend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    OrganizationInstallationsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListInstallationsResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    RepositoryAppsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListRepositoryAppsResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

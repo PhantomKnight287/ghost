@@ -421,10 +421,6 @@ export class AppsService {
         setupUrl: schema.app.setupUrl,
         webhookUrl: schema.app.webhookUrl,
         webhookSecretSet: sql<boolean>`${schema.app.webhookSecret} is not null`,
-        permissions: sql<
-          AppDTO['permissions']
-        >`jsonb_build_object('metadata', 'read') || ${schema.app.permissions}`,
-        events: schema.app.events,
         installationsCount: sql<number>`(select count(*)::int from ${schema.appInstallation} where ${schema.appInstallation.appId} = ${schema.app.id})`,
         privateKeys: sql<
           AppPrivateKeyDTO[]
@@ -452,6 +448,10 @@ export class AppsService {
       logoUrl: schema.app.logoUrl,
       owner: sql<AppOwnerDTO>`json_build_object('login', coalesce(${schema.organization.slug}, ${schema.user.username}), 'type', case when ${schema.app.ownerOrganizationId} is null then 'user' else 'organization' end)`,
       installUrl: sql<string>`${`${this.web}/apps/`} || ${schema.app.slug} || '/installations/new'`,
+      permissions: sql<
+        AppDTO['permissions']
+      >`jsonb_build_object('metadata', 'read') || ${schema.app.permissions}`,
+      events: schema.app.events,
     };
   }
 }

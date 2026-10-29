@@ -403,6 +403,8 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
         logoUrl: null,
         owner: { login: ownerName, type: 'user' },
         installUrl: body.installUrl,
+        permissions: { metadata: 'read', contents: 'read' },
+        events: [],
       });
     }
     await api().get(`/api/apps/nope-${stamp}`).expect(404);

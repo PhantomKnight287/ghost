@@ -161,6 +161,15 @@ export class PublicAppDTO {
 
   @ApiProperty({ description: 'The web page an owner installs the app from.' })
   installUrl: string;
+
+  @ApiProperty({
+    ...permissionsProperty,
+    description: 'What an installation accepts, shown before installing.',
+  })
+  permissions: AppPermissions;
+
+  @ApiProperty({ type: [String] })
+  events: string[];
 }
 
 export class AppDTO extends PublicAppDTO {
@@ -178,12 +187,6 @@ export class AppDTO extends PublicAppDTO {
 
   @ApiProperty()
   webhookSecretSet: boolean;
-
-  @ApiProperty(permissionsProperty)
-  permissions: AppPermissions;
-
-  @ApiProperty({ type: [String] })
-  events: string[];
 
   @ApiProperty({ description: 'Accounts the app is installed on.' })
   installationsCount: number;
