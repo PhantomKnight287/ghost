@@ -18,7 +18,7 @@ export const PERMISSIONS: {
     name: "pull_requests",
     label: "Pull requests",
     detail:
-      "Pull requests, reviews and review comments; write adds opening, reviewing, commenting and merging.",
+      "Pull requests, reviews and review comments; write adds opening, reviewing and commenting, and merging with contents write.",
     levels: ["read", "write"],
   },
   {

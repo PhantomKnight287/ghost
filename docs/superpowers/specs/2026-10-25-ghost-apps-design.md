@@ -72,7 +72,7 @@ Use GitHub's permission names so Octokit apps ask for the same ones (user approv
 |---|---|---|---|
 | `metadata` | repository | always granted: repository, branches, collaborators list | — |
 | `contents` | repository | files, commits, compare/diffs, git clone/fetch | git push, refs, releases |
-| `pull_requests` | repository | pull requests, reviews, review comments | open/edit, review, comment, merge |
+| `pull_requests` | repository | pull requests, reviews, review comments | open/edit, review, comment; merge with `contents: write` too (Claude's call after review, 2026-10-29, as GitHub) |
 | `issues` | repository | issues, comments, labels | create, edit, comment, label |
 | `statuses` | repository | commit statuses | post commit statuses |
 | `members` | organization | members and teams | — |
