@@ -403,6 +403,8 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
         logoUrl: null,
         owner: { login: ownerName, type: 'user' },
         installUrl: body.installUrl,
+        permissions: { metadata: 'read', contents: 'read' },
+        events: [],
       });
     }
     await api().get(`/api/apps/nope-${stamp}`).expect(404);
@@ -520,14 +522,12 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
     const { body } = await register(owner.cookie).expect(201);
     for (const call of [
       api().get('/api/apps'),
-      api()
-        .post('/api/apps')
-        .send({
-          name: fresh(),
-          homepageUrl: 'https://bot.example',
-          permissions: {},
-          events: [],
-        }),
+      api().post('/api/apps').send({
+        name: fresh(),
+        homepageUrl: 'https://bot.example',
+        permissions: {},
+        events: [],
+      }),
       api().get(`/api/apps/${body.slug}/settings`),
       api().patch(`/api/apps/${body.slug}`).send({ name: 'Key' }),
       api().delete(`/api/apps/${body.slug}`),

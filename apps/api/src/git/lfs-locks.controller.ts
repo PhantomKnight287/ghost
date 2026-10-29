@@ -24,8 +24,11 @@ import {
   UnlockLfsLockDTO,
 } from './dto/lfs-locks.dto.js';
 import type { GitAuthorizedRequest } from './types.js';
+import { RequireAppPermission } from '../lib/apps/app-permission.js';
+import { gitContentsLevel } from '../lib/git/git-push.js';
 
 /** Git LFS's locking API. `GitBasicAuthMiddleware` has already authorized the repository: reads for the list, writes for the rest, so every POST has an actor. */
+@RequireAppPermission({ contents: gitContentsLevel })
 @Controller(':username/:repo/info/lfs/locks')
 @ApiExcludeController()
 @OptionalAuth()

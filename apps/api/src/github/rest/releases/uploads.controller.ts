@@ -28,8 +28,10 @@ import {
 } from './dto/release.dto.js';
 import { GithubReleasesService } from './releases.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 /** The `upload_url` every release carries, under `/api/uploads` as on GitHub Enterprise. No body parser runs here, so a file of any type streams through untouched. */
+@RequireAppPermission('contents')
 @Controller('uploads/repos/:owner/:repo/releases')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

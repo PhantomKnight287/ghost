@@ -739,7 +739,7 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
       ]);
     });
 
-    it('refuses integration_id until Ghost Apps exist', async () => {
+    it('refuses an integration_id that names no app', async () => {
       const refused = await createAs(
         owner,
         valid({
@@ -748,7 +748,7 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
               type: 'required_status_checks',
               parameters: {
                 required_status_checks: [
-                  { context: 'build', integration_id: 1 },
+                  { context: 'build', integration_id: 999999999 },
                 ],
               },
             },
@@ -756,7 +756,7 @@ describe.skipIf(!hasBackends)('rulesets API', () => {
         }),
       ).expect(400);
       expect(refused.body.message).toContain(
-        'integration_id needs Ghost Apps, which this server does not have yet',
+        'integration_id 999999999 does not name an app',
       );
     });
 

@@ -5,7 +5,10 @@ import type { Response } from 'express';
 
 import { GitService, type GitTransportResponse } from './git.service.js';
 import type { GitAuthorizedRequest, GitPackRequest } from './types.js';
+import { RequireAppPermission } from '../lib/apps/app-permission.js';
+import { gitContentsLevel } from '../lib/git/git-push.js';
 
+@RequireAppPermission({ contents: gitContentsLevel })
 @Controller(':username/:repo')
 @ApiExcludeController()
 @OptionalAuth()

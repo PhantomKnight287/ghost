@@ -383,7 +383,7 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       },
       {
         bypass_actors: [
-          { actor_id: 1, actor_type: 'Integration', bypass_mode: 'always' },
+          { actor_id: 999999999, actor_type: 'Integration', bypass_mode: 'always' },
         ],
       },
       {

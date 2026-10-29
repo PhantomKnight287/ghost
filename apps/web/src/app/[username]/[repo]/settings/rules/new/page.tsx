@@ -7,12 +7,15 @@ export default async function NewRulesetPage({
   const { username, repo } = await params;
   const client = await createServerClient();
   // Answers 400 for a user's own repository, which has no teams.
-  const [teams, statusContexts] = await Promise.all([
+  const [teams, statusContexts, apps] = await Promise.all([
     client.GET("/api/repositories/{username}/{repo}/teams", {
       params: { path: { username, repo } },
     }),
     client.GET("/api/repositories/{username}/{slug}/status-contexts", {
       params: { path: { username, slug: repo } },
+    }),
+    client.GET("/api/repositories/{username}/{repo}/apps", {
+      params: { path: { username, repo } },
     }),
   ]);
 
@@ -24,6 +27,7 @@ export default async function NewRulesetPage({
         repo={repo}
         teams={teams.data?.teams ?? null}
         statusContexts={statusContexts.data?.contexts ?? []}
+        apps={apps.data?.apps ?? []}
       />
     </section>
   );

@@ -72,7 +72,7 @@ Use GitHub's permission names so Octokit apps ask for the same ones (user approv
 |---|---|---|---|
 | `metadata` | repository | always granted: repository, branches, collaborators list | — |
 | `contents` | repository | files, commits, compare/diffs, git clone/fetch | git push, refs, releases |
-| `pull_requests` | repository | pull requests, reviews, review comments | open/edit, review, comment, merge |
+| `pull_requests` | repository | pull requests, reviews, review comments | open/edit, review, comment; merge with `contents: write` too (Claude's call after review, 2026-10-29, as GitHub) |
 | `issues` | repository | issues, comments, labels | create, edit, comment, label |
 | `statuses` | repository | commit statuses | post commit statuses |
 | `members` | organization | members and teams | — |
@@ -86,8 +86,17 @@ Rules:
   2. the permissions the installation's owner accepted, and
   3. the permissions requested in the token call, if any (GitHub's `permissions` and `repositories`/`repository_ids` body fields narrow a token; they never widen it).
 - The bot is not a collaborator. Its access comes only from the installation. A repository role (`read`, `write` and so on) does not apply to it.
-- Rulesets treat the bot like any actor without bypass, unless a ruleset's bypass list names the app (GitHub's `Integration` bypass actor). Adding `Integration` bypass actors is in scope for slice 2 only if it is small. Otherwise it is a follow-up issue (builder's call).
-- Map each endpoint and webhook event to permissions in a single table in code, so the mapping can be read and tested in one place.
+- Rulesets treat the bot like any actor without bypass, unless a ruleset's bypass list names the app (GitHub's `Integration` bypass actor, with `actor_id` set to the App ID). `Integration` bypass actors are in slice 2: they follow the existing `Team` actor in the schema, `bypassOf`, the REST and GraphQL mappings and the web bypass field (user decision, 2026-10-29). If this turns out bigger than that, the builder raises a tracker issue on Ghost and moves it out.
+- **Bot approvals count** (user decision, 2026-10-29). An approving review from `slug[bot]`, posted with an installation token that has `pull_requests: write` on that repository, counts toward a ruleset's required approvals as a reviewer with write access does. It satisfies code-owner review only when CODEOWNERS names the bot (Claude's call).
+- **Public repositories and the decorator** (Claude's call). A route with no declaration is denied to installation tokens even on a public repository. On a declared route that the installation lacks the permission for, a read on a public repository runs as an anonymous caller would; a write is denied.
+- **Bot access in Ghost's own services** (Claude's call). Services keep checking access the way they do today. The one place that resolves a caller's access to a repository learns that an installation's bot has access to its installation's repositories, as allowed by the decorator check. Services do not each special-case bots. The exact shape is the builder's.
+- **Endpoint permissions are declared with a decorator, opt-in** (user decision, 2026-10-29):
+  - Each GitHub-compat controller, and the git controller (`apps/api/src/git/git.controller.ts`), declares one permission with a decorator such as `@AppPermission('issues')`. The level comes from the HTTP method: `GET` and `HEAD` need `read`, every other method needs `write`.
+  - A route can declare its own permissions with the same decorator. A route declaration is complete: it replaces the controller's declaration and never adds to it, and it can name several permissions with levels, such as `{ pull_requests: 'write', contents: 'read' }`. Use it wherever the method gives the wrong level, for example `POST git-upload-pack` (a fetch, so `contents: 'read'`), or where a route needs more than one permission.
+  - On `info/refs`, `service=git-receive-pack` starts a push, so it needs `contents: 'write'`; any other service needs `contents: 'read'` (Claude's call, matching how `git-basic-auth` already treats the service).
+  - A route with no declaration on itself or its controller is denied to installation tokens. Callers that are not installations are unaffected by the decorator.
+  - One test enumerates every GitHub-compat and git route and fails if any route has no declaration, so a forgotten decorator fails CI.
+  - Webhook events map to permissions in slice 3.
 - **Accepted permissions are stored per installation from slice 2.** Each installation keeps a snapshot of the permissions and events its owner accepted, and enforcement reads that snapshot, never the app's current set. Until slice 6 brings the review flow, an app owner can lower permissions and remove events at any time (applied to every installation at once), but raising permissions or adding events is refused with a clear message while the app has any installation (Claude's call).
 
 ## Identity and tokens
@@ -119,14 +128,14 @@ Each slice is one issue on Ghost, created from this document. The order matters:
 
 ### Slice 2: Installations and installation tokens (Ghost #104)
 
-- Install page `/apps/:slug/installations/new`. It picks the account (you or an org you admin), all or selected repositories, and shows the permissions. On install it redirects to the app's setup URL if one is set (an optional app field; add it in slice 1 if that's cheaper).
+- Install page `/apps/:slug/installations/new`. It picks the account (you or an org you admin), all or selected repositories, and shows the permissions. On install it redirects to the app's setup URL if one is set (`app.setupUrl`, added in slice 1).
 - Installed-apps settings for users and orgs: configure repositories, suspend, unsuspend, uninstall.
 - GitHub endpoints, at least:
   - `GET /app/installations`, `GET /app/installations/:id`, `DELETE /app/installations/:id`;
   - `POST /app/installations/:id/access_tokens`;
   - `GET /repos/:owner/:repo/installation`, `GET /orgs/:org/installation`, `GET /users/:username/installation`;
   - `GET /installation/repositories`.
-- Permission enforcement for installation tokens on every existing GitHub-compatible REST endpoint and on git over HTTPS, through the single mapping table. Unmapped endpoints are denied.
+- Permission enforcement for installation tokens on every existing GitHub-compatible REST endpoint and on git over HTTPS, through the permission decorator (see Permissions). Undeclared routes are denied.
 - Attribution: writes made with an installation token show as the bot user. That covers issues, comments, reviews, review comments, statuses, labels, releases and pushes.
 - `commit_status` records the installation that posted it (a nullable column). Statuses posted with an installation token have the bot as creator and carry the installation. Statuses posted any other way leave it null.
 - Rulesets part C: `integration_id` is accepted. It must name an existing app. A pinned check counts only for a status posted with an installation token of that app. Remove C's "needs Ghost Apps" refusal. Statuses from user-to-server tokens (slice 5) never satisfy a pinned check.
@@ -168,6 +177,8 @@ This is #79, not part of this design. Once slice 3 merges, comment on #79 that a
 ## Constraints
 
 - Follow the repo's workflow (memory: Claude tests, user builds). For each slice, Claude writes failing tests from this document, the user writes the backend, Claude audits the result, and then Claude writes the frontend.
+- Slice 2 is the exception: Claude implements all of it, backend and frontend, still test-first (user decision, 2026-10-29).
+- Slice 2 ships as one pull request (user decision, 2026-10-29).
 - Generate SQL migrations with `bun db:generate`. Never hand-edit them.
 - Every slice adds its endpoints to the GitHub-compat conformance tests where those exist.
 - Use the dual-PR workflow. Ghost PRs merge with `--merge`.

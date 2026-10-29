@@ -10,6 +10,7 @@ import {
   ArrayUnique,
   IsArray,
   IsIn,
+  IsInt,
   IsObject,
   IsOptional,
   IsString,
@@ -78,6 +79,15 @@ export class RulesetBypassActorDTO {
   @ValidateIf((actor: RulesetBypassActorDTO) => actor.actorType === 'Team')
   @IsString()
   teamId?: string;
+
+  @ApiPropertyOptional({
+    description: "For `Integration`: an app's App ID. Its bot bypasses.",
+  })
+  @ValidateIf(
+    (actor: RulesetBypassActorDTO) => actor.actorType === 'Integration',
+  )
+  @IsInt()
+  appId?: number;
 
   @ApiProperty({
     enum: BYPASS_MODES,

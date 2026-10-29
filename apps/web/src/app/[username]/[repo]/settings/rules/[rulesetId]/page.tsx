@@ -11,7 +11,7 @@ export default async function RulesetPage({
   const { username, repo, rulesetId } = await params;
   const client = await createServerClient();
   const path = { username, repo };
-  const [ruleset, teams, statusContexts] = await Promise.all([
+  const [ruleset, teams, statusContexts, apps] = await Promise.all([
     client.GET("/api/repositories/{username}/{repo}/rulesets/{id}", {
       params: { path: { ...path, id: rulesetId } },
     }),
@@ -21,6 +21,9 @@ export default async function RulesetPage({
     }),
     client.GET("/api/repositories/{username}/{slug}/status-contexts", {
       params: { path: { username, slug: repo } },
+    }),
+    client.GET("/api/repositories/{username}/{repo}/apps", {
+      params: { path },
     }),
   ]);
   if (!ruleset.data) notFound();
@@ -34,6 +37,7 @@ export default async function RulesetPage({
           repo={repo}
           teams={teams.data?.teams ?? null}
           statusContexts={statusContexts.data?.contexts ?? []}
+          apps={apps.data?.apps ?? []}
           ruleset={ruleset.data}
         />
       </section>

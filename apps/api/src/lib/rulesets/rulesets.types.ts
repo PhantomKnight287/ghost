@@ -32,6 +32,11 @@ export type BypassActor = {
   | {
       actorType: 'OrganizationAdmin';
     }
+  | {
+      actorType: 'Integration';
+      /** The App ID. */
+      appId: number;
+    }
 );
 
 /** GitHub's numbers for the built-in repository roles, as its API and Terraform provider use them. */
@@ -41,13 +46,19 @@ export type RulesetActor = {
   role: Role | null;
   teamIds: string[];
   organizationAdmin: boolean;
+  /** The App ID when an app's bot is acting. */
+  appId?: number | null;
 };
 
 export type RefFacts = {
   isFastForward: boolean;
   introducesMergeCommit: boolean;
-  /** The latest state of each context on the judged commit, posted to the base repository. */
-  statuses?: { context: string; state: CommitStatusState }[];
+  /** The judged commit's statuses on the base repository, newest first: the newest of each context per app that posted it (`appId`, the App ID), and the newest of each context posted without an app. */
+  statuses?: {
+    context: string;
+    state: CommitStatusState;
+    appId?: number | null;
+  }[];
   /** Merges only: whether the head contains the base tip. */
   upToDate?: boolean;
   /** The commits the write adds that do not verify. */
@@ -135,7 +146,7 @@ export type PullRequestRuleParameters = z.infer<
   typeof PullRequestRuleParametersZodSchema
 >;
 
-/** GitHub's REST schema for the `required_status_checks` rule's parameters. `integration_id` waits for Ghost Apps (#50), so a check names its context only. */
+/** GitHub's REST schema for the `required_status_checks` rule's parameters. `integration_id` pins a check to the app with that App ID. */
 export const StatusCheckRuleParametersZodSchema = z.strictObject({
   required_status_checks: z.array(
     z.strictObject({
@@ -143,10 +154,8 @@ export const StatusCheckRuleParametersZodSchema = z.strictObject({
         .string({ error: 'context must be a string' })
         .min(1, { error: 'context must not be empty' }),
       integration_id: z
-        .never({
-          error:
-            'integration_id needs Ghost Apps, which this server does not have yet',
-        })
+        .int({ error: 'integration_id must be an integer' })
+        .positive({ error: 'integration_id must be positive' })
         .optional(),
     }),
     { error: 'required_status_checks must be an array' },

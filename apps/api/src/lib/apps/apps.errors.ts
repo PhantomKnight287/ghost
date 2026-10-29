@@ -72,3 +72,72 @@ export class AppJwtError extends DomainError {
     super(message);
   }
 }
+
+export class InstallationNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('Installation not found');
+  }
+}
+
+export class AlreadyInstalledError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('This app is already installed on that account');
+  }
+}
+
+export class InstallationRepositoryError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('Pick repositories the account owns');
+  }
+}
+
+export class PermissionRaiseError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super(
+      "Remove this app's installations before asking for more permissions or events",
+    );
+  }
+}
+
+export class InstallationSuspendedError extends DomainError {
+  status: number = HttpStatus.FORBIDDEN;
+
+  constructor() {
+    super('This installation has been suspended');
+  }
+}
+
+export class InstallationPermissionsError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('The permissions requested are not granted to this installation.');
+  }
+}
+
+export class InstallationRepositoriesError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super(
+      'There is at least one repository that does not exist or is not accessible to the parent installation.',
+    );
+  }
+}
+
+/** GitHub's answer to an app caller on a route its credential cannot use. */
+export class IntegrationForbiddenError extends DomainError {
+  status: number = HttpStatus.FORBIDDEN;
+
+  constructor() {
+    super('Resource not accessible by integration');
+  }
+}

@@ -44,10 +44,12 @@ import { ExpensiveRead } from '../../../rate-limit/rate-limit.guard.js';
 import { GithubPullsService } from './pulls.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 const RAW = /application\/vnd\.github(?:\.v3)?\.(diff|patch)\b/i;
 
+@RequireAppPermission('pull_requests')
 @Controller('v3/repos/:owner/:repo/pulls')
 @ApiTags('GitHub compatibility')
 @SignInOptional()
@@ -171,6 +173,8 @@ export class PullsController {
   }
 
   @Put(':number/merge')
+  // Merging moves the base branch, which GitHub reserves for contents:write.
+  @RequireAppPermission({ pull_requests: 'write', contents: 'write' })
   @ApiOperation({ summary: 'Merge a pull request' })
   @ApiOkResponse({ type: GithubMergeResultDTO })
   merge(

@@ -78,6 +78,11 @@ export default async function OrganizationSettingsLayout({
                 group: "Integrations",
               },
               {
+                href: `${base}/installations`,
+                label: "Installed apps",
+                icon: "apps",
+              },
+              {
                 href: `${base}/oauth-apps`,
                 label: "OAuth apps",
                 icon: "oauthApps",

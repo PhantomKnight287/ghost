@@ -1028,13 +1028,10 @@ export class PullRequestsService {
     const conditions: Partial<RefFacts> = {};
     if (wants('required_status_checks')) {
       // A fork's statuses never count: its owner can post anything there.
-      const combined = await this.statuses.combinedFor(
-        [git.base.id],
-        [git.headSha],
-      );
-      conditions.statuses = (combined.get(git.headSha)?.statuses ?? []).map(
-        ({ context, state }) => ({ context, state }),
-      );
+      conditions.statuses =
+        (
+          await this.statuses.requiredCheckStatuses(git.base.id, [git.headSha])
+        ).get(git.headSha) ?? [];
       conditions.upToDate = git.mergeBase === git.baseSha;
     }
     if (wants('required_signatures')) {

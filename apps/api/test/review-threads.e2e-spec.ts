@@ -92,12 +92,19 @@ describe.skipIf(!hasBackends)('review threads', () => {
     return body.comments[0].id as string;
   };
   const resolve = (who: Account, commentId: string, n = number) =>
-    api().post(pull(n, `/comments/${commentId}/resolve`)).set('cookie', who.cookie);
+    api()
+      .post(pull(n, `/comments/${commentId}/resolve`))
+      .set('cookie', who.cookie);
   const unresolve = (who: Account, commentId: string, n = number) =>
-    api().post(pull(n, `/comments/${commentId}/unresolve`)).set('cookie', who.cookie);
+    api()
+      .post(pull(n, `/comments/${commentId}/unresolve`))
+      .set('cookie', who.cookie);
   const outbox = (type: string, commentId: string) =>
     db()
-      .select({ payload: schema.outboxEvent.payload, actorId: schema.outboxEvent.actorId })
+      .select({
+        payload: schema.outboxEvent.payload,
+        actorId: schema.outboxEvent.actorId,
+      })
       .from(schema.outboxEvent)
       .where(
         and(
@@ -193,7 +200,10 @@ describe.skipIf(!hasBackends)('review threads', () => {
   describe("Ghost's API", () => {
     it('shows a new thread as unresolved', async () => {
       const id = await thread();
-      expect(await shown(id)).toMatchObject({ resolved: false, resolvedBy: null });
+      expect(await shown(id)).toMatchObject({
+        resolved: false,
+        resolvedBy: null,
+      });
     });
 
     it('lets the pull request author resolve and unresolve a thread', async () => {
@@ -210,8 +220,14 @@ describe.skipIf(!hasBackends)('review threads', () => {
       });
 
       const reopened = await unresolve(author, id).expect(200);
-      expect(reopened.body).toMatchObject({ resolved: false, resolvedBy: null });
-      expect(await shown(id)).toMatchObject({ resolved: false, resolvedBy: null });
+      expect(reopened.body).toMatchObject({
+        resolved: false,
+        resolvedBy: null,
+      });
+      expect(await shown(id)).toMatchObject({
+        resolved: false,
+        resolvedBy: null,
+      });
     });
 
     it('lets anyone with write access resolve a thread', async () => {
@@ -234,7 +250,9 @@ describe.skipIf(!hasBackends)('review threads', () => {
 
     it('requires signing in', async () => {
       const id = await thread();
-      await api().post(pull(number, `/comments/${id}/resolve`)).expect(401);
+      await api()
+        .post(pull(number, `/comments/${id}/resolve`))
+        .expect(401);
     });
 
     it('refuses a reply, which is not a thread, with 422', async () => {
@@ -264,14 +282,30 @@ describe.skipIf(!hasBackends)('review threads', () => {
       const [pullRequest] = await db()
         .select({ issueId: schema.pullRequest.issueId })
         .from(schema.pullRequest)
-        .innerJoin(schema.issue, eq(schema.issue.id, schema.pullRequest.issueId))
-        .where(and(eq(schema.issue.repositoryId, repositoryId), eq(schema.issue.number, number)));
+        .innerJoin(
+          schema.issue,
+          eq(schema.issue.id, schema.pullRequest.issueId),
+        )
+        .where(
+          and(
+            eq(schema.issue.repositoryId, repositoryId),
+            eq(schema.issue.number, number),
+          ),
+        );
       expect(await outbox('pull_request_review_thread.resolved', id)).toEqual([
-        { payload: { issueId: pullRequest.issueId, commentId: id }, actorId: author.userId },
+        {
+          payload: { issueId: pullRequest.issueId, commentId: id },
+          actorId: author.userId,
+        },
       ]);
-      expect(await outbox('pull_request_review_thread.unresolved', id)).toEqual([
-        { payload: { issueId: pullRequest.issueId, commentId: id }, actorId: writer.userId },
-      ]);
+      expect(await outbox('pull_request_review_thread.unresolved', id)).toEqual(
+        [
+          {
+            payload: { issueId: pullRequest.issueId, commentId: id },
+            actorId: writer.userId,
+          },
+        ],
+      );
     });
 
     it('clears who resolved a thread when that account is deleted, and keeps it resolved', async () => {
@@ -279,8 +313,13 @@ describe.skipIf(!hasBackends)('review threads', () => {
       await collaborate(temporary, 'write');
       const id = await thread();
       await resolve(temporary, id).expect(200);
-      await db().delete(schema.user).where(eq(schema.user.id, temporary.userId));
-      expect(await shown(id)).toMatchObject({ resolved: true, resolvedBy: null });
+      await db()
+        .delete(schema.user)
+        .where(eq(schema.user.id, temporary.userId));
+      expect(await shown(id)).toMatchObject({
+        resolved: true,
+        resolvedBy: null,
+      });
     });
   });
 
@@ -328,7 +367,9 @@ describe.skipIf(!hasBackends)('review threads', () => {
         viewerCanResolve: false,
         viewerCanUnresolve: true,
       });
-      expect(await threadNode(author, text)).toMatchObject({ isResolved: true });
+      expect(await threadNode(author, text)).toMatchObject({
+        isResolved: true,
+      });
 
       const unresolved = await graphql(
         `mutation($input: UnresolveReviewThreadInput!) {
@@ -348,7 +389,10 @@ describe.skipIf(!hasBackends)('review threads', () => {
       await thread();
       const text = `thread ${counter}`;
       const node = await threadNode(commenter, text);
-      expect(node).toMatchObject({ viewerCanResolve: false, viewerCanUnresolve: false });
+      expect(node).toMatchObject({
+        viewerCanResolve: false,
+        viewerCanUnresolve: false,
+      });
 
       const refused = await graphql(
         'mutation($input: ResolveReviewThreadInput!) { resolveReviewThread(input: $input) { thread { isResolved } } }',
@@ -356,7 +400,9 @@ describe.skipIf(!hasBackends)('review threads', () => {
         commenter,
       );
       expect(refused.body.errors).toHaveLength(1);
-      expect(await threadNode(author, text)).toMatchObject({ isResolved: false });
+      expect(await threadNode(author, text)).toMatchObject({
+        isResolved: false,
+      });
     });
 
     // Last: moves the head, which outdates every thread.
@@ -367,7 +413,9 @@ describe.skipIf(!hasBackends)('review threads', () => {
       writeFileSync(path.join(work, 'notes.txt'), 'one rewritten\ntwo\n');
       git('commit', '-q', '-am', 'rewrite line one');
       await push('notes');
-      expect(await threadNode(author, text)).toMatchObject({ isOutdated: true });
+      expect(await threadNode(author, text)).toMatchObject({
+        isOutdated: true,
+      });
     });
   });
 });

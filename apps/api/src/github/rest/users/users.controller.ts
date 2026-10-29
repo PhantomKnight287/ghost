@@ -31,6 +31,7 @@ import {
   GithubUserDTO,
 } from './dto/user.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -50,6 +51,7 @@ export class UsersController {
   }
 
   @Get('users/:login')
+  @RequireAppPermission('metadata')
   @ApiOperation({
     summary: 'A user or organization by login, in GitHub REST shape',
   })

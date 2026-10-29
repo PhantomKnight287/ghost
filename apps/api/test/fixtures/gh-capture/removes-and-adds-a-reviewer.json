@@ -12,9 +12,7 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "reviewers": [
-            "<login>r"
-          ],
+          "reviewers": ["<login>r"],
           "team_reviewers": []
         },
         "status": 200
@@ -208,9 +206,7 @@
           "x-github-api-version": "2022-11-28"
         },
         "body": {
-          "reviewers": [
-            "<login>r"
-          ],
+          "reviewers": ["<login>r"],
           "team_reviewers": []
         },
         "status": 201

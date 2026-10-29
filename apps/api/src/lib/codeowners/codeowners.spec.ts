@@ -127,4 +127,12 @@ describe('codeowners', () => {
       },
     ]);
   });
+
+  it('reads a bot as a user owner', () => {
+    const { rules, errors } = parseCodeowners('* @lint-bot[bot]', 'CODEOWNERS');
+    expect(errors).toEqual([]);
+    expect(rules[0]!.owners).toEqual([
+      { kind: 'user', username: 'lint-bot[bot]' },
+    ]);
+  });
 });

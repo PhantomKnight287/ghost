@@ -18,16 +18,18 @@ describe('parseStatusCheckParameters', () => {
     });
   });
 
-  it('refuses integration_id until Ghost Apps exist', () => {
+  it('takes integration_id as an App ID', () => {
+    const parsed = parseStatusCheckParameters({
+      required_status_checks: [{ context: 'build', integration_id: 15368 }],
+    });
+    expect(parsed.ok && parsed.value.required_status_checks).toEqual([
+      { context: 'build', integration_id: 15368 },
+    ]);
     expect(
       parseStatusCheckParameters({
-        required_status_checks: [{ context: 'build', integration_id: 15368 }],
-      }),
-    ).toEqual({
-      ok: false,
-      message:
-        'integration_id needs Ghost Apps, which this server does not have yet',
-    });
+        required_status_checks: [{ context: 'build', integration_id: 'ci' }],
+      }).ok,
+    ).toBe(false);
   });
 
   it('refuses an empty context', () => {

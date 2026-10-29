@@ -7,18 +7,41 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { StatusCheckParameters } from "@/lib/rulesets";
 
-/** The `required_status_checks` rule's parameters, with GitHub's labels: contexts are typed freely, with the ones this repository has seen offered as suggestions. */
+const ANY_SOURCE = "any";
+
+/** The `required_status_checks` rule's parameters, with GitHub's labels: contexts are typed freely, with the ones this repository has seen offered as suggestions. A check can be pinned to one of the apps installed on the repository, so only that app's status meets it. */
 export function StatusCheckParametersField({
   value,
   onChange,
   suggestions,
+  apps,
 }: {
   value: StatusCheckParameters;
   onChange: (next: StatusCheckParameters) => void;
   suggestions: string[];
+  apps: { appId: number; name: string }[];
 }) {
+  const pin = (context: string, source: string) =>
+    onChange({
+      ...value,
+      required_status_checks: value.required_status_checks.map((check) =>
+        check.context === context
+          ? {
+              context,
+              ...(source !== ANY_SOURCE && { integration_id: Number(source) }),
+            }
+          : check,
+      ),
+    });
   const listId = useId();
   const [draft, setDraft] = useState("");
   const chosen = value.required_status_checks.map(({ context }) => context);
@@ -105,13 +128,52 @@ export function StatusCheckParametersField({
           checks this repository has seen.
         </FieldDescription>
         {chosen.length > 0 && (
-          <ul className="flex flex-wrap gap-2">
-            {chosen.map((context) => (
+          <ul className="flex flex-col gap-2">
+            {value.required_status_checks.map(({ context, integration_id }) => (
               <li
                 key={context}
-                className="flex items-center gap-1 rounded-md border bg-background py-0.5 pr-1 pl-2 font-mono text-xs"
+                className="flex flex-wrap items-center gap-2 rounded-md border bg-background py-1 pr-1 pl-2 text-xs"
               >
-                {context}
+                <span className="min-w-0 flex-1 truncate font-mono">
+                  {context}
+                </span>
+                {integration_id !== undefined &&
+                  !apps.some(({ appId }) => appId === integration_id) && (
+                    <span className="text-destructive">
+                      App {integration_id} is not installed here or was deleted,
+                      so this check cannot pass
+                    </span>
+                  )}
+                <Select
+                  value={
+                    integration_id === undefined
+                      ? ANY_SOURCE
+                      : String(integration_id)
+                  }
+                  onValueChange={(source) => pin(context, source)}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="h-7 w-44"
+                    aria-label={`Source of ${context}`}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ANY_SOURCE}>Any source</SelectItem>
+                    {integration_id !== undefined &&
+                      !apps.some(({ appId }) => appId === integration_id) && (
+                        <SelectItem value={String(integration_id)}>
+                          App {integration_id}
+                        </SelectItem>
+                      )}
+                    {apps.map(({ appId, name }) => (
+                      <SelectItem key={appId} value={String(appId)}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   type="button"
                   size="icon"

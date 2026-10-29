@@ -29,7 +29,7 @@ export class GithubBypassActorDTO {
     type: Number,
     nullable: true,
     description:
-      'A repository role (2 maintain, 4 write, 5 admin) or a team id; ignored for `OrganizationAdmin`.',
+      'A repository role (2 maintain, 4 write, 5 admin), a team id or an App ID; ignored for `OrganizationAdmin`.',
   })
   @ValidateIf(
     (actor: GithubBypassActorDTO) => actor.actor_type !== 'OrganizationAdmin',

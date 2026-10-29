@@ -29,9 +29,11 @@ import {
 import { GithubPullsService } from './pulls.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
+@RequireAppPermission('pull_requests')
 @Controller('v3/repos/:owner/:repo/pulls/:number/requested_reviewers')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

@@ -5,7 +5,16 @@ import {
   organizationRoleOf,
   type Role,
 } from '@ghost/permissions';
-import { and, eq, isNotNull, isNull, or, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  exists,
+  isNotNull,
+  isNull,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 
 import { RepositoryNotFoundError } from '../repositories.errors.js';
@@ -81,6 +90,47 @@ export function basePermissionOf(organizationId: PgColumn) {
   return sql<CollaboratorRole | null>`(select ${schema.organizationSettings.basePermission} from ${schema.organizationSettings} where ${schema.organizationSettings.organizationId} = ${organizationId})`;
 }
 
+type RepositoryColumns = {
+  id: PgColumn;
+  ownerId: PgColumn;
+  organizationId: PgColumn;
+};
+
+/** Whether the `app_installation` row in scope covers `repository`: the installation's account still owns it, and the installation takes all the account's repositories or lists this one. */
+export function installationCovers(repository: RepositoryColumns): SQL {
+  return and(
+    or(
+      and(
+        isNull(repository.organizationId),
+        eq(schema.appInstallation.accountUserId, repository.ownerId),
+      ),
+      eq(
+        schema.appInstallation.accountOrganizationId,
+        repository.organizationId,
+      ),
+    ),
+    or(
+      eq(schema.appInstallation.repositorySelection, 'all'),
+      exists(
+        sql`(select 1 from ${schema.appInstallationRepository} where ${schema.appInstallationRepository.installationId} = ${schema.appInstallation.id} and ${schema.appInstallationRepository.repositoryId} = ${repository.id})`,
+      ),
+    ),
+  )!;
+}
+
+/** `write` when the actor is the bot of an app with a live installation covering the repository, as a scalar subquery. With `token`, only that installation counts, and only the repositories the token was narrowed to. What the bot may do with it is limited per route by the installation's permissions (AppPermissionGuard), not by this role. */
+export function installationRoleOf(
+  repository: RepositoryColumns,
+  actor: ActorRef,
+  token?: { installationId: string; repositoryIds: string[] | null },
+) {
+  if (!actor) return sql<CollaboratorRole | null>`null`;
+  const scope = token
+    ? sql` and ${schema.appInstallation.id} = ${token.installationId}${token.repositoryIds ? sql` and ${repository.id} = any(${sql.param(token.repositoryIds)}::text[])` : sql``}`
+    : sql``;
+  return sql<CollaboratorRole | null>`(select 'write'::repository_role from ${schema.appInstallation} inner join ${schema.app} on ${schema.app.id} = ${schema.appInstallation.appId} where ${schema.app.botUserId} = ${actor.userId} and ${schema.app.deletedAt} is null and ${schema.appInstallation.suspendedAt} is null and ${installationCovers(repository)}${scope} limit 1)`;
+}
+
 /** Each way the actor can hold a role on a repository, named as GitHub's `affiliation` names them: their own, shared with them, or through an organization's teams, roles or base permission. Needs `repository_collaborator` and `member` left-joined by `acceptedCollaboration` and `organizationMembership`. */
 export function affiliationsOf(actor: Actor) {
   return {
@@ -135,17 +185,27 @@ export type Grants = {
   memberRole: string | null;
   /** The organization's floor for its members; see `basePermissionOf`. */
   basePermission: CollaboratorRole | null;
+  /** What an app's installation grants its bot; see `installationRoleOf`. Left out wherever a bot is never the actor. */
+  installationRole?: CollaboratorRole | null;
 };
 
 /** A user's repository is theirs alone. An organization's is owned by the organization's owners and administered by its admins; its other members hold the base permission, raised by their teams and collaborations. The highest wins. */
 export function roleOf(
   repository: Pick<Repository, 'ownerId' | 'organizationId'>,
-  { collaboratorRole, memberRole, teamRole, basePermission }: Grants,
+  {
+    collaboratorRole,
+    memberRole,
+    teamRole,
+    basePermission,
+    installationRole = null,
+  }: Grants,
   actor: Actor,
 ): Role | null {
   if (!actor) return null;
   if (!repository.organizationId) {
-    return repository.ownerId === actor.userId ? 'owner' : collaboratorRole;
+    return repository.ownerId === actor.userId
+      ? 'owner'
+      : highestOf([collaboratorRole, installationRole]);
   }
 
   const membership = organizationRoleOf(memberRole);
@@ -157,7 +217,12 @@ export function roleOf(
         : membership === 'member'
           ? basePermission
           : null;
-  return highestOf([collaboratorRole, teamRole, fromOrganization]);
+  return highestOf([
+    collaboratorRole,
+    teamRole,
+    fromOrganization,
+    installationRole,
+  ]);
 }
 
 function highestOf(roles: (Role | null)[]): Role | null {

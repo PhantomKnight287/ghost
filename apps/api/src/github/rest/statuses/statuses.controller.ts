@@ -29,7 +29,9 @@ import {
 import { GithubStatusesService } from './statuses.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
+@RequireAppPermission('statuses')
 @Controller('v3')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

@@ -36,10 +36,12 @@ import {
 import { GithubReviewCommentsService } from './review-comments.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
 /** Registered before PullsController, so `pulls/comments` is not read as pull request number "comments". */
+@RequireAppPermission('pull_requests')
 @Controller('v3/repos/:owner/:repo/pulls')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

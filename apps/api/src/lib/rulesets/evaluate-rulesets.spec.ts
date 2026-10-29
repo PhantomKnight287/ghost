@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { type RefTransition, ZERO_OID } from '../git/wal/wal.types.js';
 import {
   allowedMergeMethods,
+  bypassOf,
   evaluateRulesets,
   requiredContexts,
 } from './evaluate-rulesets.js';
@@ -1617,5 +1618,81 @@ describe('requiredContexts', () => {
         'main',
       ),
     ).toEqual([]);
+  });
+});
+
+describe('apps', () => {
+  const pinned = ruleset([], {
+    rules: [
+      {
+        type: 'required_status_checks',
+        parameters: {
+          required_status_checks: [{ context: 'ci', integration_id: 7 }],
+          strict_required_status_checks_policy: false,
+          do_not_enforce_on_create: false,
+        },
+      },
+    ],
+  });
+
+  it('pins a check to an app', () => {
+    expect(
+      evaluate({
+        rulesets: [pinned],
+        transitions: [update()],
+        facts: withStatuses([
+          { context: 'ci', state: 'success', appId: null },
+          { context: 'ci', state: 'failure', appId: 7 },
+        ]),
+      }).map(({ requirement }) => requirement),
+    ).toEqual(['status_checks']);
+    expect(
+      evaluate({
+        rulesets: [pinned],
+        transitions: [update()],
+        facts: withStatuses([
+          { context: 'ci', state: 'failure', appId: null },
+          { context: 'ci', state: 'success', appId: 7 },
+        ]),
+      }),
+    ).toEqual([]);
+  });
+
+  it('leaves an unpinned check as before', () => {
+    expect(
+      evaluate({
+        rulesets: [checks(['ci'])],
+        transitions: [update()],
+        facts: withStatuses([
+          { context: 'ci', state: 'failure', appId: 7 },
+          { context: 'ci', state: 'success', appId: null },
+        ]),
+      }).map(({ requirement }) => requirement),
+    ).toEqual(['status_checks']);
+  });
+
+  it('bypasses for the named app', () => {
+    const rulesets = [
+      ruleset(['deletion'], {
+        bypassActors: [
+          { actorType: 'Integration', appId: 7, bypassMode: 'always' },
+        ],
+      }),
+    ];
+    const bot = (appId: number | null): RulesetActor => ({
+      role: null,
+      teamIds: [],
+      organizationAdmin: false,
+      appId,
+    });
+
+    expect(
+      evaluate({ rulesets, transitions: [remove()], actor: bot(7) }),
+    ).toEqual([]);
+    expect(
+      rulesOf(evaluate({ rulesets, transitions: [remove()], actor: bot(8) })),
+    ).toEqual([[MAIN, 'deletion']]);
+    expect(bypassOf(rulesets[0]!, bot(7))).toBe('always');
+    expect(bypassOf(rulesets[0]!, bot(null))).toBe('never');
   });
 });

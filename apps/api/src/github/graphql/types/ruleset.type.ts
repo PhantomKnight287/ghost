@@ -45,7 +45,7 @@ export class StatusCheckConfigurationNode {
   @Field()
   context: string;
 
-  /** Always null until Ghost Apps (#50): a check cannot be pinned to an app yet. */
+  /** The App ID the check is pinned to, or null for any poster. */
   @Field(() => Int, { nullable: true })
   integrationId: number | null;
 }

@@ -1,4 +1,5 @@
 import { Request } from 'express';
+import type { AppInstallationCaller } from '../github/auth/github-request.js';
 import {
   Actor,
   AuthorizedRepository,
@@ -8,6 +9,7 @@ import { GitRequestBody } from '../lib/git/protocol/git-request-body.js';
 export interface GitAuthenticatedBufferedRequest extends Request {
   actor?: Actor;
   apiKeyId?: string | null;
+  appInstallation?: AppInstallationCaller | null;
   repository?: AuthorizedRepository;
   gitBody?: GitRequestBody;
 }

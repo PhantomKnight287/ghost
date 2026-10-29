@@ -37,6 +37,7 @@ export class GithubAppService {
           GithubAppDTO['permissions']
         >`jsonb_build_object('metadata', 'read') || ${schema.app.permissions}`,
         events: schema.app.events,
+        installationsCount: sql<number>`(select count(*)::int from ${schema.appInstallation} where ${schema.appInstallation.appId} = ${schema.app.id})`,
         owner: {
           ghostId: sql<string>`coalesce(${schema.organization.id}, ${schema.user.id})`,
           numericId: sql<number>`coalesce(${schema.organization.numericId}, ${schema.user.numericId})`,
@@ -55,7 +56,7 @@ export class GithubAppService {
       )
       .where(eq(schema.app.id, app.appId));
     if (!row) throw new AppJwtError();
-    const { ghostId, owner, ...fields } = row;
+    const { ghostId, owner, installationsCount: _, ...fields } = row;
     return {
       ...fields,
       node_id: encodeNodeId('App', ghostId),
@@ -65,8 +66,7 @@ export class GithubAppService {
         owner.isOrganization ? 'Organization' : 'User',
       ),
       html_url: `${origins.web}/apps/${row.slug}`,
-      // ponytail: installations arrive in slice 2; count them then.
-      installations_count: 0,
+      installations_count: row.installationsCount,
     };
   }
 }

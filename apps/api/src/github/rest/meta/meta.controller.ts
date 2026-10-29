@@ -6,7 +6,9 @@ import { GithubRestFilter } from '../github-rest.filter.js';
 import { MetaService } from './meta.service.js';
 import { GithubMetaDTO } from './dto/meta.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
+@RequireAppPermission('metadata')
 @Controller('v3')
 @ApiTags('GitHub compatibility')
 @SignInOptional()

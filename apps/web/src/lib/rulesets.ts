@@ -121,7 +121,12 @@ export const pullRequestFlags: {
 ];
 
 export const statusCheckParametersSchema = z.object({
-  required_status_checks: z.array(z.object({ context: z.string().min(1) })),
+  required_status_checks: z.array(
+    z.object({
+      context: z.string().min(1),
+      integration_id: z.number().int().positive().optional(),
+    }),
+  ),
   strict_required_status_checks_policy: z.boolean(),
   do_not_enforce_on_create: z.boolean(),
 });
@@ -141,12 +146,18 @@ export const rulesetBodySchema = z.object({
   enforcement: z.enum(["active", "evaluate", "disabled"]),
   include: z.array(z.string().min(1)),
   exclude: z.array(z.string().min(1)),
-  // Which of role and teamId an actor type needs is the API's to check.
+  // Which of role, teamId and appId an actor type needs is the API's to check.
   bypassActors: z.array(
     z.object({
-      actorType: z.enum(["RepositoryRole", "Team", "OrganizationAdmin"]),
+      actorType: z.enum([
+        "RepositoryRole",
+        "Team",
+        "OrganizationAdmin",
+        "Integration",
+      ]),
       role: z.enum(bypassRoles).optional(),
       teamId: z.string().optional(),
+      appId: z.number().int().optional(),
       bypassMode: z.enum(["always", "pull_request"]),
     }),
   ),
