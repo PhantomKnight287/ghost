@@ -21,6 +21,7 @@ import {
   resolveTargetCommit,
 } from '../../lib/git/tree/resolve-ref.js';
 import { CommitNotFoundError } from '../../lib/repositories/repositories.errors.js';
+import type { RefFacts } from '../../lib/rulesets/rulesets.types.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type {
@@ -65,6 +66,8 @@ export class CommitStatusesService {
     ...target
   }: RepositoryRef & {
     requesterId: string;
+    /** The installation whose token posted it, if one did. */
+    installationId?: string;
     sha: string;
     body: CreateCommitStatusRequestDTO;
   }): Promise<CommitStatusDTO> {
@@ -104,6 +107,7 @@ export class CommitStatusesService {
           description: body.description ?? null,
           targetUrl: body.targetUrl ?? null,
           creatorId: target.requesterId,
+          installationId: target.installationId ?? null,
         })
         .returning({ id: schema.commitStatus.id });
       await publishEvent(tx, {
@@ -225,6 +229,54 @@ export class CommitStatusesService {
         },
       ]),
     );
+  }
+
+  /** What status check rules read about each sha of one repository, newest first: the newest of each context per app that posted it, and the newest of each context posted without one. A sha without statuses is absent. */
+  async requiredCheckStatuses(
+    repositoryId: string,
+    shas: string[],
+  ): Promise<Map<string, NonNullable<RefFacts['statuses']>>> {
+    if (shas.length === 0) return new Map();
+    const appId = schema.app.numericId;
+    const rows = await this.db
+      .selectDistinctOn(
+        [schema.commitStatus.sha, schema.commitStatus.context, appId],
+        {
+          sha: schema.commitStatus.sha,
+          context: schema.commitStatus.context,
+          state: schema.commitStatus.state,
+          appId,
+          createdAt: schema.commitStatus.createdAt,
+          numericId: schema.commitStatus.numericId,
+        },
+      )
+      .from(schema.commitStatus)
+      .leftJoin(
+        schema.appInstallation,
+        eq(schema.appInstallation.id, schema.commitStatus.installationId),
+      )
+      .leftJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
+      .where(
+        and(
+          eq(schema.commitStatus.repositoryId, repositoryId),
+          inArray(schema.commitStatus.sha, shas),
+        ),
+      )
+      .orderBy(
+        asc(schema.commitStatus.sha),
+        asc(schema.commitStatus.context),
+        asc(appId),
+        ...newestFirst,
+      );
+    rows.sort(
+      (a, b) =>
+        b.createdAt.getTime() - a.createdAt.getTime() ||
+        b.numericId - a.numericId,
+    );
+    const bySha = new Map<string, NonNullable<RefFacts['statuses']>>();
+    for (const { sha, context, state, appId } of rows)
+      bySha.set(sha, [...(bySha.get(sha) ?? []), { context, state, appId }]);
+    return bySha;
   }
 
   /** One status by id with its repository, unauthorized: callers check the viewer may read that repository. */

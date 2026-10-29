@@ -46,6 +46,7 @@ export class GithubStatusesService {
     const status = await this.statuses.create({
       ...this.github.ref(repository, signedIn),
       requesterId: signedIn.userId,
+      installationId: signedIn.installation?.installationId,
       sha,
       body: {
         state: body.state,
