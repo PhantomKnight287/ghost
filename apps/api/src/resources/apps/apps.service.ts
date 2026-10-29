@@ -1,10 +1,23 @@
 import { createHash, generateKeyPairSync, randomUUID } from 'node:crypto';
 
 import { type Database, schema } from '@ghost/db';
-import { type AppPermissions, appSlug } from '@ghost/permissions';
+import {
+  type AppPermission,
+  type AppPermissions,
+  appSlug,
+} from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, asc, count, eq, isNull, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  inArray,
+  isNull,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import {
@@ -13,12 +26,18 @@ import {
   AppNotFoundError,
   AppSlugReservedError,
   InvalidAppPermissionsError,
+  PermissionRaiseError,
   PrivateKeyNotFoundError,
   TooManyPrivateKeysError,
 } from '../../lib/apps/apps.errors.js';
 import { deleteApps } from '../../lib/apps/delete-apps.js';
-import { appPermissionsProblem } from '../../lib/apps/permissions.js';
+import {
+  appPermissionsProblem,
+  grants,
+  withMetadata,
+} from '../../lib/apps/permissions.js';
 
+import type { Executor } from '../../lib/db/executor.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import { githubOrigins } from '../../lib/github/origins.js';
 import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
@@ -166,7 +185,28 @@ export class AppsService {
       input.events ?? app.events,
     );
     if (problem) throw new InvalidAppPermissionsError(problem);
-    // ponytail: raising permissions or adding events is allowed until installations exist; slice 2 refuses it while the app has any.
+    // appPermissionsProblem has checked every key and level.
+    const permissions = (input.permissions ??
+      app.permissions) as AppPermissions;
+    const events = [...new Set(input.events ?? app.events)];
+    const changesGrant = input.permissions != null || input.events != null;
+    const [{ installations } = { installations: 0 }] = changesGrant
+      ? await this.db
+          .select({ installations: count() })
+          .from(schema.appInstallation)
+          .where(eq(schema.appInstallation.appId, app.id))
+      : [];
+    // Until owners can review new permissions, an installed app may only ask for less.
+    const raises =
+      Object.entries(permissions).some(
+        ([name, level]) =>
+          !grants(
+            app.permissions as AppPermissions,
+            name as AppPermission,
+            level,
+          ),
+      ) || events.some((event) => !app.events.includes(event));
+    if (installations > 0 && raises) throw new PermissionRaiseError();
 
     await this.db.transaction(async (tx) => {
       await tx
@@ -187,15 +227,11 @@ export class AppsService {
           ...(input.webhookSecret !== undefined && {
             webhookSecret: this.sealed(input.webhookSecret),
           }),
-          ...(input.permissions != null && {
-            // appPermissionsProblem has checked every key and level.
-            permissions: input.permissions as AppPermissions,
-          }),
-          ...(input.events != null && {
-            events: [...new Set(input.events)],
-          }),
+          ...(changesGrant && { permissions, events }),
         })
         .where(eq(schema.app.id, app.id));
+      if (installations > 0)
+        await this.lowerInstallations(tx, app.id, permissions, events);
       if (input.name != null)
         await tx
           .update(schema.user)
@@ -203,6 +239,44 @@ export class AppsService {
           .where(eq(schema.user.id, app.botUserId));
     });
     return this.one(app.id);
+  }
+
+  /** Applies a lowered set to every installation of the app, and revokes the tokens that hold more than it now allows. */
+  private async lowerInstallations(
+    tx: Executor,
+    appId: string,
+    permissions: AppPermissions,
+    events: string[],
+  ) {
+    const accepted = withMetadata(permissions);
+    const installations = await tx
+      .update(schema.appInstallation)
+      .set({ permissions: accepted, events })
+      .where(eq(schema.appInstallation.appId, appId))
+      .returning({ id: schema.appInstallation.id });
+    const tokens = await tx
+      .select({
+        id: schema.appInstallationToken.id,
+        permissions: schema.appInstallationToken.permissions,
+      })
+      .from(schema.appInstallationToken)
+      .where(
+        inArray(
+          schema.appInstallationToken.installationId,
+          installations.map(({ id }) => id),
+        ),
+      );
+    const exceeding = tokens
+      .filter((token) =>
+        Object.entries(token.permissions).some(
+          ([name, level]) => !grants(accepted, name as AppPermission, level),
+        ),
+      )
+      .map(({ id }) => id);
+    if (exceeding.length > 0)
+      await tx
+        .delete(schema.appInstallationToken)
+        .where(inArray(schema.appInstallationToken.id, exceeding));
   }
 
   async remove(userId: string, slug: string): Promise<void> {
@@ -351,6 +425,7 @@ export class AppsService {
           AppDTO['permissions']
         >`jsonb_build_object('metadata', 'read') || ${schema.app.permissions}`,
         events: schema.app.events,
+        installationsCount: sql<number>`(select count(*)::int from ${schema.appInstallation} where ${schema.appInstallation.appId} = ${schema.app.id})`,
         privateKeys: sql<
           AppPrivateKeyDTO[]
         >`coalesce((select json_agg(json_build_object('id', ${schema.appPublicKey.id}, 'fingerprint', ${schema.appPublicKey.fingerprint}, 'createdAt', ${isoTimestamp(schema.appPublicKey.createdAt)}) order by ${schema.appPublicKey.createdAt}) from ${schema.appPublicKey} where ${schema.appPublicKey.appId} = ${schema.app.id}), '[]'::json)`,

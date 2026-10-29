@@ -48,6 +48,7 @@ import { AppStatsService } from './services/stats/app-stats.service.js';
 import { RepositoryTemplatesModule } from './resources/repository-templates/repository-templates.module.js';
 import { SshSigningKeysModule } from './resources/ssh-signing-keys/ssh-signing-keys.module.js';
 import { AppsModule } from './resources/apps/apps.module.js';
+import { InstallationsModule } from './resources/installations/installations.module.js';
 
 /** Body parsing for `type`, except on GitHub's asset uploads, which stream raw bytes of any type to object storage. */
 const parses = (type: string) => (req: IncomingMessage) => {
@@ -162,6 +163,7 @@ const parses = (type: string) => (req: IncomingMessage) => {
     RepositoryTemplatesModule,
     SshSigningKeysModule,
     AppsModule,
+    InstallationsModule,
   ],
   controllers: [AppController],
   providers: [

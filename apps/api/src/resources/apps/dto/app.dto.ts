@@ -185,6 +185,9 @@ export class AppDTO extends PublicAppDTO {
   @ApiProperty({ type: [String] })
   events: string[];
 
+  @ApiProperty({ description: 'Accounts the app is installed on.' })
+  installationsCount: number;
+
   @ApiProperty({ type: [AppPrivateKeyDTO] })
   privateKeys: AppPrivateKeyDTO[];
 

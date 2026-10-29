@@ -72,3 +72,37 @@ export class AppJwtError extends DomainError {
     super(message);
   }
 }
+
+export class InstallationNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('Installation not found');
+  }
+}
+
+export class AlreadyInstalledError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('This app is already installed on that account');
+  }
+}
+
+export class InstallationRepositoryError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('Pick repositories the account owns');
+  }
+}
+
+export class PermissionRaiseError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super(
+      "Remove this app's installations before asking for more permissions or events",
+    );
+  }
+}
