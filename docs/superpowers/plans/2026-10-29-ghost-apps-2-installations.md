@@ -55,7 +55,7 @@
 | `packages/db/src/schema/rulesets.ts` | `Integration`, `appId`, check and unique index |
 | `apps/api/src/lib/apps/installation-token.ts` | Token generation, hashing, narrowing (pure) |
 | `apps/api/src/lib/apps/apps.errors.ts` | Installation errors |
-| `apps/api/src/lib/apps/app-permission.ts` | `AppPermission` decorator, metadata key, level resolution (pure) |
+| `apps/api/src/lib/apps/app-permission.ts` | `RequireAppPermission` decorator, metadata key, level resolution (pure) |
 | `apps/api/src/lib/git/git-push.ts` | `isGitPush(req)`, moved out of the git middleware |
 | `apps/api/src/lib/repositories/access/repository-access.ts` | `installationRoleOf`, `Grants.installationRole` |
 | `apps/api/src/resources/installations/` | Ghost API for owners: install, list, configure, suspend, uninstall |
