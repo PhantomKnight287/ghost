@@ -1,7 +1,8 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { and, asc, count, eq, isNull } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
@@ -26,10 +27,24 @@ export type AppClientFields = {
   deviceFlowEnabled: boolean;
 };
 
-/** A Ghost App's OAuth client, so its website can sign users in through `/login/oauth/*`. The plugin reads it as a public client; Ghost checks the app's own secrets, of which it may hold several. */
+/** A Ghost App's OAuth client, so its website can sign users in through `/login/oauth/*`. Ghost checks the app's own secrets, of which it may hold several, and speaks to the plugin with `pluginSecretOf`. */
 @Injectable()
 export class AppClientsService {
-  constructor(@Inject(DATABASE) private readonly db: Database) {}
+  private readonly authSecret: string;
+
+  constructor(
+    @Inject(DATABASE) private readonly db: Database,
+    config: ConfigService,
+  ) {
+    this.authSecret = config.getOrThrow<string>('BETTER_AUTH_SECRET');
+  }
+
+  /** The one secret the plugin knows the app's client by, derived rather than stored. Ghost checks the app's own secrets, then passes this one on: the plugin refuses a public client without PKCE, and GitHub's web flow sends none (user decision, 2026-10-30). Rotating BETTER_AUTH_SECRET means rewriting the stored hashes. */
+  pluginSecretOf(clientId: string) {
+    return createHmac('sha256', this.authSecret)
+      .update(`ghost-app-client:${clientId}`)
+      .digest('hex');
+  }
 
   /** The app's client id, creating its client on first need: apps registered before slice 5 have none. */
   async clientOf(appId: string): Promise<string> {
@@ -54,8 +69,11 @@ export class AppClientsService {
         uri: app.homepageUrl,
         redirectUris: [],
         applicationType: 'native',
-        // Ghost checks the app's own client secrets before it calls the plugin.
-        tokenEndpointAuthMethod: 'none',
+        tokenEndpointAuthMethod: 'client_secret_post',
+        // Stored the way the plugin stores secrets: base64url of the sha256, unpadded.
+        clientSecret: createHash('sha256')
+          .update(this.pluginSecretOf(clientId))
+          .digest('base64url'),
         grantTypes: ['authorization_code'],
         responseTypes: ['code'],
         requirePKCE: false,

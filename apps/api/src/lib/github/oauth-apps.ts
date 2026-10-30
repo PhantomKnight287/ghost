@@ -17,6 +17,8 @@ export type OauthApp = {
   ownerId: string | null;
   /** Slug of the organization that owns the app, null for a user's app. */
   organization: string | null;
+  /** Set when the client is a Ghost App's: its tokens are `ghu_`, and its secrets are the app's. */
+  ghostAppId: string | null;
 };
 
 /** The organization a call into the oauth-provider plugin acts for. The plugin's `clientReference` reads it, so an org's app is created with it as `referenceId` and only calls made for that org may change it. Outside a call it is unset, and apps belong to users. */
@@ -61,6 +63,7 @@ export async function findOauthApp(
       builtIn: sql<boolean>`${schema.oauthClient.userId} is null and ${schema.oauthClient.referenceId} is null`,
       ownerId: schema.oauthClient.userId,
       organization: schema.organization.slug,
+      ghostAppId: sql<string | null>`${schema.oauthClient.metadata}->>'appId'`,
     })
     .from(schema.oauthClient)
     .leftJoin(

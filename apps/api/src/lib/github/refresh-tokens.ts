@@ -9,7 +9,7 @@ import type { Executor } from '../db/executor.js';
 export const ACCESS_TOKEN_EXPIRES_IN = 28800;
 export const REFRESH_TOKEN_EXPIRES_IN = 15897600;
 
-/** What a refresh token grants again: the user, the scopes they approved, and the key it was issued beside. */
+/** What a refresh token grants again: the user, the scopes they approved, and the key it was issued beside: an API key's id, or for a Ghost App its `app_user_token` id. */
 export type RefreshGrant = {
   userId: string;
   scopes: string[];
@@ -22,13 +22,13 @@ export const newRefreshToken = () =>
 export const hashRefreshToken = (token: string) =>
   createHash('sha256').update(token).digest('hex');
 
-/** Stores a refresh token for the grant and returns it; only its hash is kept. */
+/** Stores a refresh token for the grant and returns it; only its hash is kept. A Ghost App passes its own `ghr_` token. */
 export async function issueRefreshToken(
   db: Executor,
   clientId: string,
   grant: RefreshGrant,
+  token = newRefreshToken(),
 ): Promise<string> {
-  const token = newRefreshToken();
   await db.insert(schema.oauthAppRefreshToken).values({
     ...grant,
     clientId,
