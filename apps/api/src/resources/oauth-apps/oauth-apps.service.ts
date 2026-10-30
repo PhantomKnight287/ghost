@@ -2,7 +2,7 @@ import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
-import { unionAll } from 'drizzle-orm/pg-core';
+import { alias, unionAll } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
@@ -39,6 +39,12 @@ import type {
 
 /** The plugin checks every redirect URI against one application type: a web client may not use http on localhost, a native one may use both shapes the DTO admits, so one app can list a production callback and a local one. */
 const APPLICATION_TYPE = 'native';
+
+const ghostAppOwner = alias(schema.user, 'ghost_app_owner');
+const ghostAppOrganization = alias(
+  schema.organization,
+  'ghost_app_organization',
+);
 
 /** OAuth apps a user or an organization registers, kept in the oauth-provider plugin's registry. Writes go through the plugin so secrets are hashed its way; Ghost adds GitHub's rules on top. */
 @Injectable()
@@ -92,16 +98,32 @@ export class OauthAppsService {
         description: oauthAppColumns.description,
         homepageUrl: oauthAppColumns.homepageUrl,
         logoUrl: oauthAppColumns.logoUrl,
+        // A Ghost App's client has no plugin owner; the app's own owner stands for it.
         owner: sql<
           string | null
-        >`coalesce(${schema.user.username}, ${schema.organization.slug})`,
+        >`coalesce(${schema.user.username}, ${schema.organization.slug}, ${ghostAppOwner.username}, ${ghostAppOrganization.slug})`,
         verified: oauthAppVerified,
+        ghostApp: sql<{
+          slug: string;
+        } | null>`case when ${schema.app.id} is null then null else json_build_object('slug', ${schema.app.slug}) end`,
       })
       .from(schema.oauthClient)
       .leftJoin(schema.user, eq(schema.user.id, schema.oauthClient.userId))
       .leftJoin(
         schema.organization,
         eq(schema.organization.id, schema.oauthClient.referenceId),
+      )
+      .leftJoin(
+        schema.app,
+        and(
+          eq(schema.app.oauthClientId, schema.oauthClient.clientId),
+          isNull(schema.app.deletedAt),
+        ),
+      )
+      .leftJoin(ghostAppOwner, eq(ghostAppOwner.id, schema.app.ownerUserId))
+      .leftJoin(
+        ghostAppOrganization,
+        eq(ghostAppOrganization.id, schema.app.ownerOrganizationId),
       )
       .where(and(eq(schema.oauthClient.clientId, clientId), oauthAppEnabled));
     if (!app) throw new OauthAppNotFoundError();

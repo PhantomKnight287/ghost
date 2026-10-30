@@ -130,6 +130,11 @@ export class ListOauthAppsResponseDTO {
   apps: OauthAppDTO[];
 }
 
+export class AuthorizingGhostAppDTO {
+  @ApiProperty()
+  slug: string;
+}
+
 export class AuthorizingOauthAppDTO {
   @ApiProperty()
   clientId: string;
@@ -159,6 +164,14 @@ export class AuthorizingOauthAppDTO {
       'Vouched for by the operators of this Ghost instance. Owners cannot set it.',
   })
   verified: boolean;
+
+  @ApiProperty({
+    type: () => AuthorizingGhostAppDTO,
+    nullable: true,
+    description:
+      "Set when the client is a Ghost App's: its tokens act as the user within the app's installations, with no scopes.",
+  })
+  ghostApp: AuthorizingGhostAppDTO | null;
 }
 
 export class AuthorizedOauthAppDTO {

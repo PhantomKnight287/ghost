@@ -8308,6 +8308,9 @@ export interface components {
         ListAuthorizedOauthAppsResponseDTO: {
             apps: components["schemas"]["AuthorizedOauthAppDTO"][];
         };
+        AuthorizingGhostAppDTO: {
+            slug: string;
+        };
         AuthorizingOauthAppDTO: {
             clientId: string;
             name: string;
@@ -8318,6 +8321,8 @@ export interface components {
             owner: string | null;
             /** @description Vouched for by the operators of this Ghost instance. Owners cannot set it. */
             verified: boolean;
+            /** @description Set when the client is a Ghost App's: its tokens act as the user within the app's installations, with no scopes. */
+            ghostApp: components["schemas"]["AuthorizingGhostAppDTO"] | null;
         };
         UpdateOauthAppDTO: {
             /** @example Release bot */

@@ -33649,6 +33649,17 @@
           "apps"
         ]
       },
+      "AuthorizingGhostAppDTO": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug"
+        ]
+      },
       "AuthorizingOauthAppDTO": {
         "type": "object",
         "properties": {
@@ -33677,6 +33688,16 @@
           "verified": {
             "type": "boolean",
             "description": "Vouched for by the operators of this Ghost instance. Owners cannot set it."
+          },
+          "ghostApp": {
+            "nullable": true,
+            "description": "Set when the client is a Ghost App's: its tokens act as the user within the app's installations, with no scopes.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthorizingGhostAppDTO"
+              }
+            ]
           }
         },
         "required": [
@@ -33686,7 +33707,8 @@
           "homepageUrl",
           "logoUrl",
           "owner",
-          "verified"
+          "verified",
+          "ghostApp"
         ]
       },
       "UpdateOauthAppDTO": {

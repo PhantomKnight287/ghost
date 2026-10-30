@@ -103,6 +103,20 @@ describe.skipIf(!hasBackends)('Ghost App user-to-server tokens', () => {
     });
   });
 
+  it('describes a Ghost App on the consent page by its owner, not as built into Ghost', async () => {
+    const client = await register();
+    const { body } = await api()
+      .get('/api/oauth-apps/authorize')
+      .query({ client_id: client.clientId })
+      .set('cookie', owner.cookie)
+      .expect(200);
+    expect(body).toMatchObject({
+      clientId: client.clientId,
+      owner: `ghuowner${stamp}`,
+      ghostApp: { slug: client.slug },
+    });
+  });
+
   it('refuses a wrong client secret, and accepts any of the app’s secrets', async () => {
     const client = await register();
     const wrong = await token({
