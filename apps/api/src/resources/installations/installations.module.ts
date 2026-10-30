@@ -5,8 +5,10 @@ import { InstallationsService } from './installations.service.js';
 import { OrganizationInstallationsController } from './organization-installations.controller.js';
 import { RepositoryAppsController } from './repository-apps.controller.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { WebhooksModule } from '../webhooks/webhooks.module.js';
 
 @Module({
+  imports: [WebhooksModule],
   controllers: [
     InstallationsController,
     OrganizationInstallationsController,

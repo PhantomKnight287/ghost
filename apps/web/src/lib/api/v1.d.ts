@@ -4535,6 +4535,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{slug}/webhook/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an app's webhook deliveries
+         * @description Newest first, with every attempt.
+         */
+        get: operations["AppsController_webhookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{slug}/webhook/deliveries/{deliveryId}/redeliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeliver one of an app’s webhook deliveries
+         * @description The same body again, as a new delivery.
+         */
+        post: operations["AppsController_redeliverWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{slug}/webhook/pings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a ping to an app's webhook */
+        post: operations["AppsController_pingWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{slug}/logo": {
         parameters: {
             query?: never;
@@ -6621,7 +6678,7 @@ export interface components {
             role: components["schemas"]["RepositoryRole"];
         };
         /** @enum {string} */
-        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.merged" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "pull_request.review_requested" | "pull_request.review_request_removed" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "commit_status.created" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
+        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.opened" | "pull_request.edited" | "pull_request.closed" | "pull_request.reopened" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "pull_request.review_requested" | "pull_request.review_request_removed" | "pull_request.merged" | "commit_status.created" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
         WebhookDTO: {
             id: string;
             url: string;
@@ -8179,6 +8236,12 @@ export interface components {
             setupUrl: string | null;
             webhookUrl: string | null;
             webhookSecretSet: boolean;
+            /** @description The app's webhook endpoint, for its deliveries. Null without a webhook URL. */
+            webhookId: string | null;
+            /** @description False when turned off, by the owner or by Ghost. */
+            webhookActive: boolean;
+            /** @description Why Ghost turned the webhook off. */
+            webhookDisabledReason: string | null;
             /** @description Accounts the app is installed on. */
             installationsCount: number;
             privateKeys: components["schemas"]["AppPrivateKeyDTO"][];
@@ -8255,6 +8318,8 @@ export interface components {
              *     ]
              */
             events?: string[];
+            /** @description Turns the webhook off or back on. Turning it on clears the reason Ghost turned it off. */
+            webhookActive?: boolean;
         };
         CreatedPrivateKeyDTO: {
             id: string;
@@ -19960,6 +20025,114 @@ export interface operations {
             path: {
                 slug: string;
                 id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_webhookDeliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDeliveriesResponseDTO"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_redeliverWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                deliveryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    AppsController_pingWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
             };
             cookie?: never;
         };

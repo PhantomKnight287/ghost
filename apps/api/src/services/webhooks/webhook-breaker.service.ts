@@ -91,64 +91,117 @@ export class WebhookBreakerService
         id: schema.webhookEndpoint.id,
         url: schema.webhookEndpoint.url,
         reason: sql<string>`${schema.webhookEndpoint.disabledReason}`,
-        ownerId: sql<string>`coalesce(${schema.webhookEndpoint.repositoryId}, ${schema.webhookEndpoint.organizationId})`,
+        ownerId: sql<string>`coalesce(${schema.webhookEndpoint.repositoryId}, ${schema.webhookEndpoint.organizationId}, ${schema.webhookEndpoint.appId})`,
       });
     if (disabled.length === 0) return;
 
     const ownerIds = disabled.map((endpoint) => endpoint.ownerId);
     // ponytail: a user's repository emails its owner only, not collaborators with admin; add them if owners turn out not to be the ones who set webhooks up.
-    const [repositoryOwners, organizationMembers] = await Promise.all([
-      this.db
-        .select({
-          ownerId: schema.repository.id,
-          owner: repositoryFullNameOf(
+    const [repositoryOwners, organizationMembers, appOwners] =
+      await Promise.all([
+        this.db
+          .select({
+            ownerId: schema.repository.id,
+            owner: repositoryFullNameOf(
+              schema.user,
+              schema.organization,
+              schema.repository,
+            ),
+            name: schema.user.name,
+            email: schema.user.email,
+          })
+          .from(schema.repository)
+          .innerJoin(
             schema.user,
+            and(
+              eq(schema.user.id, schema.repository.ownerId),
+              eq(schema.user.emailVerified, true),
+            ),
+          )
+          .leftJoin(
             schema.organization,
-            schema.repository,
-          ),
-          name: schema.user.name,
-          email: schema.user.email,
-        })
-        .from(schema.repository)
-        .innerJoin(
-          schema.user,
-          and(
-            eq(schema.user.id, schema.repository.ownerId),
-            eq(schema.user.emailVerified, true),
-          ),
-        )
-        .leftJoin(
-          schema.organization,
-          eq(schema.organization.id, schema.repository.organizationId),
-        )
-        .where(inArray(schema.repository.id, ownerIds)),
-      this.db
-        .select({
-          ownerId: schema.organization.id,
-          owner: schema.organization.slug,
-          name: schema.user.name,
-          email: schema.user.email,
-          role: schema.member.role,
-        })
-        .from(schema.organization)
-        .innerJoin(
-          schema.member,
-          eq(schema.member.organizationId, schema.organization.id),
-        )
-        .innerJoin(
-          schema.user,
-          and(
-            eq(schema.user.id, schema.member.userId),
-            eq(schema.user.emailVerified, true),
-          ),
-        )
-        .where(inArray(schema.organization.id, ownerIds)),
-    ]);
+            eq(schema.organization.id, schema.repository.organizationId),
+          )
+          .where(inArray(schema.repository.id, ownerIds)),
+        this.db
+          .select({
+            ownerId: schema.organization.id,
+            owner: schema.organization.slug,
+            name: schema.user.name,
+            email: schema.user.email,
+            role: schema.member.role,
+          })
+          .from(schema.organization)
+          .innerJoin(
+            schema.member,
+            eq(schema.member.organizationId, schema.organization.id),
+          )
+          .innerJoin(
+            schema.user,
+            and(
+              eq(schema.user.id, schema.member.userId),
+              eq(schema.user.emailVerified, true),
+            ),
+          )
+          .where(inArray(schema.organization.id, ownerIds)),
+        // an app's owner, or every member of its organization, filtered to admins below
+        this.db
+          .select({
+            ownerId: schema.app.id,
+            owner: schema.app.name,
+            slug: schema.app.slug,
+            organization: schema.organization.slug,
+            name: schema.user.name,
+            email: schema.user.email,
+            role: schema.member.role,
+          })
+          .from(schema.app)
+          .leftJoin(
+            schema.organization,
+            eq(schema.organization.id, schema.app.ownerOrganizationId),
+          )
+          .leftJoin(
+            schema.member,
+            eq(schema.member.organizationId, schema.app.ownerOrganizationId),
+          )
+          .innerJoin(
+            schema.user,
+            and(
+              eq(
+                schema.user.id,
+                sql`coalesce(${schema.app.ownerUserId}, ${schema.member.userId})`,
+              ),
+              eq(schema.user.emailVerified, true),
+            ),
+          )
+          .where(inArray(schema.app.id, ownerIds)),
+      ]);
+    const webhookPath = (owner: string) => (endpointId: string) =>
+      `/${owner}/settings/webhooks/${endpointId}`;
     const recipients = [
-      ...repositoryOwners,
-      ...organizationMembers.filter((member) =>
-        administers(organizationRoleOf(member.role)),
-      ),
+      ...repositoryOwners.map((recipient) => ({
+        ...recipient,
+        settingsPath: webhookPath(recipient.owner),
+      })),
+      ...organizationMembers
+        .filter((member) => administers(organizationRoleOf(member.role)))
+        .map((recipient) => ({
+          ...recipient,
+          settingsPath: webhookPath(recipient.owner),
+        })),
+      ...appOwners
+        .filter(
+          (recipient) =>
+            !recipient.organization ||
+            administers(organizationRoleOf(recipient.role)),
+        )
+        .map((recipient) => ({
+          ...recipient,
+          settingsPath: () =>
+            recipient.organization
+              ? `/${recipient.organization}/settings/apps/${recipient.slug}`
+              : `/settings/apps/${recipient.slug}`,
+        })),
     ];
 
     for (const endpoint of disabled) {
@@ -160,7 +213,7 @@ export class WebhookBreakerService
             owner: recipient.owner,
             url: endpoint.url,
             reason: endpoint.reason,
-            webhookId: endpoint.id,
+            settingsPath: recipient.settingsPath(endpoint.id),
           })
           .catch((error: unknown) =>
             this.logger.warn(

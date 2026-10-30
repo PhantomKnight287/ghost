@@ -3,52 +3,37 @@ import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 
 import type { schema } from '@ghost/db';
+import {
+  type InstallationEvent,
+  type WebhookEvent,
+  webhookEvents as events,
+} from '@ghost/webhooks';
 
 import type { EventType } from '../events/events.js';
 import type { Commit } from '../git/commits/list-commits.js';
 
-/** Events an endpoint can subscribe to. `ping` is sent on create and on demand, whatever the endpoint chose. */
-export const webhookEvents = [
-  'push',
-  'issue.opened',
-  'issue.edited',
-  'issue.closed',
-  'issue.reopened',
-  'issue.assigned',
-  'issue.unassigned',
-  'issue.labeled',
-  'issue.unlabeled',
-  'issue.commented',
-  'issue.comment_edited',
-  'issue.comment_deleted',
-  'pull_request.ready_for_review',
-  'pull_request.converted_to_draft',
-  'pull_request.synchronized',
-  'pull_request.merged',
-  'pull_request.reviewed',
-  'pull_request.review_dismissed',
-  'pull_request.review_commented',
-  'pull_request.review_requested',
-  'pull_request.review_request_removed',
-  'label.created',
-  'label.edited',
-  'label.deleted',
-  'release.created',
-  'release.published',
-  'release.edited',
-  'release.deleted',
-  'commit_status.created',
-  'star.created',
-  'star.deleted',
-  'watch.started',
-  'fork.created',
-  'repository.edited',
-  'repository.transferred',
-  'member.added',
-  'member.removed',
-] as const satisfies readonly EventType[];
+/** Internally a pull request opens, edits, closes and reopens as an issue; webhooks name those events after the pull request. */
+const pullRequestEvents = {
+  'issue.opened': 'pull_request.opened',
+  'issue.edited': 'pull_request.edited',
+  'issue.closed': 'pull_request.closed',
+  'issue.reopened': 'pull_request.reopened',
+} as const satisfies Partial<Record<EventType, WebhookEvent>>;
 
-export type WebhookEvent = (typeof webhookEvents)[number];
+/** Events an endpoint can subscribe to: each is published under its own name, or is a pull request's name for an issue event. `ping` is sent on create and on demand, whatever the endpoint chose. */
+export const webhookEvents = events satisfies readonly (
+  | EventType
+  | (typeof pullRequestEvents)[keyof typeof pullRequestEvents]
+)[];
+
+export type { WebhookEvent };
+
+/** The name webhooks get `type` under. */
+export function webhookEventOf(type: EventType, isPullRequest: boolean) {
+  return isPullRequest && Object.hasOwn(pullRequestEvents, type)
+    ? pullRequestEvents[type as keyof typeof pullRequestEvents]
+    : type;
+}
 
 /** A new signing secret, shown to the user once. */
 export function newWebhookSecret() {
@@ -136,7 +121,8 @@ export async function webhookUrlProblem(
 /** Whose webhooks these are, once the requester was checked as its admin. `name` is how URLs spell it: `owner/repo` or the organization's slug. */
 export type WebhookOwner =
   | { repositoryId: string; name: string }
-  | { organizationId: string; name: string };
+  | { organizationId: string; name: string }
+  | { appId: string; name: string };
 
 type UserRef = {
   id: string;
@@ -167,10 +153,12 @@ type WebhookThread = {
 
 /** The JSON a receiver gets for an event. Which optional fields are set depends on the event. */
 export type WebhookBody = {
-  event: EventType;
+  event: ReturnType<typeof webhookEventOf>;
   repository: WebhookRepository;
   sender: UserRef | null;
   createdAt: string;
+  /** Only in what an app gets: the installation the event reached it through, by the id its token endpoint takes. */
+  installation?: { id: number };
   issue?: WebhookThread;
   pullRequest?: WebhookThread;
   /** A line comment also carries its place in the diff, its thread and `numericId`, the id GitHub's REST layer takes. */
@@ -242,5 +230,21 @@ export type WebhookPing = {
   webhook: { id: string; url: string; events: string[] };
   repository?: { fullName: string };
   organization?: { slug: string };
+  app?: { slug: string };
+  createdAt: string;
+};
+
+/** What an app gets about one of its installations. `repositories` is set on create, for selected repositories, and on the two repository events. */
+export type InstallationWebhookBody = {
+  event: InstallationEvent;
+  installation: {
+    id: number;
+    account: { login: string; type: 'user' | 'organization' };
+    repositorySelection: 'all' | 'selected';
+    permissions: Record<string, 'read' | 'write'>;
+    events: string[];
+  };
+  repositories?: { id: string; fullName: string }[];
+  sender: UserRef | null;
   createdAt: string;
 };

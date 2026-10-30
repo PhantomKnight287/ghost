@@ -149,12 +149,16 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
       );
     }
     case 'issue.opened':
+    case 'pull_request.opened':
       return onThread(`opened ${about}`, GREEN, thread?.body ?? null);
     case 'issue.edited':
+    case 'pull_request.edited':
       return onThread(`edited ${about}`, GREY);
     case 'issue.closed':
+    case 'pull_request.closed':
       return onThread(`closed ${about}`, RED);
     case 'issue.reopened':
+    case 'pull_request.reopened':
       return onThread(`reopened ${about}`, GREEN);
     case 'issue.assigned':
       return onThread(`assigned ${body.assignee?.username} to ${about}`, GREY);

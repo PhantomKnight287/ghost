@@ -11,15 +11,18 @@ import type { components } from "@/lib/api/v1";
 import { AppLogo } from "./app-logo";
 import { AppPrivateKeys } from "./app-private-keys";
 import { AppSettingsCard } from "./app-settings-card";
+import { AppWebhook } from "./app-webhook";
 import { DeleteAppCard } from "./delete-app-card";
 import { appsPath } from "./paths";
 
-/** One Ghost App: who it is, its keys, how it looks, its settings, and deleting it. */
+/** One Ghost App: who it is, its keys, how it looks, its settings, its webhook's deliveries, and deleting it. */
 export function AppDetail({
   app,
+  deliveries,
   organization,
 }: {
   app: components["schemas"]["AppDTO"];
+  deliveries: components["schemas"]["DeliveryDTO"][];
   organization?: string;
 }) {
   return (
@@ -78,6 +81,7 @@ export function AppDetail({
       <AppPrivateKeys app={app} />
       <AppLogo app={app} />
       <AppSettingsCard app={app} />
+      <AppWebhook app={app} deliveries={deliveries} />
       <DeleteAppCard app={app} organization={organization} />
     </div>
   );

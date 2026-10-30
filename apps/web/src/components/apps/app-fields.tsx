@@ -1,10 +1,11 @@
 "use client";
 
+import { type AppPermissions, appSlug } from "@ghost/permissions";
 import {
-  type AppPermissions,
-  appSlug,
-  EVENT_PERMISSIONS,
-} from "@ghost/permissions";
+  WEBHOOK_EVENTS,
+  type WebhookEvent,
+  webhookEvents,
+} from "@ghost/webhooks";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -57,7 +58,7 @@ const NO_ACCESS = "none";
 
 /** Whether the app may receive `event` with these permissions: metadata events always, the rest with read on their permission. */
 function covers(permissions: AppPermissions, event: string) {
-  const needed = EVENT_PERMISSIONS[event];
+  const needed = WEBHOOK_EVENTS[event as WebhookEvent]?.permission;
   return needed === "metadata" || Boolean(needed && permissions[needed]);
 }
 
@@ -200,7 +201,7 @@ export function AppFields({
               placeholder={
                 webhookSecretSet
                   ? "Set. Type a new one to replace it."
-                  : "Optional"
+                  : "Required with a URL"
               }
               value={values.webhookSecret}
               disabled={disabled}
@@ -278,7 +279,7 @@ export function AppFields({
           are offered.
         </FieldDescription>
         <div className="grid gap-2 sm:grid-cols-2">
-          {Object.keys(EVENT_PERMISSIONS)
+          {webhookEvents
             .filter((event) => covers(values.permissions, event))
             .map((event) => (
               <Field key={event} orientation="horizontal">

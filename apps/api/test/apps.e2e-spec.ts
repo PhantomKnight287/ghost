@@ -11,6 +11,9 @@ import { DATABASE } from '../src/database/database.module.js';
 import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
+// An address, not a name: an app's webhook URL must resolve to a public address.
+const HOOK = 'https://93.184.216.34/hook';
+
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
@@ -54,6 +57,29 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
         .from(schema.user)
         .where(eq(schema.user.username, botLogin))
     )[0];
+
+  const endpointOf = async (slug: string) =>
+    (
+      await db
+        .select({
+          id: schema.webhookEndpoint.id,
+          url: schema.webhookEndpoint.url,
+          secret: schema.webhookEndpoint.secret,
+          events: schema.webhookEndpoint.events,
+          active: schema.webhookEndpoint.active,
+          repositoryId: schema.webhookEndpoint.repositoryId,
+          organizationId: schema.webhookEndpoint.organizationId,
+          disabledNotifiedAt: schema.webhookEndpoint.disabledNotifiedAt,
+        })
+        .from(schema.webhookEndpoint)
+        .innerJoin(schema.app, eq(schema.app.id, schema.webhookEndpoint.appId))
+        .where(eq(schema.app.slug, slug))
+    )[0];
+  const jobsOf = (endpointId: string) =>
+    db
+      .select()
+      .from(schema.deliveryJob)
+      .where(eq(schema.deliveryJob.endpointId, endpointId));
 
   beforeAll(async () => {
     // CI has no WEBHOOK_SECRET_KEY, and an app's webhook secret is sealed with it.
@@ -185,11 +211,12 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
     const { body } = await register(owner.cookie, {
       description: 'App description',
       setupUrl: 'https://bot.example/setup',
-      webhookUrl: 'https://bot.example/hook',
+      webhookUrl: HOOK,
+      webhookSecret: 'shh',
     }).expect(201);
     expect(body).toMatchObject({
       setupUrl: 'https://bot.example/setup',
-      webhookUrl: 'https://bot.example/hook',
+      webhookUrl: HOOK,
     });
     const cleared = await api()
       .patch(`/api/apps/${body.slug}`)
@@ -363,7 +390,8 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
   it("hides another user's app, and shows anyone its public face", async () => {
     const { body } = await register(owner.cookie, {
       permissions: { contents: 'read' },
-      webhookUrl: 'https://bot.example/hook',
+      webhookUrl: HOOK,
+      webhookSecret: 'shh',
     }).expect(201);
     const key = await generateKey(body.slug).expect(201);
 
@@ -413,7 +441,7 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
   it('stores the webhook secret sealed and never returns it', async () => {
     const secret = `shh-${stamp}`;
     const { body } = await register(owner.cookie, {
-      webhookUrl: 'https://bot.example/hook',
+      webhookUrl: HOOK,
       webhookSecret: secret,
     }).expect(201);
     expect(body.webhookSecretSet).toBe(true);
@@ -422,24 +450,184 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
       JSON.stringify((await settings(body.slug).expect(200)).body),
     ).not.toContain(secret);
 
-    const [row] = await db
-      .select({ webhookSecret: schema.app.webhookSecret })
-      .from(schema.app)
-      .where(eq(schema.app.slug, body.slug));
-    expect(row?.webhookSecret).toBeTruthy();
-    expect(row?.webhookSecret).not.toContain(secret);
+    const row = await endpointOf(body.slug);
+    expect(row?.secret).toBeTruthy();
+    expect(row?.secret).not.toContain(secret);
+  });
 
+  it('creating an app with a webhook URL creates its endpoint, subscribed to nothing directly, and pings it', async () => {
+    const { body } = await register(owner.cookie, {
+      permissions: { contents: 'read' },
+      events: ['push'],
+      webhookUrl: HOOK,
+      webhookSecret: 'shh',
+    }).expect(201);
+    const row = await endpointOf(body.slug);
+    expect(row).toMatchObject({
+      url: HOOK,
+      events: [],
+      active: true,
+      repositoryId: null,
+      organizationId: null,
+    });
+    expect(body).toMatchObject({
+      webhookId: row!.id,
+      webhookActive: true,
+      webhookDisabledReason: null,
+    });
+    const jobs = await jobsOf(row!.id);
+    expect(jobs.map((job) => (job.payload as { event: string }).event)).toEqual(
+      ['ping'],
+    );
+    expect(
+      JSON.parse((jobs[0]!.payload as { body: string }).body),
+    ).toMatchObject({ event: 'ping', app: { slug: body.slug } });
+  });
+
+  it('creates no endpoint without a webhook URL', async () => {
+    const { body } = await register(owner.cookie).expect(201);
+    expect(await endpointOf(body.slug)).toBeUndefined();
+    expect(body).toMatchObject({
+      webhookUrl: null,
+      webhookSecretSet: false,
+      webhookId: null,
+    });
+  });
+
+  it('refuses a webhook URL without a secret', async () => {
+    const refused = await register(owner.cookie, { webhookUrl: HOOK }).expect(
+      422,
+    );
+    expect(refused.body.message).toBe('A webhook URL needs a secret');
+
+    const { body } = await register(owner.cookie, {
+      webhookUrl: HOOK,
+      webhookSecret: 'shh',
+    }).expect(201);
     const cleared = await api()
       .patch(`/api/apps/${body.slug}`)
       .set('cookie', owner.cookie)
       .send({ webhookSecret: null })
+      .expect(422);
+    expect(cleared.body.message).toBe('A webhook URL needs a secret');
+  });
+
+  it('refuses a private-network webhook URL', async () => {
+    const { body } = await register(owner.cookie, {
+      webhookUrl: 'http://127.0.0.1/hook',
+      webhookSecret: 'shh',
+    }).expect(400);
+    expect(body.message).toContain('private or reserved address');
+  });
+
+  it('clearing the URL deletes the endpoint, and changing it keeps the endpoint id', async () => {
+    const { body } = await register(owner.cookie, {
+      webhookUrl: HOOK,
+      webhookSecret: 'shh',
+    }).expect(201);
+    const before = await endpointOf(body.slug);
+
+    await api()
+      .patch(`/api/apps/${body.slug}`)
+      .set('cookie', owner.cookie)
+      .send({ webhookUrl: `${HOOK}/moved` })
       .expect(200);
-    expect(cleared.body.webhookSecretSet).toBe(false);
-    const [afterClear] = await db
-      .select({ webhookSecret: schema.app.webhookSecret })
-      .from(schema.app)
-      .where(eq(schema.app.slug, body.slug));
-    expect(afterClear?.webhookSecret).toBeNull();
+    const moved = await endpointOf(body.slug);
+    expect(moved).toMatchObject({ id: before!.id, url: `${HOOK}/moved` });
+    expect(moved!.secret).toBe(before!.secret);
+
+    const cleared = await api()
+      .patch(`/api/apps/${body.slug}`)
+      .set('cookie', owner.cookie)
+      .send({ webhookUrl: null })
+      .expect(200);
+    expect(cleared.body).toMatchObject({
+      webhookUrl: null,
+      webhookSecretSet: false,
+      webhookId: null,
+    });
+    expect(await endpointOf(body.slug)).toBeUndefined();
+  });
+
+  it('webhookActive false turns the endpoint off, true turns it back on and clears the disabled reason', async () => {
+    const { body } = await register(owner.cookie, {
+      webhookUrl: HOOK,
+      webhookSecret: 'shh',
+    }).expect(201);
+    const off = await api()
+      .patch(`/api/apps/${body.slug}`)
+      .set('cookie', owner.cookie)
+      .send({ webhookActive: false })
+      .expect(200);
+    expect(off.body.webhookActive).toBe(false);
+
+    await db
+      .update(schema.webhookEndpoint)
+      .set({
+        disabledReason: 'The endpoint responded 410 Gone.',
+        disabledNotifiedAt: new Date(),
+      })
+      .where(eq(schema.webhookEndpoint.id, off.body.webhookId));
+    expect((await settings(body.slug).expect(200)).body).toMatchObject({
+      webhookActive: false,
+      webhookDisabledReason: 'The endpoint responded 410 Gone.',
+    });
+
+    const on = await api()
+      .patch(`/api/apps/${body.slug}`)
+      .set('cookie', owner.cookie)
+      .send({ webhookActive: true })
+      .expect(200);
+    expect(on.body).toMatchObject({
+      webhookActive: true,
+      webhookDisabledReason: null,
+    });
+    expect((await endpointOf(body.slug))?.disabledNotifiedAt).toBeNull();
+  });
+
+  it('lists deliveries and redelivers for the owner, 404 for anyone else', async () => {
+    const { body } = await register(owner.cookie, {
+      webhookUrl: HOOK,
+      webhookSecret: 'shh',
+    }).expect(201);
+    const deliveries = (cookie: string) =>
+      api()
+        .get(`/api/apps/${body.slug}/webhook/deliveries`)
+        .set('cookie', cookie);
+
+    const listed = await deliveries(owner.cookie).expect(200);
+    expect(
+      listed.body.deliveries.map((d: { event: string }) => d.event),
+    ).toEqual(['ping']);
+    const [ping] = listed.body.deliveries;
+
+    await api()
+      .post(`/api/apps/${body.slug}/webhook/deliveries/${ping.id}/redeliveries`)
+      .set('cookie', owner.cookie)
+      .expect(204);
+    await api()
+      .post(`/api/apps/${body.slug}/webhook/pings`)
+      .set('cookie', owner.cookie)
+      .expect(204);
+    expect(
+      (await deliveries(owner.cookie).expect(200)).body.deliveries,
+    ).toHaveLength(3);
+
+    await deliveries(other.cookie).expect(404);
+    await api()
+      .post(`/api/apps/${body.slug}/webhook/deliveries/${ping.id}/redeliveries`)
+      .set('cookie', other.cookie)
+      .expect(404);
+    await api()
+      .post(`/api/apps/${body.slug}/webhook/pings`)
+      .set('cookie', other.cookie)
+      .expect(404);
+
+    const bare = await register(owner.cookie).expect(201);
+    await api()
+      .get(`/api/apps/${bare.body.slug}/webhook/deliveries`)
+      .set('cookie', owner.cookie)
+      .expect(404);
   });
 
   it('sets and removes a logo, which the bot wears too', async () => {
@@ -466,7 +654,7 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
 
   it('deletes an app but keeps its bot, App ID and slug', async () => {
     const { body } = await register(owner.cookie, {
-      webhookUrl: 'https://bot.example/hook',
+      webhookUrl: HOOK,
       webhookSecret: 'shh',
     }).expect(201);
     await generateKey(body.slug).expect(201);
@@ -498,17 +686,19 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
       .select({
         numericId: schema.app.numericId,
         deletedAt: schema.app.deletedAt,
-        webhookUrl: schema.app.webhookUrl,
-        webhookSecret: schema.app.webhookSecret,
       })
       .from(schema.app)
       .where(eq(schema.app.id, id));
     expect(row).toEqual({
       numericId: body.appId,
       deletedAt: expect.any(Date),
-      webhookUrl: null,
-      webhookSecret: null,
     });
+    expect(
+      await db
+        .select({ id: schema.webhookEndpoint.id })
+        .from(schema.webhookEndpoint)
+        .where(eq(schema.webhookEndpoint.appId, id)),
+    ).toEqual([]);
     expect(
       await db
         .select({ id: schema.appPublicKey.id })

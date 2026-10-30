@@ -331,6 +331,298 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
       );
     });
 
+    describe('webhooks', () => {
+      const hooked = () =>
+        register({
+          webhookUrl: 'https://93.184.216.34/hook',
+          webhookSecret: 'shh',
+        });
+      /** What the app's endpoint got besides pings, oldest first. */
+      const deliveredTo = async (appId: string) => {
+        const jobs = await db
+          .select({ payload: schema.deliveryJob.payload })
+          .from(schema.deliveryJob)
+          .innerJoin(
+            schema.webhookEndpoint,
+            eq(schema.webhookEndpoint.id, schema.deliveryJob.endpointId),
+          )
+          .where(eq(schema.webhookEndpoint.appId, appId))
+          .orderBy(schema.deliveryJob.createdAt);
+        return jobs
+          .map(({ payload }) => payload as { event: string; body: string })
+          .filter(({ event }) => event !== 'ping')
+          .map(({ event, body }) => ({ event, ...JSON.parse(body) }));
+      };
+      const repositoryIds = (body: { repositories?: { id: string }[] }) =>
+        body.repositories?.map(({ id }) => id).sort();
+      const configure = (id: string, body: object) =>
+        api()
+          .patch(`/api/installations/${id}`)
+          .set('cookie', installer.cookie)
+          .send(body)
+          .expect(200);
+
+      it('install sends installation.created with the installation id and its repositories', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'selected',
+          repositoryIds: [r1],
+        }).expect(201);
+
+        const [created] = await deliveredTo(appId);
+        expect(created).toMatchObject({
+          event: 'installation.created',
+          installation: {
+            id: body.installationId,
+            account: { login: installerName(), type: 'user' },
+            repositorySelection: 'selected',
+            permissions: { metadata: 'read', issues: 'write' },
+            events: ['issue.opened'],
+          },
+          repositories: [
+            { id: r1, fullName: `${installerName()}/inr1${stamp}` },
+          ],
+          sender: { username: installerName() },
+        });
+      });
+
+      it('adding and removing selected repositories sends repositories_added and repositories_removed', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'selected',
+          repositoryIds: [r1],
+        }).expect(201);
+
+        await configure(body.id, {
+          repositorySelection: 'selected',
+          repositoryIds: [r2],
+        });
+
+        const changes = (await deliveredTo(appId)).slice(1);
+        expect(changes.map(({ event }) => event).sort()).toEqual([
+          'installation.repositories_added',
+          'installation.repositories_removed',
+        ]);
+        const byEvent = Object.fromEntries(
+          changes.map((change) => [change.event, change]),
+        );
+        expect(
+          repositoryIds(byEvent['installation.repositories_added']),
+        ).toEqual([r2]);
+        expect(
+          repositoryIds(byEvent['installation.repositories_removed']),
+        ).toEqual([r1]);
+        expect(byEvent['installation.repositories_added']).toMatchObject({
+          installation: {
+            id: body.installationId,
+            repositorySelection: 'selected',
+          },
+        });
+      });
+
+      it('switching to selected lists the repositories removed', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+
+        await configure(body.id, {
+          repositorySelection: 'selected',
+          repositoryIds: [r1],
+        });
+        await configure(body.id, { repositorySelection: 'all' });
+
+        const [, removed, added] = await deliveredTo(appId);
+        expect(removed!.event).toBe('installation.repositories_removed');
+        expect(repositoryIds(removed!)).toContain(r2);
+        expect(repositoryIds(removed!)).not.toContain(r1);
+        expect(added!.event).toBe('installation.repositories_added');
+        expect(repositoryIds(added!)).toEqual(repositoryIds(removed!));
+      });
+
+      it('an update that changes nothing sends nothing', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'selected',
+          repositoryIds: [r1],
+        }).expect(201);
+
+        await configure(body.id, {
+          repositorySelection: 'selected',
+          repositoryIds: [r1],
+        });
+
+        expect((await deliveredTo(appId)).map(({ event }) => event)).toEqual([
+          'installation.created',
+        ]);
+      });
+
+      it('suspend and unsuspend send their events, and nothing else is sent while suspended', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'selected',
+          repositoryIds: [r1],
+        }).expect(201);
+
+        await api()
+          .put(`/api/installations/${body.id}/suspended`)
+          .set('cookie', installer.cookie)
+          .expect(204);
+        await configure(body.id, {
+          repositorySelection: 'selected',
+          repositoryIds: [r2],
+        });
+        await api()
+          .delete(`/api/installations/${body.id}/suspended`)
+          .set('cookie', installer.cookie)
+          .expect(204);
+
+        expect((await deliveredTo(appId)).map(({ event }) => event)).toEqual([
+          'installation.created',
+          'installation.suspended',
+          'installation.unsuspended',
+        ]);
+      });
+
+      it('suspending twice or unsuspending an active installation sends nothing more', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        const suspended = () =>
+          api()
+            .put(`/api/installations/${body.id}/suspended`)
+            .set('cookie', installer.cookie)
+            .expect(204);
+        const unsuspended = () =>
+          api()
+            .delete(`/api/installations/${body.id}/suspended`)
+            .set('cookie', installer.cookie)
+            .expect(204);
+
+        await unsuspended();
+        await suspended();
+        await suspended();
+        await unsuspended();
+        await unsuspended();
+
+        expect((await deliveredTo(appId)).map(({ event }) => event)).toEqual([
+          'installation.created',
+          'installation.suspended',
+          'installation.unsuspended',
+        ]);
+      });
+
+      it('uninstall sends installation.deleted last', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+
+        await api()
+          .delete(`/api/installations/${body.id}`)
+          .set('cookie', installer.cookie)
+          .expect(204);
+
+        const events = await deliveredTo(appId);
+        expect(events.map(({ event }) => event)).toEqual([
+          'installation.created',
+          'installation.deleted',
+        ]);
+        expect(events[1]).toMatchObject({
+          installation: { id: body.installationId },
+        });
+      });
+
+      it('reinstall gets a new installation id', async () => {
+        const { id: appId, slug } = await hooked();
+        const first = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        await api()
+          .delete(`/api/installations/${first.body.id}`)
+          .set('cookie', installer.cookie)
+          .expect(204);
+        const second = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+
+        const ids = (await deliveredTo(appId)).map(
+          ({ installation }) => installation.id,
+        );
+        expect(ids).toEqual([
+          first.body.installationId,
+          first.body.installationId,
+          second.body.installationId,
+        ]);
+        expect(second.body.installationId).not.toBe(first.body.installationId);
+      });
+
+      it("a transfer tells the old account's installation the repository left and the new account's it arrived", async () => {
+        const { id: appId, slug } = await hooked();
+        const org = `intransfer${stamp}`;
+        await auth().createOrganization({
+          body: { name: 'Transfer Org', slug: org },
+          headers: new Headers({ cookie: installer.cookie }),
+        });
+        const name = `inmoved${stamp}`;
+        const moved = await createRepository(installer.cookie, name);
+        const { body: mine } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        const { body: theirs } = await install(slug, {
+          account: org,
+          repositorySelection: 'all',
+        }).expect(201);
+
+        await api()
+          .post(`/api/repositories/${installerName()}/${name}/transfer`)
+          .set('cookie', installer.cookie)
+          .send({ owner: org })
+          .expect(201);
+
+        const changes = (await deliveredTo(appId)).filter(
+          ({ event }) => event !== 'installation.created',
+        );
+        expect(changes).toHaveLength(2);
+        expect(changes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              event: 'installation.repositories_removed',
+              installation: expect.objectContaining({ id: mine.installationId }),
+              repositories: [{ id: moved, fullName: `${org}/${name}` }],
+            }),
+            expect.objectContaining({
+              event: 'installation.repositories_added',
+              installation: expect.objectContaining({
+                id: theirs.installationId,
+              }),
+              repositories: [{ id: moved, fullName: `${org}/${name}` }],
+            }),
+          ]),
+        );
+      });
+
+      it('an app without a webhook URL gets no jobs', async () => {
+        const { id: appId, slug } = await register();
+        await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        expect(await deliveredTo(appId)).toEqual([]);
+      });
+    });
+
     it('reconfigures repositories', async () => {
       const { slug } = await register();
       const { body } = await install(slug, {

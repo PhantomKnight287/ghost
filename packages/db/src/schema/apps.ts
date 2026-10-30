@@ -32,8 +32,6 @@ export const app = pgTable(
     homepageUrl: text().notNull(),
     setupUrl: text(),
     logoUrl: text(),
-    webhookUrl: text(),
-    webhookSecret: text(),
     permissions: jsonb().$type<Record<string, "read" | "write">>().notNull(),
     events: text().array().notNull(),
     ownerUserId: text().references(() => user.id, { onDelete: "set null" }),

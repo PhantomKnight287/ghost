@@ -281,6 +281,30 @@ describe('messageOf', () => {
       null,
     ],
     [
+      { event: 'pull_request.opened', pullRequest: pull },
+      'ada opened pull request #7: Bell count',
+      pull.htmlUrl,
+      'The bell should count',
+    ],
+    [
+      { event: 'pull_request.edited', pullRequest: pull },
+      'ada edited pull request #7: Bell count',
+      pull.htmlUrl,
+      null,
+    ],
+    [
+      { event: 'pull_request.closed', pullRequest: pull },
+      'ada closed pull request #7: Bell count',
+      pull.htmlUrl,
+      null,
+    ],
+    [
+      { event: 'pull_request.reopened', pullRequest: pull },
+      'ada reopened pull request #7: Bell count',
+      pull.htmlUrl,
+      null,
+    ],
+    [
       { event: 'issue.reopened', issue: thread },
       'ada reopened issue #7: Bell count',
       thread.htmlUrl,

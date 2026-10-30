@@ -1,19 +1,34 @@
 import { randomUUID } from 'node:crypto';
 import { type Database, schema } from '@ghost/db';
+import {
+  type InstallationEvent,
+  WEBHOOK_EVENTS,
+  type WebhookEvent,
+} from '@ghost/webhooks';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, arrayContains, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, arrayContains, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { grants } from '../../lib/apps/permissions.js';
+import type { Executor } from '../../lib/db/executor.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import type { StoredEvent } from '../../lib/events/events.js';
 import {
   renderWebhookBody,
   type WebhookSender,
 } from '../../lib/webhooks/formats/index.js';
-import type { WebhookBody, WebhookOwner } from '../../lib/webhooks/webhooks.js';
+import {
+  type InstallationWebhookBody,
+  type WebhookBody,
+  webhookEventOf,
+  type WebhookOwner,
+} from '../../lib/webhooks/webhooks.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
-import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
+import {
+  installationCovers,
+  repositoryFullNameOf,
+} from '../../lib/repositories/access/repository-access.js';
 
 type WebhookJob = {
   endpointId: string;
@@ -42,6 +57,13 @@ export class WebhookFanoutService {
   }
 
   async handle(event: StoredEvent) {
+    const thread =
+      'issueId' in event.payload
+        ? await this.threadOf(event.payload.issueId)
+        : null;
+    if (thread === undefined) return;
+    const name = webhookEventOf(event.type, thread?.isPullRequest ?? false);
+
     const endpoints = await this.db
       .select({
         id: schema.webhookEndpoint.id,
@@ -51,7 +73,7 @@ export class WebhookFanoutService {
       .where(
         and(
           eq(schema.webhookEndpoint.active, true),
-          arrayContains(schema.webhookEndpoint.events, [event.type]),
+          arrayContains(schema.webhookEndpoint.events, [name]),
           or(
             eq(schema.webhookEndpoint.repositoryId, event.repositoryId),
             inArray(
@@ -64,18 +86,64 @@ export class WebhookFanoutService {
           ),
         ),
       );
-    if (endpoints.length === 0) return;
+    const apps = (await this.appEndpointsOf(event.repositoryId, name)).filter(
+      (endpoint) =>
+        name in WEBHOOK_EVENTS &&
+        grants(
+          endpoint.permissions,
+          WEBHOOK_EVENTS[name as WebhookEvent].permission,
+          'read',
+        ),
+    );
+    if (endpoints.length === 0 && apps.length === 0) return;
 
-    const body = await this.bodyOf(event);
+    const body = await this.bodyOf(event, name, thread);
     if (!body) return;
-    await this.enqueue(
-      endpoints.map((endpoint) => ({
+    await this.enqueue([
+      ...endpoints.map((endpoint) => ({
         endpointId: endpoint.id,
-        event: event.type,
+        event: name,
         body: renderWebhookBody(endpoint.url, body, this.sender),
         idempotencyKey: `${event.id}:${endpoint.id}`,
       })),
-    );
+      ...apps.map((endpoint) => ({
+        endpointId: endpoint.id,
+        event: name,
+        body: renderWebhookBody(
+          endpoint.url,
+          { ...body, installation: { id: endpoint.installationId } },
+          this.sender,
+        ),
+        idempotencyKey: `${event.id}:${endpoint.id}`,
+      })),
+    ]);
+  }
+
+  /** The endpoints of apps whose live installation covers the repository and accepted the event, with the permissions it accepted. */
+  private appEndpointsOf(repositoryId: string, name: string) {
+    return this.db
+      .select({
+        id: schema.webhookEndpoint.id,
+        url: schema.webhookEndpoint.url,
+        installationId: schema.appInstallation.numericId,
+        permissions: schema.appInstallation.permissions,
+      })
+      .from(schema.repository)
+      .innerJoin(schema.appInstallation, installationCovers(schema.repository))
+      .innerJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
+      .innerJoin(
+        schema.webhookEndpoint,
+        eq(schema.webhookEndpoint.appId, schema.app.id),
+      )
+      .where(
+        and(
+          eq(schema.repository.id, repositoryId),
+          isNull(schema.app.deletedAt),
+          isNull(schema.appInstallation.suspendedAt),
+          eq(schema.webhookEndpoint.active, true),
+          arrayContains(schema.appInstallation.events, [name]),
+        ),
+      );
   }
 
   /** Sent when an endpoint is created and from its "Send test" button, whatever events it chose. */
@@ -92,9 +160,13 @@ export class WebhookFanoutService {
           {
             event: 'ping',
             webhook: endpoint,
-            ...('repositoryId' in owner
-              ? { repository: { fullName: owner.name } }
-              : { organization: { slug: owner.name } }),
+            ...('repositoryId' in owner && {
+              repository: { fullName: owner.name },
+            }),
+            ...('organizationId' in owner && {
+              organization: { slug: owner.name },
+            }),
+            ...('appId' in owner && { app: { slug: owner.name } }),
             createdAt: new Date().toISOString(),
           },
           this.sender,
@@ -104,9 +176,139 @@ export class WebhookFanoutService {
     ]);
   }
 
-  async enqueue(jobs: WebhookJob[]) {
+  /** The live installations that cover the repository now. Taken before a repository moves to another account, for `repositoryMoved`. */
+  async installationsCovering(tx: Executor, repositoryId: string) {
+    const rows = await tx
+      .select({ id: schema.appInstallation.id })
+      .from(schema.repository)
+      .innerJoin(schema.appInstallation, installationCovers(schema.repository))
+      .innerJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
+      .where(
+        and(
+          eq(schema.repository.id, repositoryId),
+          isNull(schema.app.deletedAt),
+          isNull(schema.appInstallation.suspendedAt),
+        ),
+      );
+    return rows.map(({ id }) => id);
+  }
+
+  /** After a repository moved accounts: installations that lost it hear `repositories_removed`, and those that gained it `repositories_added`. */
+  async repositoryMoved(
+    tx: Executor,
+    repositoryId: string,
+    actorId: string,
+    before: string[],
+  ) {
+    const after = await this.installationsCovering(tx, repositoryId);
+    for (const id of before.filter((id) => !after.includes(id)))
+      await this.installationEvent(
+        tx,
+        id,
+        'installation.repositories_removed',
+        actorId,
+        [repositoryId],
+      );
+    for (const id of after.filter((id) => !before.includes(id)))
+      await this.installationEvent(
+        tx,
+        id,
+        'installation.repositories_added',
+        actorId,
+        [repositoryId],
+      );
+  }
+
+  /** Tells an app about one of its installations, whatever it subscribed to, in Ghost's JSON whatever its URL. On `tx`, so it is queued only if the change commits. Nothing without an active endpoint. */
+  async installationEvent(
+    tx: Executor,
+    installationId: string,
+    event: InstallationEvent,
+    senderId: string,
+    repositoryIds: string[] = [],
+  ) {
+    const [installation] = await tx
+      .select({
+        endpointId: schema.webhookEndpoint.id,
+        id: schema.appInstallation.numericId,
+        account: sql<
+          InstallationWebhookBody['installation']['account']
+        >`json_build_object('login', coalesce(${schema.organization.slug}, ${schema.user.username}), 'type', case when ${schema.appInstallation.accountOrganizationId} is null then 'user' else 'organization' end)`,
+        repositorySelection: schema.appInstallation.repositorySelection,
+        permissions: schema.appInstallation.permissions,
+        events: schema.appInstallation.events,
+      })
+      .from(schema.appInstallation)
+      .innerJoin(
+        schema.webhookEndpoint,
+        eq(schema.webhookEndpoint.appId, schema.appInstallation.appId),
+      )
+      .leftJoin(
+        schema.user,
+        eq(schema.user.id, schema.appInstallation.accountUserId),
+      )
+      .leftJoin(
+        schema.organization,
+        eq(
+          schema.organization.id,
+          schema.appInstallation.accountOrganizationId,
+        ),
+      )
+      .where(
+        and(
+          eq(schema.appInstallation.id, installationId),
+          eq(schema.webhookEndpoint.active, true),
+        ),
+      );
+    if (!installation) return;
+    const { endpointId, ...about } = installation;
+
+    const repositories =
+      repositoryIds.length === 0
+        ? []
+        : await tx
+            .select({
+              id: schema.repository.id,
+              fullName: repositoryFullNameOf(
+                schema.user,
+                schema.organization,
+                schema.repository,
+              ),
+            })
+            .from(schema.repository)
+            .innerJoin(
+              schema.user,
+              eq(schema.user.id, schema.repository.ownerId),
+            )
+            .leftJoin(
+              schema.organization,
+              eq(schema.organization.id, schema.repository.organizationId),
+            )
+            .where(inArray(schema.repository.id, repositoryIds))
+            .orderBy(schema.repository.id);
+    const body: InstallationWebhookBody = {
+      event,
+      installation: about,
+      ...(repositories.length > 0 && { repositories }),
+      sender: await this.userRef(senderId),
+      createdAt: new Date().toISOString(),
+    };
+    await this.enqueue(
+      [
+        {
+          endpointId,
+          event,
+          body: JSON.stringify(body),
+          idempotencyKey: `installation:${installationId}:${event}:${randomUUID()}`,
+        },
+      ],
+      tx,
+    );
+  }
+
+  async enqueue(jobs: WebhookJob[], db: Executor = this.db) {
     if (jobs.length === 0) return;
-    await this.db
+    await db
       .insert(schema.deliveryJob)
       .values(
         jobs.map((job) => ({
@@ -117,36 +319,43 @@ export class WebhookFanoutService {
         })),
       )
       .onConflictDoNothing();
-    await this.db.execute(sql`NOTIFY delivery`);
+    await db.execute(sql`NOTIFY delivery`);
+  }
+
+  /** The issue or pull request an event is about; undefined when it is gone. */
+  private async threadOf(issueId: string) {
+    const [thread] = await this.db
+      .select({
+        id: schema.issue.id,
+        number: schema.issue.number,
+        title: schema.issue.title,
+        body: schema.issue.body,
+        state: schema.issue.state,
+        isPullRequest: schema.issue.isPullRequest,
+        authorId: schema.issue.authorId,
+      })
+      .from(schema.issue)
+      .where(eq(schema.issue.id, issueId));
+    return thread;
   }
 
   /** Null when what the event points at is gone. */
-  private async bodyOf(event: StoredEvent): Promise<WebhookBody | null> {
+  private async bodyOf(
+    event: StoredEvent,
+    name: WebhookBody['event'],
+    thread: Awaited<ReturnType<typeof this.threadOf>> | null,
+  ): Promise<WebhookBody | null> {
     const repository = await this.repositoryRef(event.repositoryId);
     if (!repository) return null;
 
     const body: WebhookBody = {
-      event: event.type,
+      event: name,
       repository,
       sender: event.actorId ? await this.userRef(event.actorId) : null,
       createdAt: new Date(event.createdAt).toISOString(),
     };
 
-    if ('issueId' in event.payload) {
-      const [thread] = await this.db
-        .select({
-          id: schema.issue.id,
-          number: schema.issue.number,
-          title: schema.issue.title,
-          body: schema.issue.body,
-          state: schema.issue.state,
-          isPullRequest: schema.issue.isPullRequest,
-          authorId: schema.issue.authorId,
-        })
-        .from(schema.issue)
-        .where(eq(schema.issue.id, event.payload.issueId));
-      if (!thread) return null;
-
+    if (thread) {
       const kind = thread.isPullRequest ? 'pull' : 'issues';
       body[thread.isPullRequest ? 'pullRequest' : 'issue'] = {
         id: thread.id,

@@ -15,5 +15,6 @@ import { WebhooksService } from './webhooks.service.js';
     WebhookFanoutService,
     WebhookBreakerService,
   ],
+  exports: [WebhooksService, WebhookFanoutService],
 })
 export class WebhooksModule {}

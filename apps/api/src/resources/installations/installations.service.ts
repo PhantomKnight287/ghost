@@ -2,7 +2,16 @@ import { type Database, schema } from '@ghost/db';
 import type { AppPermissions } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, asc, eq, inArray, isNull, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
@@ -22,6 +31,7 @@ import {
   repositoryFullNameOf,
 } from '../../lib/repositories/access/repository-access.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
 import type {
   CreateInstallationDTO,
   InstallationAppDTO,
@@ -46,6 +56,7 @@ export class InstallationsService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
+    private readonly fanout: WebhookFanoutService,
     config: ConfigService,
   ) {
     this.web = githubOrigins(config).web;
@@ -82,6 +93,13 @@ export class InstallationsService {
           })
           .returning({ id: schema.appInstallation.id });
         await this.selectRepositories(tx, installation!.id, account, input);
+        await this.fanout.installationEvent(
+          tx,
+          installation!.id,
+          'installation.created',
+          userId,
+          input.repositorySelection === 'selected' ? input.repositoryIds : [],
+        );
         return installation!.id;
       })
       .catch((error: unknown) => {
@@ -123,6 +141,7 @@ export class InstallationsService {
   ): Promise<InstallationDTO> {
     const account = await this.manageable(userId, id);
     await this.db.transaction(async (tx) => {
+      const before = await coveredBy(tx, id);
       await tx
         .update(schema.appInstallation)
         .set({ repositorySelection: input.repositorySelection })
@@ -131,6 +150,34 @@ export class InstallationsService {
         .delete(schema.appInstallationRepository)
         .where(eq(schema.appInstallationRepository.installationId, id));
       await this.selectRepositories(tx, id, account, input);
+
+      const [{ suspendedAt } = { suspendedAt: null }] = await tx
+        .select({ suspendedAt: schema.appInstallation.suspendedAt })
+        .from(schema.appInstallation)
+        .where(eq(schema.appInstallation.id, id));
+      // a suspended installation hears nothing until it is unsuspended
+      if (suspendedAt) return;
+      const after = await coveredBy(tx, id);
+      const added = [...after].filter((repository) => !before.has(repository));
+      const removed = [...before].filter(
+        (repository) => !after.has(repository),
+      );
+      if (added.length > 0)
+        await this.fanout.installationEvent(
+          tx,
+          id,
+          'installation.repositories_added',
+          userId,
+          added,
+        );
+      if (removed.length > 0)
+        await this.fanout.installationEvent(
+          tx,
+          id,
+          'installation.repositories_removed',
+          userId,
+          removed,
+        );
     });
     return this.one(id);
   }
@@ -171,29 +218,67 @@ export class InstallationsService {
   async suspend(userId: string, id: string): Promise<void> {
     await this.manageable(userId, id);
     await this.db.transaction(async (tx) => {
-      await tx
+      const changed = await tx
         .update(schema.appInstallation)
         .set({ suspendedAt: new Date(), suspendedById: userId })
-        .where(eq(schema.appInstallation.id, id));
+        .where(
+          and(
+            eq(schema.appInstallation.id, id),
+            isNull(schema.appInstallation.suspendedAt),
+          ),
+        )
+        .returning({ id: schema.appInstallation.id });
+      // already suspended: nothing changes and the app hears nothing
+      if (changed.length === 0) return;
       await tx
         .delete(schema.appInstallationToken)
         .where(eq(schema.appInstallationToken.installationId, id));
+      await this.fanout.installationEvent(
+        tx,
+        id,
+        'installation.suspended',
+        userId,
+      );
     });
   }
 
   async unsuspend(userId: string, id: string): Promise<void> {
     await this.manageable(userId, id);
-    await this.db
-      .update(schema.appInstallation)
-      .set({ suspendedAt: null, suspendedById: null })
-      .where(eq(schema.appInstallation.id, id));
+    await this.db.transaction(async (tx) => {
+      const changed = await tx
+        .update(schema.appInstallation)
+        .set({ suspendedAt: null, suspendedById: null })
+        .where(
+          and(
+            eq(schema.appInstallation.id, id),
+            isNotNull(schema.appInstallation.suspendedAt),
+          ),
+        )
+        .returning({ id: schema.appInstallation.id });
+      if (changed.length === 0) return;
+      await this.fanout.installationEvent(
+        tx,
+        id,
+        'installation.unsuspended',
+        userId,
+      );
+    });
   }
 
   async uninstall(userId: string, id: string): Promise<void> {
     await this.manageable(userId, id);
-    await this.db
-      .delete(schema.appInstallation)
-      .where(eq(schema.appInstallation.id, id));
+    await this.db.transaction(async (tx) => {
+      // queued first, while the installation can still be read; the endpoint is the app's and outlives it
+      await this.fanout.installationEvent(
+        tx,
+        id,
+        'installation.deleted',
+        userId,
+      );
+      await tx
+        .delete(schema.appInstallation)
+        .where(eq(schema.appInstallation.id, id));
+    });
   }
 
   /** `login` names the caller, or an organization they administer; anything else is a 404. */
@@ -320,4 +405,14 @@ export class InstallationsService {
       .where(and(where, isNull(schema.app.deletedAt)))
       .orderBy(asc(installation.createdAt));
   }
+}
+
+/** The repositories an installation covers now. */
+async function coveredBy(tx: Executor, installationId: string) {
+  const rows = await tx
+    .select({ id: schema.repository.id })
+    .from(schema.repository)
+    .innerJoin(schema.appInstallation, installationCovers(schema.repository))
+    .where(eq(schema.appInstallation.id, installationId));
+  return new Set(rows.map(({ id }) => id));
 }

@@ -141,3 +141,11 @@ export class IntegrationForbiddenError extends DomainError {
     super('Resource not accessible by integration');
   }
 }
+
+export class AppWebhookSecretRequiredError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('A webhook URL needs a secret');
+  }
+}

@@ -4,10 +4,18 @@ import { actionClient } from "@/lib/action-client";
 import { z } from "zod";
 
 import { callApi } from "@/lib/api/server";
-import { webhookEvents, webhookOwnerSchema } from "@/lib/webhooks";
+import {
+  deliveryOwnerSchema,
+  webhookEvents,
+  webhookOwnerSchema,
+} from "@/lib/webhooks";
 
 const owned = z.object({ owner: webhookOwnerSchema });
 const webhook = owned.extend({ webhookId: z.string() });
+const delivered = z.object({
+  owner: deliveryOwnerSchema,
+  webhookId: z.string(),
+});
 const events = z
   .array(z.enum(webhookEvents))
   .min(1, "Choose at least one event.");
@@ -73,10 +81,14 @@ export const deleteWebhook = actionClient
   });
 
 export const pingWebhook = actionClient
-  .inputSchema(webhook)
+  .inputSchema(delivered)
   .action(async ({ parsedInput: { owner, webhookId } }) => {
-    await callApi((client) =>
-      owner.kind === "repository"
+    await callApi((client) => {
+      if (owner.kind === "app")
+        return client.POST("/api/apps/{slug}/webhook/pings", {
+          params: { path: owner },
+        });
+      return owner.kind === "repository"
         ? client.POST(
             "/api/repositories/{username}/{repo}/webhooks/{webhookId}/pings",
             {
@@ -85,8 +97,8 @@ export const pingWebhook = actionClient
           )
         : client.POST("/api/organizations/{slug}/webhooks/{webhookId}/pings", {
             params: { path: { ...owner, webhookId } },
-          }),
-    );
+          });
+    });
   });
 
 export const rollWebhookSecret = actionClient
@@ -108,10 +120,15 @@ export const rollWebhookSecret = actionClient
   });
 
 export const redeliverWebhook = actionClient
-  .inputSchema(webhook.extend({ deliveryId: z.string() }))
+  .inputSchema(delivered.extend({ deliveryId: z.string() }))
   .action(async ({ parsedInput: { owner, webhookId, deliveryId } }) => {
-    await callApi((client) =>
-      owner.kind === "repository"
+    await callApi((client) => {
+      if (owner.kind === "app")
+        return client.POST(
+          "/api/apps/{slug}/webhook/deliveries/{deliveryId}/redeliveries",
+          { params: { path: { slug: owner.slug, deliveryId } } },
+        );
+      return owner.kind === "repository"
         ? client.POST(
             "/api/repositories/{username}/{repo}/webhooks/{webhookId}/deliveries/{deliveryId}/redeliveries",
             {
@@ -123,6 +140,6 @@ export const redeliverWebhook = actionClient
             {
               params: { path: { ...owner, webhookId, deliveryId } },
             },
-          ),
-    );
+          );
+    });
   });

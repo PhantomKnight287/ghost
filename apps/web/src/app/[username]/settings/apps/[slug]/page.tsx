@@ -18,5 +18,15 @@ export default async function OrganizationAppPage({
   )
     notFound();
 
-  return <AppDetail app={data} organization={organization} />;
+  const deliveries = data.webhookId
+    ? ((
+        await client.GET("/api/apps/{slug}/webhook/deliveries", {
+          params: { path: { slug } },
+        })
+      ).data?.deliveries ?? [])
+    : [];
+
+  return (
+    <AppDetail app={data} deliveries={deliveries} organization={organization} />
+  );
 }

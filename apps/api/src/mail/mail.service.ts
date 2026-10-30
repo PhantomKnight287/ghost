@@ -127,7 +127,8 @@ export class MailService {
       owner: string;
       url: string;
       reason: string;
-      webhookId: string;
+      /** Where its owner turns it back on, from the web app's root. */
+      settingsPath: string;
     },
   ): Promise<void> {
     await this.send(
@@ -136,7 +137,7 @@ export class MailService {
       'webhook-disabled',
       {
         ...context,
-        settingsUrl: `${this.appUrl}/${context.owner}/settings/webhooks/${context.webhookId}`,
+        settingsUrl: `${this.appUrl}${context.settingsPath}`,
       },
     );
   }
