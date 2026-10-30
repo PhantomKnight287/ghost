@@ -241,7 +241,9 @@ export class WebhooksService {
 }
 
 function ownedBy(owner: WebhookOwner) {
-  return 'repositoryId' in owner
-    ? eq(schema.webhookEndpoint.repositoryId, owner.repositoryId)
-    : eq(schema.webhookEndpoint.organizationId, owner.organizationId);
+  if ('repositoryId' in owner)
+    return eq(schema.webhookEndpoint.repositoryId, owner.repositoryId);
+  if ('organizationId' in owner)
+    return eq(schema.webhookEndpoint.organizationId, owner.organizationId);
+  return eq(schema.webhookEndpoint.appId, owner.appId);
 }

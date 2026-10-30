@@ -8,11 +8,13 @@ import {
   timestamp,
   integer,
   index,
+  uniqueIndex,
   check,
   uuid,
 } from "drizzle-orm/pg-core";
 import { repository } from "./repository.js";
 import { organization } from "./auth.js";
+import { app } from "./apps.js";
 import { sql } from "drizzle-orm";
 
 export const webhookEndpoint = pgTable(
@@ -27,6 +29,8 @@ export const webhookEndpoint = pgTable(
     organizationId: text().references(() => organization.id, {
       onDelete: "cascade",
     }),
+    // An app's one endpoint. It subscribes to nothing itself: each installation's accepted events decide what it gets.
+    appId: text().references(() => app.id, { onDelete: "cascade" }),
     url: text().notNull(),
     secret: text().notNull().unique(),
     events: text().array().notNull(),
@@ -43,8 +47,9 @@ export const webhookEndpoint = pgTable(
   (t) => [
     check(
       "webhook_endpoint_owner",
-      sql`num_nonnulls(repository_id, organization_id) = 1`,
+      sql`num_nonnulls(repository_id, organization_id, app_id) = 1`,
     ),
+    uniqueIndex("webhook_endpoint_app_idx").on(t.appId),
     index("webhook_endpoint_repository_idx").on(t.repositoryId),
     index("webhook_endpoint_organization_idx").on(t.organizationId),
   ],

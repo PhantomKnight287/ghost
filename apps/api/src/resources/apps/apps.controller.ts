@@ -33,6 +33,7 @@ import type { Request } from 'express';
 import { CookieOnly } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { UploadAvatarResponseDTO } from '../user/dto/avatar.dto.js';
+import { ListDeliveriesResponseDTO } from '../webhooks/dto/webhook.dto.js';
 import { AppsService } from './apps.service.js';
 import {
   AppDTO,
@@ -141,6 +142,48 @@ export class AppsController {
     @Param('id') id: string,
   ) {
     return this.apps.removePrivateKey(session.user.id, slug, id);
+  }
+
+  @Get(':slug/webhook/deliveries')
+  @ApiOperation({
+    summary: "List an app's webhook deliveries",
+    description: 'Newest first, with every attempt.',
+  })
+  @ApiOkResponse({ type: ListDeliveriesResponseDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  webhookDeliveries(
+    @Session() session: UserSession,
+    @Param('slug') slug: string,
+  ): Promise<ListDeliveriesResponseDTO> {
+    return this.apps.webhookDeliveries(session.user.id, slug);
+  }
+
+  @Post(':slug/webhook/deliveries/:deliveryId/redeliveries')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Redeliver one of an app’s webhook deliveries',
+    description: 'The same body again, as a new delivery.',
+  })
+  @ApiNoContentResponse()
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  redeliverWebhook(
+    @Session() session: UserSession,
+    @Param('slug') slug: string,
+    @Param('deliveryId') deliveryId: string,
+  ) {
+    return this.apps.redeliverWebhook(session.user.id, slug, deliveryId);
+  }
+
+  @Post(':slug/webhook/pings')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Send a ping to an app's webhook" })
+  @ApiNoContentResponse()
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  pingWebhook(@Session() session: UserSession, @Param('slug') slug: string) {
+    return this.apps.pingWebhook(session.user.id, slug);
   }
 
   @Put(':slug/logo')

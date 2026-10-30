@@ -25,6 +25,7 @@ import {
   AppNameUnusableError,
   AppNotFoundError,
   AppSlugReservedError,
+  AppWebhookSecretRequiredError,
   InvalidAppPermissionsError,
   PermissionRaiseError,
   PrivateKeyNotFoundError,
@@ -41,12 +42,19 @@ import type { Executor } from '../../lib/db/executor.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import { githubOrigins } from '../../lib/github/origins.js';
 import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
-import { WebhooksNotConfiguredError } from '../../lib/webhooks/webhooks.errors.js';
+import {
+  InvalidWebhookUrlError,
+  WebhooksNotConfiguredError,
+} from '../../lib/webhooks/webhooks.errors.js';
 import {
   sealWebhookSecret,
+  type WebhookOwner,
   webhookSecretKey,
+  webhookUrlProblem,
 } from '../../lib/webhooks/webhooks.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
+import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
+import { WebhooksService } from '../webhooks/webhooks.service.js';
 import type {
   AppDTO,
   AppOwnerDTO,
@@ -65,16 +73,21 @@ const MAX_PRIVATE_KEYS = 20;
 export class AppsService {
   private readonly web: string;
   private readonly webhookKey: Buffer | undefined;
+  private readonly allowPrivateWebhooks: boolean;
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly avatars: AvatarStorageService,
+    private readonly webhooks: WebhooksService,
+    private readonly fanout: WebhookFanoutService,
     config: ConfigService,
   ) {
     this.web = githubOrigins(config).web;
     this.webhookKey = webhookSecretKey(
       config.get<string>('WEBHOOK_SECRET_KEY'),
     );
+    this.allowPrivateWebhooks =
+      config.get<string>('WEBHOOK_ALLOW_PRIVATE_NETWORKS') === 'true';
   }
 
   async list(userId: string): Promise<ListAppsResponseDTO> {
@@ -131,7 +144,10 @@ export class AppsService {
     const slug = appSlug(input.name);
     if (!slug) throw new AppNameUnusableError();
     if (slug === 'new') throw new AppSlugReservedError();
-    const webhookSecret = this.sealed(input.webhookSecret);
+    const webhook = await this.webhookOf(
+      input.webhookUrl ?? null,
+      this.sealed(input.webhookSecret),
+    );
 
     const id = await this.db
       .transaction(async (tx) => {
@@ -153,8 +169,6 @@ export class AppsService {
             description: input.description ?? null,
             homepageUrl: input.homepageUrl,
             setupUrl: input.setupUrl ?? null,
-            webhookUrl: input.webhookUrl ?? null,
-            webhookSecret,
             // appPermissionsProblem has checked every key and level.
             permissions: input.permissions as AppPermissions,
             events: [...new Set(input.events)],
@@ -163,6 +177,10 @@ export class AppsService {
             botUserId,
           })
           .returning({ id: schema.app.id });
+        if (webhook)
+          await tx
+            .insert(schema.webhookEndpoint)
+            .values({ appId: app!.id, ...webhook, events: [] });
         return app!.id;
       })
       .catch((error: unknown) => {
@@ -171,6 +189,7 @@ export class AppsService {
           throw new AppNameTakenError();
         throw error;
       });
+    if (webhook) await this.ping(id, slug);
     return this.one(id);
   }
 
@@ -208,6 +227,27 @@ export class AppsService {
       ) || events.some((event) => !app.events.includes(event));
     if (installations > 0 && raises) throw new PermissionRaiseError();
 
+    const [endpoint] = await this.db
+      .select({
+        id: schema.webhookEndpoint.id,
+        url: schema.webhookEndpoint.url,
+        secret: schema.webhookEndpoint.secret,
+      })
+      .from(schema.webhookEndpoint)
+      .where(eq(schema.webhookEndpoint.appId, app.id));
+    const webhook =
+      input.webhookUrl !== undefined || input.webhookSecret !== undefined
+        ? await this.webhookOf(
+            input.webhookUrl !== undefined
+              ? input.webhookUrl
+              : (endpoint?.url ?? null),
+            input.webhookSecret !== undefined
+              ? this.sealed(input.webhookSecret)
+              : (endpoint?.secret ?? null),
+            input.webhookUrl !== undefined,
+          )
+        : endpoint && { url: endpoint.url, secret: endpoint.secret };
+
     await this.db.transaction(async (tx) => {
       await tx
         .update(schema.app)
@@ -221,15 +261,30 @@ export class AppsService {
             homepageUrl: input.homepageUrl,
           }),
           ...(input.setupUrl !== undefined && { setupUrl: input.setupUrl }),
-          ...(input.webhookUrl !== undefined && {
-            webhookUrl: input.webhookUrl,
-          }),
-          ...(input.webhookSecret !== undefined && {
-            webhookSecret: this.sealed(input.webhookSecret),
-          }),
           ...(changesGrant && { permissions, events }),
         })
         .where(eq(schema.app.id, app.id));
+      if (!webhook && endpoint)
+        await tx
+          .delete(schema.webhookEndpoint)
+          .where(eq(schema.webhookEndpoint.id, endpoint.id));
+      if (webhook && endpoint)
+        await tx
+          .update(schema.webhookEndpoint)
+          .set({
+            ...webhook,
+            active: input.webhookActive,
+            // turning it back on is the owner saying the problem is fixed
+            ...(input.webhookActive === true && {
+              disabledReason: null,
+              disabledNotifiedAt: null,
+            }),
+          })
+          .where(eq(schema.webhookEndpoint.id, endpoint.id));
+      if (webhook && !endpoint)
+        await tx
+          .insert(schema.webhookEndpoint)
+          .values({ appId: app.id, ...webhook, events: [] });
       if (installations > 0)
         await this.lowerInstallations(tx, app.id, permissions, events);
       if (input.name != null)
@@ -238,7 +293,62 @@ export class AppsService {
           .set({ name: input.name })
           .where(eq(schema.user.id, app.botUserId));
     });
+    if (webhook && !endpoint) await this.ping(app.id, slug);
     return this.one(app.id);
+  }
+
+  async webhookDeliveries(userId: string, slug: string) {
+    const { owner, webhookId } = await this.webhookOwner(userId, slug);
+    return this.webhooks.deliveries(owner, webhookId);
+  }
+
+  async redeliverWebhook(userId: string, slug: string, deliveryId: string) {
+    const { owner, webhookId } = await this.webhookOwner(userId, slug);
+    await this.webhooks.redeliver(owner, webhookId, deliveryId);
+  }
+
+  async pingWebhook(userId: string, slug: string) {
+    const { owner, webhookId } = await this.webhookOwner(userId, slug);
+    await this.webhooks.ping(owner, webhookId);
+  }
+
+  /** The app's endpoint, for its manager; a 404 without a webhook URL. */
+  private async webhookOwner(userId: string, slug: string) {
+    const { id } = await this.manageable(userId, slug);
+    const [endpoint] = await this.db
+      .select({ id: schema.webhookEndpoint.id })
+      .from(schema.webhookEndpoint)
+      .where(eq(schema.webhookEndpoint.appId, id));
+    if (!endpoint) throw new AppNotFoundError();
+    const owner: WebhookOwner = { appId: id, name: slug };
+    return { owner, webhookId: endpoint.id };
+  }
+
+  /** What the app's endpoint becomes: null without a URL. A URL needs a secret, and a new URL must reach a public address. */
+  private async webhookOf(
+    url: string | null,
+    secret: string | null,
+    checkUrl = true,
+  ) {
+    if (!url) return null;
+    if (!secret) throw new AppWebhookSecretRequiredError();
+    if (checkUrl) {
+      const problem = await webhookUrlProblem(url, this.allowPrivateWebhooks);
+      if (problem) throw new InvalidWebhookUrlError(problem);
+    }
+    return { url, secret };
+  }
+
+  private async ping(appId: string, slug: string) {
+    const [endpoint] = await this.db
+      .select({
+        id: schema.webhookEndpoint.id,
+        url: schema.webhookEndpoint.url,
+        events: schema.webhookEndpoint.events,
+      })
+      .from(schema.webhookEndpoint)
+      .where(eq(schema.webhookEndpoint.appId, appId));
+    if (endpoint) await this.fanout.ping(endpoint, { appId, name: slug });
   }
 
   /** Applies a lowered set to every installation of the app, and revokes the tokens that hold more than it now allows. */
@@ -419,8 +529,11 @@ export class AppsService {
         id: schema.app.id,
         botLogin: sql<string>`${schema.app.slug} || '[bot]'`,
         setupUrl: schema.app.setupUrl,
-        webhookUrl: schema.app.webhookUrl,
-        webhookSecretSet: sql<boolean>`${schema.app.webhookSecret} is not null`,
+        webhookUrl: schema.webhookEndpoint.url,
+        webhookSecretSet: sql<boolean>`${schema.webhookEndpoint.id} is not null`,
+        webhookId: schema.webhookEndpoint.id,
+        webhookActive: sql<boolean>`coalesce(${schema.webhookEndpoint.active}, false)`,
+        webhookDisabledReason: schema.webhookEndpoint.disabledReason,
         installationsCount: sql<number>`(select count(*)::int from ${schema.appInstallation} where ${schema.appInstallation.appId} = ${schema.app.id})`,
         privateKeys: sql<
           AppPrivateKeyDTO[]
@@ -428,6 +541,10 @@ export class AppsService {
         createdAt: isoTimestamp(schema.app.createdAt),
       })
       .from(schema.app)
+      .leftJoin(
+        schema.webhookEndpoint,
+        eq(schema.webhookEndpoint.appId, schema.app.id),
+      )
       .leftJoin(schema.user, eq(schema.user.id, schema.app.ownerUserId))
       .leftJoin(
         schema.organization,

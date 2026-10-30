@@ -6,13 +6,14 @@ import {
   AVATAR_CONTENT_TYPES,
   AVATAR_MAX_BYTES,
 } from '../../lib/avatars/avatar.constants.js';
+import { WebhooksModule } from '../webhooks/webhooks.module.js';
 import { AppsController } from './apps.controller.js';
 import { AppsService } from './apps.service.js';
 import { OrganizationAppsController } from './organization-apps.controller.js';
 import { PublicAppsController } from './public-apps.controller.js';
 
 @Module({
-  imports: [AvatarsModule],
+  imports: [AvatarsModule, WebhooksModule],
   controllers: [
     AppsController,
     PublicAppsController,

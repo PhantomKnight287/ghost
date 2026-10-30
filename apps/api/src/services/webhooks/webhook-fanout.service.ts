@@ -103,9 +103,13 @@ export class WebhookFanoutService {
           {
             event: 'ping',
             webhook: endpoint,
-            ...('repositoryId' in owner
-              ? { repository: { fullName: owner.name } }
-              : { organization: { slug: owner.name } }),
+            ...('repositoryId' in owner && {
+              repository: { fullName: owner.name },
+            }),
+            ...('organizationId' in owner && {
+              organization: { slug: owner.name },
+            }),
+            ...('appId' in owner && { app: { slug: owner.name } }),
             createdAt: new Date().toISOString(),
           },
           this.sender,

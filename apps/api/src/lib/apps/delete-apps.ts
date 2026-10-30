@@ -7,11 +7,14 @@ import type { Executor } from '../db/executor.js';
 export async function deleteApps(db: Executor, where: SQL) {
   const deleted = await db
     .update(schema.app)
-    .set({ deletedAt: new Date(), webhookUrl: null, webhookSecret: null })
+    .set({ deletedAt: new Date() })
     .where(and(where, isNull(schema.app.deletedAt)))
     .returning({ id: schema.app.id });
   if (deleted.length === 0) return;
   const ids = deleted.map(({ id }) => id);
+  await db
+    .delete(schema.webhookEndpoint)
+    .where(inArray(schema.webhookEndpoint.appId, ids));
   await db
     .delete(schema.appPublicKey)
     .where(inArray(schema.appPublicKey.appId, ids));

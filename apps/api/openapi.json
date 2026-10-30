@@ -21325,6 +21325,155 @@
         ]
       }
     },
+    "/api/apps/{slug}/webhook/deliveries": {
+      "get": {
+        "description": "Newest first, with every attempt.",
+        "operationId": "AppsController_webhookDeliveries",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDeliveriesResponseDTO"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List an app's webhook deliveries",
+        "tags": [
+          "Apps"
+        ]
+      }
+    },
+    "/api/apps/{slug}/webhook/deliveries/{deliveryId}/redeliveries": {
+      "post": {
+        "description": "The same body again, as a new delivery.",
+        "operationId": "AppsController_redeliverWebhook",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deliveryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Redeliver one of an app’s webhook deliveries",
+        "tags": [
+          "Apps"
+        ]
+      }
+    },
+    "/api/apps/{slug}/webhook/pings": {
+      "post": {
+        "operationId": "AppsController_pingWebhook",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send a ping to an app's webhook",
+        "tags": [
+          "Apps"
+        ]
+      }
+    },
     "/api/apps/{slug}/logo": {
       "put": {
         "description": "Takes the raw image bytes, PNG or JPEG. The bot wears it as its avatar.",
@@ -33033,6 +33182,20 @@
           "webhookSecretSet": {
             "type": "boolean"
           },
+          "webhookId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The app's webhook endpoint, for its deliveries. Null without a webhook URL."
+          },
+          "webhookActive": {
+            "type": "boolean",
+            "description": "False when turned off, by the owner or by Ghost."
+          },
+          "webhookDisabledReason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why Ghost turned the webhook off."
+          },
           "installationsCount": {
             "type": "number",
             "description": "Accounts the app is installed on."
@@ -33064,6 +33227,9 @@
           "setupUrl",
           "webhookUrl",
           "webhookSecretSet",
+          "webhookId",
+          "webhookActive",
+          "webhookDisabledReason",
           "installationsCount",
           "privateKeys",
           "createdAt"
@@ -33212,6 +33378,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "webhookActive": {
+            "type": "boolean",
+            "description": "Turns the webhook off or back on. Turning it on clears the reason Ghost turned it off."
           }
         }
       },

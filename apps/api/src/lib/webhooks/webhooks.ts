@@ -112,7 +112,8 @@ export async function webhookUrlProblem(
 /** Whose webhooks these are, once the requester was checked as its admin. `name` is how URLs spell it: `owner/repo` or the organization's slug. */
 export type WebhookOwner =
   | { repositoryId: string; name: string }
-  | { organizationId: string; name: string };
+  | { organizationId: string; name: string }
+  | { appId: string; name: string };
 
 type UserRef = {
   id: string;

@@ -2,6 +2,7 @@ import type { AppPermissions } from '@ghost/permissions';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsArray,
+  IsBoolean,
   IsObject,
   IsOptional,
   IsString,
@@ -103,7 +104,15 @@ export class CreateAppDTO {
   events: string[];
 }
 
-export class UpdateAppDTO extends PartialType(CreateAppDTO) {}
+export class UpdateAppDTO extends PartialType(CreateAppDTO) {
+  @ApiPropertyOptional({
+    description:
+      'Turns the webhook off or back on. Turning it on clears the reason Ghost turned it off.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  webhookActive?: boolean;
+}
 
 export class AppOwnerDTO {
   @ApiProperty({ description: 'Username, or organization slug.' })
@@ -187,6 +196,26 @@ export class AppDTO extends PublicAppDTO {
 
   @ApiProperty()
   webhookSecretSet: boolean;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      "The app's webhook endpoint, for its deliveries. Null without a webhook URL.",
+  })
+  webhookId: string | null;
+
+  @ApiProperty({
+    description: 'False when turned off, by the owner or by Ghost.',
+  })
+  webhookActive: boolean;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Why Ghost turned the webhook off.',
+  })
+  webhookDisabledReason: string | null;
 
   @ApiProperty({ description: 'Accounts the app is installed on.' })
   installationsCount: number;

@@ -886,7 +886,7 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     const emails = sendWebhookDisabledEmail.mock.calls.map(([to, email]) => [
       to,
       email.owner,
-      email.webhookId,
+      email.settingsPath,
       email.reason,
     ]);
     // the organization's owner hears about its endpoint, its plain member does not
@@ -895,19 +895,19 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
         [
           `${USERNAME}@example.com`,
           `${USERNAME}/app`,
-          failing,
+          `/${USERNAME}/app/settings/webhooks/${failing}`,
           'Every delivery failed for three days.',
         ],
         [
           `${USERNAME}@example.com`,
           `${USERNAME}/app`,
-          gone,
+          `/${USERNAME}/app/settings/webhooks/${gone}`,
           'The endpoint responded 410 Gone.',
         ],
         [
           `${USERNAME}@example.com`,
           ORGANIZATION_SLUG,
-          failingOrg,
+          `/${ORGANIZATION_SLUG}/settings/webhooks/${failingOrg}`,
           'Every delivery failed for three days.',
         ],
       ].sort(),
@@ -937,6 +937,59 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       .where(eq(schema.webhookEndpoint.id, gone));
     sendWebhookDisabledEmail.mockRejectedValueOnce(new Error('relay down'));
     await expect(breaker.sweep()).resolves.toBeUndefined();
+  });
+
+  it("emails an app's owner, with a link to the app's settings, when its endpoint is turned off", async () => {
+    const bot = `user_whk_bot_${RUN}`;
+    await db.insert(schema.user).values({
+      id: bot,
+      kind: 'bot',
+      name: 'Breaker bot',
+      username: `whk-bot-${RUN}[bot]`,
+      email: `whk-bot-${RUN}[bot]@bots.invalid`,
+    });
+    const [app] = await db
+      .insert(schema.app)
+      .values({
+        slug: `whk-bot-${RUN}`,
+        name: 'Breaker bot',
+        homepageUrl: 'https://bot.example',
+        permissions: {},
+        events: [],
+        ownerUserId: OWNER,
+        botUserId: bot,
+      })
+      .returning();
+    const [endpoint] = await db
+      .insert(schema.webhookEndpoint)
+      .values({
+        appId: app!.id,
+        url: 'https://93.184.216.34/app',
+        secret: `v1:whk-app-${RUN}`,
+        events: [],
+        active: false,
+        disabledReason: 'The endpoint responded 410 Gone.',
+      })
+      .returning();
+
+    const sendWebhookDisabledEmail = vi.fn().mockResolvedValue(undefined);
+    await new WebhookBreakerService(db, {
+      sendWebhookDisabledEmail,
+    } as unknown as MailService).notifyDisabled();
+
+    expect(sendWebhookDisabledEmail).toHaveBeenCalledWith(
+      `${USERNAME}@example.com`,
+      expect.objectContaining({
+        owner: 'Breaker bot',
+        settingsPath: `/settings/apps/whk-bot-${RUN}`,
+        url: 'https://93.184.216.34/app',
+      }),
+    );
+    await db
+      .delete(schema.webhookEndpoint)
+      .where(eq(schema.webhookEndpoint.id, endpoint!.id));
+    await db.delete(schema.app).where(eq(schema.app.id, app!.id));
+    await db.delete(schema.user).where(eq(schema.user.id, bot));
   });
 
   it('lists deliveries with their attempts and redelivers one as a new delivery', async () => {
