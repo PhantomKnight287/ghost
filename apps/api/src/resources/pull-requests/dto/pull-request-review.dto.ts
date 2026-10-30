@@ -1,3 +1,4 @@
+import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 import { schema } from '@ghost/db';
 import {
   ApiProperty,
@@ -137,6 +138,14 @@ export class ReviewReplyDTO {
   @IsString()
   authorUsername: string;
 
+  @ApiProperty({
+    type: () => ViaAppDTO,
+    nullable: true,
+    description:
+      'The app a user-to-server token acted through, shown as "via".',
+  })
+  viaApp: ViaAppDTO | null;
+
   @ApiProperty({ type: String, nullable: true, description: 'Avatar URL.' })
   @IsString()
   @IsOptional()
@@ -258,6 +267,14 @@ export class PullRequestReviewDTO {
   @ApiProperty()
   @IsString()
   authorUsername: string;
+
+  @ApiProperty({
+    type: () => ViaAppDTO,
+    nullable: true,
+    description:
+      'The app a user-to-server token acted through, shown as "via".',
+  })
+  viaApp: ViaAppDTO | null;
 
   @ApiProperty({ type: String, nullable: true, description: 'Avatar URL.' })
   @IsString()

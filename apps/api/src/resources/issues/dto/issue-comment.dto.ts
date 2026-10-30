@@ -1,3 +1,4 @@
+import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -21,6 +22,14 @@ export class IssueCommentDTO {
   @ApiProperty()
   @IsString()
   authorUsername: string;
+
+  @ApiProperty({
+    type: () => ViaAppDTO,
+    nullable: true,
+    description:
+      'The app a user-to-server token acted through, shown as "via".',
+  })
+  viaApp: ViaAppDTO | null;
 
   @ApiProperty()
   @IsISO8601()

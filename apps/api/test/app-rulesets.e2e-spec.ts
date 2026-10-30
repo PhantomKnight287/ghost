@@ -10,6 +10,14 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { type Database, schema } from '@ghost/db';
+import { eq } from 'drizzle-orm';
+
+import { DATABASE } from '../src/database/database.module.js';
+import {
+  generateUserToken,
+  hashUserToken,
+} from '../src/lib/apps/user-token.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 const NO_REQUIREMENTS = {
@@ -263,6 +271,36 @@ describe.skipIf(!hasBackends)('Rulesets and apps', { timeout: 60_000 }, () => {
     await rest(installer.key)
       .put(`/pulls/${number}/merge`, { merge_method: 'merge' })
       .expect(200);
+  });
+
+  it('a user-to-server status does not satisfy a pinned check', async () => {
+    const { base, sha, number } = await pullRequest();
+    await ruleset(base, [
+      {
+        type: 'required_status_checks',
+        parameters: {
+          required_status_checks: [{ context: 'ci', integration_id: ci.appId }],
+          strict_required_status_checks_policy: false,
+        },
+      },
+    ]);
+    const db = app.get<Database>(DATABASE);
+    const [ciApp] = await db
+      .select({ id: schema.app.id })
+      .from(schema.app)
+      .where(eq(schema.app.slug, ci.slug));
+    const ghu = generateUserToken();
+    await db.insert(schema.appUserToken).values({
+      appId: ciApp!.id,
+      userId: installer.userId,
+      tokenHash: hashUserToken(ghu),
+    });
+
+    await status(ghu, sha, 'success');
+    const { body } = await rest(installer.key)
+      .put(`/pulls/${number}/merge`, { merge_method: 'merge' })
+      .expect(405);
+    expect(body.message).toContain('Required status check "ci" is expected.');
   });
 
   /** A merge commit on `base`, pushed with `credential`. */

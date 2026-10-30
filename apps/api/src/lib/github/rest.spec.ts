@@ -40,6 +40,7 @@ const issue = {
   state: 'closed' as const,
   isPullRequest: false,
   authorUsername: 'ada',
+  viaApp: null,
   closedByUsername: null,
   labels: [
     {
@@ -171,6 +172,7 @@ describe('toCommentRest', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
         authorUsername: 'ada',
+        viaApp: null,
         issueNumber: 4,
         isPullRequest: true,
       },

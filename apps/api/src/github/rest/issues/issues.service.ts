@@ -12,6 +12,7 @@ import {
   sql,
 } from 'drizzle-orm';
 
+import { viaAppOf } from '../../../lib/apps/via-app.js';
 import { DATABASE } from '../../../database/database.module.js';
 import { isoTimestamp, sameName } from '../../../lib/db/sql.js';
 import {
@@ -413,6 +414,7 @@ export class GithubIssuesService {
       .select({
         id: schema.issueComment.id,
         numericId: schema.issueComment.numericId,
+        viaApp: viaAppOf(schema.issueComment.viaAppId),
         body: schema.issueComment.body,
         createdAt: isoTimestamp(schema.issueComment.createdAt),
         updatedAt: isoTimestamp(schema.issueComment.updatedAt),

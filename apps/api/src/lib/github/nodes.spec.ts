@@ -81,6 +81,7 @@ describe('toIssueNode', () => {
     state: 'closed',
     isPullRequest: false,
     authorUsername: 'ada',
+    viaApp: null,
     closedByUsername: 'ada',
     labels: [],
     assignees: ['bob'],
@@ -142,6 +143,7 @@ describe('toCommitNode', () => {
     targetUrl: null,
     createdAt: '2026-01-02T00:00:00Z',
     creator: null,
+    viaApp: null,
   });
 
   it('has no rollup without statuses', () => {

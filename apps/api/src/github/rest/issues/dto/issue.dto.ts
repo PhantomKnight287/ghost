@@ -323,6 +323,13 @@ export class GithubIssueDTO {
   @ApiProperty(AUTHOR_ASSOCIATION)
   author_association: string;
 
+  @ApiProperty({
+    type: () => GithubViaAppDTO,
+    nullable: true,
+    description: 'The app a user-to-server token acted through.',
+  })
+  performed_via_github_app: GithubViaAppDTO | null;
+
   @ApiPropertyOptional({ description: 'Pull requests only.' })
   draft?: boolean;
 
@@ -363,4 +370,29 @@ export class GithubIssueCommentDTO {
 
   @ApiProperty(AUTHOR_ASSOCIATION)
   author_association: string;
+
+  @ApiProperty({
+    type: () => GithubViaAppDTO,
+    nullable: true,
+    description: 'The app a user-to-server token acted through.',
+  })
+  performed_via_github_app: GithubViaAppDTO | null;
+}
+
+/** As much of GitHub's App object as `performed_via_github_app` needs. */
+export class GithubViaAppDTO {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  html_url: string;
 }

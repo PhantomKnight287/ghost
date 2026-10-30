@@ -27,6 +27,7 @@ import {
   pendingReviewRequestFor,
   type ReviewRequested,
 } from '../../lib/pull-requests/review-requested.js';
+import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import type { Role } from '@ghost/permissions';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
@@ -98,6 +99,7 @@ const labelColumns = {
 
 const commentColumns = {
   id: schema.issueComment.id,
+  viaApp: viaAppOf(schema.issueComment.viaAppId),
   body: schema.issueComment.body,
   createdAt: isoTimestamp(schema.issueComment.createdAt),
   updatedAt: isoTimestamp(schema.issueComment.updatedAt),
@@ -221,6 +223,7 @@ export class IssuesService {
       title,
       body,
       authorId,
+      viaAppId: currentViaAppId(),
       isPullRequest,
       number: sql<number>`(select coalesce(max(${schema.issue.number}), 0) + 1 from ${schema.issue} where ${schema.issue.repositoryId} = ${repository.id})`,
     };
@@ -714,6 +717,7 @@ export class IssuesService {
         .values({
           issueId: issue.id,
           authorId: params.requesterId,
+          viaAppId: currentViaAppId(),
           body: params.body,
         })
         .returning(commentColumns);
@@ -1310,31 +1314,55 @@ export class IssuesService {
       ),
     ];
 
-    const [authors, closers, labelRows, assigneeRows] = await Promise.all([
-      this.db
-        .select({ id: schema.user.id, username: schema.user.username })
-        .from(schema.user)
-        .where(inArray(schema.user.id, authorIds)),
-      closerIds.length > 0
-        ? this.db
-            .select({ id: schema.user.id, username: schema.user.username })
-            .from(schema.user)
-            .where(inArray(schema.user.id, closerIds))
-        : Promise.resolve([] as Array<{ id: string; username: string | null }>),
-      this.db
-        .select({ issueId: schema.issueLabel.issueId, ...labelColumns })
-        .from(schema.issueLabel)
-        .innerJoin(schema.label, eq(schema.label.id, schema.issueLabel.labelId))
-        .where(inArray(schema.issueLabel.issueId, ids)),
-      this.db
-        .select({
-          issueId: schema.issueAssignee.issueId,
-          username: schema.user.username,
-        })
-        .from(schema.issueAssignee)
-        .innerJoin(schema.user, eq(schema.user.id, schema.issueAssignee.userId))
-        .where(inArray(schema.issueAssignee.issueId, ids)),
-    ]);
+    const [authors, closers, labelRows, assigneeRows, viaRows] =
+      await Promise.all([
+        this.db
+          .select({ id: schema.user.id, username: schema.user.username })
+          .from(schema.user)
+          .where(inArray(schema.user.id, authorIds)),
+        closerIds.length > 0
+          ? this.db
+              .select({ id: schema.user.id, username: schema.user.username })
+              .from(schema.user)
+              .where(inArray(schema.user.id, closerIds))
+          : Promise.resolve(
+              [] as Array<{ id: string; username: string | null }>,
+            ),
+        this.db
+          .select({ issueId: schema.issueLabel.issueId, ...labelColumns })
+          .from(schema.issueLabel)
+          .innerJoin(
+            schema.label,
+            eq(schema.label.id, schema.issueLabel.labelId),
+          )
+          .where(inArray(schema.issueLabel.issueId, ids)),
+        this.db
+          .select({
+            issueId: schema.issueAssignee.issueId,
+            username: schema.user.username,
+          })
+          .from(schema.issueAssignee)
+          .innerJoin(
+            schema.user,
+            eq(schema.user.id, schema.issueAssignee.userId),
+          )
+          .where(inArray(schema.issueAssignee.issueId, ids)),
+        this.db
+          .select({
+            issueId: schema.issue.id,
+            viaApp: viaAppOf(schema.issue.viaAppId),
+          })
+          .from(schema.issue)
+          .where(
+            and(
+              inArray(schema.issue.id, ids),
+              isNotNull(schema.issue.viaAppId),
+            ),
+          ),
+      ]);
+    const viaAppByIssue = new Map(
+      viaRows.map(({ issueId, viaApp }) => [issueId, viaApp]),
+    );
 
     const authorById = new Map(authors.map((u) => [u.id, u.username ?? '']));
     const closerById = new Map(closers.map((u) => [u.id, u.username ?? null]));
@@ -1359,6 +1387,7 @@ export class IssuesService {
       state: issueRow.state,
       isPullRequest: issueRow.isPullRequest,
       authorUsername: authorById.get(issueRow.authorId) ?? '',
+      viaApp: viaAppByIssue.get(issueRow.id) ?? null,
       closedByUsername: issueRow.closedById
         ? (closerById.get(issueRow.closedById) ?? null)
         : null,
