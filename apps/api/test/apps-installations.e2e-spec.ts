@@ -567,6 +567,52 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
         expect(second.body.installationId).not.toBe(first.body.installationId);
       });
 
+      it("a transfer tells the old account's installation the repository left and the new account's it arrived", async () => {
+        const { id: appId, slug } = await hooked();
+        const org = `intransfer${stamp}`;
+        await auth().createOrganization({
+          body: { name: 'Transfer Org', slug: org },
+          headers: new Headers({ cookie: installer.cookie }),
+        });
+        const name = `inmoved${stamp}`;
+        const moved = await createRepository(installer.cookie, name);
+        const { body: mine } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        const { body: theirs } = await install(slug, {
+          account: org,
+          repositorySelection: 'all',
+        }).expect(201);
+
+        await api()
+          .post(`/api/repositories/${installerName()}/${name}/transfer`)
+          .set('cookie', installer.cookie)
+          .send({ owner: org })
+          .expect(201);
+
+        const changes = (await deliveredTo(appId)).filter(
+          ({ event }) => event !== 'installation.created',
+        );
+        expect(changes).toHaveLength(2);
+        expect(changes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              event: 'installation.repositories_removed',
+              installation: expect.objectContaining({ id: mine.installationId }),
+              repositories: [{ id: moved, fullName: `${org}/${name}` }],
+            }),
+            expect.objectContaining({
+              event: 'installation.repositories_added',
+              installation: expect.objectContaining({
+                id: theirs.installationId,
+              }),
+              repositories: [{ id: moved, fullName: `${org}/${name}` }],
+            }),
+          ]),
+        );
+      });
+
       it('an app without a webhook URL gets no jobs', async () => {
         const { id: appId, slug } = await register();
         await install(slug, {

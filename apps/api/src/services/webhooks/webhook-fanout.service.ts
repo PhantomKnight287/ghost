@@ -176,6 +176,49 @@ export class WebhookFanoutService {
     ]);
   }
 
+  /** The live installations that cover the repository now. Taken before a repository moves to another account, for `repositoryMoved`. */
+  async installationsCovering(tx: Executor, repositoryId: string) {
+    const rows = await tx
+      .select({ id: schema.appInstallation.id })
+      .from(schema.repository)
+      .innerJoin(schema.appInstallation, installationCovers(schema.repository))
+      .innerJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
+      .where(
+        and(
+          eq(schema.repository.id, repositoryId),
+          isNull(schema.app.deletedAt),
+          isNull(schema.appInstallation.suspendedAt),
+        ),
+      );
+    return rows.map(({ id }) => id);
+  }
+
+  /** After a repository moved accounts: installations that lost it hear `repositories_removed`, and those that gained it `repositories_added`. */
+  async repositoryMoved(
+    tx: Executor,
+    repositoryId: string,
+    actorId: string,
+    before: string[],
+  ) {
+    const after = await this.installationsCovering(tx, repositoryId);
+    for (const id of before.filter((id) => !after.includes(id)))
+      await this.installationEvent(
+        tx,
+        id,
+        'installation.repositories_removed',
+        actorId,
+        [repositoryId],
+      );
+    for (const id of after.filter((id) => !before.includes(id)))
+      await this.installationEvent(
+        tx,
+        id,
+        'installation.repositories_added',
+        actorId,
+        [repositoryId],
+      );
+  }
+
   /** Tells an app about one of its installations, whatever it subscribed to, in Ghost's JSON whatever its URL. On `tx`, so it is queued only if the change commits. Nothing without an active endpoint. */
   async installationEvent(
     tx: Executor,

@@ -21,6 +21,7 @@ import { CodeSearchService } from '../../services/git/code-search/code-search.se
 import { LfsService } from '../../services/git/lfs/lfs.service.js';
 import { CodeownersService } from '../../services/codeowners/codeowners.service.js';
 import { CodeownersController } from './codeowners.controller.js';
+import { WebhooksModule } from '../webhooks/webhooks.module.js';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CodeownersController } from './codeowners.controller.js';
     MaterializerModule,
     ReleasesModule,
     CommitStatusesModule,
+    WebhooksModule,
   ],
   controllers: [
     RepositoriesController,

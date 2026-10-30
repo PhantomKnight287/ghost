@@ -133,6 +133,7 @@ import { CommitVerificationService } from '../../services/gpg/commit-verificatio
 import { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { UsersService } from '../../services/users/users.service.js';
+import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
 import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
 import { ReleaseArchivesService } from '../releases/release-archives.service.js';
 import type {
@@ -206,6 +207,7 @@ export class RepositoriesService {
     private readonly verification: CommitVerificationService,
     private readonly codeSearch: CodeSearchService,
     private readonly s3: S3Service,
+    private readonly fanout: WebhookFanoutService,
     private readonly quota: StorageQuotaService,
     private readonly lfs: LfsService,
     private readonly releaseArchives: ReleaseArchivesService,
@@ -1000,6 +1002,10 @@ export class RepositoriesService {
   ) {
     const previous = await this.ownerNameOf(repository.id);
     await this.db.transaction(async (tx) => {
+      const installations = await this.fanout.installationsCovering(
+        tx,
+        repository.id,
+      );
       await tx
         .update(schema.repository)
         .set({
@@ -1029,6 +1035,12 @@ export class RepositoriesService {
         actorId,
         payload: { from: previous },
       });
+      await this.fanout.repositoryMoved(
+        tx,
+        repository.id,
+        actorId,
+        installations,
+      );
     });
   }
 
