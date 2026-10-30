@@ -57,6 +57,7 @@ function harness({
     { authorize } as never,
     limiter as never,
     { verify: vi.fn().mockResolvedValue(null) } as never,
+    { verify: vi.fn().mockResolvedValue(null) } as never,
     db as never,
     new ConfigService({ BETTER_AUTH_SECRET: SECRET }),
   );

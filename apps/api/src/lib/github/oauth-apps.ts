@@ -3,6 +3,8 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { type Database, schema } from '@ghost/db';
 import { and, eq, sql } from 'drizzle-orm';
 
+import type { Executor } from '../db/executor.js';
+
 export type OauthApp = {
   clientId: string;
   name: string;
@@ -15,6 +17,8 @@ export type OauthApp = {
   ownerId: string | null;
   /** Slug of the organization that owns the app, null for a user's app. */
   organization: string | null;
+  /** Set when the client is a Ghost App's: its tokens are `ghu_`, and its secrets are the app's. */
+  ghostAppId: string | null;
 };
 
 /** The organization a call into the oauth-provider plugin acts for. The plugin's `clientReference` reads it, so an org's app is created with it as `referenceId` and only calls made for that org may change it. Outside a call it is unset, and apps belong to users. */
@@ -59,6 +63,7 @@ export async function findOauthApp(
       builtIn: sql<boolean>`${schema.oauthClient.userId} is null and ${schema.oauthClient.referenceId} is null`,
       ownerId: schema.oauthClient.userId,
       organization: schema.organization.slug,
+      ghostAppId: sql<string | null>`${schema.oauthClient.metadata}->>'appId'`,
     })
     .from(schema.oauthClient)
     .leftJoin(
@@ -67,4 +72,23 @@ export async function findOauthApp(
     )
     .where(and(eq(schema.oauthClient.clientId, clientId), oauthAppEnabled));
   return app ?? null;
+}
+
+/** The plugin's update drops `metadata`, where Ghost keeps the fields the plugin lacks, so they are merged in here. An undefined field is left as it is. */
+export async function setOauthClientFields(
+  db: Executor,
+  clientId: string,
+  fields: {
+    deviceFlow?: boolean;
+    expireUserTokens?: boolean;
+    description?: string;
+    appId?: string;
+  },
+) {
+  await db
+    .update(schema.oauthClient)
+    .set({
+      metadata: sql`coalesce(${schema.oauthClient.metadata}, '{}'::jsonb) || ${JSON.stringify(fields)}::jsonb`,
+    })
+    .where(eq(schema.oauthClient.clientId, clientId));
 }

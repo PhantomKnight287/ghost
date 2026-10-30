@@ -41,6 +41,8 @@ import { OauthModule } from './oauth/oauth.module.js';
 import { GithubGitModule } from './rest/git/git.module.js';
 import { GithubIssuesModule } from './rest/issues/issues.module.js';
 import { AppJwtService } from '../services/apps/app-jwt.service.js';
+import { AppClientsService } from '../services/apps/app-clients.service.js';
+import { UserTokensService } from '../services/apps/user-tokens.service.js';
 import { InstallationTokensService } from '../services/apps/installation-tokens.service.js';
 import { GithubAppModule } from './rest/app/app.module.js';
 import { MetaModule } from './rest/meta/meta.module.js';
@@ -118,6 +120,8 @@ import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
   providers: [
     AppJwtService,
     InstallationTokensService,
+    AppClientsService,
+    UserTokensService,
     ViewerResolver,
     IssueCommentResolver,
     SearchResolver,

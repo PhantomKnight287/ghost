@@ -6,6 +6,7 @@ import {
 import { Reflector } from '@nestjs/core';
 
 import {
+  ALLOW_USER_TOKENS,
   APP_PERMISSION,
   type AppPermissionNeeds,
   neededLevels,
@@ -13,7 +14,8 @@ import {
 } from '../lib/apps/app-permission.js';
 import { IntegrationForbiddenError } from '../lib/apps/apps.errors.js';
 import { grants } from '../lib/apps/permissions.js';
-import type { AppPermission } from '@ghost/permissions';
+import type { AppPermission, AppPermissions } from '@ghost/permissions';
+import type { UserToServerCaller } from '../lib/apps/user-token-context.js';
 import { RepositoryNotFoundError } from '../lib/repositories/repositories.errors.js';
 import type { GithubRequest } from '../github/auth/github-request.js';
 import type { GitAuthenticatedBufferedRequest } from '../git/types.js';
@@ -22,7 +24,7 @@ import { RepositoryAccessService } from '../services/git/repository-access/repos
 
 type Request = GithubRequest & GitAuthenticatedBufferedRequest;
 
-/** Limits an installation token to the routes that declare a permission, on the repositories its installation covers, as far as its permissions reach. Everyone else passes untouched. */
+/** Limits an installation token to the routes that declare a permission, on the repositories its installation covers, as far as its permissions reach. A `ghu_` token gets the same limits from its app's installations, on top of its user's own access. Everyone else passes untouched. */
 @Injectable()
 export class AppPermissionGuard implements CanActivate {
   constructor(
@@ -34,6 +36,7 @@ export class AppPermissionGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;
     const req = context.switchToHttp().getRequest<Request>();
+    if (req.userToServer) return this.forUser(context, req, req.userToServer);
     const caller = req.appInstallation;
     if (!caller) return true;
     const needs = this.reflector.getAllAndOverride<
@@ -82,11 +85,72 @@ export class AppPermissionGuard implements CanActivate {
     throw new IntegrationForbiddenError();
   }
 
+  /** The user's own role still decides, since every service checks it for the user; this adds the app's limits: a declared route, an installation of the app covering the repository, and its accepted permissions. */
+  private async forUser(
+    context: ExecutionContext,
+    req: Request,
+    caller: UserToServerCaller,
+  ) {
+    const handlers = [context.getHandler(), context.getClass()];
+    if (this.reflector.getAllAndOverride<boolean>(ALLOW_USER_TOKENS, handlers))
+      return true;
+    const needs = this.reflector.getAllAndOverride<
+      AppPermission | AppPermissionNeeds | undefined
+    >(APP_PERMISSION, handlers);
+    if (needs === undefined) throw new IntegrationForbiddenError();
+    const levels = Object.entries(neededLevels(needs, req)) as [
+      AppPermission,
+      'read' | 'write',
+    ][];
+    const allow = (held: AppPermissions) =>
+      levels.every(([name, level]) => grants(held, name, level));
+
+    const { owner, username, repo } = req.params as Record<string, string>;
+    if (!repo) {
+      if (!allow(await this.installations.appPermissions(caller.appId)))
+        throw new IntegrationForbiddenError();
+      return true;
+    }
+    const repository =
+      req.repository ??
+      (await this.access.authorize({
+        username: owner ?? username!,
+        repo: repo.replace(/\.git$/i, ''),
+        requesterId: caller.userId,
+      }));
+    const accepted = await this.installations.acceptedFor(
+      caller.appId,
+      repository.id,
+    );
+    if (accepted && allow(accepted)) return true;
+    if (
+      accepted &&
+      (await this.pullRequestsSuffice(
+        context,
+        req,
+        repository.id,
+        levels,
+        accepted,
+      ))
+    )
+      return true;
+    // A public repository answers a read to its user the way it answers them anywhere.
+    if (
+      repository.visibility === 'public' &&
+      levels.every(([, level]) => level === 'read')
+    )
+      return true;
+    if (!accepted && repository.visibility === 'private')
+      throw new RepositoryNotFoundError();
+    throw new IntegrationForbiddenError();
+  }
+
   private async pullRequestsSuffice(
     context: ExecutionContext,
     req: Request,
     repositoryId: string,
     levels: [AppPermission, 'read' | 'write'][],
+    held: AppPermissions = req.appInstallation!.permissions,
   ) {
     const { number, comment_id } = req.params as Record<string, string>;
     if (
@@ -97,8 +161,7 @@ export class AppPermissionGuard implements CanActivate {
       (!number && !comment_id) ||
       !levels.every(
         ([name, level]) =>
-          name === 'issues' &&
-          grants(req.appInstallation!.permissions, 'pull_requests', level),
+          name === 'issues' && grants(held, 'pull_requests', level),
       )
     )
       return false;

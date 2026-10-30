@@ -16,8 +16,16 @@ export const INSTALLATION_TOKEN_TTL_MS = 60 * 60 * 1000;
 const ALPHABET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
+/** `length` letters and digits from `randomInt`, the body of GitHub-shaped tokens. */
+export function randomAlphanumeric(length: number) {
+  return Array.from(
+    { length },
+    () => ALPHABET[randomInt(ALPHABET.length)],
+  ).join('');
+}
+
 export function generateInstallationToken() {
-  const token = `ghs_${Array.from({ length: 36 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('')}`;
+  const token = `ghs_${randomAlphanumeric(36)}`;
   return { token, hash: hashInstallationToken(token) };
 }
 

@@ -3,6 +3,7 @@ import { atLeast, type Role } from '@ghost/permissions';
 import { and, eq, isNotNull, or, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
+import { type ViaApp, viaAppOf } from '../apps/via-app.js';
 import { isoTimestamp } from '../db/sql.js';
 import type { Executor } from '../db/executor.js';
 
@@ -13,6 +14,7 @@ export interface ReviewReply {
   body: string;
   authorUsername: string;
   authorImage: string | null;
+  viaApp: ViaApp | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,11 +40,11 @@ const replyAuthor = alias(schema.user, 'reply_author');
 const reviewAuthor = alias(schema.user, 'review_author');
 const dismisser = alias(schema.user, 'dismisser');
 
-const replies = sql`(select coalesce(json_agg(json_build_object('id', ${reply.id}, 'body', ${reply.body}, 'authorUsername', coalesce(${replyAuthor.username}, ''), 'authorImage', ${replyAuthor.image}, 'createdAt', ${isoTimestamp(reply.createdAt)}, 'updatedAt', ${isoTimestamp(reply.updatedAt)}) order by ${reply.createdAt}, ${reply.id}), '[]') from ${schema.pullRequestReviewComment} ${reply} join ${schema.user} ${replyAuthor} on ${replyAuthor.id} = ${reply.authorId} where ${reply.inReplyToId} = ${thread.id})`;
+const replies = sql`(select coalesce(json_agg(json_build_object('id', ${reply.id}, 'body', ${reply.body}, 'authorUsername', coalesce(${replyAuthor.username}, ''), 'authorImage', ${replyAuthor.image}, 'viaApp', ${viaAppOf(reply.viaAppId)}, 'createdAt', ${isoTimestamp(reply.createdAt)}, 'updatedAt', ${isoTimestamp(reply.updatedAt)}) order by ${reply.createdAt}, ${reply.id}), '[]') from ${schema.pullRequestReviewComment} ${reply} join ${schema.user} ${replyAuthor} on ${replyAuthor.id} = ${reply.authorId} where ${reply.inReplyToId} = ${thread.id})`;
 
 const threads = sql<
   ReviewThread[]
->`(select coalesce(json_agg(json_build_object('id', ${thread.id}, 'path', ${thread.path}, 'side', ${thread.side}, 'line', ${thread.line}, 'startSide', ${thread.startSide}, 'startLine', ${thread.startLine}, 'commitSha', ${thread.commitSha}, 'diffHunk', ${thread.diffHunk}, 'body', ${thread.body}, 'authorUsername', coalesce(${threadAuthor.username}, ''), 'authorImage', ${threadAuthor.image}, 'createdAt', ${isoTimestamp(thread.createdAt)}, 'updatedAt', ${isoTimestamp(thread.updatedAt)}, 'resolved', ${thread.resolvedAt} is not null, 'resolvedBy', case when ${resolver.id} is null then null else json_build_object('username', coalesce(${resolver.username}, '')) end, 'replies', ${replies}) order by ${thread.path}, ${thread.line}, ${thread.createdAt}), '[]') from ${schema.pullRequestReviewComment} ${thread} join ${schema.user} ${threadAuthor} on ${threadAuthor.id} = ${thread.authorId} left join ${schema.user} ${resolver} on ${resolver.id} = ${thread.resolvedById} where ${thread.reviewId} = ${schema.pullRequestReview.id} and ${thread.inReplyToId} is null)`;
+>`(select coalesce(json_agg(json_build_object('id', ${thread.id}, 'path', ${thread.path}, 'side', ${thread.side}, 'line', ${thread.line}, 'startSide', ${thread.startSide}, 'startLine', ${thread.startLine}, 'commitSha', ${thread.commitSha}, 'diffHunk', ${thread.diffHunk}, 'body', ${thread.body}, 'authorUsername', coalesce(${threadAuthor.username}, ''), 'authorImage', ${threadAuthor.image}, 'viaApp', ${viaAppOf(thread.viaAppId)}, 'createdAt', ${isoTimestamp(thread.createdAt)}, 'updatedAt', ${isoTimestamp(thread.updatedAt)}, 'resolved', ${thread.resolvedAt} is not null, 'resolvedBy', case when ${resolver.id} is null then null else json_build_object('username', coalesce(${resolver.username}, '')) end, 'replies', ${replies}) order by ${thread.path}, ${thread.line}, ${thread.createdAt}), '[]') from ${schema.pullRequestReviewComment} ${thread} join ${schema.user} ${threadAuthor} on ${threadAuthor.id} = ${thread.authorId} left join ${schema.user} ${resolver} on ${resolver.id} = ${thread.resolvedById} where ${thread.reviewId} = ${schema.pullRequestReview.id} and ${thread.inReplyToId} is null)`;
 
 /** Submitted reviews, and with `viewerId` that viewer's pending one; a line comment is visible with its review. */
 export const visibleReview = (viewerId?: string) =>
@@ -67,6 +69,7 @@ export function selectReviews(db: Executor, where: SQL | undefined) {
       body: schema.pullRequestReview.body,
       authorUsername: sql<string>`coalesce(${reviewAuthor.username}, '')`,
       authorImage: reviewAuthor.image,
+      viaApp: viaAppOf(schema.pullRequestReview.viaAppId),
       commitSha: schema.pullRequestReview.commitSha,
       dismissedByUsername: dismisser.username,
       dismissalMessage: schema.pullRequestReview.dismissalMessage,

@@ -15,6 +15,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import { app } from "./apps.js";
 import { team, user } from "./auth.js";
 import { issue } from "./issues.js";
 import { repository } from "./repository.js";
@@ -98,6 +99,8 @@ export const pullRequestReview = pgTable(
     pullRequestId: text()
       .references(() => pullRequest.id, { onDelete: "cascade" })
       .notNull(),
+    // The app a user-to-server token acted through; the author is still the user.
+    viaAppId: text().references(() => app.id, { onDelete: "set null" }),
     authorId: text()
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
@@ -202,6 +205,8 @@ export const pullRequestReviewComment = pgTable(
       (): AnyPgColumn => pullRequestReviewComment.id,
       { onDelete: "cascade" },
     ),
+    // The app a user-to-server token acted through; the author is still the user.
+    viaAppId: text().references(() => app.id, { onDelete: "set null" }),
     authorId: text()
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),

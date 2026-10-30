@@ -1,3 +1,4 @@
+import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -97,6 +98,14 @@ export class CommitStatusDTO {
   @Type(() => CommitStatusCreatorDTO)
   @IsOptional()
   creator: CommitStatusCreatorDTO | null;
+
+  @ApiProperty({
+    type: () => ViaAppDTO,
+    nullable: true,
+    description:
+      'The app a user-to-server token acted through, shown as "via".',
+  })
+  viaApp: ViaAppDTO | null;
 }
 
 export class CombinedCommitStatusDTO {

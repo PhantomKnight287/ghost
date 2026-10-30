@@ -38,6 +38,7 @@ import { AppsService } from './apps.service.js';
 import {
   AppDTO,
   CreateAppDTO,
+  CreatedClientSecretDTO,
   CreatedPrivateKeyDTO,
   ListAppsResponseDTO,
   UpdateAppDTO,
@@ -142,6 +143,40 @@ export class AppsController {
     @Param('id') id: string,
   ) {
     return this.apps.removePrivateKey(session.user.id, slug, id);
+  }
+
+  @Post(':slug/client-secrets')
+  @ApiOperation({
+    summary: 'Generate a client secret',
+    description:
+      'The app signs users in with it on the OAuth flows. Shown once; at most 20.',
+  })
+  @ApiCreatedResponse({ type: CreatedClientSecretDTO })
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  @ApiUnprocessableEntityResponse({ type: ErrorResponseDTO })
+  createClientSecret(
+    @Session() session: UserSession,
+    @Param('slug') slug: string,
+  ): Promise<CreatedClientSecretDTO> {
+    return this.apps.createClientSecret(session.user.id, slug);
+  }
+
+  @Delete(':slug/client-secrets/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete a client secret',
+    description: 'It stops working at once.',
+  })
+  @ApiNoContentResponse()
+  @ApiForbiddenResponse({ type: ErrorResponseDTO })
+  @ApiNotFoundResponse({ type: ErrorResponseDTO })
+  removeClientSecret(
+    @Session() session: UserSession,
+    @Param('slug') slug: string,
+    @Param('id') id: string,
+  ) {
+    return this.apps.removeClientSecret(session.user.id, slug, id);
   }
 
   @Get(':slug/webhook/deliveries')

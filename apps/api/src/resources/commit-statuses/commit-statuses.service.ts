@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, count, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
 import {
   combinedState,
   DEFAULT_STATUS_CONTEXT,
@@ -39,6 +40,7 @@ const statusColumns = {
   description: schema.commitStatus.description,
   targetUrl: schema.commitStatus.targetUrl,
   createdAt: isoTimestamp(schema.commitStatus.createdAt),
+  viaApp: viaAppOf(schema.commitStatus.viaAppId),
   creator: sql<
     CommitStatusDTO['creator']
   >`case when ${schema.user.id} is null then null else json_build_object('username', coalesce(${schema.user.username}, ''), 'image', ${schema.user.image}) end`,
@@ -108,6 +110,7 @@ export class CommitStatusesService {
           targetUrl: body.targetUrl ?? null,
           creatorId: target.requesterId,
           installationId: target.installationId ?? null,
+          viaAppId: currentViaAppId(),
         })
         .returning({ id: schema.commitStatus.id });
       await publishEvent(tx, {

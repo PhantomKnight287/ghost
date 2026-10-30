@@ -115,7 +115,13 @@ export function OauthApproval({
           </h1>
           {app && (
             <p className="flex flex-wrap items-center justify-center gap-x-1.5 text-sm text-muted-foreground">
-              <span>{app.owner ? `by @${app.owner}` : "Built into Ghost"}</span>
+              <span>
+                {app.ghostApp
+                  ? `A Ghost App by @${app.owner}`
+                  : app.owner
+                    ? `by @${app.owner}`
+                    : "Built into Ghost"}
+              </span>
               {homepage && (
                 <>
                   <span aria-hidden>·</span>
@@ -144,13 +150,30 @@ export function OauthApproval({
       <Separator />
 
       <CardContent className="flex flex-col gap-3 px-6 py-5">
-        <h2 className="text-sm font-medium">
-          {scopes.length > 0
-            ? `This will let ${name}:`
-            : `${name} is asking for no extra access.`}
-        </h2>
-        <ScopeList scopes={scopes} />
-        {clientId && <OrganizationAccess clientId={clientId} />}
+        {app?.ghostApp ? (
+          <>
+            <h2 className="text-sm font-medium">{name} will act as you</h2>
+            <p className="text-sm text-muted-foreground">
+              Only on repositories it is installed on, only with the permissions
+              it was granted there, and never beyond your own access. What it
+              does shows as yours, marked{" "}
+              <span className="whitespace-nowrap">
+                &ldquo;via {name}&rdquo;
+              </span>
+              .
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-sm font-medium">
+              {scopes.length > 0
+                ? `This will let ${name}:`
+                : `${name} is asking for no extra access.`}
+            </h2>
+            <ScopeList scopes={scopes} />
+            {clientId && <OrganizationAccess clientId={clientId} />}
+          </>
+        )}
       </CardContent>
 
       <CardFooter className="flex flex-col gap-4 border-t px-6 py-5">

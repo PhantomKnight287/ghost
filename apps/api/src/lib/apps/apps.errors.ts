@@ -149,3 +149,39 @@ export class AppWebhookSecretRequiredError extends DomainError {
     super('A webhook URL needs a secret');
   }
 }
+
+export class TooManyClientSecretsError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super('An app can have at most 20 client secrets');
+  }
+}
+
+export class ClientSecretNotFoundError extends DomainError {
+  status: number = HttpStatus.NOT_FOUND;
+
+  constructor() {
+    super('Not Found');
+  }
+}
+
+export class OauthOnInstallNeedsCallbackError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super(
+      'Add a callback URL before asking for user authorization during installation',
+    );
+  }
+}
+
+export class UserToServerTokenRequiredError extends DomainError {
+  status: number = HttpStatus.FORBIDDEN;
+
+  constructor() {
+    super(
+      'You must authenticate with an access token authorized to a GitHub App in order to list installations',
+    );
+  }
+}

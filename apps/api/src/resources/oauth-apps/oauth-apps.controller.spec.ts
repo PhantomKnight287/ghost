@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 
 import { DATABASE } from '../../database/database.module.js';
+import { UserTokensService } from '../../services/apps/user-tokens.service.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import { OauthAppsController } from './oauth-apps.controller.js';
 import { OauthAppsService } from './oauth-apps.service.js';
@@ -17,6 +18,7 @@ describe('OauthAppsController', () => {
         { provide: AuthService, useValue: {} },
         { provide: DATABASE, useValue: {} },
         { provide: AvatarStorageService, useValue: {} },
+        { provide: UserTokensService, useValue: {} },
       ],
     }).compile();
 

@@ -8,6 +8,8 @@ import { DATABASE } from '../../../database/database.module.js';
 import { verifyApiKey } from '../../../lib/api-keys/verify-api-key.js';
 import { installationCaller } from '../../../lib/apps/installation-context.js';
 import { INSTALLATION_TOKEN } from '../../../lib/apps/installation-token.js';
+import { userToServerCaller } from '../../../lib/apps/user-token-context.js';
+import { USER_TOKEN } from '../../../lib/apps/user-token.js';
 import type { Auth } from '../../../lib/auth.js';
 import {
   type LfsTokenClaims,
@@ -29,6 +31,7 @@ import {
 import { type Actor } from '../../../lib/repositories/access/repository-access.js';
 import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
 import { InstallationTokensService } from '../../../services/apps/installation-tokens.service.js';
+import { UserTokensService } from '../../../services/apps/user-tokens.service.js';
 import { RateLimiterService } from '../../../services/rate-limit/rate-limiter.service.js';
 import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
 import { GitAuthenticatedBufferedRequest } from '../../types.js';
@@ -47,6 +50,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     private readonly access: RepositoryAccessService,
     private readonly limiter: RateLimiterService,
     private readonly installationTokens: InstallationTokensService,
+    private readonly userTokens: UserTokensService,
     @Inject(DATABASE) private readonly db: Database,
     config: ConfigService,
   ) {
@@ -127,6 +131,7 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
       req.apiKeyId = apiKeyId;
       if (req.appInstallation)
         installationCaller.run(req.appInstallation, next);
+      else if (req.userToServer) userToServerCaller.run(req.userToServer, next);
       else next();
     } catch (error) {
       if (!(error instanceof AuthenticationRequiredError)) return next(error);
@@ -164,6 +169,13 @@ export class GitBasicAuthMiddleware implements NestMiddleware {
     if (!key) return anonymous;
 
     req.appInstallation = null;
+    req.userToServer = null;
+    if (USER_TOKEN.test(key)) {
+      const caller = await this.userTokens.verify(key);
+      if (!caller) return anonymous;
+      req.userToServer = caller;
+      return { actor: { userId: caller.userId }, apiKeyId: null, scopes: null };
+    }
     if (INSTALLATION_TOKEN.test(key)) {
       const installation = await this.installationTokens.verify(key);
       if (!installation) return anonymous;

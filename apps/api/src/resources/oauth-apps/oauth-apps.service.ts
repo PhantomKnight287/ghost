@@ -1,8 +1,8 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { and, eq, gt, sql } from 'drizzle-orm';
-import { unionAll } from 'drizzle-orm/pg-core';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import { alias, unionAll } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
@@ -15,6 +15,7 @@ import {
   oauthAppEnabled,
   oauthAppOrganization,
   oauthAppVerified,
+  setOauthClientFields,
 } from '../../lib/github/oauth-apps.js';
 import { lockGrant } from '../../lib/github/refresh-tokens.js';
 import {
@@ -23,6 +24,7 @@ import {
   OauthAppNotFoundError,
 } from '../../lib/oauth-apps/oauth-apps.errors.js';
 import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
+import { UserTokensService } from '../../services/apps/user-tokens.service.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import type {
   AuthorizingOauthAppDTO,
@@ -38,12 +40,19 @@ import type {
 /** The plugin checks every redirect URI against one application type: a web client may not use http on localhost, a native one may use both shapes the DTO admits, so one app can list a production callback and a local one. */
 const APPLICATION_TYPE = 'native';
 
+const ghostAppOwner = alias(schema.user, 'ghost_app_owner');
+const ghostAppOrganization = alias(
+  schema.organization,
+  'ghost_app_organization',
+);
+
 /** OAuth apps a user or an organization registers, kept in the oauth-provider plugin's registry. Writes go through the plugin so secrets are hashed its way; Ghost adds GitHub's rules on top. */
 @Injectable()
 export class OauthAppsService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly auth: AuthService<Auth>,
+    private readonly userTokens: UserTokensService,
     private readonly avatars: AvatarStorageService,
   ) {}
 
@@ -89,16 +98,32 @@ export class OauthAppsService {
         description: oauthAppColumns.description,
         homepageUrl: oauthAppColumns.homepageUrl,
         logoUrl: oauthAppColumns.logoUrl,
+        // A Ghost App's client has no plugin owner; the app's own owner stands for it.
         owner: sql<
           string | null
-        >`coalesce(${schema.user.username}, ${schema.organization.slug})`,
+        >`coalesce(${schema.user.username}, ${schema.organization.slug}, ${ghostAppOwner.username}, ${ghostAppOrganization.slug})`,
         verified: oauthAppVerified,
+        ghostApp: sql<{
+          slug: string;
+        } | null>`case when ${schema.app.id} is null then null else json_build_object('slug', ${schema.app.slug}) end`,
       })
       .from(schema.oauthClient)
       .leftJoin(schema.user, eq(schema.user.id, schema.oauthClient.userId))
       .leftJoin(
         schema.organization,
         eq(schema.organization.id, schema.oauthClient.referenceId),
+      )
+      .leftJoin(
+        schema.app,
+        and(
+          eq(schema.app.oauthClientId, schema.oauthClient.clientId),
+          isNull(schema.app.deletedAt),
+        ),
+      )
+      .leftJoin(ghostAppOwner, eq(ghostAppOwner.id, schema.app.ownerUserId))
+      .leftJoin(
+        ghostAppOrganization,
+        eq(ghostAppOrganization.id, schema.app.ownerOrganizationId),
       )
       .where(and(eq(schema.oauthClient.clientId, clientId), oauthAppEnabled));
     if (!app) throw new OauthAppNotFoundError();
@@ -132,7 +157,7 @@ export class OauthAppsService {
         },
       }),
     );
-    await this.setGhostFields(created.client_id, {
+    await setOauthClientFields(this.db, created.client_id, {
       deviceFlow: input.deviceFlowEnabled ?? false,
       expireUserTokens: input.expireUserTokens ?? false,
       description: input.description,
@@ -169,7 +194,7 @@ export class OauthAppsService {
         },
       }),
     );
-    await this.setGhostFields(clientId, {
+    await setOauthClientFields(this.db, clientId, {
       deviceFlow: input.deviceFlowEnabled,
       expireUserTokens: input.expireUserTokens,
       description: input.description,
@@ -279,7 +304,26 @@ export class OauthAppsService {
           gt(schema.oauthAppRefreshToken.expiresAt, sql`now()`),
         ),
       );
-    const grants = unionAll(keys, refreshTokens).as('grants');
+    const appTokens = this.db
+      .select({
+        clientId: sql<string>`${schema.app.oauthClientId}`.as(
+          'grant_client_id',
+        ),
+        scopes: sql<unknown>`'[]'::jsonb`.as('grant_scopes'),
+        createdAt: sql<Date>`${schema.appUserToken.createdAt}`.as('granted_at'),
+        lastRequest: sql<Date | null>`null::timestamptz`.as(
+          'grant_last_request',
+        ),
+      })
+      .from(schema.appUserToken)
+      .innerJoin(schema.app, eq(schema.app.id, schema.appUserToken.appId))
+      .where(
+        and(
+          eq(schema.appUserToken.userId, userId),
+          isNull(schema.app.deletedAt),
+        ),
+      );
+    const grants = unionAll(keys, refreshTokens, appTokens).as('grants');
     const apps = await this.db
       .select({
         clientId: oauthAppColumns.clientId,
@@ -306,6 +350,15 @@ export class OauthAppsService {
 
   /** Deletes this user's keys and refresh tokens for the app and their consent, so the app asks again next time. Other users' grants stay. */
   async revokeAuthorized(userId: string, clientId: string): Promise<void> {
+    const app = await findOauthApp(this.db, clientId);
+    if (app?.ghostAppId) {
+      const appId = app.ghostAppId;
+      const revoked = await this.db.transaction((tx) =>
+        this.userTokens.revokeUser(tx, { appId, clientId, userId }),
+      );
+      if (!revoked) throw new AuthorizedOauthAppNotFoundError();
+      return;
+    }
     const { keys, refreshTokens } = await this.db.transaction(async (tx) => {
       await lockGrant(tx, clientId, userId);
       return {
@@ -350,23 +403,6 @@ export class OauthAppsService {
         createdAt: isoTimestamp(schema.oauthClient.createdAt),
       })
       .from(schema.oauthClient);
-  }
-
-  /** The plugin's update drops `metadata`, where Ghost keeps the fields the plugin lacks, so they are merged in here. An undefined field is left as it is. */
-  private async setGhostFields(
-    clientId: string,
-    fields: {
-      deviceFlow?: boolean;
-      expireUserTokens?: boolean;
-      description?: string;
-    },
-  ) {
-    await this.db
-      .update(schema.oauthClient)
-      .set({
-        metadata: sql`coalesce(${schema.oauthClient.metadata}, '{}'::jsonb) || ${JSON.stringify(fields)}::jsonb`,
-      })
-      .where(eq(schema.oauthClient.clientId, clientId));
   }
 
   /** Throws unless the user may change the app; returns the owning organization's id for an organization's app. */

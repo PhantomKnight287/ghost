@@ -233,6 +233,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
       logoUrl: null,
       owner: expect.stringMatching(/^ghweb/),
       verified: false,
+      ghostApp: null,
     });
     const gh = await api()
       .get('/api/oauth-apps/authorize')
@@ -247,6 +248,7 @@ describe.skipIf(!hasBackends)('GitHub OAuth web flow', () => {
       logoUrl: null,
       owner: null,
       verified: true,
+      ghostApp: null,
     });
     await api()
       .get('/api/oauth-apps/authorize')

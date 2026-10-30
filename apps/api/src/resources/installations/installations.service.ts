@@ -52,6 +52,7 @@ const accountOrganization = alias(schema.organization, 'account_organization');
 @Injectable()
 export class InstallationsService {
   private readonly web: string;
+  private readonly api: string;
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -60,6 +61,7 @@ export class InstallationsService {
     config: ConfigService,
   ) {
     this.web = githubOrigins(config).web;
+    this.api = githubOrigins(config).api;
   }
 
   /** Installs on the caller's own account, or on an organization they administer. The installation accepts the app's permissions and events as they are now. */
@@ -369,12 +371,16 @@ export class InstallationsService {
     return installation;
   }
 
-  /** Installations of live apps matching `where`, oldest first. */
-  private select(where: SQL): Promise<InstallationDTO[]> {
+  /** Installations of live apps matching `where`, oldest first. An app that asks for user authorization during installation sends the installer through the web flow to its first callback, which gets `installation_id` and `setup_action` as GitHub sends them. */
+  private async select(where: SQL): Promise<InstallationDTO[]> {
     const installation = schema.appInstallation;
     const settings = sql<string>`${this.web} || coalesce('/' || ${accountOrganization.slug}, '') || '/settings/installations'`;
-    return this.db
+    const rows = await this.db
       .select({
+        clientId: schema.app.oauthClientId,
+        callback: sql<
+          string | null
+        >`case when ${schema.app.requestOauthOnInstall} then ${schema.oauthClient.redirectUris}[1] end`,
         id: installation.id,
         installationId: installation.numericId,
         app: sql<
@@ -397,6 +403,10 @@ export class InstallationsService {
       })
       .from(installation)
       .innerJoin(schema.app, eq(schema.app.id, installation.appId))
+      .leftJoin(
+        schema.oauthClient,
+        eq(schema.oauthClient.clientId, schema.app.oauthClientId),
+      )
       .leftJoin(accountUser, eq(accountUser.id, installation.accountUserId))
       .leftJoin(
         accountOrganization,
@@ -404,6 +414,16 @@ export class InstallationsService {
       )
       .where(and(where, isNull(schema.app.deletedAt)))
       .orderBy(asc(installation.createdAt));
+    return rows.map(({ clientId, callback, ...row }) => {
+      if (!clientId || !callback) return row;
+      const returnTo = new URL(callback);
+      returnTo.searchParams.set('installation_id', String(row.installationId));
+      returnTo.searchParams.set('setup_action', 'install');
+      const authorize = new URL('/login/oauth/authorize', this.api);
+      authorize.searchParams.set('client_id', clientId);
+      authorize.searchParams.set('redirect_uri', returnTo.href);
+      return { ...row, redirectUrl: authorize.href };
+    });
   }
 }
 

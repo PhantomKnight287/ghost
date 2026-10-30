@@ -1,3 +1,4 @@
+import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 import { schema } from '@ghost/db';
 import {
   ApiExtraModels,
@@ -60,6 +61,14 @@ export class IssueDTO {
   @ApiProperty()
   @IsString()
   authorUsername: string;
+
+  @ApiProperty({
+    type: () => ViaAppDTO,
+    nullable: true,
+    description:
+      'The app a user-to-server token acted through, shown as "via".',
+  })
+  viaApp: ViaAppDTO | null;
 
   @ApiProperty({ type: String, nullable: true })
   @IsString()
@@ -347,6 +356,14 @@ export class IssueTimelineCommentDTO {
   @ApiProperty()
   @IsString()
   authorUsername: string;
+
+  @ApiProperty({
+    type: () => ViaAppDTO,
+    nullable: true,
+    description:
+      'The app a user-to-server token acted through, shown as "via".',
+  })
+  viaApp: ViaAppDTO | null;
 
   @ApiProperty({ type: String, nullable: true, description: 'Avatar URL.' })
   @IsString()

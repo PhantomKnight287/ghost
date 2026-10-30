@@ -8,7 +8,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
-import { appInstallation } from "./apps.js";
+import { app, appInstallation } from "./apps.js";
 import { user } from "./auth.js";
 import { repository } from "./repository.js";
 
@@ -44,6 +44,8 @@ export const commitStatus = pgTable(
     installationId: text().references(() => appInstallation.id, {
       onDelete: "set null",
     }),
+    // The app a user-to-server token acted through; the author is still the user.
+    viaAppId: text().references(() => app.id, { onDelete: "set null" }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

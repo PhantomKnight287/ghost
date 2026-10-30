@@ -8,12 +8,13 @@ import {
 } from '../../lib/avatars/avatar.constants.js';
 import { OauthAppsController } from './oauth-apps.controller.js';
 import { OrganizationOauthAppsController } from './organization-oauth-apps.controller.js';
+import { UserTokensService } from '../../services/apps/user-tokens.service.js';
 import { OauthAppsService } from './oauth-apps.service.js';
 
 @Module({
   imports: [AvatarsModule],
   controllers: [OauthAppsController, OrganizationOauthAppsController],
-  providers: [OauthAppsService],
+  providers: [OauthAppsService, UserTokensService],
 })
 export class OauthAppsModule implements NestModule {
   // Logo uploads arrive as raw image bytes, the way avatars do.

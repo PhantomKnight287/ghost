@@ -8,6 +8,8 @@ import { APP_JWT } from '../../lib/apps/app-jwt.js';
 import { AppJwtError, JWT_UNDECODABLE } from '../../lib/apps/apps.errors.js';
 import { installationCaller } from '../../lib/apps/installation-context.js';
 import { INSTALLATION_TOKEN } from '../../lib/apps/installation-token.js';
+import { userToServerCaller } from '../../lib/apps/user-token-context.js';
+import { USER_TOKEN } from '../../lib/apps/user-token.js';
 import { type Auth, AUTHORIZATION_TOKEN } from '../../lib/auth.js';
 import { KNOWN_SCOPES, scopesOfKey } from '../../lib/github/scopes.js';
 import { rateLimitHeaders } from '../../lib/rate-limit/headers.js';
@@ -18,12 +20,15 @@ import {
 import { RateLimitGuard } from '../../rate-limit/rate-limit.guard.js';
 import { AppJwtService } from '../../services/apps/app-jwt.service.js';
 import { InstallationTokensService } from '../../services/apps/installation-tokens.service.js';
+import { UserTokensService } from '../../services/apps/user-tokens.service.js';
 import type { GithubRequest, GithubViewer } from './github-request.js';
 
 const GITHUB_MEDIA_TYPE = /application\/vnd\.github\b/i;
 /** `gh pr diff` asks for the raw diff or patch, which is not JSON and which the pulls controller answers by this header. */
 const RAW_MEDIA_TYPE = /application\/vnd\.github(?:\.v3)?\.(?:diff|patch)\b/i;
 const GRAPHQL_PATH = /^\/api\/graphql(?:[/?]|$)/;
+/** An app's own client id and secret over HTTP Basic: the routes check them, with no viewer. */
+const APPLICATIONS_PATH = /^\/api\/v3\/applications\//;
 const DOCUMENTATION_URL = 'https://docs.github.com/rest';
 const END = String.raw`\/?(?:\?|$)`;
 const SEGMENT = '[^/?]+';
@@ -61,6 +66,7 @@ export class GithubAuthMiddleware implements NestMiddleware {
     private readonly rateLimit: RateLimitGuard,
     private readonly appJwt: AppJwtService,
     private readonly installationTokens: InstallationTokensService,
+    private readonly userTokens: UserTokensService,
   ) {}
 
   async use(req: GithubRequest, res: Response, next: NextFunction) {
@@ -72,11 +78,15 @@ export class GithubAuthMiddleware implements NestMiddleware {
     const header = req.headers.authorization;
     const token = header ? AUTHORIZATION_TOKEN.exec(header)?.[1] : undefined;
 
-    if (header && !token) return this.badCredentials(res);
+    if (header && !token && !APPLICATIONS_PATH.test(req.originalUrl))
+      return this.badCredentials(res);
     req.githubApp = null;
     req.appInstallation = null;
+    req.userToServer = null;
     if (token && INSTALLATION_TOKEN.test(token))
       return this.asInstallation(req, res, next, token);
+    if (token && USER_TOKEN.test(token))
+      return this.asUserThroughApp(req, res, next, token);
     if (token && APP_JWT.test(token)) return this.asApp(req, res, next, token);
     const viewer = token
       ? await this.fromKey(token)
@@ -135,6 +145,32 @@ export class GithubAuthMiddleware implements NestMiddleware {
       return;
     }
     installationCaller.run(installation, next);
+  }
+
+  /** A `ghu_` token acts as its user. Scopes do not limit it: AppPermissionGuard holds it to what the app and the user may both do. */
+  private async asUserThroughApp(
+    req: GithubRequest,
+    res: Response,
+    next: NextFunction,
+    token: string,
+  ) {
+    const caller = await this.userTokens.verify(token);
+    if (!caller) return this.badCredentials(res);
+    req.userToServer = caller;
+    req.githubViewer = {
+      userId: caller.userId,
+      scopes: KNOWN_SCOPES,
+      oauthClientId: null,
+    };
+    res.setHeader('X-OAuth-Scopes', '');
+    if (GRAPHQL_PATH.test(req.originalUrl) || this.isAppRoute(req)) {
+      res.status(403).json({
+        message: 'Resource not accessible by integration',
+        documentation_url: DOCUMENTATION_URL,
+      });
+      return;
+    }
+    userToServerCaller.run(caller, next);
   }
 
   // ponytail: an app counts against the anonymous budget of its address until installations give it its own.

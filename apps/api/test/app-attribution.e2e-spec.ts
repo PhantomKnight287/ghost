@@ -9,13 +9,18 @@ import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
 import type { Auth } from '../src/lib/auth.js';
 import { hashInstallationToken } from '../src/lib/apps/installation-token.js';
+import {
+  generateUserToken,
+  hashUserToken,
+} from '../src/lib/apps/user-token.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('What an installation token writes', () => {
@@ -30,6 +35,7 @@ describe.skipIf(!hasBackends)('What an installation token writes', () => {
   let installationId: number;
   let botLogin: string;
   let botUserId: string;
+  let reviewerApp: { id: string; slug: string };
   let head: string;
   let pull: number;
   const stamp = Date.now();
@@ -103,6 +109,7 @@ describe.skipIf(!hasBackends)('What an installation token writes', () => {
       })
       .expect(201);
     botLogin = body.botLogin;
+    reviewerApp = { id: body.id, slug: body.slug };
     const [bot] = await db
       .select({ id: schema.user.id })
       .from(schema.user)
@@ -402,5 +409,156 @@ describe.skipIf(!hasBackends)('What an installation token writes', () => {
       .expect(403);
     expect(body.message).toBe('Resource not accessible by integration');
     await as(api().get(`/api/v3${base()}/issues/${plain.number}`)).expect(403);
+  });
+
+  describe('user-to-server tokens', () => {
+    let ghu: string;
+    const asUser = (token: string) => ({
+      post: (url: string, body: object) =>
+        api()
+          .post(`/api/v3${base()}${url}`)
+          .set('authorization', `token ${token}`)
+          .send(body),
+    });
+    const native = (url: string) =>
+      api()
+        .get(`/api/repositories/${installerName}/${repo}${url}`)
+        .set('cookie', installer.cookie)
+        .expect(200);
+
+    beforeAll(async () => {
+      ghu = generateUserToken();
+      await db.insert(schema.appUserToken).values({
+        appId: reviewerApp.id,
+        userId: installer.userId,
+        tokenHash: hashUserToken(ghu),
+      });
+    });
+
+    it('an issue, a comment, a review, a line comment and a status made with a ghu_ token belong to the user and carry viaApp', async () => {
+      const via = expect.objectContaining({ slug: reviewerApp.slug });
+      const { body: issue } = await asUser(ghu)
+        .post('/issues', { title: 'Through the app' })
+        .expect(201);
+      expect(issue.user.login).toBe(installerName);
+      expect(issue.performed_via_github_app).toEqual(via);
+      const { body: comment } = await asUser(ghu)
+        .post(`/issues/${issue.number}/comments`, {
+          body: 'Hello through the app',
+        })
+        .expect(201);
+      expect(comment.user.login).toBe(installerName);
+      expect(comment.performed_via_github_app).toEqual(via);
+      const { body: review } = await asUser(ghu)
+        .post(`/pulls/${pull}/reviews`, {
+          event: 'COMMENT',
+          body: 'Reviewed through the app',
+          comments: [{ path: 'a.txt', line: 2, body: 'Via app line' }],
+        })
+        .expect(200);
+      expect(review.user.login).toBe(installerName);
+      await asUser(ghu)
+        .post(`/statuses/${head}`, { state: 'success', context: 'ci/user' })
+        .expect(201);
+
+      const viaOf = async (
+        table:
+          | typeof schema.issue
+          | typeof schema.issueComment
+          | typeof schema.pullRequestReview
+          | typeof schema.pullRequestReviewComment,
+        bodyColumn: AnyPgColumn,
+        text: string,
+      ) =>
+        (
+          await db
+            .select({ viaAppId: table.viaAppId, authorId: table.authorId })
+            .from(table)
+            .where(eq(bodyColumn, text))
+            // Earlier runs of this file share the database.
+            .orderBy(desc(table.createdAt))
+            .limit(1)
+        )[0];
+      for (const row of [
+        await viaOf(schema.issue, schema.issue.title, 'Through the app'),
+        await viaOf(
+          schema.issueComment,
+          schema.issueComment.body,
+          'Hello through the app',
+        ),
+        await viaOf(
+          schema.pullRequestReview,
+          schema.pullRequestReview.body,
+          'Reviewed through the app',
+        ),
+        await viaOf(
+          schema.pullRequestReviewComment,
+          schema.pullRequestReviewComment.body,
+          'Via app line',
+        ),
+      ])
+        expect(row).toEqual({
+          viaAppId: reviewerApp.id,
+          authorId: installer.userId,
+        });
+      const [status] = await db
+        .select({
+          viaAppId: schema.commitStatus.viaAppId,
+          creatorId: schema.commitStatus.creatorId,
+          installationId: schema.commitStatus.installationId,
+        })
+        .from(schema.commitStatus)
+        .where(eq(schema.commitStatus.context, 'ci/user'))
+        .orderBy(desc(schema.commitStatus.createdAt))
+        .limit(1);
+      expect(status).toEqual({
+        viaAppId: reviewerApp.id,
+        creatorId: installer.userId,
+        installationId: null,
+      });
+
+      expect((await native(`/issues/${issue.number}`)).body.viaApp).toEqual(
+        via,
+      );
+      expect(
+        (await native(`/issues/${issue.number}/comments`)).body.comments[0]
+          .viaApp,
+      ).toEqual(via);
+      const statuses = (await native(`/commits/${head}/status`)).body
+        .statuses as { context: string; viaApp: unknown }[];
+      expect(
+        statuses.find((each) => each.context === 'ci/user')?.viaApp,
+      ).toEqual(via);
+      const timeline = JSON.stringify(
+        (await native(`/issues/${pull}/timeline`)).body,
+      );
+      expect(timeline).toContain('Reviewed through the app');
+      expect(
+        timeline.match(new RegExp(`"slug":"${reviewerApp.slug}"`, 'g'))?.length,
+      ).toBeGreaterThanOrEqual(2);
+    });
+
+    it('the same made with a PAT carry viaApp null', async () => {
+      const { body: issue } = await api()
+        .post(`/api/v3${base()}/issues`)
+        .set('authorization', `token ${installer.key}`)
+        .send({ title: 'By hand' })
+        .expect(201);
+      expect(issue.performed_via_github_app).toBeNull();
+      expect((await native(`/issues/${issue.number}`)).body.viaApp).toBeNull();
+    });
+
+    // Last: it deletes the app the rest of this file uses.
+    it('deleting the app keeps the rows and nulls viaApp', async () => {
+      const { body: issue } = await asUser(ghu)
+        .post('/issues', { title: 'Outlives the app' })
+        .expect(201);
+      await api()
+        .delete(`/api/apps/${reviewerApp.slug}`)
+        .set('cookie', appOwner.cookie)
+        .expect(204);
+      const { body } = await native(`/issues/${issue.number}`);
+      expect(body).toMatchObject({ title: 'Outlives the app', viaApp: null });
+    });
   });
 });

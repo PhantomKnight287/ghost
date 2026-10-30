@@ -31,7 +31,10 @@ import {
   GithubUserDTO,
 } from './dto/user.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
-import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
+import {
+  AllowUserTokens,
+  RequireAppPermission,
+} from '../../../lib/apps/app-permission.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 
@@ -44,6 +47,7 @@ export class UsersController {
   constructor(private readonly users: GithubUsersService) {}
 
   @Get('user')
+  @AllowUserTokens()
   @ApiOperation({ summary: 'The authenticated user, in GitHub REST shape' })
   @ApiOkResponse({ type: GithubAuthenticatedUserDTO })
   me(@Viewer() viewer: GithubViewer | null) {

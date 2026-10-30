@@ -19,6 +19,7 @@ import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import { replaceFile } from '../../lib/git/tree/replace-file.js';
 import { diffHunkFor } from '../../lib/pull-requests/diff-hunk.js';
+import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import {
   applySuggestion,
@@ -66,6 +67,7 @@ type Loaded = Awaited<ReturnType<PullRequestsService['load']>>;
 const replyColumns = {
   id: schema.pullRequestReviewComment.id,
   body: schema.pullRequestReviewComment.body,
+  viaApp: viaAppOf(schema.pullRequestReviewComment.viaAppId),
   createdAt: isoTimestamp(schema.pullRequestReviewComment.createdAt),
   updatedAt: isoTimestamp(schema.pullRequestReviewComment.updatedAt),
 };
@@ -142,6 +144,7 @@ export class ReviewsService {
             .values({
               pullRequestId: pullRequest.id,
               authorId: params.requesterId,
+              viaAppId: currentViaAppId(),
               state,
               body,
               commitSha: commit.sha,
@@ -158,6 +161,7 @@ export class ReviewsService {
             pullRequestId: pullRequest.id,
             reviewId: review.id,
             authorId: params.requesterId,
+            viaAppId: currentViaAppId(),
           })),
         );
       }
@@ -226,6 +230,7 @@ export class ReviewsService {
         .values({
           pullRequestId: git.pullRequest.id,
           authorId: params.requesterId,
+          viaAppId: currentViaAppId(),
           commitSha: commit.sha,
         })
         .onConflictDoNothing();
@@ -240,6 +245,7 @@ export class ReviewsService {
         pullRequestId: git.pullRequest.id,
         reviewId: pending.id,
         authorId: params.requesterId,
+        viaAppId: currentViaAppId(),
       });
     });
 
@@ -265,6 +271,7 @@ export class ReviewsService {
         .values({
           pullRequestId: git.pullRequest.id,
           authorId: params.requesterId,
+          viaAppId: currentViaAppId(),
           body: params.body?.trim() || null,
           commitSha: commit.sha,
         })
@@ -278,6 +285,7 @@ export class ReviewsService {
             pullRequestId: git.pullRequest.id,
             reviewId: review.id,
             authorId: params.requesterId,
+            viaAppId: currentViaAppId(),
           })),
         );
       }
@@ -390,6 +398,7 @@ export class ReviewsService {
         .values({
           pullRequestId: loaded.pullRequest.id,
           authorId: params.requesterId,
+          viaAppId: currentViaAppId(),
           state: 'commented',
           commitSha: comment.commitSha,
           submittedAt: new Date(),
@@ -403,6 +412,7 @@ export class ReviewsService {
           reviewId: review.id,
           inReplyToId: comment.inReplyToId ?? comment.id,
           authorId: params.requesterId,
+          viaAppId: currentViaAppId(),
           path: comment.path,
           side: comment.side,
           line: comment.line,

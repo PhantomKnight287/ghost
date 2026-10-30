@@ -78,6 +78,7 @@ export function ReviewItem({
           username={review.authorUsername}
           image={review.authorImage}
           avatar="sm"
+          via={review.viaApp}
         />
         {text} <FromNowHoverCard date={review.createdAt} />
         {review.dismissalMessage && <Badge variant="outline">Dismissed</Badge>}
@@ -118,6 +119,7 @@ export function ReviewItem({
                     username={review.authorUsername}
                     image={review.authorImage}
                     avatar="sm"
+                    via={review.viaApp}
                   />
                   left a review
                 </>
@@ -206,6 +208,7 @@ export function ReviewThread({
                   username={comment.authorUsername}
                   image={comment.authorImage}
                   avatar="sm"
+                  via={comment.viaApp}
                 />
                 <FromNowHoverCard date={comment.createdAt} />
                 {pending && <Badge variant="outline">Pending</Badge>}

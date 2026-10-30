@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileAvatar } from "@/components/users/profile-avatar";
 import type { components } from "@/lib/api/v1";
 
+import { AppClientSecrets } from "./app-client-secrets";
 import { AppLogo } from "./app-logo";
 import { AppPrivateKeys } from "./app-private-keys";
 import { AppSettingsCard } from "./app-settings-card";
@@ -63,6 +64,14 @@ export function AppDetail({
               value={String(app.appId)}
               description="The JWT's iss, and what Octokit calls appId."
             />
+            {app.clientId && (
+              <CopyField
+                id="app-client-id"
+                label="Client ID"
+                value={app.clientId}
+                description="What Octokit calls clientId; the app's website signs Ghost users in with it."
+              />
+            )}
             <CopyField
               id="app-bot"
               label="Bot"
@@ -79,6 +88,7 @@ export function AppDetail({
         </Card>
       </section>
       <AppPrivateKeys app={app} />
+      <AppClientSecrets app={app} />
       <AppLogo app={app} />
       <AppSettingsCard app={app} />
       <AppWebhook app={app} deliveries={deliveries} />

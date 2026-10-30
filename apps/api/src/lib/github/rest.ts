@@ -2,6 +2,7 @@ import type { RepositoryNode } from '../../github/graphql/types/repository.type.
 import type {
   GithubIssueCommentDTO,
   GithubIssueDTO,
+  GithubViaAppDTO,
 } from '../../github/rest/issues/dto/issue.dto.js';
 import type { GithubLabelDTO } from '../../github/rest/issues/dto/label.dto.js';
 import type { GithubPullDTO } from '../../github/rest/pulls/dto/pull.dto.js';
@@ -27,6 +28,7 @@ import type {
   ReleaseAssetDTO,
   ReleaseDTO,
 } from '../../resources/releases/dto/release.dto.js';
+import type { ViaApp } from '../apps/via-app.js';
 import { GithubValidationError } from './github.errors.js';
 import { encodeNodeId } from './node-id.js';
 import type { ReleaseAssetExtras } from './node-lookup.js';
@@ -200,6 +202,7 @@ export function toIssueRest(
     created_at: issue.createdAt,
     updated_at: issue.updatedAt,
     author_association: authorAssociation(issue.authorUsername, context),
+    performed_via_github_app: toViaAppRest(issue.viaApp, context),
     ...(issue.isPullRequest && {
       draft: extras.draft ?? false,
       pull_request: {
@@ -220,6 +223,7 @@ export type RestCommentSource = {
   createdAt: string;
   updatedAt: string;
   authorUsername: string;
+  viaApp: ViaApp | null;
   issueNumber: number;
   isPullRequest: boolean;
 };
@@ -243,6 +247,22 @@ export function toCommentRest(
     created_at: comment.createdAt,
     updated_at: comment.updatedAt,
     author_association: authorAssociation(comment.authorUsername, context),
+    performed_via_github_app: toViaAppRest(comment.viaApp, context),
+  };
+}
+
+/** GitHub's `performed_via_github_app`: the app a user-to-server token acted through, as much of GitHub's App object as Ghost keeps. */
+export function toViaAppRest(
+  viaApp: ViaApp | null,
+  context: RestContext,
+): GithubViaAppDTO | null {
+  if (!viaApp) return null;
+  return {
+    id: viaApp.appId,
+    slug: viaApp.slug,
+    node_id: encodeNodeId('App', viaApp.slug),
+    name: viaApp.name,
+    html_url: `${new URL(context.repository.webUrl).origin}/apps/${viaApp.slug}`,
   };
 }
 

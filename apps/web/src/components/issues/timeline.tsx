@@ -70,6 +70,7 @@ export function Timeline({
                 username={item.authorUsername}
                 image={item.authorImage}
                 avatar="sm"
+                via={item.viaApp}
               />
               commented <FromNowHoverCard date={item.createdAt} />
             </>
