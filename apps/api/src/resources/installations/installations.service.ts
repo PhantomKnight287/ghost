@@ -2,7 +2,16 @@ import { type Database, schema } from '@ghost/db';
 import type { AppPermissions } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, asc, eq, inArray, isNull, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
@@ -209,10 +218,18 @@ export class InstallationsService {
   async suspend(userId: string, id: string): Promise<void> {
     await this.manageable(userId, id);
     await this.db.transaction(async (tx) => {
-      await tx
+      const changed = await tx
         .update(schema.appInstallation)
         .set({ suspendedAt: new Date(), suspendedById: userId })
-        .where(eq(schema.appInstallation.id, id));
+        .where(
+          and(
+            eq(schema.appInstallation.id, id),
+            isNull(schema.appInstallation.suspendedAt),
+          ),
+        )
+        .returning({ id: schema.appInstallation.id });
+      // already suspended: nothing changes and the app hears nothing
+      if (changed.length === 0) return;
       await tx
         .delete(schema.appInstallationToken)
         .where(eq(schema.appInstallationToken.installationId, id));
@@ -228,10 +245,17 @@ export class InstallationsService {
   async unsuspend(userId: string, id: string): Promise<void> {
     await this.manageable(userId, id);
     await this.db.transaction(async (tx) => {
-      await tx
+      const changed = await tx
         .update(schema.appInstallation)
         .set({ suspendedAt: null, suspendedById: null })
-        .where(eq(schema.appInstallation.id, id));
+        .where(
+          and(
+            eq(schema.appInstallation.id, id),
+            isNotNull(schema.appInstallation.suspendedAt),
+          ),
+        )
+        .returning({ id: schema.appInstallation.id });
+      if (changed.length === 0) return;
       await this.fanout.installationEvent(
         tx,
         id,

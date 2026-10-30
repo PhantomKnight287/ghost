@@ -489,6 +489,36 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
         ]);
       });
 
+      it('suspending twice or unsuspending an active installation sends nothing more', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        const suspended = () =>
+          api()
+            .put(`/api/installations/${body.id}/suspended`)
+            .set('cookie', installer.cookie)
+            .expect(204);
+        const unsuspended = () =>
+          api()
+            .delete(`/api/installations/${body.id}/suspended`)
+            .set('cookie', installer.cookie)
+            .expect(204);
+
+        await unsuspended();
+        await suspended();
+        await suspended();
+        await unsuspended();
+        await unsuspended();
+
+        expect((await deliveredTo(appId)).map(({ event }) => event)).toEqual([
+          'installation.created',
+          'installation.suspended',
+          'installation.unsuspended',
+        ]);
+      });
+
       it('uninstall sends installation.deleted last', async () => {
         const { id: appId, slug } = await hooked();
         const { body } = await install(slug, {

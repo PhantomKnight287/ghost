@@ -3,13 +3,14 @@ import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 
 import type { schema } from '@ghost/db';
-import type { InstallationEvent, WebhookEvent } from '@ghost/webhooks';
+import {
+  type InstallationEvent,
+  type WebhookEvent,
+  webhookEvents as events,
+} from '@ghost/webhooks';
 
 import type { EventType } from '../events/events.js';
 import type { Commit } from '../git/commits/list-commits.js';
-
-/** Events an endpoint can subscribe to. `ping` is sent on create and on demand, whatever the endpoint chose. */
-export { type WebhookEvent, webhookEvents } from '@ghost/webhooks';
 
 /** Internally a pull request opens, edits, closes and reopens as an issue; webhooks name those events after the pull request. */
 const pullRequestEvents = {
@@ -18,6 +19,14 @@ const pullRequestEvents = {
   'issue.closed': 'pull_request.closed',
   'issue.reopened': 'pull_request.reopened',
 } as const satisfies Partial<Record<EventType, WebhookEvent>>;
+
+/** Events an endpoint can subscribe to: each is published under its own name, or is a pull request's name for an issue event. `ping` is sent on create and on demand, whatever the endpoint chose. */
+export const webhookEvents = events satisfies readonly (
+  | EventType
+  | (typeof pullRequestEvents)[keyof typeof pullRequestEvents]
+)[];
+
+export type { WebhookEvent };
 
 /** The name webhooks get `type` under. */
 export function webhookEventOf(type: EventType, isPullRequest: boolean) {
