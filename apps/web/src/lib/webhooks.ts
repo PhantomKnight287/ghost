@@ -1,12 +1,6 @@
 import { z } from "zod";
 
-import { WEBHOOK_EVENTS, type WebhookEvent } from "@ghost/webhooks";
-
 export { type WebhookEvent, webhookEvents } from "@ghost/webhooks";
-
-export const webhookEventLabels = Object.fromEntries(
-  Object.entries(WEBHOOK_EVENTS).map(([event, { label }]) => [event, label]),
-) as Record<WebhookEvent, string>;
 
 export const webhookOwnerSchema = z.discriminatedUnion("kind", [
   z.object({

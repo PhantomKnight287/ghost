@@ -1,11 +1,9 @@
 "use client";
 
+import { WEBHOOK_EVENTS } from "@ghost/webhooks";
+
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  type WebhookEvent,
-  webhookEventLabels,
-  webhookEvents,
-} from "@/lib/webhooks";
+import { type WebhookEvent, webhookEvents } from "@/lib/webhooks";
 
 export function EventPicker({
   value,
@@ -39,7 +37,7 @@ export function EventPicker({
           <span className="flex flex-col gap-0.5">
             <span className="font-mono text-xs">{event}</span>
             <span className="text-muted-foreground">
-              {webhookEventLabels[event]}
+              {WEBHOOK_EVENTS[event].label}
             </span>
           </span>
         </label>

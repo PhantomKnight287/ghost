@@ -53,7 +53,6 @@ import {
   webhookUrlProblem,
 } from '../../lib/webhooks/webhooks.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
-import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
 import { WebhooksService } from '../webhooks/webhooks.service.js';
 import type {
   AppDTO,
@@ -79,7 +78,6 @@ export class AppsService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly avatars: AvatarStorageService,
     private readonly webhooks: WebhooksService,
-    private readonly fanout: WebhookFanoutService,
     config: ConfigService,
   ) {
     this.web = githubOrigins(config).web;
@@ -149,7 +147,7 @@ export class AppsService {
       this.sealed(input.webhookSecret),
     );
 
-    const id = await this.db
+    const { id, endpointId } = await this.db
       .transaction(async (tx) => {
         const botUserId = randomUUID();
         await tx.insert(schema.user).values({
@@ -177,11 +175,13 @@ export class AppsService {
             botUserId,
           })
           .returning({ id: schema.app.id });
-        if (webhook)
-          await tx
-            .insert(schema.webhookEndpoint)
-            .values({ appId: app!.id, ...webhook, events: [] });
-        return app!.id;
+        const [endpoint] = webhook
+          ? await tx
+              .insert(schema.webhookEndpoint)
+              .values({ appId: app!.id, ...webhook, events: [] })
+              .returning({ id: schema.webhookEndpoint.id })
+          : [];
+        return { id: app!.id, endpointId: endpoint?.id };
       })
       .catch((error: unknown) => {
         // The slug, the bot's username and its email are all made from the name, so any of them taken means the name is; deleted apps keep theirs.
@@ -189,7 +189,8 @@ export class AppsService {
           throw new AppNameTakenError();
         throw error;
       });
-    if (webhook) await this.ping(id, slug);
+    if (endpointId)
+      await this.webhooks.ping({ appId: id, name: slug }, endpointId);
     return this.one(id);
   }
 
@@ -248,7 +249,7 @@ export class AppsService {
           )
         : endpoint && { url: endpoint.url, secret: endpoint.secret };
 
-    await this.db.transaction(async (tx) => {
+    const created = await this.db.transaction(async (tx) => {
       await tx
         .update(schema.app)
         .set({
@@ -281,10 +282,13 @@ export class AppsService {
             }),
           })
           .where(eq(schema.webhookEndpoint.id, endpoint.id));
-      if (webhook && !endpoint)
-        await tx
-          .insert(schema.webhookEndpoint)
-          .values({ appId: app.id, ...webhook, events: [] });
+      const [inserted] =
+        webhook && !endpoint
+          ? await tx
+              .insert(schema.webhookEndpoint)
+              .values({ appId: app.id, ...webhook, events: [] })
+              .returning({ id: schema.webhookEndpoint.id })
+          : [];
       if (installations > 0)
         await this.lowerInstallations(tx, app.id, permissions, events);
       if (input.name != null)
@@ -292,8 +296,10 @@ export class AppsService {
           .update(schema.user)
           .set({ name: input.name })
           .where(eq(schema.user.id, app.botUserId));
+      return inserted;
     });
-    if (webhook && !endpoint) await this.ping(app.id, slug);
+    if (created)
+      await this.webhooks.ping({ appId: app.id, name: slug }, created.id);
     return this.one(app.id);
   }
 
@@ -337,18 +343,6 @@ export class AppsService {
       if (problem) throw new InvalidWebhookUrlError(problem);
     }
     return { url, secret };
-  }
-
-  private async ping(appId: string, slug: string) {
-    const [endpoint] = await this.db
-      .select({
-        id: schema.webhookEndpoint.id,
-        url: schema.webhookEndpoint.url,
-        events: schema.webhookEndpoint.events,
-      })
-      .from(schema.webhookEndpoint)
-      .where(eq(schema.webhookEndpoint.appId, appId));
-    if (endpoint) await this.fanout.ping(endpoint, { appId, name: slug });
   }
 
   /** Applies a lowered set to every installation of the app, and revokes the tokens that hold more than it now allows. */
