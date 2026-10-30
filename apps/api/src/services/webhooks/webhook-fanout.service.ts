@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { type Database, schema } from '@ghost/db';
+import { WEBHOOK_EVENTS, type WebhookEvent } from '@ghost/webhooks';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, arrayContains, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, arrayContains, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { grants } from '../../lib/apps/permissions.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import type { StoredEvent } from '../../lib/events/events.js';
 import {
@@ -17,7 +19,10 @@ import {
   type WebhookOwner,
 } from '../../lib/webhooks/webhooks.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
-import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
+import {
+  installationCovers,
+  repositoryFullNameOf,
+} from '../../lib/repositories/access/repository-access.js';
 
 type WebhookJob = {
   endpointId: string;
@@ -75,18 +80,64 @@ export class WebhookFanoutService {
           ),
         ),
       );
-    if (endpoints.length === 0) return;
+    const apps = (await this.appEndpointsOf(event.repositoryId, name)).filter(
+      (endpoint) =>
+        name in WEBHOOK_EVENTS &&
+        grants(
+          endpoint.permissions,
+          WEBHOOK_EVENTS[name as WebhookEvent].permission,
+          'read',
+        ),
+    );
+    if (endpoints.length === 0 && apps.length === 0) return;
 
     const body = await this.bodyOf(event, name, thread);
     if (!body) return;
-    await this.enqueue(
-      endpoints.map((endpoint) => ({
+    await this.enqueue([
+      ...endpoints.map((endpoint) => ({
         endpointId: endpoint.id,
         event: name,
         body: renderWebhookBody(endpoint.url, body, this.sender),
         idempotencyKey: `${event.id}:${endpoint.id}`,
       })),
-    );
+      ...apps.map((endpoint) => ({
+        endpointId: endpoint.id,
+        event: name,
+        body: renderWebhookBody(
+          endpoint.url,
+          { ...body, installation: { id: endpoint.installationId } },
+          this.sender,
+        ),
+        idempotencyKey: `${event.id}:${endpoint.id}`,
+      })),
+    ]);
+  }
+
+  /** The endpoints of apps whose live installation covers the repository and accepted the event, with the permissions it accepted. */
+  private appEndpointsOf(repositoryId: string, name: string) {
+    return this.db
+      .select({
+        id: schema.webhookEndpoint.id,
+        url: schema.webhookEndpoint.url,
+        installationId: schema.appInstallation.numericId,
+        permissions: schema.appInstallation.permissions,
+      })
+      .from(schema.repository)
+      .innerJoin(schema.appInstallation, installationCovers(schema.repository))
+      .innerJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
+      .innerJoin(
+        schema.webhookEndpoint,
+        eq(schema.webhookEndpoint.appId, schema.app.id),
+      )
+      .where(
+        and(
+          eq(schema.repository.id, repositoryId),
+          isNull(schema.app.deletedAt),
+          isNull(schema.appInstallation.suspendedAt),
+          eq(schema.webhookEndpoint.active, true),
+          arrayContains(schema.appInstallation.events, [name]),
+        ),
+      );
   }
 
   /** Sent when an endpoint is created and from its "Send test" button, whatever events it chose. */

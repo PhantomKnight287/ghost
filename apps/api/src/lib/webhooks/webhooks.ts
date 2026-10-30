@@ -148,6 +148,8 @@ export type WebhookBody = {
   repository: WebhookRepository;
   sender: UserRef | null;
   createdAt: string;
+  /** Only in what an app gets: the installation the event reached it through, by the id its token endpoint takes. */
+  installation?: { id: number };
   issue?: WebhookThread;
   pullRequest?: WebhookThread;
   /** A line comment also carries its place in the diff, its thread and `numericId`, the id GitHub's REST layer takes. */

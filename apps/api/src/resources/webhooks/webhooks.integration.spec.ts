@@ -316,6 +316,257 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     });
   });
 
+  describe('app endpoints', () => {
+    const BOT = `user_whk_appbot_${RUN}`;
+    let app: typeof schema.app.$inferSelect;
+    let endpointId: string;
+    let installation: typeof schema.appInstallation.$inferSelect;
+    let sibling: typeof schema.repository.$inferSelect;
+    let sent = 0;
+    const accepted = {
+      permissions: {
+        metadata: 'read' as const,
+        issues: 'read' as const,
+        pull_requests: 'read' as const,
+        contents: 'read' as const,
+      },
+      events: ['issue.opened', 'pull_request.opened', 'push'],
+    };
+    /** Fans one event out and returns the bodies the app's endpoint got for it. */
+    const send = async (
+      repositoryId: string,
+      issueId: string = issue.id,
+    ): Promise<Record<string, unknown>[]> => {
+      const id = `evt_whk_app_${sent++}_${RUN}`;
+      await fanout.handle({
+        id,
+        type: 'issue.opened',
+        repositoryId,
+        actorId: OWNER,
+        payload: { issueId },
+        createdAt: new Date(),
+      });
+      const jobs = await db
+        .select()
+        .from(schema.deliveryJob)
+        .where(
+          and(
+            eq(schema.deliveryJob.endpointId, endpointId),
+            eq(
+              schema.deliveryJob.idempotencyKey,
+              `webhook:${id}:${endpointId}`,
+            ),
+          ),
+        );
+      return jobs.map(bodyOf);
+    };
+    const setInstallation = (
+      changes: Partial<typeof schema.appInstallation.$inferInsert>,
+    ) =>
+      db
+        .update(schema.appInstallation)
+        .set(changes)
+        .where(eq(schema.appInstallation.id, installation.id));
+
+    beforeAll(async () => {
+      await db.insert(schema.user).values({
+        id: BOT,
+        kind: 'bot',
+        name: 'Fanout bot',
+        username: `whk-app-${RUN}[bot]`,
+        email: `whk-app-${RUN}[bot]@bots.invalid`,
+      });
+      [app] = await db
+        .insert(schema.app)
+        .values({
+          slug: `whk-app-${RUN}`,
+          name: 'Fanout bot',
+          homepageUrl: 'https://bot.example',
+          permissions: {
+            issues: 'read',
+            pull_requests: 'read',
+            contents: 'read',
+          },
+          events: [...accepted.events, 'issue.closed'],
+          ownerUserId: OWNER,
+          botUserId: BOT,
+        })
+        .returning();
+      [{ id: endpointId }] = await db
+        .insert(schema.webhookEndpoint)
+        .values({
+          appId: app.id,
+          url: 'https://93.184.216.34/app-hook',
+          secret: `v1:whk-app-hook-${RUN}`,
+          events: [],
+        })
+        .returning({ id: schema.webhookEndpoint.id });
+      [installation] = await db
+        .insert(schema.appInstallation)
+        .values({
+          appId: app.id,
+          accountUserId: OWNER,
+          repositorySelection: 'all',
+          ...accepted,
+        })
+        .returning();
+      [sibling] = await db
+        .insert(schema.repository)
+        .values({
+          name: 'sibling',
+          slug: 'sibling',
+          ownerId: OWNER,
+          visibility: 'private',
+        })
+        .returning();
+    });
+
+    afterAll(async () => {
+      await db.delete(schema.app).where(eq(schema.app.id, app.id));
+      await db.delete(schema.user).where(eq(schema.user.id, BOT));
+    });
+
+    it('sends an event on an installed repository with installation.id', async () => {
+      const [body] = await send(repository.id);
+      expect(body).toMatchObject({
+        event: 'issue.opened',
+        installation: { id: installation.numericId },
+        repository: { fullName: `${USERNAME}/app` },
+        issue: { number: 1 },
+      });
+    });
+
+    it("sends a selected repository's events and not another repository's of the same account", async () => {
+      await setInstallation({ repositorySelection: 'selected' });
+      await db.insert(schema.appInstallationRepository).values({
+        installationId: installation.id,
+        repositoryId: sibling.id,
+      });
+      try {
+        expect(await send(sibling.id)).toHaveLength(1);
+        expect(await send(repository.id)).toEqual([]);
+      } finally {
+        await db
+          .delete(schema.appInstallationRepository)
+          .where(
+            eq(
+              schema.appInstallationRepository.installationId,
+              installation.id,
+            ),
+          );
+        await setInstallation({ repositorySelection: 'all' });
+      }
+    });
+
+    it("sends nothing for a repository outside the installation's account", async () => {
+      expect(await send(organizationRepository.id)).toEqual([]);
+    });
+
+    it('sends nothing while suspended, for a deleted app, or to an inactive endpoint', async () => {
+      await setInstallation({ suspendedAt: new Date() });
+      expect(await send(repository.id)).toEqual([]);
+      await setInstallation({ suspendedAt: null });
+
+      await db
+        .update(schema.app)
+        .set({ deletedAt: new Date() })
+        .where(eq(schema.app.id, app.id));
+      expect(await send(repository.id)).toEqual([]);
+      await db
+        .update(schema.app)
+        .set({ deletedAt: null })
+        .where(eq(schema.app.id, app.id));
+
+      await db
+        .update(schema.webhookEndpoint)
+        .set({ active: false })
+        .where(eq(schema.webhookEndpoint.id, endpointId));
+      expect(await send(repository.id)).toEqual([]);
+      await db
+        .update(schema.webhookEndpoint)
+        .set({ active: true })
+        .where(eq(schema.webhookEndpoint.id, endpointId));
+
+      expect(await send(repository.id)).toHaveLength(1);
+    });
+
+    it("filters by the installation's accepted set, not the app's", async () => {
+      await setInstallation({ events: ['push'] });
+      try {
+        expect(await send(repository.id)).toEqual([]);
+      } finally {
+        await setInstallation({ events: accepted.events });
+      }
+    });
+
+    it("needs the event's permission at read", async () => {
+      await setInstallation({ permissions: { metadata: 'read' } });
+      try {
+        expect(await send(repository.id)).toEqual([]);
+      } finally {
+        await setInstallation({ permissions: accepted.permissions });
+      }
+    });
+
+    it('sends pull_request.opened to an app that accepted it', async () => {
+      const [pull] = await db
+        .insert(schema.issue)
+        .values({
+          repositoryId: repository.id,
+          number: 901,
+          title: 'App sees this',
+          authorId: OWNER,
+          isPullRequest: true,
+        })
+        .returning();
+      const [body] = await send(repository.id, pull!.id);
+      expect(body).toMatchObject({
+        event: 'pull_request.opened',
+        installation: { id: installation.numericId },
+        pullRequest: { number: 901 },
+      });
+    });
+
+    it("does not send a transferred repository's events to the old account's installation", async () => {
+      await setInstallation({ repositorySelection: 'selected' });
+      await db.insert(schema.appInstallationRepository).values({
+        installationId: installation.id,
+        repositoryId: sibling.id,
+      });
+      await db
+        .update(schema.repository)
+        .set({ organizationId: ORGANIZATION })
+        .where(eq(schema.repository.id, sibling.id));
+      try {
+        expect(await send(sibling.id)).toEqual([]);
+      } finally {
+        await db
+          .update(schema.repository)
+          .set({ organizationId: null })
+          .where(eq(schema.repository.id, sibling.id));
+        await db
+          .delete(schema.appInstallationRepository)
+          .where(
+            eq(
+              schema.appInstallationRepository.installationId,
+              installation.id,
+            ),
+          );
+        await setInstallation({ repositorySelection: 'all' });
+      }
+    });
+
+    it('repository webhook bodies carry no installation key', async () => {
+      const plain = await webhooks.create(repositoryOwner, {
+        url: 'https://93.184.216.34/plain',
+        events: ['issue.opened'],
+      });
+      await send(repository.id);
+      const [delivery] = await jobsFor(plain.id);
+      expect(bodyOf(delivery!)).not.toHaveProperty('installation');
+    });
+  });
+
   it('sends an organization webhook the events of every repository the organization owns', async () => {
     const created = await webhooks.create(organizationOwner, {
       url: 'https://93.184.216.34/org',
