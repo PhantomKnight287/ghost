@@ -192,6 +192,7 @@ The user's rule for this slice: copy GitHub (user decision, 2026-10-30). The mai
 - **Endpoints.** `GET /user/installations` (the installations of the token's app that the user can access: on their own account, or on an organization they belong to) and `GET /user/installations/{installation_id}/repositories` (the installation's repositories the user can see), with GitHub's response shapes and `total_count`. Only user-to-server tokens may call them, as on GitHub.
 - **Attribution.** Everything done with the token is the user's, never the bot's. Comments, reviews, issues and statuses record the app they came through, and the web UI shows "via app-name" next to the user, linking to the app page (GitHub's "via" label). A status posted with a user-to-server token never satisfies a ruleset check pinned with `integration_id`.
 - **Revoking.** The user revokes an app from Authorized apps, which deletes its tokens and refresh tokens for them. The app can revoke with GitHub's `DELETE /applications/{client_id}/token` (one token) and `DELETE /applications/{client_id}/grant` (every token of that user), authenticated with HTTP Basic client id and secret.
+- **Checking.** `POST /applications/{client_id}/token` with `{ access_token }`, under the same Basic auth, answers GitHub's authorization shape (the token's user, app, expiry and `token_last_eight`) for a live token of that app, and 404 otherwise (user decision, 2026-10-30).
 - **Claude's calls, settled while writing this:**
   - User-to-server tokens work where installation tokens do: the GitHub-compatible REST layer and git over HTTPS. Not Ghost's own API. GraphQL waits for slice 6, as for installation tokens.
   - Rate limits count against the user's authenticated budget.
@@ -199,12 +200,13 @@ The user's rule for this slice: copy GitHub (user decision, 2026-10-30). The mai
   - Apps registered before this slice get their client the first time it is needed, or through the migration; either is fine.
   - "Request user authorization during installation" can only be ticked once the app has a callback URL.
   - `GET /user/installations` lists an installation when it is on the user's own account, or when the user can see at least one repository it covers, which is GitHub's rule.
-- **Out of scope:** fine-grained per-token narrowing (`POST /applications/{client_id}/token/scoped`), token checking (`POST /applications/{client_id}/token`), and token reset (`PATCH`); missing endpoints answer GitHub-style 404.
+- **Moved to slice 6:** token reset (`PATCH /applications/{client_id}/token`) and scoped tokens (`POST /applications/{client_id}/token/scoped`) (user decision, 2026-10-30). Until then they answer GitHub-style 404.
 
 ### Slice 6: Permission changes, GraphQL and docs (Ghost #107)
 
 - **Permission changes.** When the app owner raises permissions or adds events, each installation keeps its accepted set and its owner sees a "review new permissions" prompt in installed-apps settings. Accepting applies the new set and sends an `installation.new_permissions_accepted` event (name adjustable). Lowering permissions applies immediately.
 - **GraphQL.** A `Bot` type for actor fields (`author`, `actor` and the rest, as on GitHub) and `App` where GitHub exposes it. Installation tokens are accepted on GraphQL, with the same permission mapping per field: unmapped fields are denied.
+- **Token reset and scoped tokens.** `PATCH /applications/{client_id}/token` swaps a user-to-server token for a new one and revokes the old. `POST /applications/{client_id}/token/scoped` returns a narrower token, limited to the repositories and permissions asked for, never more than the original. Both use the slice 5 Basic auth and answer GitHub's shapes (moved here from slice 5, user decision, 2026-10-30).
 - **Docs.** A Ghost Apps section in `apps/docs`: registering, keys and JWT, installing, tokens, permissions, webhooks (with the Ghost format and the `installation` field), a short "porting a Probot app" note, and what's different from GitHub.
 
 ## Constraints
