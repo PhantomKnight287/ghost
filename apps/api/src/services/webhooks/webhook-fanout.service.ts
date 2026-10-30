@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { type Database, schema } from '@ghost/db';
-import { WEBHOOK_EVENTS, type WebhookEvent } from '@ghost/webhooks';
+import {
+  type InstallationEvent,
+  WEBHOOK_EVENTS,
+  type WebhookEvent,
+} from '@ghost/webhooks';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, arrayContains, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { grants } from '../../lib/apps/permissions.js';
+import type { Executor } from '../../lib/db/executor.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import type { StoredEvent } from '../../lib/events/events.js';
 import {
@@ -14,6 +19,7 @@ import {
   type WebhookSender,
 } from '../../lib/webhooks/formats/index.js';
 import {
+  type InstallationWebhookBody,
   type WebhookBody,
   webhookEventOf,
   type WebhookOwner,
@@ -170,9 +176,96 @@ export class WebhookFanoutService {
     ]);
   }
 
-  async enqueue(jobs: WebhookJob[]) {
+  /** Tells an app about one of its installations, whatever it subscribed to, in Ghost's JSON whatever its URL. On `tx`, so it is queued only if the change commits. Nothing without an active endpoint. */
+  async installationEvent(
+    tx: Executor,
+    installationId: string,
+    event: InstallationEvent,
+    senderId: string,
+    repositoryIds: string[] = [],
+  ) {
+    const [installation] = await tx
+      .select({
+        endpointId: schema.webhookEndpoint.id,
+        id: schema.appInstallation.numericId,
+        account: sql<
+          InstallationWebhookBody['installation']['account']
+        >`json_build_object('login', coalesce(${schema.organization.slug}, ${schema.user.username}), 'type', case when ${schema.appInstallation.accountOrganizationId} is null then 'user' else 'organization' end)`,
+        repositorySelection: schema.appInstallation.repositorySelection,
+        permissions: schema.appInstallation.permissions,
+        events: schema.appInstallation.events,
+      })
+      .from(schema.appInstallation)
+      .innerJoin(
+        schema.webhookEndpoint,
+        eq(schema.webhookEndpoint.appId, schema.appInstallation.appId),
+      )
+      .leftJoin(
+        schema.user,
+        eq(schema.user.id, schema.appInstallation.accountUserId),
+      )
+      .leftJoin(
+        schema.organization,
+        eq(
+          schema.organization.id,
+          schema.appInstallation.accountOrganizationId,
+        ),
+      )
+      .where(
+        and(
+          eq(schema.appInstallation.id, installationId),
+          eq(schema.webhookEndpoint.active, true),
+        ),
+      );
+    if (!installation) return;
+    const { endpointId, ...about } = installation;
+
+    const repositories =
+      repositoryIds.length === 0
+        ? []
+        : await tx
+            .select({
+              id: schema.repository.id,
+              fullName: repositoryFullNameOf(
+                schema.user,
+                schema.organization,
+                schema.repository,
+              ),
+            })
+            .from(schema.repository)
+            .innerJoin(
+              schema.user,
+              eq(schema.user.id, schema.repository.ownerId),
+            )
+            .leftJoin(
+              schema.organization,
+              eq(schema.organization.id, schema.repository.organizationId),
+            )
+            .where(inArray(schema.repository.id, repositoryIds))
+            .orderBy(schema.repository.id);
+    const body: InstallationWebhookBody = {
+      event,
+      installation: about,
+      ...(repositories.length > 0 && { repositories }),
+      sender: await this.userRef(senderId),
+      createdAt: new Date().toISOString(),
+    };
+    await this.enqueue(
+      [
+        {
+          endpointId,
+          event,
+          body: JSON.stringify(body),
+          idempotencyKey: `installation:${installationId}:${event}:${randomUUID()}`,
+        },
+      ],
+      tx,
+    );
+  }
+
+  async enqueue(jobs: WebhookJob[], db: Executor = this.db) {
     if (jobs.length === 0) return;
-    await this.db
+    await db
       .insert(schema.deliveryJob)
       .values(
         jobs.map((job) => ({
@@ -183,7 +276,7 @@ export class WebhookFanoutService {
         })),
       )
       .onConflictDoNothing();
-    await this.db.execute(sql`NOTIFY delivery`);
+    await db.execute(sql`NOTIFY delivery`);
   }
 
   /** The issue or pull request an event is about; undefined when it is gone. */

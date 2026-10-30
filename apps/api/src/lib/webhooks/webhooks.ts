@@ -3,7 +3,7 @@ import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 
 import type { schema } from '@ghost/db';
-import type { WebhookEvent } from '@ghost/webhooks';
+import type { InstallationEvent, WebhookEvent } from '@ghost/webhooks';
 
 import type { EventType } from '../events/events.js';
 import type { Commit } from '../git/commits/list-commits.js';
@@ -221,5 +221,21 @@ export type WebhookPing = {
   webhook: { id: string; url: string; events: string[] };
   repository?: { fullName: string };
   organization?: { slug: string };
+  app?: { slug: string };
+  createdAt: string;
+};
+
+/** What an app gets about one of its installations. `repositories` is set on create, for selected repositories, and on the two repository events. */
+export type InstallationWebhookBody = {
+  event: InstallationEvent;
+  installation: {
+    id: number;
+    account: { login: string; type: 'user' | 'organization' };
+    repositorySelection: 'all' | 'selected';
+    permissions: Record<string, 'read' | 'write'>;
+    events: string[];
+  };
+  repositories?: { id: string; fullName: string }[];
+  sender: UserRef | null;
   createdAt: string;
 };
