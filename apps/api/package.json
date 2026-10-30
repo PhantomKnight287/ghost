@@ -37,6 +37,7 @@
     "@ghost/db": "workspace:*",
     "@ghost/languages": "workspace:*",
     "@ghost/permissions": "workspace:*",
+    "@ghost/webhooks": "workspace:*",
     "@ghost/references": "workspace:*",
     "@ghost/templates": "workspace:*",
     "@nestjs-modules/mailer": "^2.3.7",

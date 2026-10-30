@@ -8,47 +8,7 @@ import type { EventType } from '../events/events.js';
 import type { Commit } from '../git/commits/list-commits.js';
 
 /** Events an endpoint can subscribe to. `ping` is sent on create and on demand, whatever the endpoint chose. */
-export const webhookEvents = [
-  'push',
-  'issue.opened',
-  'issue.edited',
-  'issue.closed',
-  'issue.reopened',
-  'issue.assigned',
-  'issue.unassigned',
-  'issue.labeled',
-  'issue.unlabeled',
-  'issue.commented',
-  'issue.comment_edited',
-  'issue.comment_deleted',
-  'pull_request.ready_for_review',
-  'pull_request.converted_to_draft',
-  'pull_request.synchronized',
-  'pull_request.merged',
-  'pull_request.reviewed',
-  'pull_request.review_dismissed',
-  'pull_request.review_commented',
-  'pull_request.review_requested',
-  'pull_request.review_request_removed',
-  'label.created',
-  'label.edited',
-  'label.deleted',
-  'release.created',
-  'release.published',
-  'release.edited',
-  'release.deleted',
-  'commit_status.created',
-  'star.created',
-  'star.deleted',
-  'watch.started',
-  'fork.created',
-  'repository.edited',
-  'repository.transferred',
-  'member.added',
-  'member.removed',
-] as const satisfies readonly EventType[];
-
-export type WebhookEvent = (typeof webhookEvents)[number];
+export { type WebhookEvent, webhookEvents } from '@ghost/webhooks';
 
 /** A new signing secret, shown to the user once. */
 export function newWebhookSecret() {

@@ -1,7 +1,5 @@
-import { EVENT_PERMISSIONS } from '@ghost/permissions';
 import { describe, expect, it } from 'vitest';
 
-import { webhookEvents } from '../webhooks/webhooks.js';
 import { appPermissionsProblem, grants, withMetadata } from './permissions.js';
 
 describe('grants', () => {
@@ -61,10 +59,19 @@ describe('appPermissionsProblem', () => {
   });
 });
 
-describe('EVENT_PERMISSIONS', () => {
-  it('maps every event Ghost sends, and nothing else', () => {
-    expect(Object.keys(EVENT_PERMISSIONS).sort()).toEqual(
-      [...webhookEvents].sort(),
+describe('appPermissionsProblem and events', () => {
+  it('refuses an installation event', () => {
+    expect(appPermissionsProblem({}, ['installation.created'])).toBe(
+      'installation.created is not an event',
     );
+  });
+
+  it('refuses pull_request.opened without pull_requests', () => {
+    expect(appPermissionsProblem({}, ['pull_request.opened'])).toBe(
+      'pull_request.opened needs pull_requests:read',
+    );
+    expect(
+      appPermissionsProblem({ pull_requests: 'read' }, ['pull_request.opened']),
+    ).toBeNull();
   });
 });

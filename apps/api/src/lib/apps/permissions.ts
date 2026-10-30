@@ -2,8 +2,8 @@ import {
   APP_PERMISSIONS,
   type AppPermission,
   type AppPermissions,
-  EVENT_PERMISSIONS,
 } from '@ghost/permissions';
+import { WEBHOOK_EVENTS } from '@ghost/webhooks';
 
 export function grants(
   held: AppPermissions,
@@ -28,9 +28,10 @@ export function appPermissionsProblem(
     if (!levels.includes(level)) return `${name} cannot be ${level}`;
   }
   for (const event of events) {
-    if (!Object.hasOwn(EVENT_PERMISSIONS, event))
+    if (!Object.hasOwn(WEBHOOK_EVENTS, event))
       return `${event} is not an event`;
-    const needed = EVENT_PERMISSIONS[event]!;
+    const needed =
+      WEBHOOK_EVENTS[event as keyof typeof WEBHOOK_EVENTS].permission;
     if (needed !== 'metadata' && !permissions[needed])
       return `${event} needs ${needed}:read`;
   }
