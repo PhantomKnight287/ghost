@@ -1,6 +1,8 @@
 import type { AppPermissions } from '@ghost/permissions';
 import type { Request } from 'express';
 
+import type { UserToServerCaller } from '../../lib/apps/user-token-context.js';
+
 /** The installation behind a `ghs_` token, narrowed as the token was minted. */
 export type AppInstallationCaller = {
   installationId: string;
@@ -28,6 +30,8 @@ export type GithubRequest = Request & {
   githubViewer: GithubViewer | null;
   githubApp: GithubApp | null;
   appInstallation?: AppInstallationCaller | null;
+  /** Set for a `ghu_` token, whose viewer is the user; what it may do is AppPermissionGuard's to decide. */
+  userToServer?: UserToServerCaller | null;
 };
 
 /** The repository a REST path names, and who is asking. */

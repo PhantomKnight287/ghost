@@ -217,8 +217,7 @@ describe.skipIf(!hasBackends)('Ghost App user-to-server tokens', () => {
     });
   });
 
-  // Turned on by Task 3, which teaches the middleware ghu_ tokens.
-  it.todo('a ghu_ token answers GET /api/v3/user as the user', async () => {
+  it('a ghu_ token answers GET /api/v3/user as the user', async () => {
     const client = await register();
     const { access_token } = await webFlow(client);
     const { body } = await api()

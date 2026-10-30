@@ -1,3 +1,4 @@
+import type { UserToServerCaller } from '../lib/apps/user-token-context.js';
 import { Request } from 'express';
 import type { AppInstallationCaller } from '../github/auth/github-request.js';
 import {
@@ -10,6 +11,7 @@ export interface GitAuthenticatedBufferedRequest extends Request {
   actor?: Actor;
   apiKeyId?: string | null;
   appInstallation?: AppInstallationCaller | null;
+  userToServer?: UserToServerCaller | null;
   repository?: AuthorizedRepository;
   gitBody?: GitRequestBody;
 }

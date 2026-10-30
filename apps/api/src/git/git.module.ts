@@ -28,6 +28,7 @@ import { LFS_MEDIA_TYPE } from '../lib/git/lfs/lfs-objects.js';
 import { LfsService } from '../services/git/lfs/lfs.service.js';
 import { GitRawBodyMiddleware } from './middleware/git-raw-body.middleware.js';
 import { InstallationTokensService } from '../services/apps/installation-tokens.service.js';
+import { UserTokensService } from '../services/apps/user-tokens.service.js';
 import { GitService } from './git.service.js';
 import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
 import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
@@ -50,6 +51,7 @@ import { UsersService } from '../services/users/users.service.js';
   providers: [
     GitService,
     InstallationTokensService,
+    UserTokensService,
     PullRequestHintsService,
     PackProcessService,
     RefAdvertisementService,

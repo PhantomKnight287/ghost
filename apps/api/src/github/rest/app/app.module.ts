@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { InstallationTokensService } from '../../../services/apps/installation-tokens.service.js';
+import { UserTokensService } from '../../../services/apps/user-tokens.service.js';
 import { ReposModule } from '../repos/repos.module.js';
 import { GithubAppController } from './app.controller.js';
 import { GithubAppService } from './app.service.js';
@@ -21,6 +22,7 @@ import { GithubInstallationsService } from './installations.service.js';
     GithubAppService,
     GithubInstallationsService,
     InstallationTokensService,
+    UserTokensService,
   ],
 })
 export class GithubAppModule {}
