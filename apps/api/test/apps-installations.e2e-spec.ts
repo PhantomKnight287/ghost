@@ -328,6 +328,23 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
           String(body.installationId),
         );
         expect(callback.searchParams.get('setup_action')).toBe('install');
+
+        // An Octokit app exchanges the code with no redirect_uri, as GitHub allows.
+        const { body: secret } = await api()
+          .post(`/api/apps/${slug}/client-secrets`)
+          .set('cookie', appOwner.cookie)
+          .expect(201);
+        const { body: token } = await api()
+          .post('/login/oauth/access_token')
+          .set('accept', 'application/json')
+          .type('form')
+          .send({
+            client_id: start.searchParams.get('client_id'),
+            client_secret: secret.clientSecret,
+            code: callback.searchParams.get('code'),
+          })
+          .expect(200);
+        expect(token.access_token).toMatch(/^ghu_/);
       });
 
       it('falls back to the setup URL when the switch is off', async () => {

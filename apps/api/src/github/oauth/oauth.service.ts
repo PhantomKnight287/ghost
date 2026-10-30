@@ -7,7 +7,10 @@ import { eq } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
 import type { Executor } from '../../lib/db/executor.js';
-import { callbackMatches } from '../../lib/github/callback.js';
+import {
+  boundRedirectUri,
+  callbackMatches,
+} from '../../lib/github/callback.js';
 import { findOauthApp, type OauthApp } from '../../lib/github/oauth-apps.js';
 import {
   type OAuthReply,
@@ -228,7 +231,8 @@ export class OauthService {
           ...client,
           grant_type: 'authorization_code',
           code: body.code,
-          redirect_uri: redirectUri,
+          // GitHub matches a redirect_uri by origin and path; the plugin wants the exact string the code went to, which can carry a query such as an install's installation_id.
+          redirect_uri: await this.exchangeRedirectUri(body.code, redirectUri),
           code_verifier: body.code_verifier,
         },
       });
@@ -283,6 +287,12 @@ export class OauthService {
     });
     if (!token) return oauthError(200, 'bad_refresh_token');
     return { status: 200, body: token };
+  }
+
+  /** The URI the code was issued to when it differs from `requested` only in its query, else `requested`. */
+  private async exchangeRedirectUri(code: string, requested: string) {
+    const bound = await boundRedirectUri(this.db, code);
+    return bound && callbackMatches(requested, bound) ? bound : requested;
   }
 
   /** The plugin checks a secret its own way; introspecting a token it does not hold fails only on bad credentials. */

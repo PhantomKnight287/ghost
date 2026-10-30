@@ -32,10 +32,10 @@ import {
 } from '../../../lib/github/rest.js';
 import {
   acceptedCollaboration,
+  grantedTo,
   installationCovers,
   organizationMembership,
   ownerNameOf,
-  readableBy,
 } from '../../../lib/repositories/access/repository-access.js';
 import {
   InstallationTokensService,
@@ -184,7 +184,7 @@ export class GithubInstallationsService {
     };
   }
 
-  /** `GET /user/installations/{id}/repositories`: the installation's repositories the token's user can see. */
+  /** `GET /user/installations/{id}/repositories`: the installation's repositories the token's user holds a role on; a public repository alone is not enough, as on GitHub. */
   async repositoriesOfUserToken(
     caller: UserToServerCaller | null | undefined,
     viewer: GithubViewer | null,
@@ -229,7 +229,7 @@ export class GithubInstallationsService {
         schema.member,
         organizationMembership(schema.repository.organizationId, actor),
       )
-      .where(and(installationCovers(schema.repository), readableBy(actor)))
+      .where(and(installationCovers(schema.repository), grantedTo(actor)))
       .orderBy(asc(schema.repository.slug), asc(schema.repository.id))
       .offset(page.offset)
       .limit(page.perPage);
@@ -244,7 +244,7 @@ export class GithubInstallationsService {
     };
   }
 
-  /** Ids of the app's live installations on the user's own account, or covering a repository the user can see: GitHub's rule. */
+  /** Ids of the app's live installations on the user's own account, or covering a repository the user holds a role on: GitHub's "explicit permission" rule, which a public repository alone does not meet. */
   private async reachableBy(caller: UserToServerCaller) {
     const actor = { userId: caller.userId };
     const rows = await this.db
@@ -265,7 +265,7 @@ export class GithubInstallationsService {
           isNull(schema.appInstallation.suspendedAt),
           or(
             eq(schema.appInstallation.accountUserId, caller.userId),
-            and(isNotNull(schema.repository.id), readableBy(actor)),
+            and(isNotNull(schema.repository.id), grantedTo(actor)),
           ),
         ),
       );

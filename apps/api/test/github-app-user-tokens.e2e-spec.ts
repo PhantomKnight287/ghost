@@ -309,6 +309,34 @@ describe.skipIf(!hasBackends)('Ghost App user-to-server tokens', () => {
         .expect(404);
     });
 
+    it('does not list an installation only because its repository is public, as GitHub needs explicit access', async () => {
+      const client = await register();
+      await api()
+        .post('/api/repositories')
+        .set('cookie', other.cookie)
+        .send({ name: `ghupublic${stamp}`, visibility: 'public' })
+        .expect(201);
+      const theirs = await api()
+        .post(`/api/apps/${client.slug}/installations`)
+        .set('cookie', other.cookie)
+        .send({ account: `ghuother${stamp}`, repositorySelection: 'all' })
+        .expect(201);
+      const { access_token } = await webFlow(client);
+      const { body } = await api()
+        .get('/api/v3/user/installations')
+        .set('authorization', `token ${access_token}`)
+        .expect(200);
+      expect(
+        body.installations.map((each: { id: number }) => each.id),
+      ).not.toContain(theirs.body.installationId);
+      await api()
+        .get(
+          `/api/v3/user/installations/${theirs.body.installationId}/repositories`,
+        )
+        .set('authorization', `token ${access_token}`)
+        .expect(404);
+    });
+
     it('refuses /user/installations to a PAT', async () => {
       const { body } = await api()
         .get('/api/v3/user/installations')
