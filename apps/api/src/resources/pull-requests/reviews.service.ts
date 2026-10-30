@@ -19,7 +19,7 @@ import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import { replaceFile } from '../../lib/git/tree/replace-file.js';
 import { diffHunkFor } from '../../lib/pull-requests/diff-hunk.js';
-import { currentViaAppId } from '../../lib/apps/via-app.js';
+import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
 import {
   applySuggestion,
@@ -67,6 +67,7 @@ type Loaded = Awaited<ReturnType<PullRequestsService['load']>>;
 const replyColumns = {
   id: schema.pullRequestReviewComment.id,
   body: schema.pullRequestReviewComment.body,
+  viaApp: viaAppOf(schema.pullRequestReviewComment.viaAppId),
   createdAt: isoTimestamp(schema.pullRequestReviewComment.createdAt),
   updatedAt: isoTimestamp(schema.pullRequestReviewComment.updatedAt),
 };

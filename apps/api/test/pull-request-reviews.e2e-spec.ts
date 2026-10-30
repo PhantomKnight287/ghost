@@ -238,7 +238,11 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
       .set('cookie', author.cookie)
       .send({ body: 'Fixed' })
       .expect(201);
-    expect(first.body).toMatchObject({ body: 'Fixed', authorUsername: owner });
+    expect(first.body).toMatchObject({
+      body: 'Fixed',
+      authorUsername: owner,
+      viaApp: null,
+    });
     // A reply to a reply joins the same thread.
     await api()
       .post(pull(`/comments/${first.body.id}/replies`))
@@ -265,6 +269,7 @@ describe.skipIf(!hasBackends)('pull request reviews and drafts', () => {
     expect(edited.body).toMatchObject({
       body: 'Edited by its author',
       authorUsername: other,
+      viaApp: null,
     });
 
     const reviewId = body.timeline.find(
