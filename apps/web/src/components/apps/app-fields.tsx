@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { callbackUrlsOf } from "./callback-urls";
 import { PERMISSIONS } from "./permissions";
 
 export const MAX_APP_NAME_LENGTH = 34;
@@ -39,6 +40,11 @@ export type AppValues = {
   setupUrl: string;
   webhookUrl: string;
   webhookSecret: string;
+  /** One per line, as typed. */
+  callbackUrls: string;
+  expireUserTokens: boolean;
+  deviceFlowEnabled: boolean;
+  requestOauthOnInstall: boolean;
   permissions: AppPermissions;
   events: string[];
 };
@@ -50,6 +56,10 @@ export const EMPTY_APP: AppValues = {
   setupUrl: "",
   webhookUrl: "",
   webhookSecret: "",
+  callbackUrls: "",
+  expireUserTokens: true,
+  deviceFlowEnabled: false,
+  requestOauthOnInstall: false,
   permissions: {},
   events: [],
 };
@@ -211,6 +221,78 @@ export function AppFields({
               Ghost never shows it again once saved.
             </FieldDescription>
           </Field>
+        </FieldGroup>
+      </FieldSet>
+
+      <FieldSeparator />
+
+      <FieldSet>
+        <FieldLegend>User authorization</FieldLegend>
+        <FieldDescription>
+          How the app&apos;s website signs Ghost users in, as GitHub&apos;s
+          user-to-server tokens do. The tokens act as the user, never as the
+          bot.
+        </FieldDescription>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="app-callback-urls">
+              Callback URLs{" "}
+              <span className="font-normal text-muted-foreground">
+                (up to 10, one per line)
+              </span>
+            </FieldLabel>
+            <Textarea
+              id="app-callback-urls"
+              rows={3}
+              placeholder="https://ci.example/auth/callback"
+              value={values.callbackUrls}
+              disabled={disabled}
+              onChange={(event) =>
+                set({
+                  callbackUrls: event.target.value,
+                  ...(!event.target.value.trim() && {
+                    requestOauthOnInstall: false,
+                  }),
+                })
+              }
+            />
+          </Field>
+          {(
+            [
+              [
+                "expireUserTokens",
+                "Expire user authorization tokens",
+                "Tokens last 8 hours and come with a refresh token.",
+              ],
+              [
+                "deviceFlowEnabled",
+                "Enable Device Flow",
+                "Lets a command-line tool sign users in with a code.",
+              ],
+              [
+                "requestOauthOnInstall",
+                "Request user authorization (OAuth) during installation",
+                "Signs the installer in right after they install. Needs a callback URL.",
+              ],
+            ] as const
+          ).map(([key, label, detail]) => (
+            <Field key={key} orientation="horizontal">
+              <Checkbox
+                id={`app-${key}`}
+                checked={values[key]}
+                disabled={
+                  disabled ||
+                  (key === "requestOauthOnInstall" &&
+                    callbackUrlsOf(values).length === 0)
+                }
+                onCheckedChange={(checked) => set({ [key]: checked === true })}
+              />
+              <div className="flex flex-col gap-1">
+                <FieldLabel htmlFor={`app-${key}`}>{label}</FieldLabel>
+                <FieldDescription>{detail}</FieldDescription>
+              </div>
+            </Field>
+          ))}
         </FieldGroup>
       </FieldSet>
 

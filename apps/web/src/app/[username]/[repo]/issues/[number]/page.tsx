@@ -68,7 +68,12 @@ export default async function IssuePage({
           field="body"
           value={issue.data.body ?? ""}
           canEdit={canEdit}
-          header={<UserLink username={issue.data.authorUsername} />}
+          header={
+            <UserLink
+              username={issue.data.authorUsername}
+              via={issue.data.viaApp}
+            />
+          }
         >
           {issue.data.body ? (
             <Markdown repository={{ username, repo }}>

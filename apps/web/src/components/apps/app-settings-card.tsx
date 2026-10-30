@@ -24,6 +24,10 @@ export function AppSettingsCard({
     setupUrl: app.setupUrl ?? "",
     webhookUrl: app.webhookUrl ?? "",
     webhookSecret: "",
+    callbackUrls: app.callbackUrls.join("\n"),
+    expireUserTokens: app.expireUserTokens,
+    deviceFlowEnabled: app.deviceFlowEnabled,
+    requestOauthOnInstall: app.requestOauthOnInstall,
     permissions: app.permissions,
     events: app.events,
   };

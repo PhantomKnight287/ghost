@@ -5,6 +5,8 @@ import { z } from "zod";
 import { actionClient } from "@/lib/action-client";
 import { callApi } from "@/lib/api/server";
 
+import { callbackUrlsOf } from "./callback-urls";
+
 const app = z.object({ slug: z.string() });
 const optionalUrl = z
   .string()
@@ -18,13 +20,22 @@ const fields = z.object({
   setupUrl: optionalUrl,
   webhookUrl: optionalUrl,
   webhookSecret: z.string(),
+  callbackUrls: z.string(),
+  expireUserTokens: z.boolean(),
+  deviceFlowEnabled: z.boolean(),
+  requestOauthOnInstall: z.boolean(),
   permissions: z.record(z.string(), z.enum(["read", "write"])),
   events: z.array(z.string()),
 });
 
 /** Empty text fields clear a setting; an empty secret leaves the stored one alone. */
-const body = ({ webhookSecret, ...values }: z.infer<typeof fields>) => ({
+const body = ({
+  webhookSecret,
+  callbackUrls,
+  ...values
+}: z.infer<typeof fields>) => ({
   ...values,
+  callbackUrls: callbackUrlsOf({ callbackUrls }),
   description: values.description || null,
   setupUrl: values.setupUrl || null,
   webhookUrl: values.webhookUrl || null,
@@ -62,6 +73,26 @@ export const setAppWebhookActive = actionClient
       client.PATCH("/api/apps/{slug}", {
         params: { path: { slug } },
         body: { webhookActive: active },
+      }),
+    );
+  });
+
+export const createClientSecret = actionClient
+  .inputSchema(app)
+  .action(({ parsedInput: { slug } }) =>
+    callApi((client) =>
+      client.POST("/api/apps/{slug}/client-secrets", {
+        params: { path: { slug } },
+      }),
+    ),
+  );
+
+export const deleteClientSecret = actionClient
+  .inputSchema(app.extend({ id: z.string() }))
+  .action(async ({ parsedInput: { slug, id } }) => {
+    await callApi((client) =>
+      client.DELETE("/api/apps/{slug}/client-secrets/{id}", {
+        params: { path: { slug, id } },
       }),
     );
   });

@@ -81,8 +81,11 @@ export default async function IssueLayout({
           </Badge>
 
           <span>
-            <UserLink username={issue.data.authorUsername} /> opened this issue{" "}
-            <FromNowHoverCard date={issue.data.createdAt} />
+            <UserLink
+              username={issue.data.authorUsername}
+              via={issue.data.viaApp}
+            />{" "}
+            opened this issue <FromNowHoverCard date={issue.data.createdAt} />
           </span>
 
           {issue.data.state === "closed" && issue.data.closedByUsername && (
