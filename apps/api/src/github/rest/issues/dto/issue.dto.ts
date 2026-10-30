@@ -231,6 +231,24 @@ export class GithubIssuePullRequestLinksDTO {
   merged_at: string | null;
 }
 
+/** As much of GitHub's App object as `performed_via_github_app` needs. */
+export class GithubViaAppDTO {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
+  node_id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  html_url: string;
+}
+
 export class GithubIssueDTO {
   @ApiProperty()
   id: number;
@@ -377,22 +395,4 @@ export class GithubIssueCommentDTO {
     description: 'The app a user-to-server token acted through.',
   })
   performed_via_github_app: GithubViaAppDTO | null;
-}
-
-/** As much of GitHub's App object as `performed_via_github_app` needs. */
-export class GithubViaAppDTO {
-  @ApiProperty()
-  id: number;
-
-  @ApiProperty()
-  slug: string;
-
-  @ApiProperty()
-  node_id: string;
-
-  @ApiProperty()
-  name: string;
-
-  @ApiProperty()
-  html_url: string;
 }
