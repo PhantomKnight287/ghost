@@ -267,6 +267,84 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
       );
     });
 
+    describe('user authorization during installation', () => {
+      const CALLBACK = 'https://ci.example/oauth/callback';
+      const asking = async () => {
+        const { slug } = await register({
+          callbackUrls: [CALLBACK],
+          requestOauthOnInstall: true,
+        });
+        const { body: settings } = await api()
+          .get(`/api/apps/${slug}/settings`)
+          .set('cookie', appOwner.cookie)
+          .expect(200);
+        return { slug, clientId: settings.clientId as string };
+      };
+
+      it('asks the installer to authorize the app when requestOauthOnInstall is on', async () => {
+        const { slug, clientId } = await asking();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+
+        const redirect = new URL(body.redirectUrl);
+        expect(redirect.pathname).toBe('/login/oauth/authorize');
+        expect(redirect.searchParams.get('client_id')).toBe(clientId);
+        expect(redirect.searchParams.get('redirect_uri')).toBe(
+          `${CALLBACK}?installation_id=${body.installationId}&setup_action=install`,
+        );
+      });
+
+      it('the web flow from there ends at the callback with code, installation_id and setup_action', async () => {
+        const { slug } = await asking();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+
+        const start = new URL(body.redirectUrl);
+        const first = await api()
+          .get(`${start.pathname}${start.search}`)
+          .set('cookie', installer.cookie)
+          .expect(302);
+        const plugin = new URL(first.headers.location, 'http://api.local');
+        const second = await api()
+          .get(`${plugin.pathname}${plugin.search}`)
+          .set('cookie', installer.cookie)
+          .expect(302);
+        let callback = new URL(second.headers.location);
+        if (callback.searchParams.has('sig')) {
+          const consented = await api()
+            .post('/api/auth/oauth2/consent')
+            .set('cookie', installer.cookie)
+            .send({ accept: true, oauth_query: callback.search.slice(1) })
+            .expect(200);
+          callback = new URL(consented.body.url);
+        }
+        expect(`${callback.origin}${callback.pathname}`).toBe(CALLBACK);
+        expect(callback.searchParams.get('code')).toBeTruthy();
+        expect(callback.searchParams.get('installation_id')).toBe(
+          String(body.installationId),
+        );
+        expect(callback.searchParams.get('setup_action')).toBe('install');
+      });
+
+      it('falls back to the setup URL when the switch is off', async () => {
+        const { slug } = await register({
+          callbackUrls: [CALLBACK],
+          setupUrl: 'https://ci.example/setup',
+        });
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        expect(body.redirectUrl).toBe(
+          `https://ci.example/setup?installation_id=${body.installationId}&setup_action=install`,
+        );
+      });
+    });
+
     it('refuses repositories the account does not own', async () => {
       const { slug } = await register();
       await install(slug, {
@@ -599,7 +677,9 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
           expect.arrayContaining([
             expect.objectContaining({
               event: 'installation.repositories_removed',
-              installation: expect.objectContaining({ id: mine.installationId }),
+              installation: expect.objectContaining({
+                id: mine.installationId,
+              }),
               repositories: [{ id: moved, fullName: `${org}/${name}` }],
             }),
             expect.objectContaining({
@@ -779,7 +859,7 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
       expect(await tokensOf(body.id)).toEqual([]);
     });
 
-    it("lists the apps installed on a repository, for its admins", async () => {
+    it('lists the apps installed on a repository, for its admins', async () => {
       const { slug, appId } = await register();
       await install(slug, {
         account: installerName(),
