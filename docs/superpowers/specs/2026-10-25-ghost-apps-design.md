@@ -181,6 +181,26 @@ This is #79, not part of this design. Once slice 3 merges, comment on #79 that a
 - A user-to-server token acts as the user, limited to the intersection of the user's access, the app's permissions and the repositories the app is installed on. Actions show as the user, never as the bot (see anti-goals). On GitHub they also show "via app"; doing that is the builder's call.
 - The app gets a client id and client secret for this flow.
 
+#### Slice 5 decisions (2026-10-30)
+
+The user's rule for this slice: copy GitHub (user decision, 2026-10-30). The main use is an app's own website signing a Ghost user in and showing what they can reach (`GET /user`, `GET /user/installations`), as Vercel, CodeRabbit and Linear do on GitHub; acting as the user is the rarer case. Claude builds all of slice 5, backend and frontend, test-first (user decision, 2026-10-30). One pull request.
+
+- **Every app can sign users in; no switch turns it on.** This replaces the bullets above that call user authorization an opt-in. Each app gets a client id and client secrets (several, as GitHub allows, each shown once) and callback URLs (up to 10). GitHub's "Request user authorization (OAuth) during installation" is a separate checkbox: when on, installing sends the installer through the web flow, and the callback gets `code`, `installation_id` and `setup_action=install`, instead of the setup URL redirect.
+- **Settings shared with Ghost's OAuth apps.** "Expire user authorization tokens" (on by default) and "Enable Device Flow" (off by default) behave as they do for OAuth apps. The builder may back the app's client with an `oauth_client` row tied to the app, so `/login/oauth/authorize`, `/login/device/code` and `/login/oauth/access_token` serve both kinds; that is the builder's call.
+- **Tokens.** The access token is `ghu_` + random and lasts 8 hours; the refresh token is `ghr_` + random and lasts 6 months, reusing `issueRefreshToken`, `spendRefreshToken` and `lockGrant` keyed to the app's client. With expiry off the token never expires and no refresh token is issued. A user-to-server token has no scopes: `scope` is empty in the reply and any requested scope is ignored.
+- **Access.** A user-to-server token may use a permission only if the app holds it and the user's own role allows it, on a repository only if the user can see it and an installation of the app covers it (`installationCovers`, not suspended). Without any installation it still reads `/user` and the user's own public data. Uninstalling or suspending does not revoke the token; it loses repository access through the rule above. Refusals use the slice 2 message and status codes.
+- **Endpoints.** `GET /user/installations` (the installations of the token's app that the user can access: on their own account, or on an organization they belong to) and `GET /user/installations/{installation_id}/repositories` (the installation's repositories the user can see), with GitHub's response shapes and `total_count`. Only user-to-server tokens may call them, as on GitHub.
+- **Attribution.** Everything done with the token is the user's, never the bot's. Comments, reviews, issues and statuses record the app they came through, and the web UI shows "via app-name" next to the user, linking to the app page (GitHub's "via" label). A status posted with a user-to-server token never satisfies a ruleset check pinned with `integration_id`.
+- **Revoking.** The user revokes an app from Authorized apps, which deletes its tokens and refresh tokens for them. The app can revoke with GitHub's `DELETE /applications/{client_id}/token` (one token) and `DELETE /applications/{client_id}/grant` (every token of that user), authenticated with HTTP Basic client id and secret.
+- **Claude's calls, settled while writing this:**
+  - User-to-server tokens work where installation tokens do: the GitHub-compatible REST layer and git over HTTPS. Not Ghost's own API. GraphQL waits for slice 6, as for installation tokens.
+  - Rate limits count against the user's authenticated budget.
+  - An app keeps at most 20 client secrets, like its private keys. Only each secret's hash, or its sealed form if the OAuth plugin needs it, is stored, and the last characters are shown to tell them apart.
+  - Apps registered before this slice get their client the first time it is needed, or through the migration; either is fine.
+  - "Request user authorization during installation" can only be ticked once the app has a callback URL.
+  - `GET /user/installations` lists an installation when it is on the user's own account, or when the user can see at least one repository it covers, which is GitHub's rule.
+- **Out of scope:** fine-grained per-token narrowing (`POST /applications/{client_id}/token/scoped`), token checking (`POST /applications/{client_id}/token`), and token reset (`PATCH`); missing endpoints answer GitHub-style 404.
+
 ### Slice 6: Permission changes, GraphQL and docs (Ghost #107)
 
 - **Permission changes.** When the app owner raises permissions or adds events, each installation keeps its accepted set and its owner sees a "review new permissions" prompt in installed-apps settings. Accepting applies the new set and sends an `installation.new_permissions_accepted` event (name adjustable). Lowering permissions applies immediately.
@@ -212,6 +232,7 @@ This is #79, not part of this design. Once slice 3 merges, comment on #79 that a
 - Split into issues, one per slice (2026-10-25).
 - Slice 3 serves the GitHub sync bot first; Claude builds all of it (2026-10-30).
 - Slice 3's pull request event split breaks existing subscriptions with no migration, and webhook events move to `@ghost/webhooks` (2026-10-30).
+- Slice 5 copies GitHub: every app can sign users in, the main use is an app's own website; Claude builds all of it (2026-10-30).
 
 ## Left to the builder
 
