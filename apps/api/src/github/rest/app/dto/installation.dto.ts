@@ -122,3 +122,73 @@ export class GithubInstallationRepositoriesDTO {
   @ApiProperty({ type: [GithubRepositoryDTO] })
   repositories: GithubRepositoryDTO[];
 }
+
+export class GithubUserInstallationsDTO {
+  @ApiProperty()
+  total_count: number;
+
+  @ApiProperty({ type: [GithubInstallationDTO] })
+  installations: GithubInstallationDTO[];
+}
+
+export class GithubApplicationTokenRequestDTO {
+  @ApiProperty({ description: 'A `ghu_` token of the app.' })
+  @IsString()
+  access_token: string;
+}
+
+class GithubAuthorizationAppDTO {
+  @ApiProperty()
+  client_id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  url: string;
+}
+
+/** GitHub's authorization object, as `POST /applications/{client_id}/token` answers it. */
+export class GithubAuthorizationDTO {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty({ type: [String] })
+  scopes: string[];
+
+  @ApiProperty()
+  token: string;
+
+  @ApiProperty()
+  token_last_eight: string;
+
+  @ApiProperty()
+  hashed_token: string;
+
+  @ApiProperty({ type: GithubAuthorizationAppDTO })
+  app: GithubAuthorizationAppDTO;
+
+  @ApiProperty({ type: String, nullable: true })
+  note: null;
+
+  @ApiProperty({ type: String, nullable: true })
+  note_url: null;
+
+  @ApiProperty({ type: String, nullable: true })
+  fingerprint: null;
+
+  @ApiProperty()
+  created_at: string;
+
+  @ApiProperty()
+  updated_at: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  expires_at: string | null;
+
+  @ApiProperty({ type: GithubSimpleUserDTO })
+  user: GithubSimpleUserDTO;
+}

@@ -27,6 +27,8 @@ const GITHUB_MEDIA_TYPE = /application\/vnd\.github\b/i;
 /** `gh pr diff` asks for the raw diff or patch, which is not JSON and which the pulls controller answers by this header. */
 const RAW_MEDIA_TYPE = /application\/vnd\.github(?:\.v3)?\.(?:diff|patch)\b/i;
 const GRAPHQL_PATH = /^\/api\/graphql(?:[/?]|$)/;
+/** An app's own client id and secret over HTTP Basic: the routes check them, with no viewer. */
+const APPLICATIONS_PATH = /^\/api\/v3\/applications\//;
 const DOCUMENTATION_URL = 'https://docs.github.com/rest';
 const END = String.raw`\/?(?:\?|$)`;
 const SEGMENT = '[^/?]+';
@@ -76,7 +78,8 @@ export class GithubAuthMiddleware implements NestMiddleware {
     const header = req.headers.authorization;
     const token = header ? AUTHORIZATION_TOKEN.exec(header)?.[1] : undefined;
 
-    if (header && !token) return this.badCredentials(res);
+    if (header && !token && !APPLICATIONS_PATH.test(req.originalUrl))
+      return this.badCredentials(res);
     req.githubApp = null;
     req.appInstallation = null;
     req.userToServer = null;

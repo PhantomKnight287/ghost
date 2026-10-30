@@ -1,7 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
+import { AuthService } from '@thallesp/nestjs-better-auth';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 const CALLBACK = 'https://tool.example/oauth/callback';
@@ -225,5 +227,195 @@ describe.skipIf(!hasBackends)('Ghost App user-to-server tokens', () => {
       .set('authorization', `token ${access_token}`)
       .expect(200);
     expect(body.login).toBe(`ghuowner${stamp}`);
+  });
+
+  describe('installations and token management', () => {
+    let other: { cookie: string; key: string; userId: string };
+    const org = `ghuorg${stamp}`;
+    const basic = (clientId: string, secret: string) =>
+      `Basic ${Buffer.from(`${clientId}:${secret}`).toString('base64')}`;
+    const repository = (cookie: string, name: string) =>
+      api()
+        .post('/api/repositories')
+        .set('cookie', cookie)
+        .send({ name, visibility: 'private' })
+        .expect(201)
+        .then(() => name);
+    const install = (slug: string, cookie: string, account: string) =>
+      api()
+        .post(`/api/apps/${slug}/installations`)
+        .set('cookie', cookie)
+        .send({ account, repositorySelection: 'all' })
+        .expect(201)
+        .then(({ body }) => body as { id: string; installationId: number });
+
+    beforeAll(async () => {
+      other = await signUp(app, `ghuother${stamp}`);
+      await app.get<AuthService<Auth>>(AuthService).api.createOrganization({
+        body: { name: 'User Token Org', slug: org },
+        headers: new Headers({ cookie: owner.cookie }),
+      });
+      await repository(owner.cookie, `ghumine${stamp}`);
+      await repository(other.cookie, `ghutheirs${stamp}`);
+    });
+
+    it('lists the installations the user can access', async () => {
+      const client = await register();
+      const mine = await install(client.slug, owner.cookie, `ghuowner${stamp}`);
+      const theirs = await install(
+        client.slug,
+        other.cookie,
+        `ghuother${stamp}`,
+      );
+      const { access_token } = await webFlow(client);
+
+      const { body } = await api()
+        .get('/api/v3/user/installations')
+        .set('authorization', `token ${access_token}`)
+        .expect(200);
+      const ids = body.installations.map((each: { id: number }) => each.id);
+      expect(ids).toContain(mine.installationId);
+      expect(ids).not.toContain(theirs.installationId);
+      expect(body.total_count).toBe(ids.length);
+
+      const repos = await api()
+        .get(`/api/v3/user/installations/${mine.installationId}/repositories`)
+        .set('authorization', `token ${access_token}`)
+        .expect(200);
+      expect(
+        repos.body.repositories.map((each: { name: string }) => each.name),
+      ).toContain(`ghumine${stamp}`);
+      expect(repos.body).toMatchObject({
+        total_count: repos.body.repositories.length,
+        repository_selection: 'all',
+      });
+      await api()
+        .get(`/api/v3/user/installations/${theirs.installationId}/repositories`)
+        .set('authorization', `token ${access_token}`)
+        .expect(404);
+    });
+
+    it('refuses /user/installations to a PAT', async () => {
+      const { body } = await api()
+        .get('/api/v3/user/installations')
+        .set('authorization', `token ${owner.key}`)
+        .expect(403);
+      expect(body.message).toBe(
+        'You must authenticate with an access token authorized to a GitHub App in order to list installations',
+      );
+    });
+
+    it("checks a token with the app's credentials", async () => {
+      const client = await register();
+      const { access_token } = await webFlow(client);
+      const { body } = await api()
+        .post(`/api/v3/applications/${client.clientId}/token`)
+        .set('authorization', basic(client.clientId, client.clientSecret))
+        .send({ access_token })
+        .expect(200);
+      expect(body).toMatchObject({
+        token: access_token,
+        token_last_eight: access_token.slice(-8),
+        scopes: [],
+        expires_at: expect.any(String),
+        user: { login: `ghuowner${stamp}` },
+        app: { client_id: client.clientId },
+      });
+    });
+
+    it("refuses another app's token and bad credentials, and the token keeps working", async () => {
+      const mine = await register();
+      const theirs = await register();
+      const { access_token } = await webFlow(theirs);
+      await api()
+        .post(`/api/v3/applications/${mine.clientId}/token`)
+        .set('authorization', basic(mine.clientId, mine.clientSecret))
+        .send({ access_token })
+        .expect(404);
+      await api()
+        .post(`/api/v3/applications/${theirs.clientId}/token`)
+        .set('authorization', basic(theirs.clientId, 'ghost_cs_wrong'))
+        .send({ access_token })
+        .expect(404);
+      await api()
+        .delete(`/api/v3/applications/${mine.clientId}/token`)
+        .set('authorization', basic(mine.clientId, mine.clientSecret))
+        .send({ access_token })
+        .expect(404);
+      await api()
+        .get('/api/v3/user')
+        .set('authorization', `token ${access_token}`)
+        .expect(200);
+    });
+
+    it('revokes one token', async () => {
+      const client = await register();
+      const first = await webFlow(client);
+      const second = await webFlow(client);
+      await api()
+        .delete(`/api/v3/applications/${client.clientId}/token`)
+        .set('authorization', basic(client.clientId, client.clientSecret))
+        .send({ access_token: first.access_token })
+        .expect(204);
+      await api()
+        .get('/api/v3/user')
+        .set('authorization', `token ${first.access_token}`)
+        .expect(401);
+      await api()
+        .get('/api/v3/user')
+        .set('authorization', `token ${second.access_token}`)
+        .expect(200);
+    });
+
+    it('revoking the grant kills every token and refresh token of that user for the app', async () => {
+      const client = await register();
+      const first = await webFlow(client);
+      const second = await webFlow(client);
+      await api()
+        .delete(`/api/v3/applications/${client.clientId}/grant`)
+        .set('authorization', basic(client.clientId, client.clientSecret))
+        .send({ access_token: first.access_token })
+        .expect(204);
+      for (const { access_token } of [first, second])
+        await api()
+          .get('/api/v3/user')
+          .set('authorization', `token ${access_token}`)
+          .expect(401);
+      const refreshed = await token({
+        client_id: client.clientId,
+        client_secret: client.clientSecret,
+        grant_type: 'refresh_token',
+        refresh_token: second.refresh_token,
+      });
+      expect(refreshed.body.error).toBe('bad_refresh_token');
+    });
+
+    it('Authorized apps lists a Ghost App and revoking it kills its ghu_ and ghr_ tokens', async () => {
+      const client = await register();
+      const granted = await webFlow(client);
+      const { body } = await api()
+        .get('/api/oauth-apps/authorized')
+        .set('cookie', owner.cookie)
+        .expect(200);
+      expect(
+        body.apps.map((each: { clientId: string }) => each.clientId),
+      ).toContain(client.clientId);
+
+      await api()
+        .delete(`/api/oauth-apps/authorized/${client.clientId}`)
+        .set('cookie', owner.cookie)
+        .expect(204);
+      await api()
+        .get('/api/v3/user')
+        .set('authorization', `token ${granted.access_token}`)
+        .expect(401);
+      const refreshed = await token({
+        client_id: client.clientId,
+        client_secret: client.clientSecret,
+        grant_type: 'refresh_token',
+        refresh_token: granted.refresh_token,
+      });
+      expect(refreshed.body.error).toBe('bad_refresh_token');
+    });
   });
 });

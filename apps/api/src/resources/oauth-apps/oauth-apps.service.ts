@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { and, eq, gt, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { unionAll } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
@@ -24,6 +24,7 @@ import {
   OauthAppNotFoundError,
 } from '../../lib/oauth-apps/oauth-apps.errors.js';
 import { administeredOrganization } from '../../lib/organizations/administered-organization.js';
+import { UserTokensService } from '../../services/apps/user-tokens.service.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import type {
   AuthorizingOauthAppDTO,
@@ -45,6 +46,7 @@ export class OauthAppsService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly auth: AuthService<Auth>,
+    private readonly userTokens: UserTokensService,
     private readonly avatars: AvatarStorageService,
   ) {}
 
@@ -280,7 +282,26 @@ export class OauthAppsService {
           gt(schema.oauthAppRefreshToken.expiresAt, sql`now()`),
         ),
       );
-    const grants = unionAll(keys, refreshTokens).as('grants');
+    const appTokens = this.db
+      .select({
+        clientId: sql<string>`${schema.app.oauthClientId}`.as(
+          'grant_client_id',
+        ),
+        scopes: sql<unknown>`'[]'::jsonb`.as('grant_scopes'),
+        createdAt: sql<Date>`${schema.appUserToken.createdAt}`.as('granted_at'),
+        lastRequest: sql<Date | null>`null::timestamptz`.as(
+          'grant_last_request',
+        ),
+      })
+      .from(schema.appUserToken)
+      .innerJoin(schema.app, eq(schema.app.id, schema.appUserToken.appId))
+      .where(
+        and(
+          eq(schema.appUserToken.userId, userId),
+          isNull(schema.app.deletedAt),
+        ),
+      );
+    const grants = unionAll(keys, refreshTokens, appTokens).as('grants');
     const apps = await this.db
       .select({
         clientId: oauthAppColumns.clientId,
@@ -307,6 +328,15 @@ export class OauthAppsService {
 
   /** Deletes this user's keys and refresh tokens for the app and their consent, so the app asks again next time. Other users' grants stay. */
   async revokeAuthorized(userId: string, clientId: string): Promise<void> {
+    const app = await findOauthApp(this.db, clientId);
+    if (app?.ghostAppId) {
+      const appId = app.ghostAppId;
+      const revoked = await this.db.transaction((tx) =>
+        this.userTokens.revokeUser(tx, { appId, clientId, userId }),
+      );
+      if (!revoked) throw new AuthorizedOauthAppNotFoundError();
+      return;
+    }
     const { keys, refreshTokens } = await this.db.transaction(async (tx) => {
       await lockGrant(tx, clientId, userId);
       return {

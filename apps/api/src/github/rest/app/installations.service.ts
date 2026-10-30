@@ -1,14 +1,26 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, asc, eq, inArray, isNull, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../../database/database.module.js';
 import {
   AppJwtError,
   IntegrationForbiddenError,
+  UserToServerTokenRequiredError,
 } from '../../../lib/apps/apps.errors.js';
+import type { UserToServerCaller } from '../../../lib/apps/user-token-context.js';
 import { isoTimestamp, sameName } from '../../../lib/db/sql.js';
 import { GithubNotFoundError } from '../../../lib/github/github.errors.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
@@ -19,8 +31,11 @@ import {
   toUserRest,
 } from '../../../lib/github/rest.js';
 import {
+  acceptedCollaboration,
   installationCovers,
+  organizationMembership,
   ownerNameOf,
+  readableBy,
 } from '../../../lib/repositories/access/repository-access.js';
 import {
   InstallationTokensService,
@@ -32,6 +47,7 @@ import type {
   GithubInstallationDTO,
   GithubInstallationRepositoriesDTO,
   GithubInstallationTokenDTO,
+  GithubUserInstallationsDTO,
 } from './dto/installation.dto.js';
 
 const accountUser = alias(schema.user, 'account_user');
@@ -146,6 +162,114 @@ export class GithubInstallationsService {
         : (rows[0]?.selection ?? 'selected'),
       repositories: nodes.map((node) => toRepositoryRest(node, origins)),
     };
+  }
+
+  /** `GET /user/installations`: the installations of the token's app that its user can reach, on their own account or through a repository they can see. */
+  async ofUserToken(
+    caller: UserToServerCaller | null | undefined,
+    query: { page?: unknown; per_page?: unknown },
+  ): Promise<GithubUserInstallationsDTO> {
+    if (!caller) throw new UserToServerTokenRequiredError();
+    const ids = await this.reachableBy(caller);
+    const page = pageOf(query);
+    return {
+      total_count: ids.length,
+      installations: ids.length
+        ? await this.select(
+            caller.appId,
+            inArray(schema.appInstallation.id, ids),
+            page,
+          )
+        : [],
+    };
+  }
+
+  /** `GET /user/installations/{id}/repositories`: the installation's repositories the token's user can see. */
+  async repositoriesOfUserToken(
+    caller: UserToServerCaller | null | undefined,
+    viewer: GithubViewer | null,
+    installationId: number,
+    query: { page?: unknown; per_page?: unknown },
+  ): Promise<GithubInstallationRepositoriesDTO> {
+    if (!caller || !viewer) throw new UserToServerTokenRequiredError();
+    const [installation] = await this.db
+      .select({
+        id: schema.appInstallation.id,
+        selection: schema.appInstallation.repositorySelection,
+      })
+      .from(schema.appInstallation)
+      .where(
+        and(
+          eq(schema.appInstallation.numericId, installationId),
+          eq(schema.appInstallation.appId, caller.appId),
+        ),
+      );
+    if (
+      !installation ||
+      !(await this.reachableBy(caller)).includes(installation.id)
+    )
+      throw new GithubNotFoundError();
+    const page = pageOf(query);
+    const actor = { userId: caller.userId };
+    const rows = await this.db
+      .select({
+        id: schema.repository.id,
+        total: sql<number>`count(*) over ()`.mapWith(Number),
+      })
+      .from(schema.repository)
+      .innerJoin(
+        schema.appInstallation,
+        eq(schema.appInstallation.id, installation.id),
+      )
+      .leftJoin(
+        schema.repositoryCollaborator,
+        acceptedCollaboration(schema.repository.id, actor),
+      )
+      .leftJoin(
+        schema.member,
+        organizationMembership(schema.repository.organizationId, actor),
+      )
+      .where(and(installationCovers(schema.repository), readableBy(actor)))
+      .orderBy(asc(schema.repository.slug), asc(schema.repository.id))
+      .offset(page.offset)
+      .limit(page.perPage);
+    const nodes = await Promise.all(
+      rows.map((row) => this.repositoryNodes.load(row.id, viewer)),
+    );
+    const origins = githubOrigins(this.config);
+    return {
+      total_count: rows[0]?.total ?? 0,
+      repository_selection: installation.selection,
+      repositories: nodes.map((node) => toRepositoryRest(node, origins)),
+    };
+  }
+
+  /** Ids of the app's live installations on the user's own account, or covering a repository the user can see: GitHub's rule. */
+  private async reachableBy(caller: UserToServerCaller) {
+    const actor = { userId: caller.userId };
+    const rows = await this.db
+      .selectDistinct({ id: schema.appInstallation.id })
+      .from(schema.appInstallation)
+      .leftJoin(schema.repository, installationCovers(schema.repository))
+      .leftJoin(
+        schema.repositoryCollaborator,
+        acceptedCollaboration(schema.repository.id, actor),
+      )
+      .leftJoin(
+        schema.member,
+        organizationMembership(schema.repository.organizationId, actor),
+      )
+      .where(
+        and(
+          eq(schema.appInstallation.appId, caller.appId),
+          isNull(schema.appInstallation.suspendedAt),
+          or(
+            eq(schema.appInstallation.accountUserId, caller.userId),
+            and(isNotNull(schema.repository.id), readableBy(actor)),
+          ),
+        ),
+      );
+    return rows.map(({ id }) => id);
   }
 
   /** A JWT is the only way in; anything else gets GitHub's answer to a token that is not one. */

@@ -175,3 +175,13 @@ export class OauthOnInstallNeedsCallbackError extends DomainError {
     );
   }
 }
+
+export class UserToServerTokenRequiredError extends DomainError {
+  status: number = HttpStatus.FORBIDDEN;
+
+  constructor() {
+    super(
+      'You must authenticate with an access token authorized to a GitHub App in order to list installations',
+    );
+  }
+}
