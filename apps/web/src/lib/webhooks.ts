@@ -19,6 +19,14 @@ export const webhookOwnerSchema = z.discriminatedUnion("kind", [
 
 export type WebhookOwner = z.infer<typeof webhookOwnerSchema>;
 
+/** Whose deliveries these are: a repository's or organization's webhook, or a Ghost App's one webhook. */
+export const deliveryOwnerSchema = z.discriminatedUnion("kind", [
+  ...webhookOwnerSchema.options,
+  z.object({ kind: z.literal("app"), slug: z.string() }),
+]);
+
+export type DeliveryOwner = z.infer<typeof deliveryOwnerSchema>;
+
 /** Where the owner's webhook settings live. */
 export function webhooksPath(owner: WebhookOwner) {
   return owner.kind === "repository"

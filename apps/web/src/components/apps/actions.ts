@@ -55,6 +55,17 @@ export const updateApp = actionClient
     );
   });
 
+export const setAppWebhookActive = actionClient
+  .inputSchema(app.extend({ active: z.boolean() }))
+  .action(async ({ parsedInput: { slug, active } }) => {
+    await callApi((client) =>
+      client.PATCH("/api/apps/{slug}", {
+        params: { path: { slug } },
+        body: { webhookActive: active },
+      }),
+    );
+  });
+
 export const deleteApp = actionClient
   .inputSchema(app)
   .action(async ({ parsedInput: { slug } }) => {

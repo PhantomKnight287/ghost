@@ -13,14 +13,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import type { components } from "@/lib/api/v1";
 import { cn } from "@/lib/utils";
-import type { WebhookOwner } from "@/lib/webhooks";
+import type { DeliveryOwner } from "@/lib/webhooks";
 
 import { pingWebhook, redeliverWebhook } from "./actions";
 
 type Delivery = components["schemas"]["DeliveryDTO"];
 
 type DeliveriesProps = {
-  owner: WebhookOwner;
+  owner: DeliveryOwner;
   webhookId: string;
 };
 

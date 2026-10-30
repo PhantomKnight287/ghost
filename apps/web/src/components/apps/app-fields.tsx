@@ -201,7 +201,7 @@ export function AppFields({
               placeholder={
                 webhookSecretSet
                   ? "Set. Type a new one to replace it."
-                  : "Optional"
+                  : "Required with a URL"
               }
               value={values.webhookSecret}
               disabled={disabled}

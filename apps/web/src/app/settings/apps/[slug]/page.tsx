@@ -14,5 +14,13 @@ export default async function AppPage({
   // An organization's app is managed under the organization's settings.
   if (!data || data.owner.type !== "user") notFound();
 
-  return <AppDetail app={data} />;
+  const deliveries = data.webhookId
+    ? ((
+        await client.GET("/api/apps/{slug}/webhook/deliveries", {
+          params: { path: { slug } },
+        })
+      ).data?.deliveries ?? [])
+    : [];
+
+  return <AppDetail app={data} deliveries={deliveries} />;
 }
