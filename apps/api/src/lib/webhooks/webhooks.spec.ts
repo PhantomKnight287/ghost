@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   blockedAddress,
   sealWebhookSecret,
+  webhookEventOf,
   webhookSecretKey,
   webhookUrlProblem,
 } from './webhooks.js';
@@ -77,5 +78,29 @@ describe('webhook addresses', () => {
       /private or reserved/,
     );
     expect(await webhookUrlProblem('http://127.0.0.1:9000', true)).toBe(null);
+  });
+});
+
+describe('webhookEventOf', () => {
+  it('maps the four lifecycle events of a pull request', () => {
+    expect(webhookEventOf('issue.opened', true)).toBe('pull_request.opened');
+    expect(webhookEventOf('issue.edited', true)).toBe('pull_request.edited');
+    expect(webhookEventOf('issue.closed', true)).toBe('pull_request.closed');
+    expect(webhookEventOf('issue.reopened', true)).toBe(
+      'pull_request.reopened',
+    );
+  });
+
+  it("leaves an issue's events alone", () => {
+    expect(webhookEventOf('issue.opened', false)).toBe('issue.opened');
+    expect(webhookEventOf('issue.closed', false)).toBe('issue.closed');
+  });
+
+  it('leaves issue.labeled and issue.commented alone on a pull request', () => {
+    expect(webhookEventOf('issue.labeled', true)).toBe('issue.labeled');
+    expect(webhookEventOf('issue.commented', true)).toBe('issue.commented');
+    expect(webhookEventOf('pull_request.merged', true)).toBe(
+      'pull_request.merged',
+    );
   });
 });

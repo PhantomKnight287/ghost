@@ -242,6 +242,80 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     expect(await eventsFor(other.id)).toEqual(['ping']);
   });
 
+  describe('pull request lifecycle', () => {
+    let pull: typeof schema.issue.$inferSelect;
+    const opened = (suffix: string) => ({
+      id: `evt_whk_pull_${suffix}_${RUN}`,
+      type: 'issue.opened' as const,
+      repositoryId: repository.id,
+      actorId: OWNER,
+      payload: { issueId: pull.id },
+      createdAt: new Date(),
+    });
+
+    beforeAll(async () => {
+      [pull] = await db
+        .insert(schema.issue)
+        .values({
+          repositoryId: repository.id,
+          number: 900,
+          title: 'Count the bells',
+          body: 'Adds a count',
+          authorId: OWNER,
+          isPullRequest: true,
+        })
+        .returning();
+    });
+
+    it("sends a pull request's open as pull_request.opened, and not to an endpoint that only chose issue.opened", async () => {
+      const issues = await webhooks.create(repositoryOwner, {
+        url: 'https://93.184.216.34/issues-only',
+        events: ['issue.opened'],
+      });
+      const pulls = await webhooks.create(repositoryOwner, {
+        url: 'https://93.184.216.34/pulls',
+        events: ['pull_request.opened'],
+      });
+
+      await fanout.handle(opened('split'));
+
+      expect(await eventsFor(issues.id)).toEqual(['ping']);
+      const [delivery] = await jobsFor(pulls.id);
+      expect((delivery!.payload as { event: string }).event).toBe(
+        'pull_request.opened',
+      );
+      expect(bodyOf(delivery!)).toMatchObject({
+        event: 'pull_request.opened',
+        pullRequest: { number: 900, title: 'Count the bells' },
+      });
+    });
+
+    it('delivers once to an endpoint subscribed to both names', async () => {
+      const both = await webhooks.create(repositoryOwner, {
+        url: 'https://93.184.216.34/both',
+        events: ['issue.opened', 'pull_request.opened'],
+      });
+
+      await fanout.handle(opened('both'));
+
+      expect(await eventsFor(both.id)).toEqual(['pull_request.opened', 'ping']);
+    });
+
+    it('still sends issue.opened for an issue', async () => {
+      const issues = await webhooks.create(repositoryOwner, {
+        url: 'https://93.184.216.34/issues-still',
+        events: ['issue.opened', 'pull_request.opened'],
+      });
+
+      await fanout.handle({
+        ...issueOpened(repository.id, issue.id),
+        id: `evt_whk_issue_still_${RUN}`,
+      });
+
+      expect(await eventsFor(issues.id)).toEqual(['issue.opened', 'ping']);
+    });
+  });
+
   it('sends an organization webhook the events of every repository the organization owns', async () => {
     const created = await webhooks.create(organizationOwner, {
       url: 'https://93.184.216.34/org',

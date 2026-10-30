@@ -11,7 +11,11 @@ import {
   renderWebhookBody,
   type WebhookSender,
 } from '../../lib/webhooks/formats/index.js';
-import type { WebhookBody, WebhookOwner } from '../../lib/webhooks/webhooks.js';
+import {
+  type WebhookBody,
+  webhookEventOf,
+  type WebhookOwner,
+} from '../../lib/webhooks/webhooks.js';
 import { teamSlug } from '../../lib/organizations/team-slug.js';
 import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 
@@ -42,6 +46,13 @@ export class WebhookFanoutService {
   }
 
   async handle(event: StoredEvent) {
+    const thread =
+      'issueId' in event.payload
+        ? await this.threadOf(event.payload.issueId)
+        : null;
+    if (thread === undefined) return;
+    const name = webhookEventOf(event.type, thread?.isPullRequest ?? false);
+
     const endpoints = await this.db
       .select({
         id: schema.webhookEndpoint.id,
@@ -51,7 +62,7 @@ export class WebhookFanoutService {
       .where(
         and(
           eq(schema.webhookEndpoint.active, true),
-          arrayContains(schema.webhookEndpoint.events, [event.type]),
+          arrayContains(schema.webhookEndpoint.events, [name]),
           or(
             eq(schema.webhookEndpoint.repositoryId, event.repositoryId),
             inArray(
@@ -66,12 +77,12 @@ export class WebhookFanoutService {
       );
     if (endpoints.length === 0) return;
 
-    const body = await this.bodyOf(event);
+    const body = await this.bodyOf(event, name, thread);
     if (!body) return;
     await this.enqueue(
       endpoints.map((endpoint) => ({
         endpointId: endpoint.id,
-        event: event.type,
+        event: name,
         body: renderWebhookBody(endpoint.url, body, this.sender),
         idempotencyKey: `${event.id}:${endpoint.id}`,
       })),
@@ -120,33 +131,40 @@ export class WebhookFanoutService {
     await this.db.execute(sql`NOTIFY delivery`);
   }
 
+  /** The issue or pull request an event is about; undefined when it is gone. */
+  private async threadOf(issueId: string) {
+    const [thread] = await this.db
+      .select({
+        id: schema.issue.id,
+        number: schema.issue.number,
+        title: schema.issue.title,
+        body: schema.issue.body,
+        state: schema.issue.state,
+        isPullRequest: schema.issue.isPullRequest,
+        authorId: schema.issue.authorId,
+      })
+      .from(schema.issue)
+      .where(eq(schema.issue.id, issueId));
+    return thread;
+  }
+
   /** Null when what the event points at is gone. */
-  private async bodyOf(event: StoredEvent): Promise<WebhookBody | null> {
+  private async bodyOf(
+    event: StoredEvent,
+    name: WebhookBody['event'],
+    thread: Awaited<ReturnType<typeof this.threadOf>> | null,
+  ): Promise<WebhookBody | null> {
     const repository = await this.repositoryRef(event.repositoryId);
     if (!repository) return null;
 
     const body: WebhookBody = {
-      event: event.type,
+      event: name,
       repository,
       sender: event.actorId ? await this.userRef(event.actorId) : null,
       createdAt: new Date(event.createdAt).toISOString(),
     };
 
-    if ('issueId' in event.payload) {
-      const [thread] = await this.db
-        .select({
-          id: schema.issue.id,
-          number: schema.issue.number,
-          title: schema.issue.title,
-          body: schema.issue.body,
-          state: schema.issue.state,
-          isPullRequest: schema.issue.isPullRequest,
-          authorId: schema.issue.authorId,
-        })
-        .from(schema.issue)
-        .where(eq(schema.issue.id, event.payload.issueId));
-      if (!thread) return null;
-
+    if (thread) {
       const kind = thread.isPullRequest ? 'pull' : 'issues';
       body[thread.isPullRequest ? 'pullRequest' : 'issue'] = {
         id: thread.id,

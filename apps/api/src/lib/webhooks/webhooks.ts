@@ -3,12 +3,28 @@ import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 
 import type { schema } from '@ghost/db';
+import type { WebhookEvent } from '@ghost/webhooks';
 
 import type { EventType } from '../events/events.js';
 import type { Commit } from '../git/commits/list-commits.js';
 
 /** Events an endpoint can subscribe to. `ping` is sent on create and on demand, whatever the endpoint chose. */
 export { type WebhookEvent, webhookEvents } from '@ghost/webhooks';
+
+/** Internally a pull request opens, edits, closes and reopens as an issue; webhooks name those events after the pull request. */
+const pullRequestEvents = {
+  'issue.opened': 'pull_request.opened',
+  'issue.edited': 'pull_request.edited',
+  'issue.closed': 'pull_request.closed',
+  'issue.reopened': 'pull_request.reopened',
+} as const satisfies Partial<Record<EventType, WebhookEvent>>;
+
+/** The name webhooks get `type` under. */
+export function webhookEventOf(type: EventType, isPullRequest: boolean) {
+  return isPullRequest && Object.hasOwn(pullRequestEvents, type)
+    ? pullRequestEvents[type as keyof typeof pullRequestEvents]
+    : type;
+}
 
 /** A new signing secret, shown to the user once. */
 export function newWebhookSecret() {
@@ -127,7 +143,7 @@ type WebhookThread = {
 
 /** The JSON a receiver gets for an event. Which optional fields are set depends on the event. */
 export type WebhookBody = {
-  event: EventType;
+  event: ReturnType<typeof webhookEventOf>;
   repository: WebhookRepository;
   sender: UserRef | null;
   createdAt: string;
