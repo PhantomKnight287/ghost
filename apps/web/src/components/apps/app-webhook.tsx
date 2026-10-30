@@ -56,7 +56,7 @@ export function AppWebhook({
               <FieldLabel htmlFor="app-webhook-active">Active</FieldLabel>
               <FieldDescription>
                 Deliveries of the events this app&apos;s installations accepted,
-                with <code>installation.id</code> in every body.
+                each with <code>installation.id</code>. A test ping has none.
               </FieldDescription>
             </div>
           </Field>
