@@ -8,7 +8,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
-import { appInstallation } from "./apps.js";
+import { app, appInstallation } from "./apps.js";
 import { user } from "./auth.js";
 import { repository } from "./repository.js";
 
@@ -41,6 +41,8 @@ export const commitStatus = pgTable(
     targetUrl: text(),
     creatorId: text().references(() => user.id, { onDelete: "set null" }),
     // Set when an installation token posted it; what a ruleset's `integration_id` checks.
+    // The app a user-to-server token acted through; the author is still the user.
+    viaAppId: text().references(() => app.id, { onDelete: "set null" }),
     installationId: text().references(() => appInstallation.id, {
       onDelete: "set null",
     }),

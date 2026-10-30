@@ -1,15 +1,23 @@
 import type { AppPermissions } from '@ghost/permissions';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsObject,
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
+
+import {
+  CALLBACK_URL,
+  MAX_CALLBACK_URLS,
+} from '../../oauth-apps/dto/oauth-app.dto.js';
 
 export const MAX_APP_NAME_LENGTH = 34;
 export const MAX_APP_DESCRIPTION_LENGTH = 400;
@@ -84,6 +92,44 @@ export class CreateAppDTO {
   @IsString()
   @MaxLength(MAX_URL_LENGTH)
   webhookSecret?: string | null;
+
+  @ApiPropertyOptional({
+    type: [String],
+    maxItems: MAX_CALLBACK_URLS,
+    description:
+      'Where users return after signing in to the app; a redirect_uri must match one.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_CALLBACK_URLS)
+  @ArrayUnique()
+  @IsUrl({ protocols: ['http', 'https'], require_tld: false }, { each: true })
+  @Matches(CALLBACK_URL, {
+    each: true,
+    message: 'Each callback URL must use https, or http on localhost',
+  })
+  callbackUrls?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'GitHub\'s "Expire user authorization tokens": tokens last 8 hours and come with a refresh token. On by default.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  expireUserTokens?: boolean;
+
+  @ApiPropertyOptional({ description: 'Lets the app use the device flow.' })
+  @IsOptional()
+  @IsBoolean()
+  deviceFlowEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Sends the installer through the web flow right after installing. Needs a callback URL.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  requestOauthOnInstall?: boolean;
 
   @ApiProperty({
     ...permissionsProperty,
@@ -206,6 +252,29 @@ export class AppDTO extends PublicAppDTO {
   webhookId: string | null;
 
   @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'What Octokit calls clientId. Null only in lists, for an app made before user sign-in existed, until it is first opened.',
+  })
+  clientId: string | null;
+
+  @ApiProperty({ type: [String] })
+  callbackUrls: string[];
+
+  @ApiProperty()
+  expireUserTokens: boolean;
+
+  @ApiProperty()
+  deviceFlowEnabled: boolean;
+
+  @ApiProperty()
+  requestOauthOnInstall: boolean;
+
+  @ApiProperty({ type: () => [AppClientSecretDTO] })
+  clientSecrets: AppClientSecretDTO[];
+
+  @ApiProperty({
     description: 'False when turned off, by the owner or by Ghost.',
   })
   webhookActive: boolean;
@@ -230,4 +299,20 @@ export class AppDTO extends PublicAppDTO {
 export class ListAppsResponseDTO {
   @ApiProperty({ type: [AppDTO] })
   apps: AppDTO[];
+}
+
+export class AppClientSecretDTO {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ description: 'The last 8 characters, to tell secrets apart.' })
+  lastEight: string;
+
+  @ApiProperty({ description: 'ISO 8601.' })
+  createdAt: string;
+}
+
+export class CreatedClientSecretDTO extends AppClientSecretDTO {
+  @ApiProperty({ description: 'Shown once.' })
+  clientSecret: string;
 }

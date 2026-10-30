@@ -14,6 +14,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import { app } from "./apps.js";
 import { user } from "./auth.js";
 import { repository } from "./repository.js";
 
@@ -69,6 +70,8 @@ export const issue = pgTable(
     state: issueState().notNull().default("open"),
     isPullRequest: boolean().notNull().default(false),
 
+    // The app a user-to-server token acted through; the author is still the user.
+    viaAppId: text().references(() => app.id, { onDelete: "set null" }),
     authorId: text()
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),
@@ -110,6 +113,8 @@ export const issueComment = pgTable(
     issueId: text()
       .references(() => issue.id, { onDelete: "cascade" })
       .notNull(),
+    // The app a user-to-server token acted through; the author is still the user.
+    viaAppId: text().references(() => app.id, { onDelete: "set null" }),
     authorId: text()
       .references(() => user.id, { onDelete: "cascade" })
       .notNull(),

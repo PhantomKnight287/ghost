@@ -727,6 +727,168 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
     await settings(body.slug).expect(200);
   });
 
+  describe('user authorization settings', () => {
+    const clientRow = async (clientId: string) =>
+      (
+        await db
+          .select({
+            name: schema.oauthClient.name,
+            redirectUris: schema.oauthClient.redirectUris,
+            metadata: schema.oauthClient.metadata,
+          })
+          .from(schema.oauthClient)
+          .where(eq(schema.oauthClient.clientId, clientId))
+      )[0];
+    const newSecret = (slug: string, cookie = owner.cookie) =>
+      api().post(`/api/apps/${slug}/client-secrets`).set('cookie', cookie);
+
+    it('gives a new app a client id, expiring tokens on and device flow off', async () => {
+      const { body } = await register(owner.cookie).expect(201);
+      expect(body).toMatchObject({
+        clientId: expect.any(String),
+        expireUserTokens: true,
+        deviceFlowEnabled: false,
+        requestOauthOnInstall: false,
+        callbackUrls: [],
+        clientSecrets: [],
+      });
+      const [row] = await db
+        .select({ id: schema.app.id })
+        .from(schema.app)
+        .where(eq(schema.app.slug, body.slug));
+      expect((await clientRow(body.clientId))?.metadata).toMatchObject({
+        appId: row!.id,
+      });
+    });
+
+    it('creates a client secret once, then shows only its last eight characters', async () => {
+      const { body } = await register(owner.cookie).expect(201);
+      const created = await newSecret(body.slug).expect(201);
+      expect(created.body).toMatchObject({
+        id: expect.any(String),
+        clientSecret: expect.stringMatching(/^ghost_cs_[0-9a-f]{40}$/),
+        lastEight: created.body.clientSecret.slice(-8),
+      });
+      const seen = (await settings(body.slug).expect(200)).body;
+      expect(seen.clientSecrets).toEqual([
+        {
+          id: created.body.id,
+          lastEight: created.body.clientSecret.slice(-8),
+          createdAt: expect.any(String),
+        },
+      ]);
+      expect(JSON.stringify(seen)).not.toContain(created.body.clientSecret);
+
+      await api()
+        .delete(`/api/apps/${body.slug}/client-secrets/${created.body.id}`)
+        .set('cookie', owner.cookie)
+        .expect(204);
+      expect((await settings(body.slug).expect(200)).body.clientSecrets).toEqual(
+        [],
+      );
+    });
+
+    it('caps client secrets at 20', async () => {
+      const { body } = await register(owner.cookie).expect(201);
+      for (let i = 0; i < 20; i++) await newSecret(body.slug).expect(201);
+      const refused = await newSecret(body.slug).expect(422);
+      expect(refused.body.message).toBe(
+        'An app can have at most 20 client secrets',
+      );
+    }, 30_000);
+
+    it('caps callback URLs at 10', async () => {
+      await register(owner.cookie, {
+        callbackUrls: Array.from(
+          { length: 11 },
+          (_, i) => `https://bot.example/callback/${i}`,
+        ),
+      }).expect(400);
+    });
+
+    it('refuses requestOauthOnInstall without a callback URL', async () => {
+      const refused = await register(owner.cookie, {
+        requestOauthOnInstall: true,
+      }).expect(422);
+      expect(refused.body.message).toBe(
+        'Add a callback URL before asking for user authorization during installation',
+      );
+    });
+
+    it('keeps the client in step', async () => {
+      const { body } = await register(owner.cookie).expect(201);
+      await api()
+        .patch(`/api/apps/${body.slug}`)
+        .set('cookie', owner.cookie)
+        .send({
+          name: `Renamed ${stamp} ${apps++}`,
+          callbackUrls: ['https://bot.example/callback'],
+          deviceFlowEnabled: true,
+          expireUserTokens: false,
+          requestOauthOnInstall: true,
+        })
+        .expect(200);
+      const row = await clientRow(body.clientId);
+      expect(row).toMatchObject({
+        name: expect.stringMatching(/^Renamed /),
+        redirectUris: ['https://bot.example/callback'],
+        metadata: expect.objectContaining({
+          deviceFlow: true,
+          expireUserTokens: false,
+        }),
+      });
+      expect((await settings(body.slug).expect(200)).body).toMatchObject({
+        callbackUrls: ['https://bot.example/callback'],
+        deviceFlowEnabled: true,
+        expireUserTokens: false,
+        requestOauthOnInstall: true,
+      });
+    });
+
+    it('deleting an app deletes its client, secrets and user tokens', async () => {
+      const { body } = await register(owner.cookie).expect(201);
+      await newSecret(body.slug).expect(201);
+      const [row] = await db
+        .select({ id: schema.app.id })
+        .from(schema.app)
+        .where(eq(schema.app.slug, body.slug));
+      await db.insert(schema.appUserToken).values({
+        appId: row!.id,
+        userId: owner.userId,
+        tokenHash: randomBytes(32).toString('hex'),
+      });
+
+      await api()
+        .delete(`/api/apps/${body.slug}`)
+        .set('cookie', owner.cookie)
+        .expect(204);
+
+      expect(await clientRow(body.clientId)).toBeUndefined();
+      expect(
+        await db
+          .select({ id: schema.appClientSecret.id })
+          .from(schema.appClientSecret)
+          .where(eq(schema.appClientSecret.appId, row!.id)),
+      ).toEqual([]);
+      expect(
+        await db
+          .select({ id: schema.appUserToken.id })
+          .from(schema.appUserToken)
+          .where(eq(schema.appUserToken.appId, row!.id)),
+      ).toEqual([]);
+    });
+
+    it('hides client secrets from anyone but the owner', async () => {
+      const { body } = await register(owner.cookie).expect(201);
+      const created = await newSecret(body.slug).expect(201);
+      await newSecret(body.slug, other.cookie).expect(404);
+      await api()
+        .delete(`/api/apps/${body.slug}/client-secrets/${created.body.id}`)
+        .set('cookie', other.cookie)
+        .expect(404);
+    });
+  });
+
   describe('organization apps', () => {
     const org = `aporg${stamp}`;
     let organizationId: string;

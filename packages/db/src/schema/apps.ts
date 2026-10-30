@@ -2,6 +2,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   index,
   jsonb,
@@ -14,6 +15,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { organization, user } from "./auth.js";
+import { oauthClient } from "./oauth.js";
 import { repository } from "./repository.js";
 
 export const app = pgTable(
@@ -39,6 +41,11 @@ export const app = pgTable(
       () => organization.id,
       { onDelete: "set null" },
     ),
+    // The OAuth client users sign in to the app through; created on first need.
+    oauthClientId: text()
+      .unique()
+      .references(() => oauthClient.clientId, { onDelete: "set null" }),
+    requestOauthOnInstall: boolean().notNull().default(false),
     botUserId: text("bot_user_id")
       .notNull()
       .unique()
@@ -167,4 +174,41 @@ export const appInstallationToken = pgTable(
     index("app_installation_token_installation_id_idx").on(t.installationId),
     index("app_installation_token_expires_at_idx").on(t.expiresAt),
   ],
+);
+
+/** Secrets an app's website proves itself with on the OAuth flows; only the sha256 is kept. */
+export const appClientSecret = pgTable(
+  "app_client_secret",
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => `acs_${createId()}`),
+    appId: text()
+      .notNull()
+      .references(() => app.id, { onDelete: "cascade" }),
+    secretHash: text().notNull().unique(),
+    lastEight: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("app_client_secret_app_id_idx").on(t.appId)],
+);
+
+/** `ghu_` tokens: a user signed in to an app, which then acts as them. Only the sha256 is kept; no expiry when the app turned expiring tokens off. */
+export const appUserToken = pgTable(
+  "app_user_token",
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => `aut_${createId()}`),
+    tokenHash: text().notNull().unique(),
+    appId: text()
+      .notNull()
+      .references(() => app.id, { onDelete: "cascade" }),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    expiresAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("app_user_token_app_user_idx").on(t.appId, t.userId)],
 );

@@ -15,6 +15,7 @@ import {
   oauthAppEnabled,
   oauthAppOrganization,
   oauthAppVerified,
+  setOauthClientFields,
 } from '../../lib/github/oauth-apps.js';
 import { lockGrant } from '../../lib/github/refresh-tokens.js';
 import {
@@ -132,7 +133,7 @@ export class OauthAppsService {
         },
       }),
     );
-    await this.setGhostFields(created.client_id, {
+    await setOauthClientFields(this.db, created.client_id, {
       deviceFlow: input.deviceFlowEnabled ?? false,
       expireUserTokens: input.expireUserTokens ?? false,
       description: input.description,
@@ -169,7 +170,7 @@ export class OauthAppsService {
         },
       }),
     );
-    await this.setGhostFields(clientId, {
+    await setOauthClientFields(this.db, clientId, {
       deviceFlow: input.deviceFlowEnabled,
       expireUserTokens: input.expireUserTokens,
       description: input.description,
@@ -350,23 +351,6 @@ export class OauthAppsService {
         createdAt: isoTimestamp(schema.oauthClient.createdAt),
       })
       .from(schema.oauthClient);
-  }
-
-  /** The plugin's update drops `metadata`, where Ghost keeps the fields the plugin lacks, so they are merged in here. An undefined field is left as it is. */
-  private async setGhostFields(
-    clientId: string,
-    fields: {
-      deviceFlow?: boolean;
-      expireUserTokens?: boolean;
-      description?: string;
-    },
-  ) {
-    await this.db
-      .update(schema.oauthClient)
-      .set({
-        metadata: sql`coalesce(${schema.oauthClient.metadata}, '{}'::jsonb) || ${JSON.stringify(fields)}::jsonb`,
-      })
-      .where(eq(schema.oauthClient.clientId, clientId));
   }
 
   /** Throws unless the user may change the app; returns the owning organization's id for an organization's app. */

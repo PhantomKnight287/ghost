@@ -7,6 +7,7 @@ import {
   AVATAR_MAX_BYTES,
 } from '../../lib/avatars/avatar.constants.js';
 import { WebhooksModule } from '../webhooks/webhooks.module.js';
+import { AppClientsService } from '../../services/apps/app-clients.service.js';
 import { AppsController } from './apps.controller.js';
 import { AppsService } from './apps.service.js';
 import { OrganizationAppsController } from './organization-apps.controller.js';
@@ -19,7 +20,7 @@ import { PublicAppsController } from './public-apps.controller.js';
     PublicAppsController,
     OrganizationAppsController,
   ],
-  providers: [AppsService],
+  providers: [AppsService, AppClientsService],
 })
 export class AppsModule implements NestModule {
   // Logo uploads arrive as raw image bytes, the way avatars do.

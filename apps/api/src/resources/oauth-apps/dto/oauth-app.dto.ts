@@ -17,7 +17,7 @@ export const MAX_DESCRIPTION_LENGTH = 400;
 export const MAX_CALLBACK_URLS = 10;
 
 /** https off the loopback host, or plain http on it for local development: the shapes the oauth-provider plugin accepts from a native client. */
-const CALLBACK_URL =
+export const CALLBACK_URL =
   /^(https:\/\/(?!(localhost|127\.0\.0\.1|\[::1\])([:/]|$))|http:\/\/(localhost|127\.0\.0\.1|\[::1\])([:/]|$))/;
 
 export class CreateOauthAppDTO {

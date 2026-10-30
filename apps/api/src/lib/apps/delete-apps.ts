@@ -12,6 +12,23 @@ export async function deleteApps(db: Executor, where: SQL) {
     .returning({ id: schema.app.id });
   if (deleted.length === 0) return;
   const ids = deleted.map(({ id }) => id);
+  // Soft deletion never fires the cascades, so the client, its secrets and the users' tokens go by hand.
+  const clients = await db
+    .select({ clientId: schema.app.oauthClientId })
+    .from(schema.app)
+    .where(inArray(schema.app.id, ids));
+  await db
+    .delete(schema.appClientSecret)
+    .where(inArray(schema.appClientSecret.appId, ids));
+  await db
+    .delete(schema.appUserToken)
+    .where(inArray(schema.appUserToken.appId, ids));
+  await db.delete(schema.oauthClient).where(
+    inArray(
+      schema.oauthClient.clientId,
+      clients.flatMap(({ clientId }) => (clientId ? [clientId] : [])),
+    ),
+  );
   await db
     .delete(schema.webhookEndpoint)
     .where(inArray(schema.webhookEndpoint.appId, ids));

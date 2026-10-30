@@ -561,6 +561,13 @@
       "when": 1793345718914,
       "tag": "0079_lowly_giant_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1793353819125,
+      "tag": "0080_blue_zaladane",
+      "breakpoints": true
     }
   ]
 }

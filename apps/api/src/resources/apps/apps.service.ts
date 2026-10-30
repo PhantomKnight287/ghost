@@ -26,6 +26,7 @@ import {
   AppNotFoundError,
   AppSlugReservedError,
   AppWebhookSecretRequiredError,
+  OauthOnInstallNeedsCallbackError,
   InvalidAppPermissionsError,
   PermissionRaiseError,
   PrivateKeyNotFoundError,
@@ -53,11 +54,14 @@ import {
   webhookUrlProblem,
 } from '../../lib/webhooks/webhooks.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
+import { AppClientsService } from '../../services/apps/app-clients.service.js';
 import { WebhooksService } from '../webhooks/webhooks.service.js';
 import type {
   AppDTO,
   AppOwnerDTO,
+  AppClientSecretDTO,
   AppPrivateKeyDTO,
+  CreatedClientSecretDTO,
   CreateAppDTO,
   CreatedPrivateKeyDTO,
   ListAppsResponseDTO,
@@ -78,6 +82,7 @@ export class AppsService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly avatars: AvatarStorageService,
     private readonly webhooks: WebhooksService,
+    private readonly clients: AppClientsService,
     config: ConfigService,
   ) {
     this.web = githubOrigins(config).web;
@@ -142,6 +147,8 @@ export class AppsService {
     const slug = appSlug(input.name);
     if (!slug) throw new AppNameUnusableError();
     if (slug === 'new') throw new AppSlugReservedError();
+    if (input.requestOauthOnInstall && !input.callbackUrls?.length)
+      throw new OauthOnInstallNeedsCallbackError();
     const webhook = await this.webhookOf(
       input.webhookUrl ?? null,
       this.sealed(input.webhookSecret),
@@ -167,6 +174,7 @@ export class AppsService {
             description: input.description ?? null,
             homepageUrl: input.homepageUrl,
             setupUrl: input.setupUrl ?? null,
+            requestOauthOnInstall: input.requestOauthOnInstall ?? false,
             // appPermissionsProblem has checked every key and level.
             permissions: input.permissions as AppPermissions,
             events: [...new Set(input.events)],
@@ -191,6 +199,7 @@ export class AppsService {
       });
     if (endpointId)
       await this.webhooks.ping({ appId: id, name: slug }, endpointId);
+    await this.clients.sync(id, input);
     return this.one(id);
   }
 
@@ -200,6 +209,11 @@ export class AppsService {
     input: UpdateAppDTO,
   ): Promise<AppDTO> {
     const app = await this.manageable(userId, slug);
+    if (
+      (input.requestOauthOnInstall ?? app.requestOauthOnInstall) &&
+      (input.callbackUrls ?? app.callbackUrls).length === 0
+    )
+      throw new OauthOnInstallNeedsCallbackError();
     const problem = appPermissionsProblem(
       input.permissions ?? app.permissions,
       input.events ?? app.events,
@@ -262,6 +276,9 @@ export class AppsService {
             homepageUrl: input.homepageUrl,
           }),
           ...(input.setupUrl !== undefined && { setupUrl: input.setupUrl }),
+          ...(input.requestOauthOnInstall != null && {
+            requestOauthOnInstall: input.requestOauthOnInstall,
+          }),
           ...(changesGrant && { permissions, events }),
         })
         .where(eq(schema.app.id, app.id));
@@ -300,7 +317,31 @@ export class AppsService {
     });
     if (created)
       await this.webhooks.ping({ appId: app.id, name: slug }, created.id);
+    await this.clients.sync(app.id, {
+      name: input.name ?? undefined,
+      homepageUrl: input.homepageUrl ?? undefined,
+      callbackUrls: input.callbackUrls,
+      expireUserTokens: input.expireUserTokens,
+      deviceFlowEnabled: input.deviceFlowEnabled,
+    });
     return this.one(app.id);
+  }
+
+  async createClientSecret(
+    userId: string,
+    slug: string,
+  ): Promise<CreatedClientSecretDTO> {
+    const { id } = await this.manageable(userId, slug);
+    return this.clients.createSecret(id);
+  }
+
+  async removeClientSecret(
+    userId: string,
+    slug: string,
+    secretId: string,
+  ): Promise<void> {
+    const { id } = await this.manageable(userId, slug);
+    await this.clients.removeSecret(id, secretId);
   }
 
   async webhookDeliveries(userId: string, slug: string) {
@@ -489,11 +530,19 @@ export class AppsService {
         organization: schema.organization.slug,
         permissions: schema.app.permissions,
         events: schema.app.events,
+        requestOauthOnInstall: schema.app.requestOauthOnInstall,
+        callbackUrls: sql<
+          string[]
+        >`coalesce(${schema.oauthClient.redirectUris}, '{}'::text[])`,
       })
       .from(schema.app)
       .leftJoin(
         schema.organization,
         eq(schema.organization.id, schema.app.ownerOrganizationId),
+      )
+      .leftJoin(
+        schema.oauthClient,
+        eq(schema.oauthClient.clientId, schema.app.oauthClientId),
       )
       .where(and(eq(schema.app.slug, slug), isNull(schema.app.deletedAt)));
     if (!app) throw new AppNotFoundError();
@@ -509,7 +558,9 @@ export class AppsService {
     return sealWebhookSecret(this.webhookKey, secret);
   }
 
+  /** As its owner sees it, with its OAuth client created if it has none yet. */
   private async one(id: string): Promise<AppDTO> {
+    await this.clients.clientOf(id);
     const [app] = await this.select(eq(schema.app.id, id));
     if (!app) throw new AppNotFoundError();
     return app;
@@ -528,6 +579,16 @@ export class AppsService {
         webhookId: schema.webhookEndpoint.id,
         webhookActive: sql<boolean>`coalesce(${schema.webhookEndpoint.active}, false)`,
         webhookDisabledReason: schema.webhookEndpoint.disabledReason,
+        clientId: schema.app.oauthClientId,
+        callbackUrls: sql<
+          string[]
+        >`coalesce(${schema.oauthClient.redirectUris}, '{}'::text[])`,
+        expireUserTokens: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'expireUserTokens')::boolean, true)`,
+        deviceFlowEnabled: sql<boolean>`coalesce((${schema.oauthClient.metadata}->>'deviceFlow')::boolean, false)`,
+        requestOauthOnInstall: schema.app.requestOauthOnInstall,
+        clientSecrets: sql<
+          AppClientSecretDTO[]
+        >`coalesce((select json_agg(json_build_object('id', ${schema.appClientSecret.id}, 'lastEight', ${schema.appClientSecret.lastEight}, 'createdAt', ${isoTimestamp(schema.appClientSecret.createdAt)}) order by ${schema.appClientSecret.createdAt}) from ${schema.appClientSecret} where ${schema.appClientSecret.appId} = ${schema.app.id}), '[]'::json)`,
         installationsCount: sql<number>`(select count(*)::int from ${schema.appInstallation} where ${schema.appInstallation.appId} = ${schema.app.id})`,
         privateKeys: sql<
           AppPrivateKeyDTO[]
@@ -538,6 +599,10 @@ export class AppsService {
       .leftJoin(
         schema.webhookEndpoint,
         eq(schema.webhookEndpoint.appId, schema.app.id),
+      )
+      .leftJoin(
+        schema.oauthClient,
+        eq(schema.oauthClient.clientId, schema.app.oauthClientId),
       )
       .leftJoin(schema.user, eq(schema.user.id, schema.app.ownerUserId))
       .leftJoin(
