@@ -277,6 +277,7 @@ export class InstallationsService {
           events: schema.app.events,
           acceptedPermissions: schema.appInstallation.permissions,
           acceptedEvents: schema.appInstallation.events,
+          suspendedAt: schema.appInstallation.suspendedAt,
         })
         .from(schema.appInstallation)
         .innerJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
@@ -290,6 +291,8 @@ export class InstallationsService {
           events: app.events,
         })
         .where(eq(schema.appInstallation.id, id));
+      // a suspended installation tells its app nothing until unsuspended
+      if (app.suspendedAt) return;
       await this.fanout.installationEvent(
         tx,
         id,

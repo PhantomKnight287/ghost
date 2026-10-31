@@ -1,5 +1,5 @@
 {
-  "id": "febe7366-18a1-4a21-83ae-4ff8a642feb9",
+  "id": "9cd8d541-b03f-40d7-a737-a346d3de4949",
   "prevId": "423ac856-c166-4205-a674-e827ea50b4ea",
   "version": "7",
   "dialect": "postgresql",
@@ -927,6 +927,21 @@
             },
             {
               "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "app_user_token_installation_id_idx": {
+          "name": "app_user_token_installation_id_idx",
+          "columns": [
+            {
+              "expression": "installation_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

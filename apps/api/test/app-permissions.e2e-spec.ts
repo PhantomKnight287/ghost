@@ -350,6 +350,16 @@ describe.skipIf(!hasBackends)('App permissions on installation tokens', () => {
       });
     });
 
+    it('counts a GraphQL request against the rate limit', async () => {
+      const response = await api()
+        .post('/api/graphql')
+        .set('authorization', `bearer ${token}`)
+        .send({ query: '{ viewer { login } }' })
+        .expect(200);
+
+      expect(response.headers['x-ratelimit-remaining']).toBeDefined();
+    });
+
     it('hides a repository the installation does not cover', async () => {
       const body = await graphql(token, REPOSITORY, {
         owner: installerName,

@@ -46,6 +46,7 @@ A scoped token takes the original's user and expiry setting, and narrows it with
 ```bash
 curl -u "$CLIENT_ID:$CLIENT_SECRET" \
   -X POST https://api.<domain>/api/v3/applications/$CLIENT_ID/token/scoped \
+  -H "Content-Type: application/json" \
   -d '{"access_token":"ghu_…","target":"octo","repositories":["tools"],"permissions":{"issues":"read"}}'
 ```
 

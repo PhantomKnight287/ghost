@@ -95,20 +95,23 @@ export class GithubAuthMiddleware implements NestMiddleware {
 
     req.githubViewer = viewer;
     res.setHeader('X-OAuth-Scopes', viewer ? viewer.scopes.join(', ') : '');
-    // GraphQL never reaches RateLimitGuard as HTTP, so it is counted here, before Apollo, once whatever the query; REST is counted by the guard.
-    if (GRAPHQL_PATH.test(req.originalUrl)) {
-      const decision = (await this.rateLimit.count(req))[0]!;
-      if (!decision.allowed) {
-        const refused = new RateLimitedError(decision);
-        res.set(refused.headers).status(refused.status).json({
-          message: refused.message,
-          documentation_url: GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
-        });
-        return;
-      }
-      res.set(rateLimitHeaders(decision));
+    if (await this.countGraphql(req, res)) next();
+  }
+
+  /** GraphQL never reaches RateLimitGuard as HTTP, so it is counted here, before Apollo, once whatever the query; REST is counted by the guard. False when the request was refused. */
+  private async countGraphql(req: GithubRequest, res: Response) {
+    if (!GRAPHQL_PATH.test(req.originalUrl)) return true;
+    const decision = (await this.rateLimit.count(req))[0]!;
+    if (!decision.allowed) {
+      const refused = new RateLimitedError(decision);
+      res.set(refused.headers).status(refused.status).json({
+        message: refused.message,
+        documentation_url: GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
+      });
+      return false;
     }
-    next();
+    res.set(rateLimitHeaders(decision));
+    return true;
   }
 
   // ponytail: every installation of an app shares its bot's budget; GitHub counts each installation on its own.
@@ -137,6 +140,7 @@ export class GithubAuthMiddleware implements NestMiddleware {
       installation,
     };
     res.setHeader('X-OAuth-Scopes', '');
+    if (!(await this.countGraphql(req, res))) return;
     installationCaller.run(installation, next);
   }
 

@@ -674,6 +674,37 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
         });
       });
 
+      it('accepting on a suspended installation applies the permissions and tells the app nothing', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        await api()
+          .patch(`/api/apps/${slug}`)
+          .set('cookie', appOwner.cookie)
+          .send({ permissions: { issues: 'write', contents: 'read' } })
+          .expect(200);
+        await api()
+          .put(`/api/installations/${body.id}/suspended`)
+          .set('cookie', installer.cookie)
+          .expect(204);
+
+        await api()
+          .put(`/api/installations/${body.id}/permissions`)
+          .set('cookie', installer.cookie)
+          .expect(204);
+
+        expect(await installation(body.id)).toMatchObject({
+          permissions: { metadata: 'read', issues: 'write', contents: 'read' },
+          pending: null,
+        });
+        expect((await deliveredTo(appId)).map(({ event }) => event)).toEqual([
+          'installation.created',
+          'installation.suspended',
+        ]);
+      });
+
       it('reinstall gets a new installation id', async () => {
         const { id: appId, slug } = await hooked();
         const first = await install(slug, {

@@ -218,5 +218,8 @@ export const appUserToken = pgTable(
     expiresAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("app_user_token_app_user_idx").on(t.appId, t.userId)],
+  (t) => [
+    index("app_user_token_app_user_idx").on(t.appId, t.userId),
+    index("app_user_token_installation_id_idx").on(t.installationId),
+  ],
 );

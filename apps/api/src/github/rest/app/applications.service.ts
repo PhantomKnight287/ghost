@@ -100,7 +100,7 @@ export class GithubApplicationsService {
     appId: string,
     { target, target_id }: GithubScopedTokenRequestDTO,
   ) {
-    const [installation] = await this.db
+    const installations = await this.db
       .select({ id: schema.appInstallation.id })
       .from(schema.appInstallation)
       .leftJoin(
@@ -127,9 +127,11 @@ export class GithubApplicationsService {
                 eq(schema.organization.numericId, target_id!),
               ),
         ),
-      );
-    if (!installation) throw new ScopedTokenTargetError();
-    return installation.id;
+      )
+      .limit(2);
+    // a user and an organization can share a numeric id, so a target_id that names both names neither
+    if (installations.length !== 1) throw new ScopedTokenTargetError();
+    return installations[0]!.id;
   }
 
   private async authorization(

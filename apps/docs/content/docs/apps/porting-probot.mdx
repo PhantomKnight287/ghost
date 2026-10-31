@@ -20,10 +20,18 @@ GHE_HOST=api.<domain>
 
 ## Webhooks
 
-Probot routes deliveries by GitHub's `X-GitHub-Event` header and reads GitHub's payloads, so `app.on("issues.opened", …)` never fires for a Ghost delivery. Receive Ghost's events with a small handler instead, and keep Probot or Octokit for the API:
+Probot routes deliveries by GitHub's `X-GitHub-Event` header and reads GitHub's payloads, so `app.on("issues.opened", …)` never fires for a Ghost delivery. Receive Ghost's events with a small handler instead. This one uses Octokit's `App`; with Probot, call `await probot.auth(event.installation.id)` in its place:
 
 ```ts
+import { App } from "@octokit/app";
+import { Octokit } from "@octokit/core";
 import { verify } from "@octokit/webhooks-methods";
+
+const app = new App({
+  appId: Number(process.env.APP_ID),
+  privateKey: process.env.PRIVATE_KEY!,
+  Octokit: Octokit.defaults({ baseUrl: "https://api.<domain>/api/v3" }),
+});
 
 export async function handle(request: Request) {
   const body = await request.text();
