@@ -8,9 +8,9 @@ import { APP_JWT } from '../../lib/apps/app-jwt.js';
 import { AppJwtError, JWT_UNDECODABLE } from '../../lib/apps/apps.errors.js';
 import { installationCaller } from '../../lib/apps/installation-context.js';
 import { INSTALLATION_TOKEN } from '../../lib/apps/installation-token.js';
-import { userToServerCaller } from '../../lib/apps/user-token-context.js';
 import { USER_TOKEN } from '../../lib/apps/user-token.js';
-import { type Auth, AUTHORIZATION_TOKEN } from '../../lib/auth.js';
+import { userToServerCaller } from '../../lib/apps/user-token-context.js';
+import { AUTHORIZATION_TOKEN, type Auth } from '../../lib/auth.js';
 import { KNOWN_SCOPES, scopesOfKey } from '../../lib/github/scopes.js';
 import { rateLimitHeaders } from '../../lib/rate-limit/headers.js';
 import {

@@ -3,9 +3,9 @@ import {
   GraphQLError,
   OverlappingFieldsCanBeMergedRule,
   specifiedRules,
-  validate,
   type ValidationContext,
   type ValidationRule,
+  validate,
 } from 'graphql';
 
 const TYPE_CONFLICT = /return conflicting types/;

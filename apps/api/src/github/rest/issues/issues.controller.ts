@@ -21,10 +21,17 @@ import {
 } from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
+import {
+  PullRequestsOnPulls,
+  RequireAppPermission,
+} from '../../../lib/apps/app-permission.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
+import { GithubSimpleUserDTO } from '../users/dto/user.dto.js';
 import {
   GithubAssigneesDTO,
   GithubCreateIssueDTO,
@@ -34,13 +41,6 @@ import {
   GithubUpdateIssueDTO,
 } from './dto/issue.dto.js';
 import { GithubIssuesService } from './issues.service.js';
-import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
-import { GithubSimpleUserDTO } from '../users/dto/user.dto.js';
-import { ApiGithubErrors } from '../dto/error.dto.js';
-import {
-  PullRequestsOnPulls,
-  RequireAppPermission,
-} from '../../../lib/apps/app-permission.js';
 
 const NUMBER = new ParseIntPipe({ errorHttpStatusCode: 404 });
 

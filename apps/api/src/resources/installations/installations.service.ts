@@ -448,27 +448,32 @@ export class InstallationsService {
       )
       .where(and(where, isNull(schema.app.deletedAt)))
       .orderBy(asc(installation.createdAt));
-    return rows.map(({ clientId, callback, appPermissions, appEvents, ...row }) => {
-      const pending = isPending({
-        permissions: appPermissions,
-        events: appEvents,
-        acceptedPermissions: row.permissions,
-        acceptedEvents: row.events,
-      })
-        ? {
-            permissions: withMetadata(appPermissions as AppPermissions),
-            events: appEvents,
-          }
-        : null;
-      if (!clientId || !callback) return { ...row, pending };
-      const returnTo = new URL(callback);
-      returnTo.searchParams.set('installation_id', String(row.installationId));
-      returnTo.searchParams.set('setup_action', 'install');
-      const authorize = new URL('/login/oauth/authorize', this.api);
-      authorize.searchParams.set('client_id', clientId);
-      authorize.searchParams.set('redirect_uri', returnTo.href);
-      return { ...row, pending, redirectUrl: authorize.href };
-    });
+    return rows.map(
+      ({ clientId, callback, appPermissions, appEvents, ...row }) => {
+        const pending = isPending({
+          permissions: appPermissions,
+          events: appEvents,
+          acceptedPermissions: row.permissions,
+          acceptedEvents: row.events,
+        })
+          ? {
+              permissions: withMetadata(appPermissions as AppPermissions),
+              events: appEvents,
+            }
+          : null;
+        if (!clientId || !callback) return { ...row, pending };
+        const returnTo = new URL(callback);
+        returnTo.searchParams.set(
+          'installation_id',
+          String(row.installationId),
+        );
+        returnTo.searchParams.set('setup_action', 'install');
+        const authorize = new URL('/login/oauth/authorize', this.api);
+        authorize.searchParams.set('client_id', clientId);
+        authorize.searchParams.set('redirect_uri', returnTo.href);
+        return { ...row, pending, redirectUrl: authorize.href };
+      },
+    );
   }
 }
 

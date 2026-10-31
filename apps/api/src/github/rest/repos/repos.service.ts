@@ -14,11 +14,11 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
+import { sameName } from '../../../lib/db/sql.js';
 import type { ArchiveFormat } from '../../../lib/git/archive/archive.js';
 import { findReadmePath } from '../../../lib/git/blob/find-readme.js';
 import { isTextBlob, readBlob } from '../../../lib/git/blob/read-blob.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
-import { sameName } from '../../../lib/db/sql.js';
 import {
   GithubNotFoundError,
   RequiresAuthenticationError,
@@ -36,8 +36,8 @@ import {
   requireOauthAppAllowed,
 } from '../../../lib/organizations/oauth-app-access.js';
 import {
-  acceptedCollaboration,
   type Affiliation,
+  acceptedCollaboration,
   affiliationsOf,
   grantedTo,
   organizationMembership,

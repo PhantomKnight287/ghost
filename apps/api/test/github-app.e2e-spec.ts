@@ -1,7 +1,7 @@
 import { createPrivateKey, sign } from 'node:crypto';
 
-import { App } from '@octokit/app';
 import type { INestApplication } from '@nestjs/common';
+import { App } from '@octokit/app';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

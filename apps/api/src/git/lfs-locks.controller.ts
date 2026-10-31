@@ -15,6 +15,8 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { OptionalAuth } from '@thallesp/nestjs-better-auth';
 import type { Response } from 'express';
 
+import { RequireAppPermission } from '../lib/apps/app-permission.js';
+import { gitContentsLevel } from '../lib/git/git-push.js';
 import { LFS_MEDIA_TYPE } from '../lib/git/lfs/lfs-objects.js';
 import { LfsLocksService } from '../services/git/lfs/lfs-locks.service.js';
 import {
@@ -24,8 +26,6 @@ import {
   UnlockLfsLockDTO,
 } from './dto/lfs-locks.dto.js';
 import type { GitAuthorizedRequest } from './types.js';
-import { RequireAppPermission } from '../lib/apps/app-permission.js';
-import { gitContentsLevel } from '../lib/git/git-push.js';
 
 /** Git LFS's locking API. `GitBasicAuthMiddleware` has already authorized the repository: reads for the list, writes for the rest, so every POST has an actor. */
 @RequireAppPermission({ contents: gitContentsLevel })

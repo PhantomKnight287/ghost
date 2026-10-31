@@ -22,26 +22,26 @@ import {
 } from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 import { GithubNotFoundError } from '../../../lib/github/github.errors.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import {
   GithubBranchRuleDTO,
   GithubCreateRulesetDTO,
-  GithubRulesetDTO,
-  GithubRulesetSummaryDTO,
   GithubRuleSuiteDetailDTO,
   GithubRuleSuiteDTO,
   GithubRuleSuiteQueryDTO,
   GithubRuleSuitesQueryDTO,
+  GithubRulesetDTO,
+  GithubRulesetSummaryDTO,
   GithubUpdateRulesetDTO,
 } from './dto/rulesets.dto.js';
 import { GithubRulesetsService } from './rulesets.service.js';
-import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
-import { ApiGithubErrors } from '../dto/error.dto.js';
-import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 // numeric_id is a bigint, read as a JavaScript number: an id past the safe range could only round onto another ruleset or overflow Postgres, so it is as absent as any unknown id.
 const ID: PipeTransform<string, number> = {

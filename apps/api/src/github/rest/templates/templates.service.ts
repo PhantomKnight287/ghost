@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   findGitignoreTemplate,
   findLicense,
   GITIGNORE_TEMPLATES,
   LICENSES,
 } from '@ghost/templates';
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { GithubNotFoundError } from '../../../lib/github/github.errors.js';
 import { githubOrigins } from '../../../lib/github/origins.js';

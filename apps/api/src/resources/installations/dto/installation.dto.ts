@@ -112,7 +112,8 @@ export class InstallationDTO {
   @ApiProperty({
     type: PendingPermissionsDTO,
     nullable: true,
-    description: 'What the app asks for now, when that is more than the installation accepted. Null when there is nothing to review.',
+    description:
+      'What the app asks for now, when that is more than the installation accepted. Null when there is nothing to review.',
   })
   pending: PendingPermissionsDTO | null;
 

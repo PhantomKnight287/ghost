@@ -175,3 +175,13 @@ export class UserToServerTokenRequiredError extends DomainError {
     );
   }
 }
+
+export class ScopedTokenTargetError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super(
+      'Specify a target account the app is installed on, and only the one the token is already limited to.',
+    );
+  }
+}

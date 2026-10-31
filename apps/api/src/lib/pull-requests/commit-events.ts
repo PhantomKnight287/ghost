@@ -1,9 +1,9 @@
 import { schema } from '@ghost/db';
 import { sql } from 'drizzle-orm';
 
+import type { Executor } from '../db/executor.js';
 import { listCommits } from '../git/commits/list-commits.js';
 import { alternatesEnv } from '../git/diff/diff.js';
-import type { Executor } from '../db/executor.js';
 
 // What one push adds to a timeline, as GitHub caps it. A longer push shows its newest commits.
 export const MAX_TIMELINE_COMMITS = 250;

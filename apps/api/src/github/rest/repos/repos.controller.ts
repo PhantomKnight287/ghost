@@ -24,10 +24,13 @@ import {
 import type { Response } from 'express';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 import type { ArchiveFormat } from '../../../lib/git/archive/archive.js';
 import { sendArchive } from '../../../lib/http/send-archive.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubCreateRepositoryDTO } from './dto/create-repository.dto.js';
@@ -36,12 +39,9 @@ import {
   GithubListUserRepositoriesQueryDTO,
   GithubListViewerRepositoriesQueryDTO,
 } from './dto/list-repositories.dto.js';
+import { GithubReadmeDTO, GithubRepositoryDTO } from './dto/repository.dto.js';
 import { GithubUpdateRepositoryDTO } from './dto/update-repository.dto.js';
 import { GithubReposService } from './repos.service.js';
-import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
-import { GithubReadmeDTO, GithubRepositoryDTO } from './dto/repository.dto.js';
-import { ApiGithubErrors } from '../dto/error.dto.js';
-import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 @Controller('v3')
 @ApiTags('GitHub compatibility')

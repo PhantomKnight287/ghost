@@ -13,6 +13,7 @@ import type { GraphqlContext } from '../../../../lib/github/loaders.js';
 import { toRefNode } from '../../../../lib/github/nodes.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { Viewer } from '../../../auth/viewer.decorator.js';
+import { sliceConnection } from '../../connection.js';
 import { IssueState, PullRequestState } from '../../enums.js';
 import { IssueFilters, IssueOrder, LabelOrder } from '../../inputs.js';
 import {
@@ -33,7 +34,6 @@ import {
   RepositoryRulesetConnection,
   RepositoryRulesetNode,
 } from '../../types/ruleset.type.js';
-import { sliceConnection } from '../../connection.js';
 import { UserConnection } from '../../types/user.type.js';
 import { RepositoryNodesService } from './repository-nodes.service.js';
 

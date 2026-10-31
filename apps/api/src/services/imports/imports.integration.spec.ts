@@ -1,4 +1,5 @@
 import path from 'node:path';
+
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
 import { ConfigService } from '@nestjs/config';
 import type { AuthService } from '@thallesp/nestjs-better-auth';
@@ -17,6 +18,10 @@ import {
 
 import type { Auth } from '../../lib/auth.js';
 import {
+  assertNotImporting,
+  MAX_IMPORT_ATTEMPTS,
+} from '../../lib/imports/importing.js';
+import {
   GitHubImportsDisabledError,
   GitHubNotConnectedError,
   ImportNotFailedError,
@@ -25,13 +30,11 @@ import {
   RepositoryImportingError,
   StaleImportAttemptError,
 } from '../../lib/imports/imports.errors.js';
-import { assertNotImporting } from '../../lib/imports/importing.js';
 import { ImportsService } from '../../resources/imports/imports.service.js';
 import type { RepositoriesService } from '../../resources/repositories/repositories.service.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
 import { ImportDispatcherService } from './import-dispatcher.service.js';
 import { ImportWriterService } from './import-writer.service.js';
-import { MAX_IMPORT_ATTEMPTS } from '../../lib/imports/importing.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
 const MIGRATIONS = path.resolve(

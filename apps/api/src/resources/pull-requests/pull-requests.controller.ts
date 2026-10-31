@@ -22,6 +22,7 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { ExpensiveRead } from '../../rate-limit/rate-limit.guard.js';
 import {
   ComparePatchQueryDTO,
@@ -41,16 +42,15 @@ import {
 import {
   GetPullRequestCommitsQueryDTO,
   GetPullRequestCommitsResponseDTO,
-  PullRequestCommitPositionDTO,
   GetPullRequestFilesResponseDTO,
   GetPullRequestPatchQueryDTO,
   MergePullRequestRequestDTO,
   MergePullRequestResponseDTO,
   MergeRequirementsDTO,
   MergeRequirementsQueryDTO,
+  PullRequestCommitPositionDTO,
 } from './dto/pull-request-changes.dto.js';
 import { PullRequestsService } from './pull-requests.service.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/pulls')
 @ApiTags('Pull requests')

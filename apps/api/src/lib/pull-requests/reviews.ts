@@ -4,8 +4,8 @@ import { and, eq, isNotNull, or, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { type ViaApp, viaAppOf } from '../apps/via-app.js';
-import { isoTimestamp } from '../db/sql.js';
 import type { Executor } from '../db/executor.js';
+import { isoTimestamp } from '../db/sql.js';
 
 type DiffSide = (typeof schema.diffSide.enumValues)[number];
 

@@ -1,7 +1,7 @@
+import type { Database } from '@ghost/db';
 import { ConfigService } from '@nestjs/config';
 import { describe, expect, it } from 'vitest';
 
-import type { Database } from '@ghost/db';
 import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import type { RepositoryMaterializerService } from '../git/materializer/repository-materializer.service.js';
 import { PullRequestHintsService } from './pull-request-hints.service.js';

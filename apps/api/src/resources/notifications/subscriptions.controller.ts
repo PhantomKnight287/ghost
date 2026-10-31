@@ -16,12 +16,12 @@ import {
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import {
   IssueSubscriptionDTO,
   RepositoryWatchDTO,
 } from './dto/notification.dto.js';
 import { NotificationsService } from './notifications.service.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo')
 @ApiTags('Notifications')

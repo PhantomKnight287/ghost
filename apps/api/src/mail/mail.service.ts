@@ -10,8 +10,8 @@ import { DATABASE } from '../database/database.module.js';
 import ThreadAssigned from './templates/thread-assigned.js';
 import ThreadComment from './templates/thread-comment.js';
 import ThreadOpened from './templates/thread-opened.js';
-import ThreadReviewRequested from './templates/thread-review-requested.js';
 import ThreadReview from './templates/thread-review.js';
+import ThreadReviewRequested from './templates/thread-review-requested.js';
 import ThreadState from './templates/thread-state.js';
 
 export type ThreadTemplate =

@@ -2,17 +2,17 @@
  * Writes `refs/pull/<n>/head` and `refs/pull/<n>/merge` for open pull requests opened before Ghost kept them that nobody has read or pushed to since. Safe beside a running API: every write is a compare-and-swap on the log.
  * node dist/scripts/backfill-pull-refs.js, after `nest build`
  */
-import { schema, type Database } from '@ghost/db';
+import { type Database, schema } from '@ghost/db';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
+import { errorMessage } from '../lib/error-message.js';
 import { PullRefsModule } from '../pull-refs/pull-refs.module.js';
 import { S3Module } from '../s3/s3.module.js';
 import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
-import { errorMessage } from '../lib/error-message.js';
 
 // Only what a sync needs, so the script opens no HTTP or SSH listener and starts no poller.
 @Module({

@@ -1,4 +1,5 @@
 import path from 'node:path';
+
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import {
@@ -17,6 +18,8 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { keyset } from '../../lib/db/keyset.js';
+import { sameName } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
 import {
   countCommits,
@@ -24,96 +27,37 @@ import {
   listCommits,
   readCommit,
 } from '../../lib/git/commits/list-commits.js';
-import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
-import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import {
   listDiffFiles,
   mergeBase,
   streamDiffPatch,
   streamFormatPatch,
 } from '../../lib/git/diff/diff.js';
-import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
+import { lfsPointersIn } from '../../lib/git/lfs/lfs-pointer.js';
 import {
   commitTree,
   mergeTree,
   packRange,
   rebaseCommits,
 } from '../../lib/git/merge/merge.js';
+import { fileBody } from '../../lib/git/protocol/git-request-body.js';
+import { addedCommits } from '../../lib/git/refs/added-commits.js';
+import { pullHeadRef, pullMergeRef } from '../../lib/git/refs/pull-refs.js';
 import {
   resolveCommit,
   resolveDefaultRef,
   toBranchRef,
 } from '../../lib/git/tree/resolve-ref.js';
+import type { RefTransition } from '../../lib/git/wal/wal.types.js';
+import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 import {
   closeIssue,
   MAX_CLOSING_COMMITS,
 } from '../../lib/issues/close-issue.js';
-import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
-import { IssuesService } from '../issues/issues.service.js';
-import { fileBody } from '../../lib/git/protocol/git-request-body.js';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import {
-  acceptedCollaboration,
-  organizationMembership,
-  ownerNameOf,
-  readableBy,
-  type Repository,
-  type RepositoryOperation,
-} from '../../lib/repositories/access/repository-access.js';
-import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
-import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
-import {
-  MergeMethodNotAllowedError,
-  RulesetBypassRequiredError,
-} from '../../lib/rulesets/rulesets.errors.js';
-import { requiredContexts } from '../../lib/rulesets/evaluate-rulesets.js';
-import { refTargeted } from '../../lib/rulesets/ref-pattern.js';
-import type {
-  PullRequestRuleParameters,
-  RefFacts,
-  Ruleset,
-  RuleType,
-} from '../../lib/rulesets/rulesets.types.js';
-import { addedCommits } from '../../lib/git/refs/added-commits.js';
-import { PullRequestRulesService } from '../../services/rulesets/pull-request-rules.service.js';
-import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
-import { LfsService } from '../../services/git/lfs/lfs.service.js';
-import { lfsPointersIn } from '../../lib/git/lfs/lfs-pointer.js';
-import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
-import { PullRequestPushesService } from '../../services/pull-requests/pull-request-pushes.service.js';
 import {
   commitsAdded,
   recordCommitEvents,
 } from '../../lib/pull-requests/commit-events.js';
-import { pendingReviewRequestFor } from '../../lib/pull-requests/review-requested.js';
-import { pullHeadRef, pullMergeRef } from '../../lib/git/refs/pull-refs.js';
-import type { RefTransition } from '../../lib/git/wal/wal.types.js';
-import { UsersService } from '../../services/users/users.service.js';
-import { MergeStorageQuotaExceededError } from '../../lib/storage/storage.errors.js';
-import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
-import {
-  storageAccountOf,
-  billedKindOf,
-} from '../../lib/storage/storage-account.js';
-import { keyset } from '../../lib/db/keyset.js';
-import {
-  BranchNotFoundError,
-  CommitNotFoundError,
-  RepositoryNotFoundError,
-} from '../../lib/repositories/repositories.errors.js';
-import { AuthenticationRequiredError } from '../../lib/repositories/access/repository-access.errors.js';
-import {
-  CreatePullRequestRequestDTO,
-  UpdatePullRequestRequestDTO,
-} from './dto/create-pull-request.dto.js';
-import {
-  GetPullRequestsQueryDTO,
-  GetReviewRequestsQueryDTO,
-} from './dto/pull-request.dto.js';
-import {
-  MERGE_METHODS,
-  type MergeMethod,
-} from './dto/pull-request-changes.dto.js';
 import {
   NothingToMergeError,
   PullRequestAlreadyOpenError,
@@ -126,11 +70,68 @@ import {
   UnrelatedHistoriesError,
   UnrelatedRepositoriesError,
 } from '../../lib/pull-requests/pull-requests.errors.js';
-import { withTempDir } from '../../lib/temp-dir.js';
-import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
+import { pendingReviewRequestFor } from '../../lib/pull-requests/review-requested.js';
+import { AuthenticationRequiredError } from '../../lib/repositories/access/repository-access.errors.js';
 import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
-import { canEditThread } from '../../lib/issues/can-edit-thread.js';
-import { sameName } from '../../lib/db/sql.js';
+import {
+  acceptedCollaboration,
+  organizationMembership,
+  ownerNameOf,
+  type Repository,
+  type RepositoryOperation,
+  readableBy,
+} from '../../lib/repositories/access/repository-access.js';
+import {
+  BranchNotFoundError,
+  CommitNotFoundError,
+  RepositoryNotFoundError,
+} from '../../lib/repositories/repositories.errors.js';
+import { requiredContexts } from '../../lib/rulesets/evaluate-rulesets.js';
+import { refTargeted } from '../../lib/rulesets/ref-pattern.js';
+import {
+  MergeMethodNotAllowedError,
+  RulesetBypassRequiredError,
+} from '../../lib/rulesets/rulesets.errors.js';
+import type {
+  PullRequestRuleParameters,
+  RefFacts,
+  Ruleset,
+  RuleType,
+} from '../../lib/rulesets/rulesets.types.js';
+import { MergeStorageQuotaExceededError } from '../../lib/storage/storage.errors.js';
+import {
+  billedKindOf,
+  storageAccountOf,
+} from '../../lib/storage/storage-account.js';
+import { withTempDir } from '../../lib/temp-dir.js';
+import { LfsService } from '../../services/git/lfs/lfs.service.js';
+import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
+import { PullRefsService } from '../../services/git/pull-refs/pull-refs.service.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
+import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
+import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
+import { PullRequestPushesService } from '../../services/pull-requests/pull-request-pushes.service.js';
+import { PullRequestRulesService } from '../../services/rulesets/pull-request-rules.service.js';
+import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
+import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
+import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
+import { UsersService } from '../../services/users/users.service.js';
+import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
+import { IssuesService } from '../issues/issues.service.js';
+import {
+  CreatePullRequestRequestDTO,
+  UpdatePullRequestRequestDTO,
+} from './dto/create-pull-request.dto.js';
+import {
+  GetPullRequestsQueryDTO,
+  GetReviewRequestsQueryDTO,
+} from './dto/pull-request.dto.js';
+import {
+  MERGE_METHODS,
+  type MergeMethod,
+} from './dto/pull-request-changes.dto.js';
 
 // Number, title, body and author live on the issue a request is attached to.
 const pullRequestColumns = {

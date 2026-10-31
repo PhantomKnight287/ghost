@@ -1,9 +1,12 @@
+import { execFileSync } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+
 import {
   BucketAlreadyOwnedByYou,
   CreateBucketCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-
 import { Redis } from 'ioredis';
 
 import {
@@ -14,9 +17,6 @@ import {
   s3Credentials,
 } from './harness.js';
 import { migrateTestDatabase } from './migrate.js';
-import path from 'node:path';
-import { mkdirSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 
 export default async function setup() {
   if (!hasBackends || !DATABASE_URL) return;

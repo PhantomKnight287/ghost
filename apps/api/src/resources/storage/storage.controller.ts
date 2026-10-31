@@ -8,9 +8,9 @@ import {
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { StorageUsageDTO } from './dto/storage.dto.js';
 import { StorageService } from './storage.service.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('storage')
 @ApiTags('Storage')

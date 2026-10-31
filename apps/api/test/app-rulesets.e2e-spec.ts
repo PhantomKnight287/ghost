@@ -4,14 +4,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { type Database, schema } from '@ghost/db';
+import type { INestApplication } from '@nestjs/common';
 import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
-import type { INestApplication } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
-import { type Database, schema } from '@ghost/db';
-import { eq } from 'drizzle-orm';
 
 import { DATABASE } from '../src/database/database.module.js';
 import {

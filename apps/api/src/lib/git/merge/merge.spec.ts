@@ -2,8 +2,10 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
 import * as openpgp from 'openpgp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { signPayload, verifySignature } from '../../gpg/openpgp.js';
 import { readSignedCommits } from '../commits/commit-signature.js';
 import {

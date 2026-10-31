@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -6,14 +7,13 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  Max,
   Matches,
+  Max,
   MaxLength,
   Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
 
 export class SearchCodeQueryDTO {
   @ApiProperty({

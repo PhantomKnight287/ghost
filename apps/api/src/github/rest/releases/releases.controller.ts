@@ -28,8 +28,11 @@ import {
 import type { Response } from 'express';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
 import { GithubRestInterceptor } from '../github-rest.interceptor.js';
 import { GithubPageQueryDTO } from '../issues/dto/issue.dto.js';
@@ -41,9 +44,6 @@ import {
   GithubUpdateReleaseDTO,
 } from './dto/release.dto.js';
 import { GithubReleasesService } from './releases.service.js';
-import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
-import { ApiGithubErrors } from '../dto/error.dto.js';
-import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 const ID = new ParseIntPipe({ errorHttpStatusCode: 404 });
 

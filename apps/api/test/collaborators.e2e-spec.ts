@@ -3,12 +3,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { INestApplication } from '@nestjs/common';
-import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDatabase, schema } from '@ghost/db';
+import type { INestApplication } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DATABASE_URL, hasBackends, signUp, startApp } from './harness.js';
 

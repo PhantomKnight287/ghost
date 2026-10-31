@@ -1,4 +1,3 @@
-import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 import { schema } from '@ghost/db';
 import {
   ApiExtraModels,
@@ -10,9 +9,9 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
-  IsISO8601,
   IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   Max,
@@ -20,6 +19,8 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+
+import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 import { RuleViolationDTO } from '../../pull-requests/dto/pull-request-changes.dto.js';
 import { PullRequestReviewDTO } from '../../pull-requests/dto/pull-request-review.dto.js';
 import { LabelDTO } from './label.dto.js';

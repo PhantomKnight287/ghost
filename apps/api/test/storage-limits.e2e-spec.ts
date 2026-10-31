@@ -1,14 +1,14 @@
 import { execFile, execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+
+import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
-import { type Database, schema } from '@ghost/db';
 
 import { DATABASE } from '../src/database/database.module.js';
 import { hasBackends, signUp, startApp } from './harness.js';

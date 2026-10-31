@@ -1,14 +1,14 @@
+import type { Readable } from 'node:stream';
+import { text } from 'node:stream/consumers';
+
 import { describe, expect, it } from 'vitest';
 
-import { text } from 'node:stream/consumers';
-import type { Readable } from 'node:stream';
-
-import { S3Service } from '../../s3/s3.service.js';
+import { createUlid } from '../../../lib/git/wal/ulid.js';
 import {
   ENTRY_HEADER_PROBE_BYTES,
   encodeEntryHeader,
 } from '../../../lib/git/wal/wal-codec.js';
-import { createUlid } from '../../../lib/git/wal/ulid.js';
+import { S3Service } from '../../s3/s3.service.js';
 import { WalStoreService } from './wal-store.service.js';
 
 /** Serves one stored object, honouring `Range: bytes=start-end` the way S3 does. */

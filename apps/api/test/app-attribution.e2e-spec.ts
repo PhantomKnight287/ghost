@@ -5,9 +5,9 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { type Database, schema } from '@ghost/db';
+import type { INestApplication } from '@nestjs/common';
 import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
-import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
@@ -15,12 +15,12 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
-import type { Auth } from '../src/lib/auth.js';
 import { hashInstallationToken } from '../src/lib/apps/installation-token.js';
 import {
   generateUserToken,
   hashUserToken,
 } from '../src/lib/apps/user-token.js';
+import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 describe.skipIf(!hasBackends)('What an installation token writes', () => {

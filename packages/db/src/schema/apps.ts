@@ -207,6 +207,14 @@ export const appUserToken = pgTable(
     userId: text()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    // Set on a scoped token: the one installation it may act through. Cascades, since a null here means every installation.
+    installationId: text().references(() => appInstallation.id, {
+      onDelete: "cascade",
+    }),
+    // Null: what the app holds. A scoped token keeps only what it asked for.
+    permissions: jsonb().$type<Record<string, "read" | "write">>(),
+    // Null: every repository its installations cover.
+    repositoryIds: text().array(),
     expiresAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

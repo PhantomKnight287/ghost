@@ -29,6 +29,8 @@ import type { Request, Response } from 'express';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { NotRateLimited } from '../../rate-limit/rate-limit.guard.js';
 import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import { UploadAvatarResponseDTO } from './dto/avatar.dto.js';
 import {
@@ -37,8 +39,6 @@ import {
 } from './dto/contributions.dto.js';
 import { UserProfileResponseDTO } from './dto/profile.dto.js';
 import { UserService } from './user.service.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
-import { NotRateLimited } from '../../rate-limit/rate-limit.guard.js';
 
 @ApiTags('Users')
 @Controller('users')

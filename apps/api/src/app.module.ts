@@ -9,6 +9,7 @@ import type { Request, Response } from 'express';
 
 import { AppController } from './app.controller.js';
 import { ApiKeyAuthGuard } from './auth/api-key-auth.guard.js';
+import { AppPermissionGuard } from './auth/app-permission.guard.js';
 import { AvatarsModule } from './avatars/avatars.module.js';
 import { DATABASE, DatabaseModule } from './database/database.module.js';
 import { GitModule } from './git/git.module.js';
@@ -21,6 +22,10 @@ import {
   mailConfigured,
 } from './mail/mail.module.js';
 import { MailService } from './mail/mail.service.js';
+import { AuthRateLimitMiddleware } from './rate-limit/auth-rate-limit.middleware.js';
+import { RateLimitGuard } from './rate-limit/rate-limit.guard.js';
+import { RateLimitModule } from './rate-limit/rate-limit.module.js';
+import { AppsModule } from './resources/apps/apps.module.js';
 import { AttachmentsModule } from './resources/attachments/attachments.module.js';
 import { BranchesModule } from './resources/branches/branches.module.js';
 import { CollaboratorsModule } from './resources/collaborators/collaborators.module.js';
@@ -28,30 +33,25 @@ import { CommitStatusesModule } from './resources/commit-statuses/commit-statuse
 import { EmailsModule } from './resources/emails/emails.module.js';
 import { GpgKeysModule } from './resources/gpg-keys/gpg-keys.module.js';
 import { ImportsModule } from './resources/imports/imports.module.js';
+import { InstallationsModule } from './resources/installations/installations.module.js';
 import { IssuesModule } from './resources/issues/issues.module.js';
 import { NotificationsModule } from './resources/notifications/notifications.module.js';
 import { OauthAppsModule } from './resources/oauth-apps/oauth-apps.module.js';
 import { OrganizationsModule } from './resources/organizations/organizations.module.js';
 import { PullRequestsModule } from './resources/pull-requests/pull-requests.module.js';
 import { ReleasesModule } from './resources/releases/releases.module.js';
-import { RulesetsModule } from './resources/rulesets/rulesets.module.js';
 import { RepositoriesModule } from './resources/repositories/repositories.module.js';
+import { RepositoryTemplatesModule } from './resources/repository-templates/repository-templates.module.js';
+import { RulesetsModule } from './resources/rulesets/rulesets.module.js';
 import { SshKeysModule } from './resources/ssh-keys/ssh-keys.module.js';
+import { SshSigningKeysModule } from './resources/ssh-signing-keys/ssh-signing-keys.module.js';
 import { UserModule } from './resources/user/user.module.js';
 import { WebhooksModule } from './resources/webhooks/webhooks.module.js';
-import { AuthRateLimitMiddleware } from './rate-limit/auth-rate-limit.middleware.js';
-import { RateLimitGuard } from './rate-limit/rate-limit.guard.js';
-import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { S3Module } from './s3/s3.module.js';
-import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
-import { AppStatsService } from './services/stats/app-stats.service.js';
-import { RepositoryTemplatesModule } from './resources/repository-templates/repository-templates.module.js';
-import { SshSigningKeysModule } from './resources/ssh-signing-keys/ssh-signing-keys.module.js';
-import { AppsModule } from './resources/apps/apps.module.js';
-import { InstallationsModule } from './resources/installations/installations.module.js';
-import { AppPermissionGuard } from './auth/app-permission.guard.js';
 import { InstallationAccessService } from './services/apps/installation-access.service.js';
+import { AvatarStorageService } from './services/avatars/avatar-storage.service.js';
 import { RepositoryAccessService } from './services/git/repository-access/repository-access.service.js';
+import { AppStatsService } from './services/stats/app-stats.service.js';
 
 /** Body parsing for `type`, except on GitHub's asset uploads, which stream raw bytes of any type to object storage. */
 const parses = (type: string) => (req: IncomingMessage) => {

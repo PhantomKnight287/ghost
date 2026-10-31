@@ -4,23 +4,20 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, gt, inArray, isNull, or } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import {
-  InstallationRepositoriesError,
-  InstallationSuspendedError,
-} from '../../lib/apps/apps.errors.js';
+import type {
+  AppInstallationCaller,
+  GithubApp,
+} from '../../github/auth/github-request.js';
+import { InstallationSuspendedError } from '../../lib/apps/apps.errors.js';
 import {
   generateInstallationToken,
   hashInstallationToken,
   INSTALLATION_TOKEN_TTL_MS,
   narrowPermissions,
 } from '../../lib/apps/installation-token.js';
+import { narrowRepositories } from '../../lib/apps/narrow-repositories.js';
 import { grants } from '../../lib/apps/permissions.js';
 import { GithubNotFoundError } from '../../lib/github/github.errors.js';
-import { installationCovers } from '../../lib/repositories/access/repository-access.js';
-import type {
-  AppInstallationCaller,
-  GithubApp,
-} from '../../github/auth/github-request.js';
 
 export type MintTokenBody = {
   permissions?: Record<string, string>;
@@ -54,7 +51,11 @@ export class InstallationTokensService {
       installation.permissions as AppPermissions,
       body.permissions,
     );
-    const repositoryIds = await this.repositoriesOf(installation.id, body);
+    const repositoryIds = await narrowRepositories(
+      this.db,
+      installation.id,
+      body,
+    );
 
     const { token, hash } = generateInstallationToken();
     const expiresAt = new Date(Date.now() + INSTALLATION_TOKEN_TTL_MS);
@@ -123,35 +124,5 @@ export class InstallationTokensService {
         }),
       ) as AppPermissions,
     };
-  }
-
-  /** The repositories a token is narrowed to by name or id, every one covered by the installation; null when the body narrows nothing. */
-  private async repositoriesOf(installationId: string, body: MintTokenBody) {
-    const names = body.repositories ?? [];
-    const ids = body.repository_ids ?? [];
-    if (names.length === 0 && ids.length === 0) return null;
-    const covered = await this.db
-      .select({ id: schema.repository.id })
-      .from(schema.repository)
-      .innerJoin(
-        schema.appInstallation,
-        eq(schema.appInstallation.id, installationId),
-      )
-      .where(
-        and(
-          installationCovers(schema.repository),
-          or(
-            names.length > 0
-              ? inArray(schema.repository.slug, names)
-              : undefined,
-            ids.length > 0
-              ? inArray(schema.repository.numericId, ids)
-              : undefined,
-          ),
-        ),
-      );
-    if (covered.length !== new Set([...names, ...ids]).size)
-      throw new InstallationRepositoriesError();
-    return covered.map(({ id }) => id);
   }
 }

@@ -270,6 +270,7 @@ describe.skipIf(!hasBackends)('Ghost App user-to-server tokens', () => {
         headers: new Headers({ cookie: owner.cookie }),
       });
       await repository(owner.cookie, `ghumine${stamp}`);
+      await repository(owner.cookie, `ghuminetoo${stamp}`);
       await repository(other.cookie, `ghutheirs${stamp}`);
     });
 
@@ -407,6 +408,100 @@ describe.skipIf(!hasBackends)('Ghost App user-to-server tokens', () => {
         .get('/api/v3/user')
         .set('authorization', `token ${second.access_token}`)
         .expect(200);
+    });
+
+    it('resetting swaps the token for a new one and revokes the old', async () => {
+      const client = await register();
+      const { access_token } = await webFlow(client);
+      const { body } = await api()
+        .patch(`/api/v3/applications/${client.clientId}/token`)
+        .set('authorization', basic(client.clientId, client.clientSecret))
+        .send({ access_token })
+        .expect(200);
+      expect(body).toMatchObject({
+        token: expect.stringMatching(/^ghu_/),
+        expires_at: expect.any(String),
+        user: { login: `ghuowner${stamp}` },
+        app: { client_id: client.clientId },
+      });
+      expect(body.token).not.toBe(access_token);
+      await api()
+        .get('/api/v3/user')
+        .set('authorization', `token ${access_token}`)
+        .expect(401);
+      await api()
+        .get('/api/v3/user')
+        .set('authorization', `token ${body.token}`)
+        .expect(200);
+      await api()
+        .patch(`/api/v3/applications/${client.clientId}/token`)
+        .set('authorization', basic(client.clientId, client.clientSecret))
+        .send({ access_token })
+        .expect(404);
+    });
+
+    it('a scoped token reaches only the repositories and permissions it asked for', async () => {
+      const client = await register();
+      await install(client.slug, owner.cookie, `ghuowner${stamp}`);
+      const { access_token } = await webFlow(client);
+      const { body } = await api()
+        .post(`/api/v3/applications/${client.clientId}/token/scoped`)
+        .set('authorization', basic(client.clientId, client.clientSecret))
+        .send({
+          access_token,
+          target: `ghuowner${stamp}`,
+          repositories: [`ghumine${stamp}`],
+          permissions: { issues: 'read' },
+        })
+        .expect(200);
+      expect(body).toMatchObject({
+        token: expect.stringMatching(/^ghu_/),
+        user: { login: `ghuowner${stamp}` },
+      });
+      const issues = (repo: string, auth: string) =>
+        api()
+          .get(`/api/v3/repos/ghuowner${stamp}/${repo}/issues`)
+          .set('authorization', `token ${auth}`);
+
+      await issues(`ghumine${stamp}`, body.token).expect(200);
+      await issues(`ghuminetoo${stamp}`, body.token).expect(404);
+      await api()
+        .post(`/api/v3/repos/ghuowner${stamp}/ghumine${stamp}/issues`)
+        .set('authorization', `token ${body.token}`)
+        .send({ title: 'scoped' })
+        .expect(403);
+      await issues(`ghuminetoo${stamp}`, access_token).expect(200);
+    });
+
+    it('refuses a scoped token wider than the original, or with repositories but no target', async () => {
+      const client = await register();
+      await install(client.slug, owner.cookie, `ghuowner${stamp}`);
+      const { access_token } = await webFlow(client);
+      const scoped = (body: object) =>
+        api()
+          .post(`/api/v3/applications/${client.clientId}/token/scoped`)
+          .set('authorization', basic(client.clientId, client.clientSecret))
+          .send({ access_token, ...body });
+
+      await scoped({
+        target: `ghuowner${stamp}`,
+        permissions: { contents: 'write' },
+      }).expect(422);
+      await scoped({ repositories: [`ghumine${stamp}`] }).expect(422);
+      await scoped({ target: `ghuother${stamp}` }).expect(422);
+      const narrow = await scoped({
+        target: `ghuowner${stamp}`,
+        permissions: { issues: 'read' },
+      }).expect(200);
+      await api()
+        .post(`/api/v3/applications/${client.clientId}/token/scoped`)
+        .set('authorization', basic(client.clientId, client.clientSecret))
+        .send({
+          access_token: narrow.body.token,
+          target: `ghuowner${stamp}`,
+          permissions: { issues: 'write' },
+        })
+        .expect(422);
     });
 
     it('revoking the grant kills every token and refresh token of that user for the app', async () => {

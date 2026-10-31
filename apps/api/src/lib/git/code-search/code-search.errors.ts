@@ -1,4 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
+
 import { DomainError } from '../../../domain/errors.js';
 
 export class CodeSearchUnavailableError extends DomainError {

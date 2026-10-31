@@ -108,7 +108,8 @@ export class InstallationsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: "Accept an app's new permissions",
-    description: 'The installation takes the permissions and events the app asks for now. Nothing changes when there is nothing to review.',
+    description:
+      'The installation takes the permissions and events the app asks for now. Nothing changes when there is nothing to review.',
   })
   @ApiNoContentResponse()
   @ApiForbiddenResponse({ type: ErrorResponseDTO })

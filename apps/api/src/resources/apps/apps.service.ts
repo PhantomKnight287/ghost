@@ -26,8 +26,8 @@ import {
   AppNotFoundError,
   AppSlugReservedError,
   AppWebhookSecretRequiredError,
-  OauthOnInstallNeedsCallbackError,
   InvalidAppPermissionsError,
+  OauthOnInstallNeedsCallbackError,
   PrivateKeyNotFoundError,
   TooManyPrivateKeysError,
 } from '../../lib/apps/apps.errors.js';
@@ -38,7 +38,6 @@ import {
   grants,
   withMetadata,
 } from '../../lib/apps/permissions.js';
-
 import type { Executor } from '../../lib/db/executor.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import { githubOrigins } from '../../lib/github/origins.js';
@@ -53,16 +52,16 @@ import {
   webhookSecretKey,
   webhookUrlProblem,
 } from '../../lib/webhooks/webhooks.js';
-import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import { AppClientsService } from '../../services/apps/app-clients.service.js';
+import { AvatarStorageService } from '../../services/avatars/avatar-storage.service.js';
 import { WebhooksService } from '../webhooks/webhooks.service.js';
 import type {
+  AppClientSecretDTO,
   AppDTO,
   AppOwnerDTO,
-  AppClientSecretDTO,
   AppPrivateKeyDTO,
-  CreatedClientSecretDTO,
   CreateAppDTO,
+  CreatedClientSecretDTO,
   CreatedPrivateKeyDTO,
   ListAppsResponseDTO,
   PublicAppDTO,

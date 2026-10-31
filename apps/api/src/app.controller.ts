@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+
 import { Anonymous } from './auth/api-key-auth.guard.js';
 import { NotRateLimited } from './rate-limit/rate-limit.guard.js';
 

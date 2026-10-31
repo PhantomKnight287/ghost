@@ -41,8 +41,8 @@ import {
   InstallationTokensService,
   type MintTokenBody,
 } from '../../../services/apps/installation-tokens.service.js';
-import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
 import type { GithubApp, GithubViewer } from '../../auth/github-request.js';
+import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
 import type {
   GithubInstallationDTO,
   GithubInstallationRepositoriesDTO,

@@ -6,10 +6,10 @@ import {
   AVATAR_CONTENT_TYPES,
   AVATAR_MAX_BYTES,
 } from '../../lib/avatars/avatar.constants.js';
-import { OauthAppsController } from './oauth-apps.controller.js';
-import { OrganizationOauthAppsController } from './organization-oauth-apps.controller.js';
 import { UserTokensService } from '../../services/apps/user-tokens.service.js';
+import { OauthAppsController } from './oauth-apps.controller.js';
 import { OauthAppsService } from './oauth-apps.service.js';
+import { OrganizationOauthAppsController } from './organization-oauth-apps.controller.js';
 
 @Module({
   imports: [AvatarsModule],

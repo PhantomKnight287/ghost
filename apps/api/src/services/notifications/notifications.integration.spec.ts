@@ -1,4 +1,5 @@
 import path from 'node:path';
+
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
@@ -13,18 +14,18 @@ import {
 } from 'vitest';
 
 import { publishEvent } from '../../lib/events/events.js';
-import type { CodeownerRequestsService } from '../codeowners/codeowner-requests.service.js';
-import type { StaleApprovalsService } from '../rulesets/stale-approvals.service.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
 import type { MailService } from '../../mail/mail.service.js';
 import { IssuesService } from '../../resources/issues/issues.service.js';
 import { NotificationsService } from '../../resources/notifications/notifications.service.js';
+import type { CodeownerRequestsService } from '../codeowners/codeowner-requests.service.js';
 import { OutboxService } from '../events/outbox.service.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
 import { IssueReferencesService } from '../issues/issue-references.service.js';
+import type { StaleApprovalsService } from '../rulesets/stale-approvals.service.js';
 import { UsersService } from '../users/users.service.js';
-import { NotifierService } from './notifier.service.js';
 import type { WebhookFanoutService } from '../webhooks/webhook-fanout.service.js';
+import { NotifierService } from './notifier.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
 const noWebhooks = {

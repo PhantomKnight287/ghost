@@ -1,15 +1,15 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
-import { walkCommits } from '../../../lib/git/path-index/commit-log.js';
-import { isoTimestamp, excluded } from '../../../lib/db/sql.js';
-import { isAncestor } from '../../../lib/git/diff/diff.js';
+import { excluded, isoTimestamp } from '../../../lib/db/sql.js';
 import { errorMessage } from '../../../lib/error-message.js';
-import { SingleFlight } from '../../../lib/single-flight.js';
+import { isAncestor } from '../../../lib/git/diff/diff.js';
 import { ancestorsOf } from '../../../lib/git/path-index/ancestors.js';
+import { walkCommits } from '../../../lib/git/path-index/commit-log.js';
+import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
+import { SingleFlight } from '../../../lib/single-flight.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;

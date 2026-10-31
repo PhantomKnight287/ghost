@@ -1,9 +1,9 @@
-import { tmpdir } from 'node:os';
-import { describe, expect, it, vi } from 'vitest';
-
 import { ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
+import { tmpdir } from 'node:os';
 import { text } from 'node:stream/consumers';
+
+import { describe, expect, it, vi } from 'vitest';
 
 import { runGit, runGitReadable, runGitStream } from './run-git.js';
 

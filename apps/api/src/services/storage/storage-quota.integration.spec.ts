@@ -1,4 +1,5 @@
 import path from 'node:path';
+
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
 import { ConfigService } from '@nestjs/config';
 import { inArray } from 'drizzle-orm';

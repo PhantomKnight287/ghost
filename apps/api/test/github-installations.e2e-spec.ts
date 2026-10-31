@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
+import type { INestApplication } from '@nestjs/common';
 import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
-import type { INestApplication } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

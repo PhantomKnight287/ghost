@@ -3,24 +3,24 @@ import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
-  ApiNotFoundResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { CommitStatusesService } from './commit-statuses.service.js';
 import {
   CombinedCommitStatusDTO,
-  StatusContextsDTO,
   CommitStatusDTO,
   CreateCommitStatusRequestDTO,
+  StatusContextsDTO,
 } from './dto/commit-status.dto.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:slug')
 @ApiTags('Commit statuses')

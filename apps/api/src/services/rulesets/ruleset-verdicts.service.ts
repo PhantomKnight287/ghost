@@ -8,6 +8,7 @@ import {
   addedCommits,
   peeledCommit,
 } from '../../lib/git/refs/added-commits.js';
+import { resolveDefaultRef } from '../../lib/git/tree/resolve-ref.js';
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
 import {
   acceptedCollaboration,
@@ -16,7 +17,6 @@ import {
   roleOf,
   teamRoleOf,
 } from '../../lib/repositories/access/repository-access.js';
-import { resolveDefaultRef } from '../../lib/git/tree/resolve-ref.js';
 import { evaluateRulesets } from '../../lib/rulesets/evaluate-rulesets.js';
 import { refTargeted } from '../../lib/rulesets/ref-pattern.js';
 import { rulesetColumns } from '../../lib/rulesets/ruleset-columns.js';

@@ -1,3 +1,4 @@
+import type { AppPermission, AppPermissions } from '@ghost/permissions';
 import {
   type CanActivate,
   type ExecutionContext,
@@ -5,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
+import type { GitAuthenticatedBufferedRequest } from '../git/types.js';
+import type { GithubRequest } from '../github/auth/github-request.js';
 import {
   ALLOW_USER_TOKENS,
   APP_PERMISSION,
@@ -13,18 +16,15 @@ import {
   PULL_REQUESTS_ON_PULLS,
 } from '../lib/apps/app-permission.js';
 import { IntegrationForbiddenError } from '../lib/apps/apps.errors.js';
-import { grants } from '../lib/apps/permissions.js';
-import type { AppPermission, AppPermissions } from '@ghost/permissions';
+import { commonPermissions, grants } from '../lib/apps/permissions.js';
 import type { UserToServerCaller } from '../lib/apps/user-token-context.js';
 import { RepositoryNotFoundError } from '../lib/repositories/repositories.errors.js';
-import type { GithubRequest } from '../github/auth/github-request.js';
-import type { GitAuthenticatedBufferedRequest } from '../git/types.js';
 import { InstallationAccessService } from '../services/apps/installation-access.service.js';
 import { RepositoryAccessService } from '../services/git/repository-access/repository-access.service.js';
 
 type Request = GithubRequest & GitAuthenticatedBufferedRequest;
 
-/** Limits an installation token to the routes that declare a permission, on the repositories its installation covers, as far as its permissions reach. A `ghu_` token gets the same limits from its app's installations, on top of its user's own access. Everyone else passes untouched. */
+/** Limits an installation token to the routes that declare a permission, on the repositories its installation covers, as far as its permissions reach. A `ghu_` token gets the same limits from its app's installations, narrowed further when scoped, on top of its user's own access. Everyone else passes untouched. */
 @Injectable()
 export class AppPermissionGuard implements CanActivate {
   constructor(
@@ -103,7 +103,15 @@ export class AppPermissionGuard implements CanActivate {
       'read' | 'write',
     ][];
     const allow = (held: AppPermissions) =>
-      levels.every(([name, level]) => grants(held, name, level));
+      levels.every(([name, level]) =>
+        grants(
+          caller.permissions
+            ? commonPermissions(held, caller.permissions)
+            : held,
+          name,
+          level,
+        ),
+      );
 
     const { owner, username, repo } = req.params as Record<string, string>;
     if (!repo) {
@@ -118,10 +126,15 @@ export class AppPermissionGuard implements CanActivate {
         repo: repo.replace(/\.git$/i, ''),
         requesterId: caller.userId,
       }));
-    const accepted = await this.installations.acceptedFor(
-      caller.appId,
-      repository.id,
-    );
+    const narrowedAway =
+      caller.repositoryIds && !caller.repositoryIds.includes(repository.id);
+    const accepted = narrowedAway
+      ? null
+      : await this.installations.acceptedFor(
+          caller.appId,
+          repository.id,
+          caller.installationId,
+        );
     if (accepted && allow(accepted)) return true;
     if (
       accepted &&
@@ -130,7 +143,9 @@ export class AppPermissionGuard implements CanActivate {
         req,
         repository.id,
         levels,
-        accepted,
+        caller.permissions
+          ? commonPermissions(accepted, caller.permissions)
+          : accepted,
       ))
     )
       return true;

@@ -22,8 +22,8 @@ import {
   toUserNode,
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
-import type { GithubViewer } from '../../../auth/github-request.js';
 import { CommitStatusesService } from '../../../../resources/commit-statuses/commit-statuses.service.js';
+import type { GithubViewer } from '../../../auth/github-request.js';
 import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
 
 @Injectable()

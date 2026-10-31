@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { MetaService } from './meta.service.js';
+
 import { MetaController } from './meta.controller.js';
+import { MetaService } from './meta.service.js';
 
 @Module({
   controllers: [MetaController],

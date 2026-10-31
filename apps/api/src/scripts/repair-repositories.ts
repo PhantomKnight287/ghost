@@ -10,6 +10,7 @@ import { NestFactory } from '@nestjs/core';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
+import { errorMessage } from '../lib/error-message.js';
 import { ownerNameOf } from '../lib/repositories/access/repository-access.js';
 import {
   type RepairReport,
@@ -19,7 +20,6 @@ import { RepositoryStorageService } from '../services/git/repository-storage/rep
 import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
 import { S3Service } from '../services/s3/s3.service.js';
-import { errorMessage } from '../lib/error-message.js';
 
 // Only what a repair needs, so the script opens no HTTP or SSH listener and starts no poller.
 @Module({

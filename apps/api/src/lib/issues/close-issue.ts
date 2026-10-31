@@ -1,8 +1,8 @@
 import { schema } from '@ghost/db';
 import { and, eq } from 'drizzle-orm';
 
-import { publishEvent } from '../events/events.js';
 import type { Executor } from '../db/executor.js';
+import { publishEvent } from '../events/events.js';
 
 // Commits a push or merge scans for closing keywords. A longer range closes only through the newest ones.
 export const MAX_CLOSING_COMMITS = 250;

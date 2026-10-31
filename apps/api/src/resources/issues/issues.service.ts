@@ -1,4 +1,5 @@
 import { type Database, schema } from '@ghost/db';
+import type { Role } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   and,
@@ -6,9 +7,9 @@ import {
   count,
   desc,
   eq,
-  ilike,
   exists,
   gte,
+  ilike,
   inArray,
   isNotNull,
   ne,
@@ -19,44 +20,43 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
+import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
+import type { Executor } from '../../lib/db/executor.js';
+import { keyset } from '../../lib/db/keyset.js';
+import { escapeLike, isoTimestamp, sameName } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { assertNotImporting } from '../../lib/imports/importing.js';
+import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
-import type { Executor } from '../../lib/db/executor.js';
+import {
+  InvalidLabelNameError,
+  IssueCommentNotFoundError,
+  IssueNotFoundError,
+  IssueNotOpenError,
+  LabelAlreadyExistsError,
+  LabelNotFoundError,
+  NotCommentAuthorError,
+  PullRequestReopenError,
+} from '../../lib/issues/issues.errors.js';
+import { touchIssue } from '../../lib/issues/touch-issue.js';
 import {
   pendingReviewRequestFor,
   type ReviewRequested,
 } from '../../lib/pull-requests/review-requested.js';
-import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
-import type { Role } from '@ghost/permissions';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
   ownerNameOf,
-  repositoryFullNameOf,
   type Repository,
   type RepositoryOperation,
+  repositoryFullNameOf,
 } from '../../lib/repositories/access/repository-access.js';
+import type { Violation } from '../../lib/rulesets/rulesets.types.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { escapeLike, isoTimestamp, sameName } from '../../lib/db/sql.js';
-import { keyset } from '../../lib/db/keyset.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
-import type { LabelDTO } from './dto/label.dto.js';
 import type { GetIssuesQueryDTO } from './dto/issue.dto.js';
-import {
-  IssueCommentNotFoundError,
-  NotCommentAuthorError,
-  IssueNotFoundError,
-  IssueNotOpenError,
-  InvalidLabelNameError,
-  LabelAlreadyExistsError,
-  PullRequestReopenError,
-  LabelNotFoundError,
-} from '../../lib/issues/issues.errors.js';
-import { touchIssue } from '../../lib/issues/touch-issue.js';
-import { canEditThread } from '../../lib/issues/can-edit-thread.js';
-import type { Violation } from '../../lib/rulesets/rulesets.types.js';
+import type { LabelDTO } from './dto/label.dto.js';
 
 // A name with surrounding whitespace would come back different from what was sent, and `.` or `..` in a label's URL is a dot segment clients collapse.
 const LABEL_NAME = /^(?!\.\.?$)\S(?:[\s\S]*\S)?$/;

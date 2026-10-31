@@ -7,15 +7,15 @@ import { readSignedCommits } from '../../lib/git/commits/commit-signature.js';
 import { fingerprintOf } from '../../lib/git/ssh/public-key.js';
 import { GITHUB_WEB_FLOW_KEYS } from '../../lib/gpg/github-web-flow.js';
 import {
-  readSshSignature,
-  type SshSignature,
-  verifySshSignature,
-} from '../../lib/ssh/sshsig.js';
-import {
   publicKeyIds,
   signingKeyIds,
   verifySignature,
 } from '../../lib/gpg/openpgp.js';
+import {
+  readSshSignature,
+  type SshSignature,
+  verifySshSignature,
+} from '../../lib/ssh/sshsig.js';
 import { UsersService } from '../users/users.service.js';
 import { CommitSigningService } from './commit-signing.service.js';
 

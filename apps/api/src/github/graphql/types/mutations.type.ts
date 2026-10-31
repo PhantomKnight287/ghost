@@ -9,8 +9,8 @@ import {
   RepositoryVisibility,
 } from '../enums.js';
 import { GitObjectID, URI } from '../scalars.js';
-import { IssueCommentNode } from './issue-comment.type.js';
 import { IssueNode } from './issue.type.js';
+import { IssueCommentNode } from './issue-comment.type.js';
 import { Assignable, Labelable } from './node.interface.js';
 import {
   PullRequestNode,

@@ -1,6 +1,6 @@
+import { schema } from '@ghost/db';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
-import { schema } from '@ghost/db';
 
 import {
   IsGitignoreTemplate,

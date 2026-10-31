@@ -1,5 +1,6 @@
-import { type Database, schema } from '@ghost/db';
 import path from 'node:path';
+
+import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   and,
@@ -12,31 +13,17 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
+import { publishEvent } from '../../lib/events/events.js';
 import { isTextBlob, readBlob } from '../../lib/git/blob/read-blob.js';
 import { fileHunks, type Hunk, mergeBase } from '../../lib/git/diff/diff.js';
-import { publishEvent } from '../../lib/events/events.js';
 import { packRange } from '../../lib/git/merge/merge.js';
 import { fileBody } from '../../lib/git/protocol/git-request-body.js';
 import { replaceFile } from '../../lib/git/tree/replace-file.js';
+import { NotCommentAuthorError } from '../../lib/issues/issues.errors.js';
+import { touchIssue } from '../../lib/issues/touch-issue.js';
 import { diffHunkFor } from '../../lib/pull-requests/diff-hunk.js';
-import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
-import { selectReviews } from '../../lib/pull-requests/reviews.js';
-import {
-  applySuggestion,
-  extractSuggestion,
-} from '../../lib/pull-requests/suggestion.js';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
-import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
-import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
-import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
-import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
-import { UsersService } from '../../services/users/users.service.js';
-import { isoTimestamp } from '../../lib/db/sql.js';
-import type {
-  CreateReviewRequestDTO,
-  ReviewCommentRequestDTO,
-} from './dto/pull-request-review.dto.js';
 import {
   EmptyReviewError,
   InvalidLineRangeError,
@@ -52,14 +39,28 @@ import {
   SuggestionNotApplicableError,
   SuggestionOutdatedError,
 } from '../../lib/pull-requests/pull-requests.errors.js';
-import { NotCommentAuthorError } from '../../lib/issues/issues.errors.js';
+import { selectReviews } from '../../lib/pull-requests/reviews.js';
+import {
+  applySuggestion,
+  extractSuggestion,
+} from '../../lib/pull-requests/suggestion.js';
+import { withTempDir } from '../../lib/temp-dir.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
+import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
+import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
+import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
+import { UsersService } from '../../services/users/users.service.js';
+import type {
+  CreateReviewRequestDTO,
+  ReviewCommentRequestDTO,
+} from './dto/pull-request-review.dto.js';
 import {
   type PullRequestRef,
   PullRequestsService,
 } from './pull-requests.service.js';
 import { ReviewRequestsService } from './review-requests.service.js';
-import { touchIssue } from '../../lib/issues/touch-issue.js';
-import { withTempDir } from '../../lib/temp-dir.js';
 
 type Opened = Awaited<ReturnType<PullRequestsService['open']>>;
 type Loaded = Awaited<ReturnType<PullRequestsService['load']>>;

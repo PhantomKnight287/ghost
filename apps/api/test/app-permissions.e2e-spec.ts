@@ -5,12 +5,12 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { type Database, schema } from '@ghost/db';
+import type { INestApplication } from '@nestjs/common';
+import { RequestMethod } from '@nestjs/common';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { ModulesContainer } from '@nestjs/core';
 import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
-import type { INestApplication } from '@nestjs/common';
-import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { RequestMethod } from '@nestjs/common';
-import { ModulesContainer } from '@nestjs/core';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { eq } from 'drizzle-orm';
 import request from 'supertest';
@@ -38,6 +38,8 @@ const DENIED_TO_INSTALLATIONS = [
   'GET v3/user/installations',
   'GET v3/user/installations/:installation_id/repositories',
   'POST v3/applications/:client_id/token',
+  'PATCH v3/applications/:client_id/token',
+  'POST v3/applications/:client_id/token/scoped',
   'DELETE v3/applications/:client_id/token',
   'DELETE v3/applications/:client_id/grant',
   'GET v3/user/keys',

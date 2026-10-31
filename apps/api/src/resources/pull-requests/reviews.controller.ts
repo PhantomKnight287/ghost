@@ -15,9 +15,9 @@ import {
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
-  ApiForbiddenResponse,
   ApiOperation,
   ApiTags,
   ApiUnprocessableEntityResponse,
@@ -25,6 +25,7 @@ import {
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import {
   ApplySuggestionResponseDTO,
   CreateReviewRequestDTO,
@@ -39,7 +40,6 @@ import {
 } from './dto/pull-request-review.dto.js';
 import { ReviewThreadsService } from './review-threads.service.js';
 import { ReviewsService } from './reviews.service.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/pulls/:number')
 @ApiTags('Pull request reviews')

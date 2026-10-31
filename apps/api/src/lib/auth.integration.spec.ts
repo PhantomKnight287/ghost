@@ -1,4 +1,5 @@
 import path from 'node:path';
+
 import { runWithEndpointContext } from '@better-auth/core/context';
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
 import { eq, inArray } from 'drizzle-orm';

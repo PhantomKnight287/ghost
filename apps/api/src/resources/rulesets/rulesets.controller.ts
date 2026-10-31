@@ -28,6 +28,7 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import {
   ListRulesetsResponseDTO,
   ProtectedRefDTO,
@@ -39,7 +40,6 @@ import {
   RulesetRequestDTO,
 } from './dto/ruleset.dto.js';
 import { RulesetsService } from './rulesets.service.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo')
 @ApiTags('Rulesets')

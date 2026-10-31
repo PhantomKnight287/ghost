@@ -4,8 +4,8 @@ import type { MailerService } from '@nestjs-modules/mailer';
 import { like } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import ThreadComment from './templates/thread-comment.js';
 import { MailService } from './mail.service.js';
+import ThreadComment from './templates/thread-comment.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
 const KEY = `test-mail-${Date.now()}`;

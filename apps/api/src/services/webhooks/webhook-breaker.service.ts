@@ -10,9 +10,9 @@ import {
 import { and, eq, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { errorMessage } from '../../lib/error-message.js';
 import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 import { MailService } from '../../mail/mail.service.js';
-import { errorMessage } from '../../lib/error-message.js';
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 

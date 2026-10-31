@@ -3,12 +3,12 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InMemoryWalStore } from '../../../lib/git/materializer/wal-store.fake.js';
 import { bufferBody } from '../../../lib/git/protocol/git-request-body.js';
 import { createUlid } from '../../../lib/git/wal/ulid.js';
-import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
 import { RepositoryDeletedError } from '../../../lib/git/wal/wal.errors.js';
 import {
   applyTransitions,
@@ -16,6 +16,7 @@ import {
   type RefTransition,
   ZERO_OID,
 } from '../../../lib/git/wal/wal.types.js';
+import { encodeEntryHeader } from '../../../lib/git/wal/wal-codec.js';
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 import type { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../wal/push-transaction.service.js';

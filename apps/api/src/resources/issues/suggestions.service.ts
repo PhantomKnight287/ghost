@@ -3,8 +3,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, ilike, isNotNull, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { escapeLike } from '../../lib/db/sql.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 
 const LIMIT = 8;
 

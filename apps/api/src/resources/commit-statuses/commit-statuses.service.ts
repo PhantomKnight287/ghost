@@ -5,14 +5,14 @@ import { and, asc, count, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
 import { DATABASE } from '../../database/database.module.js';
 import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
 import {
+  InvalidStatusShaError,
+  TooManyStatusesError,
+} from '../../lib/commit-statuses/commit-statuses.errors.js';
+import {
   combinedState,
   DEFAULT_STATUS_CONTEXT,
   MAX_STATUSES_PER_CONTEXT,
 } from '../../lib/commit-statuses/commit-statuses.js';
-import {
-  InvalidStatusShaError,
-  TooManyStatusesError,
-} from '../../lib/commit-statuses/commit-statuses.errors.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { listBranches } from '../../lib/git/refs/list-refs.js';

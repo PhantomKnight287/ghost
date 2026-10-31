@@ -2,15 +2,15 @@ import { Controller, Get, Param, UseFilters } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
-import { TemplatesService } from './templates.service.js';
 import {
   GithubGitignoreTemplateDTO,
   GithubLicenseDTO,
   GithubLicenseSummaryDTO,
 } from './dto/template.dto.js';
-import { ApiGithubErrors } from '../dto/error.dto.js';
-import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
+import { TemplatesService } from './templates.service.js';
 
 @RequireAppPermission('metadata')
 @Controller('v3')

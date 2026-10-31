@@ -3,8 +3,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, gt, isNull, or } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type { UserToServerCaller } from '../../lib/apps/user-token-context.js';
 import { generateUserToken, hashUserToken } from '../../lib/apps/user-token.js';
+import type {
+  TokenScope,
+  UserToServerCaller,
+} from '../../lib/apps/user-token-context.js';
 import type { Executor } from '../../lib/db/executor.js';
 import {
   ACCESS_TOKEN_EXPIRES_IN,
@@ -19,7 +22,12 @@ export class UserTokensService {
   /** The token leaves in this response and nowhere else. `expires` follows the app's "Expire user authorization tokens". */
   async mint(
     executor: Executor,
-    grant: { appId: string; userId: string; expires: boolean },
+    grant: {
+      appId: string;
+      userId: string;
+      expires: boolean;
+      scope?: TokenScope;
+    },
   ) {
     const token = generateUserToken();
     const expiresAt = grant.expires
@@ -32,6 +40,7 @@ export class UserTokensService {
         userId: grant.userId,
         tokenHash: hashUserToken(token),
         expiresAt,
+        ...grant.scope,
       })
       .returning({ id: schema.appUserToken.id });
     return { id: row!.id, token, expiresAt };
@@ -44,6 +53,9 @@ export class UserTokensService {
         tokenId: schema.appUserToken.id,
         appId: schema.appUserToken.appId,
         userId: schema.appUserToken.userId,
+        installationId: schema.appUserToken.installationId,
+        permissions: schema.appUserToken.permissions,
+        repositoryIds: schema.appUserToken.repositoryIds,
       })
       .from(schema.appUserToken)
       .innerJoin(schema.app, eq(schema.app.id, schema.appUserToken.appId))
@@ -68,6 +80,9 @@ export class UserTokensService {
         userId: schema.appUserToken.userId,
         createdAt: schema.appUserToken.createdAt,
         expiresAt: schema.appUserToken.expiresAt,
+        installationId: schema.appUserToken.installationId,
+        permissions: schema.appUserToken.permissions,
+        repositoryIds: schema.appUserToken.repositoryIds,
       })
       .from(schema.appUserToken)
       .where(
@@ -81,6 +96,39 @@ export class UserTokensService {
         ),
       );
     return row ?? null;
+  }
+
+  /** Swaps a live token of the app for a new one with the same scope and expiry setting; the old one stops working. Null when the app has no such token. */
+  async reset(appId: string, token: string) {
+    return this.db.transaction(async (tx) => {
+      const [old] = await tx
+        .delete(schema.appUserToken)
+        .where(
+          and(
+            eq(schema.appUserToken.appId, appId),
+            eq(schema.appUserToken.tokenHash, hashUserToken(token)),
+            or(
+              isNull(schema.appUserToken.expiresAt),
+              gt(schema.appUserToken.expiresAt, new Date()),
+            ),
+          ),
+        )
+        .returning({
+          userId: schema.appUserToken.userId,
+          expiresAt: schema.appUserToken.expiresAt,
+          installationId: schema.appUserToken.installationId,
+          permissions: schema.appUserToken.permissions,
+          repositoryIds: schema.appUserToken.repositoryIds,
+        });
+      if (!old) return null;
+      const { userId, expiresAt, ...scope } = old;
+      return this.mint(tx, {
+        appId,
+        userId,
+        expires: expiresAt !== null,
+        scope,
+      });
+    });
   }
 
   /** Whether the app had the token; its refresh token stays, as on GitHub. */

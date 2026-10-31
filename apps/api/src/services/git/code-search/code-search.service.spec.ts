@@ -1,18 +1,19 @@
-import type { ConfigService } from '@nestjs/config';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { text } from 'node:stream/consumers';
+
+import type { ConfigService } from '@nestjs/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CodeSearchUnavailableError } from '../../../lib/git/code-search/code-search.errors.js';
 import {
+  type CodeSearchFile,
   indexRepository,
   listMatchingFiles,
   searchFiles,
-  type CodeSearchFile,
 } from '../../../lib/git/code-search/zoekt.js';
 import type { S3Service } from '../../s3/s3.service.js';
 import { CodeSearchService } from './code-search.service.js';

@@ -137,6 +137,28 @@ export class GithubApplicationTokenRequestDTO {
   access_token: string;
 }
 
+export class GithubScopedTokenRequestDTO extends GithubCreateInstallationTokenDTO {
+  @ApiProperty({ description: 'A `ghu_` token of the app.' })
+  @IsString()
+  access_token: string;
+
+  @ApiPropertyOptional({
+    description:
+      'The login of the account whose installation the token is limited to. Required with `repositories` or `repository_ids`, unless `target_id` is given.',
+  })
+  @IsOptional()
+  @IsString()
+  target?: string;
+
+  @ApiPropertyOptional({
+    description: 'The id of that account, in place of `target`.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  target_id?: number;
+}
+
 class GithubAuthorizationAppDTO {
   @ApiProperty()
   client_id: string;

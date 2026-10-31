@@ -8,8 +8,8 @@ import {
 } from '../../lib/avatars/avatar.constants.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { OauthAppAccessController } from './oauth-app-access.controller.js';
-import { OauthAppOrganizationsController } from './oauth-app-organizations.controller.js';
 import { OauthAppAccessService } from './oauth-app-access.service.js';
+import { OauthAppOrganizationsController } from './oauth-app-organizations.controller.js';
 import { OrganizationInvitationsController } from './organization-invitations.controller.js';
 import { OrganizationsController } from './organizations.controller.js';
 import { OrganizationsService } from './organizations.service.js';

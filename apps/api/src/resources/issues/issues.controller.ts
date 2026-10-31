@@ -23,10 +23,18 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import {
   CreateIssueRequestDTO,
   UpdateIssueRequestDTO,
 } from './dto/create-issue.dto.js';
+import {
+  GetIssuesQueryDTO,
+  GetIssuesResponseDTO,
+  GetIssueTimelineResponseDTO,
+  IssueDetailDTO,
+  IssueDTO,
+} from './dto/issue.dto.js';
 import {
   CreateIssueCommentRequestDTO,
   GetIssueCommentsResponseDTO,
@@ -34,18 +42,10 @@ import {
   UpdateIssueCommentRequestDTO,
 } from './dto/issue-comment.dto.js';
 import {
-  GetIssueTimelineResponseDTO,
-  GetIssuesQueryDTO,
-  GetIssuesResponseDTO,
-  IssueDetailDTO,
-  IssueDTO,
-} from './dto/issue.dto.js';
-import {
   SetIssueAssigneesRequestDTO,
   SetIssueLabelsRequestDTO,
 } from './dto/label.dto.js';
 import { IssuesService } from './issues.service.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/issues')
 @ApiTags('Issues')

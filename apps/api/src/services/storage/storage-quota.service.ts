@@ -18,8 +18,8 @@ import {
 import {
   billedTo,
   type StorageAccount,
-  storageAccountKey,
   type StorageKind,
+  storageAccountKey,
 } from '../../lib/storage/storage-account.js';
 
 type PullRequestState = (typeof schema.pullRequestState.enumValues)[number];

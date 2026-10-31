@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { decodeNodeId, decodeNodeIdAs, encodeNodeId } from './node-id.js';
+
 import { CouldNotResolveError } from './github.errors.js';
+import { decodeNodeId, decodeNodeIdAs, encodeNodeId } from './node-id.js';
 
 describe('node ids', () => {
   it('round-trips every type with GitHub prefixes', () => {

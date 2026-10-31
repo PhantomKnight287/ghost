@@ -20,12 +20,12 @@ import {
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import {
   ListOrganizationTeamsResponseDTO,
   OrganizationTeamDTO,
 } from './dto/organization.dto.js';
 import { TeamsService } from './teams.service.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @ApiTags('Organizations')
 @Controller('organizations/:slug/teams')

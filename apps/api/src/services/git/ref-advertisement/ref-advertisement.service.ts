@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
 import { PassThrough, Readable } from 'node:stream';
-import { FLUSH_PACKET } from '../../../lib/git/protocol/pkt-line.js';
+
+import { Injectable, Logger } from '@nestjs/common';
+
 import { type GitServiceName } from '../../../lib/git/protocol/git-service.js';
-import { pktLine } from '../../../lib/git/protocol/pkt-line.js';
+import { FLUSH_PACKET, pktLine } from '../../../lib/git/protocol/pkt-line.js';
 import { spawnPack } from '../../../lib/git/protocol/spawn-pack.js';
 
 @Injectable()

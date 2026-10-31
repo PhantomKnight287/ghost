@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { InvalidReceivePackRequestError } from './protocol.errors.js';
 import { bufferBody } from './git-request-body.js';
+import { InvalidReceivePackRequestError } from './protocol.errors.js';
 import {
   isProbeRequest,
   parseReceivePackRequest,

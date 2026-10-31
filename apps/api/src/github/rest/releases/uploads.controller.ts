@@ -18,6 +18,8 @@ import {
 import type { Request } from 'express';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
+import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
@@ -27,8 +29,6 @@ import {
   GithubUploadReleaseAssetQueryDTO,
 } from './dto/release.dto.js';
 import { GithubReleasesService } from './releases.service.js';
-import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
-import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 /** The `upload_url` every release carries, under `/api/uploads` as on GitHub Enterprise. No body parser runs here, so a file of any type streams through untouched. */
 @RequireAppPermission('contents')

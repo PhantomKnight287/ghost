@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { type Database, schema } from '@ghost/db';
 import {
   type InstallationEvent,
@@ -14,6 +15,11 @@ import { grants } from '../../lib/apps/permissions.js';
 import type { Executor } from '../../lib/db/executor.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import type { StoredEvent } from '../../lib/events/events.js';
+import { teamSlug } from '../../lib/organizations/team-slug.js';
+import {
+  installationCovers,
+  repositoryFullNameOf,
+} from '../../lib/repositories/access/repository-access.js';
 import {
   renderWebhookBody,
   type WebhookSender,
@@ -21,14 +27,9 @@ import {
 import {
   type InstallationWebhookBody,
   type WebhookBody,
-  webhookEventOf,
   type WebhookOwner,
+  webhookEventOf,
 } from '../../lib/webhooks/webhooks.js';
-import { teamSlug } from '../../lib/organizations/team-slug.js';
-import {
-  installationCovers,
-  repositoryFullNameOf,
-} from '../../lib/repositories/access/repository-access.js';
 
 type WebhookJob = {
   endpointId: string;

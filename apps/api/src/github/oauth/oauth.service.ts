@@ -5,6 +5,7 @@ import { isAPIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import { generateUserRefreshToken } from '../../lib/apps/user-token.js';
 import type { Auth } from '../../lib/auth.js';
 import type { Executor } from '../../lib/db/executor.js';
 import {
@@ -23,7 +24,6 @@ import {
   spendRefreshToken,
 } from '../../lib/github/refresh-tokens.js';
 import { grantableScopes, NO_SCOPE } from '../../lib/github/scopes.js';
-import { generateUserRefreshToken } from '../../lib/apps/user-token.js';
 import { AppClientsService } from '../../services/apps/app-clients.service.js';
 import { UserTokensService } from '../../services/apps/user-tokens.service.js';
 

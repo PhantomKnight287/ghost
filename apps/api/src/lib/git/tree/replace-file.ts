@@ -1,9 +1,9 @@
 import path from 'node:path';
 
+import { withTempDir } from '../../temp-dir.js';
 import type { CommitSigner } from '../commits/commit-signature.js';
 import { runGit } from '../exec/run-git.js';
 import { commitTree } from '../merge/merge.js';
-import { withTempDir } from '../../temp-dir.js';
 
 /** A commit on top of `parent` that changes one existing file's content and keeps its mode. Built with a throwaway index, so nothing in `gitDir` but new objects changes. */
 export async function replaceFile({

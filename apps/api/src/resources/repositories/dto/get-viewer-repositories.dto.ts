@@ -1,7 +1,7 @@
 import { schema } from '@ghost/db';
+import { type Role, roleHierarchy } from '@ghost/permissions';
 import { ApiProperty } from '@nestjs/swagger';
 
-import { type Role, roleHierarchy } from '@ghost/permissions';
 import {
   RepositorySearchResultDTO,
   SearchRepositoriesResponseDTO,

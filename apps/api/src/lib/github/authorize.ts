@@ -1,11 +1,11 @@
+import { DomainError } from '../../domain/errors.js';
+import type { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { AuthenticationRequiredError } from '../repositories/access/repository-access.errors.js';
 import {
   ownerNameOf,
   type RepositoryOperation,
 } from '../repositories/access/repository-access.js';
-import { AuthenticationRequiredError } from '../repositories/access/repository-access.errors.js';
 import { RepositoryNotFoundError } from '../repositories/repositories.errors.js';
-import type { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { DomainError } from '../../domain/errors.js';
 import { CouldNotResolveError } from './github.errors.js';
 
 /** The access check, with "can't see it" in GitHub's words: anonymous and stranger reads of a private repository both read as missing. */

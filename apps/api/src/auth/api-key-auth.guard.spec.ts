@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Budget } from '../lib/rate-limit/budgets.js';
 import { RateLimitedError } from '../lib/rate-limit/rate-limit.errors.js';
 import type { RateLimiterService } from '../services/rate-limit/rate-limiter.service.js';
-
 import {
   Anonymous,
   ApiKeyAuthGuard,

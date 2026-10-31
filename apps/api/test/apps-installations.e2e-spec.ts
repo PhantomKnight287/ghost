@@ -664,7 +664,11 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
         expect(events[1]).toMatchObject({
           installation: {
             id: body.installationId,
-            permissions: { metadata: 'read', issues: 'write', contents: 'read' },
+            permissions: {
+              metadata: 'read',
+              issues: 'write',
+              contents: 'read',
+            },
           },
           sender: { username: installerName() },
         });

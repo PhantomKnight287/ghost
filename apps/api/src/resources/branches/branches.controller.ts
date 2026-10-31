@@ -21,9 +21,9 @@ import {
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { BranchDTO, CreateBranchRequestDTO } from './dto/branch.dto.js';
 import { RepositoryBranchesService } from './repository-branches.service.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/branches')
 @ApiTags('Branches')

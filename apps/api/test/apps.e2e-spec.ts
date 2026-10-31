@@ -783,9 +783,9 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
         .delete(`/api/apps/${body.slug}/client-secrets/${created.body.id}`)
         .set('cookie', owner.cookie)
         .expect(204);
-      expect((await settings(body.slug).expect(200)).body.clientSecrets).toEqual(
-        [],
-      );
+      expect(
+        (await settings(body.slug).expect(200)).body.clientSecrets,
+      ).toEqual([]);
     });
 
     it('caps client secrets at 20', async () => {

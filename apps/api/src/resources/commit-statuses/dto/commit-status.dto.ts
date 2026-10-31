@@ -1,4 +1,3 @@
-import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -19,6 +18,7 @@ import {
   DEFAULT_STATUS_CONTEXT,
   MAX_STATUS_DESCRIPTION,
 } from '../../../lib/commit-statuses/commit-statuses.js';
+import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 
 export class CreateCommitStatusRequestDTO {
   @ApiProperty({ enum: COMMIT_STATUS_STATES })

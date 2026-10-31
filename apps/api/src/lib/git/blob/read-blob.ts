@@ -1,6 +1,5 @@
-import type { Readable } from 'node:stream';
-
 import { isUtf8 } from 'node:buffer';
+import type { Readable } from 'node:stream';
 
 import { runGit, runGitBuffer, runGitReadable } from '../exec/run-git.js';
 

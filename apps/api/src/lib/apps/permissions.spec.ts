@@ -85,7 +85,12 @@ describe('commonPermissions', () => {
   it('keeps each permission at the lower of its two levels and drops what one side lacks', () => {
     expect(
       commonPermissions(
-        { metadata: 'read', issues: 'write', contents: 'write', statuses: 'read' },
+        {
+          metadata: 'read',
+          issues: 'write',
+          contents: 'write',
+          statuses: 'read',
+        },
         { issues: 'read', contents: 'write', pull_requests: 'write' },
       ),
     ).toEqual({ metadata: 'read', issues: 'read', contents: 'write' });
