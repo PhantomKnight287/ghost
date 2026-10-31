@@ -977,7 +977,9 @@ type RepositoryRuleset implements Node {
 }
 
 type RepositoryRulesetBypassActor implements Node {
-  """The app of an integration bypass. Null for every other kind of actor."""
+  """
+  The app or team that may bypass. Null for a repository role or organization admins.
+  """
   actor: BypassActor
   bypassMode: RepositoryRulesetBypassActorBypassMode
   deployKey: Boolean!

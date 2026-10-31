@@ -271,6 +271,15 @@ describe.skipIf(!hasBackends)('Ghost App user-to-server tokens', () => {
       });
       await repository(owner.cookie, `ghumine${stamp}`);
       await repository(owner.cookie, `ghuminetoo${stamp}`);
+      await api()
+        .post('/api/repositories')
+        .set('cookie', owner.cookie)
+        .send({
+          name: `ghuorgrepo${stamp}`,
+          visibility: 'private',
+          organization: org,
+        })
+        .expect(201);
       await repository(other.cookie, `ghutheirs${stamp}`);
     });
 
@@ -471,6 +480,27 @@ describe.skipIf(!hasBackends)('Ghost App user-to-server tokens', () => {
         .send({ title: 'scoped' })
         .expect(403);
       await issues(`ghuminetoo${stamp}`, access_token).expect(200);
+
+      await install(client.slug, owner.cookie, org);
+      const unscoped = await api()
+        .get('/api/v3/user/installations')
+        .set('authorization', `token ${access_token}`)
+        .expect(200);
+      expect(unscoped.body.total_count).toBe(2);
+      const listed = await api()
+        .get('/api/v3/user/installations')
+        .set('authorization', `token ${body.token}`)
+        .expect(200);
+      expect(listed.body.total_count).toBe(1);
+      const repos = await api()
+        .get(
+          `/api/v3/user/installations/${listed.body.installations[0].id}/repositories`,
+        )
+        .set('authorization', `token ${body.token}`)
+        .expect(200);
+      expect(
+        repos.body.repositories.map((each: { name: string }) => each.name),
+      ).toEqual([`ghumine${stamp}`]);
     });
 
     it('refuses a scoped token wider than the original, or with repositories but no target', async () => {

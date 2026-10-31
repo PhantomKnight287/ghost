@@ -217,8 +217,8 @@ Claude built all of slice 6 (user decision, 2026-10-31). One pull request. Claud
 - **A change that lowers and raises at once** lowers each installation to what both sets allow straight away, and leaves the raised part pending.
 - **GraphQL maps permissions per object type, and per root field.** Every object type needs a permission to read its fields, so a node reached through `node`, `search` or a payload is held to its own type; Query and Mutation fields each list their permission and level. Unmapped types and root fields are denied, and a test fails when one is added unmapped. `createRepository` is denied on purpose. Root fields are checked by AppPermissionGuard, the rest by a field middleware, since Nest runs guards only on root fields.
 - **User-to-server tokens stay refused on GraphQL.** Repository access only knows to narrow to an installation's repositories for installation tokens; `ghu_` tokens on GraphQL would reach every repository the user can see.
-- **`App` is exposed through `RepositoryRulesetBypassActor.actor`**, GitHub's `BypassActor` union. A team bypass actor resolves to null there for now.
-- **Scoped tokens** store the installation, permissions and repositories they are narrowed to on `app_user_token` (each null when not narrowed). `target` names a user or organization login, `target_id` its numeric id. `/user/installations` is not narrowed for a scoped token. A reset keeps the old token's scope and expiry setting.
+- **`App` is exposed through `RepositoryRulesetBypassActor.actor`**, GitHub's `BypassActor` union, which also resolves a team bypass to its `Team`.
+- **Scoped tokens** store the installation, permissions and repositories they are narrowed to on `app_user_token` (each null when not narrowed). `target` names a user or organization login, `target_id` its numeric id. `/user/installations` lists only a scoped token's installation, and its repositories only those the token was narrowed to. A reset keeps the old token's scope and expiry setting.
 
 ## Constraints
 

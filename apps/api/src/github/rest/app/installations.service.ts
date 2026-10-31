@@ -184,7 +184,7 @@ export class GithubInstallationsService {
     };
   }
 
-  /** `GET /user/installations/{id}/repositories`: the installation's repositories the token's user holds a role on; a public repository alone is not enough, as on GitHub. */
+  /** `GET /user/installations/{id}/repositories`: the installation's repositories the token's user holds a role on, and a scoped token was narrowed to; a public repository alone is not enough, as on GitHub. */
   async repositoriesOfUserToken(
     caller: UserToServerCaller | null | undefined,
     viewer: GithubViewer | null,
@@ -229,7 +229,15 @@ export class GithubInstallationsService {
         schema.member,
         organizationMembership(schema.repository.organizationId, actor),
       )
-      .where(and(installationCovers(schema.repository), grantedTo(actor)))
+      .where(
+        and(
+          installationCovers(schema.repository),
+          grantedTo(actor),
+          caller.repositoryIds === null
+            ? undefined
+            : inArray(schema.repository.id, caller.repositoryIds),
+        ),
+      )
       .orderBy(asc(schema.repository.slug), asc(schema.repository.id))
       .offset(page.offset)
       .limit(page.perPage);
@@ -244,7 +252,7 @@ export class GithubInstallationsService {
     };
   }
 
-  /** Ids of the app's live installations on the user's own account, or covering a repository the user holds a role on: GitHub's "explicit permission" rule, which a public repository alone does not meet. */
+  /** Ids of the app's live installations on the user's own account, or covering a repository the user holds a role on: GitHub's "explicit permission" rule, which a public repository alone does not meet. A scoped token reaches only its own installation. */
   private async reachableBy(caller: UserToServerCaller) {
     const actor = { userId: caller.userId };
     const rows = await this.db
@@ -263,6 +271,9 @@ export class GithubInstallationsService {
         and(
           eq(schema.appInstallation.appId, caller.appId),
           isNull(schema.appInstallation.suspendedAt),
+          caller.installationId === null
+            ? undefined
+            : eq(schema.appInstallation.id, caller.installationId),
           or(
             eq(schema.appInstallation.accountUserId, caller.userId),
             and(isNotNull(schema.repository.id), grantedTo(actor)),
