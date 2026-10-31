@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { appPermissionsProblem, grants, withMetadata } from './permissions.js';
+import {
+  appPermissionsProblem,
+  commonPermissions,
+  grants,
+  withMetadata,
+} from './permissions.js';
 
 describe('grants', () => {
   it('always grants metadata read', () => {
@@ -73,5 +78,16 @@ describe('appPermissionsProblem and events', () => {
     expect(
       appPermissionsProblem({ pull_requests: 'read' }, ['pull_request.opened']),
     ).toBeNull();
+  });
+});
+
+describe('commonPermissions', () => {
+  it('keeps each permission at the lower of its two levels and drops what one side lacks', () => {
+    expect(
+      commonPermissions(
+        { metadata: 'read', issues: 'write', contents: 'write', statuses: 'read' },
+        { issues: 'read', contents: 'write', pull_requests: 'write' },
+      ),
+    ).toEqual({ metadata: 'read', issues: 'read', contents: 'write' });
   });
 });

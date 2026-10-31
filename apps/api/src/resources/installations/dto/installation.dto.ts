@@ -63,6 +63,17 @@ export class InstallationRepositoryDTO {
   fullName: string;
 }
 
+export class PendingPermissionsDTO {
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string', enum: ['read', 'write'] },
+  })
+  permissions: AppPermissions;
+
+  @ApiProperty({ type: [String] })
+  events: string[];
+}
+
 export class InstallationDTO {
   @ApiProperty()
   id: string;
@@ -97,6 +108,13 @@ export class InstallationDTO {
 
   @ApiProperty({ type: [String] })
   events: string[];
+
+  @ApiProperty({
+    type: PendingPermissionsDTO,
+    nullable: true,
+    description: 'What the app asks for now, when that is more than the installation accepted. Null when there is nothing to review.',
+  })
+  pending: PendingPermissionsDTO | null;
 
   @ApiProperty({ type: String, nullable: true, description: 'ISO 8601.' })
   suspendedAt: string | null;

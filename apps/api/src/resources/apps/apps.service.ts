@@ -28,13 +28,13 @@ import {
   AppWebhookSecretRequiredError,
   OauthOnInstallNeedsCallbackError,
   InvalidAppPermissionsError,
-  PermissionRaiseError,
   PrivateKeyNotFoundError,
   TooManyPrivateKeysError,
 } from '../../lib/apps/apps.errors.js';
 import { deleteApps } from '../../lib/apps/delete-apps.js';
 import {
   appPermissionsProblem,
+  commonPermissions,
   grants,
   withMetadata,
 } from '../../lib/apps/permissions.js';
@@ -224,23 +224,6 @@ export class AppsService {
       app.permissions) as AppPermissions;
     const events = [...new Set(input.events ?? app.events)];
     const changesGrant = input.permissions != null || input.events != null;
-    const [{ installations } = { installations: 0 }] = changesGrant
-      ? await this.db
-          .select({ installations: count() })
-          .from(schema.appInstallation)
-          .where(eq(schema.appInstallation.appId, app.id))
-      : [];
-    // Until owners can review new permissions, an installed app may only ask for less.
-    const raises =
-      Object.entries(permissions).some(
-        ([name, level]) =>
-          !grants(
-            app.permissions as AppPermissions,
-            name as AppPermission,
-            level,
-          ),
-      ) || events.some((event) => !app.events.includes(event));
-    if (installations > 0 && raises) throw new PermissionRaiseError();
 
     const [endpoint] = await this.db
       .select({
@@ -306,7 +289,7 @@ export class AppsService {
               .values({ appId: app.id, ...webhook, events: [] })
               .returning({ id: schema.webhookEndpoint.id })
           : [];
-      if (installations > 0)
+      if (changesGrant)
         await this.lowerInstallations(tx, app.id, permissions, events);
       if (input.name != null)
         await tx
@@ -387,6 +370,7 @@ export class AppsService {
   }
 
   /** Applies a lowered set to every installation of the app, and revokes the tokens that hold more than it now allows. */
+  /** Each installation keeps only what the app still asks for. Anything new waits for the installer to accept it. */
   private async lowerInstallations(
     tx: Executor,
     appId: string,
@@ -395,10 +379,22 @@ export class AppsService {
   ) {
     const accepted = withMetadata(permissions);
     const installations = await tx
-      .update(schema.appInstallation)
-      .set({ permissions: accepted, events })
-      .where(eq(schema.appInstallation.appId, appId))
-      .returning({ id: schema.appInstallation.id });
+      .select({
+        id: schema.appInstallation.id,
+        permissions: schema.appInstallation.permissions,
+        events: schema.appInstallation.events,
+      })
+      .from(schema.appInstallation)
+      .where(eq(schema.appInstallation.appId, appId));
+    // ponytail: one update per installation, a single UPDATE ... FROM if an app gathers thousands
+    for (const installation of installations)
+      await tx
+        .update(schema.appInstallation)
+        .set({
+          permissions: commonPermissions(installation.permissions, accepted),
+          events: installation.events.filter((event) => events.includes(event)),
+        })
+        .where(eq(schema.appInstallation.id, installation.id));
     const tokens = await tx
       .select({
         id: schema.appInstallationToken.id,

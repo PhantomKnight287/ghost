@@ -97,16 +97,6 @@ export class InstallationRepositoryError extends DomainError {
   }
 }
 
-export class PermissionRaiseError extends DomainError {
-  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
-
-  constructor() {
-    super(
-      "Remove this app's installations before asking for more permissions or events",
-    );
-  }
-}
-
 export class InstallationSuspendedError extends DomainError {
   status: number = HttpStatus.FORBIDDEN;
 

@@ -154,6 +154,7 @@ export const INSTALLATION_EVENTS = [
   "installation.unsuspended",
   "installation.repositories_added",
   "installation.repositories_removed",
+  "installation.new_permissions_accepted",
 ] as const;
 
 export type InstallationEvent = (typeof INSTALLATION_EVENTS)[number];
