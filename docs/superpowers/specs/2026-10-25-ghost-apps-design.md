@@ -209,6 +209,17 @@ The user's rule for this slice: copy GitHub (user decision, 2026-10-30). The mai
 - **Token reset and scoped tokens.** `PATCH /applications/{client_id}/token` swaps a user-to-server token for a new one and revokes the old. `POST /applications/{client_id}/token/scoped` returns a narrower token, limited to the repositories and permissions asked for, never more than the original. Both use the slice 5 Basic auth and answer GitHub's shapes (moved here from slice 5, user decision, 2026-10-30).
 - **Docs.** A Ghost Apps section in `apps/docs`: registering, keys and JWT, installing, tokens, permissions, webhooks (with the Ghost format and the `installation` field), a short "porting a Probot app" note, and what's different from GitHub.
 
+#### Slice 6 decisions (2026-10-31)
+
+Claude built all of slice 6 (user decision, 2026-10-31). One pull request. Claude's calls:
+
+- **Pending permissions are computed, not stored.** An installation has something to review when the app asks for a permission level or event its accepted set lacks. `PUT /api/installations/{id}/permissions` copies the app's current set onto the installation; with nothing pending it changes nothing and sends no event. The event is `installation.new_permissions_accepted`.
+- **A change that lowers and raises at once** lowers each installation to what both sets allow straight away, and leaves the raised part pending.
+- **GraphQL maps permissions per object type, and per root field.** Every object type needs a permission to read its fields, so a node reached through `node`, `search` or a payload is held to its own type; Query and Mutation fields each list their permission and level. Unmapped types and root fields are denied, and a test fails when one is added unmapped. `createRepository` is denied on purpose. Root fields are checked by AppPermissionGuard, the rest by a field middleware, since Nest runs guards only on root fields.
+- **User-to-server tokens stay refused on GraphQL.** Repository access only knows to narrow to an installation's repositories for installation tokens; `ghu_` tokens on GraphQL would reach every repository the user can see.
+- **`App` is exposed through `RepositoryRulesetBypassActor.actor`**, GitHub's `BypassActor` union. A team bypass actor resolves to null there for now.
+- **Scoped tokens** store the installation, permissions and repositories they are narrowed to on `app_user_token` (each null when not narrowed). `target` names a user or organization login, `target_id` its numeric id. `/user/installations` is not narrowed for a scoped token. A reset keeps the old token's scope and expiry setting.
+
 ## Constraints
 
 - Follow the repo's workflow (memory: Claude tests, user builds). For each slice, Claude writes failing tests from this document, the user writes the backend, Claude audits the result, and then Claude writes the frontend.
