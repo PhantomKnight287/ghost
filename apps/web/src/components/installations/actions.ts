@@ -63,3 +63,13 @@ export const uninstallApp = actionClient
       client.DELETE("/api/installations/{id}", { params: { path: { id } } }),
     );
   });
+
+export const acceptPermissions = actionClient
+  .inputSchema(installation)
+  .action(async ({ parsedInput: { id } }) => {
+    await callApi((client) =>
+      client.PUT("/api/installations/{id}/permissions", {
+        params: { path: { id } },
+      }),
+    );
+  });

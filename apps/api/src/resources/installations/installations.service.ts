@@ -1,5 +1,5 @@
 import { type Database, schema } from '@ghost/db';
-import type { AppPermissions } from '@ghost/permissions';
+import type { AppPermission, AppPermissions } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -21,7 +21,7 @@ import {
   InstallationNotFoundError,
   InstallationRepositoryError,
 } from '../../lib/apps/apps.errors.js';
-import { withMetadata } from '../../lib/apps/permissions.js';
+import { grants, withMetadata } from '../../lib/apps/permissions.js';
 import type { Executor } from '../../lib/db/executor.js';
 import { isoTimestamp, sameName } from '../../lib/db/sql.js';
 import { githubOrigins } from '../../lib/github/origins.js';
@@ -267,6 +267,41 @@ export class InstallationsService {
     });
   }
 
+  /** The installation takes the app's permissions and events as they are now. */
+  async acceptPermissions(userId: string, id: string): Promise<void> {
+    await this.manageable(userId, id);
+    await this.db.transaction(async (tx) => {
+      const [app] = await tx
+        .select({
+          permissions: schema.app.permissions,
+          events: schema.app.events,
+          acceptedPermissions: schema.appInstallation.permissions,
+          acceptedEvents: schema.appInstallation.events,
+          suspendedAt: schema.appInstallation.suspendedAt,
+        })
+        .from(schema.appInstallation)
+        .innerJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
+        .where(eq(schema.appInstallation.id, id))
+        .for('update', { of: schema.appInstallation });
+      if (!app || !isPending(app)) return;
+      await tx
+        .update(schema.appInstallation)
+        .set({
+          permissions: withMetadata(app.permissions as AppPermissions),
+          events: app.events,
+        })
+        .where(eq(schema.appInstallation.id, id));
+      // a suspended installation tells its app nothing until unsuspended
+      if (app.suspendedAt) return;
+      await this.fanout.installationEvent(
+        tx,
+        id,
+        'installation.new_permissions_accepted',
+        userId,
+      );
+    });
+  }
+
   async uninstall(userId: string, id: string): Promise<void> {
     await this.manageable(userId, id);
     await this.db.transaction(async (tx) => {
@@ -395,6 +430,8 @@ export class InstallationsService {
         >`coalesce((select json_agg(json_build_object('id', ${schema.repository.id}, 'fullName', ${repositoryFullNameOf(schema.user, schema.organization, schema.repository)}) order by ${schema.repository.slug}) from ${schema.appInstallationRepository} inner join ${schema.repository} on ${schema.repository.id} = ${schema.appInstallationRepository.repositoryId} inner join ${schema.user} on ${schema.user.id} = ${schema.repository.ownerId} left join ${schema.organization} on ${schema.organization.id} = ${schema.repository.organizationId} where ${schema.appInstallationRepository.installationId} = ${installation.id}), '[]'::json)`,
         permissions: installation.permissions,
         events: installation.events,
+        appPermissions: schema.app.permissions,
+        appEvents: schema.app.events,
         suspendedAt: sql<
           string | null
         >`case when ${installation.suspendedAt} is null then null else ${isoTimestamp(installation.suspendedAt)} end`,
@@ -414,17 +451,52 @@ export class InstallationsService {
       )
       .where(and(where, isNull(schema.app.deletedAt)))
       .orderBy(asc(installation.createdAt));
-    return rows.map(({ clientId, callback, ...row }) => {
-      if (!clientId || !callback) return row;
-      const returnTo = new URL(callback);
-      returnTo.searchParams.set('installation_id', String(row.installationId));
-      returnTo.searchParams.set('setup_action', 'install');
-      const authorize = new URL('/login/oauth/authorize', this.api);
-      authorize.searchParams.set('client_id', clientId);
-      authorize.searchParams.set('redirect_uri', returnTo.href);
-      return { ...row, redirectUrl: authorize.href };
-    });
+    return rows.map(
+      ({ clientId, callback, appPermissions, appEvents, ...row }) => {
+        const pending = isPending({
+          permissions: appPermissions,
+          events: appEvents,
+          acceptedPermissions: row.permissions,
+          acceptedEvents: row.events,
+        })
+          ? {
+              permissions: withMetadata(appPermissions as AppPermissions),
+              events: appEvents,
+            }
+          : null;
+        if (!clientId || !callback) return { ...row, pending };
+        const returnTo = new URL(callback);
+        returnTo.searchParams.set(
+          'installation_id',
+          String(row.installationId),
+        );
+        returnTo.searchParams.set('setup_action', 'install');
+        const authorize = new URL('/login/oauth/authorize', this.api);
+        authorize.searchParams.set('client_id', clientId);
+        authorize.searchParams.set('redirect_uri', returnTo.href);
+        return { ...row, pending, redirectUrl: authorize.href };
+      },
+    );
   }
+}
+
+/** Whether the app asks for anything its installation has not accepted. */
+function isPending(grant: {
+  permissions: Record<string, string>;
+  events: string[];
+  acceptedPermissions: AppPermissions;
+  acceptedEvents: string[];
+}) {
+  return (
+    Object.entries(grant.permissions).some(
+      ([name, level]) =>
+        !grants(
+          grant.acceptedPermissions,
+          name as AppPermission,
+          level as 'read' | 'write',
+        ),
+    ) || grant.events.some((event) => !grant.acceptedEvents.includes(event))
+  );
 }
 
 /** The repositories an installation covers now. */

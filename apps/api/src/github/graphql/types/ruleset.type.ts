@@ -15,6 +15,8 @@ import {
   RepositoryRuleType,
   RuleEnforcement,
 } from '../enums.js';
+import { AppNode, BypassActor } from './app.type.js';
+import type { TeamNode } from './placeholders.type.js';
 import { Node } from './node.interface.js';
 
 @ObjectType('PullRequestParameters')
@@ -100,6 +102,13 @@ export class RepositoryRulesetBypassActorNode {
 
   @Field(() => ID)
   id: string;
+
+  @Field(() => BypassActor, {
+    nullable: true,
+    description:
+      'The app or team that may bypass. Null for a repository role or organization admins.',
+  })
+  actor: AppNode | TeamNode | null;
 
   @Field(() => RepositoryRulesetBypassActorBypassMode, { nullable: true })
   bypassMode: RepositoryRulesetBypassActorBypassMode;

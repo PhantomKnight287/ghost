@@ -8,6 +8,7 @@ import type { components } from "@/lib/api/v1";
 
 import { ConfigureRepositories } from "./configure-installation";
 import { InstallationActions } from "./installation-actions";
+import { PendingPermissions } from "./pending-permissions";
 import { PermissionSummary } from "./permission-summary";
 
 /** One installation as its account manages it: what it may do, where, and the switches that stop it. */
@@ -49,6 +50,12 @@ export function InstallationDetail({
           organization={organization}
         />
       </div>
+      {installation.pending && (
+        <PendingPermissions
+          installation={installation}
+          pending={installation.pending}
+        />
+      )}
       <section>
         <h2 className="mb-3 text-sm font-semibold">Permissions</h2>
         <Card className="px-6">

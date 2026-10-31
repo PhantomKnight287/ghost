@@ -15,6 +15,7 @@ import { GraphQLError } from 'graphql/error';
 
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
 import { DomainError } from '../domain/errors.js';
+import { appPermissionMiddleware } from '../lib/apps/graphql-permissions.js';
 import { graphqlErrorType } from '../lib/github/error-type.js';
 import { createLoaders } from '../lib/github/loaders.js';
 import { githubValidationPlugin } from '../lib/github/validation.js';
@@ -72,6 +73,7 @@ import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
         buildSchemaOptions: {
           dateScalarMode: 'isoDate',
           numberScalarMode: 'integer',
+          fieldMiddleware: [appPermissionMiddleware],
         },
         introspection: true,
         // GitHub's validation lets fragments on different types share a field name with different types, which gh relies on; githubValidationPlugin validates instead.

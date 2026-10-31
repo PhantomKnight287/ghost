@@ -636,6 +636,75 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
         });
       });
 
+      it('accepting new permissions sends installation.new_permissions_accepted once', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        await api()
+          .patch(`/api/apps/${slug}`)
+          .set('cookie', appOwner.cookie)
+          .send({ permissions: { issues: 'write', contents: 'read' } })
+          .expect(200);
+        const accept = () =>
+          api()
+            .put(`/api/installations/${body.id}/permissions`)
+            .set('cookie', installer.cookie)
+            .expect(204);
+
+        await accept();
+        await accept();
+
+        const events = await deliveredTo(appId);
+        expect(events.map(({ event }) => event)).toEqual([
+          'installation.created',
+          'installation.new_permissions_accepted',
+        ]);
+        expect(events[1]).toMatchObject({
+          installation: {
+            id: body.installationId,
+            permissions: {
+              metadata: 'read',
+              issues: 'write',
+              contents: 'read',
+            },
+          },
+          sender: { username: installerName() },
+        });
+      });
+
+      it('accepting on a suspended installation applies the permissions and tells the app nothing', async () => {
+        const { id: appId, slug } = await hooked();
+        const { body } = await install(slug, {
+          account: installerName(),
+          repositorySelection: 'all',
+        }).expect(201);
+        await api()
+          .patch(`/api/apps/${slug}`)
+          .set('cookie', appOwner.cookie)
+          .send({ permissions: { issues: 'write', contents: 'read' } })
+          .expect(200);
+        await api()
+          .put(`/api/installations/${body.id}/suspended`)
+          .set('cookie', installer.cookie)
+          .expect(204);
+
+        await api()
+          .put(`/api/installations/${body.id}/permissions`)
+          .set('cookie', installer.cookie)
+          .expect(204);
+
+        expect(await installation(body.id)).toMatchObject({
+          permissions: { metadata: 'read', issues: 'write', contents: 'read' },
+          pending: null,
+        });
+        expect((await deliveredTo(appId)).map(({ event }) => event)).toEqual([
+          'installation.created',
+          'installation.suspended',
+        ]);
+      });
+
       it('reinstall gets a new installation id', async () => {
         const { id: appId, slug } = await hooked();
         const first = await install(slug, {
@@ -808,29 +877,92 @@ describe.skipIf(!hasBackends)('Ghost App installations', () => {
         .delete(`/api/installations/${body.id}`)
         .set('cookie', appOwner.cookie)
         .expect(404);
+      await api()
+        .put(`/api/installations/${body.id}/permissions`)
+        .set('cookie', appOwner.cookie)
+        .expect(404);
     });
 
-    it('refuses raising permissions while installed', async () => {
+    it('keeps the accepted set when the app asks for more, until the installer accepts', async () => {
       const { slug } = await register();
-      await install(slug, {
+      const { body } = await install(slug, {
         account: installerName(),
         repositorySelection: 'all',
       }).expect(201);
-      const message =
-        "Remove this app's installations before asking for more permissions or events";
+      expect(body.pending).toBeNull();
 
-      const { body: more } = await api()
+      await api()
         .patch(`/api/apps/${slug}`)
         .set('cookie', appOwner.cookie)
-        .send({ permissions: { issues: 'write', contents: 'read' } })
-        .expect(422);
-      expect(more.message).toBe(message);
-      const { body: event } = await api()
+        .send({
+          permissions: { issues: 'write', contents: 'read' },
+          events: ['issue.opened', 'issue.closed'],
+        })
+        .expect(200);
+
+      expect(await installation(body.id)).toMatchObject({
+        permissions: { metadata: 'read', issues: 'write' },
+        events: ['issue.opened'],
+        pending: {
+          permissions: { metadata: 'read', issues: 'write', contents: 'read' },
+          events: ['issue.opened', 'issue.closed'],
+        },
+      });
+
+      await api()
+        .put(`/api/installations/${body.id}/permissions`)
+        .set('cookie', installer.cookie)
+        .expect(204);
+
+      expect(await installation(body.id)).toMatchObject({
+        permissions: { metadata: 'read', issues: 'write', contents: 'read' },
+        events: ['issue.opened', 'issue.closed'],
+        pending: null,
+      });
+    });
+
+    it('lowers at once and holds back the rest when a change both lowers and raises', async () => {
+      const { slug } = await register();
+      const { body } = await install(slug, {
+        account: installerName(),
+        repositorySelection: 'all',
+      }).expect(201);
+      await insertToken(body.id, { metadata: 'read', issues: 'write' });
+
+      await api()
         .patch(`/api/apps/${slug}`)
         .set('cookie', appOwner.cookie)
-        .send({ events: ['issue.opened', 'issue.closed'] })
-        .expect(422);
-      expect(event.message).toBe(message);
+        .send({ permissions: { issues: 'read', contents: 'read' }, events: [] })
+        .expect(200);
+
+      expect(await installation(body.id)).toMatchObject({
+        permissions: { metadata: 'read', issues: 'read' },
+        events: [],
+        pending: {
+          permissions: { metadata: 'read', issues: 'read', contents: 'read' },
+          events: [],
+        },
+      });
+      expect(await tokensOf(body.id)).toEqual([]);
+    });
+
+    it('accepting with nothing to review changes nothing', async () => {
+      const { slug } = await register();
+      const { body } = await install(slug, {
+        account: installerName(),
+        repositorySelection: 'all',
+      }).expect(201);
+
+      await api()
+        .put(`/api/installations/${body.id}/permissions`)
+        .set('cookie', installer.cookie)
+        .expect(204);
+
+      expect(await installation(body.id)).toMatchObject({
+        permissions: { metadata: 'read', issues: 'write' },
+        events: ['issue.opened'],
+        pending: null,
+      });
     });
 
     it('lowers permissions on every installation', async () => {

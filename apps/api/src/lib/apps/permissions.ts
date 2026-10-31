@@ -44,3 +44,17 @@ export function withMetadata(permissions: AppPermissions): AppPermissions {
     ...permissions,
   };
 }
+
+/** What both sets allow, each permission at the lower of its two levels. */
+export function commonPermissions(
+  a: AppPermissions,
+  b: AppPermissions,
+): AppPermissions {
+  const common: AppPermissions = {};
+  for (const [name, level] of Object.entries(a)) {
+    const permission = name as AppPermission;
+    if (grants(b, permission, level)) common[permission] = level;
+    else if (grants(b, permission, 'read')) common[permission] = 'read';
+  }
+  return common;
+}

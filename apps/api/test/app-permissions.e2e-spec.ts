@@ -11,13 +11,19 @@ import type { INestApplication } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { RequestMethod } from '@nestjs/common';
 import { ModulesContainer } from '@nestjs/core';
+import { GraphQLSchemaHost } from '@nestjs/graphql';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { eq } from 'drizzle-orm';
+import { GraphQLObjectType } from 'graphql';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';
 import { APP_PERMISSION } from '../src/lib/apps/app-permission.js';
+import {
+  GRAPHQL_ROOT_PERMISSIONS,
+  GRAPHQL_TYPE_PERMISSIONS,
+} from '../src/lib/apps/graphql-permissions.js';
 import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
@@ -38,6 +44,8 @@ const DENIED_TO_INSTALLATIONS = [
   'GET v3/user/installations',
   'GET v3/user/installations/:installation_id/repositories',
   'POST v3/applications/:client_id/token',
+  'PATCH v3/applications/:client_id/token',
+  'POST v3/applications/:client_id/token/scoped',
   'DELETE v3/applications/:client_id/token',
   'DELETE v3/applications/:client_id/grant',
   'GET v3/user/keys',
@@ -60,6 +68,9 @@ const DENIED_TO_INSTALLATIONS = [
   'DELETE v3/repos/:owner/:repo/rulesets/:id',
   'POST uploads/user-attachments/assets',
 ];
+
+/** GraphQL root fields an installation token is refused on purpose. */
+const GRAPHQL_DENIED_TO_INSTALLATIONS = ['Mutation.createRepository'];
 
 const join = (...parts: string[]) =>
   parts
@@ -273,6 +284,125 @@ describe.skipIf(!hasBackends)('App permissions on installation tokens', () => {
         )
         .map(({ route }) => route),
     ).toEqual([]);
+  });
+
+  it('every GraphQL type and root field is mapped or denied on purpose', () => {
+    const { schema: graphqlSchema } = app.get(GraphQLSchemaHost);
+    const types = Object.values(graphqlSchema.getTypeMap()).filter(
+      (type) =>
+        type instanceof GraphQLObjectType &&
+        !type.name.startsWith('__') &&
+        type.name !== 'Query' &&
+        type.name !== 'Mutation',
+    );
+    const roots = [
+      graphqlSchema.getQueryType()!,
+      graphqlSchema.getMutationType()!,
+    ].flatMap((root) =>
+      Object.keys(root.getFields()).map((field) => `${root.name}.${field}`),
+    );
+
+    expect(
+      types
+        .map(({ name }) => name)
+        .filter((name) => !(name in GRAPHQL_TYPE_PERMISSIONS)),
+    ).toEqual([]);
+    expect(
+      roots.filter(
+        (field) =>
+          !(field in GRAPHQL_ROOT_PERMISSIONS) &&
+          !GRAPHQL_DENIED_TO_INSTALLATIONS.includes(field),
+      ),
+    ).toEqual([]);
+  });
+
+  describe('GraphQL', () => {
+    const graphql = (
+      credential: string,
+      query: string,
+      variables: object = {},
+    ) =>
+      api()
+        .post('/api/graphql')
+        .set('authorization', `bearer ${credential}`)
+        .send({ query, variables })
+        .expect(200)
+        .then(({ body }) => body);
+    const REPOSITORY = `query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { id name issues(first: 5) { nodes { title author { __typename login } } } } }`;
+
+    it('reads what the installation allows, with the bot as a Bot', async () => {
+      await as(token)
+        .post(`/api/v3/repos/${installerName}/${r1}/issues`, {
+          title: 'For GraphQL',
+        })
+        .expect(201);
+
+      const body = await graphql(token, REPOSITORY, {
+        owner: installerName,
+        name: r1,
+      });
+
+      expect(body.errors).toBeUndefined();
+      expect(body.data.repository.name).toBe(r1);
+      expect(body.data.repository.issues.nodes).toContainEqual({
+        title: 'For GraphQL',
+        author: { __typename: 'Bot', login: botLogin.replace(/\[bot\]$/, '') },
+      });
+    });
+
+    it('counts a GraphQL request against the rate limit', async () => {
+      const response = await api()
+        .post('/api/graphql')
+        .set('authorization', `bearer ${token}`)
+        .send({ query: '{ viewer { login } }' })
+        .expect(200);
+
+      expect(response.headers['x-ratelimit-remaining']).toBeDefined();
+    });
+
+    it('hides a repository the installation does not cover', async () => {
+      const body = await graphql(token, REPOSITORY, {
+        owner: installerName,
+        name: r2,
+      });
+
+      expect(body.data?.repository ?? null).toBeNull();
+    });
+
+    it('denies a field the installation has no permission for', async () => {
+      const body = await graphql(
+        token,
+        `query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { pullRequests(first: 1) { totalCount } } }`,
+        { owner: installerName, name: r1 },
+      );
+
+      expect(body.errors[0].message).toBe(FORBIDDEN);
+    });
+
+    it('denies a field mapped to no permission', async () => {
+      const body = await graphql(
+        token,
+        `mutation { createRepository(input: { name: "nope", visibility: PRIVATE }) { repository { id } } }`,
+      );
+
+      expect(body.errors[0].message).toBe(FORBIDDEN);
+    });
+
+    it('a mutation needs write', async () => {
+      const {
+        data: { repository },
+      } = await graphql(token, REPOSITORY, {
+        owner: installerName,
+        name: r1,
+      });
+      const CREATE = `mutation($id: ID!) { createIssue(input: { repositoryId: $id, title: "From GraphQL" }) { issue { title } } }`;
+
+      const refused = await graphql(narrowToken, CREATE, { id: repository.id });
+      expect(refused.errors[0].message).toBe(FORBIDDEN);
+      const created = await graphql(token, CREATE, { id: repository.id });
+      expect(created.errors).toBeUndefined();
+      expect(created.data.createIssue.issue.title).toBe('From GraphQL');
+    });
   });
 
   it('writes where the installation allows', async () => {

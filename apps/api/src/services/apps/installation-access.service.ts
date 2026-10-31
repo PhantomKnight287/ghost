@@ -1,12 +1,12 @@
 import { type Database, schema } from '@ghost/db';
-import { Inject, Injectable } from '@nestjs/common';
 import type { AppPermissions } from '@ghost/permissions';
+import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
+import type { AppInstallationCaller } from '../../github/auth/github-request.js';
 import { withMetadata } from '../../lib/apps/permissions.js';
 import { installationCovers } from '../../lib/repositories/access/repository-access.js';
-import type { AppInstallationCaller } from '../../github/auth/github-request.js';
 
 @Injectable()
 export class InstallationAccessService {
@@ -32,10 +32,11 @@ export class InstallationAccessService {
     return row !== undefined;
   }
 
-  /** The permissions accepted by the live installation of `appId` that covers the repository, or null when none does: what a `ghu_` token of that app may use there. */
+  /** The permissions accepted by the live installation of `appId` that covers the repository, or null when none does: what a `ghu_` token of that app may use there. A scoped token passes the one installation it is limited to. */
   async acceptedFor(
     appId: string,
     repositoryId: string,
+    installationId: string | null = null,
   ): Promise<AppPermissions | null> {
     const [row] = await this.db
       .select({ permissions: schema.appInstallation.permissions })
@@ -46,6 +47,9 @@ export class InstallationAccessService {
           eq(schema.repository.id, repositoryId),
           eq(schema.appInstallation.appId, appId),
           isNull(schema.appInstallation.suspendedAt),
+          installationId === null
+            ? undefined
+            : eq(schema.appInstallation.id, installationId),
         ),
       );
     return row?.permissions ?? null;

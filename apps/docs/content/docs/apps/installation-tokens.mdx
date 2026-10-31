@@ -1,0 +1,67 @@
+---
+title: Installation tokens
+description: Act as an app's bot on the REST API, git over HTTPS and GraphQL, limited to its installation
+---
+
+With its JWT, the app finds its installations and mints an installation token for one of them. The token starts with `ghs_` and lasts an hour:
+
+```ts
+import { App } from "@octokit/app";
+import { Octokit } from "@octokit/core";
+
+const app = new App({
+  appId: 12,
+  privateKey: process.env.PRIVATE_KEY,
+  Octokit: Octokit.defaults({ baseUrl: "https://api.<domain>/api/v3" }),
+});
+const octokit = await app.getInstallationOctokit(installationId);
+await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+  owner, repo, issue_number: 1, body: "Checked by the bot",
+});
+```
+
+These endpoints take the app's JWT, at GitHub's paths:
+
+| Endpoint | What it does |
+|---|---|
+| `GET /app/installations`, `GET /app/installations/{id}` | the app's installations |
+| `DELETE /app/installations/{id}` | uninstall from an account |
+| `POST /app/installations/{id}/access_tokens` | mint a token; `permissions`, `repositories` and `repository_ids` narrow it, never widen it |
+| `GET /repos/{owner}/{repo}/installation`, `GET /users/{username}/installation`, `GET /orgs/{org}/installation` | the installation covering a repository or account |
+
+The token works on the GitHub-compatible REST API (`Authorization: token ghs_...`), as the password for git over HTTPS (`https://x-access-token:ghs_...@<host>/<owner>/<repo>.git`), and on GraphQL at `https://api.<domain>/api/graphql`. `GET /installation/repositories` lists what it reaches. Everything it writes shows as `<slug>[bot]`, and commit statuses it posts record the installation.
+
+## What a token may call
+
+A token reaches only the repositories of its installation, and only as far as the installation's permissions allow:
+
+- each endpoint needs the permission it belongs to, at `read` for `GET` and `write` for anything else; git needs `contents`, at `write` to push;
+- the issue endpoints also take `pull_requests` when the issue is a pull request, so a reviewer bot can comment on and label pull requests without `issues`;
+- on a public repository outside the installation, or beyond its permissions, the token reads what anyone can read, and writes nothing;
+- a private repository outside the installation answers `404`;
+- anything else answers `403 Resource not accessible by integration`.
+
+Some endpoints are never open to a token: the `/user` endpoints, repository settings and deletion, creating repositories, ruleset changes and rule suites. Ghost's own API refuses installation tokens.
+
+## GraphQL
+
+GraphQL holds the token to the same permissions, field by field:
+
+- every object type needs a permission to read its fields: `Issue` needs `issues`, `PullRequest` and its reviews need `pull_requests`, `Commit` and `Release` need `contents`, statuses and check rollups need `statuses`, and `Repository`, `User`, `Label` and the like need only `metadata`. Comments on issues and pull requests take either `issues` or `pull_requests`;
+- each mutation needs `write` on its permission: the issue mutations need `issues`, the pull request ones `pull_requests`, and `mergePullRequest` also `contents`;
+- a type or root field with no permission mapped, such as `createRepository`, answers `Resource not accessible by integration`;
+- repositories outside the installation do not resolve, as on REST.
+
+The bot is a `Bot` wherever GitHub types a field as an actor, such as `author`. Its `login` is the slug without `[bot]`, as on GitHub. A ruleset's bypass actor that is an app resolves to an `App` through `actor`.
+
+## Rulesets and apps
+
+A required status check can name an app with `integration_id`, its App ID. Only a status that app posted with an installation token meets the check; the same context posted by anyone else does not count. In the ruleset form, pick the app as the check's source.
+
+A ruleset can also let an app bypass it: add the app to the bypass list, or send `{ "actor_type": "Integration", "actor_id": <App ID> }` over the API. An app's bot never bypasses through a repository role.
+
+An approving review from a bot counts toward required approvals. It counts as a code owner's review only when CODEOWNERS names the bot, as `@<slug>[bot]`.
+
+## Deleting an app
+
+Deleting an app stops its keys at once and removes its installations, so every token stops too. Its bot stays, so issues, comments and statuses it made keep showing who made them, and its App ID, slug and bot name are never given to another app. A ruleset check pinned to a deleted app can no longer pass; the ruleset form flags it so you can change it.

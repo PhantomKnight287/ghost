@@ -1,0 +1,29 @@
+---
+title: Installing an app
+description: Install a Ghost App on an account, choose its repositories, and review new permissions it asks for
+---
+
+## Install
+
+Open the app's install link, `<web>/apps/<slug>/installations/new`. Pick the account to install it on: yours, or an organization you administer. Then pick **All repositories**, which includes ones created later, or **Only select repositories**. The page lists what the app will be able to do.
+
+The installation accepts the app's permissions and events as they are when you install it. From then on, the installation's own set is what the app's tokens and webhooks are held to, whatever the app asks for later.
+
+After you install, Ghost sends you to the app's setup URL with `?installation_id=<id>&setup_action=install`, or to your installed apps when there is none. An app that asks for user authorization during installation sends you through [its sign-in](/apps/user-tokens) first.
+
+## Manage
+
+Manage installations under **Settings → Installed apps**, or `<web>/<org>/settings/installations` for an organization. From there you can change the repositories, suspend the app, or uninstall it. Suspending or uninstalling stops every token of the installation at once.
+
+## Review new permissions
+
+When the app's owner changes what it asks for:
+
+- **Less** applies at once to every installation. A permission or event the app no longer asks for is dropped, and any token that held more stops working.
+- **More** waits for you. Each installation keeps the set it accepted, and its row in **Installed apps** shows **Review permissions**. The installation's page lists what the app now asks for, with **Accept new permissions**.
+
+A change that lowers one permission and raises another does both: the lowered part applies at once, the raised part waits.
+
+Accepting gives the installation exactly what the app asks for at that moment, and sends the app an `installation.new_permissions_accepted` [webhook](/apps/webhooks). Tokens minted before you accepted keep what they had; new ones can use the new permissions.
+
+Over the API, `GET /api/installations` shows a `pending` set on each installation that has something to review, and `PUT /api/installations/{id}/permissions` accepts it.

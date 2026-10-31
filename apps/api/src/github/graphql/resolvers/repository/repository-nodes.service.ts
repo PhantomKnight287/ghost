@@ -2,7 +2,7 @@ import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../../database/database.module.js';
 import {
@@ -31,6 +31,7 @@ import {
 } from '../../../../lib/rulesets/rulesets.types.js';
 import { hasScope } from '../../../../lib/github/scopes.js';
 import { oauthAppBlocked } from '../../../../lib/organizations/oauth-app-access.js';
+import { teamSlug } from '../../../../lib/organizations/team-slug.js';
 import type { AuthorizedRepository } from '../../../../lib/repositories/access/repository-access.js';
 import { ownerNameOf } from '../../../../lib/repositories/access/repository-access.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
@@ -50,6 +51,8 @@ import {
   type RuleEnforcement,
 } from '../../enums.js';
 import { IssueFilters, IssueOrder, LabelOrder } from '../../inputs.js';
+import { AppNode } from '../../types/app.type.js';
+import { TeamNode } from '../../types/placeholders.type.js';
 import { PullRequestNode } from '../../types/pull-request.type.js';
 import type { RepositoryRulesetNode } from '../../types/ruleset.type.js';
 import { RepositoryNode } from '../../types/repository.type.js';
@@ -219,6 +222,72 @@ export class RepositoryNodesService {
       .where(eq(schema.ruleset.repositoryId, repository.ghostId))
       .orderBy(asc(schema.ruleset.createdAt));
     const admin = atLeast(repository.viewerRole, 'admin');
+    const appIds = rows.flatMap(({ bypassActors }) =>
+      bypassActors.flatMap((actor) =>
+        actor.actorType === 'Integration' ? [actor.appId!] : [],
+      ),
+    );
+    const { web } = githubOrigins(this.config);
+    const apps =
+      admin && appIds.length > 0
+        ? await this.db
+            .select({
+              ghostId: schema.app.id,
+              databaseId: schema.app.numericId,
+              name: schema.app.name,
+              slug: schema.app.slug,
+              description: schema.app.description,
+              clientId: schema.app.oauthClientId,
+              url: sql<string>`${web} || '/apps/' || ${schema.app.slug}`,
+              logoUrl: sql<string>`coalesce(${schema.app.logoUrl}, '')`,
+              logoBackgroundColor: sql<string>`'ffffff'`,
+              createdAt: schema.app.createdAt,
+              updatedAt: schema.app.updatedAt,
+            })
+            .from(schema.app)
+            .where(inArray(schema.app.numericId, appIds))
+        : [];
+    const appsById = new Map(
+      apps.map(({ ghostId, ...app }) => [
+        app.databaseId,
+        Object.assign(new AppNode(), {
+          ...app,
+          id: encodeNodeId('App', ghostId),
+        }),
+      ]),
+    );
+    const teamIds = rows.flatMap(({ bypassActors }) =>
+      bypassActors.flatMap((actor) =>
+        actor.actorType === 'Team' ? [actor.teamId!] : [],
+      ),
+    );
+    const teams =
+      admin && teamIds.length > 0 && repository.organizationGhostId
+        ? await this.db
+            .select({ id: schema.team.id, name: schema.team.name })
+            .from(schema.team)
+            .where(inArray(schema.team.id, teamIds))
+        : [];
+    const [organization] = teams.length
+      ? await this.db
+          .select()
+          .from(schema.organization)
+          .where(eq(schema.organization.id, repository.organizationGhostId!))
+      : [];
+    const teamsById = new Map(
+      teams.map((team) => [
+        team.id,
+        Object.assign(new TeamNode(), {
+          id: encodeNodeId('Team', team.id),
+          name: team.name,
+          slug: teamSlug(team.name),
+          organization: toOrganizationNode(
+            organization!,
+            githubOrigins(this.config),
+          ),
+        }),
+      ]),
+    );
     return sliceConnection(
       rows.map(
         (row): RepositoryRulesetNode => ({
@@ -246,6 +315,12 @@ export class RepositoryNodesService {
                   'RepositoryRulesetBypassActor',
                   `${row.id}:${index}`,
                 ),
+                actor:
+                  actor.actorType === 'Integration'
+                    ? (appsById.get(actor.appId!) ?? null)
+                    : actor.actorType === 'Team'
+                      ? (teamsById.get(actor.teamId!) ?? null)
+                      : null,
                 bypassMode:
                   actor.bypassMode.toUpperCase() as RepositoryRulesetBypassActorBypassMode,
                 deployKey: false,

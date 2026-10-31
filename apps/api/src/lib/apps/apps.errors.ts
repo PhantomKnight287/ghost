@@ -97,16 +97,6 @@ export class InstallationRepositoryError extends DomainError {
   }
 }
 
-export class PermissionRaiseError extends DomainError {
-  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
-
-  constructor() {
-    super(
-      "Remove this app's installations before asking for more permissions or events",
-    );
-  }
-}
-
 export class InstallationSuspendedError extends DomainError {
   status: number = HttpStatus.FORBIDDEN;
 
@@ -182,6 +172,16 @@ export class UserToServerTokenRequiredError extends DomainError {
   constructor() {
     super(
       'You must authenticate with an access token authorized to a GitHub App in order to list installations',
+    );
+  }
+}
+
+export class ScopedTokenTargetError extends DomainError {
+  status: number = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor() {
+    super(
+      'Specify a target account the app is installed on, and only the one the token is already limited to.',
     );
   }
 }

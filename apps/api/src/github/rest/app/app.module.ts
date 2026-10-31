@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { InstallationAccessService } from '../../../services/apps/installation-access.service.js';
 import { InstallationTokensService } from '../../../services/apps/installation-tokens.service.js';
 import { UserTokensService } from '../../../services/apps/user-tokens.service.js';
 import { AppClientsService } from '../../../services/apps/app-clients.service.js';
@@ -28,6 +29,7 @@ import { GithubUserInstallationsController } from './user-installations.controll
     GithubAppService,
     GithubInstallationsService,
     InstallationTokensService,
+    InstallationAccessService,
     UserTokensService,
     AppClientsService,
     GithubApplicationsService,

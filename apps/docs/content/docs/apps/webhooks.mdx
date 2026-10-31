@@ -1,0 +1,61 @@
+---
+title: App webhooks
+description: The events a Ghost App gets about its installations and their repositories, in Ghost's format
+---
+
+An app has one webhook URL and secret, set on its settings page. Ghost delivers to it the way it delivers [any webhook](/webhooks): the same headers, signatures, retries and auto-disable. The app's settings page shows recent deliveries and can redeliver them.
+
+Ghost sends webhooks in its own format, not GitHub's. The body is JSON with `event` naming what happened, the `X-Ghost-Event` header carries the same name, and `X-Hub-Signature-256` signs the body the way GitHub does.
+
+## Repository events
+
+The app gets a repository event when all of these hold:
+
+- an installation of the app covers the repository and is not suspended;
+- the event is one the installation accepted;
+- the installation's permissions include the one the event needs, the same one the app's form filters events by.
+
+The body is the one a repository webhook gets, plus the installation the event came through:
+
+```json
+{
+  "event": "issue.opened",
+  "repository": { "fullName": "octo/tools" },
+  "sender": { "username": "octocat" },
+  "createdAt": "2026-10-31T09:12:44.000Z",
+  "issue": { "number": 12, "title": "Crash on start" },
+  "installation": { "id": 7 }
+}
+```
+
+Pass `installation.id` to `POST /app/installations/{id}/access_tokens` to act on the event.
+
+## Installation events
+
+The app always gets events about its own installations, whatever it subscribed to:
+
+| Event | When |
+|---|---|
+| `installation.created` | someone installs the app |
+| `installation.deleted` | someone uninstalls it; the last event that installation sends |
+| `installation.suspended`, `installation.unsuspended` | the installation is suspended or resumed; a suspended installation sends nothing else |
+| `installation.repositories_added`, `installation.repositories_removed` | repositories join or leave the installation, by configuration or transfer |
+| `installation.new_permissions_accepted` | the account [accepts new permissions](/apps/installing#review-new-permissions) |
+
+Their body names the installation with the permissions and events it has accepted, and lists the repositories that changed where there are any:
+
+```json
+{
+  "event": "installation.repositories_added",
+  "installation": {
+    "id": 7,
+    "account": { "login": "octo", "type": "organization" },
+    "repositorySelection": "selected",
+    "permissions": { "metadata": "read", "issues": "write" },
+    "events": ["issue.opened"]
+  },
+  "repositories": [{ "id": "rep_…", "fullName": "octo/tools" }],
+  "sender": { "username": "octocat" },
+  "createdAt": "2026-10-31T09:12:44.000Z"
+}
+```

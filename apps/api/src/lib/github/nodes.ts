@@ -16,6 +16,7 @@ import type { IssueOrPullRequestFields } from '../../github/graphql/types/issue-
 import { LabelNode } from '../../github/graphql/types/label.type.js';
 import { OrganizationNode } from '../../github/graphql/types/organization.type.js';
 import {
+  BotNode,
   StatusCheckRollupNode,
   StatusContextNode,
 } from '../../github/graphql/types/placeholders.type.js';
@@ -62,6 +63,19 @@ export function toUserNode(row: UserRow, { web }: GithubOrigins) {
     url: `${web}/${login}`,
     databaseId: row.numericId,
     createdAt: row.createdAt,
+  });
+}
+
+/** An app's bot is a Bot wherever GitHub types the field as an Actor: its login without `[bot]`, its path the app's page. */
+export function toActorNode(row: UserRow, origins: GithubOrigins) {
+  if (row.kind !== 'bot') return toUserNode(row, origins);
+  const slug = (row.username ?? '').replace(/\[bot\]$/, '');
+  return Object.assign(new BotNode(), {
+    id: encodeNodeId('Bot', row.id),
+    login: slug,
+    avatarUrl: row.image ?? '',
+    resourcePath: `/apps/${slug}`,
+    url: `${origins.web}/apps/${slug}`,
   });
 }
 

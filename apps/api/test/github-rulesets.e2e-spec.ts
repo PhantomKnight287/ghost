@@ -309,6 +309,39 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
     });
   });
 
+  it('names a team bypass actor through GraphQL', async () => {
+    await create({
+      name: 'team bypass',
+      bypass_actors: [
+        { actor_id: teamNumericId, actor_type: 'Team', bypass_mode: 'always' },
+        { actor_id: 1, actor_type: 'OrganizationAdmin', bypass_mode: 'always' },
+      ],
+    });
+    const { body } = await http()
+      .post('/api/graphql')
+      .set('authorization', `token ${owner.key}`)
+      .send({
+        query: `query($owner: String!) { repository(owner: $owner, name: "guarded") { rulesets(first: 100) { nodes { name bypassActors(first: 10) { nodes { organizationAdmin actor { __typename ... on Team { slug organization { login } } } } } } } } }`,
+        variables: { owner: org },
+      })
+      .expect(200);
+    expect(body.errors).toBeUndefined();
+    const ruleset = body.data.repository.rulesets.nodes.find(
+      (node: { name: string }) => node.name === 'team bypass',
+    );
+    expect(ruleset.bypassActors.nodes).toEqual([
+      {
+        organizationAdmin: false,
+        actor: {
+          __typename: 'Team',
+          slug: 'core',
+          organization: { login: org },
+        },
+      },
+      { organizationAdmin: true, actor: null },
+    ]);
+  });
+
   it('takes ref_name with include alone, and keeps exclude on an update that leaves it out', async () => {
     const made = await create({
       name: 'include only',
@@ -383,7 +416,11 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       },
       {
         bypass_actors: [
-          { actor_id: 999999999, actor_type: 'Integration', bypass_mode: 'always' },
+          {
+            actor_id: 999999999,
+            actor_type: 'Integration',
+            bypass_mode: 'always',
+          },
         ],
       },
       {

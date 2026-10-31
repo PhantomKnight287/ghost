@@ -13080,6 +13080,73 @@
           "GitHub compatibility"
         ]
       },
+      "patch": {
+        "description": "Returns a new token with the same scope; the old one stops working.",
+        "operationId": "GithubApplicationsController_reset",
+        "parameters": [
+          {
+            "name": "client_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubApplicationTokenRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubAuthorizationDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reset a token of the app's",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
       "delete": {
         "operationId": "GithubApplicationsController_revoke",
         "parameters": [
@@ -13135,6 +13202,75 @@
           }
         ],
         "summary": "Revoke one token of the app's",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/applications/{client_id}/token/scoped": {
+      "post": {
+        "description": "A new token limited to one account the app is installed on, some of its repositories and fewer permissions. It is never more than the original, which keeps working.",
+        "operationId": "GithubApplicationsController_scoped",
+        "parameters": [
+          {
+            "name": "client_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubScopedTokenRequestDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubAuthorizationDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Create a scoped token",
         "tags": [
           "GitHub compatibility"
         ]
@@ -22492,6 +22628,51 @@
         ]
       }
     },
+    "/api/installations/{id}/permissions": {
+      "put": {
+        "description": "The installation takes the permissions and events the app asks for now. Nothing changes when there is nothing to review.",
+        "operationId": "InstallationsController_acceptPermissions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Accept an app's new permissions",
+        "tags": [
+          "Installations"
+        ]
+      }
+    },
     "/api/organizations/{slug}/installations": {
       "get": {
         "operationId": "OrganizationInstallationsController_list",
@@ -30102,6 +30283,54 @@
           "user"
         ]
       },
+      "GithubScopedTokenRequestDTO": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write"
+              ]
+            },
+            "example": {
+              "metadata": "read",
+              "issues": "write"
+            },
+            "description": "Lowers the installation's permissions for this token; never raises them."
+          },
+          "repositories": {
+            "description": "Repository names, each one the installation's.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "repository_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "access_token": {
+            "type": "string",
+            "description": "A `ghu_` token of the app."
+          },
+          "target": {
+            "type": "string",
+            "description": "The login of the account whose installation the token is limited to. Required with `repositories` or `repository_ids`, unless `target_id` is given."
+          },
+          "target_id": {
+            "type": "number",
+            "description": "The id of that account, in place of `target`."
+          }
+        },
+        "required": [
+          "access_token"
+        ]
+      },
       "GithubReadmeDTO": {
         "type": "object",
         "properties": {
@@ -34400,6 +34629,31 @@
           "fullName"
         ]
       },
+      "PendingPermissionsDTO": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write"
+              ]
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "permissions",
+          "events"
+        ]
+      },
       "InstallationDTO": {
         "type": "object",
         "properties": {
@@ -34447,6 +34701,16 @@
               "type": "string"
             }
           },
+          "pending": {
+            "nullable": true,
+            "description": "What the app asks for now, when that is more than the installation accepted. Null when there is nothing to review.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PendingPermissionsDTO"
+              }
+            ]
+          },
           "suspendedAt": {
             "type": "string",
             "nullable": true,
@@ -34470,6 +34734,7 @@
           "repositories",
           "permissions",
           "events",
+          "pending",
           "suspendedAt",
           "createdAt",
           "redirectUrl"
