@@ -338,6 +338,24 @@ describe.skipIf(!hasBackends)('Rulesets and apps', { timeout: 60_000 }, () => {
 
     await expect(pushMerge(base, otherApp.token)).rejects.toThrow();
     await pushMerge(base, ci.token);
+
+    const { body: graph } = await http()
+      .post('/api/graphql')
+      .set('authorization', `token ${installer.key}`)
+      .send({
+        query: `{ repository(owner: "${installerName}", name: "${name}") { rulesets(first: 100) { nodes { bypassActors(first: 10) { nodes { actor { __typename ... on App { databaseId slug url } } } } } } } }`,
+      })
+      .expect(200);
+    const actors = graph.data.repository.rulesets.nodes.flatMap(
+      (node: { bypassActors: { nodes: { actor: unknown }[] } }) =>
+        node.bypassActors.nodes.map(({ actor }) => actor),
+    );
+    expect(actors).toContainEqual({
+      __typename: 'App',
+      databaseId: ci.appId,
+      slug: ci.slug,
+      url: expect.stringMatching(new RegExp(`/apps/${ci.slug}$`)),
+    });
   });
 
   it('does not bypass by repository role', async () => {

@@ -2,7 +2,7 @@ import { type Database, schema } from '@ghost/db';
 import { atLeast } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../../database/database.module.js';
 import {
@@ -50,6 +50,7 @@ import {
   type RuleEnforcement,
 } from '../../enums.js';
 import { IssueFilters, IssueOrder, LabelOrder } from '../../inputs.js';
+import { AppNode } from '../../types/app.type.js';
 import { PullRequestNode } from '../../types/pull-request.type.js';
 import { RepositoryNode } from '../../types/repository.type.js';
 import type { RepositoryRulesetNode } from '../../types/ruleset.type.js';
@@ -219,6 +220,40 @@ export class RepositoryNodesService {
       .where(eq(schema.ruleset.repositoryId, repository.ghostId))
       .orderBy(asc(schema.ruleset.createdAt));
     const admin = atLeast(repository.viewerRole, 'admin');
+    const appIds = rows.flatMap(({ bypassActors }) =>
+      bypassActors.flatMap((actor) =>
+        actor.actorType === 'Integration' ? [actor.appId!] : [],
+      ),
+    );
+    const { web } = githubOrigins(this.config);
+    const apps =
+      admin && appIds.length > 0
+        ? await this.db
+            .select({
+              ghostId: schema.app.id,
+              databaseId: schema.app.numericId,
+              name: schema.app.name,
+              slug: schema.app.slug,
+              description: schema.app.description,
+              clientId: schema.app.oauthClientId,
+              url: sql<string>`${web} || '/apps/' || ${schema.app.slug}`,
+              logoUrl: sql<string>`coalesce(${schema.app.logoUrl}, '')`,
+              logoBackgroundColor: sql<string>`'ffffff'`,
+              createdAt: schema.app.createdAt,
+              updatedAt: schema.app.updatedAt,
+            })
+            .from(schema.app)
+            .where(inArray(schema.app.numericId, appIds))
+        : [];
+    const appsById = new Map(
+      apps.map(({ ghostId, ...app }) => [
+        app.databaseId,
+        Object.assign(new AppNode(), {
+          ...app,
+          id: encodeNodeId('App', ghostId),
+        }),
+      ]),
+    );
     return sliceConnection(
       rows.map(
         (row): RepositoryRulesetNode => ({
@@ -246,6 +281,10 @@ export class RepositoryNodesService {
                   'RepositoryRulesetBypassActor',
                   `${row.id}:${index}`,
                 ),
+                actor:
+                  actor.actorType === 'Integration'
+                    ? (appsById.get(actor.appId!) ?? null)
+                    : null,
                 bypassMode:
                   actor.bypassMode.toUpperCase() as RepositoryRulesetBypassActorBypassMode,
                 deployKey: false,

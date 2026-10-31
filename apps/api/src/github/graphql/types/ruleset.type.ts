@@ -15,6 +15,7 @@ import {
   RepositoryRuleType,
   RuleEnforcement,
 } from '../enums.js';
+import { AppNode, BypassActor } from './app.type.js';
 import { Node } from './node.interface.js';
 
 @ObjectType('PullRequestParameters')
@@ -100,6 +101,13 @@ export class RepositoryRulesetBypassActorNode {
 
   @Field(() => ID)
   id: string;
+
+  @Field(() => BypassActor, {
+    nullable: true,
+    description:
+      'The app of an integration bypass. Null for every other kind of actor.',
+  })
+  actor: AppNode | null;
 
   @Field(() => RepositoryRulesetBypassActorBypassMode, { nullable: true })
   bypassMode: RepositoryRulesetBypassActorBypassMode;

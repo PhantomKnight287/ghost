@@ -137,13 +137,6 @@ export class GithubAuthMiddleware implements NestMiddleware {
       installation,
     };
     res.setHeader('X-OAuth-Scopes', '');
-    if (GRAPHQL_PATH.test(req.originalUrl)) {
-      res.status(403).json({
-        message: 'Resource not accessible by integration',
-        documentation_url: DOCUMENTATION_URL,
-      });
-      return;
-    }
     installationCaller.run(installation, next);
   }
 

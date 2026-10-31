@@ -7,6 +7,7 @@ import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
 import { pullRequestRowsOf } from '../../../../lib/github/node-lookup.js';
 import {
+  toActorNode,
   toIssueCommentNode,
   toIssueNode,
   toLabelNode,
@@ -72,7 +73,7 @@ export class IssueNodesService {
   /** The author of an issue, pull request, comment or review. */
   async author({ authorLogin }: { authorLogin: string }, loaders: Loaders) {
     const row = await loaders.usersByLogin.load(authorLogin);
-    return row ? toUserNode(row, githubOrigins(this.config)) : null;
+    return row ? toActorNode(row, githubOrigins(this.config)) : null;
   }
 
   async assignees(

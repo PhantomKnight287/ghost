@@ -42,6 +42,20 @@ type AddLabelsToLabelablePayload {
   labelable: Labelable
 }
 
+type App implements Node {
+  clientId: String
+  createdAt: DateTime!
+  databaseId: Int
+  description: String
+  id: ID!
+  logoBackgroundColor: String!
+  logoUrl: URI!
+  name: String!
+  slug: String!
+  updatedAt: DateTime!
+  url: URI!
+}
+
 interface Assignable {
   assignees: UserConnection!
 }
@@ -72,6 +86,8 @@ type BranchProtectionRule implements Node {
   id: ID!
   requiresStrictStatusChecks: Boolean!
 }
+
+union BypassActor = App | Team
 
 enum CheckConclusionState {
   ACTION_REQUIRED
@@ -961,6 +977,8 @@ type RepositoryRuleset implements Node {
 }
 
 type RepositoryRulesetBypassActor implements Node {
+  """The app of an integration bypass. Null for every other kind of actor."""
+  actor: BypassActor
   bypassMode: RepositoryRulesetBypassActorBypassMode
   deployKey: Boolean!
   id: ID!

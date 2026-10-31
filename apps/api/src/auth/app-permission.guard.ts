@@ -5,6 +5,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { type GqlContextType, GqlExecutionContext } from '@nestjs/graphql';
+import type { GraphQLResolveInfo } from 'graphql';
 
 import type { GitAuthenticatedBufferedRequest } from '../git/types.js';
 import type { GithubRequest } from '../github/auth/github-request.js';
@@ -16,6 +18,7 @@ import {
   PULL_REQUESTS_ON_PULLS,
 } from '../lib/apps/app-permission.js';
 import { IntegrationForbiddenError } from '../lib/apps/apps.errors.js';
+import { GRAPHQL_ROOT_PERMISSIONS } from '../lib/apps/graphql-permissions.js';
 import { commonPermissions, grants } from '../lib/apps/permissions.js';
 import type { UserToServerCaller } from '../lib/apps/user-token-context.js';
 import { RepositoryNotFoundError } from '../lib/repositories/repositories.errors.js';
@@ -24,7 +27,7 @@ import { RepositoryAccessService } from '../services/git/repository-access/repos
 
 type Request = GithubRequest & GitAuthenticatedBufferedRequest;
 
-/** Limits an installation token to the routes that declare a permission, on the repositories its installation covers, as far as its permissions reach. A `ghu_` token gets the same limits from its app's installations, narrowed further when scoped, on top of its user's own access. Everyone else passes untouched. */
+/** Limits an installation token to the routes and GraphQL root fields that declare a permission, on the repositories its installation covers, as far as its permissions reach. A `ghu_` token gets the same limits from its app's installations, narrowed further when scoped, on top of its user's own access. Everyone else passes untouched. */
 @Injectable()
 export class AppPermissionGuard implements CanActivate {
   constructor(
@@ -34,6 +37,8 @@ export class AppPermissionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    if (context.getType<GqlContextType>() === 'graphql')
+      return this.forGraphqlRoot(context);
     if (context.getType() !== 'http') return true;
     const req = context.switchToHttp().getRequest<Request>();
     if (req.userToServer) return this.forUser(context, req, req.userToServer);
@@ -83,6 +88,24 @@ export class AppPermissionGuard implements CanActivate {
     if (!covered && repository.visibility === 'private')
       throw new RepositoryNotFoundError();
     throw new IntegrationForbiddenError();
+  }
+
+  /** A query or mutation field needs what GRAPHQL_ROOT_PERMISSIONS lists for it, and is denied when unlisted; the fields below it are held by appPermissionMiddleware. */
+  private forGraphqlRoot(context: ExecutionContext) {
+    const gql = GqlExecutionContext.create(context);
+    const caller = gql.getContext<{ req: Request }>().req.appInstallation;
+    if (!caller) return true;
+    const info = gql.getInfo<GraphQLResolveInfo>();
+    const needs =
+      GRAPHQL_ROOT_PERMISSIONS[`${info.parentType.name}.${info.fieldName}`];
+    if (
+      !needs ||
+      !Object.entries(needs).every(([name, level]) =>
+        grants(caller.permissions, name as AppPermission, level),
+      )
+    )
+      throw new IntegrationForbiddenError();
+    return true;
   }
 
   /** The user's own role still decides, since every service checks it for the user; this adds the app's limits: a declared route, an installation of the app covering the repository, and its accepted permissions. */
