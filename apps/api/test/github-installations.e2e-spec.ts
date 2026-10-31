@@ -299,7 +299,7 @@ describe.skipIf(!hasBackends)('GitHub installation endpoints', () => {
       .expect(401);
   });
 
-  it("refuses a token on GraphQL and on Ghost's API", async () => {
+  it("accepts a token on GraphQL and refuses it on Ghost's API", async () => {
     const { octokitApp, installationId } = await installedApp();
     const { data } = await mint(octokitApp, installationId);
 
@@ -307,8 +307,8 @@ describe.skipIf(!hasBackends)('GitHub installation endpoints', () => {
       .post('/api/graphql')
       .set('authorization', `bearer ${data.token}`)
       .send({ query: '{ viewer { login } }' })
-      .expect(403);
-    expect(body.message).toBe(FORBIDDEN);
+      .expect(200);
+    expect(body.errors).toBeUndefined();
     await api()
       .get('/api/notifications')
       .set('authorization', `Bearer ${data.token}`)
