@@ -1,0 +1,1 @@
+CREATE INDEX "app_user_token_installation_id_idx" ON "app_user_token" USING btree ("installation_id");
