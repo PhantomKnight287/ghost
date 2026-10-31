@@ -1,0 +1,52 @@
+---
+title: Acting for a user
+description: Sign Ghost users in to an app, act as them with user-to-server tokens, and check, reset, scope or revoke those tokens
+---
+
+Every app can sign users in, the way a GitHub App does. The usual reason is the app's own website: it signs a Ghost user in and shows what they can reach. The app can also act as the user, within limits.
+
+## Signing users in
+
+On the app's settings page, add up to 10 callback URLs and generate a client secret. The app then runs the same flows as an [OAuth app](/oauth-apps), with its client id: send the user to `https://api.<domain>/login/oauth/authorize?client_id=<client id>`, then exchange the code at `POST /login/oauth/access_token`. **Enable Device Flow** turns on the [device flow](/oauth-apps/device-flow).
+
+The access token starts with `ghu_` and lasts 8 hours, with a `ghr_` refresh token that lasts 6 months, used as in [Refreshing tokens](/oauth-apps/refreshing-tokens). Turn off **Expire user authorization tokens** and the token never expires and comes with no refresh token. Scopes do not apply: `scope` is empty and requested scopes are ignored.
+
+Tick **Request user authorization during installation** and installing the app sends the installer through this flow; the callback gets `code`, `installation_id` and `setup_action=install`.
+
+## What a user-to-server token may do
+
+The token acts as its user on the GitHub-compatible REST API and git over HTTPS. It may use a permission only when the app holds it and the user's own role allows it, and only on a repository the user can see and an installation of the app covers. Without any installation it still reads `/user` and the user's public data. What it writes shows as the user, marked "via" the app.
+
+`GET /user/installations` lists the app's installations the user can reach, and `GET /user/installations/{installation_id}/repositories` their repositories. Only user-to-server tokens may call them.
+
+GraphQL and Ghost's own API refuse user-to-server tokens.
+
+## Managing tokens
+
+The app manages its users' tokens at GitHub's paths, authenticated with HTTP Basic: its client id as the username and a client secret as the password. Each takes `{ "access_token": "ghu_…" }`, and answers `404` for a token that is not a live token of the app.
+
+| Endpoint | What it does |
+|---|---|
+| `POST /applications/{client_id}/token` | check a token: its user, app, expiry and last eight characters |
+| `PATCH /applications/{client_id}/token` | reset a token: the answer carries a new token with the same scope, and the old one stops working |
+| `POST /applications/{client_id}/token/scoped` | create a narrower token; the original keeps working |
+| `DELETE /applications/{client_id}/token` | revoke one token |
+| `DELETE /applications/{client_id}/grant` | revoke every token and refresh token of the token's user for the app |
+
+A user can also revoke an app under **Settings → Authorized apps**.
+
+### Scoped tokens
+
+A scoped token takes the original's user and expiry setting, and narrows it with any of:
+
+- `target` or `target_id`: the login or id of an account the app is installed on. The token then acts only through that installation;
+- `repositories` or `repository_ids`: repositories of that installation. These need `target` or `target_id`;
+- `permissions`: fewer permissions than the app holds, or than the original if it was already scoped.
+
+```bash
+curl -u "$CLIENT_ID:$CLIENT_SECRET" \
+  -X POST https://api.<domain>/api/v3/applications/$CLIENT_ID/token/scoped \
+  -d '{"access_token":"ghu_…","target":"octo","repositories":["tools"],"permissions":{"issues":"read"}}'
+```
+
+Asking for anything the original cannot do answers `422`.

@@ -1,0 +1,66 @@
+---
+title: Porting a Probot app
+description: Run a Probot or Octokit app against Ghost, and what differs from GitHub
+---
+
+Ghost Apps authenticate like GitHub Apps, so Octokit's `App`, `@octokit/auth-app` and Probot's authentication work once they point at Ghost's API. Webhooks are the part to change: Ghost sends its own format.
+
+## Authentication
+
+Point Octokit at `https://api.<domain>/api/v3`. In Probot, set the GitHub Enterprise variables, which make it use that base URL:
+
+```bash
+APP_ID=12
+PRIVATE_KEY_PATH=./app.pem
+WEBHOOK_SECRET=…
+GHE_HOST=api.<domain>
+```
+
+`context.octokit` and `app.auth(installationId)` then mint [installation tokens](/apps/installation-tokens) from Ghost.
+
+## Webhooks
+
+Probot routes deliveries by GitHub's `X-GitHub-Event` header and reads GitHub's payloads, so `app.on("issues.opened", …)` never fires for a Ghost delivery. Receive Ghost's events with a small handler instead, and keep Probot or Octokit for the API:
+
+```ts
+import { verify } from "@octokit/webhooks-methods";
+
+export async function handle(request: Request) {
+  const body = await request.text();
+  const signature = request.headers.get("x-hub-signature-256") ?? "";
+  if (!(await verify(process.env.WEBHOOK_SECRET!, body, signature)))
+    return new Response("bad signature", { status: 401 });
+
+  const event = JSON.parse(body);
+  const octokit = await app.getInstallationOctokit(event.installation.id);
+  if (event.event === "issue.opened") {
+    const [owner, repo] = event.repository.fullName.split("/");
+    await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      owner, repo, issue_number: event.issue.number, body: "Thanks!",
+    });
+  }
+  return new Response(null, { status: 204 });
+}
+```
+
+GitHub's event names map to Ghost's `noun.verb` names:
+
+| GitHub | Ghost |
+|---|---|
+| `issues.opened`, `issues.closed`, `issues.labeled`, … | `issue.opened`, `issue.closed`, `issue.labeled`, … |
+| `issue_comment.created` | `issue.commented` |
+| `pull_request.opened`, `pull_request.synchronize` | `pull_request.opened`, `pull_request.synchronized` |
+| `pull_request_review.submitted` | `pull_request.reviewed` |
+| `push` | `push` |
+| `status` | `commit_status.created` |
+| `installation.created`, `installation_repositories.added` | `installation.created`, `installation.repositories_added` |
+
+[App webhooks](/apps/webhooks) lists the bodies.
+
+## What differs from GitHub
+
+- **Webhooks** use Ghost's format and names, above.
+- **Permissions** are a subset of GitHub's: `metadata`, `contents`, `pull_requests`, `issues`, `statuses`, `members` and `administration`. There is no Checks API yet, so a CI app posts commit statuses.
+- **There is no marketplace.** Apps are public at `<web>/apps/<slug>`, and their owners share the install link.
+- **User-to-server tokens** do not work on GraphQL.
+- **One webhook per app.** There is no per-installation URL.

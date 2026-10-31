@@ -1,4 +1,11 @@
 {
   "title": "Ghost Apps",
-  "pages": ["index"]
+  "pages": [
+    "index",
+    "installing",
+    "installation-tokens",
+    "webhooks",
+    "user-tokens",
+    "porting-probot"
+  ]
 }

@@ -3161,6 +3161,30 @@ export interface paths {
         delete: operations["GithubApplicationsController_revoke"];
         options?: never;
         head?: never;
+        /**
+         * Reset a token of the app's
+         * @description Returns a new token with the same scope; the old one stops working.
+         */
+        patch: operations["GithubApplicationsController_reset"];
+        trace?: never;
+    };
+    "/api/v3/applications/{client_id}/token/scoped": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a scoped token
+         * @description A new token limited to one account the app is installed on, some of its repositories and fewer permissions. It is never more than the original, which keeps working.
+         */
+        post: operations["GithubApplicationsController_scoped"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -4817,6 +4841,26 @@ export interface paths {
         post?: never;
         /** Unsuspend an installation */
         delete: operations["InstallationsController_unsuspend"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/installations/{id}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Accept an app's new permissions
+         * @description The installation takes the permissions and events the app asks for now. Nothing changes when there is nothing to review.
+         */
+        put: operations["InstallationsController_acceptPermissions"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -7195,6 +7239,27 @@ export interface components {
             expires_at: string | null;
             user: components["schemas"]["GithubSimpleUserDTO"];
         };
+        GithubScopedTokenRequestDTO: {
+            /**
+             * @description Lowers the installation's permissions for this token; never raises them.
+             * @example {
+             *       "metadata": "read",
+             *       "issues": "write"
+             *     }
+             */
+            permissions?: {
+                [key: string]: "read" | "write";
+            };
+            /** @description Repository names, each one the installation's. */
+            repositories?: string[];
+            repository_ids?: number[];
+            /** @description A `ghu_` token of the app. */
+            access_token: string;
+            /** @description The login of the account whose installation the token is limited to. Required with `repositories` or `repository_ids`, unless `target_id` is given. */
+            target?: string;
+            /** @description The id of that account, in place of `target`. */
+            target_id?: number;
+        };
         GithubReadmeDTO: {
             /** @example file */
             type: string;
@@ -8591,6 +8656,12 @@ export interface components {
             /** @example octo/tools */
             fullName: string;
         };
+        PendingPermissionsDTO: {
+            permissions: {
+                [key: string]: "read" | "write";
+            };
+            events: string[];
+        };
         InstallationDTO: {
             id: string;
             /** @description The id the app passes to `POST /app/installations/{id}/access_tokens`. */
@@ -8606,6 +8677,8 @@ export interface components {
                 [key: string]: "read" | "write";
             };
             events: string[];
+            /** @description What the app asks for now, when that is more than the installation accepted. Null when there is nothing to review. */
+            pending: components["schemas"]["PendingPermissionsDTO"] | null;
             /** @description ISO 8601. */
             suspendedAt: string | null;
             /** @description ISO 8601. */
@@ -16194,6 +16267,78 @@ export interface operations {
             };
         };
     };
+    GithubApplicationsController_reset: {
+        parameters: {
+            query?: never;
+            header: {
+                authorization: string;
+            };
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubApplicationTokenRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubAuthorizationDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubApplicationsController_scoped: {
+        parameters: {
+            query?: never;
+            header: {
+                authorization: string;
+            };
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubScopedTokenRequestDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubAuthorizationDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
     GithubApplicationsController_revokeGrant: {
         parameters: {
             query?: never;
@@ -21020,6 +21165,41 @@ export interface operations {
         };
     };
     InstallationsController_unsuspend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    InstallationsController_acceptPermissions: {
         parameters: {
             query?: never;
             header?: never;

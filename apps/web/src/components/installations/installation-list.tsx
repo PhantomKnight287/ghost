@@ -82,6 +82,9 @@ export function InstallationList({
                       {installation.suspendedAt && (
                         <Badge variant="secondary">Suspended</Badge>
                       )}
+                      {installation.pending && (
+                        <Badge variant="outline">Review permissions</Badge>
+                      )}
                     </ItemTitle>
                     <ItemDescription>
                       {installation.repositorySelection === "all"
