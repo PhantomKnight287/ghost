@@ -1,15 +1,15 @@
+import { Inject, Injectable } from '@nestjs/common';
 import { type Database, schema } from '@ghost/db';
 import type { Role } from '@ghost/permissions';
-import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { installationCaller } from '../../../lib/apps/installation-context.js';
 import { sameName } from '../../../lib/db/sql.js';
 import {
+  acceptedCollaboration,
   type Actor,
   type AuthorizedRepository,
-  acceptedCollaboration,
   basePermissionOf,
   canAccess,
   decideAccess,

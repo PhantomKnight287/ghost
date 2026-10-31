@@ -3,13 +3,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-
 import { type Database, schema } from '@ghost/db';
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import * as openpgp from 'openpgp';
 import request from 'supertest';
+import * as openpgp from 'openpgp';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DATABASE } from '../src/database/database.module.js';

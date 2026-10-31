@@ -1,42 +1,42 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { json } from 'express';
 
-import { LFS_MEDIA_TYPE } from '../lib/git/lfs/lfs-objects.js';
 import { MaterializerModule } from '../materializer/materializer.module.js';
-import { PullRefsModule } from '../pull-refs/pull-refs.module.js';
-import { CommitStatusesModule } from '../resources/commit-statuses/commit-statuses.module.js';
-import { IssuesModule } from '../resources/issues/issues.module.js';
-import { SshKeysModule } from '../resources/ssh-keys/ssh-keys.module.js';
-import { StorageModule } from '../resources/storage/storage.module.js';
-import { InstallationTokensService } from '../services/apps/installation-tokens.service.js';
-import { UserTokensService } from '../services/apps/user-tokens.service.js';
-import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
-import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
-import { LfsService } from '../services/git/lfs/lfs.service.js';
-import { LfsLocksService } from '../services/git/lfs/lfs-locks.service.js';
 import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
 import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
-import { RepositoryAccessService } from '../services/git/repository-access/repository-access.service.js';
-import { SshServerService } from '../services/git/ssh/ssh-server.service.js';
-import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
-import { WalStoreService } from '../services/git/wal/wal-store.service.js';
-import { CommitSigningService } from '../services/gpg/commit-signing.service.js';
-import { CommitVerificationService } from '../services/gpg/commit-verification.service.js';
-import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
+import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
 import { RuleSuitesService } from '../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../services/rulesets/ruleset-verdicts.service.js';
-import { UsersService } from '../services/users/users.service.js';
+import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
+import { WalStoreService } from '../services/git/wal/wal-store.service.js';
+import { RepositoryAccessService } from '../services/git/repository-access/repository-access.service.js';
+import { SshServerService } from '../services/git/ssh/ssh-server.service.js';
+import { SshKeysModule } from '../resources/ssh-keys/ssh-keys.module.js';
+import { IssuesModule } from '../resources/issues/issues.module.js';
+import { PullRefsModule } from '../pull-refs/pull-refs.module.js';
+import { StorageModule } from '../resources/storage/storage.module.js';
+import { GitController } from './git.controller.js';
 import {
   GIT_PACK_ROUTES,
   GIT_TRANSPORT_ROUTES,
   LFS_ROUTES,
 } from './git.constants.js';
-import { GitController } from './git.controller.js';
-import { GitService } from './git.service.js';
 import { LfsController } from './lfs.controller.js';
 import { LfsLocksController } from './lfs-locks.controller.js';
-import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-auth.middleware.js';
+import { LfsLocksService } from '../services/git/lfs/lfs-locks.service.js';
+import { LFS_MEDIA_TYPE } from '../lib/git/lfs/lfs-objects.js';
+import { LfsService } from '../services/git/lfs/lfs.service.js';
 import { GitRawBodyMiddleware } from './middleware/git-raw-body.middleware.js';
+import { InstallationTokensService } from '../services/apps/installation-tokens.service.js';
+import { UserTokensService } from '../services/apps/user-tokens.service.js';
+import { GitService } from './git.service.js';
+import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
+import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
+import { GitBasicAuthMiddleware } from './middleware/git-basic-auth/git-basic-auth.middleware.js';
+import { CommitStatusesModule } from '../resources/commit-statuses/commit-statuses.module.js';
+import { CommitVerificationService } from '../services/gpg/commit-verification.service.js';
+import { CommitSigningService } from '../services/gpg/commit-signing.service.js';
+import { UsersService } from '../services/users/users.service.js';
 
 @Module({
   imports: [

@@ -1,5 +1,5 @@
-import { schema } from '@ghost/db';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { schema } from '@ghost/db';
 import { IsIn, IsOptional, IsString } from 'class-validator';
 
 export class ForkRepositoryRequestDTO {

@@ -22,10 +22,6 @@ import {
   type UserRow,
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
-import { hasScope } from '../../../../lib/github/scopes.js';
-import { oauthAppBlocked } from '../../../../lib/organizations/oauth-app-access.js';
-import type { AuthorizedRepository } from '../../../../lib/repositories/access/repository-access.js';
-import { ownerNameOf } from '../../../../lib/repositories/access/repository-access.js';
 import { rulesetColumns } from '../../../../lib/rulesets/ruleset-columns.js';
 import {
   GITHUB_ROLE_IDS,
@@ -33,6 +29,10 @@ import {
   type Ruleset,
   type StatusCheckRuleParameters,
 } from '../../../../lib/rulesets/rulesets.types.js';
+import { hasScope } from '../../../../lib/github/scopes.js';
+import { oauthAppBlocked } from '../../../../lib/organizations/oauth-app-access.js';
+import type { AuthorizedRepository } from '../../../../lib/repositories/access/repository-access.js';
+import { ownerNameOf } from '../../../../lib/repositories/access/repository-access.js';
 import { IssuesService } from '../../../../resources/issues/issues.service.js';
 import { RepositoryAccessService } from '../../../../services/git/repository-access/repository-access.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
@@ -52,8 +52,8 @@ import {
 import { IssueFilters, IssueOrder, LabelOrder } from '../../inputs.js';
 import { AppNode } from '../../types/app.type.js';
 import { PullRequestNode } from '../../types/pull-request.type.js';
-import { RepositoryNode } from '../../types/repository.type.js';
 import type { RepositoryRulesetNode } from '../../types/ruleset.type.js';
+import { RepositoryNode } from '../../types/repository.type.js';
 import { IssueNodesService } from '../issue/issue-nodes.service.js';
 
 @Injectable()

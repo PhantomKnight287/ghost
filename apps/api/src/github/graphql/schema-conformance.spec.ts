@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-
 import { schema as github } from '@octokit/graphql-schema';
 import {
   buildSchema,

@@ -5,6 +5,17 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
+import { publishEvent } from '../../lib/events/events.js';
+import { mailConfigured } from '../../mail/mail.module.js';
+import { MailService } from '../../mail/mail.service.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import {
+  type CollaboratorRole,
+  ownerNameOf,
+} from '../../lib/repositories/access/repository-access.js';
+import { UsersService } from '../../services/users/users.service.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
+import type { CollaboratorStatus } from './dto/collaborator.dto.js';
 import {
   CannotInviteOwnerError,
   CollaboratorNotFoundError,
@@ -12,18 +23,7 @@ import {
   RepositoryNotInOrganizationError,
   TeamNotFoundError,
 } from '../../lib/collaborators/collaborators.errors.js';
-import { isoTimestamp } from '../../lib/db/sql.js';
 import { errorMessage } from '../../lib/error-message.js';
-import { publishEvent } from '../../lib/events/events.js';
-import {
-  type CollaboratorRole,
-  ownerNameOf,
-} from '../../lib/repositories/access/repository-access.js';
-import { mailConfigured } from '../../mail/mail.module.js';
-import { MailService } from '../../mail/mail.service.js';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { UsersService } from '../../services/users/users.service.js';
-import type { CollaboratorStatus } from './dto/collaborator.dto.js';
 
 const owner = alias(schema.user, 'owner');
 const inviter = alias(schema.user, 'inviter');

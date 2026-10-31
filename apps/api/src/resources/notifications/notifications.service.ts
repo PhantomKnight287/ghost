@@ -4,10 +4,7 @@ import { and, count, eq, ne, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
-import { keyset } from '../../lib/db/keyset.js';
-import { isoTimestamp } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
-import { NotificationNotFoundError } from '../../lib/notifications/notifications.errors.js';
 import {
   acceptedCollaboration,
   organizationMembership,
@@ -15,12 +12,15 @@ import {
   readableBy,
 } from '../../lib/repositories/access/repository-access.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import { isoTimestamp } from '../../lib/db/sql.js';
+import { keyset } from '../../lib/db/keyset.js';
 import { IssuesService } from '../issues/issues.service.js';
 import type {
   GetNotificationsQueryDTO,
   GetNotificationsResponseDTO,
   WatchLevel,
 } from './dto/notification.dto.js';
+import { NotificationNotFoundError } from '../../lib/notifications/notifications.errors.js';
 
 const DEFAULT_PAGE_SIZE = 25;
 

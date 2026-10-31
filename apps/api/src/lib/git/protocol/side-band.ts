@@ -1,4 +1,4 @@
-import { pipeline, Readable, Transform } from 'node:stream';
+import { Readable, Transform, pipeline } from 'node:stream';
 
 import { FLUSH_PACKET, pktLine } from './pkt-line.js';
 

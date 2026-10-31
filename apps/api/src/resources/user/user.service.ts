@@ -1,13 +1,13 @@
-import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
+import { type Database, schema } from '@ghost/db';
 import { and, count, eq, gte, inArray, isNull, lt, or, sum } from 'drizzle-orm';
 
-import { DATABASE } from '../../database/database.module.js';
 import {
   acceptedCollaboration,
   organizationMembership,
   readableBy,
 } from '../../lib/repositories/access/repository-access.js';
+import { DATABASE } from '../../database/database.module.js';
 import { UsersService } from '../../services/users/users.service.js';
 import type {
   GetUserContributionsQueryDTO,

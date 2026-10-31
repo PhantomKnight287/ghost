@@ -1,32 +1,32 @@
-import type { Readable } from 'node:stream';
-
 import { Injectable } from '@nestjs/common';
 
-import {
-  type GitRequestBody,
-  prefixed,
-} from '../../../lib/git/protocol/git-request-body.js';
+import type { Readable } from 'node:stream';
+
+import { S3Service } from '../../s3/s3.service.js';
 import { isPullRef } from '../../../lib/git/refs/pull-refs.js';
+import { isNotFound, statusOf } from '../../../lib/s3/s3.errors.js';
 import {
-  RepositoryDeletedError,
-  WalContentionError,
-} from '../../../lib/git/wal/wal.errors.js';
+  prefixed,
+  type GitRequestBody,
+} from '../../../lib/git/protocol/git-request-body.js';
+import {
+  decodeEntryHeader,
+  decodeIndex,
+  encodeIndex,
+  ENTRY_CONTENT_TYPE,
+  ENTRY_HEADER_PROBE_BYTES,
+  entryHeaderLength,
+  INDEX_CONTENT_TYPE,
+} from '../../../lib/git/wal/wal-codec.js';
 import {
   emptyIndex,
   type WalEntryHeader,
   type WalIndex,
 } from '../../../lib/git/wal/wal.types.js';
 import {
-  decodeEntryHeader,
-  decodeIndex,
-  ENTRY_CONTENT_TYPE,
-  ENTRY_HEADER_PROBE_BYTES,
-  encodeIndex,
-  entryHeaderLength,
-  INDEX_CONTENT_TYPE,
-} from '../../../lib/git/wal/wal-codec.js';
-import { isNotFound, statusOf } from '../../../lib/s3/s3.errors.js';
-import { S3Service } from '../../s3/s3.service.js';
+  RepositoryDeletedError,
+  WalContentionError,
+} from '../../../lib/git/wal/wal.errors.js';
 
 // Each lost CAS is a push that committed in between; only a stream of pushes could outlast this, and the caller retries.
 const MAX_TOMBSTONE_ATTEMPTS = 8;

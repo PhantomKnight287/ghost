@@ -1,56 +1,55 @@
-import { Readable } from 'node:stream';
-
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
+import { Readable } from 'node:stream';
 
-import { DATABASE } from '../database/database.module.js';
-import { DomainError } from '../domain/errors.js';
-import { errorMessage } from '../lib/error-message.js';
-import { MAX_PUSH_COMMITS, publishEvent } from '../lib/events/events.js';
-import { listCommits } from '../lib/git/commits/list-commits.js';
-import {
-  ProtectedRefError,
-  UnsupportedGitServiceError,
-} from '../lib/git/git.errors.js';
+import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
+import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
 import type { GitRequestBody } from '../lib/git/protocol/git-request-body.js';
-import {
-  type GitServiceName,
-  isGitServiceName,
-} from '../lib/git/protocol/git-service.js';
 import {
   isProbeRequest,
   readReceivePackHeader,
 } from '../lib/git/protocol/receive-pack-request.js';
+import { withVerifiedPack } from '../lib/git/protocol/verify-push.js';
+import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
+import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
+import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
+import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
+import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
+import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
+import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
+import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
+import { IssueReferencesService } from '../services/issues/issue-references.service.js';
+import { listCommits } from '../lib/git/commits/list-commits.js';
+import { resolveDefaultRef } from '../lib/git/tree/resolve-ref.js';
+import { isPullRef } from '../lib/git/refs/pull-refs.js';
+import { type RefTransition, ZERO_OID } from '../lib/git/wal/wal.types.js';
+import { createUlid } from '../lib/git/wal/ulid.js';
+import type { Repository } from '../lib/repositories/access/repository-access.js';
+import {
+  storageAccountOf,
+  billedKindOf,
+} from '../lib/storage/storage-account.js';
+import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
+import { MAX_PUSH_COMMITS, publishEvent } from '../lib/events/events.js';
+import { DATABASE } from '../database/database.module.js';
+import {
+  isGitServiceName,
+  type GitServiceName,
+} from '../lib/git/protocol/git-service.js';
+import {
+  ProtectedRefError,
+  UnsupportedGitServiceError,
+} from '../lib/git/git.errors.js';
+import { DomainError } from '../domain/errors.js';
 import { rejectedPushReport } from '../lib/git/protocol/report-status.js';
 import { withRemoteMessages } from '../lib/git/protocol/side-band.js';
-import { withVerifiedPack } from '../lib/git/protocol/verify-push.js';
-import { isPullRef } from '../lib/git/refs/pull-refs.js';
-import { resolveDefaultRef } from '../lib/git/tree/resolve-ref.js';
-import { createUlid } from '../lib/git/wal/ulid.js';
-import { type RefTransition, ZERO_OID } from '../lib/git/wal/wal.types.js';
-import { MAX_CLOSING_COMMITS } from '../lib/issues/close-issue.js';
-import type { Repository } from '../lib/repositories/access/repository-access.js';
+import { errorMessage } from '../lib/error-message.js';
 import { refTargeted } from '../lib/rulesets/ref-pattern.js';
 import { RulesetViolationError } from '../lib/rulesets/rulesets.errors.js';
 import type { Violation } from '../lib/rulesets/rulesets.types.js';
-import {
-  billedKindOf,
-  storageAccountOf,
-} from '../lib/storage/storage-account.js';
-import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
-import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
-import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
-import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
-import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
-import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
-import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
-import { IssueReferencesService } from '../services/issues/issue-references.service.js';
-import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
-import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
 import { RuleSuitesService } from '../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../services/rulesets/ruleset-verdicts.service.js';
-import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 
 export interface GitTransportResponse {
   headers: Record<string, string>;

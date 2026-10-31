@@ -15,13 +15,13 @@ import {
 } from 'class-validator';
 
 import {
-  REQUIREMENTS,
-  type Requirement,
-} from '../../../lib/rulesets/rulesets.types.js';
-import {
   CommitDTO,
   CommitFileDTO,
 } from '../../repositories/dto/get-repository-commits.dto.js';
+import {
+  REQUIREMENTS,
+  type Requirement,
+} from '../../../lib/rulesets/rulesets.types.js';
 
 export class GetPullRequestCommitsQueryDTO {
   @ApiPropertyOptional({

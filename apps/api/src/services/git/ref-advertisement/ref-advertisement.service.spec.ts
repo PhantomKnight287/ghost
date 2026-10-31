@@ -3,9 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { text } from 'node:stream/consumers';
-
 import { Test, TestingModule } from '@nestjs/testing';
-
 import { RefAdvertisementService } from './ref-advertisement.service.js';
 
 describe('RefAdvertisementService', () => {

@@ -1,5 +1,4 @@
 import path from 'node:path';
-
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
 import { and, eq, inArray } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';

@@ -10,7 +10,7 @@ import {
   resolveDefaultRef,
 } from '../../lib/git/tree/resolve-ref.js';
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import { type GithubOrigins, githubOrigins } from '../../lib/github/origins.js';
+import { githubOrigins, type GithubOrigins } from '../../lib/github/origins.js';
 import { ownerNameOf } from '../../lib/repositories/access/repository-access.js';
 import { RepositoryMaterializerService } from '../git/materializer/repository-materializer.service.js';
 

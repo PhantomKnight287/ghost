@@ -25,24 +25,24 @@ import {
   ApiTags,
   ApiUnsupportedMediaTypeResponse,
 } from '@nestjs/swagger';
-import type { UserSession } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Request } from 'express';
+import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { CookieOnly, SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
-import { UploadAvatarResponseDTO } from '../user/dto/avatar.dto.js';
 import {
   InviteByUsernameRequestDTO,
-  ListMyOrganizationsResponseDTO,
   ListOutsideCollaboratorsResponseDTO,
-  OrganizationProfileDTO,
   OrganizationSettingsDTO,
   SetPinnedRepositoriesDTO,
   UpdateOrganizationSettingsDTO,
+  ListMyOrganizationsResponseDTO,
+  OrganizationProfileDTO,
 } from './dto/organization.dto.js';
+import { UploadAvatarResponseDTO } from '../user/dto/avatar.dto.js';
 import { OrganizationsService } from './organizations.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @ApiTags('Organizations')
 @Controller('organizations')

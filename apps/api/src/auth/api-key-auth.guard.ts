@@ -16,7 +16,7 @@ import {
 import type { Request } from 'express';
 
 import { verifyApiKey } from '../lib/api-keys/verify-api-key.js';
-import { AUTHORIZATION_TOKEN, type Auth } from '../lib/auth.js';
+import { type Auth, AUTHORIZATION_TOKEN } from '../lib/auth.js';
 import { clientIp } from '../lib/http/client-ip.js';
 import { BAD_TOKEN_BUDGET } from '../lib/rate-limit/budgets.js';
 import { RateLimitedError } from '../lib/rate-limit/rate-limit.errors.js';

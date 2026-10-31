@@ -1,4 +1,3 @@
-import type { AppPermission, AppPermissions } from '@ghost/permissions';
 import {
   type CanActivate,
   type ExecutionContext,
@@ -8,8 +7,6 @@ import { Reflector } from '@nestjs/core';
 import { type GqlContextType, GqlExecutionContext } from '@nestjs/graphql';
 import type { GraphQLResolveInfo } from 'graphql';
 
-import type { GitAuthenticatedBufferedRequest } from '../git/types.js';
-import type { GithubRequest } from '../github/auth/github-request.js';
 import {
   ALLOW_USER_TOKENS,
   APP_PERMISSION,
@@ -20,8 +17,11 @@ import {
 import { IntegrationForbiddenError } from '../lib/apps/apps.errors.js';
 import { GRAPHQL_ROOT_PERMISSIONS } from '../lib/apps/graphql-permissions.js';
 import { commonPermissions, grants } from '../lib/apps/permissions.js';
+import type { AppPermission, AppPermissions } from '@ghost/permissions';
 import type { UserToServerCaller } from '../lib/apps/user-token-context.js';
 import { RepositoryNotFoundError } from '../lib/repositories/repositories.errors.js';
+import type { GithubRequest } from '../github/auth/github-request.js';
+import type { GitAuthenticatedBufferedRequest } from '../git/types.js';
 import { InstallationAccessService } from '../services/apps/installation-access.service.js';
 import { RepositoryAccessService } from '../services/git/repository-access/repository-access.service.js';
 

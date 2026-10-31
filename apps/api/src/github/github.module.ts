@@ -19,15 +19,11 @@ import { appPermissionMiddleware } from '../lib/apps/graphql-permissions.js';
 import { graphqlErrorType } from '../lib/github/error-type.js';
 import { createLoaders } from '../lib/github/loaders.js';
 import { githubValidationPlugin } from '../lib/github/validation.js';
-import { CommitStatusesModule } from '../resources/commit-statuses/commit-statuses.module.js';
 import { IssuesModule } from '../resources/issues/issues.module.js';
+import { CommitStatusesModule } from '../resources/commit-statuses/commit-statuses.module.js';
 import { PullRequestsModule } from '../resources/pull-requests/pull-requests.module.js';
 import { ReleasesModule } from '../resources/releases/releases.module.js';
 import { RepositoriesModule } from '../resources/repositories/repositories.module.js';
-import { AppClientsService } from '../services/apps/app-clients.service.js';
-import { AppJwtService } from '../services/apps/app-jwt.service.js';
-import { InstallationTokensService } from '../services/apps/installation-tokens.service.js';
-import { UserTokensService } from '../services/apps/user-tokens.service.js';
 import { GithubAuthMiddleware } from './auth/github-auth.middleware.js';
 import { IssueCommentResolver } from './graphql/resolvers/issue-comment/issue-comment.resolver.js';
 import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issue-mutations.resolver.js';
@@ -43,18 +39,22 @@ import { GithubSearchService } from './graphql/resolvers/search/search.service.j
 import { ViewerResolver } from './graphql/resolvers/viewer/viewer.resolver.js';
 import { ViewerService } from './graphql/resolvers/viewer/viewer.service.js';
 import { OauthModule } from './oauth/oauth.module.js';
-import { GithubAppModule } from './rest/app/app.module.js';
-import { GithubUserAttachmentsModule } from './rest/attachments/user-attachments.module.js';
 import { GithubGitModule } from './rest/git/git.module.js';
 import { GithubIssuesModule } from './rest/issues/issues.module.js';
+import { AppJwtService } from '../services/apps/app-jwt.service.js';
+import { AppClientsService } from '../services/apps/app-clients.service.js';
+import { UserTokensService } from '../services/apps/user-tokens.service.js';
+import { InstallationTokensService } from '../services/apps/installation-tokens.service.js';
+import { GithubAppModule } from './rest/app/app.module.js';
 import { MetaModule } from './rest/meta/meta.module.js';
 import { GithubPullsModule } from './rest/pulls/pulls.module.js';
 import { GithubReleasesModule } from './rest/releases/releases.module.js';
-import { ReposModule } from './rest/repos/repos.module.js';
-import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
 import { GithubStatusesModule } from './rest/statuses/statuses.module.js';
-import { TemplatesModule } from './rest/templates/templates.module.js';
+import { GithubUserAttachmentsModule } from './rest/attachments/user-attachments.module.js';
+import { ReposModule } from './rest/repos/repos.module.js';
 import { UsersModule } from './rest/users/users.module.js';
+import { TemplatesModule } from './rest/templates/templates.module.js';
+import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
 
 @Module({
   imports: [

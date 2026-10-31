@@ -10,7 +10,6 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import {
   GetCodeownersOwnersQueryDTO,
   GetCodeownersOwnersResponseDTO,
@@ -18,6 +17,7 @@ import {
   GetCodeownersResponseDTO,
 } from './dto/codeowners.dto.js';
 import { RepositoriesService } from './repositories.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories')
 @ApiTags('Repositories')

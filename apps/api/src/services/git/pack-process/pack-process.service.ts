@@ -1,12 +1,10 @@
-import { type ChildProcessByStdio, spawn } from 'node:child_process';
-import { Readable, type Writable } from 'node:stream';
-
 import { Injectable, Logger } from '@nestjs/common';
-
+import { spawn, type ChildProcessByStdio } from 'node:child_process';
+import { Readable, type Writable } from 'node:stream';
 import {
-  type GitServiceName,
   protocolEnv,
   toGitBinary,
+  type GitServiceName,
 } from '../../../lib/git/protocol/git-service.js';
 import { spawnPack } from '../../../lib/git/protocol/spawn-pack.js';
 

@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import {
   IsInt,
   IsOptional,
@@ -8,6 +7,7 @@ import {
   Validate,
   ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 import { MAX_TREE_PATH_LENGTH } from '../../../lib/git/tree/tree-path.js';
 import {

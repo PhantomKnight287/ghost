@@ -1,3 +1,4 @@
+import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 import { schema } from '@ghost/db';
 import {
   ApiProperty,
@@ -20,8 +21,6 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-
-import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 
 type ReviewState = (typeof schema.pullRequestReviewState.enumValues)[number];
 type DiffSide = (typeof schema.diffSide.enumValues)[number];

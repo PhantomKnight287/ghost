@@ -1,5 +1,5 @@
-import type { _Error } from '@aws-sdk/client-s3';
 import { HttpStatus } from '@nestjs/common';
+import type { _Error } from '@aws-sdk/client-s3';
 
 import { DomainError } from '../../domain/errors.js';
 

@@ -1,8 +1,8 @@
 import { ArgumentsHost, Catch, ExceptionFilter, Logger } from '@nestjs/common';
-import { GqlContextType } from '@nestjs/graphql';
 import type { Request, Response } from 'express';
 
 import { DomainError } from '../../domain/errors.js';
+import { GqlContextType } from '@nestjs/graphql';
 import { RateLimitedError } from '../../lib/rate-limit/rate-limit.errors.js';
 
 @Catch(DomainError)

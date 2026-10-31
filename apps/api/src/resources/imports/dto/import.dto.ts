@@ -1,15 +1,15 @@
-import { schema } from '@ghost/db';
 import { ApiProperty, OmitType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  ValidateNested,
   IsIn,
   IsInt,
   IsISO8601,
   IsString,
   Matches,
-  ValidateNested,
 } from 'class-validator';
+import { schema } from '@ghost/db';
 
 import { CreateRepositoryRequestDTO } from '../../repositories/dto/create-repository.dto.js';
 

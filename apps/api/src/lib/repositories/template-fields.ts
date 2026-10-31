@@ -1,10 +1,10 @@
+import { applyDecorators } from '@nestjs/common';
 import {
   findGitignoreTemplate,
   findLicense,
   GITIGNORE_TEMPLATES,
   LICENSES,
 } from '@ghost/templates';
-import { applyDecorators } from '@nestjs/common';
 import { Transform } from 'class-transformer';
 import { IsIn, IsOptional } from 'class-validator';
 

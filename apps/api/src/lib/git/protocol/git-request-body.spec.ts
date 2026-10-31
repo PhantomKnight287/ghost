@@ -1,5 +1,4 @@
 import { buffer } from 'node:stream/consumers';
-
 import { describe, expect, it } from 'vitest';
 
 import { bufferBody } from './git-request-body.js';

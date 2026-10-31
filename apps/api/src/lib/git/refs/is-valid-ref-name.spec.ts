@@ -1,5 +1,4 @@
 import { execFileSync } from 'node:child_process';
-
 import { describe, expect, it } from 'vitest';
 
 import { isValidRefName, isWellFormedRef } from './is-valid-ref-name.js';

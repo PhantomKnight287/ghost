@@ -1,5 +1,4 @@
 import { createTransport } from 'nodemailer';
-
 import { proxyTransport } from './proxy.transport.js';
 
 describe('proxyTransport', () => {

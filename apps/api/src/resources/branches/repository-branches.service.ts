@@ -3,16 +3,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, or } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import {
-  BranchAlreadyExistsError,
-  BranchInUseError,
-  BranchSourceNotFoundError,
-  DefaultBranchDeletionError,
-  InvalidBranchNameError,
-} from '../../lib/branches/branches.errors.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
+import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import { isValidRefName } from '../../lib/git/refs/is-valid-ref-name.js';
-import { listBranches } from '../../lib/git/refs/list-refs.js';
 import { listTags } from '../../lib/git/tags/list-tags.js';
 import {
   resolveCommit,
@@ -20,15 +13,22 @@ import {
   resolveTargetCommit,
 } from '../../lib/git/tree/resolve-ref.js';
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
-import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
-import { BranchNotFoundError } from '../../lib/repositories/repositories.errors.js';
-import { EXISTING_HISTORY } from '../../lib/rulesets/rulesets.types.js';
 import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
-import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../../services/rulesets/ruleset-verdicts.service.js';
+import { EXISTING_HISTORY } from '../../lib/rulesets/rulesets.types.js';
+import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import { BranchNotFoundError } from '../../lib/repositories/repositories.errors.js';
 import type { BranchDTO, CreateBranchRequestDTO } from './dto/branch.dto.js';
+import {
+  BranchAlreadyExistsError,
+  BranchInUseError,
+  BranchSourceNotFoundError,
+  DefaultBranchDeletionError,
+  InvalidBranchNameError,
+} from '../../lib/branches/branches.errors.js';
+import { listBranches } from '../../lib/git/refs/list-refs.js';
 
 type RepositoryRef = { username: string; repo: string; requesterId: string };
 

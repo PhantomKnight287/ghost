@@ -1,7 +1,6 @@
-import { pipeline } from 'node:stream/promises';
-
 import { HttpStatus, type Logger } from '@nestjs/common';
 import type { Response } from 'express';
+import { pipeline } from 'node:stream/promises';
 
 import {
   ARCHIVE_MEDIA_TYPES,

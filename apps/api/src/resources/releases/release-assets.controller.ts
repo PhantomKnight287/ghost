@@ -33,12 +33,12 @@ import type { Request, Response } from 'express';
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { UploadNotOctetStreamError } from '../../lib/releases/releases.errors.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import {
   ReleaseAssetDTO,
   UploadReleaseAssetQueryDTO,
 } from './dto/release.dto.js';
 import { ReleaseAssetsService } from './release-assets.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/releases')
 @ApiTags('Releases')

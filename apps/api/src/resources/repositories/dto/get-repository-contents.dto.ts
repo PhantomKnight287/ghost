@@ -1,8 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import {
-  IsInt,
   IsISO8601,
+  IsInt,
   IsOptional,
   IsString,
   MaxLength,
@@ -11,6 +10,7 @@ import {
   ValidatorConstraint,
   type ValidatorConstraintInterface,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 import {
   isSafeTreePath,

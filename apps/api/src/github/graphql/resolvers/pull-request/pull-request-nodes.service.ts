@@ -4,15 +4,16 @@ import { ConfigService } from '@nestjs/config';
 import { and, asc, eq, isNotNull, or, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../../database/database.module.js';
-import { resolveDefaultRef } from '../../../../lib/git/tree/resolve-ref.js';
 import { orNull } from '../../../../lib/github/authorize.js';
 import type { Loaders } from '../../../../lib/github/loaders.js';
-import { mergeStateOf } from '../../../../lib/github/merge-state.js';
-import {
-  decodeNodeIdAs,
-  encodeNodeId,
-} from '../../../../lib/github/node-id.js';
+import { encodeNodeId } from '../../../../lib/github/node-id.js';
 import { closingIssueIdsOf } from '../../../../lib/github/node-lookup.js';
+import { resolveDefaultRef } from '../../../../lib/git/tree/resolve-ref.js';
+import { mergeStateOf } from '../../../../lib/github/merge-state.js';
+import { RepositoryMaterializerService } from '../../../../services/git/materializer/repository-materializer.service.js';
+import { decodeNodeIdAs } from '../../../../lib/github/node-id.js';
+import { requiredContexts } from '../../../../lib/rulesets/evaluate-rulesets.js';
+import type { StatusContextNode } from '../../types/placeholders.type.js';
 import {
   toCommitNode,
   toPullRequestReviewNode,
@@ -20,13 +21,11 @@ import {
   toUserNode,
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
-import { teamSlug } from '../../../../lib/organizations/team-slug.js';
 import { canResolveThreads } from '../../../../lib/pull-requests/reviews.js';
-import { requiredContexts } from '../../../../lib/rulesets/evaluate-rulesets.js';
+import { teamSlug } from '../../../../lib/organizations/team-slug.js';
 import { MERGE_METHODS } from '../../../../resources/pull-requests/dto/pull-request-changes.dto.js';
 import { PullRequestsService } from '../../../../resources/pull-requests/pull-requests.service.js';
 import { ReviewRequestsService } from '../../../../resources/pull-requests/review-requests.service.js';
-import { RepositoryMaterializerService } from '../../../../services/git/materializer/repository-materializer.service.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
 import { sliceConnection } from '../../connection.js';
 import {
@@ -40,7 +39,6 @@ import {
 } from '../../enums.js';
 import { IssueNode } from '../../types/issue.type.js';
 import type { OrganizationNode } from '../../types/organization.type.js';
-import type { StatusContextNode } from '../../types/placeholders.type.js';
 import { TeamNode } from '../../types/placeholders.type.js';
 import {
   GitActorNode,

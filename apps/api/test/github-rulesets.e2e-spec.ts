@@ -1,7 +1,7 @@
 import type { Database } from '@ghost/db';
+import { sql } from 'drizzle-orm';
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -383,11 +383,7 @@ describe.skipIf(!hasBackends)('GitHub repository rulesets', () => {
       },
       {
         bypass_actors: [
-          {
-            actor_id: 999999999,
-            actor_type: 'Integration',
-            bypass_mode: 'always',
-          },
+          { actor_id: 999999999, actor_type: 'Integration', bypass_mode: 'always' },
         ],
       },
       {

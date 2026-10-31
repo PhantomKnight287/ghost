@@ -1,4 +1,3 @@
-import { createDatabase, type Database, type Pool } from '@ghost/db';
 import {
   Global,
   Inject,
@@ -6,6 +5,7 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { createDatabase, type Database, type Pool } from '@ghost/db';
 
 export const DATABASE_CONNECTION = 'DATABASE_CONNECTION';
 export const DATABASE = 'DATABASE';

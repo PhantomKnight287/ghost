@@ -8,22 +8,22 @@ import { DATABASE } from '../../../database/database.module.js';
 import { verifyApiKey } from '../../../lib/api-keys/verify-api-key.js';
 import { installationCaller } from '../../../lib/apps/installation-context.js';
 import { INSTALLATION_TOKEN } from '../../../lib/apps/installation-token.js';
-import { USER_TOKEN } from '../../../lib/apps/user-token.js';
 import { userToServerCaller } from '../../../lib/apps/user-token-context.js';
+import { USER_TOKEN } from '../../../lib/apps/user-token.js';
 import type { Auth } from '../../../lib/auth.js';
-import { isGitPush } from '../../../lib/git/git-push.js';
 import {
   type LfsTokenClaims,
   verifyLfsToken,
 } from '../../../lib/git/lfs/lfs-token.js';
+import { isGitPush } from '../../../lib/git/git-push.js';
 import { hasScope, scopesOfKey } from '../../../lib/github/scopes.js';
 import { clientIp } from '../../../lib/http/client-ip.js';
-import { oauthAppBlocked } from '../../../lib/organizations/oauth-app-access.js';
 import {
   type Budget,
   rateLimitBudgets,
 } from '../../../lib/rate-limit/budgets.js';
 import { rateLimitHeaders } from '../../../lib/rate-limit/headers.js';
+import { oauthAppBlocked } from '../../../lib/organizations/oauth-app-access.js';
 import {
   AuthenticationRequiredError,
   RepositoryForbiddenError,
@@ -32,8 +32,8 @@ import { type Actor } from '../../../lib/repositories/access/repository-access.j
 import { RepositoryNotFoundError } from '../../../lib/repositories/repositories.errors.js';
 import { InstallationTokensService } from '../../../services/apps/installation-tokens.service.js';
 import { UserTokensService } from '../../../services/apps/user-tokens.service.js';
-import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
 import { RateLimiterService } from '../../../services/rate-limit/rate-limiter.service.js';
+import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
 import { GitAuthenticatedBufferedRequest } from '../../types.js';
 
 /** LFS object transfers, which the batch call already bounds; the batch call itself counts. */

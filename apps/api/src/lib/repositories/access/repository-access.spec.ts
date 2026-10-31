@@ -1,4 +1,3 @@
-import { roleHierarchy } from '@ghost/permissions';
 import { describe, expect, it } from 'vitest';
 
 import { RepositoryNotFoundError } from '../repositories.errors.js';
@@ -6,6 +5,7 @@ import {
   AuthenticationRequiredError,
   RepositoryForbiddenError,
 } from './repository-access.errors.js';
+import { roleHierarchy } from '@ghost/permissions';
 import {
   type Actor,
   decideAccess,

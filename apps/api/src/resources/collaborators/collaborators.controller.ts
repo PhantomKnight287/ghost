@@ -21,13 +21,13 @@ import {
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { CollaboratorsService } from './collaborators.service.js';
 import {
   CollaboratorDTO,
   InviteCollaboratorRequestDTO,
   ListCollaboratorsResponseDTO,
 } from './dto/collaborator.dto.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @ApiTags('Collaborators')
 @Controller('repositories/:username/:repo/collaborators')

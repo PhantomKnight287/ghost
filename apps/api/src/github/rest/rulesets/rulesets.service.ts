@@ -38,12 +38,12 @@ import type {
   GithubBranchRuleDTO,
   GithubBypassActorDTO,
   GithubCreateRulesetDTO,
+  GithubRulesetDTO,
+  GithubRulesetSummaryDTO,
   GithubRuleSuiteDetailDTO,
   GithubRuleSuiteDTO,
   GithubRuleSuiteQueryDTO,
   GithubRuleSuitesQueryDTO,
-  GithubRulesetDTO,
-  GithubRulesetSummaryDTO,
   GithubUpdateRulesetDTO,
 } from './dto/rulesets.dto.js';
 

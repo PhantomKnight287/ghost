@@ -2,8 +2,8 @@ import { type Database, schema } from '@ghost/db';
 import { eq, sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
-import { sameName } from '../db/sql.js';
 import { OauthAppRestrictedError } from './organization.errors.js';
+import { sameName } from '../db/sql.js';
 
 /** Whether the organization's OAuth app restrictions keep the app out of its repositories: they are on, and the app is neither built into the instance, nor the organization's own, nor approved by it. A null `clientId` is an app that cannot be identified, which restrictions always keep out. `organizationId` may be a column, to ask about every row of a query. */
 export function oauthAppBlockedIn(

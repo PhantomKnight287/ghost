@@ -10,7 +10,6 @@ import {
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Public } from '@thallesp/nestjs-better-auth';
 
-import { NotRateLimited } from '../../rate-limit/rate-limit.guard.js';
 import {
   FinishImportRequestDTO,
   ImportAttemptDTO,
@@ -20,6 +19,7 @@ import {
 } from './dto/importer-callback.dto.js';
 import { ImporterCallbacksService } from './importer-callbacks.service.js';
 import { ImporterSecretGuard } from './importer-secret.guard.js';
+import { NotRateLimited } from '../../rate-limit/rate-limit.guard.js';
 
 /** Called by `apps/importer` only. Each call renews the attempt's lease, so a working importer never looks silent. */
 @Controller('internal/imports/:importId')

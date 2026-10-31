@@ -1,5 +1,4 @@
 import path from 'node:path';
-
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { eq } from 'drizzle-orm';
@@ -11,13 +10,13 @@ import {
   SIGNING_KEY_ID,
   SIGNING_PUBLIC_KEY,
 } from '../../lib/gpg/__fixtures__/signed-commit.js';
+import { UsersService } from '../../services/users/users.service.js';
 import {
   GpgKeyAlreadyExistsError,
   GpgKeyEmailNotVerifiedError,
   GpgKeyNotFoundError,
   InvalidGpgKeyError,
 } from '../../lib/gpg-keys/gpg-keys.errors.js';
-import { UsersService } from '../../services/users/users.service.js';
 import { GpgKeysService } from './gpg-keys.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;

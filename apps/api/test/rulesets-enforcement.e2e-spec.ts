@@ -3,11 +3,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import * as openpgp from 'openpgp';
 import request from 'supertest';
+import * as openpgp from 'openpgp';
 import {
   afterAll,
   afterEach,
@@ -18,11 +17,11 @@ import {
   vi,
 } from 'vitest';
 
-import type { Auth } from '../src/lib/auth.js';
-import { insertSignature } from '../src/lib/git/commits/commit-signature.js';
-import { signPayload } from '../src/lib/gpg/openpgp.js';
 import { CommitStatusesService } from '../src/resources/commit-statuses/commit-statuses.service.js';
 import { CommitVerificationService } from '../src/services/gpg/commit-verification.service.js';
+import { insertSignature } from '../src/lib/git/commits/commit-signature.js';
+import { signPayload } from '../src/lib/gpg/openpgp.js';
+import type { Auth } from '../src/lib/auth.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 type Account = Awaited<ReturnType<typeof signUp>> & { username: string };

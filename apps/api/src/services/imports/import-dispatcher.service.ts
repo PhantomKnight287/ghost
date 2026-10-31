@@ -12,16 +12,16 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import type { Auth } from '../../lib/auth.js';
-import { errorMessage } from '../../lib/error-message.js';
-import { githubAccessToken } from '../../lib/imports/github-account.js';
+import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
 import {
   dispatchToImporter,
   githubImportConfig,
   retryDelayMs,
 } from '../../lib/imports/importer.js';
-import { MAX_IMPORT_ATTEMPTS } from '../../lib/imports/importing.js';
+import { githubAccessToken } from '../../lib/imports/github-account.js';
 import { StaleImportAttemptError } from '../../lib/imports/imports.errors.js';
-import { repositoryFullNameOf } from '../../lib/repositories/access/repository-access.js';
+import { errorMessage } from '../../lib/error-message.js';
+import { MAX_IMPORT_ATTEMPTS } from '../../lib/imports/importing.js';
 
 // The importer calls back at least every 30 seconds while it works; four missed beats means it is gone.
 const LEASE_MS = 2 * 60_000;

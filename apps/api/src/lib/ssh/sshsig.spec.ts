@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { readPublicKey } from '../git/ssh/public-key.js';
-import { SIGNED_COMMIT_OBJECT } from '../gpg/__fixtures__/signed-commit.js';
 import {
   ECDSA_GIT_SIGNATURE,
   ED25519_FILE_SIGNATURE,
@@ -11,6 +9,8 @@ import {
   RSA_PUBLIC_KEY,
   SIGNED_PAYLOAD,
 } from './__fixtures__/ssh-signatures.js';
+import { SIGNED_COMMIT_OBJECT } from '../gpg/__fixtures__/signed-commit.js';
+import { readPublicKey } from '../git/ssh/public-key.js';
 import { readSshSignature, verifySshSignature } from './sshsig.js';
 
 const blobOf = (line: string) => readPublicKey(line).blob;

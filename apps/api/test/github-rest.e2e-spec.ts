@@ -1,13 +1,13 @@
+import type { INestApplication } from '@nestjs/common';
 import { execFile, execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-
-import { GITIGNORE_TEMPLATES } from '@ghost/templates';
-import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { GITIGNORE_TEMPLATES } from '@ghost/templates';
 
 import { hasBackends, signUp, startApp } from './harness.js';
 

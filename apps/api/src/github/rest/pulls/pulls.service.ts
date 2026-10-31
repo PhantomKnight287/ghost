@@ -5,6 +5,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, count, eq } from 'drizzle-orm';
 
+import { mergeStateOf } from '../../../lib/github/merge-state.js';
 import { DATABASE } from '../../../database/database.module.js';
 import { orNull } from '../../../lib/github/authorize.js';
 import {
@@ -13,7 +14,6 @@ import {
   NotMergeableError,
   UnprocessableError,
 } from '../../../lib/github/github.errors.js';
-import { mergeStateOf } from '../../../lib/github/merge-state.js';
 import { encodeNodeId } from '../../../lib/github/node-id.js';
 import {
   pullRequestRowsOf,

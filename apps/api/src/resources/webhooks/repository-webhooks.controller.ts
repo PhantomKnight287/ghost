@@ -24,7 +24,6 @@ import {
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import {
   CreatedWebhookDTO,
   CreateWebhookRequestDTO,
@@ -35,6 +34,7 @@ import {
   WebhookSecretDTO,
 } from './dto/webhook.dto.js';
 import { WebhooksService } from './webhooks.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @ApiTags('Webhooks')
 @Controller('repositories/:username/:repo/webhooks')

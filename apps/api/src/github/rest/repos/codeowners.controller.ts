@@ -2,14 +2,14 @@ import { Controller, Get, Param, Query, UseFilters } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
-import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import type { GithubViewer } from '../../auth/github-request.js';
 import { Viewer } from '../../auth/viewer.decorator.js';
-import { ApiGithubErrors } from '../dto/error.dto.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
-import { GithubCodeownersErrorsDTO } from './dto/repository.dto.js';
 import { GithubReposService } from './repos.service.js';
+import { GithubCodeownersErrorsDTO } from './dto/repository.dto.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 @RequireAppPermission('contents')
 @Controller('v3')

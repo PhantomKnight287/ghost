@@ -1,11 +1,10 @@
 import { Readable } from 'node:stream';
 import { buffer as readStream } from 'node:stream/consumers';
 import { gzipSync } from 'node:zlib';
-
 import { describe, expect, it, vi } from 'vitest';
 
-import type { GitAuthenticatedBufferedRequest } from '../types.js';
 import { GitRawBodyMiddleware } from './git-raw-body.middleware.js';
+import type { GitAuthenticatedBufferedRequest } from '../types.js';
 
 function request(body: Buffer, headers: Record<string, string> = {}) {
   return Object.assign(Readable.from(body), {

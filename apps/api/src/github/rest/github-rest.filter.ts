@@ -33,9 +33,10 @@ import {
   ReviewLineNotInDiffError,
 } from '../../lib/pull-requests/pull-requests.errors.js';
 import {
-  GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
-  RateLimitedError,
-} from '../../lib/rate-limit/rate-limit.errors.js';
+  InvalidRuleParametersError,
+  RequiredSignaturesNeedKeyError,
+  RulesetNameTakenError,
+} from '../../lib/rulesets/rulesets.errors.js';
 import {
   InvalidAssetNameError,
   InvalidTagNameError,
@@ -44,10 +45,9 @@ import {
   TagTargetNotFoundError,
 } from '../../lib/releases/releases.errors.js';
 import {
-  InvalidRuleParametersError,
-  RequiredSignaturesNeedKeyError,
-  RulesetNameTakenError,
-} from '../../lib/rulesets/rulesets.errors.js';
+  GITHUB_RATE_LIMIT_DOCUMENTATION_URL,
+  RateLimitedError,
+} from '../../lib/rate-limit/rate-limit.errors.js';
 import { SshKeyAlreadyExistsError } from '../../lib/ssh-keys/ssh-keys.errors.js';
 
 /** Ghost errors GitHub answers as a 422 naming the field at fault. */

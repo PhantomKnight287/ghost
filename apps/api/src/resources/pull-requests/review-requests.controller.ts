@@ -22,7 +22,6 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { SuggestionQueryDTO } from '../issues/dto/suggestion.dto.js';
 import {
   RequestableReviewersDTO,
@@ -30,6 +29,7 @@ import {
   ReviewRequestsBodyDTO,
 } from './dto/review-requests.dto.js';
 import { ReviewRequestsService } from './review-requests.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/pulls')
 @ApiTags('Pull request reviews')

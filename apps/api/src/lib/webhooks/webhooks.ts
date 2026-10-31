@@ -4,9 +4,9 @@ import { BlockList, isIP } from 'node:net';
 
 import type { schema } from '@ghost/db';
 import {
-  webhookEvents as events,
   type InstallationEvent,
   type WebhookEvent,
+  webhookEvents as events,
 } from '@ghost/webhooks';
 
 import type { EventType } from '../events/events.js';

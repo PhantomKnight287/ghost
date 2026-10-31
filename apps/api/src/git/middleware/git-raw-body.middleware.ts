@@ -1,7 +1,6 @@
-import { createGunzip, createInflate } from 'node:zlib';
-
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
+import { createGunzip, createInflate } from 'node:zlib';
 
 import { spoolToFile } from '../../lib/git/protocol/spool.js';
 import { GitAuthenticatedBufferedRequest } from '../types.js';

@@ -15,8 +15,8 @@ import {
 import { errorMessage } from '../../lib/error-message.js';
 import { OUTBOX_CHANNEL, type StoredEvent } from '../../lib/events/events.js';
 import { CodeownerRequestsService } from '../codeowners/codeowner-requests.service.js';
-import { NotifierService } from '../notifications/notifier.service.js';
 import { StaleApprovalsService } from '../rulesets/stale-approvals.service.js';
+import { NotifierService } from '../notifications/notifier.service.js';
 import { WebhookFanoutService } from '../webhooks/webhook-fanout.service.js';
 
 const BATCH_SIZE = 20;

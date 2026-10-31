@@ -1,4 +1,3 @@
-import { schema } from '@ghost/db';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsIn,
@@ -7,6 +6,7 @@ import {
   IsString,
   ValidateIf,
 } from 'class-validator';
+import { schema } from '@ghost/db';
 
 export class UpdateRepositoryRequestDTO {
   @ApiPropertyOptional({

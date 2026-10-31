@@ -8,11 +8,11 @@ import { ConfigModule } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 
 import { DATABASE, DatabaseModule } from '../database/database.module.js';
-import { errorMessage } from '../lib/error-message.js';
 import { formatByteSize } from '../lib/storage/byte-size.js';
 import { WalStoreService } from '../services/git/wal/wal-store.service.js';
 import { S3Service } from '../services/s3/s3.service.js';
 import { RepositoryLogBackfillService } from '../services/storage/repository-log-backfill.service.js';
+import { errorMessage } from '../lib/error-message.js';
 
 // Only what a backfill needs, so the script opens no HTTP or SSH listener and starts no poller.
 @Module({

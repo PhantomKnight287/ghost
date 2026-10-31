@@ -4,7 +4,6 @@ import { ConfigService } from '@nestjs/config';
 import { eq, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { sameName } from '../../../lib/db/sql.js';
 import {
   CouldNotResolveError,
   RequiresAuthenticationError,
@@ -25,6 +24,7 @@ import type {
   GithubSigningKeyDTO,
   GithubUserDTO,
 } from './dto/user.dto.js';
+import { sameName } from '../../../lib/db/sql.js';
 
 /** GitHub's REST users and the authenticated user's SSH authentication and signing keys. */
 @Injectable()

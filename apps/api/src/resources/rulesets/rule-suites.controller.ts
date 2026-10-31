@@ -10,12 +10,12 @@ import {
 import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
 import {
   ListRuleSuitesQueryDTO,
   ListRuleSuitesResponseDTO,
 } from './dto/rule-suite.dto.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo')
 @ApiTags('Rulesets')

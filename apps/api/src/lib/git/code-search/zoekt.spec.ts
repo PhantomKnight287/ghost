@@ -1,8 +1,7 @@
-import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import {
   afterAll,
   afterEach,

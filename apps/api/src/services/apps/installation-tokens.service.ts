@@ -1,13 +1,9 @@
 import { type Database, schema } from '@ghost/db';
 import type { AppPermission, AppPermissions } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, gt, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import type {
-  AppInstallationCaller,
-  GithubApp,
-} from '../../github/auth/github-request.js';
 import { InstallationSuspendedError } from '../../lib/apps/apps.errors.js';
 import {
   generateInstallationToken,
@@ -18,6 +14,10 @@ import {
 import { narrowRepositories } from '../../lib/apps/narrow-repositories.js';
 import { grants } from '../../lib/apps/permissions.js';
 import { GithubNotFoundError } from '../../lib/github/github.errors.js';
+import type {
+  AppInstallationCaller,
+  GithubApp,
+} from '../../github/auth/github-request.js';
 
 export type MintTokenBody = {
   permissions?: Record<string, string>;

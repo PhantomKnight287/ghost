@@ -2,12 +2,11 @@
 import './instrumentation.js';
 
 import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module.js';
 import { SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import type { Request, Response } from 'express';
 import morgan from 'morgan';
-
-import { AppModule } from './app.module.js';
 import { configureApp } from './app.setup.js';
 import { openApiConfig } from './lib/openapi.js';
 

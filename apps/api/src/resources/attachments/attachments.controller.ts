@@ -27,13 +27,13 @@ import type { Request, Response } from 'express';
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
 import { isInlineAttachment } from '../../lib/attachments/attachments.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
-import { NotRateLimited } from '../../rate-limit/rate-limit.guard.js';
 import { AttachmentsService } from './attachments.service.js';
 import {
   AttachmentDTO,
   UploadAttachmentQueryDTO,
 } from './dto/attachment.dto.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { NotRateLimited } from '../../rate-limit/rate-limit.guard.js';
 
 @Controller()
 @ApiTags('Attachments')

@@ -1,3 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Test, TestingModule } from '@nestjs/testing';
+import { bufferBody } from '../lib/git/protocol/git-request-body.js';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -5,28 +8,24 @@ import path from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
 import { buffer as readAll } from 'node:stream/consumers';
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { DATABASE } from '../database/database.module.js';
+import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
+import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
+import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
+import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
+import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
+import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
+import { IssueReferencesService } from '../services/issues/issue-references.service.js';
+import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
+import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
+import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
 import {
   ProtectedRefError,
   UnsupportedGitServiceError,
 } from '../lib/git/git.errors.js';
-import { bufferBody } from '../lib/git/protocol/git-request-body.js';
-import { CodeSearchService } from '../services/git/code-search/code-search.service.js';
-import { RepositoryContributionService } from '../services/git/contributions/repository-contribution.service.js';
-import { RepositoryMaterializerService } from '../services/git/materializer/repository-materializer.service.js';
-import { PackProcessService } from '../services/git/pack-process/pack-process.service.js';
-import { PullRefsService } from '../services/git/pull-refs/pull-refs.service.js';
-import { RefAdvertisementService } from '../services/git/ref-advertisement/ref-advertisement.service.js';
-import { PushTransactionService } from '../services/git/wal/push-transaction.service.js';
-import { IssueReferencesService } from '../services/issues/issue-references.service.js';
-import { PullRequestHintsService } from '../services/pull-requests/pull-request-hints.service.js';
-import { PullRequestPushesService } from '../services/pull-requests/pull-request-pushes.service.js';
+import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
+import { DATABASE } from '../database/database.module.js';
 import { RuleSuitesService } from '../services/rulesets/rule-suites.service.js';
 import { RulesetVerdictsService } from '../services/rulesets/ruleset-verdicts.service.js';
-import { StorageQuotaService } from '../services/storage/storage-quota.service.js';
 import { GitService } from './git.service.js';
 
 // Verification runs real git over a real pack; it has its own spec, and these bodies are stand-ins.

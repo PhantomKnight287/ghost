@@ -1,7 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-
 import type { NextFunction, Request, Response } from 'express';
 import { expect } from 'vitest';
 

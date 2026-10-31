@@ -2,11 +2,11 @@ import { Controller, Get, UseFilters } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { SignInOptional } from '../../../auth/api-key-auth.guard.js';
-import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
-import { ApiGithubErrors } from '../dto/error.dto.js';
 import { GithubRestFilter } from '../github-rest.filter.js';
-import { GithubMetaDTO } from './dto/meta.dto.js';
 import { MetaService } from './meta.service.js';
+import { GithubMetaDTO } from './dto/meta.dto.js';
+import { ApiGithubErrors } from '../dto/error.dto.js';
+import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 
 @RequireAppPermission('metadata')
 @Controller('v3')

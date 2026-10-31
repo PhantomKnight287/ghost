@@ -3,7 +3,6 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
-
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { type RefTransition, ZERO_OID } from '../wal/wal.types.js';

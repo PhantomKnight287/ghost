@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { createUlid } from './ulid.js';
-import { WalCorruptError } from './wal.errors.js';
-import { emptyIndex, type WalIndex } from './wal.types.js';
 import {
   decodeEntryHeader,
   decodeIndex,
   encodeEntryHeader,
   encodeIndex,
 } from './wal-codec.js';
+import { createUlid } from './ulid.js';
+import { WalCorruptError } from './wal.errors.js';
+import { emptyIndex, type WalIndex } from './wal.types.js';
 
 const oid = (byte: number) => Buffer.alloc(20, byte);
 const packSha = (byte: number) => Buffer.alloc(32, byte);

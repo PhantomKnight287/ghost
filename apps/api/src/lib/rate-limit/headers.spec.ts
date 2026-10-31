@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { Budget } from './budgets.js';
 import {
-  type RateLimitDecision,
   rateLimitHeaders,
+  type RateLimitDecision,
   tightest,
 } from './headers.js';
 

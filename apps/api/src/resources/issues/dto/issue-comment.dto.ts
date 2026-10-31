@@ -1,3 +1,4 @@
+import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -8,8 +9,6 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-
-import { ViaAppDTO } from '../../apps/dto/via-app.dto.js';
 
 export class IssueCommentDTO {
   @ApiProperty()

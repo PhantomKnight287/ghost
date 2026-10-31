@@ -13,15 +13,13 @@ import {
 } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
+import { runGitStream } from '../../../lib/git/exec/run-git.js';
+import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
+import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { excluded } from '../../../lib/db/sql.js';
 import { isAncestor } from '../../../lib/git/diff/diff.js';
-import { runGitStream } from '../../../lib/git/exec/run-git.js';
-import { splitRecords } from '../../../lib/git/exec/split-records.js';
-import {
-  resolveCommit,
-  resolveDefaultRef,
-} from '../../../lib/git/tree/resolve-ref.js';
 import { SingleFlight } from '../../../lib/single-flight.js';
+import { splitRecords } from '../../../lib/git/exec/split-records.js';
 
 /** Rows buffered before a flush. Keeps a full rebuild's memory bounded. */
 const FLUSH_THRESHOLD = 5_000;

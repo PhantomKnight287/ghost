@@ -3,8 +3,8 @@ import { type Role, roleHierarchy } from '@ghost/permissions';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
-  IsInt,
   IsISO8601,
+  IsInt,
   IsOptional,
   IsString,
 } from 'class-validator';

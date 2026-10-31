@@ -2,8 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsInt,
   IsISO8601,
+  IsInt,
   IsOptional,
   IsString,
   Max,

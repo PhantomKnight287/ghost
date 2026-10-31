@@ -1,5 +1,4 @@
 import path from 'node:path';
-
 import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
 import { ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
@@ -16,6 +15,8 @@ import {
 } from 'vitest';
 
 import { DATABASE } from '../../database/database.module.js';
+import { MailService } from '../../mail/mail.service.js';
+import { UsersService } from '../../services/users/users.service.js';
 import {
   EmailAlreadyTakenError,
   EmailAlreadyVerifiedError,
@@ -23,8 +24,6 @@ import {
   InvalidVerificationTokenError,
   ResendTooSoonError,
 } from '../../lib/emails/emails.errors.js';
-import { MailService } from '../../mail/mail.service.js';
-import { UsersService } from '../../services/users/users.service.js';
 import { EmailsService } from './emails.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;

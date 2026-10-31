@@ -1,5 +1,4 @@
 import path from 'node:path';
-
 import { createDatabase, seedBuiltInRows } from '@ghost/db';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 

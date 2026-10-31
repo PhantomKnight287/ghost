@@ -3,10 +3,10 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { OptionalAuth } from '@thallesp/nestjs-better-auth';
 import type { Response } from 'express';
 
-import { RequireAppPermission } from '../lib/apps/app-permission.js';
-import { gitContentsLevel } from '../lib/git/git-push.js';
 import { GitService, type GitTransportResponse } from './git.service.js';
 import type { GitAuthorizedRequest, GitPackRequest } from './types.js';
+import { RequireAppPermission } from '../lib/apps/app-permission.js';
+import { gitContentsLevel } from '../lib/git/git-push.js';
 
 @RequireAppPermission({ contents: gitContentsLevel })
 @Controller(':username/:repo')

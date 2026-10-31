@@ -3,7 +3,6 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import request from 'supertest';
@@ -12,8 +11,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Auth } from '../src/lib/auth.js';
 import { RepositoriesModule } from '../src/resources/repositories/repositories.module.js';
 import { PushTransactionService } from '../src/services/git/wal/push-transaction.service.js';
-import { WalStoreService } from '../src/services/git/wal/wal-store.service.js';
 import { S3Service } from '../src/services/s3/s3.service.js';
+import { WalStoreService } from '../src/services/git/wal/wal-store.service.js';
 import { hasBackends, signUp, startApp } from './harness.js';
 
 type Account = Awaited<ReturnType<typeof signUp>>;

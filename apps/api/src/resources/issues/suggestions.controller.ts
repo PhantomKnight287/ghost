@@ -9,13 +9,13 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import {
   SuggestedIssuesResponseDTO,
   SuggestedUsersResponseDTO,
   SuggestionQueryDTO,
 } from './dto/suggestion.dto.js';
 import { SuggestionsService } from './suggestions.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller('repositories/:username/:repo/suggestions')
 @ApiTags('Issues')

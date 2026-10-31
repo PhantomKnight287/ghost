@@ -1,6 +1,5 @@
 import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
-
 import { describe, expect, it } from 'vitest';
 
 import { pktLine } from './pkt-line.js';

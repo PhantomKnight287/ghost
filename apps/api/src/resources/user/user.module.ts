@@ -2,11 +2,11 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import express from 'express';
 
 import { AvatarsModule } from '../../avatars/avatars.module.js';
+import { UsersService } from '../../services/users/users.service.js';
 import {
   AVATAR_CONTENT_TYPES,
   AVATAR_MAX_BYTES,
 } from '../../lib/avatars/avatar.constants.js';
-import { UsersService } from '../../services/users/users.service.js';
 import { UserController } from './user.controller.js';
 import { UserService } from './user.service.js';
 

@@ -1,10 +1,9 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-
 import { DATABASE } from '../../database/database.module.js';
-import { sameName } from '../../lib/db/sql.js';
 import { UserNotFoundError } from '../../lib/users/users.errors.js';
+import { sameName } from '../../lib/db/sql.js';
 
 @Injectable()
 export class UsersService {

@@ -16,13 +16,13 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { OptionalAuth } from '@thallesp/nestjs-better-auth';
 import type { Response } from 'express';
 
-import { RequireAppPermission } from '../lib/apps/app-permission.js';
-import { gitContentsLevel } from '../lib/git/git-push.js';
 import { LFS_MEDIA_TYPE } from '../lib/git/lfs/lfs-objects.js';
-import { TransformToLowercasePipe } from '../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { LfsService } from '../services/git/lfs/lfs.service.js';
 import { LfsBatchRequestDTO } from './dto/lfs-batch.dto.js';
 import type { GitAuthorizedRequest } from './types.js';
+import { TransformToLowercasePipe } from '../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { RequireAppPermission } from '../lib/apps/app-permission.js';
+import { gitContentsLevel } from '../lib/git/git-push.js';
 
 /** Git LFS's batch API and its `basic` transfer. `GitBasicAuthMiddleware` has already authorized the repository for the operation. */
 @RequireAppPermission({ contents: gitContentsLevel })

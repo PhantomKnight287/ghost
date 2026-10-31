@@ -3,16 +3,16 @@ import { mkdir, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import type { RefFacts } from '../../rulesets/rulesets.types.js';
-import { withTempDir } from '../../temp-dir.js';
 import { GitCommandFailedError } from '../exec/exec.errors.js';
-import { objectTypes } from '../exec/object-types.js';
 import { runGit, runGitStream } from '../exec/run-git.js';
-import { splitRecords } from '../exec/split-records.js';
-import { refFacts } from '../refs/ref-facts.js';
 import { type RefTransition, ZERO_OID } from '../wal/wal.types.js';
 import { fileBody, type GitRequestBody } from './git-request-body.js';
 import { PushRejectedError } from './protocol.errors.js';
+import { withTempDir } from '../../temp-dir.js';
+import { splitRecords } from '../exec/split-records.js';
+import { objectTypes } from '../exec/object-types.js';
+import { refFacts } from '../refs/ref-facts.js';
+import type { RefFacts } from '../../rulesets/rulesets.types.js';
 
 /** Proves a push can be replayed by a node holding only the log (0034). The pack is indexed into a quarantine with the cache lent as an alternate, the way git quarantines a push; the log stores that indexed pack, not the thin one received: a thin pack's delta bases come from the cache, which holds objects the log does not. */
 export async function withVerifiedPack<T>(

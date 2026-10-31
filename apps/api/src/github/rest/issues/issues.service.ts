@@ -12,8 +12,8 @@ import {
   sql,
 } from 'drizzle-orm';
 
-import { DATABASE } from '../../../database/database.module.js';
 import { viaAppOf } from '../../../lib/apps/via-app.js';
+import { DATABASE } from '../../../database/database.module.js';
 import { isoTimestamp, sameName } from '../../../lib/db/sql.js';
 import {
   GithubNotFoundError,

@@ -23,7 +23,6 @@ import type { UserSession } from '@thallesp/nestjs-better-auth';
 
 import { SignInOptional } from '../../auth/api-key-auth.guard.js';
 import { ErrorResponseDTO } from '../../domain/http.js';
-import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 import { CreateRepositoryResponseDTO } from '../repositories/dto/create-repository.dto.js';
 import {
   GitHubImportStatusDTO,
@@ -32,6 +31,7 @@ import {
   StartImportRequestDTO,
 } from './dto/import.dto.js';
 import { ImportsService } from './imports.service.js';
+import { TransformToLowercasePipe } from '../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
 
 @Controller()
 @ApiTags('Imports')

@@ -1,7 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
-
 import type { ConfigService } from '@nestjs/config';
 
 import { mailConfigured, sendmailPath } from './mail.module.js';

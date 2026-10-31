@@ -1,13 +1,13 @@
 import { type Database, schema } from '@ghost/db';
-import { administers, organizationRoleOf } from '@ghost/permissions';
 import { eq } from 'drizzle-orm';
 
-import { sameName } from '../db/sql.js';
 import { organizationMembership } from '../repositories/access/repository-access.js';
+import { administers, organizationRoleOf } from '@ghost/permissions';
 import {
   OrganizationForbiddenError,
   OrganizationNotFoundError,
 } from './organization.errors.js';
+import { sameName } from '../db/sql.js';
 
 type Visibility = (typeof schema.repositoryVisiblity.enumValues)[number];
 

@@ -1,7 +1,7 @@
-import type { RefFacts } from '../../rulesets/rulesets.types.js';
 import { GitCommandFailedError } from '../exec/exec.errors.js';
 import { runGit } from '../exec/run-git.js';
 import { type RefTransition, ZERO_OID } from '../wal/wal.types.js';
+import type { RefFacts } from '../../rulesets/rulesets.types.js';
 
 /** What rulesets need to know about each move: whether it keeps the old tip, and whether it brings in a merge commit. `env` points git at a push's quarantine. Deletions have no facts. */
 export async function refFacts({
