@@ -78,7 +78,7 @@ Each verdict also carries a machine-readable `state`, which GraphQL and the REST
 | key known, owner has not verified the commit author / tagger email | `bad_email` |
 | key known, signature does not match the object, or an SSH signature that cannot be parsed | `invalid` |
 
-The verdict also carries the id of the user who owns the matching key (`signerId`), or null for a platform key or an unknown key. GraphQL needs it for `signer`.
+The verdict also carries `signerId`: the id of the user whose key verified the signature, set only for a `valid` verdict from a user's key. It is null for a platform key and for every verdict that is not `valid`, so a bad signature never names an account. GraphQL needs it for `signer`.
 
 A tag without a tagger line has no email to match. Modern `git mktag` refuses such a tag, so it only turns up in very old repositories. A user-key signature on it is not verified (`bad_email`, "not linked" against an empty address). A platform-key signature still verifies.
 
