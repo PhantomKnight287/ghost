@@ -15,6 +15,8 @@ import {
   readTagObjects,
   type TagObject,
 } from '../../../../lib/git/tags/read-tag.js';
+import { orNull } from '../../../../lib/github/authorize.js';
+import { CouldNotResolveError } from '../../../../lib/github/github.errors.js';
 import type { GraphqlContext } from '../../../../lib/github/loaders.js';
 import { encodeNodeId } from '../../../../lib/github/node-id.js';
 import {
@@ -130,6 +132,8 @@ export class GitObjectNodesService {
   /** A branch's commit, or an annotated tag's own object; a lightweight tag is its commit, as on GitHub. */
   async refTarget(ref: RefNode, context: GraphqlContext) {
     const batches = this.of(context);
+    // A pull request's head may live in a fork the viewer cannot read; its ref then has no target, as on GitHub.
+    if (!(await batches.repositories.load(ref.repositoryGhostId))) return null;
     const entry = (
       await batches.refs.load(key(ref.repositoryGhostId, ref.prefix as Prefix))
     ).find((each) => each.name === ref.name);
@@ -163,15 +167,15 @@ export class GitObjectNodesService {
       batches.commits.load(key(repositoryGhostId, sha)),
       batches.repositories.load(repositoryGhostId),
     ]);
-    return commit && toCommitNode(commit, repository);
+    return commit && repository && toCommitNode(commit, repository);
   }
 
   /** The commit a ref resolves to through any annotation. */
   async refCommit(ref: RefNode, context: GraphqlContext) {
+    const batches = this.of(context);
+    if (!(await batches.repositories.load(ref.repositoryGhostId))) return null;
     const entry = (
-      await this.of(context).refs.load(
-        key(ref.repositoryGhostId, ref.prefix as Prefix),
-      )
+      await batches.refs.load(key(ref.repositoryGhostId, ref.prefix as Prefix))
     ).find((each) => each.name === ref.name);
     if (!entry) return null;
     return this.commit(
@@ -204,7 +208,7 @@ export class GitObjectNodesService {
       batches.tags.load(key(repositoryGhostId, sha)),
       batches.repositories.load(repositoryGhostId),
     ]);
-    if (!tag) return null;
+    if (!tag || !repository) return null;
     const commit = commitOid ?? tag.target.sha;
     return Object.assign(new TagNode(), {
       repositoryGhostId,
@@ -228,13 +232,17 @@ export class GitObjectNodesService {
     if (batches) return batches;
 
     const viewer = context.req.githubViewer;
-    const repositories = new DataLoader<string, RepositoryNode>((ids) =>
-      Promise.all(ids.map((id) => this.repositoryNodes.load(id, viewer))),
+    const repositories = new DataLoader<string, RepositoryNode | null>((ids) =>
+      Promise.all(
+        ids.map((id) => orNull(this.repositoryNodes.load(id, viewer))),
+      ),
     );
     const gitDirs = new DataLoader<string, string>((ids) =>
       Promise.all(
         ids.map(async (id) => {
           const repository = await repositories.load(id);
+          if (!repository)
+            throw new CouldNotResolveError('Repository not found');
           return this.materializer.open({
             id,
             defaultBranch: repository.defaultBranch,
@@ -372,7 +380,7 @@ interface SignatureKey {
 }
 
 interface Batches {
-  repositories: DataLoader<string, RepositoryNode>;
+  repositories: DataLoader<string, RepositoryNode | null>;
   refs: DataLoader<string, RefEntry[]>;
   commits: DataLoader<string, Commit | null>;
   tags: DataLoader<string, TagObject | null>;
