@@ -9,10 +9,18 @@ import {
 import { GitSignatureState } from '../enums.js';
 import { GitObjectID, URI } from '../scalars.js';
 import { type Kinded, Node } from './node.interface.js';
-import { GitActorNode } from './pull-request.type.js';
 import { UserNode } from './user.type.js';
 
 const resolveType = (value: Kinded) => value.kind;
+
+@ObjectType('GitActor')
+export class GitActorNode {
+  @Field(() => String, { nullable: true })
+  email: string | null;
+
+  @Field(() => String, { nullable: true })
+  name: string | null;
+}
 
 @InterfaceType('GitObject', { resolveType })
 export abstract class GitObject {

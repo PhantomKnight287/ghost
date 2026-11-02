@@ -34,10 +34,10 @@ import {
   StatusCheckRollupNode,
   StatusContextNode,
 } from '../../types/placeholders.type.js';
+import { GitActorNode } from '../../types/git-object.type.js';
 import {
   CommitNode,
   GitActorConnection,
-  GitActorNode,
   PullRequestChangedFileConnection,
   PullRequestCommitConnection,
   PullRequestNode,

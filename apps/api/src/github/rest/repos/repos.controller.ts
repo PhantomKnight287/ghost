@@ -39,11 +39,8 @@ import {
 import { GithubUpdateRepositoryDTO } from './dto/update-repository.dto.js';
 import { GithubReposService } from './repos.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
-import {
-  GithubGitTagDTO,
-  GithubReadmeDTO,
-  GithubRepositoryDTO,
-} from './dto/repository.dto.js';
+import { GithubGitTagDTO } from './dto/git-tag.dto.js';
+import { GithubReadmeDTO, GithubRepositoryDTO } from './dto/repository.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
 import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
 

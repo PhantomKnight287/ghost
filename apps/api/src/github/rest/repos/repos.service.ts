@@ -56,6 +56,7 @@ import type {
 import { requireScope, requireWriteScope } from '../../auth/require-scopes.js';
 import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
 import type { GithubCreateRepositoryDTO } from './dto/create-repository.dto.js';
+import type { GithubGitTagDTO } from './dto/git-tag.dto.js';
 import type {
   GithubListOrganizationRepositoriesQueryDTO,
   GithubListRepositoriesQueryDTO,
@@ -65,7 +66,6 @@ import type {
 } from './dto/list-repositories.dto.js';
 import type {
   GithubCodeownersErrorsDTO,
-  GithubGitTagDTO,
   GithubReadmeDTO,
   GithubRepositoryDTO,
 } from './dto/repository.dto.js';

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { CursorPagination } from "@/components/cursor-pagination";
 import { FromNowHoverCard } from "@/components/from-now-card";
+import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import { ProtectedRefBadge } from "@/components/rulesets/protected-ref-badge";
 import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
 import {
@@ -71,6 +72,10 @@ export default async function TagsPage({
                   >
                     {tag.name}
                   </Link>
+                  <CommitVerificationBadge
+                    verification={tag.verification}
+                    className="ml-2"
+                  />
                   {protection && (
                     <ProtectedRefBadge
                       protection={protection}

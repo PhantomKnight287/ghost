@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
+import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
 import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ export function ReleaseCard({
               <Tag className="size-3.5" />
               {release.tagName}
             </span>
+            <CommitVerificationBadge verification={release.tagVerification} />
             {release.commitSha ? (
               <Link
                 href={`/${username}/${repo}/commit/${release.commitSha}`}

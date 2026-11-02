@@ -17,7 +17,7 @@ import {
   PullRequestState,
 } from '../enums.js';
 import { GitObjectID, URI } from '../scalars.js';
-import { GitObject } from './git-object.type.js';
+import { GitActorNode, GitObject } from './git-object.type.js';
 import { IssueOrPullRequestFields } from './issue-or-pull-request.type.js';
 import {
   Assignable,
@@ -72,15 +72,6 @@ export class PullRequestNode extends IssueOrPullRequestFields {
 
   @Field()
   maintainerCanModify: boolean;
-}
-
-@ObjectType('GitActor')
-export class GitActorNode {
-  @Field(() => String, { nullable: true })
-  email: string | null;
-
-  @Field(() => String, { nullable: true })
-  name: string | null;
 }
 
 export const GitActorConnection = Connection(GitActorNode, 'GitActor');

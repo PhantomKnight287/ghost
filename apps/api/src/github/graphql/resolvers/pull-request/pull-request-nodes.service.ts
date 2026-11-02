@@ -40,8 +40,8 @@ import {
 import { IssueNode } from '../../types/issue.type.js';
 import type { OrganizationNode } from '../../types/organization.type.js';
 import { TeamNode } from '../../types/placeholders.type.js';
+import { GitActorNode } from '../../types/git-object.type.js';
 import {
-  GitActorNode,
   PullRequestNode,
   PullRequestReviewCommentNode,
   PullRequestReviewNode,

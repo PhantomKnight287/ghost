@@ -13724,6 +13724,72 @@
         ]
       }
     },
+    "/api/v3/repos/{owner}/{repo}/git/tags/{tagSha}": {
+      "get": {
+        "operationId": "ReposController_gitTag",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tagSha",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubGitTagDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "An annotated tag object, with its signature status",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/v3/user/repos": {
       "post": {
         "operationId": "ReposController_createForUser",
@@ -23525,12 +23591,29 @@
           "keyId": {
             "type": "string",
             "description": "Long key id the signature names, lowercase hex."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "unknown_key",
+              "bad_email",
+              "invalid"
+            ],
+            "description": "GitHub's word for the verdict."
+          },
+          "signerId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The account whose key verified the signature; `null` for a platform key and whenever `verified` is false."
           }
         },
         "required": [
           "verified",
           "reason",
-          "keyId"
+          "keyId",
+          "state",
+          "signerId"
         ]
       },
       "CommitStatusCreatorDTO": {
@@ -23930,13 +24013,24 @@
           "createdAt": {
             "type": "string",
             "description": "When the annotation was made, or for a lightweight tag when its commit was."
+          },
+          "verification": {
+            "nullable": true,
+            "description": "Signature status of the annotated tag object, checked against its tagger; `null` for a lightweight or unsigned tag.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommitVerificationDTO"
+              }
+            ]
           }
         },
         "required": [
           "name",
           "sha",
           "message",
-          "createdAt"
+          "createdAt",
+          "verification"
         ]
       },
       "GetRepositoryTagsResponseDTO": {
@@ -24735,6 +24829,16 @@
             "nullable": true,
             "description": "The commit the tag points at. `null` when the tag has since been deleted."
           },
+          "tagVerification": {
+            "nullable": true,
+            "description": "Signature status of the release tag, checked against its tagger; `null` for a lightweight or unsigned tag, or one that no longer exists.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommitVerificationDTO"
+              }
+            ]
+          },
           "source": {
             "nullable": true,
             "description": "The source archives of the commit the tag points at. `null` when the tag has since been deleted.",
@@ -24777,6 +24881,7 @@
           "isLatest",
           "authorUsername",
           "commitSha",
+          "tagVerification",
           "source",
           "assets",
           "publishedAt",
@@ -30367,6 +30472,131 @@
           "content"
         ]
       },
+      "GithubGitActorDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "date"
+        ]
+      },
+      "GithubGitTagObjectDTO": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "commit"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "sha",
+          "url"
+        ]
+      },
+      "GithubCommitVerificationDTO": {
+        "type": "object",
+        "properties": {
+          "verified": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "unknown_key",
+              "bad_email",
+              "invalid",
+              "unsigned"
+            ]
+          },
+          "signature": {
+            "type": "string",
+            "nullable": true
+          },
+          "payload": {
+            "type": "string",
+            "nullable": true
+          },
+          "verified_at": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "verified",
+          "reason",
+          "signature",
+          "payload",
+          "verified_at"
+        ]
+      },
+      "GithubGitTagDTO": {
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string",
+            "example": "v1.0.0"
+          },
+          "sha": {
+            "type": "string",
+            "description": "The tag object, not the commit it points at."
+          },
+          "url": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string",
+            "description": "The message as stored, without the signature block."
+          },
+          "tagger": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GithubGitActorDTO"
+              }
+            ]
+          },
+          "object": {
+            "$ref": "#/components/schemas/GithubGitTagObjectDTO"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/GithubCommitVerificationDTO"
+          }
+        },
+        "required": [
+          "node_id",
+          "tag",
+          "sha",
+          "url",
+          "message",
+          "tagger",
+          "object",
+          "verification"
+        ]
+      },
       "GithubCreateRepositoryDTO": {
         "type": "object",
         "properties": {
@@ -32197,61 +32427,6 @@
             "description": "Accepted and ignored."
           }
         }
-      },
-      "GithubGitActorDTO": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "date": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "name",
-          "email",
-          "date"
-        ]
-      },
-      "GithubCommitVerificationDTO": {
-        "type": "object",
-        "properties": {
-          "verified": {
-            "type": "boolean"
-          },
-          "reason": {
-            "type": "string",
-            "enum": [
-              "valid",
-              "unknown_key",
-              "unsigned"
-            ]
-          },
-          "signature": {
-            "type": "string",
-            "nullable": true
-          },
-          "payload": {
-            "type": "string",
-            "nullable": true
-          },
-          "verified_at": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "verified",
-          "reason",
-          "signature",
-          "payload",
-          "verified_at"
-        ]
       },
       "GithubGitCommitDTO": {
         "type": "object",
