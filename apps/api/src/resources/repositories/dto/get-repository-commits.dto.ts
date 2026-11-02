@@ -68,6 +68,23 @@ export class CommitVerificationDTO {
   })
   @IsString()
   keyId: string;
+
+  @ApiProperty({
+    enum: ['valid', 'unknown_key', 'bad_email', 'invalid'],
+    description: "GitHub's word for the verdict.",
+  })
+  @IsString()
+  state: 'valid' | 'unknown_key' | 'bad_email' | 'invalid';
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The account whose key verified the signature; `null` for a platform key and whenever `verified` is false.',
+  })
+  @IsString()
+  @IsOptional()
+  signerId: string | null;
 }
 
 export class CommitDTO {

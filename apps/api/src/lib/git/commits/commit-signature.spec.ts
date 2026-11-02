@@ -2,7 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as openpgp from 'openpgp';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   GITHUB_EXPIRED_KEY_COMMIT,
@@ -13,12 +14,32 @@ import {
   SIGNING_PUBLIC_KEY,
 } from '../../gpg/__fixtures__/signed-commit.js';
 import { GITHUB_WEB_FLOW_KEYS } from '../../gpg/github-web-flow.js';
-import { verifySignature } from '../../gpg/openpgp.js';
+import { signPayload, verifySignature } from '../../gpg/openpgp.js';
 import {
   insertSignature,
   readSignedCommits,
   splitSignature,
+  splitTagSignature,
 } from './commit-signature.js';
+
+const TAG_PAYLOAD = `object ${'a'.repeat(40)}\ntype commit\ntag v1.0.0\ntagger Spec <spec@ghost.local> 1700000000 +0000\n\nFirst release\n`;
+
+let tagKey: openpgp.PrivateKey;
+let tagPublicKey: string;
+
+beforeAll(async () => {
+  const generated = await openpgp.generateKey({
+    userIDs: [{ name: 'Spec', email: 'spec@ghost.local' }],
+    format: 'object',
+  });
+  tagKey = generated.privateKey;
+  tagPublicKey = generated.publicKey.armor();
+});
+
+/** A tag object the way `git tag -s` writes one: the armored signature appended after the message. */
+async function signTag(payload = TAG_PAYLOAD) {
+  return `${payload}${await signPayload({ payload, privateKey: tagKey })}`;
+}
 
 describe('splitSignature', () => {
   it('splits a real git signature from what it covers', () => {
@@ -107,6 +128,82 @@ describe('splitSignature', () => {
   });
 });
 
+describe('splitTagSignature', () => {
+  it('splits the trailing signature block from the tag it covers', async () => {
+    const signed = splitTagSignature(await signTag());
+
+    expect(signed?.format).toBe('openpgp');
+    expect(signed?.payload).toBe(TAG_PAYLOAD);
+    expect(signed?.signature.startsWith('-----BEGIN PGP SIGNATURE-----')).toBe(
+      true,
+    );
+    expect(
+      signed?.signature.trimEnd().endsWith('-----END PGP SIGNATURE-----'),
+    ).toBe(true);
+  });
+
+  it('verifies against the key that signed it', async () => {
+    const signed = splitTagSignature(await signTag())!;
+
+    await expect(
+      verifySignature({
+        payload: signed.payload,
+        armoredSignature: signed.signature,
+        armoredKey: tagPublicKey,
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it('takes the last BEGIN line as the signature when the message quotes one earlier', async () => {
+    const quoting = TAG_PAYLOAD.replace(
+      'First release\n',
+      'First release\n\n-----BEGIN PGP SIGNATURE-----\nquoted, not a signature\n-----END PGP SIGNATURE-----\n',
+    );
+
+    const signed = splitTagSignature(await signTag(quoting))!;
+
+    expect(signed.payload).toBe(quoting);
+    await expect(
+      verifySignature({
+        payload: signed.payload,
+        armoredSignature: signed.signature,
+        armoredKey: tagPublicKey,
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it('marks an SSH signature', () => {
+    const tag = `${TAG_PAYLOAD}-----BEGIN SSH SIGNATURE-----\nU1NIU0lH\n-----END SSH SIGNATURE-----\n`;
+
+    expect(splitTagSignature(tag)).toEqual({
+      payload: TAG_PAYLOAD,
+      signature:
+        '-----BEGIN SSH SIGNATURE-----\nU1NIU0lH\n-----END SSH SIGNATURE-----\n',
+      format: 'ssh',
+    });
+  });
+
+  it('is null for an unsigned tag, even one that mentions a BEGIN line mid-sentence', () => {
+    expect(splitTagSignature(TAG_PAYLOAD)).toBeNull();
+    expect(
+      splitTagSignature(
+        TAG_PAYLOAD.replace(
+          'First release',
+          'See the -----BEGIN PGP SIGNATURE----- block',
+        ),
+      ),
+    ).toBeNull();
+  });
+
+  it('ignores an X.509 signature, which this does not verify', () => {
+    expect(
+      splitTagSignature(
+        `${TAG_PAYLOAD}-----BEGIN SIGNED MESSAGE-----\nMIIB\n-----END SIGNED MESSAGE-----\n`,
+      ),
+    ).toBeNull();
+  });
+});
+
 describe('insertSignature', () => {
   it('puts back exactly the header splitSignature takes out', () => {
     const signed = splitSignature(SIGNED_COMMIT_OBJECT)!;
@@ -161,6 +258,33 @@ describe('readSignedCommits', () => {
 
     expect([...found.keys()]).toEqual([signed]);
     expect(found.get(signed)?.payload).toContain('signed commit');
+  });
+
+  it('reads signed tag objects by the trailing-block rule', async () => {
+    const commit = git('rev-parse', 'HEAD').trim();
+    const payload = TAG_PAYLOAD.replace('a'.repeat(40), commit);
+    const tag = execFileSync(
+      'git',
+      ['hash-object', '-t', 'tag', '-w', '--stdin'],
+      { cwd: root, input: await signTag(payload), encoding: 'utf8' },
+    ).trim();
+    const unsignedTag = execFileSync(
+      'git',
+      ['hash-object', '-t', 'tag', '-w', '--stdin'],
+      {
+        cwd: root,
+        input: payload.replace('v1.0.0', 'v0.9.0'),
+        encoding: 'utf8',
+      },
+    ).trim();
+
+    const found = await readSignedCommits({
+      gitDir,
+      shas: [tag, unsignedTag],
+    });
+
+    expect([...found.keys()]).toEqual([tag]);
+    expect(found.get(tag)).toMatchObject({ payload, format: 'openpgp' });
   });
 
   it('is empty when nothing was asked for', async () => {

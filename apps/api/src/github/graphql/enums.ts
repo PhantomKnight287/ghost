@@ -265,3 +265,31 @@ export enum PullRequestAllowedMergeMethods {
 registerEnumType(PullRequestAllowedMergeMethods, {
   name: 'PullRequestAllowedMergeMethods',
 });
+
+export enum RefOrderField {
+  ALPHABETICAL = 'ALPHABETICAL',
+  TAG_COMMIT_DATE = 'TAG_COMMIT_DATE',
+}
+registerEnumType(RefOrderField, { name: 'RefOrderField' });
+
+/** GitHub's full list; Ghost answers only VALID, UNKNOWN_KEY, BAD_EMAIL and INVALID. */
+export enum GitSignatureState {
+  VALID = 'VALID',
+  INVALID = 'INVALID',
+  MALFORMED_SIG = 'MALFORMED_SIG',
+  UNKNOWN_KEY = 'UNKNOWN_KEY',
+  BAD_EMAIL = 'BAD_EMAIL',
+  UNVERIFIED_EMAIL = 'UNVERIFIED_EMAIL',
+  NO_USER = 'NO_USER',
+  UNKNOWN_SIG_TYPE = 'UNKNOWN_SIG_TYPE',
+  UNSIGNED = 'UNSIGNED',
+  GPGVERIFY_UNAVAILABLE = 'GPGVERIFY_UNAVAILABLE',
+  GPGVERIFY_ERROR = 'GPGVERIFY_ERROR',
+  NOT_SIGNING_KEY = 'NOT_SIGNING_KEY',
+  EXPIRED_KEY = 'EXPIRED_KEY',
+  OCSP_PENDING = 'OCSP_PENDING',
+  OCSP_ERROR = 'OCSP_ERROR',
+  BAD_CERT = 'BAD_CERT',
+  OCSP_REVOKED = 'OCSP_REVOKED',
+}
+registerEnumType(GitSignatureState, { name: 'GitSignatureState' });

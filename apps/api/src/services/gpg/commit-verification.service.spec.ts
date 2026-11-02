@@ -59,6 +59,7 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
   let keyId: string;
   let publicKey: string;
   let platformKey: openpgp.PrivateKey;
+  let signingKey: openpgp.PrivateKey;
 
   beforeAll(async () => {
     ({ db, pool } = createDatabase({ connectionString: CONNECTION }));
@@ -94,6 +95,7 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
       userIDs: [{ name: 'Spec', email: SIGNER_EMAIL }],
       format: 'object',
     });
+    signingKey = key.privateKey;
     keyId = key.publicKey.getKeyID().toHex().toLowerCase();
     publicKey = key.publicKey.armor();
 
@@ -149,8 +151,13 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
 
     const verdict = (await verify(SIGNER_EMAIL)).get(sha);
 
-    expect(verdict?.verified).toBe(true);
-    expect(verdict?.keyId).toBe(keyId);
+    expect(verdict).toEqual({
+      verified: true,
+      reason: 'Signed and verified',
+      keyId,
+      state: 'valid',
+      signerId: USER_ID,
+    });
   });
 
   it('refuses a signature whose key is not linked to the author address', async () => {
@@ -159,15 +166,25 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
     // The signature is good; the address it is claimed for is someone else's.
     const verdict = (await verify('someone-else@example.com')).get(sha);
 
-    expect(verdict?.verified).toBe(false);
-    expect(verdict?.reason).toContain('someone-else@example.com');
+    expect(verdict).toEqual({
+      verified: false,
+      reason: 'The signing key is not linked to someone-else@example.com',
+      keyId,
+      state: 'bad_email',
+      signerId: null,
+    });
   });
 
   it('refuses a key no account has uploaded', async () => {
     const verdict = (await verify(SIGNER_EMAIL)).get(sha);
 
-    expect(verdict?.verified).toBe(false);
-    expect(verdict?.reason).toContain('no Ghost account');
+    expect(verdict).toEqual({
+      verified: false,
+      reason: 'Signed with a key no Ghost account has uploaded',
+      keyId,
+      state: 'unknown_key',
+      signerId: null,
+    });
   });
 
   it('leaves unsigned commits out of the result', async () => {
@@ -231,6 +248,8 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
       verified: true,
       reason: 'Signed by GitHub',
       keyId: 'b5690eeebb952194',
+      state: 'valid',
+      signerId: null,
     });
   });
 
@@ -246,8 +265,12 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
       })
     ).get(merge);
 
-    expect(verdict?.verified).toBe(true);
-    expect(verdict?.reason).toBe('Signed by Ghost');
+    expect(verdict).toMatchObject({
+      verified: true,
+      reason: 'Signed by Ghost',
+      state: 'valid',
+      signerId: null,
+    });
   });
 
   it("refuses a commit that names GitHub's key but was not signed by it", async () => {
@@ -266,7 +289,164 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
 
     expect(verdict?.verified).toBe(false);
     expect(verdict?.reason).toBe('Signature does not match the commit');
+    expect(verdict?.state).toBe('invalid');
   });
+
+  it('refuses a known key whose signature does not match the commit', async () => {
+    await addKey();
+    const tampered = (
+      await signCommit('signed then edited', signingKey)
+    ).replace('signed then edited', 'edited after signing');
+
+    const verdict = (
+      await service.verifyCommits({
+        gitDir,
+        commits: [{ sha: writeCommit(tampered), authorEmail: SIGNER_EMAIL }],
+      })
+    )
+      .values()
+      .next().value;
+
+    expect(verdict).toEqual({
+      verified: false,
+      reason: 'Signature does not match the commit',
+      keyId,
+      state: 'invalid',
+      signerId: null,
+    });
+  });
+
+  describe('tags', () => {
+    /** A tag object tagged by `taggerEmail`, signed the way `git tag -s` signs one: the armored signature appended after the message. */
+    function tagPayload(
+      name: string,
+      taggerEmail: string | null = SIGNER_EMAIL,
+    ) {
+      const tagger =
+        taggerEmail === null
+          ? ''
+          : `tagger Spec <${taggerEmail}> 1700000000 +0000\n`;
+      return `object ${sha}\ntype commit\ntag ${name}\n${tagger}\n${name} release\n`;
+    }
+
+    async function signTag(payload: string, key = signingKey) {
+      return `${payload}${await signPayload({ payload, privateKey: key })}`;
+    }
+
+    function writeTag(object: string) {
+      return execFileSync(
+        'git',
+        ['hash-object', '-t', 'tag', '-w', '--stdin', '--literally'],
+        { cwd: root, input: object, encoding: 'utf8' },
+      ).trim();
+    }
+
+    async function verifyTag(tagSha: string, taggerEmail: string) {
+      return (
+        await service.verifyCommits({
+          gitDir,
+          commits: [{ sha: tagSha, authorEmail: taggerEmail }],
+        })
+      ).get(tagSha);
+    }
+
+    it('verifies a GPG-signed tag whose tagger owns the key', async () => {
+      await addKey();
+      const tag = writeTag(await signTag(tagPayload('v-gpg')));
+
+      expect(await verifyTag(tag, SIGNER_EMAIL)).toEqual({
+        verified: true,
+        reason: 'Signed and verified',
+        keyId,
+        state: 'valid',
+        signerId: USER_ID,
+      });
+    });
+
+    it('refuses a tag signed with a key no account has uploaded', async () => {
+      const tag = writeTag(await signTag(tagPayload('v-unknown')));
+
+      expect(await verifyTag(tag, SIGNER_EMAIL)).toEqual({
+        verified: false,
+        reason: 'Signed with a key no Ghost account has uploaded',
+        keyId,
+        state: 'unknown_key',
+        signerId: null,
+      });
+    });
+
+    it('refuses a tag whose tagger email the key owner has not verified', async () => {
+      await addKey();
+      const tagger = 'someone-else@example.com';
+      const tag = writeTag(await signTag(tagPayload('v-bad-email', tagger)));
+
+      expect(await verifyTag(tag, tagger)).toEqual({
+        verified: false,
+        reason: `The signing key is not linked to ${tagger}`,
+        keyId,
+        state: 'bad_email',
+        signerId: null,
+      });
+    });
+
+    it('refuses a tag edited after signing, naming the tag', async () => {
+      await addKey();
+      const tampered = (await signTag(tagPayload('v-tampered'))).replace(
+        'v-tampered release',
+        'v-tampered rewritten',
+      );
+      const tag = writeTag(tampered);
+
+      expect(await verifyTag(tag, SIGNER_EMAIL)).toEqual({
+        verified: false,
+        reason: 'Signature does not match the tag',
+        keyId,
+        state: 'invalid',
+        signerId: null,
+      });
+    });
+
+    it('verifies a tag Ghost signed with its own key whoever tagged it', async () => {
+      const tagger = 'releaser@example.com';
+      const tag = writeTag(
+        await signTag(tagPayload('v-ghost', tagger), platformKey),
+      );
+
+      expect(await verifyTag(tag, tagger)).toMatchObject({
+        verified: true,
+        reason: 'Signed by Ghost',
+        state: 'valid',
+        signerId: null,
+      });
+    });
+
+    it('refuses a user-signed tag with no tagger, and still verifies a Ghost-signed one', async () => {
+      await addKey();
+      const userSigned = writeTag(
+        await signTag(tagPayload('v-no-tagger', null)),
+      );
+      const ghostSigned = writeTag(
+        await signTag(tagPayload('v-no-tagger-ghost', null), platformKey),
+      );
+
+      expect(await verifyTag(userSigned, '')).toMatchObject({
+        verified: false,
+        state: 'bad_email',
+        signerId: null,
+      });
+      expect(await verifyTag(ghostSigned, '')).toMatchObject({
+        verified: true,
+        reason: 'Signed by Ghost',
+      });
+    });
+
+    it('leaves unsigned tags out of the result', async () => {
+      const tag = writeTag(tagPayload('v-unsigned'));
+
+      expect(await verifyTag(tag, SIGNER_EMAIL)).toBeUndefined();
+    });
+  });
+
   describe('SSH signatures', () => {
     let sshKeyPath: string;
     let sshPublicKey: string;
@@ -348,6 +528,66 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
         verified: true,
         reason: 'Signed and verified',
         keyId: `SHA256:${readPublicKey(sshPublicKey).fingerprint}`,
+        state: 'valid',
+        signerId: USER_ID,
+      });
+    });
+
+    /** Signs a tag like `git tag -s` with `gpg.format=ssh`: ssh-keygen over the unsigned tag, namespace git, the signature appended after the message. */
+    function sshSignTag(name: string, taggerEmail = SIGNER_EMAIL) {
+      const payload = `object ${sha}\ntype commit\ntag ${name}\ntagger Spec <${taggerEmail}> 1700000000 +0000\n\n${name} release\n`;
+      const file = path.join(root, `tag-payload-${name}`);
+      writeFileSync(file, payload);
+      execFileSync(
+        'ssh-keygen',
+        ['-Y', 'sign', '-n', 'git', '-f', sshKeyPath, file],
+        { stdio: 'ignore' },
+      );
+      return execFileSync(
+        'git',
+        ['hash-object', '-t', 'tag', '-w', '--stdin'],
+        {
+          cwd: root,
+          input: `${payload}${readFileSync(`${file}.sig`, 'utf8')}`,
+          encoding: 'utf8',
+        },
+      ).trim();
+    }
+
+    it("verifies an SSH-signed tag with the tagger's signing key", async () => {
+      await addSigningKey();
+      const verdict = await verdictFor(sshSignTag('v-ssh'));
+      expect(verdict).toEqual({
+        verified: true,
+        reason: 'Signed and verified',
+        keyId: `SHA256:${readPublicKey(sshPublicKey).fingerprint}`,
+        state: 'valid',
+        signerId: USER_ID,
+      });
+    });
+
+    it('refuses an SSH-signed tag whose key no account has uploaded', async () => {
+      const verdict = await verdictFor(sshSignTag('v-ssh-unknown'));
+      expect(verdict).toMatchObject({
+        verified: false,
+        reason: 'Signed with a key no Ghost account has uploaded',
+        state: 'unknown_key',
+        signerId: null,
+      });
+    });
+
+    it('refuses an SSH-signed tag whose tagger email the key owner has not verified', async () => {
+      await addSigningKey();
+      const tagger = 'not-mine-ssh@example.com';
+      const verdict = await verdictFor(
+        sshSignTag('v-ssh-email', tagger),
+        tagger,
+      );
+      expect(verdict).toMatchObject({
+        verified: false,
+        reason: `The signing key is not linked to ${tagger}`,
+        state: 'bad_email',
+        signerId: null,
       });
     });
 
@@ -408,6 +648,7 @@ describe.skipIf(!CONNECTION)('CommitVerificationService', () => {
       );
       expect(verdict?.verified).toBe(false);
       expect(verdict?.reason).toBe('Signature does not match the commit');
+      expect(verdict?.state).toBe('invalid');
     });
   });
 });

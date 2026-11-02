@@ -1,14 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsISO8601,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   Max,
   Min,
   ValidateNested,
 } from 'class-validator';
+
+import { CommitVerificationDTO } from './get-repository-commits.dto.js';
 
 export class GetRepositoryTagsQueryDTO {
   @ApiPropertyOptional({
@@ -62,6 +64,17 @@ export class TagDTO {
   })
   @IsISO8601()
   createdAt: string;
+
+  @ApiProperty({
+    type: CommitVerificationDTO,
+    nullable: true,
+    description:
+      'Signature status of the annotated tag object, checked against its tagger; `null` for a lightweight or unsigned tag.',
+  })
+  @ValidateNested()
+  @Type(() => CommitVerificationDTO)
+  @IsOptional()
+  verification: CommitVerificationDTO | null;
 }
 
 export class GetRepositoryTagsResponseDTO {

@@ -446,4 +446,15 @@ describe.skipIf(!hasBackends)('GitHub releases', () => {
       403,
     );
   });
+
+  it('writes a release tag unsigned when Ghost has no signing key, and still creates the release', async () => {
+    await send('post', `${repo}/releases`, { tag_name: 'v-unsigned' }).expect(
+      201,
+    );
+    const { body } = await http()
+      .get(`/api/repositories/${username}/tools/releases/tags/v-unsigned`)
+      .set('cookie', owner.cookie)
+      .expect(200);
+    expect(body.tagVerification).toBeNull();
+  });
 });

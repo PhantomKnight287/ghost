@@ -25,3 +25,51 @@ export async function listBranches(gitDir: string) {
   });
   return raw.split('\n').filter(Boolean);
 }
+
+export interface RefEntry {
+  /** Without the `refs/heads/` or `refs/tags/` prefix. */
+  name: string;
+  oid: string;
+  type: string;
+  /** The object an annotated tag points at; null for anything else. */
+  peeledOid: string | null;
+  peeledType: string | null;
+  /** Committer time, in seconds, of the commit the ref points at through any annotation; 0 for a tag of something else. */
+  commitDate: number;
+}
+
+const ENTRY_FIELDS = [
+  '%(refname:strip=2)',
+  '%(objecttype)',
+  '%(objectname)',
+  '%(*objectname)',
+  '%(*objecttype)',
+  '%(committerdate:unix)',
+  '%(*committerdate:unix)',
+];
+
+/** Every branch or every tag, by name. */
+export async function listRefEntries(
+  gitDir: string,
+  prefix: 'refs/heads/' | 'refs/tags/',
+): Promise<RefEntry[]> {
+  const raw = await runGit({
+    args: ['for-each-ref', `--format=${ENTRY_FIELDS.join('%00')}`, prefix],
+    gitDir,
+  });
+  return raw
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [name, type, oid, peeled, peeledType, date, peeledDate] =
+        line.split('\0');
+      return {
+        name,
+        oid,
+        type,
+        peeledOid: peeled || null,
+        peeledType: peeledType || null,
+        commitDate: Number(date || peeledDate) || 0,
+      };
+    });
+}

@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 
 import { MEDIA_TYPE } from '../../../lib/releases/release-assets.js';
+import { CommitVerificationDTO } from '../../repositories/dto/get-repository-commits.dto.js';
 
 export class ReleaseAssetDTO {
   @ApiProperty()
@@ -152,6 +153,17 @@ export class ReleaseDTO {
   @IsString()
   @IsOptional()
   commitSha: string | null;
+
+  @ApiProperty({
+    type: CommitVerificationDTO,
+    nullable: true,
+    description:
+      'Signature status of the release tag, checked against its tagger; `null` for a lightweight or unsigned tag, or one that no longer exists.',
+  })
+  @ValidateNested()
+  @Type(() => CommitVerificationDTO)
+  @IsOptional()
+  tagVerification: CommitVerificationDTO | null;
 
   @ApiProperty({
     type: ReleaseSourceDTO,

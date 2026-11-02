@@ -4,6 +4,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { DATABASE } from '../../../database/database.module.js';
 import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
 import { RepositoryMaterializerService } from '../../../services/git/materializer/repository-materializer.service.js';
+import { CommitVerificationService } from '../../../services/gpg/commit-verification.service.js';
 import { RepositoryNodesService } from '../../graphql/resolvers/repository/repository-nodes.service.js';
 import { GithubReposService } from './repos.service.js';
 
@@ -19,6 +20,7 @@ describe('GithubReposService', () => {
         { provide: RepositoryMaterializerService, useValue: {} },
         { provide: RepositoriesService, useValue: {} },
         { provide: ConfigService, useValue: {} },
+        { provide: CommitVerificationService, useValue: {} },
       ],
     }).compile();
 

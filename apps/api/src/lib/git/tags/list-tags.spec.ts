@@ -2,8 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import * as openpgp from 'openpgp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { signPayload, verifySignature } from '../../gpg/openpgp.js';
+import { splitTagSignature } from '../commits/commit-signature.js';
 import { createTagObject } from './create-tag.js';
 import { listTags } from './list-tags.js';
 
@@ -64,12 +67,16 @@ describe('listTags', () => {
       {
         name: 'release/v2.0',
         sha: second,
+        tagSha: git('rev-parse', 'refs/tags/release/v2.0').trim(),
+        taggerEmail: 'test@example.com',
         message: 'Second release',
         createdAt: '2026-03-01T00:00:00.000Z',
       },
       {
         name: 'v1.0',
         sha: first,
+        tagSha: null,
+        taggerEmail: null,
         message: null,
         createdAt: '2026-01-01T00:00:00.000Z',
       },
@@ -113,6 +120,8 @@ describe('listTags', () => {
       {
         name: 'old',
         sha,
+        tagSha: oid,
+        taggerEmail: null,
         message: 'No tagger',
         createdAt: '1970-01-01T00:00:00.000Z',
       },
@@ -155,9 +164,62 @@ describe('createTagObject', () => {
         {
           name: 'v1.0.0',
           sha,
+          tagSha: oid,
+          taggerEmail: 'ghost@example.com',
           message: 'First release',
           createdAt: '2026-09-27T10:00:00.000Z',
         },
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('signs the tag when given a signer, the way git tag -s does', async () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'ghost-mktag-signed-'));
+    const gitDir = path.join(root, '.git');
+    const env = { ...process.env };
+    delete env.GIT_DIR;
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, encoding: 'utf8', env }).trim();
+    const { privateKey, publicKey } = await openpgp.generateKey({
+      userIDs: [{ name: 'Ghost', email: 'noreply@ghost.local' }],
+      format: 'object',
+    });
+
+    try {
+      execFileSync('git', ['init', '-q', '-b', 'main', root]);
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'Test');
+      git('commit', '-q', '--no-gpg-sign', '--allow-empty', '-m', 'first');
+      const sha = git('rev-parse', 'HEAD');
+
+      const oid = await createTagObject({
+        gitDir,
+        sha,
+        name: 'v2.0.0',
+        message: 'Signed release',
+        tagger: { name: 'Releaser', email: 'releaser@example.com' },
+        date: new Date('2026-09-27T10:00:00Z'),
+        signer: (payload) => signPayload({ payload, privateKey }),
+      });
+      git('update-ref', 'refs/tags/v2.0.0', oid);
+
+      const signed = splitTagSignature(`${git('cat-file', 'tag', oid)}\n`);
+      expect(signed?.format).toBe('openpgp');
+      expect(signed?.payload).toBe(
+        `object ${sha}\ntype commit\ntag v2.0.0\ntagger Releaser <releaser@example.com> 1790503200 +0000\n\nSigned release\n`,
+      );
+      await expect(
+        verifySignature({
+          payload: signed!.payload,
+          armoredSignature: signed!.signature,
+          armoredKey: publicKey.armor(),
+        }),
+      ).resolves.toBe(true);
+      // The listed subject is the message alone, never the signature block.
+      await expect(listTags(gitDir)).resolves.toMatchObject([
+        { name: 'v2.0.0', message: 'Signed release', tagSha: oid },
       ]);
     } finally {
       rmSync(root, { recursive: true, force: true });

@@ -2011,9 +2011,20 @@ export class RepositoriesService {
     const limit = query.limit ?? DEFAULT_PAGE_SIZE;
     const page = tags.slice(start, start + limit);
     const hasMore = start + limit < tags.length;
+    const verdicts = await this.verification.verifyCommits({
+      gitDir: directory,
+      commits: page.flatMap((tag) =>
+        tag.tagSha
+          ? [{ sha: tag.tagSha, authorEmail: tag.taggerEmail ?? '' }]
+          : [],
+      ),
+    });
 
     return {
-      tags: page,
+      tags: page.map(({ tagSha, taggerEmail: _, ...tag }) => ({
+        ...tag,
+        verification: (tagSha && verdicts.get(tagSha)) || null,
+      })),
       nextCursor: hasMore ? (page.at(-1)?.name ?? null) : null,
     };
   }

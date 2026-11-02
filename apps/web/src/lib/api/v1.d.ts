@@ -3275,6 +3275,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/git/tags/{tagSha}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An annotated tag object, with its signature status */
+        get: operations["ReposController_gitTag"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/user/repos": {
         parameters: {
             query?: never;
@@ -5163,6 +5180,13 @@ export interface components {
             reason: string;
             /** @description Long key id the signature names, lowercase hex. */
             keyId: string;
+            /**
+             * @description GitHub's word for the verdict.
+             * @enum {string}
+             */
+            state: "valid" | "unknown_key" | "bad_email" | "invalid";
+            /** @description The account whose key verified the signature; `null` for a platform key and whenever `verified` is false. */
+            signerId: string | null;
         };
         CommitStatusCreatorDTO: {
             username: string;
@@ -5301,6 +5325,8 @@ export interface components {
             message: string | null;
             /** @description When the annotation was made, or for a lightweight tag when its commit was. */
             createdAt: string;
+            /** @description Signature status of the annotated tag object, checked against its tagger; `null` for a lightweight or unsigned tag. */
+            verification: components["schemas"]["CommitVerificationDTO"] | null;
         };
         GetRepositoryTagsResponseDTO: {
             /** @description Newest first. */
@@ -5579,6 +5605,8 @@ export interface components {
             authorUsername: string | null;
             /** @description The commit the tag points at. `null` when the tag has since been deleted. */
             commitSha: string | null;
+            /** @description Signature status of the release tag, checked against its tagger; `null` for a lightweight or unsigned tag, or one that no longer exists. */
+            tagVerification: components["schemas"]["CommitVerificationDTO"] | null;
             /** @description The source archives of the commit the tag points at. `null` when the tag has since been deleted. */
             source: components["schemas"]["ReleaseSourceDTO"] | null;
             /** @description By name. */
@@ -7273,6 +7301,39 @@ export interface components {
             /** @description The file, base64-encoded. */
             content: string;
         };
+        GithubGitActorDTO: {
+            name: string;
+            email: string;
+            /** Format: date-time */
+            date: string;
+        };
+        GithubGitTagObjectDTO: {
+            /** @example commit */
+            type: string;
+            sha: string;
+            url: string;
+        };
+        GithubCommitVerificationDTO: {
+            verified: boolean;
+            /** @enum {string} */
+            reason: "valid" | "unknown_key" | "bad_email" | "invalid" | "unsigned";
+            signature: string | null;
+            payload: string | null;
+            verified_at: string | null;
+        };
+        GithubGitTagDTO: {
+            node_id: string;
+            /** @example v1.0.0 */
+            tag: string;
+            /** @description The tag object, not the commit it points at. */
+            sha: string;
+            url: string;
+            /** @description The message as stored, without the signature block. */
+            message: string;
+            tagger: components["schemas"]["GithubGitActorDTO"] | null;
+            object: components["schemas"]["GithubGitTagObjectDTO"];
+            verification: components["schemas"]["GithubCommitVerificationDTO"];
+        };
         GithubCreateRepositoryDTO: {
             /** @example tools */
             name: string;
@@ -7872,20 +7933,6 @@ export interface components {
             base?: string;
             /** @description Accepted and ignored. */
             maintainer_can_modify?: boolean;
-        };
-        GithubGitActorDTO: {
-            name: string;
-            email: string;
-            /** Format: date-time */
-            date: string;
-        };
-        GithubCommitVerificationDTO: {
-            verified: boolean;
-            /** @enum {string} */
-            reason: "valid" | "unknown_key" | "unsigned";
-            signature: string | null;
-            payload: string | null;
-            verified_at: string | null;
         };
         GithubGitCommitDTO: {
             author: components["schemas"]["GithubGitActorDTO"];
@@ -16554,6 +16601,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    ReposController_gitTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                tagSha: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubGitTagDTO"];
                 };
             };
             /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */

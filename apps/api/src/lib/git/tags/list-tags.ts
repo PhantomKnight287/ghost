@@ -4,6 +4,10 @@ export interface Tag {
   name: string;
   /** The commit the tag resolves to, through any annotated tag object. */
   sha: string;
+  /** The annotated tag object itself; null for a lightweight tag. */
+  tagSha: string | null;
+  /** Null for a lightweight tag, or a tag object written without a tagger. */
+  taggerEmail: string | null;
   /** The annotation's subject; null for a lightweight tag. */
   message: string | null;
   createdAt: string;
@@ -17,6 +21,7 @@ const FIELDS = [
   '%(*objecttype)',
   '%(contents:subject)',
   '%(creatordate:iso-strict)',
+  '%(taggeremail)',
 ];
 
 // Stands in for a tag object written without a tagger, which leaves git no date to report.
@@ -38,7 +43,7 @@ export async function listTags(gitDir: string): Promise<Tag[]> {
     .split('\n')
     .filter(Boolean)
     .flatMap((line) => {
-      const [name, type, oid, peeled, peeledType, subject, createdAt] =
+      const [name, type, oid, peeled, peeledType, subject, createdAt, email] =
         line.split('\0');
       const annotated = type === 'tag';
       if ((annotated ? peeledType : type) !== 'commit') return [];
@@ -47,6 +52,9 @@ export async function listTags(gitDir: string): Promise<Tag[]> {
       return {
         name,
         sha: annotated ? peeled : oid,
+        tagSha: annotated ? oid : null,
+        // git prints the address in its angle brackets.
+        taggerEmail: annotated && email ? email.slice(1, -1) : null,
         message: annotated ? subject : null,
         createdAt: Number.isNaN(date.getTime()) ? UNDATED : date.toISOString(),
       };

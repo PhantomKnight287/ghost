@@ -3,7 +3,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { inArray } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import { readSignedCommits } from '../../lib/git/commits/commit-signature.js';
+import {
+  readSignedCommits,
+  type SignedObject,
+} from '../../lib/git/commits/commit-signature.js';
 import { fingerprintOf } from '../../lib/git/ssh/public-key.js';
 import { GITHUB_WEB_FLOW_KEYS } from '../../lib/gpg/github-web-flow.js';
 import {
@@ -25,7 +28,13 @@ export interface CommitVerification {
   reason: string;
   /** Long key id the signature names, lowercase hex. */
   keyId: string;
+  /** GitHub's word for the verdict, as REST `reason` and GraphQL `GitSignatureState` spell it. */
+  state: SignatureState;
+  /** The account whose key verified the signature; null for a platform key and for anything not `valid`, so a bad signature never names an account. */
+  signerId: string | null;
 }
+
+export type SignatureState = 'valid' | 'unknown_key' | 'bad_email' | 'invalid';
 
 export interface VerifiableCommit {
   sha: string;
@@ -42,7 +51,7 @@ export class CommitVerificationService {
     private readonly signing: CommitSigningService,
   ) {}
 
-  /** The signature status of each commit that carries one, keyed by sha; unsigned commits are absent. Checked on read, not stamped at push: keys change after the fact and the cache is rebuilt from the log, so a stored verdict would go stale. */
+  /** The signature status of each commit or tag that carries one, keyed by sha; unsigned ones are absent, and a tag's `authorEmail` is its tagger's. Checked on read, not stamped at push: keys change after the fact and the cache is rebuilt from the log, so a stored verdict would go stale. */
   async verifyCommits({
     gitDir,
     env,
@@ -52,14 +61,24 @@ export class CommitVerificationService {
     env?: Record<string, string>;
     commits: VerifiableCommit[];
   }): Promise<Map<string, CommitVerification>> {
-    const verdicts = new Map<string, CommitVerification>();
-    if (commits.length === 0) return verdicts;
-
+    if (commits.length === 0) return new Map();
     const signed = await readSignedCommits({
       gitDir,
       env,
       shas: commits.map((commit) => commit.sha),
     });
+    return this.verifySigned({ signed, commits });
+  }
+
+  /** As {@link verifyCommits}, for a caller that already read the signed objects and needs their payloads too. */
+  async verifySigned({
+    signed,
+    commits,
+  }: {
+    signed: Map<string, SignedObject>;
+    commits: VerifiableCommit[];
+  }): Promise<Map<string, CommitVerification>> {
+    const verdicts = new Map<string, CommitVerification>();
     if (signed.size === 0) return verdicts;
 
     // The key id comes from the signature itself, so one lookup covers the whole page no matter how many people signed it.
@@ -90,12 +109,14 @@ export class CommitVerificationService {
           ? judgeSsh({
               ...commit,
               payload: entry.payload,
+              object: entry.type,
               parsed: ssh.get(commit.sha) ?? null,
               keys: sshKeys,
             })
           : await this.judge({
               ...commit,
               ...entry,
+              object: entry.type,
               keyIds: claimed.get(commit.sha) ?? [],
               keys,
               platform,
@@ -110,12 +131,14 @@ export class CommitVerificationService {
     authorEmail,
     payload,
     signature,
+    object,
     keyIds,
     keys,
     platform,
   }: VerifiableCommit & {
     payload: string;
     signature: string;
+    object: 'commit' | 'tag';
     keyIds: string[];
     keys: Map<string, KnownKey>;
     platform: Map<string, PlatformKey>;
@@ -133,16 +156,18 @@ export class CommitVerificationService {
           armoredKey,
         })
       ) {
-        return { verified: true, reason: `Signed by ${signer}`, keyId };
+        return {
+          verified: true,
+          reason: `Signed by ${signer}`,
+          keyId,
+          state: 'valid',
+          signerId: null,
+        };
       }
     }
 
     if (known.length === 0 && vouching.length === 0) {
-      return {
-        verified: false,
-        reason: 'Signed with a key no Ghost account has uploaded',
-        keyId,
-      };
+      return unknownKey(keyId);
     }
 
     for (const key of known) {
@@ -155,25 +180,19 @@ export class CommitVerificationService {
 
       // Holding a key proves who signed, never who authored: without this the badge would vouch for a commit forged under someone else's address.
       if (!key.emails.includes(authorEmail.trim().toLowerCase())) {
-        return {
-          verified: false,
-          reason: `The signing key is not linked to ${authorEmail}`,
-          keyId: key.keyId,
-        };
+        return badEmail(key.keyId, authorEmail);
       }
 
       return {
         verified: true,
         reason: 'Signed and verified',
         keyId: key.keyId,
+        state: 'valid',
+        signerId: key.userId,
       };
     }
 
-    return {
-      verified: false,
-      reason: 'Signature does not match the commit',
-      keyId,
-    };
+    return mismatch(keyId, object);
   }
 
   /** Keys of the platforms that sign their own commits, by every key id they can sign under. */
@@ -199,8 +218,8 @@ export class CommitVerificationService {
   /** Uploaded SSH signing keys for these fingerprints, each with the addresses its owner proved. Authentication keys never sign. */
   private async sshKeysByFingerprint(
     fingerprints: string[],
-  ): Promise<Map<string, string[]>> {
-    const found = new Map<string, string[]>();
+  ): Promise<Map<string, KeyOwner>> {
+    const found = new Map<string, KeyOwner>();
     if (fingerprints.length === 0) return found;
 
     const rows = await this.db
@@ -220,7 +239,10 @@ export class CommitVerificationService {
       rows.map((row) => row.userId),
     );
     for (const row of rows)
-      found.set(row.fingerprint, emails.get(row.userId) ?? []);
+      found.set(row.fingerprint, {
+        userId: row.userId,
+        emails: emails.get(row.userId) ?? [],
+      });
     return found;
   }
 
@@ -248,6 +270,7 @@ export class CommitVerificationService {
       found.set(row.keyId, {
         keyId: row.keyId,
         publicKey: row.publicKey,
+        userId: row.userId,
         emails: emails.get(row.userId) ?? [],
       });
     }
@@ -260,48 +283,71 @@ export class CommitVerificationService {
 function judgeSsh({
   authorEmail,
   payload,
+  object,
   parsed,
   keys,
 }: VerifiableCommit & {
   payload: string;
+  object: 'commit' | 'tag';
   parsed: SshSignature | null;
-  keys: Map<string, string[]>;
+  keys: Map<string, KeyOwner>;
 }): CommitVerification {
-  if (!parsed)
-    return {
-      verified: false,
-      reason: 'Signature does not match the commit',
-      keyId: 'unknown',
-    };
+  if (!parsed) return mismatch('unknown', object);
   const fingerprint = fingerprintOf(parsed.publicKey);
   const keyId = `SHA256:${fingerprint}`;
-  const emails = keys.get(fingerprint);
-  if (!emails)
-    return {
-      verified: false,
-      reason: 'Signed with a key no Ghost account has uploaded',
-      keyId,
-    };
-  if (!verifySshSignature(payload, parsed))
-    return {
-      verified: false,
-      reason: 'Signature does not match the commit',
-      keyId,
-    };
-  if (!emails.includes(authorEmail.trim().toLowerCase()))
-    return {
-      verified: false,
-      reason: `The signing key is not linked to ${authorEmail}`,
-      keyId,
-    };
-  return { verified: true, reason: 'Signed and verified', keyId };
+  const owner = keys.get(fingerprint);
+  if (!owner) return unknownKey(keyId);
+  if (!verifySshSignature(payload, parsed)) return mismatch(keyId, object);
+  if (!owner.emails.includes(authorEmail.trim().toLowerCase()))
+    return badEmail(keyId, authorEmail);
+  return {
+    verified: true,
+    reason: 'Signed and verified',
+    keyId,
+    state: 'valid',
+    signerId: owner.userId,
+  };
 }
 
-interface KnownKey {
-  keyId: string;
-  publicKey: string;
+function unknownKey(keyId: string): CommitVerification {
+  return {
+    verified: false,
+    reason: 'Signed with a key no Ghost account has uploaded',
+    keyId,
+    state: 'unknown_key',
+    signerId: null,
+  };
+}
+
+function badEmail(keyId: string, email: string): CommitVerification {
+  return {
+    verified: false,
+    reason: `The signing key is not linked to ${email}`,
+    keyId,
+    state: 'bad_email',
+    signerId: null,
+  };
+}
+
+function mismatch(keyId: string, object: 'commit' | 'tag'): CommitVerification {
+  return {
+    verified: false,
+    reason: `Signature does not match the ${object}`,
+    keyId,
+    state: 'invalid',
+    signerId: null,
+  };
+}
+
+interface KeyOwner {
+  userId: string;
   /** Addresses the key's owner has verified, lowercased. */
   emails: string[];
+}
+
+interface KnownKey extends KeyOwner {
+  keyId: string;
+  publicKey: string;
 }
 
 interface PlatformKey {

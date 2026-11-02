@@ -17,6 +17,7 @@ import {
   PullRequestState,
 } from '../enums.js';
 import { GitObjectID, URI } from '../scalars.js';
+import { GitActorNode, GitObject } from './git-object.type.js';
 import { IssueOrPullRequestFields } from './issue-or-pull-request.type.js';
 import {
   Assignable,
@@ -73,20 +74,14 @@ export class PullRequestNode extends IssueOrPullRequestFields {
   maintainerCanModify: boolean;
 }
 
-@ObjectType('GitActor')
-export class GitActorNode {
-  @Field(() => String, { nullable: true })
-  email: string | null;
-
-  @Field(() => String, { nullable: true })
-  name: string | null;
-}
-
 export const GitActorConnection = Connection(GitActorNode, 'GitActor');
 
-@ObjectType('Commit', { implements: () => [Node, UniformResourceLocatable] })
+@ObjectType('Commit', {
+  implements: () => [Node, GitObject, UniformResourceLocatable],
+})
 export class CommitNode {
   kind = 'Commit';
+  repositoryGhostId: string;
 
   @Field(() => GitActorNode, { nullable: true })
   author: GitActorNode | null;
@@ -123,6 +118,12 @@ export class CommitNode {
 
   @Field(() => URI)
   resourcePath: string;
+
+  @Field(() => URI)
+  commitUrl: string;
+
+  @Field(() => URI)
+  commitResourcePath: string;
 
   /** Only commits listed on a pull request carry their statuses; the rest have no rollup. */
   statusCheckRollup: StatusCheckRollupNode | null;

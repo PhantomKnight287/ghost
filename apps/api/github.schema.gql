@@ -159,11 +159,13 @@ enum CommentAuthorAssociation {
   OWNER
 }
 
-type Commit implements Node & UniformResourceLocatable {
+type Commit implements GitObject & Node & UniformResourceLocatable {
   abbreviatedOid: String!
   author: GitActor
   authoredDate: DateTime!
   authors(first: Int): GitActorConnection!
+  commitResourcePath: URI!
+  commitUrl: URI!
   committedDate: DateTime!
   committer: GitActor
   id: ID!
@@ -171,7 +173,9 @@ type Commit implements Node & UniformResourceLocatable {
   messageBody: String!
   messageHeadline: String!
   oid: GitObjectID!
+  repository: Repository!
   resourcePath: URI!
+  signature: GitSignature
   statusCheckRollup: StatusCheckRollup
   url: URI!
 }
@@ -260,11 +264,62 @@ type GitActorConnection {
   totalCount: Int!
 }
 
+interface GitObject {
+  abbreviatedOid: String!
+  commitResourcePath: URI!
+  commitUrl: URI!
+  id: ID!
+  oid: GitObjectID!
+}
+
 """A Git object ID."""
 scalar GitObjectID
 
 """Git SSH string"""
 scalar GitSSHRemote
+
+interface GitSignature {
+  email: String!
+  isValid: Boolean!
+  payload: String!
+  signature: String!
+  signer: User
+  state: GitSignatureState!
+  verifiedAt: DateTime
+  wasSignedByGitHub: Boolean!
+}
+
+enum GitSignatureState {
+  BAD_CERT
+  BAD_EMAIL
+  EXPIRED_KEY
+  GPGVERIFY_ERROR
+  GPGVERIFY_UNAVAILABLE
+  INVALID
+  MALFORMED_SIG
+  NOT_SIGNING_KEY
+  NO_USER
+  OCSP_ERROR
+  OCSP_PENDING
+  OCSP_REVOKED
+  UNKNOWN_KEY
+  UNKNOWN_SIG_TYPE
+  UNSIGNED
+  UNVERIFIED_EMAIL
+  VALID
+}
+
+type GpgSignature implements GitSignature {
+  email: String!
+  isValid: Boolean!
+  keyId: String
+  payload: String!
+  signature: String!
+  signer: User
+  state: GitSignatureState!
+  verifiedAt: DateTime
+  wasSignedByGitHub: Boolean!
+}
 
 """A string containing HTML code."""
 scalar HTML
@@ -798,11 +853,28 @@ type Ref implements Node {
   id: ID!
   name: String!
   prefix: String!
+  target: GitObject
+}
+
+type RefConnection {
+  nodes: [Ref]
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 type RefNameConditionTarget {
   exclude: [String!]!
   include: [String!]!
+}
+
+input RefOrder {
+  direction: OrderDirection!
+  field: RefOrderField!
+}
+
+enum RefOrderField {
+  ALPHABETICAL
+  TAG_COMMIT_DATE
 }
 
 type Release implements Node & UniformResourceLocatable {
@@ -816,6 +888,8 @@ type Release implements Node & UniformResourceLocatable {
   name: String
   publishedAt: DateTime
   resourcePath: URI!
+  tag: Ref
+  tagCommit: Commit
   tagName: String!
   updatedAt: DateTime!
   url: URI!
@@ -907,6 +981,8 @@ type Repository implements Node & UniformResourceLocatable {
   pullRequests(after: String, baseRefName: String, first: Int, headRefName: String, labels: [String!], orderBy: IssueOrder, states: [PullRequestState!]): PullRequestConnection!
   pushedAt: DateTime
   rebaseMergeAllowed: Boolean!
+  ref(qualifiedName: String!): Ref
+  refs(after: String, first: Int, last: Int, orderBy: RefOrder, query: String, refPrefix: String!): RefConnection
   release(tagName: String!): Release
   releases(after: String, first: Int, orderBy: ReleaseOrder): ReleaseConnection!
   resourcePath: URI!
@@ -1088,6 +1164,18 @@ enum SearchType {
   USER
 }
 
+type SshSignature implements GitSignature {
+  email: String!
+  isValid: Boolean!
+  keyFingerprint: String
+  payload: String!
+  signature: String!
+  signer: User
+  state: GitSignatureState!
+  verifiedAt: DateTime
+  wasSignedByGitHub: Boolean!
+}
+
 type StatusCheckConfiguration {
   context: String!
   integrationId: Int
@@ -1129,6 +1217,19 @@ type SubIssuesSummary {
   completed: Int!
   percentCompleted: Int!
   total: Int!
+}
+
+type Tag implements GitObject & Node {
+  abbreviatedOid: String!
+  commitResourcePath: URI!
+  commitUrl: URI!
+  id: ID!
+  message: String
+  name: String!
+  oid: GitObjectID!
+  repository: Repository!
+  tagger: GitActor
+  target: GitObject!
 }
 
 type Team implements Node {

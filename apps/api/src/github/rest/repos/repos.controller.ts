@@ -39,6 +39,7 @@ import {
 import { GithubUpdateRepositoryDTO } from './dto/update-repository.dto.js';
 import { GithubReposService } from './repos.service.js';
 import { TransformToLowercasePipe } from '../../../pipes/transform-to-lowercase/transform-to-lowercase.pipe.js';
+import { GithubGitTagDTO } from './dto/git-tag.dto.js';
 import { GithubReadmeDTO, GithubRepositoryDTO } from './dto/repository.dto.js';
 import { ApiGithubErrors } from '../dto/error.dto.js';
 import { RequireAppPermission } from '../../../lib/apps/app-permission.js';
@@ -139,6 +140,21 @@ export class ReposController {
       ifNoneMatch,
       logger: this.logger,
     });
+  }
+
+  @Get('repos/:owner/:repo/git/tags/:tagSha')
+  @RequireAppPermission('contents')
+  @ApiOperation({
+    summary: 'An annotated tag object, with its signature status',
+  })
+  @ApiOkResponse({ type: GithubGitTagDTO })
+  gitTag(
+    @Param('owner', TransformToLowercasePipe) owner: string,
+    @Param('repo', TransformToLowercasePipe) repo: string,
+    @Param('tagSha') tagSha: string,
+    @Viewer() viewer: GithubViewer | null,
+  ) {
+    return this.repos.gitTag({ owner, repo, viewer }, tagSha);
   }
 
   @Post('user/repos')

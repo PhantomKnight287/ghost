@@ -134,6 +134,12 @@ describe.skipIf(!CONNECTION)('releases', () => {
         ),
       ),
       new RuleSuitesService(db, new RepositoryAccessService(db)),
+      new CommitSigningService(new ConfigService()),
+      new CommitVerificationService(
+        db,
+        new UsersService(db),
+        new CommitSigningService(new ConfigService()),
+      ),
     );
   }
 

@@ -100,6 +100,27 @@ export async function listCommits({
   };
 }
 
+/** The commits named by `shas`, keyed by sha, in one git process. Every sha must name a commit in `gitDir`. */
+export async function readCommitsBySha({
+  gitDir,
+  shas,
+}: {
+  gitDir: string;
+  shas: string[];
+}): Promise<Map<string, Commit>> {
+  if (shas.length === 0) return new Map();
+  const raw = await runGit({
+    args: ['log', '--no-walk=unsorted', FORMAT, '--end-of-options', ...shas],
+    gitDir,
+  });
+  return new Map(
+    raw
+      .split(RECORD)
+      .flatMap((record) => parse(record) ?? [])
+      .map((commit) => [commit.sha, commit]),
+  );
+}
+
 /** One commit with the paths it changed, or null when the sha is unknown. */
 export async function readCommit({
   gitDir,

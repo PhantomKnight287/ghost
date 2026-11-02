@@ -251,12 +251,17 @@ export function toPullRequestNode(
   );
 }
 
-/** A branch as GitHub's Ref; the id is opaque and only needs to be stable. */
-export function toRefNode(repositoryGhostId: string, name: string) {
+/** A branch or tag as GitHub's Ref; the id is opaque and only needs to be stable. */
+export function toRefNode(
+  repositoryGhostId: string,
+  name: string,
+  prefix: 'refs/heads/' | 'refs/tags/' = 'refs/heads/',
+) {
   return Object.assign(new RefNode(), {
-    id: encodeNodeId('Repository', `${repositoryGhostId}:refs/heads/${name}`),
+    repositoryGhostId,
+    id: encodeNodeId('Repository', `${repositoryGhostId}:${prefix}${name}`),
     name,
-    prefix: 'refs/heads/',
+    prefix,
     branchProtectionRule: null,
   });
 }
@@ -346,6 +351,7 @@ export function toCommitNode(
   repository: { ghostId: string; url: string; resourcePath: string },
 ) {
   return Object.assign(new CommitNode(), {
+    repositoryGhostId: repository.ghostId,
     author: { name: commit.authorName, email: commit.authorEmail },
     committer: { name: commit.committerName, email: commit.committerEmail },
     id: encodeNodeId('Commit', `${repository.ghostId}:${commit.sha}`),
@@ -358,6 +364,8 @@ export function toCommitNode(
     committedDate: new Date(commit.committedAt),
     url: `${repository.url}/commit/${commit.sha}`,
     resourcePath: `${repository.resourcePath}/commit/${commit.sha}`,
+    commitUrl: `${repository.url}/commit/${commit.sha}`,
+    commitResourcePath: `${repository.resourcePath}/commit/${commit.sha}`,
     statusCheckRollup: commit.status
       ? toStatusCheckRollupNode(commit.status, repository.ghostId)
       : null,
