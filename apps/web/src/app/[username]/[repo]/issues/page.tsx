@@ -11,6 +11,7 @@ import { UserLink } from "@/components/users/user-link";
 import { FromNowHoverCard } from "@/components/from-now-card";
 import { issueFilters, issueSorts } from "@/components/issues/common";
 import { LabelBadge } from "@/components/issues/label-badge";
+import { LabelFilter } from "@/components/issues/label-filter";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -97,26 +98,7 @@ export default async function IssuesPage({
     return `${base}${suffix}`;
   }
 
-  const selectedLabels = (labels ?? "")
-    .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean);
-
   const repoLabels = allLabels.data?.labels ?? [];
-  const filterChips = [
-    ...repoLabels,
-    // A name left in the URL by a deleted label still needs a way out.
-    ...selectedLabels
-      .filter((name) => !repoLabels.some((label) => label.name === name))
-      .map((name) => ({ id: `missing:${name}`, name, color: "9ca3af" })),
-  ];
-
-  function labelHref(name: string) {
-    const next = selectedLabels.includes(name)
-      ? selectedLabels.filter((label) => label !== name)
-      : [...selectedLabels, name];
-    return href({ labels: next.join(",") || undefined });
-  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -208,25 +190,8 @@ export default async function IssuesPage({
         )}
       </form>
 
-      {filterChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">
-            Filter by label:
-          </span>
-          {filterChips.map((label) => (
-            <Link key={label.id} href={labelHref(label.name)}>
-              <LabelBadge
-                label={label}
-                className={cn(
-                  "cursor-pointer",
-                  selectedLabels.includes(label.name)
-                    ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
-                    : "opacity-75 hover:opacity-100",
-                )}
-              />
-            </Link>
-          ))}
-        </div>
+      {(repoLabels.length > 0 || labels) && (
+        <LabelFilter labels={repoLabels} />
       )}
 
       <div className="overflow-hidden rounded-lg border">

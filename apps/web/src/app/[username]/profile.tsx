@@ -32,13 +32,11 @@ import Link from "next/link";
 export async function Profile({
   username,
   viewer,
-  tab,
   query,
   cursor,
 }: {
   username: string;
   viewer: string;
-  tab?: string | string[];
   query: string;
   cursor?: string;
 }) {
@@ -249,7 +247,6 @@ export async function Profile({
                   },
                 ]
           }
-          defaultTab={tab === "repositories" ? "repositories" : "overview"}
           repositories={data.repositories}
           query={query}
           pagination={

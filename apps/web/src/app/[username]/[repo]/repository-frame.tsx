@@ -14,9 +14,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { Suspense, use, useState } from "react";
 
 import { AppHeader } from "@/components/app-header";
+import type { WatchLevel } from "@/components/notifications/common";
 import { WatchButton } from "@/components/notifications/watch-button";
 import { TabLink } from "@/components/tab-link";
 import { BranchSelect } from "@/components/repositories/branch-select";
@@ -84,14 +85,14 @@ export function RepositoryFrame({
       label: "Issues",
       icon: CircleDot,
       href: `${base}/issues`,
-      count: openIssueCount ?? null,
+      count: openIssueCount,
     },
     {
       value: "pulls",
       label: "Pull requests",
       icon: GitPullRequest,
       href: `${base}/pulls`,
-      count: openPullRequestCount ?? null,
+      count: openPullRequestCount,
     },
     ...(atLeast(viewerRole, "maintain")
       ? [
@@ -177,13 +178,13 @@ export function RepositoryFrame({
             </div>
 
             <div className="flex shrink-0 gap-2 sm:ml-auto">
-              {watchLevel && (
-                <WatchButton
+              <Suspense fallback={null}>
+                <StreamedWatchButton
                   username={username}
                   repo={slug}
                   level={watchLevel}
                 />
-              )}
+              </Suspense>
               <StarButton
                 username={username}
                 slug={slug}
@@ -209,9 +210,9 @@ export function RepositoryFrame({
                 <Icon className="size-4" />
                 {label}
                 {count !== null && (
-                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
-                    {count}
-                  </span>
+                  <Suspense fallback={null}>
+                    <TabCount count={count} />
+                  </Suspense>
                 )}
               </TabLink>
             ))}
@@ -360,4 +361,26 @@ export function RepositoryFrame({
       </main>
     </div>
   );
+}
+
+function TabCount({ count }: { count: Promise<number | undefined> }) {
+  const value = use(count);
+  if (value === undefined) return null;
+  return (
+    <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
+      {value}
+    </span>
+  );
+}
+
+function StreamedWatchButton({
+  level,
+  ...props
+}: {
+  username: string;
+  repo: string;
+  level: Promise<WatchLevel | null>;
+}) {
+  const value = use(level);
+  return value && <WatchButton {...props} level={value} />;
 }

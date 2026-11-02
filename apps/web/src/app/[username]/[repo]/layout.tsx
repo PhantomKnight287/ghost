@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
+import { type ComponentProps, Suspense } from "react";
 
 import { LatestRelease, LatestReleaseSkeleton } from "./latest-release";
 import { RepositoryAbout } from "./repository-about";
+import {
+  RepositoryContributors,
+  RepositoryContributorsSkeleton,
+} from "./repository-contributors";
 import { RepositoryFrame } from "./repository-frame";
 import { RepositoryLanguagesSkeleton } from "./repository-languages";
 import {
@@ -67,25 +71,28 @@ export default async function RepositoryLayout({
     );
   }
 
-  const [branches, pulls, issues, watch, imported] = await Promise.all([
-    client.GET("/api/repositories/{username}/{slug}/branches", {
-      params: { path: { username, slug: repo } },
-    }),
-    client.GET("/api/repositories/{username}/{repo}/pulls", {
+  // Only the branches hold up the frame: the header needs them to read the revision out of the path. Everything else streams in behind its own boundary, so the file listing never waits on a count.
+  const branches = await client.GET(
+    "/api/repositories/{username}/{slug}/branches",
+    { params: { path: { username, slug: repo } } },
+  );
+  const openPullRequestCount = client
+    .GET("/api/repositories/{username}/{repo}/pulls", {
       params: { path: { username, repo }, query: { state: "open", limit: 1 } },
-    }),
-    client.GET("/api/repositories/{username}/{repo}/issues", {
+    })
+    .then(({ data }) => data?.total);
+  const openIssueCount = client
+    .GET("/api/repositories/{username}/{repo}/issues", {
       params: { path: { username, repo }, query: { state: "open", limit: 1 } },
-    }),
-    session
-      ? client.GET("/api/repositories/{username}/{repo}/subscription", {
+    })
+    .then(({ data }) => data?.openCount);
+  const watchLevel = session
+    ? client
+        .GET("/api/repositories/{username}/{repo}/subscription", {
           params: { path: { username, repo } },
         })
-      : null,
-    client.GET("/api/repositories/{username}/{repo}/import", {
-      params: { path: { username, repo } },
-    }),
-  ]);
+        .then(({ data }) => data?.level ?? null)
+    : Promise.resolve(null);
 
   return (
     <RepositoryFrame
@@ -100,10 +107,10 @@ export default async function RepositoryLayout({
       branches={branches.data?.branches}
       starCount={repository.data.starCount}
       viewerHasStarred={repository.data.viewerHasStarred}
-      watchLevel={watch?.data?.level ?? null}
+      watchLevel={watchLevel}
       forkCount={repository.data.forkCount}
-      openPullRequestCount={pulls.data?.total}
-      openIssueCount={issues.data?.openCount}
+      openPullRequestCount={openPullRequestCount}
+      openIssueCount={openIssueCount}
       parent={repository.data.parent}
       fileTreeCollapsed={
         cookieStore.get(FILE_TREE_COLLAPSED_COOKIE)?.value === "1"
@@ -122,6 +129,10 @@ export default async function RepositoryLayout({
             <LatestRelease username={username} repo={repository.data.slug} />
           </Suspense>
 
+          <Suspense fallback={<RepositoryContributorsSkeleton />}>
+            <RepositoryContributors username={username} repo={repo} />
+          </Suspense>
+
           {/* Its own fetch: a first-ever language count of a big repository must not hold up the file listing. */}
           <Suspense fallback={<RepositoryLanguagesSkeleton />}>
             <RepositoryLanguagesSection username={username} repo={repo} />
@@ -129,15 +140,39 @@ export default async function RepositoryLayout({
         </>
       }
     >
-      {imported.data && imported.data.status !== "succeeded" && (
-        <ImportBanner
+      <Suspense fallback={null}>
+        <ImportStatus
           username={username}
           repo={repository.data.slug}
           viewerRole={repository.data.viewerRole}
-          initial={imported.data}
         />
-      )}
+      </Suspense>
       {children}
     </RepositoryFrame>
+  );
+}
+
+/** The banner for an import still running or failed; most repositories were never imported, so this usually renders nothing. */
+async function ImportStatus({
+  username,
+  repo,
+  viewerRole,
+}: {
+  username: string;
+  repo: string;
+  viewerRole: ComponentProps<typeof ImportBanner>["viewerRole"];
+}) {
+  const client = await createServerClient();
+  const { data } = await client.GET("/api/repositories/{username}/{repo}/import", {
+    params: { path: { username, repo } },
+  });
+  if (!data || data.status === "succeeded") return null;
+  return (
+    <ImportBanner
+      username={username}
+      repo={repo}
+      viewerRole={viewerRole}
+      initial={data}
+    />
   );
 }

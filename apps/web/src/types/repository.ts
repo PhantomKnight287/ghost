@@ -21,13 +21,13 @@ export type RepositoryFrameProps = {
   branches?: string[];
   starCount: number;
   viewerHasStarred: boolean;
-  /** How the viewer watches the repository; null for a signed-out visitor. */
-  watchLevel: WatchLevel | null;
+  /** How the viewer watches the repository; null for a signed-out visitor. Streamed, so the header renders before it lands. */
+  watchLevel: Promise<WatchLevel | null>;
   forkCount: number;
-  /** Open requests only, shown on the Pull requests tab. */
-  openPullRequestCount?: number;
-  /** Open issues only, shown on the Issues tab. */
-  openIssueCount?: number;
+  /** Open requests only, shown on the Pull requests tab once it lands. */
+  openPullRequestCount: Promise<number | undefined>;
+  /** Open issues only, shown on the Issues tab once it lands. */
+  openIssueCount: Promise<number | undefined>;
   parent?: RepositoryParent | null;
   /** Whether the file tree beside a file starts collapsed, from the viewer's cookie. */
   fileTreeCollapsed: boolean;

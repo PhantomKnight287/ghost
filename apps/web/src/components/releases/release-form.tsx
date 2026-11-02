@@ -39,6 +39,7 @@ export function ReleaseForm({
   username,
   repo,
   branches,
+  tags,
   defaultBranch,
   release,
   isFork,
@@ -47,6 +48,8 @@ export function ReleaseForm({
   username: string;
   repo: string;
   branches: string[];
+  /** Existing tags to pick from; a name not among them creates a new tag. */
+  tags: string[];
   defaultBranch: string | null;
   release?: Release;
   /** A fork's assets count against its fork quota, not the asset quota. */
@@ -58,6 +61,7 @@ export function ReleaseForm({
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<ReleaseInput>({
     resolver: zodResolver(releaseSchema),
@@ -71,6 +75,8 @@ export function ReleaseForm({
   });
 
   const router = useRouter();
+  const tagName = watch("tagName");
+  const newTag = Boolean(tagName) && !tags.includes(tagName);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
   const create = useAction(createRelease);
@@ -134,18 +140,31 @@ export function ReleaseForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="release-tag">Tag</FieldLabel>
-            <Input
-              id="release-tag"
-              placeholder="v1.0.0"
-              autoComplete="off"
-              disabled={Boolean(release)}
-              aria-invalid={Boolean(errors.tagName)}
-              {...register("tagName")}
-            />
+            {release ? (
+              <Input id="release-tag" value={release.tagName} disabled />
+            ) : (
+              <Controller
+                control={control}
+                name="tagName"
+                render={({ field }) => (
+                  <BranchSelect
+                    id="release-tag"
+                    branches={tags}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Choose or create a tag"
+                    searchPlaceholder="Find or create a tag"
+                    emptyMessage="Type a name to create a tag"
+                    createLabel={(name) => `Create new tag: ${name}`}
+                    className="w-full"
+                  />
+                )}
+              />
+            )}
             <FieldError errors={[errors.tagName]} />
           </Field>
 
-          {!release && branches.length > 0 && (
+          {!release && newTag && branches.length > 0 && (
             <Field>
               <FieldLabel htmlFor="release-target">Target</FieldLabel>
               <Controller
@@ -161,7 +180,7 @@ export function ReleaseForm({
                 )}
               />
               <FieldDescription>
-                Used only when the tag does not exist yet.
+                The commit the new tag points at.
               </FieldDescription>
             </Field>
           )}

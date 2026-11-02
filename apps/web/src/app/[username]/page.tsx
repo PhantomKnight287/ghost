@@ -61,7 +61,7 @@ export default async function ProfilePage({
   searchParams,
 }: PageProps<"/[username]">) {
   const { username } = await params;
-  const { tab, q, cursor } = await searchParams;
+  const { q, cursor } = await searchParams;
   const viewer = (await getServerSession())?.user.username ?? "";
   // Before the Suspense boundary, so an unknown name answers a real 404 rather than a 200 with the not-found page streamed into it.
   const [user, organization] = await loadOwner(username);
@@ -80,7 +80,6 @@ export default async function ProfilePage({
         <Profile
           username={username}
           viewer={viewer}
-          tab={tab}
           query={typeof q === "string" ? q.trim() : ""}
           cursor={typeof cursor === "string" ? cursor : undefined}
         />

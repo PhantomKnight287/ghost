@@ -14,12 +14,16 @@ export default async function NewReleasePage({
     createServerClient(),
   ]);
 
-  const [repository, branches, storage] = await Promise.all([
+  const [repository, branches, tags, storage] = await Promise.all([
     client.GET("/api/repositories/{username}/{slug}", {
       params: { path: { username, slug: repo } },
     }),
     client.GET("/api/repositories/{username}/{slug}/branches", {
       params: { path: { username, slug: repo } },
+    }),
+    // ponytail: the newest 100 tags only; an older one typed by name still resolves to the existing tag on save
+    client.GET("/api/repositories/{username}/{slug}/tags", {
+      params: { path: { username, slug: repo }, query: { limit: 100 } },
     }),
     client.GET("/api/storage/{owner}", {
       params: { path: { owner: username } },
@@ -43,6 +47,7 @@ export default async function NewReleasePage({
         username={username}
         repo={repo}
         branches={branches.data?.branches ?? []}
+        tags={tags.data?.tags.map((tag) => tag.name) ?? []}
         defaultBranch={branches.data?.defaultBranch ?? null}
         isFork={Boolean(repository.data.parent)}
         storage={storage.data ?? null}

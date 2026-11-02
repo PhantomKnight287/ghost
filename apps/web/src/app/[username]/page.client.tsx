@@ -4,6 +4,7 @@ import { useRef, type ReactNode } from "react";
 import { useDebouncer } from "@tanstack/react-pacer";
 import Form from "next/form";
 import { Plus, Search } from "lucide-react";
+import { parseAsString, useQueryState } from "nuqs";
 
 import { NewRepositoryDialog } from "@/components/repositories/new-repository-dialog";
 import { RepositoryCard } from "@/components/repository-card";
@@ -29,7 +30,6 @@ export function ProfileTabs({
   username,
   isViewer,
   owners,
-  defaultTab,
   repositories,
   query,
   pagination,
@@ -39,7 +39,6 @@ export function ProfileTabs({
   username: string;
   isViewer: boolean;
   owners: string[];
-  defaultTab: "overview" | "repositories";
   repositories: RepositoryEntity[];
   query: string;
   /** Rendered on the server from the page's cursor. */
@@ -54,8 +53,14 @@ export function ProfileTabs({
     wait: 300,
   });
 
+  // The tab lives in the URL, so a reload or a shared link opens the same tab.
+  const [tab, setTab] = useQueryState(
+    "tab",
+    parseAsString.withDefault("overview").withOptions({ history: "replace" }),
+  );
+
   return (
-    <Tabs defaultValue={defaultTab}>
+    <Tabs value={tab} onValueChange={setTab}>
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="repositories">Repositories</TabsTrigger>

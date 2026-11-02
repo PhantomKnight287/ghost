@@ -2,7 +2,11 @@ import { Download, GitCommitHorizontal, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { OwnersBadge } from "@/components/codeowners/owners-badge";
+import Link from "next/link";
+import { CopyButton } from "@/components/copy-button";
 import { FromNowHoverCard } from "@/components/from-now-card";
+import { Markdown } from "@/components/markdown";
+import { markdownUrlResolver } from "@/components/repositories/repository-readme";
 
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -46,10 +50,15 @@ export async function generateMetadata({
   };
 }
 
+const MARKDOWN = /\.(md|markdown|mdx)$/i;
+
 export default async function RepositoryBlobPage({
   params,
+  searchParams,
 }: PageProps<"/[username]/[repo]/blob/[ref]/[[...path]]">) {
   const { username, repo, ref, path } = await params;
+  // `?plain=1` shows a Markdown file's source, as on GitHub.
+  const { plain } = await searchParams;
 
   const { revision, path: filePath } = await resolveRevisionPath(
     username,
@@ -98,6 +107,9 @@ export default async function RepositoryBlobPage({
     activeCodeowners === filePath ? (codeowners?.data?.errors ?? []) : [];
   const lineErrors = Map.groupBy(errors, ({ line }) => line);
 
+  const markdown = text !== null && MARKDOWN.test(filename);
+  const rendered = markdown && plain !== "1";
+
   // An empty file is text with nothing to highlight; `null` is reserved for what this page cannot render.
   const lines =
     text === null
@@ -105,27 +117,62 @@ export default async function RepositoryBlobPage({
       : text === ""
         ? []
         : await highlightLines(text, filename);
+  const blobHref = `/${username}/${repo}/blob/${encodeURIComponent(revision)}/${segments
+    .map(encodeURIComponent)
+    .join("/")}`;
 
   return (
     <div className="overflow-hidden rounded-lg border">
-      <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-sm">
-        {commit && (
-          <>
-            <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate font-medium">{commit.subject}</span>
-            <code className="shrink-0 text-xs text-muted-foreground">
-              {commit.sha.slice(0, 7)}
-            </code>
-            <FromNowHoverCard
-              date={commit.committedAt}
-              className="shrink-0 text-xs text-muted-foreground"
-            />
-          </>
+      {/* Two rows, so on a phone neither the last commit nor the file's own details is squeezed out by the other. */}
+      {commit && (
+        <div className="flex min-w-0 items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-sm">
+          <GitCommitHorizontal className="size-4 shrink-0 text-muted-foreground" />
+          <Link
+            href={`/${username}/${repo}/commit/${commit.sha}`}
+            className="min-w-0 truncate font-medium hover:underline"
+          >
+            {commit.subject}
+          </Link>
+          <code className="shrink-0 text-xs text-muted-foreground">
+            {commit.sha.slice(0, 7)}
+          </code>
+          <FromNowHoverCard
+            date={commit.committedAt}
+            className="ml-auto shrink-0 text-xs text-muted-foreground"
+          />
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-2 text-sm">
+        {markdown && (
+          <div className="flex rounded-md border p-0.5 text-xs">
+            <Link
+              href={blobHref}
+              className={cn(
+                "rounded px-2 py-0.5",
+                rendered ? "bg-muted font-medium" : "text-muted-foreground",
+              )}
+            >
+              Preview
+            </Link>
+            <Link
+              href={`${blobHref}?plain=1`}
+              className={cn(
+                "rounded px-2 py-0.5",
+                !rendered ? "bg-muted font-medium" : "text-muted-foreground",
+              )}
+            >
+              Code
+            </Link>
+          </div>
         )}
+        <span className="text-xs text-muted-foreground">
+          {lines ? `${lines.length} lines · ` : ""}
+          {formatBytes(size)}
+        </span>
         {lfs && (
           <Badge
             variant="outline"
-            className="ml-auto shrink-0"
+            className="shrink-0"
             title={
               lfs === "missing"
                 ? "This repository does not hold the file's Git LFS object, so its pointer is shown."
@@ -137,24 +184,19 @@ export default async function RepositoryBlobPage({
               : "Git LFS object missing"}
           </Badge>
         )}
-        <span
-          className={cn(
-            "shrink-0 text-xs text-muted-foreground",
-            !lfs && "ml-auto",
-          )}
-        >
-          {lines ? `${lines.length} lines · ` : ""}
-          {formatBytes(size)}
-        </span>
-        <OwnersBadge logins={owners[filePath] ?? []} />
-        <a
-          href={rawUrl}
-          download={filename}
-          aria-label="Download file"
-          className="shrink-0 text-muted-foreground hover:text-primary"
-        >
-          <Download className="size-4" />
-        </a>
+        <div className="ml-auto flex items-center gap-3">
+          <OwnersBadge logins={owners[filePath] ?? []} />
+          {text !== null && <CopyButton text={text} label="Copy file" />}
+          <a
+            href={rawUrl}
+            download={filename}
+            aria-label="Download file"
+            title="Download file"
+            className="shrink-0 text-muted-foreground hover:text-primary"
+          >
+            <Download className="size-4" />
+          </a>
+        </div>
       </div>
 
       {errors.length > 0 && (
@@ -172,7 +214,20 @@ export default async function RepositoryBlobPage({
         </Alert>
       )}
       <LineTarget />
-      {lines ? (
+      {rendered ? (
+        <div className="px-4 py-4 md:px-6">
+          <Markdown
+            resolveUrl={markdownUrlResolver({
+              owner: username,
+              slug: repo,
+              revision,
+              file: filePath,
+            })}
+          >
+            {text}
+          </Markdown>
+        </div>
+      ) : lines ? (
         <div className="overflow-x-auto" data-shiki>
           <table className="w-full border-collapse font-mono text-sm">
             <tbody>
@@ -186,7 +241,7 @@ export default async function RepositoryBlobPage({
                     .join("\n")}
                   className="scroll-mt-20 hover:bg-muted/40"
                 >
-                  <td className="w-12 select-none border-r py-0.5 pr-3 text-right align-top text-xs text-muted-foreground">
+                  <td className="w-px select-none border-r py-0.5 pr-3 pl-4 text-right align-top text-xs whitespace-nowrap text-muted-foreground tabular-nums">
                     {lineErrors.has(i + 1) && (
                       <TriangleAlert className="mr-1 inline size-3 text-destructive" />
                     )}

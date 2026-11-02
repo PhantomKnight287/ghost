@@ -37,6 +37,7 @@ export default async function EditReleasePage({
         username={username}
         repo={repo}
         branches={[]}
+        tags={[]}
         defaultBranch={null}
         release={release.data}
         isFork={Boolean(repository.data?.parent)}

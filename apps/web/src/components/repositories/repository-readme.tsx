@@ -40,28 +40,21 @@ export async function RepositoryReadme({
   if (!readme?.path) return fallback;
 
   const branch = readme.ref.replace(/^refs\/heads\//, "");
-  // a README in a subdirectory writes paths relative to that directory
-  const directory = readme.path.split("/").slice(0, -1).join("/");
-  const rawHref = (path: string) =>
-    `${API_URL}/api/repositories/${owner}/${slug}/raw?ref=${encodeURIComponent(branch)}&path=${encodeURIComponent(path)}`;
-
-  /** A README writes paths relative to itself, so a link out of it is either a file in this repository or nothing. Images go to the raw bytes; everything else goes to the page for that path. */
-  const resolveUrl = (url: string, key: string) => {
-    const [path, hash] = splitHash(resolve(url, directory));
-    if (!path) return `#${hash}`;
-    return key === "src"
-      ? rawHref(path)
-      : `/${owner}/${slug}/blob/${encodeURIComponent(branch)}/${path
-          .split("/")
-          .map(encodeURIComponent)
-          .join("/")}${hash ? `#${hash}` : ""}`;
-  };
+  const resolveUrl = markdownUrlResolver({
+    owner,
+    slug,
+    revision: branch,
+    file: readme.path,
+  });
 
   const body =
     readme.content === null ? (
       <p className="text-sm text-muted-foreground">
         This README is too large to render.{" "}
-        <Link href={rawHref(readme.path)} className="text-primary underline">
+        <Link
+          href={rawFileHref({ owner, slug, revision: branch, path: readme.path })}
+          className="text-primary underline"
+        >
           View the raw file
         </Link>
         .
@@ -82,6 +75,46 @@ export async function RepositoryReadme({
       <div className="px-4 py-4 md:px-6">{body}</div>
     </div>
   );
+}
+
+function rawFileHref({
+  owner,
+  slug,
+  revision,
+  path,
+}: {
+  owner: string;
+  slug: string;
+  revision: string;
+  path: string;
+}) {
+  return `${API_URL}/api/repositories/${owner}/${slug}/raw?ref=${encodeURIComponent(revision)}&path=${encodeURIComponent(path)}`;
+}
+
+/** A Markdown file in a repository writes paths relative to itself, so a link out of it is either a file in this repository or nothing. Images go to the raw bytes; everything else goes to the page for that path. */
+export function markdownUrlResolver({
+  owner,
+  slug,
+  revision,
+  file,
+}: {
+  owner: string;
+  slug: string;
+  revision: string;
+  /** The Markdown file's own path; its directory is what relative links start from. */
+  file: string;
+}) {
+  const directory = file.split("/").slice(0, -1).join("/");
+  return (url: string, key: string) => {
+    const [path, hash] = splitHash(resolve(url, directory));
+    if (!path) return `#${hash}`;
+    return key === "src"
+      ? rawFileHref({ owner, slug, revision, path })
+      : `/${owner}/${slug}/blob/${encodeURIComponent(revision)}/${path
+          .split("/")
+          .map(encodeURIComponent)
+          .join("/")}${hash ? `#${hash}` : ""}`;
+  };
 }
 
 /** "#anchor" off the end of a path, so a link can carry both. */

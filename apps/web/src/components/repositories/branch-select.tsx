@@ -27,6 +27,7 @@ export function BranchSelect({
   searchPlaceholder = "Find a branch",
   emptyMessage = "No branch matches",
   inDialog = false,
+  createLabel,
   id,
   className,
 }: {
@@ -38,6 +39,8 @@ export function BranchSelect({
   emptyMessage?: string;
   /** A modal dialog makes everything outside it inert, so the list renders beside the trigger rather than at the end of <body>, where its search could not take focus. */
   inDialog?: boolean;
+  /** Set, a name typed that is not in the list can be picked too, as a new one; this words its row. */
+  createLabel?: (name: string) => string;
   id?: string;
   className?: string;
 }) {
@@ -45,12 +48,15 @@ export function BranchSelect({
   const [list, setList] = useState<HTMLDivElement | null>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
 
+  const typed = query.trim();
+  const creating = Boolean(createLabel && typed && !branches.includes(typed));
   const matches = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return needle
+    const needle = typed.toLowerCase();
+    const found = needle
       ? branches.filter((branch) => branch.toLowerCase().includes(needle))
       : branches;
-  }, [branches, query]);
+    return creating ? [typed, ...found] : found;
+  }, [branches, typed, creating]);
 
   const virtualizer = useVirtualizer({
     count: matches.length,
@@ -117,7 +123,11 @@ export function BranchSelect({
                     transform: `translateY(${row.start}px)`,
                   }}
                 >
-                  <span className="truncate">{matches[row.index]}</span>
+                  <span className="truncate">
+                    {creating && row.index === 0 && createLabel
+                      ? createLabel(typed)
+                      : matches[row.index]}
+                  </span>
                 </ComboboxItem>
               ))}
             </div>
