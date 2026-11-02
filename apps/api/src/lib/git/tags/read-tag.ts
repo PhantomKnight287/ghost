@@ -18,7 +18,49 @@ export interface TagObject {
 
 const OBJECT_ID = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 
-/** The annotated tag object `sha`, or null when `sha` is not a full object id, is missing, or names something other than a tag. */
+/** The annotated tag objects among `shas`, keyed by sha; anything that is not a full object id, is missing, or names something other than a tag is absent. */
+export async function readTagObjects({
+  gitDir,
+  shas,
+}: {
+  gitDir: string;
+  shas: string[];
+}): Promise<Map<string, TagObject>> {
+  const found = new Map<string, TagObject>();
+  // cat-file would resolve a tag or branch name too; only object ids are asked for here.
+  const wanted = shas.filter((sha) => OBJECT_ID.test(sha));
+  if (wanted.length === 0) return found;
+
+  const raw = await runGitBuffer({
+    args: ['cat-file', '--batch'],
+    gitDir,
+    input: Buffer.from(`${wanted.join('\n')}\n`, 'utf8'),
+  });
+
+  // `<sha> <type> <size>\n<size bytes>\n`, repeated; a missing object is `<sha> missing` with no body.
+  let offset = 0;
+  while (offset < raw.length) {
+    const newline = raw.indexOf('\n', offset);
+    if (newline === -1) break;
+    const [sha, type, size] = raw
+      .subarray(offset, newline)
+      .toString('utf8')
+      .split(' ');
+    if (!size) {
+      offset = newline + 1;
+      continue;
+    }
+    const end = newline + 1 + Number(size);
+    if (type === 'tag')
+      found.set(
+        sha,
+        parseTag(sha, raw.subarray(newline + 1, end).toString('utf8')),
+      );
+    offset = end + 1;
+  }
+  return found;
+}
+
 export async function readTagObject({
   gitDir,
   sha,
@@ -26,21 +68,10 @@ export async function readTagObject({
   gitDir: string;
   sha: string;
 }): Promise<TagObject | null> {
-  // cat-file would resolve a tag or branch name too; only an object id is asked for here.
-  if (!OBJECT_ID.test(sha)) return null;
+  return (await readTagObjects({ gitDir, shas: [sha] })).get(sha) ?? null;
+}
 
-  const raw = await runGitBuffer({
-    args: ['cat-file', '--batch'],
-    gitDir,
-    input: Buffer.from(`${sha}\n`, 'utf8'),
-  });
-  const newline = raw.indexOf('\n');
-  const [, type, size] = raw.subarray(0, newline).toString('utf8').split(' ');
-  if (type !== 'tag') return null;
-
-  const tag = raw
-    .subarray(newline + 1, newline + 1 + Number(size))
-    .toString('utf8');
+function parseTag(sha: string, tag: string): TagObject {
   const signature = splitTagSignature(tag);
   const body = signature ? signature.payload : tag;
   const headersEnd = body.indexOf('\n\n');

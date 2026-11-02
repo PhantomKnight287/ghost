@@ -20,6 +20,7 @@ import { BranchProtectionRuleNode } from './placeholders.type.js';
 @ObjectType('Ref', { implements: () => [Node] })
 export class RefNode {
   kind = 'Ref';
+  repositoryGhostId: string;
 
   @Field(() => ID)
   id: string;
@@ -34,6 +35,8 @@ export class RefNode {
   @Field(() => BranchProtectionRuleNode, { nullable: true })
   branchProtectionRule: BranchProtectionRuleNode | null;
 }
+
+export const RefConnection = Connection(RefNode, 'Ref');
 
 @ObjectType('Repository', {
   implements: () => [Node, UniformResourceLocatable],

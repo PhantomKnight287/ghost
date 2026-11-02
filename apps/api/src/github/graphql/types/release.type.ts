@@ -9,10 +9,13 @@ import {
 import { Connection } from '../connection.js';
 import { URI } from '../scalars.js';
 import { Node, UniformResourceLocatable } from './node.interface.js';
+import type { RepositoryNode } from './repository.type.js';
 
 @ObjectType('Release', { implements: () => [Node, UniformResourceLocatable] })
 export class ReleaseNode {
   kind = 'Release';
+  /** The repository the release was read through, for its tag. */
+  repository: RepositoryNode;
 
   @Field(() => ID)
   id: string;

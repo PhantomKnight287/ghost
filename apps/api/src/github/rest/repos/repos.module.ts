@@ -12,6 +12,13 @@ import {
   IssueResolver,
   ProjectV2ItemResolver,
 } from '../../graphql/resolvers/issue/issue.resolver.js';
+import {
+  CommitGitObjectResolver,
+  RefResolver,
+  RepositoryRefsResolver,
+  TagResolver,
+} from '../../graphql/resolvers/git-object/git-object.resolver.js';
+import { GitObjectNodesService } from '../../graphql/resolvers/git-object/git-object-nodes.service.js';
 import { IssueNodesService } from '../../graphql/resolvers/issue/issue-nodes.service.js';
 import {
   CheckRunResolver,
@@ -66,7 +73,17 @@ import { GithubReposService } from './repos.service.js';
     CommitVerificationService,
     CommitSigningService,
     UsersService,
+    GitObjectNodesService,
+    RepositoryRefsResolver,
+    RefResolver,
+    TagResolver,
+    CommitGitObjectResolver,
   ],
-  exports: [RepositoryNodesService, IssueNodesService, PullRequestNodesService],
+  exports: [
+    RepositoryNodesService,
+    IssueNodesService,
+    PullRequestNodesService,
+    GitObjectNodesService,
+  ],
 })
 export class ReposModule {}

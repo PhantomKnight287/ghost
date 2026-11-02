@@ -3,7 +3,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { inArray } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
-import { readSignedCommits } from '../../lib/git/commits/commit-signature.js';
+import {
+  readSignedCommits,
+  type SignedObject,
+} from '../../lib/git/commits/commit-signature.js';
 import { fingerprintOf } from '../../lib/git/ssh/public-key.js';
 import { GITHUB_WEB_FLOW_KEYS } from '../../lib/gpg/github-web-flow.js';
 import {
@@ -58,14 +61,24 @@ export class CommitVerificationService {
     env?: Record<string, string>;
     commits: VerifiableCommit[];
   }): Promise<Map<string, CommitVerification>> {
-    const verdicts = new Map<string, CommitVerification>();
-    if (commits.length === 0) return verdicts;
-
+    if (commits.length === 0) return new Map();
     const signed = await readSignedCommits({
       gitDir,
       env,
       shas: commits.map((commit) => commit.sha),
     });
+    return this.verifySigned({ signed, commits });
+  }
+
+  /** As {@link verifyCommits}, for a caller that already read the signed objects and needs their payloads too. */
+  async verifySigned({
+    signed,
+    commits,
+  }: {
+    signed: Map<string, SignedObject>;
+    commits: VerifiableCommit[];
+  }): Promise<Map<string, CommitVerification>> {
+    const verdicts = new Map<string, CommitVerification>();
     if (signed.size === 0) return verdicts;
 
     // The key id comes from the signature itself, so one lookup covers the whole page no matter how many people signed it.

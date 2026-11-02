@@ -6,6 +6,7 @@ import {
   IssueState,
   LabelOrderField,
   OrderDirection,
+  RefOrderField,
   ReleaseOrderField,
 } from './enums.js';
 
@@ -61,6 +62,17 @@ export class ReleaseOrder {
   @Allow()
   @Field(() => ReleaseOrderField)
   field: ReleaseOrderField;
+
+  @Allow()
+  @Field(() => OrderDirection)
+  direction: OrderDirection;
+}
+
+@InputType('RefOrder')
+export class RefOrder {
+  @Allow()
+  @Field(() => RefOrderField)
+  field: RefOrderField;
 
   @Allow()
   @Field(() => OrderDirection)

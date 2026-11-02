@@ -82,7 +82,10 @@ export class ReleaseNodesService {
       releases.map((release) => release.id),
     );
     return releases.map((release) =>
-      toReleaseNode(release, numericIds.get(release.id) ?? null, repository),
+      Object.assign(
+        toReleaseNode(release, numericIds.get(release.id) ?? null, repository),
+        { repository },
+      ),
     );
   }
 }

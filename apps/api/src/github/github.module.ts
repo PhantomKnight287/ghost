@@ -30,6 +30,7 @@ import { IssueMutationsResolver } from './graphql/resolvers/issue-mutations/issu
 import { IssueMutationsService } from './graphql/resolvers/issue-mutations/issue-mutations.service.js';
 import { PullRequestMutationsResolver } from './graphql/resolvers/pull-request-mutations/pull-request-mutations.resolver.js';
 import { PullRequestMutationsService } from './graphql/resolvers/pull-request-mutations/pull-request-mutations.service.js';
+import { ReleaseTagResolver } from './graphql/resolvers/git-object/git-object.resolver.js';
 import { RepositoryReleasesResolver } from './graphql/resolvers/release/release.resolver.js';
 import { ReleaseNodesService } from './graphql/resolvers/release/release-nodes.service.js';
 import { RepositoryMutationsResolver } from './graphql/resolvers/repository-mutations/repository-mutations.resolver.js';
@@ -131,6 +132,7 @@ import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
     RepositoryMutationsResolver,
     PullRequestMutationsResolver,
     RepositoryReleasesResolver,
+    ReleaseTagResolver,
     ViewerService,
     GithubSearchService,
     IssueMutationsService,
