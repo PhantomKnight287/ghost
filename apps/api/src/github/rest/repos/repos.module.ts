@@ -5,6 +5,9 @@ import { IssuesModule } from '../../../resources/issues/issues.module.js';
 import { PullRequestsModule } from '../../../resources/pull-requests/pull-requests.module.js';
 import { RepositoriesModule } from '../../../resources/repositories/repositories.module.js';
 import { RepositoryAccessService } from '../../../services/git/repository-access/repository-access.service.js';
+import { CommitSigningService } from '../../../services/gpg/commit-signing.service.js';
+import { CommitVerificationService } from '../../../services/gpg/commit-verification.service.js';
+import { UsersService } from '../../../services/users/users.service.js';
 import {
   IssueResolver,
   ProjectV2ItemResolver,
@@ -60,6 +63,9 @@ import { GithubReposService } from './repos.service.js';
     CheckRunResolver,
     ProjectV2ItemResolver,
     RepositoryAccessService,
+    CommitVerificationService,
+    CommitSigningService,
+    UsersService,
   ],
   exports: [RepositoryNodesService, IssueNodesService, PullRequestNodesService],
 })

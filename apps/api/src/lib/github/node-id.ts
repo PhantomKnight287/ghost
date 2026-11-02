@@ -24,6 +24,7 @@ const PREFIXES = {
   RepositoryRulesetBypassActor: 'RBA',
   Bot: 'BOT',
   App: 'APP',
+  Tag: 'TAG',
 } as const;
 
 export type NodeType = keyof typeof PREFIXES;

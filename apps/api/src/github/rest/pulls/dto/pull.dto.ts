@@ -462,14 +462,16 @@ export class GithubCommitVerificationDTO {
   @ApiProperty()
   verified: boolean;
 
-  @ApiProperty({ enum: ['valid', 'unknown_key', 'unsigned'] })
+  @ApiProperty({
+    enum: ['valid', 'unknown_key', 'bad_email', 'invalid', 'unsigned'],
+  })
   reason: string;
 
   @ApiProperty({ type: String, nullable: true })
-  signature: null;
+  signature: string | null;
 
   @ApiProperty({ type: String, nullable: true })
-  payload: null;
+  payload: string | null;
 
   @ApiProperty({ type: String, nullable: true })
   verified_at: null;

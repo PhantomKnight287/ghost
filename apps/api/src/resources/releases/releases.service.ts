@@ -54,6 +54,8 @@ import {
   ReleaseAssetsService,
   releaseAssetColumns,
 } from './release-assets.service.js';
+import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
+import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 
 /** What an edit can change; `release.edited` is published only when one of these differs afterwards. */
 const editableColumns = {
@@ -91,6 +93,8 @@ export class ReleasesService {
     private readonly quota: StorageQuotaService,
     private readonly verdicts: RulesetVerdictsService,
     private readonly ruleSuites: RuleSuitesService,
+    private readonly signing: CommitSigningService,
+    private readonly verification: CommitVerificationService,
   ) {}
 
   async listReleases({
@@ -429,6 +433,7 @@ export class ReleasesService {
       name,
       message,
       tagger,
+      signer: this.signing.signer,
     });
 
     await withTempDir('ghost-tag-', async (scratch) => {
@@ -556,8 +561,9 @@ export class ReleasesService {
   >(repository: AuthorizedRepository, releases: T[]) {
     if (releases.length === 0) return [];
 
+    const directory = await this.materializer.open(repository);
     const [tags, assets] = await Promise.all([
-      this.materializer.open(repository).then(listTags),
+      listTags(directory),
       this.db
         .select({
           releaseId: schema.releaseAsset.releaseId,
@@ -575,7 +581,17 @@ export class ReleasesService {
         )
         .orderBy(asc(schema.releaseAsset.name)),
     ]);
-    const shas = new Map(tags.map((tag) => [tag.name, tag.sha]));
+    const byName = new Map(tags.map((tag) => [tag.name, tag]));
+    const released = releases.flatMap((release) => {
+      const tag = byName.get(release.tagName);
+      return tag?.tagSha
+        ? [{ sha: tag.tagSha, authorEmail: tag.taggerEmail ?? '' }]
+        : [];
+    });
+    const verdicts = await this.verification.verifyCommits({
+      gitDir: directory,
+      commits: released,
+    });
     const viewerCanEdit = atLeast(repository.viewerRole, 'write');
 
     return releases.map(
@@ -587,12 +603,14 @@ export class ReleasesService {
         tarballDownloadCount,
         ...release
       }) => {
-        const commitSha = shas.get(release.tagName) ?? null;
+        const tag = byName.get(release.tagName);
+        const commitSha = tag?.sha ?? null;
         // archives built from a commit the tag has since moved off are rebuilt on the next download, and their size is not yet known
         const current = commitSha !== null && sourceCommitSha === commitSha;
         return {
           ...release,
           commitSha,
+          tagVerification: (tag?.tagSha && verdicts.get(tag.tagSha)) || null,
           source:
             commitSha === null
               ? null

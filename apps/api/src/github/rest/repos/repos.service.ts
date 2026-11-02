@@ -17,6 +17,7 @@ import { DATABASE } from '../../../database/database.module.js';
 import type { ArchiveFormat } from '../../../lib/git/archive/archive.js';
 import { findReadmePath } from '../../../lib/git/blob/find-readme.js';
 import { isTextBlob, readBlob } from '../../../lib/git/blob/read-blob.js';
+import { readTagObject } from '../../../lib/git/tags/read-tag.js';
 import { resolveDefaultRef } from '../../../lib/git/tree/resolve-ref.js';
 import { sameName } from '../../../lib/db/sql.js';
 import {
@@ -24,6 +25,7 @@ import {
   RequiresAuthenticationError,
   UnprocessableError,
 } from '../../../lib/github/github.errors.js';
+import { encodeNodeId } from '../../../lib/github/node-id.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
 import {
   pageOf,
@@ -46,6 +48,7 @@ import {
 } from '../../../lib/repositories/access/repository-access.js';
 import { RepositoriesService } from '../../../resources/repositories/repositories.service.js';
 import { RepositoryMaterializerService } from '../../../services/git/materializer/repository-materializer.service.js';
+import { CommitVerificationService } from '../../../services/gpg/commit-verification.service.js';
 import type {
   GithubRepositoryTarget,
   GithubViewer,
@@ -62,6 +65,7 @@ import type {
 } from './dto/list-repositories.dto.js';
 import type {
   GithubCodeownersErrorsDTO,
+  GithubGitTagDTO,
   GithubReadmeDTO,
   GithubRepositoryDTO,
 } from './dto/repository.dto.js';
@@ -82,6 +86,7 @@ export class GithubReposService {
     private readonly materializer: RepositoryMaterializerService,
     private readonly repositories: RepositoriesService,
     private readonly config: ConfigService,
+    private readonly verification: CommitVerificationService,
   ) {}
 
   async get({ owner, repo, viewer }: GithubRepositoryTarget) {
@@ -134,6 +139,53 @@ export class GithubReposService {
       name: path.slice(path.lastIndexOf('/') + 1),
       path,
       content: blob.content.toString('base64'),
+    };
+  }
+
+  /** 404 for anything but an annotated tag object, a commit sha included, as on GitHub. */
+  async gitTag(
+    { owner, repo, viewer }: GithubRepositoryTarget,
+    sha: string,
+  ): Promise<GithubGitTagDTO> {
+    const node = await this.repositoryNodes.repository(owner, repo, viewer);
+    const gitDir = await this.materializer.open({
+      id: node.ghostId,
+      defaultBranch: node.defaultBranch,
+    });
+    const tag = await readTagObject({ gitDir, sha: sha.toLowerCase() });
+    if (!tag) throw new GithubNotFoundError();
+
+    const verdict = (
+      await this.verification.verifyCommits({
+        gitDir,
+        commits: [{ sha: tag.sha, authorEmail: tag.tagger?.email ?? '' }],
+      })
+    ).get(tag.sha);
+    const apiUrl = `${githubOrigins(this.config).api}/api/v3/repos/${node.nameWithOwner}`;
+
+    return {
+      node_id: encodeNodeId('Tag', `${node.ghostId}:${tag.sha}`),
+      tag: tag.name,
+      sha: tag.sha,
+      url: `${apiUrl}/git/tags/${tag.sha}`,
+      message: tag.message,
+      tagger: tag.tagger && {
+        name: tag.tagger.name,
+        email: tag.tagger.email,
+        date: tag.tagger.date.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      },
+      object: {
+        type: tag.target.type,
+        sha: tag.target.sha,
+        url: `${apiUrl}/git/${tag.target.type}s/${tag.target.sha}`,
+      },
+      verification: {
+        verified: verdict?.verified ?? false,
+        reason: verdict?.state ?? 'unsigned',
+        signature: tag.signature?.signature ?? null,
+        payload: tag.signature?.payload ?? null,
+        verified_at: null,
+      },
     };
   }
 

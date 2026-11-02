@@ -9,9 +9,13 @@ export interface SignedCommit {
   format: 'openpgp' | 'ssh';
 }
 
+export interface SignedObject extends SignedCommit {
+  type: 'commit' | 'tag';
+}
+
 const PGP_SIGNATURE_HEADER = '-----BEGIN PGP SIGNATURE-----';
 
-/** Commits without an OpenPGP or SSH signature (X.509 ones included) are absent from the map. One `cat-file --batch` answers a whole page: `git log` cannot hand back the signature header. */
+/** Commits and tag objects without an OpenPGP or SSH signature (X.509 ones included) are absent from the map. One `cat-file --batch` answers a whole page: `git log` cannot hand back the signature header. */
 export async function readSignedCommits({
   gitDir,
   env,
@@ -20,8 +24,8 @@ export async function readSignedCommits({
   gitDir: string;
   env?: Record<string, string>;
   shas: string[];
-}): Promise<Map<string, SignedCommit>> {
-  const found = new Map<string, SignedCommit>();
+}): Promise<Map<string, SignedObject>> {
+  const found = new Map<string, SignedObject>();
   if (shas.length === 0) return found;
 
   const raw = await runGitBuffer({
@@ -49,9 +53,11 @@ export async function readSignedCommits({
 
     const start = newline + 1;
     const end = start + Number(size);
-    if (type === 'commit') {
-      const signed = splitSignature(raw.subarray(start, end).toString('utf8'));
-      if (signed) found.set(sha, signed);
+    if (type === 'commit' || type === 'tag') {
+      const body = raw.subarray(start, end).toString('utf8');
+      const signed =
+        type === 'commit' ? splitSignature(body) : splitTagSignature(body);
+      if (signed) found.set(sha, { ...signed, type });
     }
     offset = end + 1;
   }
@@ -101,6 +107,24 @@ export function splitSignature(commit: string): SignedCommit | null {
   if (!format) return null;
 
   return { payload: payload.join('\n'), signature: armored, format };
+}
+
+/** A tag carries its signature as the trailing block of its message, not as a header. Like git's `parse_signature`, the last line that opens a signature starts it, so a message quoting one earlier stays payload. */
+export function splitTagSignature(tag: string): SignedCommit | null {
+  // A tag object opens with its `object` header, so a signature line always follows a newline.
+  const newline = Math.max(
+    tag.lastIndexOf(`\n${PGP_SIGNATURE_HEADER}`),
+    tag.lastIndexOf(`\n${SSH_SIGNATURE_HEADER}`),
+  );
+  if (newline === -1) return null;
+  const start = newline + 1;
+
+  const signature = tag.slice(start);
+  return {
+    payload: tag.slice(0, start),
+    signature,
+    format: signature.startsWith(PGP_SIGNATURE_HEADER) ? 'openpgp' : 'ssh',
+  };
 }
 
 export type CommitSigner = (payload: string) => Promise<string>;
