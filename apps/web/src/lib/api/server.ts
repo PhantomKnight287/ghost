@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import createFetchClient from "openapi-fetch";
+import createFetchClient, { type Middleware } from "openapi-fetch";
 
 import { authClient } from "@/lib/auth-client";
 import { administers } from "@ghost/permissions";
@@ -61,11 +61,43 @@ export async function fetchApi(
 
 /** Typed API client for server components. `credentials: "include"` is a browser concept, so the incoming request's cookies are forwarded explicitly. */
 export async function createServerClient() {
-  return createFetchClient<paths>({
+  const client = createFetchClient<paths>({
     baseUrl: INTERNAL_API_URL,
     headers: await forwardedHeaders(),
     fetch: fetchApi,
   });
+  client.use(logFailures);
+  return client;
+}
+
+/** Answers a page handles itself, so logging them would bury the failures. */
+const EXPECTED_STATUSES = new Set([401, 403, 404]);
+
+/** Pages throw their own short message, and Next.js hides it behind a digest in production, so the API's own answer is logged here, once for every caller. */
+const logFailures: Middleware = {
+  async onResponse({ request, response }) {
+    if (response.ok || EXPECTED_STATUSES.has(response.status)) return;
+    const text = await response.clone().text();
+    let message = text;
+    try {
+      message = JSON.parse(text).message ?? text;
+    } catch {}
+    const { pathname, search } = new URL(request.url);
+    console.error(
+      `API ${request.method} ${pathname}${search} answered ${response.status}: ${String(message).slice(0, 500)}`,
+    );
+  },
+  onError({ request, error }) {
+    const { pathname, search } = new URL(request.url);
+    const cause = (error as { cause?: { code?: string } }).cause?.code;
+    console.error(
+      `API ${request.method} ${pathname}${search} failed: ${errorText(error)}${cause ? ` (${cause})` : ""}`,
+    );
+  },
+};
+
+function errorText(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 type ServerClient = Awaited<ReturnType<typeof createServerClient>>;
