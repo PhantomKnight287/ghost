@@ -22,7 +22,7 @@
     "update": "bun scripts/update.ts"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.3",
-    "typescript": "^5.9.2"
+    "@types/bun": "^1.4.4",
+    "typescript": "^5.9.3"
   }
 }

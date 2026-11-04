@@ -23,11 +23,11 @@
     "test": "bun test"
   },
   "peerDependencies": {
-    "better-auth": "^1.7.7"
+    "better-auth": "^1.7.16"
   },
   "devDependencies": {
-    "better-auth": "^1.7.7",
-    "typescript": "^5.9.2"
+    "better-auth": "^1.7.16",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "slugify": "^1.6.9"
