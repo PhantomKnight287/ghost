@@ -71,20 +71,15 @@ describe("Discord embed", () => {
     expect(status).toBe(200);
     expect(body.component.type).toBe(17);
     expect(contents(body)).toContain(
-      "## [ghost/ghost](http://localhost:3000/ghost/ghost)",
+      "**[ghost/ghost](http://localhost:3000/ghost/ghost)**",
     );
     expect(contents(body)).toContain(
       "1 star · 2 forks · pushed <t:1792454400:R>",
     );
-    expect(body.component.components[1]).toEqual({
-      type: 12,
-      items: [
-        { media: { url: "http://localhost:3000/ghost/ghost/opengraph-image" } },
-      ],
-    });
     expect(contents(body)).toContain(
-      '"label":"Pull requests","url":"http://localhost:3000/ghost/ghost/pulls"',
+      "[Pull requests](http://localhost:3000/ghost/ghost/pulls)",
     );
+    expect(body.component.components).toHaveLength(1);
   });
 
   it("previews the issue and pull request lists as their repository", async () => {
@@ -92,20 +87,19 @@ describe("Discord embed", () => {
       const { body } = await embed(`/ghost/ghost/${list}`, {
         "/api/repositories/ghost/ghost": repository,
       });
-      expect(contents(body)).toContain("## [ghost/ghost]");
+      expect(contents(body)).toContain("**[ghost/ghost]");
     }
   });
 
-  it("shows an organization with its logo missing and its website as a button", async () => {
+  it("shows an organization with its logo missing and its website as a link", async () => {
     const { body } = await embed("/ghost", {
       "/api/organizations/ghost": organization,
     });
-    const [text, row] = body.component.components;
+    const [text] = body.component.components;
     expect(text.type).toBe(10);
     expect(text.content).toContain("-# @ghost · Earth · 2 public repositories");
-    expect(
-      row.components.map((button: { label: string }) => button.label),
-    ).toEqual(["View organization", "Website"]);
+    expect(text.content).toContain("-# [Website](https://ghost.test)");
+    expect(body.component.components).toHaveLength(1);
   });
 
   it("shows a user with their avatar as a thumbnail", async () => {
@@ -124,9 +118,9 @@ describe("Discord embed", () => {
     expect(body.component.components[0].content).toBe(
       [
         "-# [@alice](http://localhost:3000/alice) published <t:1790812800:R>",
-        "## [v1/beta](http://localhost:3000/ghost/ghost/releases/tag/v1/beta)",
+        "**[v1/beta](http://localhost:3000/ghost/ghost/releases/tag/v1/beta)**",
         "Notes",
-        "-# ghost/ghost · `v1/beta`",
+        "-# ghost/ghost · `v1/beta` · [All releases](http://localhost:3000/ghost/ghost/releases)",
       ].join("\n"),
     );
   });
@@ -141,10 +135,7 @@ describe("Discord embed", () => {
     });
     expect(contents(body)).toContain("-# Published <t:1790812800:R>");
     expect(contents(body)).toContain(
-      "## [Beta](http://localhost:3000/ghost/ghost/releases/tag/v1/beta)",
-    );
-    expect(contents(body)).toContain(
-      '"label":"All releases","url":"http://localhost:3000/ghost/ghost/releases"',
+      "**[Beta](http://localhost:3000/ghost/ghost/releases/tag/v1/beta)**",
     );
   });
 
@@ -168,7 +159,7 @@ describe("Discord embed", () => {
     expect(body.component.components[0].content).toBe(
       [
         "-# [@alice](http://localhost:3000/alice) opened <t:1790812800:R>",
-        "## [Fix it #7](http://localhost:3000/ghost/ghost/issues/7)",
+        "**[Fix it #7](http://localhost:3000/ghost/ghost/issues/7)**",
         "Broken since yesterday",
         "-# ghost/ghost · 1 comment · `bug` · `ui`",
       ].join("\n"),
@@ -204,10 +195,10 @@ describe("Discord embed", () => {
     expect(body.component.components[0].content).toBe(
       [
         "-# [@alice](http://localhost:3000/alice) opened <t:1790812800:R>",
-        "## [Fix it #7](http://localhost:3000/ghost/ghost/pull/7)",
+        "**[Fix it #7](http://localhost:3000/ghost/ghost/pull/7)**",
         "Broken since yesterday",
         "-# ghost/ghost · `feat` into `main`",
-        "-# 1 commit · 2 files · +3 −4",
+        "-# 1 commit · 2 files · +3 −4 · [Files changed](http://localhost:3000/ghost/ghost/pull/7/files)",
       ].join("\n"),
     );
 

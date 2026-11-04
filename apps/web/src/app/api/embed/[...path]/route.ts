@@ -60,16 +60,13 @@ async function render(
         components: [
           section(
             [
-              `## [${name}](${url})`,
+              title(name, url),
               description,
               `-# ${[`@${username}`, location, plural(repositoryCount, "public repository", "public repositories")].filter(Boolean).join(" · ")}`,
+              website && links([["Website", website]]),
             ],
             logo,
           ),
-          buttons([
-            ["View organization", url],
-            website ? ["Website", website] : null,
-          ]),
         ],
       };
     }
@@ -79,13 +76,12 @@ async function render(
       components: [
         section(
           [
-            `## [${name}](${url})`,
+            title(name, url),
             `@${user.data.username} · joined ${timestamp(joinedAt, "D")}`,
             `-# ${plural(repositoryCount, "public repository", "public repositories")} · ${plural(starCount, "star")}`,
           ],
           image,
         ),
-        buttons([["View profile", url]]),
       ],
     };
   }
@@ -105,17 +101,14 @@ async function render(
     return {
       components: [
         text([
-          `## [${data.owner}/${data.slug}](${base})`,
-          data.description && truncate(plain(data.description), 280),
+          title(`${data.owner}/${data.slug}`, base),
+          data.description && truncate(plain(data.description), 140),
           `-# ⭐ ${plural(data.starCount, "star")} · ${plural(data.forkCount, "fork")}${data.lastPushedAt ? ` · pushed ${timestamp(data.lastPushedAt, "R")}` : ""}`,
-        ]),
-        // The repository's Open Graph card, which the component embed replaces in the preview.
-        { type: 12, items: [{ media: { url: `${base}/opengraph-image` } }] },
-        buttons([
-          ["Code", base],
-          ["Issues", `${base}/issues`],
-          ["Pull requests", `${base}/pulls`],
-          ["Releases", `${base}/releases`],
+          links([
+            ["Issues", `${base}/issues`],
+            ["Pull requests", `${base}/pulls`],
+            ["Releases", `${base}/releases`],
+          ]),
         ]),
       ],
     };
@@ -132,7 +125,7 @@ async function render(
     return {
       components: [
         text([
-          `## [Releases · ${username}/${repo}](${base}/releases)`,
+          title(`Releases · ${username}/${repo}`, `${base}/releases`),
           "No releases yet.",
         ]),
       ],
@@ -164,11 +157,10 @@ async function render(
       components: [
         text([
           author(data.authorUsername, "opened", data.createdAt),
-          `## [${data.title} #${data.number}](${url})`,
-          data.body && truncate(plain(data.body), 280),
+          title(`${data.title} #${data.number}`, url),
+          data.body && truncate(plain(data.body), 140),
           `-# ${username}/${repo} · ${plural(data.commentCount, "comment")}${labels}`,
         ]),
-        buttons([["View issue", url]]),
       ],
     };
   }
@@ -184,14 +176,10 @@ async function render(
     components: [
       text([
         author(data.authorUsername, "opened", data.createdAt),
-        `## [${data.title} #${data.number}](${url})`,
-        data.body && truncate(plain(data.body), 280),
+        title(`${data.title} #${data.number}`, url),
+        data.body && truncate(plain(data.body), 140),
         `-# ${username}/${repo} · \`${data.head.ref}\` into \`${data.base.ref}\``,
-        `-# ${plural(data.commitCount, "commit")} · ${plural(data.changedFiles, "file")} · +${data.additions} −${data.deletions}`,
-      ]),
-      buttons([
-        ["View pull request", url],
-        ["Files changed", `${url}/files`],
+        `-# ${plural(data.commitCount, "commit")} · ${plural(data.changedFiles, "file")} · +${data.additions} −${data.deletions} · [Files changed](${url}/files)`,
       ]),
     ],
   };
@@ -207,13 +195,9 @@ function release(
   return [
     text([
       author(authorUsername, "published", publishedAt ?? createdAt),
-      `## [${name || tagName}](${url})`,
-      body && truncate(plain(body), 280),
-      `-# ${username}/${repo} · \`${tagName}\``,
-    ]),
-    buttons([
-      ["View release", url],
-      ["All releases", releases],
+      title(name || tagName, url),
+      body && truncate(plain(body), 140),
+      `-# ${username}/${repo} · \`${tagName}\` · [All releases](${releases})`,
     ]),
   ];
 }
@@ -240,14 +224,13 @@ function section(lines: (string | null | undefined)[], image?: string | null) {
   };
 }
 
-/** Link buttons; the only style an embed allows. */
-function buttons(links: ([label: string, url: string] | null)[]): Component {
-  return {
-    type: 1,
-    components: links
-      .filter((link) => link !== null)
-      .map(([label, url]) => ({ type: 2, style: 5, label, url })),
-  };
+/** A bold link rather than a heading, which Discord renders far larger than the rest of the embed. */
+function title(label: string, url: string) {
+  return `**[${label}](${url})**`;
+}
+
+function links(targets: [label: string, url: string][]) {
+  return `-# ${targets.map(([label, url]) => `[${label}](${url})`).join(" · ")}`;
 }
 
 /** Discord's timestamp markdown, shown in the reader's timezone. */
