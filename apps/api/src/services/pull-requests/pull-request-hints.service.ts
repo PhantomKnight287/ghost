@@ -7,6 +7,7 @@ import { DATABASE } from '../../database/database.module.js';
 import { errorMessage } from '../../lib/error-message.js';
 import {
   BRANCH_PREFIX,
+  isBranch,
   resolveDefaultRef,
 } from '../../lib/git/tree/resolve-ref.js';
 import { type RefTransition, ZERO_OID } from '../../lib/git/wal/wal.types.js';
@@ -64,6 +65,8 @@ export class PullRequestHintsService {
 
     // Opening the pushed repository would replay this very push into its cache ahead of receive-pack, which then refuses every new ref as existing.
     const pushed = await this.named(repositoryId, repoDirectory);
+    // An empty repository's HEAD names a branch that does not exist, and the materializer moves it to the branch this push creates.
+    if (!(await isBranch(repoDirectory, pushed.defaultBranch))) return [];
     const proposals = branches.filter(
       (branch) => branch !== pushed.defaultBranch,
     );

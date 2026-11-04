@@ -78,6 +78,21 @@ describe.skipIf(!hasBackends)('pull request hints on push', () => {
     if (work) rmSync(work, { recursive: true, force: true });
   });
 
+  it('says nothing on the first push to an empty repository, whose branch becomes the default', async () => {
+    const empty = (
+      await api()
+        .post('/api/repositories')
+        .set('cookie', upstream.cookie)
+        .send({ name: 'hinted-empty', visibility: 'public' })
+        .expect(201)
+    ).body.slug;
+    git('checkout', '-q', 'main');
+
+    expect(await push(owner, upstream.key, empty, 'main')).not.toContain(
+      'pull request',
+    );
+  });
+
   it('says nothing about the default branch', async () => {
     git('checkout', '-q', 'main');
     git('commit', '-q', '--allow-empty', '-m', 'second');
