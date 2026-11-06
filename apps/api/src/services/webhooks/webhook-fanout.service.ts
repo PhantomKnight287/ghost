@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { type Database, schema } from '@ghost/db';
 import {
   type InstallationEvent,
+  OWNING_APP_EVENTS,
+  type OwningAppEvent,
   WEBHOOK_EVENTS,
   type WebhookEvent,
 } from '@ghost/webhooks';
@@ -39,6 +41,10 @@ type WebhookJob = {
   idempotencyKey: string;
 };
 
+function isOwningAppEvent(name: string): name is OwningAppEvent {
+  return Object.hasOwn(OWNING_APP_EVENTS, name);
+}
+
 /** Turns repository events into webhook jobs for apps/delivery, which signs and sends them. */
 @Injectable()
 export class WebhookFanoutService {
@@ -63,6 +69,7 @@ export class WebhookFanoutService {
         : null;
     if (thread === undefined) return;
     const name = webhookEventOf(event.type, thread?.isPullRequest ?? false);
+    if (isOwningAppEvent(name)) return;
 
     const endpoints = await this.db
       .select({

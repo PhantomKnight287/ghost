@@ -5,6 +5,7 @@ import { BlockList, isIP } from 'node:net';
 import type { schema } from '@ghost/db';
 import {
   type InstallationEvent,
+  type OwningAppEvent,
   type WebhookEvent,
   webhookEvents as events,
 } from '@ghost/webhooks';
@@ -153,7 +154,7 @@ type WebhookThread = {
 
 /** The JSON a receiver gets for an event. Which optional fields are set depends on the event. */
 export type WebhookBody = {
-  event: ReturnType<typeof webhookEventOf>;
+  event: Exclude<ReturnType<typeof webhookEventOf>, OwningAppEvent>;
   repository: WebhookRepository;
   sender: UserRef | null;
   createdAt: string;
@@ -211,6 +212,32 @@ export type WebhookBody = {
     targetUrl: string | null;
     createdAt: string;
   };
+  /** `numericId` is the id GitHub's REST layer takes. Output text is left out, as GitHub leaves it out of webhooks. */
+  checkRun?: {
+    id: string;
+    numericId: number;
+    suiteId: string;
+    name: string;
+    headSha: string;
+    status: (typeof schema.checkRun.$inferSelect)['status'];
+    conclusion: (typeof schema.checkRun.$inferSelect)['conclusion'];
+    detailsUrl: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    output: { title: string | null; summary: string | null };
+    app: { slug: string; name: string };
+  };
+  checkSuite?: {
+    id: string;
+    numericId: number;
+    headSha: string;
+    headBranch: string | null;
+    status: (typeof schema.checkSuite.$inferSelect)['status'];
+    conclusion: (typeof schema.checkSuite.$inferSelect)['conclusion'];
+    app: { slug: string; name: string };
+  };
+  /** The action button someone pressed, by the identifier the app gave it. */
+  requestedAction?: { identifier: string };
   fork?: WebhookRepository;
   /** The previous owner of a transferred repository. */
   from?: string;
@@ -222,6 +249,12 @@ export type WebhookBody = {
   /** A synchronized request's push rewrote its branch. */
   forced?: boolean;
   commits?: Commit[];
+};
+
+/** What the app that owns a check run or suite gets when someone re-runs it, presses one of its buttons, or a push requests the suite. Always Ghost's JSON, whatever its URL, as installation events are. */
+export type OwningAppWebhookBody = Omit<WebhookBody, 'event' | 'installation'> & {
+  event: OwningAppEvent;
+  installation: { id: number };
 };
 
 /** Sent on create and from the "Send test" button. */

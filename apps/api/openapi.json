@@ -5932,7 +5932,12 @@
             "required": false,
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/PullRequestStateFilter"
+              "default": "open",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/PullRequestStateFilter"
+                }
+              ]
             }
           },
           {
@@ -8292,7 +8297,12 @@
             "required": false,
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/IssueStateFilter"
+              "default": "open",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/IssueStateFilter"
+                }
+              ]
             }
           },
           {
@@ -25042,6 +25052,9 @@
           "pull_request.review_request_removed",
           "pull_request.merged",
           "commit_status.created",
+          "check_run.created",
+          "check_run.completed",
+          "check_suite.completed",
           "label.created",
           "label.edited",
           "label.deleted",
