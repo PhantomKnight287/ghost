@@ -126,7 +126,7 @@ describe.skipIf(!CONNECTION)('branches', () => {
     materializer = new RepositoryMaterializerService(store, {
       getRepoPath: async () => cache,
     } as unknown as RepositoryStorageService);
-    pushes = new PushTransactionService(store);
+    pushes = new PushTransactionService(store, db);
     service = new RepositoryBranchesService(
       db,
       new RepositoryAccessService(db),

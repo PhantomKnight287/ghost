@@ -186,7 +186,7 @@ describe.skipIf(!CONNECTION)('checks', () => {
     git(source, 'add', '-A');
     git(source, 'commit', '-m', 'first');
     sha = git(source, 'rev-parse', 'HEAD');
-    await new PushTransactionService(store).commitPush({
+    await new PushTransactionService(store, db).commitPush({
       actor: 'system',
       repoId: repository.id,
       transitions: [

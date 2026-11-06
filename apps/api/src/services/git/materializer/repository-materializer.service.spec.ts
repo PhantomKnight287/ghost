@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { DATABASE } from '../../../database/database.module.js';
 import { PushTransactionService } from '../wal/push-transaction.service.js';
 import { RepositoryStorageService } from '../repository-storage/repository-storage.service.js';
 import { WalStoreService } from '../wal/wal-store.service.js';
@@ -48,6 +49,8 @@ describe('RepositoryMaterializerService', () => {
         RepositoryMaterializerService,
         PushTransactionService,
         { provide: WalStoreService, useValue: store },
+        // These pushes are the system's, which request no check suites.
+        { provide: DATABASE, useValue: {} },
         {
           provide: RepositoryStorageService,
           useValue: { getRepoPath: async () => cache },

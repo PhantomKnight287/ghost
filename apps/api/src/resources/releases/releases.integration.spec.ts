@@ -203,7 +203,7 @@ describe.skipIf(!CONNECTION)('releases', () => {
     execFileSync('git', ['init', '-q', '--bare', '-b', 'main', cache]);
 
     const store = new InMemoryWalStore() as unknown as WalStoreService;
-    pushes = new PushTransactionService(store);
+    pushes = new PushTransactionService(store, db);
     s3 = new InMemoryS3();
     materializer = new RepositoryMaterializerService(store, {
       getRepoPath: async () => cache,

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DATABASE } from '../../../database/database.module.js';
 import { PushTransactionService } from './push-transaction.service.js';
 import { WalStoreService } from './wal-store.service.js';
 import {
@@ -46,6 +47,8 @@ describe('PushTransactionService', () => {
       providers: [
         PushTransactionService,
         { provide: WalStoreService, useValue: store },
+        // Check suites are requested off the push's path and never fail it; their own spec covers them.
+        { provide: DATABASE, useValue: {} },
       ],
     }).compile();
 

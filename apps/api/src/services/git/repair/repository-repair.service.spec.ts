@@ -1,3 +1,4 @@
+import type { Database } from '@ghost/db';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -135,7 +136,11 @@ describe('RepositoryRepairService', () => {
     store = new InMemoryWalStore();
     repair = new RepositoryRepairService(
       store as unknown as WalStoreService,
-      new PushTransactionService(store as unknown as WalStoreService),
+      new PushTransactionService(
+        store as unknown as WalStoreService,
+        // Repairs write as the system, which requests no check suites, so the database is never reached.
+        {} as Database,
+      ),
       storage(cache),
     );
     await append([set('refs/heads/main', first)], pack(first));
