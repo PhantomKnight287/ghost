@@ -1570,6 +1570,26 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       expect(hook[0].checkRun.output).not.toHaveProperty('text');
     });
 
+    it('owning-app events skip an installation that no longer covers the repository', async () => {
+      await db
+        .update(schema.appInstallation)
+        .set({ repositorySelection: 'selected' })
+        .where(eq(schema.appInstallation.numericId, ci.installationId));
+      try {
+        const [mine] = await send(
+          'check_run.rerequested',
+          { checkRunId: runId },
+          [ci.endpointId],
+        );
+        expect(mine).toEqual([]);
+      } finally {
+        await db
+          .update(schema.appInstallation)
+          .set({ repositorySelection: 'all' })
+          .where(eq(schema.appInstallation.numericId, ci.installationId));
+      }
+    });
+
     it('an app without checks gets no check events', async () => {
       await db
         .update(schema.appInstallation)

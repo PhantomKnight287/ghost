@@ -506,6 +506,21 @@ describe.skipIf(!CONNECTION)('checks', () => {
       expect((await checks.getRun(target, run.id)).app.installed).toBe(false);
     });
 
+    it('re-running is refused once the installation no longer covers the repository', async () => {
+      const run = await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+      });
+      await db
+        .update(schema.appInstallation)
+        .set({ repositorySelection: 'selected' })
+        .where(eq(schema.appInstallation.id, ci.installationId));
+      await expect(checks.rerequestRun(asOwner(), run.id)).rejects.toThrow(
+        CheckAppGoneError,
+      );
+      expect((await checks.getRun(target, run.id)).app.installed).toBe(false);
+    });
+
     it('pressing an action sends its identifier', async () => {
       const run = await checks.createRun(asCi(), {
         name: 'lint',

@@ -178,6 +178,14 @@ export class WebhookFanoutService {
         eq(schema.appInstallation.id, schema.checkSuite.installationId),
       )
       .innerJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
+      // An installation narrowed away from the repository hears nothing more about it.
+      .innerJoin(
+        schema.repository,
+        and(
+          eq(schema.repository.id, schema.checkSuite.repositoryId),
+          installationCovers(schema.repository),
+        ),
+      )
       .innerJoin(
         schema.webhookEndpoint,
         eq(schema.webhookEndpoint.appId, schema.app.id),

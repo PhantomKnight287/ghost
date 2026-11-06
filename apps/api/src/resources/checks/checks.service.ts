@@ -25,6 +25,7 @@ import type { Executor } from '../../lib/db/executor.js';
 import { excluded, isoTimestamp } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { CommitHolderService } from '../../services/git/commit-holder/commit-holder.service.js';
+import { installationCovers } from '../../lib/repositories/access/repository-access.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type {
   CheckAnnotationDTO,
@@ -59,7 +60,10 @@ const run = schema.checkRun;
 const suite = schema.checkSuite;
 
 /** The app, and whether it is still installed, unsuspended, to hear re-runs. Needs `app` joined and `check_suite` in scope. */
-const appColumn = sql<CheckAppDTO>`json_build_object('appId', ${schema.app.numericId}, 'slug', ${schema.app.slug}, 'name', ${schema.app.name}, 'logoUrl', ${schema.app.logoUrl}, 'deleted', ${schema.app.deletedAt} is not null, 'installed', ${schema.app.deletedAt} is null and exists (select 1 from ${schema.appInstallation} where ${schema.appInstallation.id} = ${schema.checkSuite.installationId} and ${schema.appInstallation.suspendedAt} is null))`;
+/** The suite's app is still installed on a repository it covers, unsuspended, so a re-run reaches it. Needs `app` joined and `check_suite` in scope. */
+const installedHere = sql<boolean>`${schema.app.deletedAt} is null and exists (select 1 from ${schema.appInstallation} inner join ${schema.repository} on ${schema.repository.id} = ${suite.repositoryId} where ${schema.appInstallation.id} = ${suite.installationId} and ${schema.appInstallation.suspendedAt} is null and ${installationCovers(schema.repository)})`;
+
+const appColumn = sql<CheckAppDTO>`json_build_object('appId', ${schema.app.numericId}, 'slug', ${schema.app.slug}, 'name', ${schema.app.name}, 'logoUrl', ${schema.app.logoUrl}, 'deleted', ${schema.app.deletedAt} is not null, 'installed', ${installedHere})`;
 
 const runColumns = {
   id: run.id,
@@ -99,10 +103,10 @@ const suiteColumns = {
   updatedAt: isoTimestamp(suite.updatedAt),
 };
 
-/** Whose a run or suite is, and whether that app is still installed, unsuspended, to hear about it. Needs `app` and a left-joined `app_installation`. */
+/** Whose a run or suite is, and whether that app can still hear about it. Needs `app` joined. */
 const ownerColumns = {
   appId: suite.appId,
-  live: sql<boolean>`${schema.app.deletedAt} is null and ${schema.appInstallation.id} is not null and ${schema.appInstallation.suspendedAt} is null`,
+  live: installedHere,
 };
 
 /** Newest first; the numeric id breaks ties between rows written in the same instant. */
@@ -428,10 +432,6 @@ export class ChecksService {
       .select(ownerColumns)
       .from(suite)
       .innerJoin(schema.app, eq(schema.app.id, suite.appId))
-      .leftJoin(
-        schema.appInstallation,
-        eq(schema.appInstallation.id, suite.installationId),
-      )
       .where(and(eq(suite.id, suiteId), eq(suite.repositoryId, repository.id)));
     if (!owner) throw new CheckSuiteNotFoundError();
     await this.assertRequestable(caller, owner);
@@ -473,10 +473,6 @@ export class ChecksService {
       .from(run)
       .innerJoin(suite, eq(suite.id, run.suiteId))
       .innerJoin(schema.app, eq(schema.app.id, suite.appId))
-      .leftJoin(
-        schema.appInstallation,
-        eq(schema.appInstallation.id, suite.installationId),
-      )
       .where(and(where, eq(run.repositoryId, repositoryId)));
     if (!owner) throw new CheckRunNotFoundError();
     return owner;
