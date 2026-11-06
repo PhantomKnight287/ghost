@@ -694,7 +694,10 @@ describe('messageOf', () => {
   ] as const)('colours a %s check run', (conclusion, color) => {
     expect(
       messageOf(
-        body({ event: 'check_run.completed', checkRun: { ...checkRun, conclusion } }),
+        body({
+          event: 'check_run.completed',
+          checkRun: { ...checkRun, conclusion },
+        }),
       ).color,
     ).toBe(color);
   });

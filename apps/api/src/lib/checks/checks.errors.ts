@@ -1,10 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 
 import { DomainError } from '../../domain/errors.js';
-import {
-  MAX_ANNOTATIONS_PER_RUN,
-  MAX_RUNS_PER_NAME,
-} from './checks.js';
+import { MAX_ANNOTATIONS_PER_RUN, MAX_RUNS_PER_NAME } from './checks.js';
 
 export class CheckRunConclusionRequiredError extends DomainError {
   status: number = HttpStatus.UNPROCESSABLE_ENTITY;

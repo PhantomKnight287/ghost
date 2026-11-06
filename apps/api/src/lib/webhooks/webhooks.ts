@@ -252,7 +252,10 @@ export type WebhookBody = {
 };
 
 /** What the app that owns a check run or suite gets when someone re-runs it, presses one of its buttons, or a push requests the suite. Always Ghost's JSON, whatever its URL, as installation events are. */
-export type OwningAppWebhookBody = Omit<WebhookBody, 'event' | 'installation'> & {
+export type OwningAppWebhookBody = Omit<
+  WebhookBody,
+  'event' | 'installation'
+> & {
   event: OwningAppEvent;
   installation: { id: number };
 };

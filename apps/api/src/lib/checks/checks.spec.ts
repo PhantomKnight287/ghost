@@ -27,9 +27,12 @@ describe('rollupState', () => {
     expect(rollupState({ status: 'completed', conclusion })).toBe(state);
   });
 
-  it.each(['queued', 'in_progress'] as const)('a %s run is pending', (status) => {
-    expect(rollupState({ status, conclusion: null })).toBe('pending');
-  });
+  it.each(['queued', 'in_progress'] as const)(
+    'a %s run is pending',
+    (status) => {
+      expect(rollupState({ status, conclusion: null })).toBe('pending');
+    },
+  );
 });
 
 describe('suiteState', () => {
@@ -165,9 +168,9 @@ describe('resolveRunWrite', () => {
     expect(() => resolveRunWrite(null, { status: 'completed' }, NOW)).toThrow(
       CheckRunConclusionRequiredError,
     );
-    expect(() =>
-      resolveRunWrite(null, { completedAt: EARLIER }, NOW),
-    ).toThrow(CheckRunConclusionRequiredError);
+    expect(() => resolveRunWrite(null, { completedAt: EARLIER }, NOW)).toThrow(
+      CheckRunConclusionRequiredError,
+    );
   });
 
   it('an update keeps what it does not change', () => {

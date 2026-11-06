@@ -29,6 +29,7 @@ import { RepositoryAccessService } from '../../services/git/repository-access/re
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { CommitHolderService } from '../../services/git/commit-holder/commit-holder.service.js';
 import { CommitStatusesService } from './commit-statuses.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
@@ -81,6 +82,7 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
       db,
       new RepositoryAccessService(db),
       materializer,
+      new CommitHolderService(db, materializer),
     );
 
     await db

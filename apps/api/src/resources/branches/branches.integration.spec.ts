@@ -24,6 +24,7 @@ import { RepositoryMaterializerService } from '../../services/git/materializer/r
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
+import { CommitHolderService } from '../../services/git/commit-holder/commit-holder.service.js';
 import { CommitStatusesService } from '../../resources/commit-statuses/commit-statuses.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
@@ -137,6 +138,7 @@ describe.skipIf(!CONNECTION)('branches', () => {
           db,
           new RepositoryAccessService(db),
           materializer,
+          new CommitHolderService(db, materializer),
         ),
         new CommitVerificationService(
           db,
