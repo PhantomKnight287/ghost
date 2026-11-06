@@ -17,10 +17,13 @@ import {
 } from 'vitest';
 
 import { InvalidStatusShaError } from '../../lib/commit-statuses/commit-statuses.errors.js';
+import { RepositoryForbiddenError } from '../../lib/repositories/access/repository-access.errors.js';
 import {
+  CheckAppGoneError,
   ChecksNeedInstallationError,
   NotRunOwnerError,
   TooManyAnnotationsError,
+  UnknownCheckActionError,
 } from '../../lib/checks/checks.errors.js';
 import { InMemoryWalStore } from '../../lib/git/materializer/wal-store.fake.js';
 import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
@@ -42,6 +45,7 @@ const MIGRATIONS = path.resolve(
 const OWNER = 'user_checks_owner';
 const CI_BOT = 'user_checks_ci_bot';
 const OTHER_BOT = 'user_checks_other_bot';
+const READER = 'user_checks_reader';
 
 function git(cwd: string, ...args: string[]) {
   const env = { ...process.env };
@@ -136,7 +140,7 @@ describe.skipIf(!CONNECTION)('checks', () => {
     await db.delete(schema.app).where(like(schema.app.slug, 'checks-%'));
     await db
       .delete(schema.user)
-      .where(inArray(schema.user.id, [OWNER, CI_BOT, OTHER_BOT]));
+      .where(inArray(schema.user.id, [OWNER, CI_BOT, OTHER_BOT, READER]));
     await db.insert(schema.user).values([
       {
         id: OWNER,
@@ -149,6 +153,12 @@ describe.skipIf(!CONNECTION)('checks', () => {
         name: 'checks-ci[bot]',
         email: 'checks-ci@example.com',
         username: 'checks-ci[bot]',
+      },
+      {
+        id: READER,
+        name: 'Reader',
+        email: 'checks-reader@example.com',
+        username: 'checks-reader',
       },
       {
         id: OTHER_BOT,
@@ -391,5 +401,121 @@ describe.skipIf(!CONNECTION)('checks', () => {
         .delete(schema.repository)
         .where(eq(schema.repository.id, fork.id));
     }
+  });
+
+  describe('re-runs and actions', () => {
+    const asOwner = () => ({
+      ...target,
+      requesterId: OWNER,
+      installation: null,
+    });
+
+    it('a writer re-runs a run: one check_run.rerequested, the run unchanged', async () => {
+      const run = await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+      });
+      await checks.updateRun(asCi(), run.id, { conclusion: 'failure' });
+      await checks.rerequestRun(asOwner(), run.id);
+      expect(await eventsOf('check_run.rerequested')).toEqual([
+        { payload: { checkRunId: run.id } },
+      ]);
+      expect(await checks.getRun(target, run.id)).toMatchObject({
+        status: 'completed',
+        conclusion: 'failure',
+      });
+    });
+
+    it('a writer re-runs a suite', async () => {
+      const run = await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+      });
+      await checks.rerequestSuite(asOwner(), run.suiteId);
+      expect(await eventsOf('check_suite.rerequested')).toEqual([
+        { payload: { checkSuiteId: run.suiteId } },
+      ]);
+    });
+
+    it('a reader cannot re-run', async () => {
+      const run = await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+      });
+      await expect(
+        checks.rerequestRun(
+          { ...target, requesterId: READER, installation: null },
+          run.id,
+        ),
+      ).rejects.toThrow(RepositoryForbiddenError);
+    });
+
+    it('the owning app may re-request its own run, another app may not', async () => {
+      const run = await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+      });
+      await checks.rerequestRun(asCi(), run.id);
+      await expect(checks.rerequestRun(asOther(), run.id)).rejects.toThrow(
+        NotRunOwnerError,
+      );
+      await expect(
+        checks.rerequestSuite(asOther(), run.suiteId),
+      ).rejects.toThrow(NotRunOwnerError);
+      expect(await eventsOf('check_run.rerequested')).toHaveLength(1);
+    });
+
+    it("re-running a deleted app's run is refused", async () => {
+      const run = await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+      });
+      await db
+        .update(schema.app)
+        .set({ deletedAt: new Date() })
+        .where(eq(schema.app.id, ci.appId));
+      await expect(checks.rerequestRun(asOwner(), run.id)).rejects.toThrow(
+        CheckAppGoneError,
+      );
+      expect((await checks.getRun(target, run.id)).app.deleted).toBe(true);
+    });
+
+    it('re-running under a suspended installation is refused', async () => {
+      const run = await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+      });
+      await db
+        .update(schema.appInstallation)
+        .set({ suspendedAt: new Date() })
+        .where(eq(schema.appInstallation.id, ci.installationId));
+      await expect(
+        checks.rerequestSuite(asOwner(), run.suiteId),
+      ).rejects.toThrow(CheckAppGoneError);
+    });
+
+    it('pressing an action sends its identifier', async () => {
+      const run = await checks.createRun(asCi(), {
+        name: 'lint',
+        headSha: sha,
+        actions: [
+          { label: 'Fix', description: 'Fix the lint', identifier: 'fix' },
+        ],
+      });
+      await checks.requestAction(asOwner(), run.id, 'fix');
+      expect(await eventsOf('check_run.requested_action')).toEqual([
+        { payload: { checkRunId: run.id, identifier: 'fix' } },
+      ]);
+    });
+
+    it('an unknown identifier is refused', async () => {
+      const run = await checks.createRun(asCi(), {
+        name: 'lint',
+        headSha: sha,
+      });
+      await expect(
+        checks.requestAction(asOwner(), run.id, 'nope'),
+      ).rejects.toThrow(UnknownCheckActionError);
+    });
   });
 });

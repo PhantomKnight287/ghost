@@ -11,12 +11,14 @@ import {
   suiteState,
 } from '../../lib/checks/checks.js';
 import {
+  CheckAppGoneError,
   CheckRunNotFoundError,
   CheckSuiteNotFoundError,
   ChecksNeedInstallationError,
   NotRunOwnerError,
   TooManyAnnotationsError,
   TooManyCheckRunsError,
+  UnknownCheckActionError,
 } from '../../lib/checks/checks.errors.js';
 import { InvalidStatusShaError } from '../../lib/commit-statuses/commit-statuses.errors.js';
 import type { Executor } from '../../lib/db/executor.js';
@@ -90,6 +92,12 @@ const suiteColumns = {
   runsCount: sql<number>`(select count(*)::int from ${run} where ${run.suiteId} = ${suite.id})`,
   createdAt: isoTimestamp(suite.createdAt),
   updatedAt: isoTimestamp(suite.updatedAt),
+};
+
+/** Whose a run or suite is, and whether that app is still installed, unsuspended, to hear about it. Needs `app` and a left-joined `app_installation`. */
+const ownerColumns = {
+  appId: suite.appId,
+  live: sql<boolean>`${schema.app.deletedAt} is null and ${schema.appInstallation.id} is not null and ${schema.appInstallation.suspendedAt} is null`,
 };
 
 /** Newest first; the numeric id breaks ties between rows written in the same instant. */
@@ -392,6 +400,93 @@ export class ChecksService {
     for (const row of rows)
       bySha.set(row.headSha, [...(bySha.get(row.headSha) ?? []), row]);
     return bySha;
+  }
+
+  /** Asks the owning app to run `runId` again; it answers with a new run of the same name. Nothing stored changes. */
+  async rerequestRun(caller: ChecksCaller, runId: string) {
+    const repository = await this.requester(caller);
+    await this.assertRequestable(
+      caller,
+      await this.ownerOf(eq(run.id, runId), repository.id),
+    );
+    await publishEvent(this.db, {
+      type: 'check_run.rerequested',
+      repositoryId: repository.id,
+      actorId: caller.requesterId,
+      payload: { checkRunId: runId },
+    });
+  }
+
+  async rerequestSuite(caller: ChecksCaller, suiteId: string) {
+    const repository = await this.requester(caller);
+    const [owner] = await this.db
+      .select(ownerColumns)
+      .from(suite)
+      .innerJoin(schema.app, eq(schema.app.id, suite.appId))
+      .leftJoin(
+        schema.appInstallation,
+        eq(schema.appInstallation.id, suite.installationId),
+      )
+      .where(and(eq(suite.id, suiteId), eq(suite.repositoryId, repository.id)));
+    if (!owner) throw new CheckSuiteNotFoundError();
+    await this.assertRequestable(caller, owner);
+    await publishEvent(this.db, {
+      type: 'check_suite.rerequested',
+      repositoryId: repository.id,
+      actorId: caller.requesterId,
+      payload: { checkSuiteId: suiteId },
+    });
+  }
+
+  /** Someone with write access pressed one of the run's action buttons; the app hears which. */
+  async requestAction(
+    caller: RepositoryRef & { requesterId: string },
+    runId: string,
+    identifier: string,
+  ) {
+    const writer = { ...caller, installation: null };
+    const repository = await this.requester(writer);
+    const owner = await this.ownerOf(eq(run.id, runId), repository.id);
+    await this.assertRequestable(writer, owner);
+    if (!owner.actions.some((action) => action.identifier === identifier))
+      throw new UnknownCheckActionError(identifier);
+    await publishEvent(this.db, {
+      type: 'check_run.requested_action',
+      repositoryId: repository.id,
+      actorId: caller.requesterId,
+      payload: { checkRunId: runId, identifier },
+    });
+  }
+
+  private requester(caller: ChecksCaller) {
+    return this.access.authorize({ ...caller, operation: 'write' });
+  }
+
+  private async ownerOf(where: SQL, repositoryId: string) {
+    const [owner] = await this.db
+      .select({ ...ownerColumns, actions: run.actions })
+      .from(run)
+      .innerJoin(suite, eq(suite.id, run.suiteId))
+      .innerJoin(schema.app, eq(schema.app.id, suite.appId))
+      .leftJoin(
+        schema.appInstallation,
+        eq(schema.appInstallation.id, suite.installationId),
+      )
+      .where(and(where, eq(run.repositoryId, repositoryId)));
+    if (!owner) throw new CheckRunNotFoundError();
+    return owner;
+  }
+
+  /** A writer, or the owning app's own installation, may ask; and only while the app is there to hear it. */
+  private async assertRequestable(
+    caller: ChecksCaller,
+    owner: { appId: string; live: boolean },
+  ) {
+    if (caller.installation && caller.installation.appId !== owner.appId)
+      throw new NotRunOwnerError(
+        await this.appNumericId(caller.installation.appId),
+      );
+    if (!owner.live) throw new CheckAppGoneError();
   }
 
   private async pageRuns(scope: SQL, query: RunsQuery) {
