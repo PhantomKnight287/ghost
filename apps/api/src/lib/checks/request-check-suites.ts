@@ -11,6 +11,30 @@ const BRANCH_PREFIX = 'refs/heads/';
 /** After a branch moved, every app whose live installation covers the repository with `checks: write` gets a suite for the new tip and `check_suite.requested`, as GitHub auto-triggers checks. Tags, deletions and system writes (repairs, pull refs, a new repository's first commit) request nothing. A sha that already has the app's suite is not requested again. */
 export async function requestCheckSuites(
   db: Database,
+  push: {
+    repositoryId: string;
+    transitions: RefTransition[];
+    actor: RefWriter;
+  },
+  {
+    attempts = 3,
+    backoffMs = 200,
+  }: { attempts?: number; backoffMs?: number } = {},
+) {
+  // The push has already landed, outside any transaction, so a failed request is retried rather than lost. Each try is idempotent: it creates only missing suites and requests only what it created.
+  // ponytail: a crash between the push and the request still loses it, as it loses `push` events; a reconciler over recent WAL entries if apps come to depend on it.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await requestOnce(db, push);
+    } catch (error) {
+      if (attempt >= attempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, backoffMs * attempt));
+    }
+  }
+}
+
+async function requestOnce(
+  db: Database,
   {
     repositoryId,
     transitions,

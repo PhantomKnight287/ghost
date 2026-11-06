@@ -23,6 +23,7 @@ import {
   ZERO_OID,
 } from '../../../lib/git/wal/wal.types.js';
 import type { RefWriter } from '../../../lib/rulesets/rulesets.types.js';
+import { requestCheckSuites } from '../../../lib/checks/request-check-suites.js';
 import { PushTransactionService } from './push-transaction.service.js';
 import type { WalStoreService } from './wal-store.service.js';
 
@@ -67,35 +68,33 @@ describe.skipIf(!CONNECTION)('automatic check suites', () => {
     },
   });
 
-  async function push(
+  const move = (ref: string, oid: string, old = ZERO_OID.toString('hex')) => [
+    { ref, oldOid: Buffer.from(old, 'hex'), newOid: Buffer.from(oid, 'hex') },
+  ];
+
+  /** What commitPush runs after a push lands, awaited here so assertions need no timing. */
+  const request = (
     ref: string,
     oid: string,
     actor: (t: RefTransition[]) => RefWriter = user,
-    old: string = ZERO_OID.toString('hex'),
-  ) {
-    const transitions = [
-      {
-        ref,
-        oldOid: Buffer.from(old, 'hex'),
-        newOid: Buffer.from(oid, 'hex'),
-      },
-    ];
-    await pushes.commitPush({
-      actor: actor(transitions),
-      repoId: repository.id,
-      transitions,
-      body: bufferBody(
-        oid === ZERO_OID.toString('hex')
-          ? Buffer.alloc(0)
-          : execFileSync('git', ['pack-objects', '--stdout', '--revs'], {
-              cwd: source,
-              input: 'HEAD\n',
-            }),
-      ),
-      packOffset: 0,
-    });
-    // The hook runs after the push lands and is not awaited by it.
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    old?: string,
+    on: Database = db,
+  ) => {
+    const transitions = move(ref, oid, old);
+    return requestCheckSuites(
+      on,
+      { repositoryId: repository.id, transitions, actor: actor(transitions) },
+      { backoffMs: 0 },
+    );
+  };
+
+  async function until<T>(read: () => Promise<T[]>, length: number) {
+    for (let waited = 0; waited < 10_000; waited += 50) {
+      const rows = await read();
+      if (rows.length >= length) return rows;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return read();
   }
 
   const suites = () =>
@@ -207,8 +206,39 @@ describe.skipIf(!CONNECTION)('automatic check suites', () => {
     await pool.end();
   });
 
+  it('a push through commitPush requests the suite once it lands', async () => {
+    const transitions = move('refs/heads/main', sha);
+    await pushes.commitPush({
+      actor: user(transitions),
+      repoId: repository.id,
+      transitions,
+      body: bufferBody(
+        execFileSync('git', ['pack-objects', '--stdout', '--revs'], {
+          cwd: source,
+          input: 'HEAD\n',
+        }),
+      ),
+      packOffset: 0,
+    });
+    expect(await until(suites, 1)).toHaveLength(1);
+    expect(await until(requested, 1)).toHaveLength(1);
+  });
+
+  it('retries a request whose transaction failed', async () => {
+    let failures = 1;
+    const flaky = new Proxy(db, {
+      get: (target, key, receiver) =>
+        key === 'transaction' && failures-- > 0
+          ? () => Promise.reject(new Error('connection reset'))
+          : Reflect.get(target, key, receiver),
+    });
+    await request('refs/heads/main', sha, user, undefined, flaky);
+    expect(await suites()).toHaveLength(1);
+    expect(await requested()).toHaveLength(1);
+  });
+
   it('a user push to a branch requests a suite from each live installed app with checks: write', async () => {
-    await push('refs/heads/main', sha);
+    await request('refs/heads/main', sha);
     expect(await suites()).toEqual([
       {
         appId: ciAppId,
@@ -222,17 +252,18 @@ describe.skipIf(!CONNECTION)('automatic check suites', () => {
   });
 
   it('requests nothing for a tag, a deletion or a system write', async () => {
-    await push('refs/tags/v1', sha);
-    await push('refs/heads/sys', sha, () => 'system');
-    await push('refs/heads/main', sha);
-    await push('refs/heads/main', ZERO_OID.toString('hex'), user, sha);
+    await request('refs/tags/v1', sha);
+    await request('refs/heads/sys', sha, () => 'system');
+    await request('refs/heads/main', ZERO_OID.toString('hex'), user, sha);
+    expect(await suites()).toEqual([]);
+    await request('refs/heads/main', sha);
     expect(await suites()).toHaveLength(1);
     expect(await requested()).toHaveLength(1);
   });
 
   it('pushing the same sha to a second branch requests once', async () => {
-    await push('refs/heads/main', sha);
-    await push('refs/heads/copy', sha);
+    await request('refs/heads/main', sha);
+    await request('refs/heads/copy', sha);
     expect(await suites()).toHaveLength(1);
     expect(await requested()).toHaveLength(1);
   });
