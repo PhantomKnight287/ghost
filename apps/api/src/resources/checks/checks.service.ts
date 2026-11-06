@@ -489,6 +489,17 @@ export class ChecksService {
     if (!owner.live) throw new CheckAppGoneError();
   }
 
+  /** One run by id with its repository, unauthorized: callers check the viewer may read that repository. */
+  async findRunById(runId: string) {
+    const [row] = await this.db
+      .select({ repositoryId: run.repositoryId, ...runColumns })
+      .from(run)
+      .innerJoin(suite, eq(suite.id, run.suiteId))
+      .innerJoin(schema.app, eq(schema.app.id, suite.appId))
+      .where(eq(run.id, runId));
+    return row ?? null;
+  }
+
   private async pageRuns(scope: SQL, query: RunsQuery) {
     const where = and(
       scope,

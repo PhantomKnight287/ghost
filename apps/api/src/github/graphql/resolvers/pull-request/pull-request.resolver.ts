@@ -26,14 +26,16 @@ import { LabelConnection } from '../../types/label.type.js';
 import { Actor, RepositoryOwner } from '../../types/node.interface.js';
 import {
   AutoMergeRequestNode,
-  CheckRunNode,
   MilestoneNode,
   ProjectV2ItemConnection,
   ReactionGroup,
+} from '../../types/placeholders.type.js';
+import {
+  CheckRunNode,
   StatusCheckRollupContextConnection,
   StatusCheckRollupNode,
   StatusContextNode,
-} from '../../types/placeholders.type.js';
+} from '../../types/status-check.type.js';
 import { GitActorNode } from '../../types/git-object.type.js';
 import {
   CommitNode,
@@ -433,18 +435,26 @@ export class StatusContextResolver {
   }
 }
 
-/** Ghost has no check runs; this exists only so gh's checks query validates. */
+/** A run is required when an active required_status_checks rule on the pull request's base names it. */
 @Resolver(() => CheckRunNode)
 @AllowAnonymous()
 export class CheckRunResolver {
+  constructor(private readonly pulls: PullRequestNodesService) {}
+
   @ResolveField(() => Boolean)
   isRequired(
+    @Parent() run: CheckRunNode,
+    @Context() context: GraphqlContext,
     @Args('pullRequestId', { type: () => ID, nullable: true })
-    _pullRequestId?: string,
+    pullRequestId?: string,
     @Args('pullRequestNumber', { type: () => Int, nullable: true })
-    _pullRequestNumber?: number,
+    pullRequestNumber?: number,
   ) {
-    return false;
+    return this.pulls.contextRequired(
+      { repositoryId: run.repositoryId, context: run.name },
+      { id: pullRequestId, number: pullRequestNumber },
+      context.loaders,
+    );
   }
 }
 

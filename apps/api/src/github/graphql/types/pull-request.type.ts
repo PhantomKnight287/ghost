@@ -25,11 +25,8 @@ import {
   Node,
   UniformResourceLocatable,
 } from './node.interface.js';
-import {
-  BotNode,
-  StatusCheckRollupNode,
-  TeamNode,
-} from './placeholders.type.js';
+import { BotNode, TeamNode } from './placeholders.type.js';
+import { StatusCheckRollupNode } from './status-check.type.js';
 import { UserNode } from './user.type.js';
 
 @ObjectType('PullRequest', {

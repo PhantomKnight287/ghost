@@ -18,8 +18,8 @@ export const GRAPHQL_TYPE_PERMISSIONS: Record<string, Needs> = {
   AutoMergeRequest: 'pull_requests',
   Bot: 'metadata',
   BranchProtectionRule: 'metadata',
-  CheckRun: 'statuses',
-  CheckSuite: 'statuses',
+  CheckRun: 'checks',
+  CheckSuite: 'checks',
   CloseIssuePayload: 'metadata',
   ClosePullRequestPayload: 'metadata',
   Commit: 'contents',
@@ -88,8 +88,8 @@ export const GRAPHQL_TYPE_PERMISSIONS: Record<string, Needs> = {
   SearchResultItemConnection: 'metadata',
   SearchResultItemEdge: 'metadata',
   StatusCheckConfiguration: 'metadata',
-  StatusCheckRollup: 'statuses',
-  StatusCheckRollupContextConnection: 'statuses',
+  StatusCheckRollup: ['statuses', 'checks'],
+  StatusCheckRollupContextConnection: ['statuses', 'checks'],
   StatusContext: 'statuses',
   SshSignature: 'contents',
   SubIssuesSummary: 'issues',
@@ -101,8 +101,8 @@ export const GRAPHQL_TYPE_PERMISSIONS: Record<string, Needs> = {
   UpdatePullRequestPayload: 'metadata',
   User: 'metadata',
   UserConnection: 'metadata',
-  Workflow: 'statuses',
-  WorkflowRun: 'statuses',
+  Workflow: 'checks',
+  WorkflowRun: 'checks',
 };
 
 /** Root fields, each with its level. `node` and `nodes` are safe at metadata: whatever they return is held to its own type's permission. A root field missing here is denied. */

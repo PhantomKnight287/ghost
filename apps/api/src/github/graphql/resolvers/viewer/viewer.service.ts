@@ -17,12 +17,14 @@ import {
   toIssueCommentNode,
   toLabelNode,
   toOrganizationNode,
+  toCheckRunNode,
   toStatusCheckRollupNode,
   toStatusContextNode,
   toUserNode,
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
+import { ChecksService } from '../../../../resources/checks/checks.service.js';
 import { CommitChecksService } from '../../../../resources/checks/commit-checks.service.js';
 import { CommitStatusesService } from '../../../../resources/commit-statuses/commit-statuses.service.js';
 import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
@@ -35,6 +37,7 @@ export class ViewerService {
     private readonly repositories: RepositoryNodesService,
     private readonly statuses: CommitStatusesService,
     private readonly commitChecks: CommitChecksService,
+    private readonly checks: ChecksService,
   ) {}
 
   async viewer(viewer: GithubViewer | null, loaders: Loaders) {
@@ -160,6 +163,14 @@ export class ViewerService {
       return repository
         ? toStatusContextNode(status, status.repositoryId)
         : null;
+    }
+    if (decoded?.type === 'CheckRun') {
+      const run = await this.checks.findRunById(decoded.id);
+      if (!run) return null;
+      const repository = await orNull(
+        this.repositories.load(run.repositoryId, viewer),
+      );
+      return repository ? toCheckRunNode(run, run.repositoryId) : null;
     }
     if (decoded?.type === 'StatusCheckRollup') {
       const [repositoryId, sha] = decoded.id.split(':');

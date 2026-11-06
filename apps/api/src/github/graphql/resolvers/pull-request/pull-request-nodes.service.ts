@@ -13,7 +13,6 @@ import { mergeStateOf } from '../../../../lib/github/merge-state.js';
 import { RepositoryMaterializerService } from '../../../../services/git/materializer/repository-materializer.service.js';
 import { decodeNodeIdAs } from '../../../../lib/github/node-id.js';
 import { requiredContexts } from '../../../../lib/rulesets/evaluate-rulesets.js';
-import type { StatusContextNode } from '../../types/placeholders.type.js';
 import {
   toCommitNode,
   toPullRequestReviewNode,
@@ -161,8 +160,9 @@ export class PullRequestNodesService {
   }
 
   /** Whether an active rule on the base of the pull request `pull` names requires `status`'s context. The pull request must be in the repository whose rollup holds the status. */
+  /** Whether an active required_status_checks rule on the pull request's base names `check.context`, a status context or a run name. */
   async contextRequired(
-    status: StatusContextNode,
+    status: { repositoryId: string; context: string },
     pull: { id?: string; number?: number },
     loaders: Loaders,
   ) {

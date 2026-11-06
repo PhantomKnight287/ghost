@@ -1,6 +1,8 @@
 import type { schema } from '@ghost/db';
 
 import {
+  CheckConclusionState,
+  CheckStatusState,
   CommentAuthorAssociation,
   IssueState,
   IssueStateReason,
@@ -15,11 +17,13 @@ import { IssueCommentNode } from '../../github/graphql/types/issue-comment.type.
 import type { IssueOrPullRequestFields } from '../../github/graphql/types/issue-or-pull-request.type.js';
 import { LabelNode } from '../../github/graphql/types/label.type.js';
 import { OrganizationNode } from '../../github/graphql/types/organization.type.js';
+import { BotNode } from '../../github/graphql/types/placeholders.type.js';
 import {
-  BotNode,
+  CheckRunNode,
+  CheckSuiteNode,
   StatusCheckRollupNode,
   StatusContextNode,
-} from '../../github/graphql/types/placeholders.type.js';
+} from '../../github/graphql/types/status-check.type.js';
 import {
   CommitNode,
   PullRequestNode,
@@ -31,7 +35,10 @@ import {
   RepositoryNode,
 } from '../../github/graphql/types/repository.type.js';
 import { UserNode } from '../../github/graphql/types/user.type.js';
-import type { CommitChecksDTO } from '../../resources/checks/dto/check.dto.js';
+import type {
+  CheckRunDTO,
+  CommitChecksDTO,
+} from '../../resources/checks/dto/check.dto.js';
 import type { CommitStatusDTO } from '../../resources/commit-statuses/dto/commit-status.dto.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
@@ -377,9 +384,32 @@ export function toStatusCheckRollupNode(
   return Object.assign(new StatusCheckRollupNode(), {
     id: encodeNodeId('StatusCheckRollup', `${repositoryId}:${status.sha}`),
     state: status.state.toUpperCase() as StatusState,
-    contexts: status.statuses.map((context) =>
-      toStatusContextNode(context, repositoryId),
-    ),
+    contexts: [
+      ...status.checkRuns.map((run) => toCheckRunNode(run, repositoryId)),
+      ...status.statuses.map((context) =>
+        toStatusContextNode(context, repositoryId),
+      ),
+    ],
+  });
+}
+
+export function toCheckRunNode(run: CheckRunDTO, repositoryId: string) {
+  return Object.assign(new CheckRunNode(), {
+    repositoryId,
+    id: encodeNodeId('CheckRun', run.id),
+    name: run.name,
+    status: run.status.toUpperCase() as CheckStatusState,
+    conclusion: run.conclusion?.toUpperCase() as CheckConclusionState | null,
+    startedAt: run.startedAt ? new Date(run.startedAt) : null,
+    completedAt: run.completedAt ? new Date(run.completedAt) : null,
+    detailsUrl: run.detailsUrl,
+    title: run.output.title,
+    summary: run.output.summary,
+    text: run.output.text,
+    checkSuite: Object.assign(new CheckSuiteNode(), {
+      id: encodeNodeId('CheckSuite', run.suiteId),
+      workflowRun: null,
+    }),
   });
 }
 

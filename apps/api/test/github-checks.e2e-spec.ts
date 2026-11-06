@@ -392,6 +392,86 @@ describe.skipIf(!hasBackends)('GitHub check runs and check suites', () => {
       ).rejects.toMatchObject({ status: 422 });
   });
 
+  it("lists runs next to statuses in the pull request's statusCheckRollup, as gh pr checks reads it", async () => {
+    await api()
+      .post(`/api/v3${base()}/statuses/${head}`)
+      .set('authorization', `token ${installer.key}`)
+      .send({ state: 'success', context: 'vercel' })
+      .expect(201);
+    const { data: run } = await ci.octokit.request(`POST ${base()}/check-runs`, {
+      name: 'graphql',
+      head_sha: head,
+      conclusion: 'success',
+      details_url: 'https://ci.example.com/runs/g',
+    });
+    const query = `query($owner: String!, $repo: String!, $number: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $number) {
+          commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
+            __typename
+            ... on CheckRun { name status conclusion startedAt completedAt detailsUrl checkSuite { workflowRun { workflow { name } } } isRequired(pullRequestNumber: $number) }
+            ... on StatusContext { context state }
+          } } } } } }
+        }
+      }
+    }`;
+    const { body } = await api()
+      .post('/api/graphql')
+      .set('authorization', `token ${installer.key}`)
+      .send({ query, variables: { owner: installerName, repo, number: pull } })
+      .expect(200);
+    expect(body.errors).toBeUndefined();
+    const rollup =
+      body.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
+    expect(rollup.state).toBe('FAILURE');
+    expect(rollup.contexts.nodes).toContainEqual({
+      __typename: 'CheckRun',
+      name: 'graphql',
+      status: 'COMPLETED',
+      conclusion: 'SUCCESS',
+      startedAt: expect.any(String),
+      completedAt: expect.any(String),
+      detailsUrl: 'https://ci.example.com/runs/g',
+      checkSuite: { workflowRun: null },
+      isRequired: false,
+    });
+    expect(rollup.contexts.nodes).toContainEqual({
+      __typename: 'StatusContext',
+      context: 'vercel',
+      state: 'SUCCESS',
+    });
+
+    const { body: node } = await api()
+      .post('/api/graphql')
+      .set('authorization', `token ${installer.key}`)
+      .send({
+        query: 'query($id: ID!) { node(id: $id) { __typename ... on CheckRun { name } } }',
+        variables: { id: run.node_id },
+      })
+      .expect(200);
+    expect(node.data.node).toEqual({ __typename: 'CheckRun', name: 'graphql' });
+  });
+
+  it('denies CheckRun to an installation without checks', async () => {
+    const { data } = await statusesOnly.octokit.graphql<{
+      node: unknown;
+    }>(
+      'query($id: ID!) { node(id: $id) { ... on CheckRun { name } } }',
+      {
+        id: (
+          await ci.octokit.request(`POST ${base()}/check-runs`, {
+            name: 'hidden',
+            head_sha: head,
+          })
+        ).data.node_id,
+      },
+    ).then(
+      (result) => ({ data: result }),
+      (error: { errors?: { message: string }[] }) => ({ data: error }),
+    );
+    expect(JSON.stringify(data)).toContain('Resource not accessible by integration');
+  });
+
   it('a web merge of a pull request requests a suite for the merge commit', async () => {
     const { body: merged } = await api()
       .put(`/api/v3${base()}/pulls/${pull}/merge`)
