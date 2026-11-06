@@ -1,6 +1,7 @@
 export * from "./apps.js";
 export * from "./auth.js";
 export * from "./collaborators.js";
+export * from "./checks.js";
 export * from "./commit-statuses.js";
 export * from "./imports.js";
 export * from "./issues.js";
