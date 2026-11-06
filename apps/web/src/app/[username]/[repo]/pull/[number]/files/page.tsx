@@ -81,7 +81,7 @@ export default async function PullRequestFilesPage({
       annotated.map(async (run) => {
         const { data } = await client.GET(
           "/api/repositories/{username}/{repo}/check-runs/{id}/annotations",
-          { params: { path: { username, repo, id: run.id } } },
+          { params: { path: { ...run.repository, id: run.id } } },
         );
         return (data?.annotations ?? []).map((annotation) => ({
           annotation,

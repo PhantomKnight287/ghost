@@ -20497,7 +20497,14 @@
         ],
         "responses": {
           "201": {
-            "description": ""
+            "description": "An empty object, as GitHub answers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           },
           "default": {
             "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
@@ -21054,7 +21061,14 @@
         ],
         "responses": {
           "201": {
-            "description": ""
+            "description": "An empty object, as GitHub answers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           },
           "default": {
             "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
@@ -25030,6 +25044,21 @@
           "installed"
         ]
       },
+      "CheckRunRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "repo"
+        ]
+      },
       "CheckRunDTO": {
         "type": "object",
         "properties": {
@@ -25094,6 +25123,14 @@
           "app": {
             "$ref": "#/components/schemas/CheckAppDTO"
           },
+          "repository": {
+            "description": "The repository the run was posted on: a pull request's fork for some of its runs.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CheckRunRepositoryDTO"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -25115,6 +25152,7 @@
           "output",
           "actions",
           "app",
+          "repository",
           "createdAt",
           "updatedAt"
         ]

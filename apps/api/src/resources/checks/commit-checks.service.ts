@@ -115,7 +115,8 @@ export class CommitChecksService {
         status: run.status,
         conclusion: run.conclusion,
         appId,
-        at: sql<Date>`coalesce(${run.completedAt}, ${run.updatedAt})`.mapWith(
+        // The app sends `completed_at`; capping it at the server's last write keeps a run dated in the future from outranking later ones.
+        at: sql<Date>`least(${run.completedAt}, ${run.updatedAt})`.mapWith(
           (value: string | Date) => new Date(value),
         ),
         order: run.numericId,

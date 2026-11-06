@@ -143,7 +143,12 @@ export function CommitCheckRows({
             run={row.run}
             repository={repository}
             required={required.includes(row.run.name)}
-            canRerun={canRerun && row.run.app.installed}
+            // A fork's run lives in the fork, where a writer here may have no say.
+            canRerun={
+              canRerun &&
+              row.run.app.installed &&
+              sameRepository(row.run.repository, repository)
+            }
             rerunAll={firstOfApp.has(row.key)}
           />
         ) : (
@@ -158,6 +163,16 @@ export function CommitCheckRows({
         ),
       )}
     </ul>
+  );
+}
+
+function sameRepository(
+  a: { username: string; repo: string },
+  b: { username: string; repo: string },
+) {
+  return (
+    a.username.toLowerCase() === b.username.toLowerCase() &&
+    a.repo.toLowerCase() === b.repo.toLowerCase()
   );
 }
 

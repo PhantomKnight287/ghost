@@ -22,7 +22,7 @@ import {
 } from '../../lib/checks/checks.errors.js';
 import { InvalidStatusShaError } from '../../lib/commit-statuses/commit-statuses.errors.js';
 import type { Executor } from '../../lib/db/executor.js';
-import { isoTimestamp } from '../../lib/db/sql.js';
+import { excluded, isoTimestamp } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { CommitHolderService } from '../../services/git/commit-holder/commit-holder.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
@@ -77,6 +77,10 @@ const runColumns = {
   >`json_build_object('title', ${run.outputTitle}, 'summary', ${run.outputSummary}, 'text', ${run.outputText}, 'annotationsCount', (select count(*)::int from ${schema.checkAnnotation} where ${schema.checkAnnotation.runId} = ${run.id}))`,
   actions: run.actions,
   app: appColumn,
+  // A pull request's rollup also holds runs posted on its fork; this says where to read and press them.
+  repository: sql<
+    CheckRunDTO['repository']
+  >`(select json_build_object('username', coalesce(${schema.organization.slug}, ${schema.user.username}), 'repo', ${schema.repository.slug}) from ${schema.repository} inner join ${schema.user} on ${schema.user.id} = ${schema.repository.ownerId} left join ${schema.organization} on ${schema.organization.id} = ${schema.repository.organizationId} where ${schema.repository.id} = ${run.repositoryId})`,
   createdAt: isoTimestamp(run.createdAt),
   updatedAt: isoTimestamp(run.updatedAt),
 };
@@ -505,11 +509,13 @@ export class ChecksService {
     const where = and(
       scope,
       query.checkName === undefined ? undefined : eq(run.name, query.checkName),
-      query.status === undefined ? undefined : eq(run.status, query.status),
       query.appId === undefined
         ? undefined
         : eq(schema.app.numericId, query.appId),
     );
+    // `latest` picks the newest run per app and name first; the status filter then applies to those.
+    const status =
+      query.status === undefined ? undefined : eq(run.status, query.status);
     const latest = this.db
       .selectDistinctOn([suite.appId, run.name], { id: run.id })
       .from(run)
@@ -517,8 +523,11 @@ export class ChecksService {
       .innerJoin(schema.app, eq(schema.app.id, suite.appId))
       .where(where)
       .orderBy(asc(suite.appId), asc(run.name), ...newestFirst);
-    const filtered =
-      query.filter === 'latest' ? and(where, inArray(run.id, latest)) : where;
+    const filtered = and(
+      where,
+      status,
+      query.filter === 'latest' ? inArray(run.id, latest) : undefined,
+    );
     const [runs, [total]] = await Promise.all([
       this.selectRuns()
         .where(filtered)
@@ -580,7 +589,11 @@ export class ChecksService {
         appId: installation.appId,
         installationId: installation.installationId,
       })
-      .onConflictDoNothing();
+      // A reinstalled app's new installation takes over the suite, so re-runs reach it.
+      .onConflictDoUpdate({
+        target: [suite.repositoryId, suite.headSha, suite.appId],
+        set: { installationId: excluded(suite.installationId) },
+      });
     const [row] = await tx
       .select({ id: suite.id })
       .from(suite)
@@ -617,7 +630,8 @@ export class ChecksService {
       .select({ status: suite.status, repositoryId: suite.repositoryId })
       .from(suite)
       .where(eq(suite.id, suiteId))
-      .for('update');
+      // Not FOR UPDATE: each run insert holds KEY SHARE on its suite, and FOR UPDATE would deadlock two concurrent creates.
+      .for('no key update');
     const runs = await tx
       .select({
         name: run.name,

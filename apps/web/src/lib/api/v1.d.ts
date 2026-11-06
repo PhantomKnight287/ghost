@@ -5486,6 +5486,10 @@ export interface components {
             /** @description The app is still installed here, unsuspended, so a re-run or button press reaches it. */
             installed: boolean;
         };
+        CheckRunRepositoryDTO: {
+            username: string;
+            repo: string;
+        };
         CheckRunDTO: {
             id: string;
             suiteId: string;
@@ -5502,6 +5506,8 @@ export interface components {
             output: components["schemas"]["CheckRunOutputDTO"];
             actions: components["schemas"]["CheckRunActionDTO"][];
             app: components["schemas"]["CheckAppDTO"];
+            /** @description The repository the run was posted on: a pull request's fork for some of its runs. */
+            repository: components["schemas"]["CheckRunRepositoryDTO"];
             createdAt: string;
             updatedAt: string;
         };
@@ -20216,11 +20222,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description An empty object, as GitHub answers. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
             /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
             default: {
@@ -20431,11 +20440,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description An empty object, as GitHub answers. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
             /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
             default: {

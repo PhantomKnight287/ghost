@@ -648,4 +648,126 @@ describe.skipIf(!CONNECTION)('checks', () => {
       expect(contexts.sort()).toEqual(['test', 'vercel']);
     });
   });
+
+  describe('final review', () => {
+    it('creates ten runs at once on one suite without deadlocking', async () => {
+      const runs = await Promise.all(
+        Array.from({ length: 10 }, (_, n) =>
+          checks.createRun(asCi(), { name: `job-${n}`, headSha: sha }),
+        ),
+      );
+      expect(new Set(runs.map((r) => r.suiteId)).size).toBe(1);
+      await Promise.all(
+        runs.map((r) =>
+          checks.updateRun(asCi(), r.id, { conclusion: 'success' }),
+        ),
+      );
+      expect((await checks.getSuite(target, runs[0].suiteId)).conclusion).toBe(
+        'success',
+      );
+    });
+
+    it("a reinstalled app's suite follows its new installation", async () => {
+      const first = await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+      });
+      await db
+        .delete(schema.appInstallation)
+        .where(eq(schema.appInstallation.id, ci.installationId));
+      const [again] = await db
+        .insert(schema.appInstallation)
+        .values({
+          appId: ci.appId,
+          accountUserId: OWNER,
+          repositorySelection: 'all',
+          permissions: { checks: 'write' },
+          events: [],
+        })
+        .returning({ id: schema.appInstallation.id });
+      const reinstalled = { installationId: again.id, appId: ci.appId };
+      const second = await checks.createRun(
+        { ...target, requesterId: CI_BOT, installation: reinstalled },
+        { name: 'test', headSha: sha },
+      );
+      expect(second.suiteId).toBe(first.suiteId);
+      expect(second.app.installed).toBe(true);
+      await checks.rerequestRun(
+        { ...target, requesterId: OWNER, installation: null },
+        second.id,
+      );
+    });
+
+    it('names the repository each run was posted on, so a fork run is told apart', async () => {
+      await checks.createRun(asCi(), { name: 'test', headSha: sha });
+      const [fork] = await db
+        .insert(schema.repository)
+        .values({
+          name: 'fork',
+          slug: 'fork',
+          ownerId: OWNER,
+          visibility: 'public',
+        })
+        .returning();
+      try {
+        const [suite] = await db
+          .insert(schema.checkSuite)
+          .values({ repositoryId: fork.id, headSha: sha, appId: ci.appId })
+          .returning();
+        await db.insert(schema.checkRun).values({
+          suiteId: suite.id,
+          repositoryId: fork.id,
+          headSha: sha,
+          name: 'fork-only',
+        });
+        const runs = (
+          await checks.latestRunsFor([repository.id, fork.id], [sha])
+        ).get(sha);
+        expect(
+          Object.fromEntries(runs!.map((r) => [r.name, r.repository])),
+        ).toEqual({
+          test: { username: 'checks-owner', repo: 'app' },
+          'fork-only': { username: 'checks-owner', repo: 'fork' },
+        });
+      } finally {
+        await db
+          .delete(schema.repository)
+          .where(eq(schema.repository.id, fork.id));
+      }
+    });
+
+    it('an app cannot win a required check by claiming a future completion time', async () => {
+      await checks.createRun(asOther(), {
+        name: 'build',
+        headSha: sha,
+        conclusion: 'success',
+        completedAt: new Date('2099-01-01T00:00:00Z'),
+      });
+      const failing = await checks.createRun(asCi(), {
+        name: 'build',
+        headSha: sha,
+      });
+      await checks.updateRun(asCi(), failing.id, { conclusion: 'failure' });
+      const facts = (
+        await commitChecks.requiredChecks(repository.id, [sha])
+      ).get(sha);
+      expect(facts?.[0]).toMatchObject({ context: 'build', state: 'failure' });
+    });
+
+    it('filter=latest picks the newest run per name before filtering by status', async () => {
+      const old = await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+      });
+      await checks.updateRun(asCi(), old.id, { conclusion: 'failure' });
+      await checks.createRun(asCi(), { name: 'test', headSha: sha });
+      const { runs } = await checks.runsForRef(target, 'main', {
+        filter: 'latest',
+        status: 'completed',
+        offset: 0,
+        limit: 30,
+      });
+      expect(runs).toEqual([]);
+    });
+  });
 });

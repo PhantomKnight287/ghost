@@ -70,6 +70,14 @@ export class CheckRunActionDTO {
   identifier: string;
 }
 
+export class CheckRunRepositoryDTO {
+  @ApiProperty()
+  username: string;
+
+  @ApiProperty()
+  repo: string;
+}
+
 export class CheckRunDTO {
   @ApiProperty()
   id: string;
@@ -109,6 +117,13 @@ export class CheckRunDTO {
 
   @ApiProperty({ type: CheckAppDTO })
   app: CheckAppDTO;
+
+  @ApiProperty({
+    type: CheckRunRepositoryDTO,
+    description:
+      "The repository the run was posted on: a pull request's fork for some of its runs.",
+  })
+  repository: CheckRunRepositoryDTO;
 
   @ApiProperty()
   createdAt: string;

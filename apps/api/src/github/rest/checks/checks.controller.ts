@@ -103,7 +103,10 @@ export class GithubChecksController {
 
   @Post('repos/:owner/:repo/check-runs/:id/rerequest')
   @ApiOperation({ summary: "Ask the check run's app to run it again" })
-  @ApiCreatedResponse()
+  @ApiCreatedResponse({
+    type: Object,
+    description: 'An empty object, as GitHub answers.',
+  })
   rerequestRun(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,
@@ -190,7 +193,10 @@ export class GithubChecksController {
 
   @Post('repos/:owner/:repo/check-suites/:id/rerequest')
   @ApiOperation({ summary: "Ask the check suite's app to run all of it again" })
-  @ApiCreatedResponse()
+  @ApiCreatedResponse({
+    type: Object,
+    description: 'An empty object, as GitHub answers.',
+  })
   rerequestSuite(
     @Param('owner', TransformToLowercasePipe) owner: string,
     @Param('repo', TransformToLowercasePipe) repo: string,

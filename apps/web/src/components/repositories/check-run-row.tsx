@@ -120,7 +120,8 @@ export function CheckRunRow({
       setAnnotations((shown) => [...(shown ?? []), ...data.annotations]),
     onError: () => toast.error("Could not load the annotations."),
   });
-  const target = { ...repository, id: run.id };
+  // The run's own repository: a pull request also shows runs posted on its fork.
+  const target = { ...run.repository, id: run.id };
   const hasOutput =
     run.output.summary || run.output.text || run.output.annotationsCount > 0;
 
