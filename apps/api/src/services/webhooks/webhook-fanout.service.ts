@@ -22,6 +22,7 @@ import {
 } from '../../lib/webhooks/formats/index.js';
 import {
   type InstallationWebhookBody,
+  type OwningAppWebhookBody,
   type WebhookBody,
   webhookEventOf,
   type WebhookOwner,
@@ -69,7 +70,7 @@ export class WebhookFanoutService {
         : null;
     if (thread === undefined) return;
     const name = webhookEventOf(event.type, thread?.isPullRequest ?? false);
-    if (isOwningAppEvent(name)) return;
+    if (isOwningAppEvent(name)) return this.owningAppDelivery(event, name);
 
     const endpoints = await this.db
       .select({
@@ -151,6 +152,123 @@ export class WebhookFanoutService {
           arrayContains(schema.appInstallation.events, [name]),
         ),
       );
+  }
+
+  /** A re-run, button press or requested suite goes to the app that owns the run or suite, and nobody else: its live installation's endpoint, whatever it subscribed to, while it holds `checks`. Always Ghost's JSON, as installation events are. */
+  private async owningAppDelivery(event: StoredEvent, name: OwningAppEvent) {
+    const payload = event.payload as
+      | { checkRunId: string; identifier?: string }
+      | { checkSuiteId: string };
+    const suiteId =
+      'checkSuiteId' in payload
+        ? payload.checkSuiteId
+        : this.db
+            .select({ id: schema.checkRun.suiteId })
+            .from(schema.checkRun)
+            .where(eq(schema.checkRun.id, payload.checkRunId));
+    const [owner] = await this.db
+      .select({
+        endpointId: schema.webhookEndpoint.id,
+        installationId: schema.appInstallation.numericId,
+        permissions: schema.appInstallation.permissions,
+      })
+      .from(schema.checkSuite)
+      .innerJoin(
+        schema.appInstallation,
+        eq(schema.appInstallation.id, schema.checkSuite.installationId),
+      )
+      .innerJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
+      .innerJoin(
+        schema.webhookEndpoint,
+        eq(schema.webhookEndpoint.appId, schema.app.id),
+      )
+      .where(
+        and(
+          typeof suiteId === 'string'
+            ? eq(schema.checkSuite.id, suiteId)
+            : inArray(schema.checkSuite.id, suiteId),
+          isNull(schema.app.deletedAt),
+          isNull(schema.appInstallation.suspendedAt),
+          eq(schema.webhookEndpoint.active, true),
+        ),
+      );
+    if (!owner || !grants(owner.permissions, 'checks', 'read')) return;
+    const [repository, check] = await Promise.all([
+      this.repositoryRef(event.repositoryId),
+      this.checkOf(payload),
+    ]);
+    if (!repository || !check) return;
+    const body: OwningAppWebhookBody = {
+      event: name,
+      repository,
+      sender: event.actorId ? await this.userRef(event.actorId) : null,
+      createdAt: new Date(event.createdAt).toISOString(),
+      installation: { id: owner.installationId },
+      ...check,
+      ...('identifier' in payload &&
+        payload.identifier && {
+          requestedAction: { identifier: payload.identifier },
+        }),
+    };
+    await this.enqueue([
+      {
+        endpointId: owner.endpointId,
+        event: name,
+        body: JSON.stringify(body),
+        idempotencyKey: `${event.id}:${owner.endpointId}`,
+      },
+    ]);
+  }
+
+  /** The run or suite a check event names, as webhooks carry it; null once it is gone. */
+  private async checkOf(
+    payload: { checkRunId: string } | { checkSuiteId: string },
+  ): Promise<Pick<WebhookBody, 'checkRun' | 'checkSuite'> | null> {
+    const app = sql<{
+      slug: string;
+      name: string;
+    }>`json_build_object('slug', ${schema.app.slug}, 'name', ${schema.app.name})`;
+    if ('checkRunId' in payload) {
+      const run = schema.checkRun;
+      const [checkRun] = await this.db
+        .select({
+          id: run.id,
+          numericId: run.numericId,
+          suiteId: run.suiteId,
+          name: run.name,
+          headSha: run.headSha,
+          status: run.status,
+          conclusion: run.conclusion,
+          detailsUrl: run.detailsUrl,
+          startedAt: sql<string | null>`${isoTimestamp(run.startedAt)}`,
+          completedAt: sql<string | null>`${isoTimestamp(run.completedAt)}`,
+          output: sql<{
+            title: string | null;
+            summary: string | null;
+          }>`json_build_object('title', ${run.outputTitle}, 'summary', ${run.outputSummary})`,
+          app,
+        })
+        .from(run)
+        .innerJoin(schema.checkSuite, eq(schema.checkSuite.id, run.suiteId))
+        .innerJoin(schema.app, eq(schema.app.id, schema.checkSuite.appId))
+        .where(eq(run.id, payload.checkRunId));
+      return checkRun ? { checkRun } : null;
+    }
+    const suite = schema.checkSuite;
+    const [checkSuite] = await this.db
+      .select({
+        id: suite.id,
+        numericId: suite.numericId,
+        headSha: suite.headSha,
+        headBranch: suite.headBranch,
+        status: suite.status,
+        conclusion: suite.conclusion,
+        app,
+      })
+      .from(suite)
+      .innerJoin(schema.app, eq(schema.app.id, suite.appId))
+      .where(eq(suite.id, payload.checkSuiteId));
+    return checkSuite ? { checkSuite } : null;
   }
 
   /** Sent when an endpoint is created and from its "Send test" button, whatever events it chose. */
@@ -538,6 +656,14 @@ export class WebhookFanoutService {
           .where(eq(schema.commitStatus.id, event.payload.statusId));
         if (!status) return null;
         body.status = status;
+        break;
+      }
+      case 'check_run.created':
+      case 'check_run.completed':
+      case 'check_suite.completed': {
+        const check = await this.checkOf(event.payload);
+        if (!check) return null;
+        Object.assign(body, check);
         break;
       }
       case 'fork.created': {
