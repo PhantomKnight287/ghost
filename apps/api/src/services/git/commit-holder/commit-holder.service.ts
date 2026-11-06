@@ -3,7 +3,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, ne } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { resolveCommit } from '../../../lib/git/tree/resolve-ref.js';
+import { listBranches } from '../../../lib/git/refs/list-refs.js';
+import { listTags } from '../../../lib/git/tags/list-tags.js';
+import {
+  resolveCommit,
+  resolveTargetCommit,
+} from '../../../lib/git/tree/resolve-ref.js';
+import { CommitNotFoundError } from '../../../lib/repositories/repositories.errors.js';
 import { RepositoryMaterializerService } from '../materializer/repository-materializer.service.js';
 
 /** Which commits a repository may have statuses and checks reported on. */
@@ -46,5 +52,22 @@ export class CommitHolderService {
       if (await isCommit(fork)) return true;
     }
     return false;
+  }
+
+  /** The commit `ref` names: a branch, a tag or a sha. */
+  async commitOf(
+    repository: { id: string; defaultBranch: string | null },
+    ref: string,
+  ) {
+    const directory = await this.materializer.open(repository);
+    const sha = await resolveTargetCommit({
+      gitDir: directory,
+      defaultBranch: repository.defaultBranch,
+      branches: await listBranches(directory),
+      tags: await listTags(directory),
+      requested: ref,
+    });
+    if (!sha) throw new CommitNotFoundError(ref);
+    return sha;
   }
 }

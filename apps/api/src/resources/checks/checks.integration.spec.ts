@@ -1,0 +1,395 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { createDatabase, type Database, type Pool, schema } from '@ghost/db';
+import { and, eq, inArray, like } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
+
+import { InvalidStatusShaError } from '../../lib/commit-statuses/commit-statuses.errors.js';
+import {
+  ChecksNeedInstallationError,
+  NotRunOwnerError,
+  TooManyAnnotationsError,
+} from '../../lib/checks/checks.errors.js';
+import { InMemoryWalStore } from '../../lib/git/materializer/wal-store.fake.js';
+import { bufferBody } from '../../lib/git/protocol/git-request-body.js';
+import { ZERO_OID } from '../../lib/git/wal/wal.types.js';
+import { CommitHolderService } from '../../services/git/commit-holder/commit-holder.service.js';
+import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
+import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
+import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
+import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { ChecksService } from './checks.service.js';
+
+const CONNECTION = process.env.TEST_DATABASE_URL;
+const MIGRATIONS = path.resolve(
+  import.meta.dirname,
+  '../../../../../packages/db/drizzle',
+);
+
+const OWNER = 'user_checks_owner';
+const CI_BOT = 'user_checks_ci_bot';
+const OTHER_BOT = 'user_checks_other_bot';
+
+function git(cwd: string, ...args: string[]) {
+  const env = { ...process.env };
+  delete env.GIT_DIR;
+  return execFileSync('git', args, { cwd, encoding: 'utf8', env }).trim();
+}
+
+// Needs a throwaway Postgres; the suite is skipped without one.
+describe.skipIf(!CONNECTION)('checks', () => {
+  let db: Database;
+  let pool: Pool;
+  let root: string;
+  let checks: ChecksService;
+  let repository: typeof schema.repository.$inferSelect;
+  let sha: string;
+  let ci: { installationId: string; appId: string };
+  let other: { installationId: string; appId: string };
+  let otherAppNumericId: number;
+
+  const target = { username: 'checks-owner', repo: 'app' };
+  const asCi = () => ({ ...target, requesterId: CI_BOT, installation: ci });
+  const asOther = () => ({
+    ...target,
+    requesterId: OTHER_BOT,
+    installation: other,
+  });
+
+  const eventsOf = (type: string) =>
+    db
+      .select({ payload: schema.outboxEvent.payload })
+      .from(schema.outboxEvent)
+      .where(
+        and(
+          eq(schema.outboxEvent.repositoryId, repository.id),
+          eq(schema.outboxEvent.type, type),
+        ),
+      );
+
+  async function installApp(slug: string, botUserId: string) {
+    const [app] = await db
+      .insert(schema.app)
+      .values({
+        slug,
+        name: slug,
+        homepageUrl: 'https://example.com',
+        permissions: { checks: 'write' },
+        events: [],
+        ownerUserId: OWNER,
+        botUserId,
+      })
+      .returning({ id: schema.app.id, numericId: schema.app.numericId });
+    const [installation] = await db
+      .insert(schema.appInstallation)
+      .values({
+        appId: app.id,
+        accountUserId: OWNER,
+        repositorySelection: 'all',
+        permissions: { checks: 'write' },
+        events: [],
+      })
+      .returning({ id: schema.appInstallation.id });
+    return {
+      installation: { installationId: installation.id, appId: app.id },
+      numericId: app.numericId,
+    };
+  }
+
+  beforeAll(async () => {
+    ({ db, pool } = createDatabase({ connectionString: CONNECTION }));
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+  });
+
+  beforeEach(async () => {
+    root = mkdtempSync(path.join(tmpdir(), 'ghost-checks-'));
+    const source = path.join(root, 'source');
+    const cache = path.join(root, 'cache.git');
+    execFileSync('git', ['init', '-q', '-b', 'main', source]);
+    git(source, 'config', 'user.email', 'test@example.com');
+    git(source, 'config', 'user.name', 'Test');
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', cache]);
+
+    const store = new InMemoryWalStore() as unknown as WalStoreService;
+    const materializer = new RepositoryMaterializerService(store, {
+      getRepoPath: async () => cache,
+    } as unknown as RepositoryStorageService);
+    checks = new ChecksService(
+      db,
+      new RepositoryAccessService(db),
+      new CommitHolderService(db, materializer),
+    );
+
+    await db.delete(schema.app).where(like(schema.app.slug, 'checks-%'));
+    await db
+      .delete(schema.user)
+      .where(inArray(schema.user.id, [OWNER, CI_BOT, OTHER_BOT]));
+    await db.insert(schema.user).values([
+      {
+        id: OWNER,
+        name: 'Owner',
+        email: 'checks-owner@example.com',
+        username: 'checks-owner',
+      },
+      {
+        id: CI_BOT,
+        name: 'checks-ci[bot]',
+        email: 'checks-ci@example.com',
+        username: 'checks-ci[bot]',
+      },
+      {
+        id: OTHER_BOT,
+        name: 'checks-other[bot]',
+        email: 'checks-other@example.com',
+        username: 'checks-other[bot]',
+      },
+    ]);
+    [repository] = await db
+      .insert(schema.repository)
+      .values({
+        name: 'app',
+        slug: 'app',
+        ownerId: OWNER,
+        visibility: 'public',
+      })
+      .returning();
+    ({ installation: ci } = await installApp('checks-ci', CI_BOT));
+    ({ installation: other, numericId: otherAppNumericId } = await installApp(
+      'checks-other',
+      OTHER_BOT,
+    ));
+
+    writeFileSync(path.join(source, 'README.md'), 'hello\n');
+    git(source, 'add', '-A');
+    git(source, 'commit', '-m', 'first');
+    sha = git(source, 'rev-parse', 'HEAD');
+    await new PushTransactionService(store).commitPush({
+      actor: 'system',
+      repoId: repository.id,
+      transitions: [
+        {
+          ref: 'refs/heads/main',
+          oldOid: ZERO_OID,
+          newOid: Buffer.from(sha, 'hex'),
+        },
+      ],
+      body: bufferBody(
+        execFileSync('git', ['pack-objects', '--stdout', '--revs'], {
+          cwd: source,
+          input: 'HEAD\n',
+        }),
+      ),
+      packOffset: 0,
+    });
+  });
+
+  afterEach(async () => {
+    await db
+      .delete(schema.repository)
+      .where(eq(schema.repository.id, repository.id));
+    await db.delete(schema.app).where(like(schema.app.slug, 'checks-%'));
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  afterAll(async () => {
+    await pool.end();
+  });
+
+  it('an installation creates a queued run in a new suite', async () => {
+    const run = await checks.createRun(asCi(), { name: 'test', headSha: sha });
+    expect(run).toMatchObject({
+      name: 'test',
+      headSha: sha,
+      status: 'queued',
+      conclusion: null,
+      app: { slug: 'checks-ci', deleted: false },
+    });
+    expect(run.startedAt).not.toBeNull();
+    const suites = await db
+      .select()
+      .from(schema.checkSuite)
+      .where(eq(schema.checkSuite.repositoryId, repository.id));
+    expect(suites).toHaveLength(1);
+    expect(suites[0]).toMatchObject({ status: 'queued', appId: ci.appId });
+    expect(await eventsOf('check_run.created')).toEqual([
+      { payload: { checkRunId: run.id } },
+    ]);
+  });
+
+  it('refuses a caller without an installation', async () => {
+    await expect(
+      checks.createRun(
+        { ...target, requesterId: OWNER, installation: null },
+        { name: 'test', headSha: sha },
+      ),
+    ).rejects.toThrow(ChecksNeedInstallationError);
+  });
+
+  it('refuses a sha the repository does not hold', async () => {
+    await expect(
+      checks.createRun(asCi(), { name: 'test', headSha: 'f'.repeat(40) }),
+    ).rejects.toThrow(InvalidStatusShaError);
+  });
+
+  it('a conclusion completes the run and fires check_run.completed once', async () => {
+    const run = await checks.createRun(asCi(), { name: 'test', headSha: sha });
+    const done = await checks.updateRun(asCi(), run.id, {
+      conclusion: 'failure',
+    });
+    expect(done).toMatchObject({ status: 'completed', conclusion: 'failure' });
+    await checks.updateRun(asCi(), run.id, { conclusion: 'success' });
+    expect(await eventsOf('check_run.completed')).toHaveLength(1);
+  });
+
+  it('another app cannot update the run', async () => {
+    const run = await checks.createRun(asCi(), { name: 'test', headSha: sha });
+    await expect(
+      checks.updateRun(asOther(), run.id, { conclusion: 'success' }),
+    ).rejects.toThrow(NotRunOwnerError);
+  });
+
+  it('annotations append across updates and stop at 1000', async () => {
+    const run = await checks.createRun(asCi(), { name: 'lint', headSha: sha });
+    const annotations = Array.from({ length: 50 }, (_, i) => ({
+      path: 'src/a.ts',
+      startLine: i + 1,
+      endLine: i + 1,
+      annotationLevel: 'warning' as const,
+      message: `warning ${i}`,
+    }));
+    for (let i = 0; i < 20; i++)
+      await checks.updateRun(asCi(), run.id, {
+        output: { title: 'Lint', summary: 'Many', annotations },
+      });
+    const { total, annotations: page } = await checks.annotations(
+      target,
+      run.id,
+      { offset: 0, limit: 2 },
+    );
+    expect(total).toBe(1000);
+    expect(page.map((a) => a.message)).toEqual(['warning 0', 'warning 1']);
+    await expect(
+      checks.updateRun(asCi(), run.id, {
+        output: {
+          title: 'Lint',
+          summary: 'Many',
+          annotations: annotations.slice(0, 1),
+        },
+      }),
+    ).rejects.toThrow(TooManyAnnotationsError);
+    expect((await checks.getRun(target, run.id)).output.annotationsCount).toBe(
+      1000,
+    );
+  });
+
+  it('a suite completes when its newest runs complete, and again after a re-run passes', async () => {
+    const first = await checks.createRun(asCi(), {
+      name: 'test',
+      headSha: sha,
+    });
+    await checks.updateRun(asCi(), first.id, { conclusion: 'failure' });
+    const rerun = await checks.createRun(asCi(), {
+      name: 'test',
+      headSha: sha,
+    });
+    const [reopened] = await db
+      .select({ status: schema.checkSuite.status })
+      .from(schema.checkSuite)
+      .where(eq(schema.checkSuite.id, rerun.suiteId));
+    expect(reopened.status).toBe('queued');
+    await checks.updateRun(asCi(), rerun.id, { conclusion: 'success' });
+    const suite = await checks.getSuite(target, rerun.suiteId);
+    expect(suite).toMatchObject({ status: 'completed', conclusion: 'success' });
+    expect(await eventsOf('check_suite.completed')).toHaveLength(2);
+  });
+
+  it('filter=latest returns the newest per app and name, filter=all every run', async () => {
+    const old = await checks.createRun(asCi(), { name: 'test', headSha: sha });
+    const newer = await checks.createRun(asCi(), {
+      name: 'test',
+      headSha: sha,
+    });
+    const theirs = await checks.createRun(asOther(), {
+      name: 'test',
+      headSha: sha,
+    });
+    const latest = await checks.runsForRef(target, 'main', {
+      filter: 'latest',
+      offset: 0,
+      limit: 30,
+    });
+    expect(latest.sha).toBe(sha);
+    expect(latest.runs.map((r) => r.id).sort()).toEqual(
+      [newer.id, theirs.id].sort(),
+    );
+    const all = await checks.runsForRef(target, 'main', {
+      filter: 'all',
+      offset: 0,
+      limit: 30,
+    });
+    expect(all.total).toBe(3);
+    expect(all.runs.map((r) => r.id)).toContain(old.id);
+    const named = await checks.runsForRef(target, 'main', {
+      filter: 'all',
+      appId: otherAppNumericId,
+      offset: 0,
+      limit: 30,
+    });
+    expect(named.runs.map((r) => r.id)).toEqual([theirs.id]);
+  });
+
+  it('latestRunsFor spans repositories, the first repository winning per app and name', async () => {
+    const base = await checks.createRun(asCi(), { name: 'test', headSha: sha });
+    const [fork] = await db
+      .insert(schema.repository)
+      .values({
+        name: 'fork',
+        slug: 'fork',
+        ownerId: OWNER,
+        visibility: 'public',
+      })
+      .returning();
+    try {
+      const [suite] = await db
+        .insert(schema.checkSuite)
+        .values({ repositoryId: fork.id, headSha: sha, appId: ci.appId })
+        .returning();
+      await db.insert(schema.checkRun).values([
+        {
+          suiteId: suite.id,
+          repositoryId: fork.id,
+          headSha: sha,
+          name: 'test',
+        },
+        {
+          suiteId: suite.id,
+          repositoryId: fork.id,
+          headSha: sha,
+          name: 'fork-only',
+        },
+      ]);
+      const runs = (
+        await checks.latestRunsFor([repository.id, fork.id], [sha])
+      ).get(sha);
+      expect(runs?.map((r) => r.name).sort()).toEqual(['fork-only', 'test']);
+      expect(runs?.find((r) => r.name === 'test')?.id).toBe(base.id);
+    } finally {
+      await db
+        .delete(schema.repository)
+        .where(eq(schema.repository.id, fork.id));
+    }
+  });
+});

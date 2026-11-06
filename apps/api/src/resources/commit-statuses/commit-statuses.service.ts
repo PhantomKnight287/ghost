@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, max, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
@@ -15,16 +15,8 @@ import {
 } from '../../lib/commit-statuses/commit-statuses.errors.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
-import { listBranches } from '../../lib/git/refs/list-refs.js';
-import { listTags } from '../../lib/git/tags/list-tags.js';
-import {
-  resolveCommit,
-  resolveTargetCommit,
-} from '../../lib/git/tree/resolve-ref.js';
-import { CommitNotFoundError } from '../../lib/repositories/repositories.errors.js';
 import type { RefFacts } from '../../lib/rulesets/rulesets.types.js';
 import { CommitHolderService } from '../../services/git/commit-holder/commit-holder.service.js';
-import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type {
   CombinedCommitStatusDTO,
@@ -60,7 +52,6 @@ export class CommitStatusesService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
-    private readonly materializer: RepositoryMaterializerService,
     private readonly commitHolder: CommitHolderService,
   ) {}
 
@@ -302,16 +293,10 @@ export class CommitStatusesService {
       ...target,
       operation: 'read',
     });
-    const directory = await this.materializer.open(repository);
-    const sha = await resolveTargetCommit({
-      gitDir: directory,
-      defaultBranch: repository.defaultBranch,
-      branches: await listBranches(directory),
-      tags: await listTags(directory),
-      requested: ref,
-    });
-    if (!sha) throw new CommitNotFoundError(ref);
-    return { repository, sha };
+    return {
+      repository,
+      sha: await this.commitHolder.commitOf(repository, ref),
+    };
   }
 
   private select() {

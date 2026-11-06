@@ -137,7 +137,6 @@ describe.skipIf(!CONNECTION)('branches', () => {
         new CommitStatusesService(
           db,
           new RepositoryAccessService(db),
-          materializer,
           new CommitHolderService(db, materializer),
         ),
         new CommitVerificationService(

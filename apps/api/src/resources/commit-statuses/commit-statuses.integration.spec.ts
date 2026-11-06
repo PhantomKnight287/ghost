@@ -81,7 +81,6 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
     statuses = new CommitStatusesService(
       db,
       new RepositoryAccessService(db),
-      materializer,
       new CommitHolderService(db, materializer),
     );
 
