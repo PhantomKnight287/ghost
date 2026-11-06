@@ -2,7 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { type ReactNode, useCallback, useState } from "react";
+import {
+  type ComponentProps,
+  type ReactNode,
+  useCallback,
+  useState,
+} from "react";
 import { toast } from "sonner";
 
 import {
@@ -10,6 +15,7 @@ import {
   discardPendingReview,
   submitReview,
 } from "@/components/pull-requests/actions";
+import { CheckAnnotation } from "@/components/pull-requests/check-annotation";
 import { DiffView } from "@/components/pull-requests/diff-view";
 import { ReviewThread } from "@/components/pull-requests/review";
 import { Button } from "@/components/ui/button";
@@ -48,8 +54,11 @@ export function ReviewDiff({
   isAuthor,
   blobUrl,
   headers,
+  checkAnnotations,
   ...viewing
 }: Viewing & {
+  /** Check run annotations on the head, placed under their last line on the new side when the diff shows it. */
+  checkAnnotations: ComponentProps<typeof CheckAnnotation>[];
   from: string;
   to: string;
   /** Blob endpoint of the head repository, which a suggestion is prefilled from; null once that repository is gone. */
@@ -92,6 +101,11 @@ export function ReviewDiff({
       metadata: node,
     });
   };
+  for (const { annotation, run } of checkAnnotations)
+    annotate(
+      { path: annotation.path, side: "additions", line: annotation.endLine },
+      <CheckAnnotation annotation={annotation} run={run} />,
+    );
   for (const review of [...reviews, ...(pending ? [pending] : [])]) {
     for (const thread of review.comments) {
       if (thread.commitSha !== to) continue;
