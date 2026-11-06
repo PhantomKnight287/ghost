@@ -34,5 +34,6 @@ import { GithubUserInstallationsController } from './user-installations.controll
     AppClientsService,
     GithubApplicationsService,
   ],
+  exports: [GithubAppService],
 })
 export class GithubAppModule {}

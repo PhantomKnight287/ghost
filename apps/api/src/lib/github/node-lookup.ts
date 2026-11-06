@@ -254,3 +254,53 @@ export type ReleaseAssetExtras =
   Awaited<ReturnType<typeof releaseAssetExtrasOf>> extends Map<string, infer T>
     ? T
     : never;
+
+/** The integer ids the REST layer shows for check runs, with their suite's. */
+export async function checkRunNumericIdsOf(db: Database, runIds: string[]) {
+  const rows =
+    runIds.length > 0
+      ? await db
+          .select({
+            id: schema.checkRun.id,
+            numericId: schema.checkRun.numericId,
+            suiteNumericId: schema.checkSuite.numericId,
+          })
+          .from(schema.checkRun)
+          .innerJoin(
+            schema.checkSuite,
+            eq(schema.checkSuite.id, schema.checkRun.suiteId),
+          )
+          .where(inArray(schema.checkRun.id, runIds))
+      : [];
+  return new Map(rows.map(({ id, ...ids }) => [id, ids]));
+}
+
+export async function checkSuiteNumericIdsOf(db: Database, suiteIds: string[]) {
+  const rows =
+    suiteIds.length > 0
+      ? await db
+          .select({
+            id: schema.checkSuite.id,
+            numericId: schema.checkSuite.numericId,
+          })
+          .from(schema.checkSuite)
+          .where(inArray(schema.checkSuite.id, suiteIds))
+      : [];
+  return new Map(rows.map((row) => [row.id, row.numericId]));
+}
+
+/** The Ghost id behind a REST check run or suite id, or a sentinel that matches nothing, so the service answers its own 404. */
+export async function checkIdOf(
+  db: Database,
+  kind: 'run' | 'suite',
+  numericId: string,
+) {
+  const table = kind === 'run' ? schema.checkRun : schema.checkSuite;
+  const parsed = Number(numericId);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) return '';
+  const [row] = await db
+    .select({ id: table.id })
+    .from(table)
+    .where(eq(table.numericId, parsed));
+  return row?.id ?? '';
+}

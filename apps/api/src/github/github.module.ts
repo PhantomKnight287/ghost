@@ -51,6 +51,7 @@ import { MetaModule } from './rest/meta/meta.module.js';
 import { GithubPullsModule } from './rest/pulls/pulls.module.js';
 import { GithubReleasesModule } from './rest/releases/releases.module.js';
 import { GithubStatusesModule } from './rest/statuses/statuses.module.js';
+import { GithubChecksModule } from './rest/checks/checks.module.js';
 import { GithubUserAttachmentsModule } from './rest/attachments/user-attachments.module.js';
 import { ReposModule } from './rest/repos/repos.module.js';
 import { UsersModule } from './rest/users/users.module.js';
@@ -115,6 +116,7 @@ import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
     ReleasesModule,
     GithubReleasesModule,
     GithubStatusesModule,
+    GithubChecksModule,
     GithubUserAttachmentsModule,
     GithubGitModule,
     TemplatesModule,

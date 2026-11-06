@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { DATABASE } from '../../../database/database.module.js';
-import { NoCommitFoundError } from '../../../lib/github/github.errors.js';
+import { onCommit } from '../../../lib/github/on-commit.js';
 import { commitStatusNumericIdsOf } from '../../../lib/github/node-lookup.js';
 import { githubOrigins } from '../../../lib/github/origins.js';
 import {
@@ -13,7 +13,6 @@ import {
   toRepositoryRest,
   toStatusRest,
 } from '../../../lib/github/rest.js';
-import { CommitNotFoundError } from '../../../lib/repositories/repositories.errors.js';
 import { CommitStatusesService } from '../../../resources/commit-statuses/commit-statuses.service.js';
 import type { CommitStatusDTO } from '../../../resources/commit-statuses/dto/commit-status.dto.js';
 import type { GithubRepositoryTarget } from '../../auth/github-request.js';
@@ -66,7 +65,7 @@ export class GithubStatusesService {
   ) {
     const repository = await this.github.readable(owner, repo, viewer);
     const page = pageOf(query);
-    const { sha, statuses, total } = await this.onCommit(
+    const { sha, statuses, total } = await onCommit(
       ref,
       this.statuses.pageStatuses({
         ...this.github.ref(repository, viewer),
@@ -84,7 +83,7 @@ export class GithubStatusesService {
 
   async combined({ owner, repo, viewer }: GithubRepositoryTarget, ref: string) {
     const repository = await this.github.readable(owner, repo, viewer);
-    const combined = await this.onCommit(
+    const combined = await onCommit(
       ref,
       this.statuses.combined({ ...this.github.ref(repository, viewer), ref }),
     );
@@ -122,16 +121,5 @@ export class GithubStatusesService {
         toStatusRest(status, numericIds.get(status.id)!, sha, context),
       ),
     };
-  }
-
-  /** GitHub names the ref when it resolves to no commit, where its other 404s say only "Not Found". */
-  private async onCommit<T>(ref: string, read: Promise<T>) {
-    try {
-      return await read;
-    } catch (error) {
-      if (error instanceof CommitNotFoundError)
-        throw new NoCommitFoundError(ref);
-      throw error;
-    }
   }
 }
