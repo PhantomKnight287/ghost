@@ -4,10 +4,10 @@ import { ChevronDown, CircleCheck, CircleDot, CircleX } from "lucide-react";
 import { CheckRunRow } from "@/components/repositories/check-run-row";
 import { Badge } from "@/components/ui/badge";
 import type { components } from "@/lib/api/v1";
+import { checkRunState, orderCheckRows } from "@/lib/checks";
 
 type CommitChecksDTO = components["schemas"]["CommitChecksDTO"];
 type CommitStatus = components["schemas"]["CommitStatusDTO"];
-type CheckRun = components["schemas"]["CheckRunDTO"];
 type State = CommitChecksDTO["state"];
 
 const stateLabel = {
@@ -23,16 +23,6 @@ export const statusTitle = {
   error: "Some checks were not successful",
   pending: "Some checks haven't completed yet",
 } satisfies Record<State, string>;
-
-/** What a run counts as, as the API's rollup counts it: neutral and skipped pass. */
-export function checkRunState(
-  run: Pick<CheckRun, "status" | "conclusion">,
-): State {
-  if (run.status !== "completed" || !run.conclusion) return "pending";
-  return ["success", "neutral", "skipped"].includes(run.conclusion)
-    ? "success"
-    : "failure";
-}
 
 export function CommitStatusIcon({
   state,
@@ -108,36 +98,10 @@ export function CommitCheckRows({
   required?: string[];
   canRerun?: boolean;
 }) {
-  const passing = (state: State) => state === "success";
-  const rows = [
-    ...checks.checkRuns.map((run) => ({
-      key: run.id,
-      state: checkRunState(run),
-      run,
-    })),
-    ...checks.statuses.map((status) => ({
-      key: status.id,
-      state: status.state,
-      status,
-    })),
-  ];
-  const ordered = [
-    ...rows.filter((row) => !passing(row.state)),
-    ...rows.filter((row) => passing(row.state)),
-  ];
-  // "Re-run all" sits beside each app's first row.
-  const firstOfApp = new Set([
-    ...new Map(
-      ordered.flatMap((row) =>
-        "run" in row && row.run ? [[row.run.suiteId, row.key]] : [],
-      ),
-    ).values(),
-  ]);
-
   return (
     <ul className="flex flex-col gap-1 text-sm">
-      {ordered.map((row) =>
-        "run" in row && row.run ? (
+      {orderCheckRows(checks).map((row) =>
+        row.kind === "run" ? (
           <CheckRunRow
             key={row.key}
             run={row.run}
@@ -149,17 +113,14 @@ export function CommitCheckRows({
               row.run.app.installed &&
               sameRepository(row.run.repository, repository)
             }
-            rerunAll={firstOfApp.has(row.key)}
+            rerunAll={row.rerunAll}
           />
         ) : (
-          "status" in row &&
-          row.status && (
-            <StatusRow
-              key={row.key}
-              status={row.status}
-              required={required.includes(row.status.context)}
-            />
-          )
+          <StatusRow
+            key={row.key}
+            status={row.status}
+            required={required.includes(row.status.context)}
+          />
         ),
       )}
     </ul>
