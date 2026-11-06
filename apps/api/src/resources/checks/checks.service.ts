@@ -58,7 +58,8 @@ export type RunsQuery = {
 const run = schema.checkRun;
 const suite = schema.checkSuite;
 
-const appColumn = sql<CheckAppDTO>`json_build_object('appId', ${schema.app.numericId}, 'slug', ${schema.app.slug}, 'name', ${schema.app.name}, 'logoUrl', ${schema.app.logoUrl}, 'deleted', ${schema.app.deletedAt} is not null)`;
+/** The app, and whether it is still installed, unsuspended, to hear re-runs. Needs `app` joined and `check_suite` in scope. */
+const appColumn = sql<CheckAppDTO>`json_build_object('appId', ${schema.app.numericId}, 'slug', ${schema.app.slug}, 'name', ${schema.app.name}, 'logoUrl', ${schema.app.logoUrl}, 'deleted', ${schema.app.deletedAt} is not null, 'installed', ${schema.app.deletedAt} is null and exists (select 1 from ${schema.appInstallation} where ${schema.appInstallation.id} = ${schema.checkSuite.installationId} and ${schema.appInstallation.suspendedAt} is null))`;
 
 const runColumns = {
   id: run.id,

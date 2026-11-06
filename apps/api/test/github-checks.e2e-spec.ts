@@ -8,7 +8,7 @@ import { type Database, schema } from '@ghost/db';
 import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
 import type { INestApplication } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -398,12 +398,15 @@ describe.skipIf(!hasBackends)('GitHub check runs and check suites', () => {
       .set('authorization', `token ${installer.key}`)
       .send({ state: 'success', context: 'vercel' })
       .expect(201);
-    const { data: run } = await ci.octokit.request(`POST ${base()}/check-runs`, {
-      name: 'graphql',
-      head_sha: head,
-      conclusion: 'success',
-      details_url: 'https://ci.example.com/runs/g',
-    });
+    const { data: run } = await ci.octokit.request(
+      `POST ${base()}/check-runs`,
+      {
+        name: 'graphql',
+        head_sha: head,
+        conclusion: 'success',
+        details_url: 'https://ci.example.com/runs/g',
+      },
+    );
     const query = `query($owner: String!, $repo: String!, $number: Int!) {
       repository(owner: $owner, name: $repo) {
         pullRequest(number: $number) {
@@ -422,7 +425,8 @@ describe.skipIf(!hasBackends)('GitHub check runs and check suites', () => {
       .expect(200);
     expect(body.errors).toBeUndefined();
     const rollup =
-      body.data.repository.pullRequest.commits.nodes[0].commit.statusCheckRollup;
+      body.data.repository.pullRequest.commits.nodes[0].commit
+        .statusCheckRollup;
     expect(rollup.state).toBe('FAILURE');
     expect(rollup.contexts.nodes).toContainEqual({
       __typename: 'CheckRun',
@@ -445,7 +449,8 @@ describe.skipIf(!hasBackends)('GitHub check runs and check suites', () => {
       .post('/api/graphql')
       .set('authorization', `token ${installer.key}`)
       .send({
-        query: 'query($id: ID!) { node(id: $id) { __typename ... on CheckRun { name } } }',
+        query:
+          'query($id: ID!) { node(id: $id) { __typename ... on CheckRun { name } } }',
         variables: { id: run.node_id },
       })
       .expect(200);
@@ -453,23 +458,121 @@ describe.skipIf(!hasBackends)('GitHub check runs and check suites', () => {
   });
 
   it('denies CheckRun to an installation without checks', async () => {
-    const { data } = await statusesOnly.octokit.graphql<{
-      node: unknown;
-    }>(
-      'query($id: ID!) { node(id: $id) { ... on CheckRun { name } } }',
-      {
+    const { data } = await statusesOnly.octokit
+      .graphql<{
+        node: unknown;
+      }>('query($id: ID!) { node(id: $id) { ... on CheckRun { name } } }', {
         id: (
           await ci.octokit.request(`POST ${base()}/check-runs`, {
             name: 'hidden',
             head_sha: head,
           })
         ).data.node_id,
-      },
-    ).then(
-      (result) => ({ data: result }),
-      (error: { errors?: { message: string }[] }) => ({ data: error }),
+      })
+      .then(
+        (result) => ({ data: result }),
+        (error: { errors?: { message: string }[] }) => ({ data: error }),
+      );
+    expect(JSON.stringify(data)).toContain(
+      'Resource not accessible by integration',
     );
-    expect(JSON.stringify(data)).toContain('Resource not accessible by integration');
+  });
+
+  describe("Ghost's own API, for the web", () => {
+    const native = (url: string) =>
+      `/api/repositories/${installerName}/${repo}${url}`;
+
+    it("pages a run's annotations, and lets a writer re-run, re-run all and press a button", async () => {
+      const { data: run } = await ci.octokit.request(
+        `POST ${base()}/check-runs`,
+        {
+          name: 'web',
+          head_sha: head,
+          conclusion: 'failure',
+          output: {
+            title: 'Lint',
+            summary: 'Two',
+            annotations: [1, 2].map((line) => ({
+              path: 'a.txt',
+              start_line: line,
+              end_line: line,
+              annotation_level: 'warning',
+              message: `line ${line}`,
+            })),
+          },
+          actions: [{ label: 'Fix', description: 'Fix it', identifier: 'fix' }],
+        },
+      );
+      const { body: pr } = await api()
+        .get(native(`/pulls/${pull}`))
+        .set('cookie', installer.cookie)
+        .expect(200);
+      const web = pr.checks.checkRuns.find(
+        (r: { name: string }) => r.name === 'web',
+      );
+      expect(web).toMatchObject({
+        output: { annotationsCount: 2 },
+        app: { slug: ci.slug, installed: true },
+        actions: [{ identifier: 'fix' }],
+      });
+
+      const { body: page } = await api()
+        .get(native(`/check-runs/${web.id}/annotations?offset=1&limit=1`))
+        .set('cookie', installer.cookie)
+        .expect(200);
+      expect(page).toEqual({
+        total: 2,
+        annotations: [
+          expect.objectContaining({ startLine: 2, message: 'line 2' }),
+        ],
+      });
+
+      await api()
+        .post(native(`/check-runs/${web.id}/rerequest`))
+        .set('cookie', installer.cookie)
+        .expect(204);
+      await api()
+        .post(native(`/check-suites/${web.suiteId}/rerequest`))
+        .set('cookie', installer.cookie)
+        .expect(204);
+      await api()
+        .post(native(`/check-runs/${web.id}/actions/fix`))
+        .set('cookie', installer.cookie)
+        .expect(204);
+      await api()
+        .post(native(`/check-runs/${web.id}/actions/nope`))
+        .set('cookie', installer.cookie)
+        .expect(422);
+      const types = (
+        await db
+          .select({
+            type: schema.outboxEvent.type,
+            payload: schema.outboxEvent.payload,
+          })
+          .from(schema.outboxEvent)
+          .where(
+            sql`${schema.outboxEvent.payload}->>'checkRunId' = ${web.id} or ${schema.outboxEvent.payload}->>'checkSuiteId' = ${web.suiteId}`,
+          )
+      ).map((row) => row.type);
+      expect(types).toEqual(
+        expect.arrayContaining([
+          'check_run.rerequested',
+          'check_suite.rerequested',
+          'check_run.requested_action',
+        ]),
+      );
+    });
+
+    it('refuses a re-run to someone who cannot write', async () => {
+      const { body: pr } = await api()
+        .get(native(`/pulls/${pull}`))
+        .set('cookie', installer.cookie)
+        .expect(200);
+      await api()
+        .post(native(`/check-runs/${pr.checks.checkRuns[0].id}/rerequest`))
+        .set('cookie', owner.cookie)
+        .expect(404);
+    });
   });
 
   it('a web merge of a pull request requests a suite for the merge commit', async () => {

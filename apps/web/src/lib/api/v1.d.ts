@@ -781,6 +781,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/repositories/{username}/{repo}/check-runs/{id}/annotations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A check run's annotations, in the order its app sent them */
+        get: operations["ChecksController_annotations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/check-runs/{id}/rerequest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-run a check run
+         * @description Needs write access. The run's app hears `check_run.rerequested` and answers with a new run of the same name.
+         */
+        post: operations["ChecksController_rerequestRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/check-suites/{id}/rerequest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-run all of an app's checks on a commit
+         * @description Needs write access. The app hears `check_suite.rerequested`.
+         */
+        post: operations["ChecksController_rerequestSuite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/repositories/{username}/{repo}/check-runs/{id}/actions/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Press one of a check run's action buttons
+         * @description Needs write access. The app hears `check_run.requested_action` with the identifier.
+         */
+        post: operations["ChecksController_requestAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories/{username}/{slug}/statuses/{sha}": {
         parameters: {
             query?: never;
@@ -4167,6 +4244,177 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/repos/{owner}/{repo}/check-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a check run; installation tokens only */
+        post: operations["GithubChecksController_createRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/check-runs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A check run */
+        get: operations["GithubChecksController_getRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a check run; only its app's installation token may */
+        patch: operations["GithubChecksController_updateRun"];
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/check-runs/{id}/annotations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A check run's annotations, in the order sent */
+        get: operations["GithubChecksController_annotations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/check-runs/{id}/rerequest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the check run's app to run it again */
+        post: operations["GithubChecksController_rerequestRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}/check-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The check runs on a ref's commit */
+        get: operations["GithubChecksController_runsForRef"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}/check-suites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The check suites on a ref's commit */
+        get: operations["GithubChecksController_suitesForRef"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/check-suites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The caller's app's check suite on a commit, created if it has none */
+        post: operations["GithubChecksController_createSuite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/check-suites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A check suite */
+        get: operations["GithubChecksController_getSuite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/check-suites/{id}/check-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A check suite's runs */
+        get: operations["GithubChecksController_runsOfSuite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/repos/{owner}/{repo}/check-suites/{id}/rerequest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the check suite's app to run all of it again */
+        post: operations["GithubChecksController_rerequestSuite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/uploads/user-attachments/assets": {
         parameters: {
             query?: never;
@@ -5213,17 +5461,61 @@ export interface components {
             /** @description The app a user-to-server token acted through, shown as "via". */
             viaApp: components["schemas"]["ViaAppDTO"] | null;
         };
-        CombinedCommitStatusDTO: {
+        CheckRunOutputDTO: {
+            title: string | null;
+            /** @description Markdown. */
+            summary: string | null;
+            /** @description Markdown. */
+            text: string | null;
+            annotationsCount: number;
+        };
+        CheckRunActionDTO: {
+            label: string;
+            description: string;
+            /** @description Sent back to the app when the button is pressed. */
+            identifier: string;
+        };
+        CheckAppDTO: {
+            /** @description The App ID, as `integration_id` names it. */
+            appId: number;
+            slug: string;
+            name: string;
+            logoUrl: string | null;
+            /** @description The app was deleted; its checks stay attributed to it. */
+            deleted: boolean;
+            /** @description The app is still installed here, unsuspended, so a re-run or button press reaches it. */
+            installed: boolean;
+        };
+        CheckRunDTO: {
+            id: string;
+            suiteId: string;
+            name: string;
+            headSha: string;
+            /** @enum {string} */
+            status: "queued" | "in_progress" | "completed";
+            /** @enum {string|null} */
+            conclusion: "success" | "failure" | "neutral" | "cancelled" | "skipped" | "timed_out" | "action_required" | null;
+            startedAt: string | null;
+            completedAt: string | null;
+            externalId: string | null;
+            detailsUrl: string | null;
+            output: components["schemas"]["CheckRunOutputDTO"];
+            actions: components["schemas"]["CheckRunActionDTO"][];
+            app: components["schemas"]["CheckAppDTO"];
+            createdAt: string;
+            updatedAt: string;
+        };
+        CommitChecksDTO: {
             sha: string;
             /**
-             * @description `failure` when any context failed or errored, else `pending` while any is pending or there are none, else `success`.
+             * @description `failure` when any status failed or errored or any run failed, else `pending` while any is pending or running, else `success`. Neutral and skipped runs pass.
              * @enum {string}
              */
             state: "pending" | "success" | "failure" | "error";
-            /** @description Number of contexts. */
-            totalCount: number;
             /** @description The newest status of each context. */
             statuses: components["schemas"]["CommitStatusDTO"][];
+            /** @description The newest check run of each app and name. */
+            checkRuns: components["schemas"]["CheckRunDTO"][];
         };
         CommitDTO: {
             /** @description Full 40-character commit sha. */
@@ -5238,8 +5530,8 @@ export interface components {
             committedAt: string;
             /** @description Signature status, or `null` when the commit carries none. */
             verification: components["schemas"]["CommitVerificationDTO"] | null;
-            /** @description Combined status of the commit, or `null` when it has none. */
-            status: components["schemas"]["CombinedCommitStatusDTO"] | null;
+            /** @description Statuses and check runs of the commit, or `null` when it has neither. */
+            checks: components["schemas"]["CommitChecksDTO"] | null;
         };
         GetRepositoryCommitsResponseDTO: {
             /**
@@ -5293,8 +5585,8 @@ export interface components {
             committedAt: string;
             /** @description Signature status, or `null` when the commit carries none. */
             verification: components["schemas"]["CommitVerificationDTO"] | null;
-            /** @description Combined status of the commit, or `null` when it has none. */
-            status: components["schemas"]["CombinedCommitStatusDTO"] | null;
+            /** @description Statuses and check runs of the commit, or `null` when it has neither. */
+            checks: components["schemas"]["CommitChecksDTO"] | null;
             /** @description Paths this commit changed, against its first parent. */
             files: components["schemas"]["CommitFileDTO"][];
         };
@@ -5651,6 +5943,22 @@ export interface components {
             isDraft?: boolean;
             isPrerelease?: boolean;
         };
+        CheckAnnotationDTO: {
+            path: string;
+            startLine: number;
+            endLine: number;
+            startColumn?: number | null;
+            endColumn?: number | null;
+            /** @enum {string} */
+            annotationLevel: "notice" | "warning" | "failure";
+            message: string;
+            title: string | null;
+            rawDetails: string | null;
+        };
+        CheckAnnotationsPageDTO: {
+            annotations: components["schemas"]["CheckAnnotationDTO"][];
+            total: number;
+        };
         CreateCommitStatusRequestDTO: {
             /** @enum {string} */
             state: "pending" | "success" | "failure" | "error";
@@ -5667,8 +5975,20 @@ export interface components {
              */
             context?: string;
         };
+        CombinedCommitStatusDTO: {
+            sha: string;
+            /**
+             * @description `failure` when any context failed or errored, else `pending` while any is pending or there are none, else `success`.
+             * @enum {string}
+             */
+            state: "pending" | "success" | "failure" | "error";
+            /** @description Number of contexts. */
+            totalCount: number;
+            /** @description The newest status of each context. */
+            statuses: components["schemas"]["CommitStatusDTO"][];
+        };
         StatusContextsDTO: {
-            /** @description Contexts this repository's statuses have named, most recently posted first, at most 50. */
+            /** @description Contexts this repository's statuses and check runs have named, most recently posted first, at most 50. */
             contexts: string[];
         };
         /** @enum {string} */
@@ -6079,8 +6399,8 @@ export interface components {
             /** @description What a squash merge commits unless the merger rewrites it. Null when there is nothing to merge. */
             squash: components["schemas"]["SquashMessageDTO"] | null;
             reviewers: components["schemas"]["ReviewerDTO"][];
-            /** @description Combined status of the head commit, or `null` when it has none. A fork head's statuses count only when the requester can read the fork. */
-            checks: components["schemas"]["CombinedCommitStatusDTO"] | null;
+            /** @description Statuses and check runs of the head commit, or `null` when it has neither. A fork head's count only when the requester can read the fork. */
+            checks: components["schemas"]["CommitChecksDTO"] | null;
             /** @description True when the requesting user is the author or can write to the base repository. */
             viewerCanEdit: boolean;
         };
@@ -8121,6 +8441,133 @@ export interface components {
             repository: components["schemas"]["GithubRepositoryDTO"];
             commit_url: string;
             url: string;
+        };
+        GithubCheckAnnotationInputDTO: {
+            path: string;
+            start_line: number;
+            end_line: number;
+            start_column?: number;
+            end_column?: number;
+            /** @enum {string} */
+            annotation_level: "notice" | "warning" | "failure";
+            message: string;
+            title?: string;
+            raw_details?: string;
+        };
+        GithubCheckOutputInputDTO: {
+            title: string;
+            /** @description Markdown. */
+            summary: string;
+            /** @description Markdown. */
+            text?: string;
+            /** @description Appended to what earlier requests sent. */
+            annotations?: components["schemas"]["GithubCheckAnnotationInputDTO"][];
+            /** @description Accepted and ignored. */
+            images?: Record<string, never>;
+        };
+        GithubCheckActionInputDTO: {
+            label: string;
+            description: string;
+            identifier: string;
+        };
+        GithubCreateCheckRunDTO: {
+            name: string;
+            details_url?: string;
+            external_id?: string;
+            /** @enum {string} */
+            status?: "queued" | "in_progress" | "completed";
+            /** @enum {string} */
+            conclusion?: "success" | "failure" | "neutral" | "cancelled" | "skipped" | "timed_out" | "action_required";
+            started_at?: string;
+            completed_at?: string;
+            output?: components["schemas"]["GithubCheckOutputInputDTO"];
+            actions?: components["schemas"]["GithubCheckActionInputDTO"][];
+            head_sha: string;
+        };
+        GithubCheckRunOutputDTO: {
+            title: string | null;
+            summary: string | null;
+            text: string | null;
+            annotations_count: number;
+            annotations_url: string;
+        };
+        GithubCheckRunDTO: {
+            id: number;
+            node_id: string;
+            head_sha: string;
+            external_id: string | null;
+            url: string;
+            html_url: string;
+            details_url: string | null;
+            /** @enum {string} */
+            status: "queued" | "in_progress" | "completed";
+            /** @enum {string|null} */
+            conclusion: "success" | "failure" | "neutral" | "cancelled" | "skipped" | "timed_out" | "action_required" | null;
+            started_at: string | null;
+            completed_at: string | null;
+            output: components["schemas"]["GithubCheckRunOutputDTO"];
+            name: string;
+            check_suite: Record<string, never>;
+            app: components["schemas"]["GithubAppDTO"];
+            /** @description Always empty. */
+            pull_requests: Record<string, never>[];
+        };
+        GithubUpdateCheckRunDTO: {
+            name?: string;
+            details_url?: string;
+            external_id?: string;
+            /** @enum {string} */
+            status?: "queued" | "in_progress" | "completed";
+            /** @enum {string} */
+            conclusion?: "success" | "failure" | "neutral" | "cancelled" | "skipped" | "timed_out" | "action_required";
+            started_at?: string;
+            completed_at?: string;
+            output?: components["schemas"]["GithubCheckOutputInputDTO"];
+            actions?: components["schemas"]["GithubCheckActionInputDTO"][];
+        };
+        GithubCheckAnnotationDTO: {
+            path: string;
+            blob_href: string;
+            start_line: number;
+            end_line: number;
+            start_column: number | null;
+            end_column: number | null;
+            /** @enum {string} */
+            annotation_level: "notice" | "warning" | "failure";
+            title: string | null;
+            message: string;
+            raw_details: string | null;
+        };
+        GithubCheckRunsDTO: {
+            total_count: number;
+            check_runs: components["schemas"]["GithubCheckRunDTO"][];
+        };
+        GithubCheckSuiteDTO: {
+            id: number;
+            node_id: string;
+            head_branch: string | null;
+            head_sha: string;
+            /** @enum {string} */
+            status: "queued" | "in_progress" | "completed";
+            /** @enum {string|null} */
+            conclusion: "success" | "failure" | "neutral" | "cancelled" | "skipped" | "timed_out" | "action_required" | null;
+            url: string;
+            before: string | null;
+            after: string | null;
+            app: components["schemas"]["GithubAppDTO"];
+            created_at: string;
+            updated_at: string;
+            latest_check_runs_count: number;
+            check_runs_url: string;
+            /** @description Always empty. */
+            pull_requests: Record<string, never>[];
+        };
+        GithubCheckSuitesDTO: {
+            total_count: number;
+            check_suites: components["schemas"]["GithubCheckSuiteDTO"][];
+        };
+        GithubCreateCheckSuiteDTO: {
+            head_sha: string;
         };
         GithubUserAttachmentDTO: {
             id: string;
@@ -10458,6 +10905,179 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ChecksController_annotations: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckAnnotationsPageDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ChecksController_rerequestRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The app is deleted, uninstalled or suspended. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ChecksController_rerequestSuite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The app is deleted, uninstalled or suspended. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    ChecksController_requestAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                id: string;
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description The run has no such action, or its app is gone. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19433,6 +20053,389 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GithubCombinedStatusDTO"];
                 };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_createRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCreateCheckRunDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubCheckRunDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_getRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubCheckRunDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_updateRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubUpdateCheckRunDTO"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubCheckRunDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_annotations: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubCheckAnnotationDTO"][];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_rerequestRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_runsForRef: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+                check_name?: string;
+                status?: "queued" | "in_progress" | "completed";
+                filter?: "latest" | "all";
+                /** @description The App ID. */
+                app_id?: number;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                ref: string[];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubCheckRunsDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_suitesForRef: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+                /** @description The App ID. */
+                app_id?: number;
+                check_name?: string;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                ref: string[];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubCheckSuitesDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_createSuite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCreateCheckSuiteDTO"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubCheckSuiteDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_getSuite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubCheckSuiteDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_runsOfSuite: {
+        parameters: {
+            query?: {
+                page?: string;
+                per_page?: string;
+                check_name?: string;
+                status?: "queued" | "in_progress" | "completed";
+                filter?: "latest" | "all";
+                /** @description The App ID. */
+                app_id?: number;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubCheckRunsDTO"];
+                };
+            };
+            /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubErrorDTO"];
+                };
+            };
+        };
+    };
+    GithubChecksController_rerequestSuite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it. */
             default: {

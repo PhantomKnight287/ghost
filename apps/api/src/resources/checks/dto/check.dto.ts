@@ -1,4 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
 import {
   COMMIT_STATUS_STATES,
@@ -33,6 +35,12 @@ export class CheckAppDTO {
     description: 'The app was deleted; its checks stay attributed to it.',
   })
   deleted: boolean;
+
+  @ApiProperty({
+    description:
+      'The app is still installed here, unsuspended, so a re-run or button press reaches it.',
+  })
+  installed: boolean;
 }
 
 export class CheckRunOutputDTO {
@@ -175,6 +183,31 @@ export class CheckAnnotationDTO {
 
   @ApiProperty({ type: String, nullable: true })
   rawDetails: string | null;
+}
+
+export class CheckAnnotationsQueryDTO {
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset?: number;
+
+  @ApiPropertyOptional({ default: 100, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
+export class CheckAnnotationsPageDTO {
+  @ApiProperty({ type: [CheckAnnotationDTO] })
+  annotations: CheckAnnotationDTO[];
+
+  @ApiProperty()
+  total: number;
 }
 
 /** A commit's statuses and check runs together. */

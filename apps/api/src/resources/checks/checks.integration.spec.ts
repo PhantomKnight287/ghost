@@ -485,7 +485,10 @@ describe.skipIf(!CONNECTION)('checks', () => {
       await expect(checks.rerequestRun(asOwner(), run.id)).rejects.toThrow(
         CheckAppGoneError,
       );
-      expect((await checks.getRun(target, run.id)).app.deleted).toBe(true);
+      expect((await checks.getRun(target, run.id)).app).toMatchObject({
+        deleted: true,
+        installed: false,
+      });
     });
 
     it('re-running under a suspended installation is refused', async () => {
@@ -500,6 +503,7 @@ describe.skipIf(!CONNECTION)('checks', () => {
       await expect(
         checks.rerequestSuite(asOwner(), run.suiteId),
       ).rejects.toThrow(CheckAppGoneError);
+      expect((await checks.getRun(target, run.id)).app.installed).toBe(false);
     });
 
     it('pressing an action sends its identifier', async () => {
