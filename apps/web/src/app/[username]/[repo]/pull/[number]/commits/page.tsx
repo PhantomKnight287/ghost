@@ -21,6 +21,7 @@ export default async function PullRequestCommitsPage({
     <div className="overflow-hidden rounded-lg border">
       <CommitList
         commits={commits.data.commits}
+        repository={{ username, repo }}
         commitHref={`/${username}/${repo}/pull/${number}/commits`}
         empty="This branch adds no commits to the base."
       />

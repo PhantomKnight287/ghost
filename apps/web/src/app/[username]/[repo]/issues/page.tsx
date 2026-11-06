@@ -190,9 +190,7 @@ export default async function IssuesPage({
         )}
       </form>
 
-      {(repoLabels.length > 0 || labels) && (
-        <LabelFilter labels={repoLabels} />
-      )}
+      {(repoLabels.length > 0 || labels) && <LabelFilter labels={repoLabels} />}
 
       <div className="overflow-hidden rounded-lg border">
         {issues.data.issues.length === 0 ? (

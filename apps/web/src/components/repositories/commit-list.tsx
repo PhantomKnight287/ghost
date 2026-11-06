@@ -3,8 +3,8 @@ import type { ComponentProps } from "react";
 
 import { FromNowHoverCard } from "@/components/from-now-card";
 import {
+  CommitCheckRows,
   CommitStatusIcon,
-  CommitStatusRows,
   statusTitle,
 } from "@/components/repositories/commit-checks";
 import { CommitVerificationBadge } from "@/components/repositories/commit-verification";
@@ -21,17 +21,19 @@ type Commit = {
   authorName: string;
   committedAt: string;
   verification: ComponentProps<typeof CommitVerificationBadge>["verification"];
-  status: components["schemas"]["CombinedCommitStatusDTO"] | null;
+  checks: components["schemas"]["CommitChecksDTO"] | null;
 };
 
-/** One row per commit, each linking to `${commitHref}/<sha>`. */
+/** One row per commit, each linking to `${commitHref}/<sha>`; the tick opens the commit's checks. */
 export function CommitList({
   commits,
   commitHref,
+  repository,
   empty,
 }: {
   commits: Commit[];
   commitHref: string;
+  repository: { username: string; repo: string };
   empty: string;
 }) {
   if (commits.length === 0) {
@@ -59,22 +61,25 @@ export function CommitList({
               <FromNowHoverCard date={commit.committedAt} />
             </p>
           </div>
-          {commit.status && (
+          {commit.checks && (
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  aria-label={statusTitle[commit.status.state]}
+                  aria-label={statusTitle[commit.checks.state]}
                   className="flex shrink-0 items-center"
                 >
-                  <CommitStatusIcon state={commit.status.state} />
+                  <CommitStatusIcon state={commit.checks.state} />
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="flex w-80 flex-col gap-2">
+              <PopoverContent className="flex max-h-[70vh] w-96 max-w-[calc(100vw-2rem)] flex-col gap-2 overflow-y-auto">
                 <p className="font-medium">
-                  {statusTitle[commit.status.state]}
+                  {statusTitle[commit.checks.state]}
                 </p>
-                <CommitStatusRows statuses={commit.status.statuses} />
+                <CommitCheckRows
+                  checks={commit.checks}
+                  repository={repository}
+                />
               </PopoverContent>
             </Popover>
           )}

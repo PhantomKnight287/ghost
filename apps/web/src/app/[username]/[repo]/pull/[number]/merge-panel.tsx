@@ -64,8 +64,8 @@ export function MergePanel({
   }[];
   /** Why `refs/pull/<number>/*` stopped following the branches, or null while they are current. */
   pullRefsBlocked: string | null;
-  /** Statuses on the head commit, or null when it has none. */
-  checks: components["schemas"]["CombinedCommitStatusDTO"] | null;
+  /** Statuses and check runs on the head commit, or null when it has neither. */
+  checks: components["schemas"]["CommitChecksDTO"] | null;
   /** What the rulesets ask of this merge, for a viewer who can merge; null for anyone else. */
   requirements: components["schemas"]["MergeRequirementsDTO"] | null;
   baseRef: string;
@@ -113,7 +113,9 @@ export function MergePanel({
 
   const checksSection = checks && (
     <CommitChecks
-      status={checks}
+      checks={checks}
+      repository={{ username, repo }}
+      canRerun={canMerge}
       required={requirements?.requiredContexts}
       className="rounded-none border-0 px-4 py-3"
     />
