@@ -20,7 +20,7 @@ import { graphqlErrorType } from '../lib/github/error-type.js';
 import { createLoaders } from '../lib/github/loaders.js';
 import { githubValidationPlugin } from '../lib/github/validation.js';
 import { IssuesModule } from '../resources/issues/issues.module.js';
-import { CommitStatusesModule } from '../resources/commit-statuses/commit-statuses.module.js';
+import { ChecksModule } from '../resources/checks/checks.module.js';
 import { PullRequestsModule } from '../resources/pull-requests/pull-requests.module.js';
 import { ReleasesModule } from '../resources/releases/releases.module.js';
 import { RepositoriesModule } from '../resources/repositories/repositories.module.js';
@@ -112,7 +112,7 @@ import { GithubRulesetsModule } from './rest/rulesets/rulesets.module.js';
     RepositoriesModule,
     OauthModule,
     PullRequestsModule,
-    CommitStatusesModule,
+    ChecksModule,
     ReleasesModule,
     GithubReleasesModule,
     GithubStatusesModule,

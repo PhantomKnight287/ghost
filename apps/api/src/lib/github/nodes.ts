@@ -31,10 +31,8 @@ import {
   RepositoryNode,
 } from '../../github/graphql/types/repository.type.js';
 import { UserNode } from '../../github/graphql/types/user.type.js';
-import type {
-  CombinedCommitStatusDTO,
-  CommitStatusDTO,
-} from '../../resources/commit-statuses/dto/commit-status.dto.js';
+import type { CommitChecksDTO } from '../../resources/checks/dto/check.dto.js';
+import type { CommitStatusDTO } from '../../resources/commit-statuses/dto/commit-status.dto.js';
 import type { IssueDTO } from '../../resources/issues/dto/issue.dto.js';
 import type { LabelDTO } from '../../resources/issues/dto/label.dto.js';
 import type { ReleaseDTO } from '../../resources/releases/dto/release.dto.js';
@@ -347,7 +345,7 @@ export function toPullRequestReviewNode(
 
 // Mapper: commits come from git log, in Ghost's shape; GitActor.user resolves each email to an account.
 export function toCommitNode(
-  commit: Commit & { status?: CombinedCommitStatusDTO | null },
+  commit: Commit & { checks?: CommitChecksDTO | null },
   repository: { ghostId: string; url: string; resourcePath: string },
 ) {
   return Object.assign(new CommitNode(), {
@@ -366,14 +364,14 @@ export function toCommitNode(
     resourcePath: `${repository.resourcePath}/commit/${commit.sha}`,
     commitUrl: `${repository.url}/commit/${commit.sha}`,
     commitResourcePath: `${repository.resourcePath}/commit/${commit.sha}`,
-    statusCheckRollup: commit.status
-      ? toStatusCheckRollupNode(commit.status, repository.ghostId)
+    statusCheckRollup: commit.checks
+      ? toStatusCheckRollupNode(commit.checks, repository.ghostId)
       : null,
   });
 }
 
 export function toStatusCheckRollupNode(
-  status: CombinedCommitStatusDTO,
+  status: CommitChecksDTO,
   repositoryId: string,
 ) {
   return Object.assign(new StatusCheckRollupNode(), {

@@ -183,6 +183,7 @@ describe.skipIf(!hasBackends)('Rulesets and apps', { timeout: 60_000 }, () => {
     await git('push', '-q', remote(installer.key), 'main');
     ci = await installedApp({
       statuses: 'write',
+      checks: 'write',
       contents: 'write',
       pull_requests: 'write',
     });
@@ -271,6 +272,44 @@ describe.skipIf(!hasBackends)('Rulesets and apps', { timeout: 60_000 }, () => {
     await rest(installer.key)
       .put(`/pulls/${number}/merge`, { merge_method: 'merge' })
       .expect(200);
+  });
+
+  it("merges only once the app's check run passes, a re-run clearing the failure", async () => {
+    const { base, sha, number } = await pullRequest();
+    await ruleset(base, [
+      {
+        type: 'required_status_checks',
+        parameters: {
+          required_status_checks: [
+            { context: 'build', integration_id: ci.appId },
+          ],
+          strict_required_status_checks_policy: false,
+        },
+      },
+    ]);
+    const merge = () =>
+      rest(installer.key).put(`/pulls/${number}/merge`, {
+        merge_method: 'merge',
+      });
+
+    const { body: run } = await rest(ci.token)
+      .post('/check-runs', { name: 'build', head_sha: sha, status: 'in_progress' })
+      .expect(201);
+    expect((await merge().expect(405)).body.message).toContain(
+      'Required status check "build" is pending.',
+    );
+    await http()
+      .patch(`/api/v3/repos/${repo}/check-runs/${run.id}`)
+      .set('authorization', `token ${ci.token}`)
+      .send({ conclusion: 'failure' })
+      .expect(200);
+    expect((await merge().expect(405)).body.message).toContain(
+      'Required status check "build" is failure.',
+    );
+    await rest(ci.token)
+      .post('/check-runs', { name: 'build', head_sha: sha, conclusion: 'success' })
+      .expect(201);
+    await merge().expect(200);
   });
 
   it('a user-to-server status does not satisfy a pinned check', async () => {

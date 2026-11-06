@@ -127,7 +127,7 @@ import {
   UnrelatedRepositoriesError,
 } from '../../lib/pull-requests/pull-requests.errors.js';
 import { withTempDir } from '../../lib/temp-dir.js';
-import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
+import { CommitChecksService } from '../checks/commit-checks.service.js';
 import type { AuthorizedRepository } from '../../lib/repositories/access/repository-access.js';
 import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 import { sameName } from '../../lib/db/sql.js';
@@ -180,7 +180,7 @@ export class PullRequestsService {
     private readonly pullRequestPushes: PullRequestPushesService,
     private readonly quota: StorageQuotaService,
     private readonly lfs: LfsService,
-    private readonly statuses: CommitStatusesService,
+    private readonly commitChecks: CommitChecksService,
     private readonly verdicts: RulesetVerdictsService,
     private readonly ruleSuites: RuleSuitesService,
     private readonly rules: PullRequestRulesService,
@@ -446,7 +446,7 @@ export class PullRequestsService {
 
   async getPullRequest(params: PullRequestRef) {
     const { pullRequest, ...git } = await this.open(params);
-    const checks = await this.statuses.combinedFor(
+    const checks = await this.commitChecks.checksFor(
       await this.statusRepositoryIds(pullRequest, git.base, params.requesterId),
       [git.headSha],
     );
@@ -571,7 +571,7 @@ export class PullRequestsService {
     const nextCursor = params.oldestFirst ? null : listed.nextCursor;
 
     // A fork's commits live in the other repository's objects, which is why the lending env has to come along for the signatures to be readable.
-    const [verdicts, statuses] = await Promise.all([
+    const [verdicts, checks] = await Promise.all([
       this.verification.verifyCommits({
         gitDir: git.baseDirectory,
         env: git.env,
@@ -582,7 +582,7 @@ export class PullRequestsService {
         git.base,
         params.requesterId,
       ).then((repositoryIds) =>
-        this.statuses.combinedFor(
+        this.commitChecks.checksFor(
           repositoryIds,
           commits.map((commit) => commit.sha),
         ),
@@ -593,7 +593,7 @@ export class PullRequestsService {
       commits: commits.map((commit) => ({
         ...commit,
         verification: verdicts.get(commit.sha) ?? null,
-        status: statuses.get(commit.sha) ?? null,
+        checks: checks.get(commit.sha) ?? null,
       })),
       total,
       nextCursor,
@@ -1030,7 +1030,7 @@ export class PullRequestsService {
       // A fork's statuses never count: its owner can post anything there.
       conditions.statuses =
         (
-          await this.statuses.requiredCheckStatuses(git.base.id, [git.headSha])
+          await this.commitChecks.requiredChecks(git.base.id, [git.headSha])
         ).get(git.headSha) ?? [];
       conditions.upToDate = git.mergeBase === git.baseSha;
     }

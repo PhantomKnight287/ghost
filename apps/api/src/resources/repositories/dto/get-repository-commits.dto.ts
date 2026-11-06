@@ -13,7 +13,7 @@ import {
 import { Type } from 'class-transformer';
 
 import { MAX_TREE_PATH_LENGTH } from '../../../lib/git/tree/tree-path.js';
-import { CombinedCommitStatusDTO } from '../../commit-statuses/dto/commit-status.dto.js';
+import { CommitChecksDTO } from '../../checks/dto/check.dto.js';
 import { SafeTreePathConstraint } from './get-repository-contents.dto.js';
 
 export class GetRepositoryCommitsQueryDTO {
@@ -127,14 +127,15 @@ export class CommitDTO {
   verification: CommitVerificationDTO | null;
 
   @ApiProperty({
-    type: CombinedCommitStatusDTO,
+    type: CommitChecksDTO,
     nullable: true,
-    description: 'Combined status of the commit, or `null` when it has none.',
+    description:
+      'Statuses and check runs of the commit, or `null` when it has neither.',
   })
   @ValidateNested()
-  @Type(() => CombinedCommitStatusDTO)
+  @Type(() => CommitChecksDTO)
   @IsOptional()
-  status: CombinedCommitStatusDTO | null;
+  checks: CommitChecksDTO | null;
 }
 
 export class GetRepositoryCommitsResponseDTO {

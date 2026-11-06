@@ -119,19 +119,18 @@ export class CommitStatusesService {
     return status;
   }
 
-  /** The contexts this repository has seen, for the ruleset form to suggest as required checks. Writers only, as the form is theirs to fill. */
+  /** The contexts this repository's statuses and check runs have named, most recent first, for the ruleset form to suggest as required checks. Writers only, as the form is theirs to fill. */
   async contexts(target: RepositoryRef & { requesterId: string }) {
     const repository = await this.access.authorize({
       ...target,
       operation: 'write',
     });
-    const rows = await this.db
-      .select({ context: schema.commitStatus.context })
-      .from(schema.commitStatus)
-      .where(eq(schema.commitStatus.repositoryId, repository.id))
-      .groupBy(schema.commitStatus.context)
-      .orderBy(desc(max(schema.commitStatus.numericId)))
-      .limit(SUGGESTED_CONTEXTS);
+    const { rows } = await this.db.execute<{ context: string }>(sql`
+      select context from (
+        select ${schema.commitStatus.context} as context, max(${schema.commitStatus.createdAt}) as at from ${schema.commitStatus} where ${schema.commitStatus.repositoryId} = ${repository.id} group by 1
+        union all
+        select ${schema.checkRun.name}, max(${schema.checkRun.createdAt}) from ${schema.checkRun} where ${schema.checkRun.repositoryId} = ${repository.id} group by 1
+      ) seen group by context order by max(at) desc limit ${SUGGESTED_CONTEXTS}`);
     return { contexts: rows.map(({ context }) => context) };
   }
 
@@ -225,54 +224,6 @@ export class CommitStatusesService {
         },
       ]),
     );
-  }
-
-  /** What status check rules read about each sha of one repository, newest first: the newest of each context per app that posted it, and the newest of each context posted without one. A sha without statuses is absent. */
-  async requiredCheckStatuses(
-    repositoryId: string,
-    shas: string[],
-  ): Promise<Map<string, NonNullable<RefFacts['statuses']>>> {
-    if (shas.length === 0) return new Map();
-    const appId = schema.app.numericId;
-    const rows = await this.db
-      .selectDistinctOn(
-        [schema.commitStatus.sha, schema.commitStatus.context, appId],
-        {
-          sha: schema.commitStatus.sha,
-          context: schema.commitStatus.context,
-          state: schema.commitStatus.state,
-          appId,
-          createdAt: schema.commitStatus.createdAt,
-          numericId: schema.commitStatus.numericId,
-        },
-      )
-      .from(schema.commitStatus)
-      .leftJoin(
-        schema.appInstallation,
-        eq(schema.appInstallation.id, schema.commitStatus.installationId),
-      )
-      .leftJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
-      .where(
-        and(
-          eq(schema.commitStatus.repositoryId, repositoryId),
-          inArray(schema.commitStatus.sha, shas),
-        ),
-      )
-      .orderBy(
-        asc(schema.commitStatus.sha),
-        asc(schema.commitStatus.context),
-        asc(appId),
-        ...newestFirst,
-      );
-    rows.sort(
-      (a, b) =>
-        b.createdAt.getTime() - a.createdAt.getTime() ||
-        b.numericId - a.numericId,
-    );
-    const bySha = new Map<string, NonNullable<RefFacts['statuses']>>();
-    for (const { sha, context, state, appId } of rows)
-      bySha.set(sha, [...(bySha.get(sha) ?? []), { context, state, appId }]);
-    return bySha;
   }
 
   /** One status by id with its repository, unauthorized: callers check the viewer may read that repository. */

@@ -150,15 +150,15 @@ describe('toCommitNode', () => {
     expect(toCommitNode(commit, repository).statusCheckRollup).toBeNull();
   });
 
-  it('builds the rollup from the combined status', () => {
+  it('builds the rollup from the commit checks', () => {
     const rollup = toCommitNode(
       {
         ...commit,
-        status: {
+        checks: {
           sha: commit.sha,
           state: 'failure',
-          totalCount: 2,
           statuses: [status('s1', 'pending'), status('s2', 'error')],
+          checkRuns: [],
         },
       },
       repository,

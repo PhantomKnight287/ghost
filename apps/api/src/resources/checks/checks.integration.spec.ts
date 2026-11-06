@@ -34,7 +34,9 @@ import { RepositoryAccessService } from '../../services/git/repository-access/re
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
 import { ChecksService } from './checks.service.js';
+import { CommitChecksService } from './commit-checks.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
 const MIGRATIONS = path.resolve(
@@ -59,6 +61,9 @@ describe.skipIf(!CONNECTION)('checks', () => {
   let pool: Pool;
   let root: string;
   let checks: ChecksService;
+  let statuses: CommitStatusesService;
+  let commitChecks: CommitChecksService;
+  let ciAppNumericId: number;
   let repository: typeof schema.repository.$inferSelect;
   let sha: string;
   let ci: { installationId: string; appId: string };
@@ -131,13 +136,13 @@ describe.skipIf(!CONNECTION)('checks', () => {
     const materializer = new RepositoryMaterializerService(store, {
       getRepoPath: async () => cache,
     } as unknown as RepositoryStorageService);
-    checks = new ChecksService(
-      db,
-      new RepositoryAccessService(db),
-      new CommitHolderService(db, materializer),
-    );
+    const access = new RepositoryAccessService(db);
+    const holder = new CommitHolderService(db, materializer);
+    checks = new ChecksService(db, access, holder);
+    statuses = new CommitStatusesService(db, access, holder);
+    commitChecks = new CommitChecksService(db, checks, statuses);
 
-    await db.delete(schema.app).where(like(schema.app.slug, 'checks-%'));
+    await db.delete(schema.app).where(like(schema.app.slug, 'ckspec-%'));
     await db
       .delete(schema.user)
       .where(inArray(schema.user.id, [OWNER, CI_BOT, OTHER_BOT, READER]));
@@ -176,9 +181,12 @@ describe.skipIf(!CONNECTION)('checks', () => {
         visibility: 'public',
       })
       .returning();
-    ({ installation: ci } = await installApp('checks-ci', CI_BOT));
+    ({ installation: ci, numericId: ciAppNumericId } = await installApp(
+      'ckspec-ci',
+      CI_BOT,
+    ));
     ({ installation: other, numericId: otherAppNumericId } = await installApp(
-      'checks-other',
+      'ckspec-other',
       OTHER_BOT,
     ));
 
@@ -210,7 +218,7 @@ describe.skipIf(!CONNECTION)('checks', () => {
     await db
       .delete(schema.repository)
       .where(eq(schema.repository.id, repository.id));
-    await db.delete(schema.app).where(like(schema.app.slug, 'checks-%'));
+    await db.delete(schema.app).where(like(schema.app.slug, 'ckspec-%'));
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -225,7 +233,7 @@ describe.skipIf(!CONNECTION)('checks', () => {
       headSha: sha,
       status: 'queued',
       conclusion: null,
-      app: { slug: 'checks-ci', deleted: false },
+      app: { slug: 'ckspec-ci', deleted: false },
     });
     expect(run.startedAt).not.toBeNull();
     const suites = await db
@@ -516,6 +524,124 @@ describe.skipIf(!CONNECTION)('checks', () => {
       await expect(
         checks.requestAction(asOwner(), run.id, 'nope'),
       ).rejects.toThrow(UnknownCheckActionError);
+    });
+  });
+
+  describe('the commit rollup', () => {
+    const status = (
+      state: 'success' | 'failure' | 'pending',
+      context: string,
+    ) =>
+      statuses.create({
+        ...target,
+        requesterId: OWNER,
+        sha,
+        body: { state, context },
+      });
+    const finished = async (
+      as: ReturnType<typeof asCi>,
+      name: string,
+      conclusion: Parameters<typeof checks.updateRun>[2]['conclusion'],
+    ) => {
+      const run = await checks.createRun(as, {
+        name,
+        headSha: sha,
+        ...(conclusion === 'action_required' && {
+          detailsUrl: 'https://ci.example.com',
+        }),
+      });
+      return checks.updateRun(as, run.id, { conclusion });
+    };
+    const rollup = async () =>
+      (await commitChecks.checksFor([repository.id], [sha])).get(sha);
+    const required = async () =>
+      (await commitChecks.requiredChecks(repository.id, [sha])).get(sha);
+
+    it('mixes statuses and runs into one state', async () => {
+      await status('success', 'vercel');
+      await checks.createRun(asCi(), {
+        name: 'test',
+        headSha: sha,
+        status: 'in_progress',
+      });
+      const checksOf = await rollup();
+      expect(checksOf?.state).toBe('pending');
+      expect(checksOf?.statuses.map((s) => s.context)).toEqual(['vercel']);
+      expect(checksOf?.checkRuns.map((r) => r.name)).toEqual(['test']);
+    });
+
+    it('a commit with neither has no rollup', async () => {
+      expect(await rollup()).toBeUndefined();
+    });
+
+    it('a re-run that passes replaces the old failure', async () => {
+      await finished(asCi(), 'test', 'failure');
+      await finished(asCi(), 'test', 'success');
+      const checksOf = await rollup();
+      expect(checksOf?.state).toBe('success');
+      expect(checksOf?.checkRuns).toHaveLength(1);
+    });
+
+    it('shows the same name from two apps as two runs', async () => {
+      await finished(asCi(), 'build', 'success');
+      await finished(asOther(), 'build', 'failure');
+      const checksOf = await rollup();
+      expect(checksOf?.checkRuns.map((r) => r.app.slug).sort()).toEqual([
+        'ckspec-ci',
+        'ckspec-other',
+      ]);
+      expect(checksOf?.state).toBe('failure');
+    });
+
+    it('counts neutral and skipped as passing, action_required as failing', async () => {
+      await finished(asCi(), 'a', 'neutral');
+      await finished(asCi(), 'b', 'skipped');
+      expect((await rollup())?.state).toBe('success');
+      await finished(asCi(), 'c', 'action_required');
+      expect((await rollup())?.state).toBe('failure');
+    });
+
+    it('gives required checks the newest result per name and app, runs and statuses together', async () => {
+      await status('failure', 'build');
+      await finished(asCi(), 'build', 'success');
+      await finished(asOther(), 'build', 'failure');
+      const facts = await required();
+      // Newest first: the unpinned check takes the first `build`; a pinned one the first from its app.
+      expect(facts?.[0]).toEqual({
+        context: 'build',
+        state: 'failure',
+        appId: expect.any(Number),
+      });
+      expect(facts?.find((f) => f.appId === ciAppNumericId)).toEqual({
+        context: 'build',
+        state: 'success',
+        appId: ciAppNumericId,
+      });
+      expect(
+        facts?.filter((f) => f.appId === null || f.appId === undefined),
+      ).toEqual([{ context: 'build', state: 'failure', appId: null }]);
+    });
+
+    it("a deleted app's run still renders, but no longer counts as that app's", async () => {
+      await finished(asCi(), 'build', 'success');
+      await db
+        .update(schema.app)
+        .set({ deletedAt: new Date() })
+        .where(eq(schema.app.id, ci.appId));
+      expect((await rollup())?.checkRuns[0]?.app.deleted).toBe(true);
+      expect(await required()).toEqual([
+        { context: 'build', state: 'success', appId: null },
+      ]);
+    });
+
+    it('suggests run names next to status contexts for the ruleset form', async () => {
+      await status('success', 'vercel');
+      await finished(asCi(), 'test', 'success');
+      const { contexts } = await statuses.contexts({
+        ...target,
+        requesterId: OWNER,
+      });
+      expect(contexts.sort()).toEqual(['test', 'vercel']);
     });
   });
 });

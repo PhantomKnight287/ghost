@@ -23,6 +23,7 @@ import {
 } from '../../../../lib/github/nodes.js';
 import { githubOrigins } from '../../../../lib/github/origins.js';
 import type { GithubViewer } from '../../../auth/github-request.js';
+import { CommitChecksService } from '../../../../resources/checks/commit-checks.service.js';
 import { CommitStatusesService } from '../../../../resources/commit-statuses/commit-statuses.service.js';
 import { RepositoryNodesService } from '../repository/repository-nodes.service.js';
 
@@ -33,6 +34,7 @@ export class ViewerService {
     private readonly config: ConfigService,
     private readonly repositories: RepositoryNodesService,
     private readonly statuses: CommitStatusesService,
+    private readonly commitChecks: CommitChecksService,
   ) {}
 
   async viewer(viewer: GithubViewer | null, loaders: Loaders) {
@@ -166,7 +168,7 @@ export class ViewerService {
         return null;
       // ponytail: the repository's own statuses only; a pull request's rollup also folds in its fork's, which this id does not name.
       const status = (
-        await this.statuses.combinedFor([repositoryId], [sha])
+        await this.commitChecks.checksFor([repositoryId], [sha])
       ).get(sha);
       return status ? toStatusCheckRollupNode(status, repositoryId) : null;
     }

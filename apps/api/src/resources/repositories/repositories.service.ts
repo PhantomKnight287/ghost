@@ -134,7 +134,7 @@ import { S3Service } from '../../services/s3/s3.service.js';
 import { StorageQuotaService } from '../../services/storage/storage-quota.service.js';
 import { UsersService } from '../../services/users/users.service.js';
 import { WebhookFanoutService } from '../../services/webhooks/webhook-fanout.service.js';
-import { CommitStatusesService } from '../commit-statuses/commit-statuses.service.js';
+import { CommitChecksService } from '../checks/commit-checks.service.js';
 import { ReleaseArchivesService } from '../releases/release-archives.service.js';
 import type {
   GetCodeownersOwnersResponseDTO,
@@ -214,7 +214,7 @@ export class RepositoriesService {
     private readonly config: ConfigService,
     private readonly signing: CommitSigningService,
     private readonly pushTransaction: PushTransactionService,
-    private readonly statuses: CommitStatusesService,
+    private readonly commitChecks: CommitChecksService,
     private readonly codeowners: CodeownersService,
   ) {}
 
@@ -1866,9 +1866,9 @@ export class RepositoriesService {
         : 0,
     ]);
 
-    const [verdicts, statuses] = await Promise.all([
+    const [verdicts, checks] = await Promise.all([
       this.verification.verifyCommits({ gitDir: directory, commits }),
-      this.statuses.combinedFor(
+      this.commitChecks.checksFor(
         [repository.id],
         commits.map((commit) => commit.sha),
       ),
@@ -1882,7 +1882,7 @@ export class RepositoriesService {
       commits: commits.map((commit) => ({
         ...commit,
         verification: verdicts.get(commit.sha) ?? null,
-        status: statuses.get(commit.sha) ?? null,
+        checks: checks.get(commit.sha) ?? null,
       })),
       nextCursor,
     };
@@ -1910,15 +1910,15 @@ export class RepositoriesService {
     const commit = await readCommit({ gitDir: directory, sha });
     if (!commit) throw new CommitNotFoundError(sha);
 
-    const [verdicts, statuses] = await Promise.all([
+    const [verdicts, checks] = await Promise.all([
       this.verification.verifyCommits({ gitDir: directory, commits: [commit] }),
-      this.statuses.combinedFor([repository.id], [commit.sha]),
+      this.commitChecks.checksFor([repository.id], [commit.sha]),
     ]);
 
     return {
       ...commit,
       verification: verdicts.get(commit.sha) ?? null,
-      status: statuses.get(commit.sha) ?? null,
+      checks: checks.get(commit.sha) ?? null,
     };
   }
 

@@ -138,7 +138,7 @@ export class StatusContextsDTO {
   @ApiProperty({
     type: [String],
     description:
-      "Contexts this repository's statuses have named, most recently posted first, at most 50.",
+      "Contexts this repository's statuses and check runs have named, most recently posted first, at most 50.",
   })
   contexts: string[];
 }

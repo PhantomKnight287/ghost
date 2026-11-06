@@ -13,7 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { CombinedCommitStatusDTO } from '../../commit-statuses/dto/commit-status.dto.js';
+import { CommitChecksDTO } from '../../checks/dto/check.dto.js';
 import { ReviewerDTO } from './pull-request-review.dto.js';
 
 export class PullRequestSideDTO {
@@ -187,15 +187,15 @@ export class PullRequestDetailDTO extends PullRequestDTO {
   reviewers: ReviewerDTO[];
 
   @ApiProperty({
-    type: CombinedCommitStatusDTO,
+    type: CommitChecksDTO,
     nullable: true,
     description:
-      "Combined status of the head commit, or `null` when it has none. A fork head's statuses count only when the requester can read the fork.",
+      "Statuses and check runs of the head commit, or `null` when it has neither. A fork head's count only when the requester can read the fork.",
   })
   @ValidateNested()
-  @Type(() => CombinedCommitStatusDTO)
+  @Type(() => CommitChecksDTO)
   @IsOptional()
-  checks: CombinedCommitStatusDTO | null;
+  checks: CommitChecksDTO | null;
 
   @ApiProperty({
     description:

@@ -1,6 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import {
+  COMMIT_STATUS_STATES,
+  type CommitStatusState,
+} from '../../../lib/commit-statuses/commit-statuses.js';
+import { CommitStatusDTO } from '../../commit-statuses/dto/commit-status.dto.js';
+
+import {
   CHECK_ANNOTATION_LEVELS,
   CHECK_CONCLUSIONS,
   CHECK_STATUSES,
@@ -169,6 +175,31 @@ export class CheckAnnotationDTO {
 
   @ApiProperty({ type: String, nullable: true })
   rawDetails: string | null;
+}
+
+/** A commit's statuses and check runs together. */
+export class CommitChecksDTO {
+  @ApiProperty()
+  sha: string;
+
+  @ApiProperty({
+    enum: COMMIT_STATUS_STATES,
+    description:
+      '`failure` when any status failed or errored or any run failed, else `pending` while any is pending or running, else `success`. Neutral and skipped runs pass.',
+  })
+  state: CommitStatusState;
+
+  @ApiProperty({
+    type: [CommitStatusDTO],
+    description: 'The newest status of each context.',
+  })
+  statuses: CommitStatusDTO[];
+
+  @ApiProperty({
+    type: [CheckRunDTO],
+    description: 'The newest check run of each app and name.',
+  })
+  checkRuns: CheckRunDTO[];
 }
 
 /** What creating or updating a run takes; the GitHub layer validates GitHub's body and passes this. */
