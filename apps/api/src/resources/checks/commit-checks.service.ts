@@ -109,7 +109,8 @@ export class CommitChecksService {
     const run = schema.checkRun;
     const appId = liveAppId();
     const rows = await this.db
-      .selectDistinctOn([run.headSha, run.name, appId], {
+      // Grouped by the suite's app so two deleted apps' runs stay apart; `appId` stays null for them, so a pinned check still fails closed.
+      .selectDistinctOn([run.headSha, run.name, schema.checkSuite.appId], {
         sha: run.headSha,
         context: run.name,
         status: run.status,
@@ -130,7 +131,7 @@ export class CommitChecksService {
       .orderBy(
         asc(run.headSha),
         asc(run.name),
-        asc(appId),
+        asc(schema.checkSuite.appId),
         desc(run.createdAt),
         desc(run.numericId),
       );

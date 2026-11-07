@@ -159,10 +159,9 @@ export class PullRequestNodesService {
       : MergeableState.UNKNOWN;
   }
 
-  /** Whether an active rule on the base of the pull request `pull` names requires `status`'s context. The pull request must be in the repository whose rollup holds the status. */
-  /** Whether an active required_status_checks rule on the pull request's base names `check.context`, a status context or a run name. */
+  /** Whether an active required_status_checks rule on the base of the pull request `pull` names `status`'s context; given `appId`, a check pinned to another app does not count. The pull request must be in the repository whose rollup holds the status. */
   async contextRequired(
-    status: { repositoryId: string; context: string },
+    status: { repositoryId: string; context: string; appId?: number | null },
     pull: { id?: string; number?: number },
     loaders: Loaders,
   ) {
@@ -207,6 +206,7 @@ export class PullRequestNodesService {
       rulesets,
       `refs/heads/${row.baseRef}`,
       defaultBranch,
+      status.appId,
     ).includes(status.context);
   }
 

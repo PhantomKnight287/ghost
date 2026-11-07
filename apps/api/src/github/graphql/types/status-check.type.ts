@@ -52,6 +52,9 @@ export class CheckRunNode {
   /** The Ghost repository whose rollup holds this run, for isRequired's pull request number; not a GraphQL field. */
   repositoryId: string;
 
+  /** The App ID that posted this run, null once the app is deleted, for isRequired's pinned checks; not a GraphQL field. */
+  appId: number | null;
+
   @Field(() => ID)
   id: string;
 

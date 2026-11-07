@@ -363,6 +363,8 @@ export function requiredContexts(
   rulesets: Ruleset[],
   ref: string,
   defaultBranch: string,
+  /** The app whose result is asked about, null for none; a check pinned to another app is then not required of it. */
+  appId?: number | null,
 ): string[] {
   const contexts = new Set<string>();
   for (const ruleset of rulesets) {
@@ -370,9 +372,15 @@ export function requiredContexts(
     if (!refTargeted(ruleset, ref, defaultBranch)) continue;
     for (const rule of ruleset.rules)
       if (rule.type === 'required_status_checks')
-        for (const { context } of (rule.parameters as StatusCheckRuleParameters)
-          .required_status_checks)
-          contexts.add(context);
+        for (const { context, integration_id } of (
+          rule.parameters as StatusCheckRuleParameters
+        ).required_status_checks)
+          if (
+            appId === undefined ||
+            integration_id === undefined ||
+            integration_id === appId
+          )
+            contexts.add(context);
   }
   return [...contexts].sort();
 }

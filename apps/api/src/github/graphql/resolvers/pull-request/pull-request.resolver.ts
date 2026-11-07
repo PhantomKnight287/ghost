@@ -435,7 +435,7 @@ export class StatusContextResolver {
   }
 }
 
-/** A run is required when an active required_status_checks rule on the pull request's base names it. */
+/** A run is required when an active required_status_checks rule on the pull request's base names it, pinned to its app if pinned at all. */
 @Resolver(() => CheckRunNode)
 @AllowAnonymous()
 export class CheckRunResolver {
@@ -451,7 +451,7 @@ export class CheckRunResolver {
     pullRequestNumber?: number,
   ) {
     return this.pulls.contextRequired(
-      { repositoryId: run.repositoryId, context: run.name },
+      { repositoryId: run.repositoryId, context: run.name, appId: run.appId },
       { id: pullRequestId, number: pullRequestNumber },
       context.loaders,
     );

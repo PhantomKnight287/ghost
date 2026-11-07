@@ -396,6 +396,7 @@ export function toStatusCheckRollupNode(
 export function toCheckRunNode(run: CheckRunDTO, repositoryId: string) {
   return Object.assign(new CheckRunNode(), {
     repositoryId,
+    appId: run.app.deleted ? null : run.app.appId,
     id: encodeNodeId('CheckRun', run.id),
     name: run.name,
     status: run.status.toUpperCase() as CheckStatusState,

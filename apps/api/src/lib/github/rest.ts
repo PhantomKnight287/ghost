@@ -704,7 +704,7 @@ export function toCheckAnnotationRest(
 ): GithubCheckAnnotationDTO {
   return {
     path: annotation.path,
-    blob_href: `${context.repository.webUrl}/blob/${sha}/${annotation.path}`,
+    blob_href: `${context.repository.webUrl}/blob/${sha}/${annotation.path.split('/').map(encodeURIComponent).join('/')}`,
     start_line: annotation.startLine,
     end_line: annotation.endLine,
     start_column: annotation.startColumn,
