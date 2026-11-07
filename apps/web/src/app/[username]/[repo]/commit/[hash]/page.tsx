@@ -1,7 +1,12 @@
 import { FileDiffs } from "@/components/diffs/file-diffs";
 import { CommitChecks } from "@/components/repositories/commit-checks";
 import { CommitHeader } from "@/components/repositories/commit-header";
-import { createServerClient, notFoundIfHidden } from "@/lib/api/server";
+import { atLeast } from "@ghost/permissions";
+import {
+  createServerClient,
+  getViewerRole,
+  notFoundIfHidden,
+} from "@/lib/api/server";
 import { API_URL } from "@/lib/env";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 
@@ -10,7 +15,10 @@ export default async function RepositoryCommitPage({
 }: PageProps<"/[username]/[repo]/commit/[hash]">) {
   const { username, repo, hash } = await params;
 
-  const client = await createServerClient();
+  const [client, role] = await Promise.all([
+    createServerClient(),
+    getViewerRole(username, repo),
+  ]);
 
   const commit = await client.GET(
     "/api/repositories/{username}/{slug}/commits/{sha}",
@@ -27,7 +35,11 @@ export default async function RepositoryCommitPage({
         browseHref={`/${username}/${repo}/tree/${commit.data.sha}`}
       />
 
-      <CommitChecks status={commit.data.status} />
+      <CommitChecks
+        checks={commit.data.checks}
+        repository={{ username, repo }}
+        canRerun={atLeast(role, "write")}
+      />
 
       {commit.data.files.length === 0 ? (
         <Empty className="border border-dashed">

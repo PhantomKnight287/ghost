@@ -35,6 +35,13 @@ export const PERMISSIONS: {
     levels: ["read", "write"],
   },
   {
+    name: "checks",
+    label: "Checks",
+    detail:
+      "Check runs and check suites on commits; write adds creating and updating them, with output and annotations.",
+    levels: ["read", "write"],
+  },
+  {
     name: "members",
     label: "Organization members",
     detail: "Members and teams of the organizations it is installed on.",

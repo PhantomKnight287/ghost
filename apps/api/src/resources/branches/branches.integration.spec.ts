@@ -24,6 +24,9 @@ import { RepositoryMaterializerService } from '../../services/git/materializer/r
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { RuleSuitesService } from '../../services/rulesets/rule-suites.service.js';
+import { CommitHolderService } from '../../services/git/commit-holder/commit-holder.service.js';
+import { ChecksService } from '../../resources/checks/checks.service.js';
+import { CommitChecksService } from '../../resources/checks/commit-checks.service.js';
 import { CommitStatusesService } from '../../resources/commit-statuses/commit-statuses.service.js';
 import { CommitVerificationService } from '../../services/gpg/commit-verification.service.js';
 import { CommitSigningService } from '../../services/gpg/commit-signing.service.js';
@@ -125,7 +128,7 @@ describe.skipIf(!CONNECTION)('branches', () => {
     materializer = new RepositoryMaterializerService(store, {
       getRepoPath: async () => cache,
     } as unknown as RepositoryStorageService);
-    pushes = new PushTransactionService(store);
+    pushes = new PushTransactionService(store, db);
     service = new RepositoryBranchesService(
       db,
       new RepositoryAccessService(db),
@@ -133,10 +136,18 @@ describe.skipIf(!CONNECTION)('branches', () => {
       pushes,
       new RulesetVerdictsService(
         db,
-        new CommitStatusesService(
+        new CommitChecksService(
           db,
-          new RepositoryAccessService(db),
-          materializer,
+          new ChecksService(
+            db,
+            new RepositoryAccessService(db),
+            new CommitHolderService(db, materializer),
+          ),
+          new CommitStatusesService(
+            db,
+            new RepositoryAccessService(db),
+            new CommitHolderService(db, materializer),
+          ),
         ),
         new CommitVerificationService(
           db,

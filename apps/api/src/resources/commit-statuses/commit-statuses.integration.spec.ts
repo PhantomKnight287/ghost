@@ -29,6 +29,7 @@ import { RepositoryAccessService } from '../../services/git/repository-access/re
 import type { RepositoryStorageService } from '../../services/git/repository-storage/repository-storage.service.js';
 import { PushTransactionService } from '../../services/git/wal/push-transaction.service.js';
 import type { WalStoreService } from '../../services/git/wal/wal-store.service.js';
+import { CommitHolderService } from '../../services/git/commit-holder/commit-holder.service.js';
 import { CommitStatusesService } from './commit-statuses.service.js';
 
 const CONNECTION = process.env.TEST_DATABASE_URL;
@@ -80,7 +81,7 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
     statuses = new CommitStatusesService(
       db,
       new RepositoryAccessService(db),
-      materializer,
+      new CommitHolderService(db, materializer),
     );
 
     await db
@@ -116,7 +117,7 @@ describe.skipIf(!CONNECTION)('commit statuses', () => {
     sha = git(source, 'rev-parse', 'HEAD');
     git(source, 'tag', '-a', 'v1', '-m', 'release');
     tagSha = git(source, 'rev-parse', 'v1');
-    await new PushTransactionService(store).commitPush({
+    await new PushTransactionService(store, db).commitPush({
       actor: 'system',
       repoId: repository.id,
       transitions: [

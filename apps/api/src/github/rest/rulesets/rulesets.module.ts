@@ -6,14 +6,14 @@ import { RulesetVerdictsService } from '../../../services/rulesets/ruleset-verdi
 import { GithubIssuesModule } from '../issues/issues.module.js';
 import { GithubRulesetsController } from './rulesets.controller.js';
 import { GithubRulesetsService } from './rulesets.service.js';
-import { CommitStatusesModule } from '../../../resources/commit-statuses/commit-statuses.module.js';
+import { ChecksModule } from '../../../resources/checks/checks.module.js';
 import { CommitVerificationService } from '../../../services/gpg/commit-verification.service.js';
 import { CommitSigningService } from '../../../services/gpg/commit-signing.service.js';
 import { UsersService } from '../../../services/users/users.service.js';
 
 @Module({
   imports: [
-    CommitStatusesModule,
+    ChecksModule,
     RulesetsModule,
     GithubIssuesModule,
     MaterializerModule,

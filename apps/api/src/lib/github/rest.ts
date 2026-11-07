@@ -1,3 +1,14 @@
+import type { GithubAppDTO } from '../../github/rest/app/dto/app.dto.js';
+import type {
+  GithubCheckAnnotationDTO,
+  GithubCheckRunDTO,
+  GithubCheckSuiteDTO,
+} from '../../github/rest/checks/dto/check.dto.js';
+import type {
+  CheckAnnotationDTO,
+  CheckRunDTO,
+  CheckSuiteDTO,
+} from '../../resources/checks/dto/check.dto.js';
 import type { RepositoryNode } from '../../github/graphql/types/repository.type.js';
 import type {
   GithubIssueCommentDTO,
@@ -620,5 +631,87 @@ export function toCombinedStatusRest(
     repository,
     commit_url: commitUrl,
     url: `${commitUrl}/status`,
+  };
+}
+
+// Mapper: runs come from ChecksService in Ghost's shape; GitHub's embeds the app and adds integer ids and URLs.
+export function toCheckRunRest(
+  run: CheckRunDTO,
+  ids: { numericId: number; suiteNumericId: number },
+  app: GithubAppDTO,
+  context: RestContext,
+): GithubCheckRunDTO {
+  const url = `${context.repository.apiUrl}/check-runs/${ids.numericId}`;
+  return {
+    id: ids.numericId,
+    node_id: encodeNodeId('CheckRun', run.id),
+    head_sha: run.headSha,
+    external_id: run.externalId,
+    url,
+    // Ghost has no page of its own for a run; its commit shows it.
+    html_url: `${context.repository.webUrl}/commit/${run.headSha}`,
+    details_url: run.detailsUrl,
+    status: run.status,
+    conclusion: run.conclusion,
+    started_at: run.startedAt,
+    completed_at: run.completedAt,
+    output: {
+      title: run.output.title,
+      summary: run.output.summary,
+      text: run.output.text,
+      annotations_count: run.output.annotationsCount,
+      annotations_url: `${url}/annotations`,
+    },
+    name: run.name,
+    check_suite: { id: ids.suiteNumericId },
+    app,
+    pull_requests: [],
+  };
+}
+
+// Mapper: suites come from ChecksService in Ghost's shape; GitHub's embeds the app and adds integer ids and URLs.
+export function toCheckSuiteRest(
+  suite: CheckSuiteDTO,
+  numericId: number,
+  app: GithubAppDTO,
+  context: RestContext,
+): GithubCheckSuiteDTO {
+  const url = `${context.repository.apiUrl}/check-suites/${numericId}`;
+  return {
+    id: numericId,
+    node_id: encodeNodeId('CheckSuite', suite.id),
+    head_branch: suite.headBranch,
+    head_sha: suite.headSha,
+    status: suite.status,
+    conclusion: suite.conclusion,
+    url,
+    before: suite.before,
+    after: suite.after,
+    app,
+    created_at: suite.createdAt,
+    updated_at: suite.updatedAt,
+    latest_check_runs_count: suite.runsCount,
+    check_runs_url: `${url}/check-runs`,
+    pull_requests: [],
+  };
+}
+
+// Mapper: annotations come from ChecksService in Ghost's shape; GitHub's names each line's blob.
+export function toCheckAnnotationRest(
+  annotation: CheckAnnotationDTO,
+  sha: string,
+  context: RestContext,
+): GithubCheckAnnotationDTO {
+  return {
+    path: annotation.path,
+    blob_href: `${context.repository.webUrl}/blob/${sha}/${annotation.path.split('/').map(encodeURIComponent).join('/')}`,
+    start_line: annotation.startLine,
+    end_line: annotation.endLine,
+    start_column: annotation.startColumn,
+    end_column: annotation.endColumn,
+    annotation_level: annotation.annotationLevel,
+    title: annotation.title,
+    message: annotation.message,
+    raw_details: annotation.rawDetails,
   };
 }

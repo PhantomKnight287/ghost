@@ -58,6 +58,14 @@ const REVIEWS = {
   commented: ['reviewed', BLUE],
 } as const;
 
+/** Passing green, neutral and skipped grey, the rest red, as GitHub colours them. */
+function conclusionColor(conclusion: string | null) {
+  if (conclusion === 'success') return GREEN;
+  if (conclusion === 'neutral' || conclusion === 'skipped' || !conclusion)
+    return GREY;
+  return RED;
+}
+
 export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
   if (body.event === 'ping') {
     return {
@@ -266,6 +274,32 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
             : RED,
         status.targetUrl ?? `${repository.htmlUrl}/commit/${status.sha}`,
         status.description,
+      );
+    }
+    case 'check_run.created':
+    case 'check_run.completed': {
+      const { checkRun } = body;
+      if (!checkRun) return say(`reported a check run`, GREY);
+      const where = `${checkRun.app.slug} / ${checkRun.name} on ${checkRun.headSha.slice(0, 7)}`;
+      return say(
+        body.event === 'check_run.created'
+          ? `started ${where}`
+          : `finished ${where}: ${checkRun.conclusion}`,
+        body.event === 'check_run.created'
+          ? GREY
+          : conclusionColor(checkRun.conclusion),
+        checkRun.detailsUrl ??
+          `${repository.htmlUrl}/commit/${checkRun.headSha}`,
+        checkRun.output.title,
+      );
+    }
+    case 'check_suite.completed': {
+      const { checkSuite } = body;
+      if (!checkSuite) return say(`finished a check suite`, GREY);
+      return say(
+        `finished the ${checkSuite.app.slug} checks on ${checkSuite.headSha.slice(0, 7)}: ${checkSuite.conclusion}`,
+        conclusionColor(checkSuite.conclusion),
+        `${repository.htmlUrl}/commit/${checkSuite.headSha}`,
       );
     }
     case 'star.created':

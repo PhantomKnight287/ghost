@@ -2,7 +2,12 @@ import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { Injectable, Logger } from '@nestjs/common';
+import type { Database } from '@ghost/db';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+
+import { DATABASE } from '../../../database/database.module.js';
+import { requestCheckSuites } from '../../../lib/checks/request-check-suites.js';
+import { errorMessage } from '../../../lib/error-message.js';
 
 import type { GitRequestBody } from '../../../lib/git/protocol/git-request-body.js';
 import {
@@ -60,7 +65,10 @@ export interface CommitPushResult {
 export class PushTransactionService {
   private readonly logger = new Logger(PushTransactionService.name);
 
-  constructor(private readonly store: WalStoreService) {}
+  constructor(
+    private readonly store: WalStoreService,
+    @Inject(DATABASE) private readonly db: Database,
+  ) {}
 
   async commitPush({
     repoId,
@@ -91,8 +99,9 @@ export class PushTransactionService {
       packOffset,
     );
 
+    let committed: CommitPushResult;
     try {
-      return await this.commitIndex({
+      committed = await this.commitIndex({
         repoId,
         transitions,
         ulid,
@@ -110,6 +119,17 @@ export class PushTransactionService {
         await this.store.deleteEntry(repoId, ulid);
       throw error;
     }
+    // Never rejects: the push has landed, and a missing suite must not fail it.
+    requestCheckSuites(this.db, {
+      repositoryId: repoId,
+      transitions,
+      actor,
+    }).catch((error: unknown) =>
+      this.logger.warn(
+        `Check suites were not requested for ${repoId}: ${errorMessage(error)}`,
+      ),
+    );
+    return committed;
   }
 
   private async commitIndex({

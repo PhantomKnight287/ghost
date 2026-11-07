@@ -88,6 +88,18 @@ export const WEBHOOK_EVENTS = {
     label: "A commit status is reported",
     permission: "statuses",
   },
+  "check_run.created": {
+    label: "A check run is created",
+    permission: "checks",
+  },
+  "check_run.completed": {
+    label: "A check run completes",
+    permission: "checks",
+  },
+  "check_suite.completed": {
+    label: "All of a check suite's runs complete",
+    permission: "checks",
+  },
   "label.created": { label: "A label is created", permission: "metadata" },
   "label.edited": { label: "A label is edited", permission: "metadata" },
   "label.deleted": { label: "A label is deleted", permission: "metadata" },
@@ -158,3 +170,28 @@ export const INSTALLATION_EVENTS = [
 ] as const;
 
 export type InstallationEvent = (typeof INSTALLATION_EVENTS)[number];
+
+/** Sent only to the app that owns the check run or suite, whatever it subscribed to, while it holds `checks`. Never subscribable. */
+export const OWNING_APP_EVENTS = {
+  "check_run.rerequested": {
+    label: "Someone re-runs one of the app's check runs",
+    permission: "checks",
+  },
+  "check_run.requested_action": {
+    label: "Someone presses an action button on one of the app's check runs",
+    permission: "checks",
+  },
+  "check_suite.requested": {
+    label: "A branch moved and the app's check suite was created for its tip",
+    permission: "checks",
+  },
+  "check_suite.rerequested": {
+    label: "Someone re-runs all of the app's check suite",
+    permission: "checks",
+  },
+} as const satisfies Record<
+  string,
+  { label: string; permission: AppPermission }
+>;
+
+export type OwningAppEvent = keyof typeof OWNING_APP_EVENTS;

@@ -7,6 +7,7 @@ export const APP_PERMISSIONS = {
   pull_requests: ["read", "write"],
   issues: ["read", "write"],
   statuses: ["read", "write"],
+  checks: ["read", "write"],
   members: ["read"],
   administration: ["read", "write"],
 } as const;

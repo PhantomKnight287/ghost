@@ -1635,6 +1635,13 @@ describe('apps', () => {
     ],
   });
 
+  it("names a pinned check as required only for its app's results, when an app is given", () => {
+    const both = [pinned, checks(['lint'])];
+    expect(requiredContexts(both, MAIN, 'main', 7)).toEqual(['ci', 'lint']);
+    expect(requiredContexts(both, MAIN, 'main', 8)).toEqual(['lint']);
+    expect(requiredContexts(both, MAIN, 'main')).toEqual(['ci', 'lint']);
+  });
+
   it('pins a check to an app', () => {
     expect(
       evaluate({

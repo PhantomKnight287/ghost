@@ -1,6 +1,6 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, max, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../database/database.module.js';
 import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
@@ -15,15 +15,8 @@ import {
 } from '../../lib/commit-statuses/commit-statuses.errors.js';
 import { isoTimestamp } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
-import { listBranches } from '../../lib/git/refs/list-refs.js';
-import { listTags } from '../../lib/git/tags/list-tags.js';
-import {
-  resolveCommit,
-  resolveTargetCommit,
-} from '../../lib/git/tree/resolve-ref.js';
-import { CommitNotFoundError } from '../../lib/repositories/repositories.errors.js';
 import type { RefFacts } from '../../lib/rulesets/rulesets.types.js';
-import { RepositoryMaterializerService } from '../../services/git/materializer/repository-materializer.service.js';
+import { CommitHolderService } from '../../services/git/commit-holder/commit-holder.service.js';
 import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import type {
   CombinedCommitStatusDTO,
@@ -59,7 +52,7 @@ export class CommitStatusesService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly access: RepositoryAccessService,
-    private readonly materializer: RepositoryMaterializerService,
+    private readonly commitHolder: CommitHolderService,
   ) {}
 
   async create({
@@ -78,7 +71,7 @@ export class CommitStatusesService {
       operation: 'write',
     });
     if (!/^[0-9a-f]{40}$/.test(sha)) throw new InvalidStatusShaError(sha);
-    if (!(await this.holdsCommit(repository, sha))) {
+    if (!(await this.commitHolder.holds(repository, sha))) {
       throw new InvalidStatusShaError(sha);
     }
 
@@ -126,19 +119,18 @@ export class CommitStatusesService {
     return status;
   }
 
-  /** The contexts this repository has seen, for the ruleset form to suggest as required checks. Writers only, as the form is theirs to fill. */
+  /** The contexts this repository's statuses and check runs have named, most recent first, for the ruleset form to suggest as required checks. Writers only, as the form is theirs to fill. */
   async contexts(target: RepositoryRef & { requesterId: string }) {
     const repository = await this.access.authorize({
       ...target,
       operation: 'write',
     });
-    const rows = await this.db
-      .select({ context: schema.commitStatus.context })
-      .from(schema.commitStatus)
-      .where(eq(schema.commitStatus.repositoryId, repository.id))
-      .groupBy(schema.commitStatus.context)
-      .orderBy(desc(max(schema.commitStatus.numericId)))
-      .limit(SUGGESTED_CONTEXTS);
+    const { rows } = await this.db.execute<{ context: string }>(sql`
+      select context from (
+        select ${schema.commitStatus.context} as context, max(${schema.commitStatus.createdAt}) as at from ${schema.commitStatus} where ${schema.commitStatus.repositoryId} = ${repository.id} group by 1
+        union all
+        select ${schema.checkRun.name}, max(${schema.checkRun.createdAt}) from ${schema.checkRun} where ${schema.checkRun.repositoryId} = ${repository.id} group by 1
+      ) seen group by context order by max(at) desc limit ${SUGGESTED_CONTEXTS}`);
     return { contexts: rows.map(({ context }) => context) };
   }
 
@@ -234,54 +226,6 @@ export class CommitStatusesService {
     );
   }
 
-  /** What status check rules read about each sha of one repository, newest first: the newest of each context per app that posted it, and the newest of each context posted without one. A sha without statuses is absent. */
-  async requiredCheckStatuses(
-    repositoryId: string,
-    shas: string[],
-  ): Promise<Map<string, NonNullable<RefFacts['statuses']>>> {
-    if (shas.length === 0) return new Map();
-    const appId = schema.app.numericId;
-    const rows = await this.db
-      .selectDistinctOn(
-        [schema.commitStatus.sha, schema.commitStatus.context, appId],
-        {
-          sha: schema.commitStatus.sha,
-          context: schema.commitStatus.context,
-          state: schema.commitStatus.state,
-          appId,
-          createdAt: schema.commitStatus.createdAt,
-          numericId: schema.commitStatus.numericId,
-        },
-      )
-      .from(schema.commitStatus)
-      .leftJoin(
-        schema.appInstallation,
-        eq(schema.appInstallation.id, schema.commitStatus.installationId),
-      )
-      .leftJoin(schema.app, eq(schema.app.id, schema.appInstallation.appId))
-      .where(
-        and(
-          eq(schema.commitStatus.repositoryId, repositoryId),
-          inArray(schema.commitStatus.sha, shas),
-        ),
-      )
-      .orderBy(
-        asc(schema.commitStatus.sha),
-        asc(schema.commitStatus.context),
-        asc(appId),
-        ...newestFirst,
-      );
-    rows.sort(
-      (a, b) =>
-        b.createdAt.getTime() - a.createdAt.getTime() ||
-        b.numericId - a.numericId,
-    );
-    const bySha = new Map<string, NonNullable<RefFacts['statuses']>>();
-    for (const { sha, context, state, appId } of rows)
-      bySha.set(sha, [...(bySha.get(sha) ?? []), { context, state, appId }]);
-    return bySha;
-  }
-
   /** One status by id with its repository, unauthorized: callers check the viewer may read that repository. */
   async findById(id: string) {
     const [status] = await this.db
@@ -295,55 +239,15 @@ export class CommitStatusesService {
     return status ?? null;
   }
 
-  /** Whether `sha` is a commit of the repository, or of a fork with a pull request open into it: a fork's head lives in the fork's objects, and the base's CI reports on it here. */
-  private async holdsCommit(
-    repository: { id: string; defaultBranch: string | null },
-    sha: string,
-  ) {
-    // resolveCommit peels tags, so a tag object's sha resolves to another oid.
-    const isCommit = async (holder: typeof repository) =>
-      (await resolveCommit(await this.materializer.open(holder), sha)) === sha;
-    if (await isCommit(repository)) return true;
-
-    const forks = await this.db
-      .selectDistinct({
-        id: schema.repository.id,
-        defaultBranch: schema.repository.defaultBranch,
-      })
-      .from(schema.pullRequest)
-      .innerJoin(
-        schema.repository,
-        eq(schema.repository.id, schema.pullRequest.headRepositoryId),
-      )
-      .where(
-        and(
-          eq(schema.pullRequest.baseRepositoryId, repository.id),
-          eq(schema.pullRequest.state, 'open'),
-          ne(schema.pullRequest.headRepositoryId, repository.id),
-        ),
-      );
-    // ponytail: opens each fork with an open request in turn; fine for a handful, a sha → pull request lookup if a repository collects many forks.
-    for (const fork of forks) {
-      if (await isCommit(fork)) return true;
-    }
-    return false;
-  }
-
   private async resolve(target: RepositoryRef, ref: string) {
     const repository = await this.access.authorize({
       ...target,
       operation: 'read',
     });
-    const directory = await this.materializer.open(repository);
-    const sha = await resolveTargetCommit({
-      gitDir: directory,
-      defaultBranch: repository.defaultBranch,
-      branches: await listBranches(directory),
-      tags: await listTags(directory),
-      requested: ref,
-    });
-    if (!sha) throw new CommitNotFoundError(ref);
-    return { repository, sha };
+    return {
+      repository,
+      sha: await this.commitHolder.commitOf(repository, ref),
+    };
   }
 
   private select() {

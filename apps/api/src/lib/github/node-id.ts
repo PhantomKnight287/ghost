@@ -18,6 +18,8 @@ const PREFIXES = {
   Release: 'RE',
   ReleaseAsset: 'RA',
   StatusContext: 'SC',
+  CheckRun: 'CR',
+  CheckSuite: 'CS',
   StatusCheckRollup: 'SCR',
   RepositoryRuleset: 'RRS',
   RepositoryRule: 'RRU',

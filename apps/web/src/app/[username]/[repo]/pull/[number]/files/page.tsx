@@ -72,6 +72,24 @@ export default async function PullRequestFilesPage({
     }),
   );
   const mine = new Set(viewer ? [`@${viewer}`, ...memberships] : []);
+  // ponytail: the first 100 annotations of each run on the head; the run's own row pages the rest.
+  const annotated = (pull.data.checks?.checkRuns ?? []).filter(
+    (run) => run.headSha === summary.data.to && run.output.annotationsCount > 0,
+  );
+  const checkAnnotations = (
+    await Promise.all(
+      annotated.map(async (run) => {
+        const { data } = await client.GET(
+          "/api/repositories/{username}/{repo}/check-runs/{id}/annotations",
+          { params: { path: { ...run.repository, id: run.id } } },
+        );
+        return (data?.annotations ?? []).map((annotation) => ({
+          annotation,
+          run: { name: run.name, appSlug: run.app.slug },
+        }));
+      }),
+    )
+  ).flat();
 
   return (
     <ReviewDiff
@@ -98,6 +116,7 @@ export default async function PullRequestFilesPage({
         (item): item is PullRequestReview => item.kind === "review",
       )}
       pending={pending?.data?.review ?? null}
+      checkAnnotations={checkAnnotations}
       canReview={viewer !== null && pull.data.state === "open"}
       isAuthor={viewer === pull.data.authorUsername}
       blobUrl={

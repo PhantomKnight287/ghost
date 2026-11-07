@@ -73,6 +73,14 @@ export type EventPayloads = {
     release: { id: string; tagName: string; name: string | null };
   };
   'commit_status.created': { statusId: string };
+  'check_run.created': { checkRunId: string };
+  /** The first time the run reached `completed`; later updates to a completed run fire nothing. */
+  'check_run.completed': { checkRunId: string };
+  'check_run.rerequested': { checkRunId: string };
+  'check_run.requested_action': { checkRunId: string; identifier: string };
+  'check_suite.completed': { checkSuiteId: string };
+  'check_suite.requested': { checkSuiteId: string };
+  'check_suite.rerequested': { checkSuiteId: string };
   'star.created': Record<string, never>;
   'star.deleted': Record<string, never>;
   /** Watching at `all`; the actor is the watcher. */

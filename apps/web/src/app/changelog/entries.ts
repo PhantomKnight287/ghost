@@ -9,6 +9,11 @@ export const CHANGELOG: {
   body: string;
 }[] = [
   {
+    date: "2026-11-06",
+    title: "Check runs",
+    body: "Apps can report check runs, GitHub's richer kind of commit status, through `POST /repos/{owner}/{repo}/check-runs` with an installation token that holds the new `checks` permission. A run moves from queued to in progress to completed, carries a markdown summary and log text, line annotations and up to three buttons, and belongs to its app's check suite on the commit. Runs show next to statuses in the merge panel and on every commit's tick, and expand in place into their output; writers can re-run a run, re-run all of an app's checks, or press its buttons, and the app hears `check_run.rerequested`, `check_suite.rerequested` or `check_run.requested_action`. A push asks every installed app with `checks: write` for a suite with `check_suite.requested`. Rulesets accept a run's name as a required check, and `gh pr checks` lists runs and statuses together.",
+  },
+  {
     date: "2026-10-27",
     title: "Repositories through GitHub's REST API",
     body: "GitHub's routes to list, edit and delete repositories work against Ghost. `GET /user/repos` lists everything you hold a role on, private repositories included, filtered by `visibility`, `affiliation` or `type`. `GET /users/{username}/repos` lists an account's public repositories, and `GET /orgs/{org}/repos` an organization's. All three sort and page as GitHub does. `PATCH /repos/{owner}/{repo}` renames a repository and changes its description, visibility or default branch, and `DELETE /repos/{owner}/{repo}` deletes it with a token that holds `delete_repo`.",

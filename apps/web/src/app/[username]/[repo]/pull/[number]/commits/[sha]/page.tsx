@@ -136,7 +136,11 @@ export default async function PullRequestCommitPage({
         ) : null}
       </CommitHeader>
 
-      <CommitChecks status={commit.data.status} />
+      <CommitChecks
+        checks={commit.data.checks}
+        repository={{ username, repo }}
+        canRerun={atLeast(role, "write")}
+      />
 
       {unplaced.length > 0 && (
         <section className="flex flex-col gap-3">

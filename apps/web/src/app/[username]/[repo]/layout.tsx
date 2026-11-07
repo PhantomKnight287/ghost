@@ -163,9 +163,12 @@ async function ImportStatus({
   viewerRole: ComponentProps<typeof ImportBanner>["viewerRole"];
 }) {
   const client = await createServerClient();
-  const { data } = await client.GET("/api/repositories/{username}/{repo}/import", {
-    params: { path: { username, repo } },
-  });
+  const { data } = await client.GET(
+    "/api/repositories/{username}/{repo}/import",
+    {
+      params: { path: { username, repo } },
+    },
+  );
   if (!data || data.status === "succeeded") return null;
   return (
     <ImportBanner

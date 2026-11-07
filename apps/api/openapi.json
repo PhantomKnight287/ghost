@@ -3212,6 +3212,312 @@
         ]
       }
     },
+    "/api/repositories/{username}/{repo}/check-runs/{id}/annotations": {
+      "get": {
+        "operationId": "ChecksController_annotations",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 100,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckAnnotationsPageDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "A check run's annotations, in the order its app sent them",
+        "tags": [
+          "Checks"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/check-runs/{id}/rerequest": {
+      "post": {
+        "description": "Needs write access. The run's app hears `check_run.rerequested` and answers with a new run of the same name.",
+        "operationId": "ChecksController_rerequestRun",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The app is deleted, uninstalled or suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Re-run a check run",
+        "tags": [
+          "Checks"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/check-suites/{id}/rerequest": {
+      "post": {
+        "description": "Needs write access. The app hears `check_suite.rerequested`.",
+        "operationId": "ChecksController_rerequestSuite",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The app is deleted, uninstalled or suspended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Re-run all of an app's checks on a commit",
+        "tags": [
+          "Checks"
+        ]
+      }
+    },
+    "/api/repositories/{username}/{repo}/check-runs/{id}/actions/{identifier}": {
+      "post": {
+        "description": "Needs write access. The app hears `check_run.requested_action` with the identifier.",
+        "operationId": "ChecksController_requestAction",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "identifier",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The run has no such action, or its app is gone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Press one of a check run's action buttons",
+        "tags": [
+          "Checks"
+        ]
+      }
+    },
     "/api/repositories/{username}/{slug}/statuses/{sha}": {
       "post": {
         "description": "Needs write access. `sha` is the full 40-character sha of a commit in the repository. Each report is a new entry; the newest per `context` is the current one.",
@@ -5932,7 +6238,12 @@
             "required": false,
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/PullRequestStateFilter"
+              "default": "open",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/PullRequestStateFilter"
+                }
+              ]
             }
           },
           {
@@ -8292,7 +8603,12 @@
             "required": false,
             "in": "query",
             "schema": {
-              "$ref": "#/components/schemas/IssueStateFilter"
+              "default": "open",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/IssueStateFilter"
+                }
+              ]
             }
           },
           {
@@ -19854,6 +20170,932 @@
         ]
       }
     },
+    "/api/v3/repos/{owner}/{repo}/check-runs": {
+      "post": {
+        "operationId": "GithubChecksController_createRun",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCreateCheckRunDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCheckRunDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Create a check run; installation tokens only",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/check-runs/{id}": {
+      "get": {
+        "operationId": "GithubChecksController_getRun",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCheckRunDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "A check run",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      },
+      "patch": {
+        "operationId": "GithubChecksController_updateRun",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubUpdateCheckRunDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCheckRunDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update a check run; only its app's installation token may",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/check-runs/{id}/annotations": {
+      "get": {
+        "operationId": "GithubChecksController_annotations",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GithubCheckAnnotationDTO"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "A check run's annotations, in the order sent",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/check-runs/{id}/rerequest": {
+      "post": {
+        "operationId": "GithubChecksController_rerequestRun",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "An empty object, as GitHub answers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ask the check run's app to run it again",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}/check-runs": {
+      "get": {
+        "operationId": "GithubChecksController_runsForRef",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          },
+          {
+            "name": "check_name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "in_progress",
+                "completed"
+              ]
+            }
+          },
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "latest",
+              "type": "string",
+              "enum": [
+                "latest",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "app_id",
+            "required": false,
+            "in": "query",
+            "description": "The App ID.",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCheckRunsDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "The check runs on a ref's commit",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/commits/{ref}/check-suites": {
+      "get": {
+        "operationId": "GithubChecksController_suitesForRef",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          },
+          {
+            "name": "app_id",
+            "required": false,
+            "in": "query",
+            "description": "The App ID.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "check_name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCheckSuitesDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "The check suites on a ref's commit",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/check-suites": {
+      "post": {
+        "operationId": "GithubChecksController_createSuite",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCreateCheckSuiteDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCheckSuiteDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "The caller's app's check suite on a commit, created if it has none",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/check-suites/{id}": {
+      "get": {
+        "operationId": "GithubChecksController_getSuite",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCheckSuiteDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "A check suite",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/check-suites/{id}/check-runs": {
+      "get": {
+        "operationId": "GithubChecksController_runsOfSuite",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "default": 30,
+              "type": "string"
+            }
+          },
+          {
+            "name": "check_name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "in_progress",
+                "completed"
+              ]
+            }
+          },
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "latest",
+              "type": "string",
+              "enum": [
+                "latest",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "app_id",
+            "required": false,
+            "in": "query",
+            "description": "The App ID.",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCheckRunsDTO"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "A check suite's runs",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
+    "/api/v3/repos/{owner}/{repo}/check-suites/{id}/rerequest": {
+      "post": {
+        "operationId": "GithubChecksController_rerequestSuite",
+        "parameters": [
+          {
+            "name": "owner",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "An empty object, as GitHub answers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "GitHub's error body. A 404 reads `Not Found` whether the resource is missing or the viewer cannot see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubErrorDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "token": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ask the check suite's app to run all of it again",
+        "tags": [
+          "GitHub compatibility"
+        ]
+      }
+    },
     "/api/uploads/user-attachments/assets": {
       "post": {
         "operationId": "GithubUserAttachmentsController_upload",
@@ -23719,7 +24961,203 @@
           "viaApp"
         ]
       },
-      "CombinedCommitStatusDTO": {
+      "CheckRunOutputDTO": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown."
+          },
+          "text": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markdown."
+          },
+          "annotationsCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "title",
+          "summary",
+          "text",
+          "annotationsCount"
+        ]
+      },
+      "CheckRunActionDTO": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string",
+            "description": "Sent back to the app when the button is pressed."
+          }
+        },
+        "required": [
+          "label",
+          "description",
+          "identifier"
+        ]
+      },
+      "CheckAppDTO": {
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "number",
+            "description": "The App ID, as `integration_id` names it."
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "The app was deleted; its checks stay attributed to it."
+          },
+          "installed": {
+            "type": "boolean",
+            "description": "The app is still installed here, unsuspended, so a re-run or button press reaches it."
+          }
+        },
+        "required": [
+          "appId",
+          "slug",
+          "name",
+          "logoUrl",
+          "deleted",
+          "installed"
+        ]
+      },
+      "CheckRunRepositoryDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "repo"
+        ]
+      },
+      "CheckRunDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "suiteId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "headSha": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "conclusion": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure",
+              "neutral",
+              "cancelled",
+              "skipped",
+              "timed_out",
+              "action_required"
+            ],
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "externalId": {
+            "type": "string",
+            "nullable": true
+          },
+          "detailsUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "output": {
+            "$ref": "#/components/schemas/CheckRunOutputDTO"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckRunActionDTO"
+            }
+          },
+          "app": {
+            "$ref": "#/components/schemas/CheckAppDTO"
+          },
+          "repository": {
+            "description": "The repository the run was posted on: a pull request's fork for some of its runs.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CheckRunRepositoryDTO"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "suiteId",
+          "name",
+          "headSha",
+          "status",
+          "conclusion",
+          "startedAt",
+          "completedAt",
+          "externalId",
+          "detailsUrl",
+          "output",
+          "actions",
+          "app",
+          "repository",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CommitChecksDTO": {
         "type": "object",
         "properties": {
           "sha": {
@@ -23733,11 +25171,7 @@
               "failure",
               "error"
             ],
-            "description": "`failure` when any context failed or errored, else `pending` while any is pending or there are none, else `success`."
-          },
-          "totalCount": {
-            "type": "number",
-            "description": "Number of contexts."
+            "description": "`failure` when any status failed or errored or any run failed, else `pending` while any is pending or running, else `success`. Neutral and skipped runs pass."
           },
           "statuses": {
             "description": "The newest status of each context.",
@@ -23745,13 +25179,20 @@
             "items": {
               "$ref": "#/components/schemas/CommitStatusDTO"
             }
+          },
+          "checkRuns": {
+            "description": "The newest check run of each app and name.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckRunDTO"
+            }
           }
         },
         "required": [
           "sha",
           "state",
-          "totalCount",
-          "statuses"
+          "statuses",
+          "checkRuns"
         ]
       },
       "CommitDTO": {
@@ -23789,13 +25230,13 @@
               }
             ]
           },
-          "status": {
+          "checks": {
             "nullable": true,
-            "description": "Combined status of the commit, or `null` when it has none.",
+            "description": "Statuses and check runs of the commit, or `null` when it has neither.",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/CombinedCommitStatusDTO"
+                "$ref": "#/components/schemas/CommitChecksDTO"
               }
             ]
           }
@@ -23808,7 +25249,7 @@
           "authorEmail",
           "committedAt",
           "verification",
-          "status"
+          "checks"
         ]
       },
       "GetRepositoryCommitsResponseDTO": {
@@ -23937,13 +25378,13 @@
               }
             ]
           },
-          "status": {
+          "checks": {
             "nullable": true,
-            "description": "Combined status of the commit, or `null` when it has none.",
+            "description": "Statuses and check runs of the commit, or `null` when it has neither.",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/CombinedCommitStatusDTO"
+                "$ref": "#/components/schemas/CommitChecksDTO"
               }
             ]
           },
@@ -23963,7 +25404,7 @@
           "authorEmail",
           "committedAt",
           "verification",
-          "status",
+          "checks",
           "files"
         ]
       },
@@ -24966,6 +26407,74 @@
           }
         }
       },
+      "CheckAnnotationDTO": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "startLine": {
+            "type": "number"
+          },
+          "endLine": {
+            "type": "number"
+          },
+          "startColumn": {
+            "type": "number",
+            "nullable": true
+          },
+          "endColumn": {
+            "type": "number",
+            "nullable": true
+          },
+          "annotationLevel": {
+            "type": "string",
+            "enum": [
+              "notice",
+              "warning",
+              "failure"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "rawDetails": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "path",
+          "startLine",
+          "endLine",
+          "annotationLevel",
+          "message",
+          "title",
+          "rawDetails"
+        ]
+      },
+      "CheckAnnotationsPageDTO": {
+        "type": "object",
+        "properties": {
+          "annotations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckAnnotationDTO"
+            }
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "annotations",
+          "total"
+        ]
+      },
       "CreateCommitStatusRequestDTO": {
         "type": "object",
         "properties": {
@@ -24998,11 +26507,46 @@
           "state"
         ]
       },
+      "CombinedCommitStatusDTO": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "success",
+              "failure",
+              "error"
+            ],
+            "description": "`failure` when any context failed or errored, else `pending` while any is pending or there are none, else `success`."
+          },
+          "totalCount": {
+            "type": "number",
+            "description": "Number of contexts."
+          },
+          "statuses": {
+            "description": "The newest status of each context.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitStatusDTO"
+            }
+          }
+        },
+        "required": [
+          "sha",
+          "state",
+          "totalCount",
+          "statuses"
+        ]
+      },
       "StatusContextsDTO": {
         "type": "object",
         "properties": {
           "contexts": {
-            "description": "Contexts this repository's statuses have named, most recently posted first, at most 50.",
+            "description": "Contexts this repository's statuses and check runs have named, most recently posted first, at most 50.",
             "type": "array",
             "items": {
               "type": "string"
@@ -25042,6 +26586,9 @@
           "pull_request.review_request_removed",
           "pull_request.merged",
           "commit_status.created",
+          "check_run.created",
+          "check_run.completed",
+          "check_suite.completed",
           "label.created",
           "label.edited",
           "label.deleted",
@@ -26484,11 +28031,11 @@
           },
           "checks": {
             "nullable": true,
-            "description": "Combined status of the head commit, or `null` when it has none. A fork head's statuses count only when the requester can read the fork.",
+            "description": "Statuses and check runs of the head commit, or `null` when it has neither. A fork head's count only when the requester can read the fork.",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/CombinedCommitStatusDTO"
+                "$ref": "#/components/schemas/CommitChecksDTO"
               }
             ]
           },
@@ -33023,6 +34570,532 @@
           "repository",
           "commit_url",
           "url"
+        ]
+      },
+      "GithubCheckAnnotationInputDTO": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "number"
+          },
+          "end_line": {
+            "type": "number"
+          },
+          "start_column": {
+            "type": "number"
+          },
+          "end_column": {
+            "type": "number"
+          },
+          "annotation_level": {
+            "type": "string",
+            "enum": [
+              "notice",
+              "warning",
+              "failure"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "raw_details": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "start_line",
+          "end_line",
+          "annotation_level",
+          "message"
+        ]
+      },
+      "GithubCheckOutputInputDTO": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 65535,
+            "description": "Markdown."
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 65535,
+            "description": "Markdown."
+          },
+          "annotations": {
+            "maxItems": 50,
+            "description": "Appended to what earlier requests sent.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubCheckAnnotationInputDTO"
+            }
+          },
+          "images": {
+            "type": "object",
+            "description": "Accepted and ignored."
+          }
+        },
+        "required": [
+          "title",
+          "summary"
+        ]
+      },
+      "GithubCheckActionInputDTO": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "identifier": {
+            "type": "string",
+            "maxLength": 20
+          }
+        },
+        "required": [
+          "label",
+          "description",
+          "identifier"
+        ]
+      },
+      "GithubCreateCheckRunDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "details_url": {
+            "type": "string"
+          },
+          "external_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "conclusion": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure",
+              "neutral",
+              "cancelled",
+              "skipped",
+              "timed_out",
+              "action_required"
+            ]
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "completed_at": {
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/components/schemas/GithubCheckOutputInputDTO"
+          },
+          "actions": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubCheckActionInputDTO"
+            }
+          },
+          "head_sha": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "head_sha"
+        ]
+      },
+      "GithubCheckRunOutputDTO": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "text": {
+            "type": "string",
+            "nullable": true
+          },
+          "annotations_count": {
+            "type": "number"
+          },
+          "annotations_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "summary",
+          "text",
+          "annotations_count",
+          "annotations_url"
+        ]
+      },
+      "GithubCheckRunDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "external_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string"
+          },
+          "html_url": {
+            "type": "string"
+          },
+          "details_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "conclusion": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure",
+              "neutral",
+              "cancelled",
+              "skipped",
+              "timed_out",
+              "action_required"
+            ],
+            "nullable": true
+          },
+          "started_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "completed_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "output": {
+            "$ref": "#/components/schemas/GithubCheckRunOutputDTO"
+          },
+          "name": {
+            "type": "string"
+          },
+          "check_suite": {
+            "type": "object"
+          },
+          "app": {
+            "$ref": "#/components/schemas/GithubAppDTO"
+          },
+          "pull_requests": {
+            "description": "Always empty.",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "head_sha",
+          "external_id",
+          "url",
+          "html_url",
+          "details_url",
+          "status",
+          "conclusion",
+          "started_at",
+          "completed_at",
+          "output",
+          "name",
+          "check_suite",
+          "app",
+          "pull_requests"
+        ]
+      },
+      "GithubUpdateCheckRunDTO": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "details_url": {
+            "type": "string"
+          },
+          "external_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "conclusion": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure",
+              "neutral",
+              "cancelled",
+              "skipped",
+              "timed_out",
+              "action_required"
+            ]
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "completed_at": {
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/components/schemas/GithubCheckOutputInputDTO"
+          },
+          "actions": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubCheckActionInputDTO"
+            }
+          }
+        }
+      },
+      "GithubCheckAnnotationDTO": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "blob_href": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "number"
+          },
+          "end_line": {
+            "type": "number"
+          },
+          "start_column": {
+            "type": "number",
+            "nullable": true
+          },
+          "end_column": {
+            "type": "number",
+            "nullable": true
+          },
+          "annotation_level": {
+            "type": "string",
+            "enum": [
+              "notice",
+              "warning",
+              "failure"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "raw_details": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "path",
+          "blob_href",
+          "start_line",
+          "end_line",
+          "start_column",
+          "end_column",
+          "annotation_level",
+          "title",
+          "message",
+          "raw_details"
+        ]
+      },
+      "GithubCheckRunsDTO": {
+        "type": "object",
+        "properties": {
+          "total_count": {
+            "type": "number"
+          },
+          "check_runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubCheckRunDTO"
+            }
+          }
+        },
+        "required": [
+          "total_count",
+          "check_runs"
+        ]
+      },
+      "GithubCheckSuiteDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "head_branch": {
+            "type": "string",
+            "nullable": true
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "conclusion": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure",
+              "neutral",
+              "cancelled",
+              "skipped",
+              "timed_out",
+              "action_required"
+            ],
+            "nullable": true
+          },
+          "url": {
+            "type": "string"
+          },
+          "before": {
+            "type": "string",
+            "nullable": true
+          },
+          "after": {
+            "type": "string",
+            "nullable": true
+          },
+          "app": {
+            "$ref": "#/components/schemas/GithubAppDTO"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "latest_check_runs_count": {
+            "type": "number"
+          },
+          "check_runs_url": {
+            "type": "string"
+          },
+          "pull_requests": {
+            "description": "Always empty.",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "head_branch",
+          "head_sha",
+          "status",
+          "conclusion",
+          "url",
+          "before",
+          "after",
+          "app",
+          "created_at",
+          "updated_at",
+          "latest_check_runs_count",
+          "check_runs_url",
+          "pull_requests"
+        ]
+      },
+      "GithubCheckSuitesDTO": {
+        "type": "object",
+        "properties": {
+          "total_count": {
+            "type": "number"
+          },
+          "check_suites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubCheckSuiteDTO"
+            }
+          }
+        },
+        "required": [
+          "total_count",
+          "check_suites"
+        ]
+      },
+      "GithubCreateCheckSuiteDTO": {
+        "type": "object",
+        "properties": {
+          "head_sha": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "head_sha"
         ]
       },
       "GithubUserAttachmentDTO": {

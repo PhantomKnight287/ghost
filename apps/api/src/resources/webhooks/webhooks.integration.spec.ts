@@ -1353,4 +1353,261 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
       unconfigured.rollSecret(repositoryOwner, 'whk_any'),
     ).rejects.toThrow('WEBHOOK_SECRET_KEY');
   });
+
+  describe('check events', () => {
+    const CI_BOT = `user_whk_ci_${RUN}`;
+    const OTHER_BOT = `user_whk_other_${RUN}`;
+    const checkEvents = [
+      'check_run.created',
+      'check_run.completed',
+      'check_suite.completed',
+    ];
+    let ci: { appId: string; endpointId: string; installationId: number };
+    let other: { appId: string; endpointId: string; installationId: number };
+    let runId: string;
+    let suiteId: string;
+    let sent = 0;
+
+    async function installApp(
+      bot: string,
+      slug: string,
+      permissions: Record<string, 'read' | 'write'>,
+    ) {
+      await db.insert(schema.user).values({
+        id: bot,
+        kind: 'bot',
+        name: slug,
+        username: `${slug}[bot]`,
+        email: `${slug}[bot]@bots.invalid`,
+      });
+      const [app] = await db
+        .insert(schema.app)
+        .values({
+          slug,
+          name: slug,
+          homepageUrl: 'https://bot.example',
+          permissions,
+          events: checkEvents,
+          ownerUserId: OWNER,
+          botUserId: bot,
+        })
+        .returning();
+      const [endpoint] = await db
+        .insert(schema.webhookEndpoint)
+        .values({
+          appId: app.id,
+          url: `https://93.184.216.34/${slug}`,
+          secret: `v1:${slug}`,
+          events: [],
+        })
+        .returning({ id: schema.webhookEndpoint.id });
+      const [installation] = await db
+        .insert(schema.appInstallation)
+        .values({
+          appId: app.id,
+          accountUserId: OWNER,
+          repositorySelection: 'all',
+          permissions,
+          events: checkEvents,
+        })
+        .returning();
+      return {
+        appId: app.id,
+        endpointId: endpoint.id,
+        installationId: installation.numericId,
+        installationRowId: installation.id,
+      };
+    }
+
+    /** Fans one event out and returns, per endpoint, the bodies it got for it. */
+    const send = async (
+      type: string,
+      payload: Record<string, string>,
+      endpointIds: string[],
+    ) => {
+      const id = `evt_whk_check_${sent++}_${RUN}`;
+      await fanout.handle({
+        id,
+        type,
+        repositoryId: repository.id,
+        actorId: OWNER,
+        payload,
+        createdAt: new Date(),
+      } as Parameters<typeof fanout.handle>[0]);
+      return Promise.all(
+        endpointIds.map(async (endpointId) =>
+          (
+            await db
+              .select()
+              .from(schema.deliveryJob)
+              .where(
+                and(
+                  eq(schema.deliveryJob.endpointId, endpointId),
+                  sql`${schema.deliveryJob.idempotencyKey} like ${`%${id}%`}`,
+                ),
+              )
+          ).map(bodyOf),
+        ),
+      );
+    };
+
+    beforeAll(async () => {
+      const installedCi = await installApp(CI_BOT, `whk-ci-${RUN}`, {
+        checks: 'write',
+      });
+      ci = installedCi;
+      other = await installApp(OTHER_BOT, `whk-other-${RUN}`, {
+        checks: 'read',
+      });
+      const [suite] = await db
+        .insert(schema.checkSuite)
+        .values({
+          repositoryId: repository.id,
+          headSha: 'a'.repeat(40),
+          appId: ci.appId,
+          installationId: installedCi.installationRowId,
+        })
+        .returning();
+      suiteId = suite.id;
+      const [run] = await db
+        .insert(schema.checkRun)
+        .values({
+          suiteId,
+          repositoryId: repository.id,
+          headSha: 'a'.repeat(40),
+          name: 'test',
+          status: 'completed',
+          conclusion: 'failure',
+          outputTitle: '2 tests failed',
+          outputText: 'the whole log',
+        })
+        .returning();
+      runId = run.id;
+    });
+
+    afterAll(async () => {
+      await db
+        .delete(schema.checkSuite)
+        .where(eq(schema.checkSuite.id, suiteId));
+      await db
+        .delete(schema.app)
+        .where(inArray(schema.app.id, [ci.appId, other.appId]));
+      await db
+        .delete(schema.user)
+        .where(inArray(schema.user.id, [CI_BOT, OTHER_BOT]));
+    });
+
+    it('check_run.rerequested reaches only the owning app, whatever it subscribed to', async () => {
+      const [mine, theirs] = await send(
+        'check_run.rerequested',
+        { checkRunId: runId },
+        [ci.endpointId, other.endpointId],
+      );
+      expect(mine).toHaveLength(1);
+      expect(mine[0]).toMatchObject({
+        event: 'check_run.rerequested',
+        installation: { id: ci.installationId },
+        checkRun: { id: runId, name: 'test', conclusion: 'failure' },
+      });
+      expect(theirs).toEqual([]);
+    });
+
+    it('check_run.requested_action carries the identifier', async () => {
+      const [mine] = await send(
+        'check_run.requested_action',
+        { checkRunId: runId, identifier: 'fix' },
+        [ci.endpointId],
+      );
+      expect(mine[0]).toMatchObject({
+        event: 'check_run.requested_action',
+        requestedAction: { identifier: 'fix' },
+      });
+    });
+
+    it('check_suite.requested and rerequested reach only the owning app', async () => {
+      for (const type of ['check_suite.requested', 'check_suite.rerequested']) {
+        const [mine, theirs] = await send(type, { checkSuiteId: suiteId }, [
+          ci.endpointId,
+          other.endpointId,
+        ]);
+        expect(mine[0]).toMatchObject({
+          event: type,
+          checkSuite: { id: suiteId, headSha: 'a'.repeat(40) },
+        });
+        expect(theirs).toEqual([]);
+      }
+    });
+
+    it('owning-app events never reach repository webhooks', async () => {
+      const endpoint = await webhooks.create(repositoryOwner, {
+        url: 'https://93.184.216.34/checks',
+        events: ['check_run.created'],
+      });
+      const [got] = await send('check_run.rerequested', { checkRunId: runId }, [
+        endpoint.id,
+      ]);
+      expect(got).toEqual([]);
+    });
+
+    it('check_run.created reaches a subscribed app with checks: read and a repository webhook, without output text', async () => {
+      const endpoint = await webhooks.create(repositoryOwner, {
+        url: 'https://93.184.216.34/created',
+        events: ['check_run.created'],
+      });
+      const [mine, theirs, hook] = await send(
+        'check_run.created',
+        { checkRunId: runId },
+        [ci.endpointId, other.endpointId, endpoint.id],
+      );
+      expect(mine).toHaveLength(1);
+      expect(theirs).toHaveLength(1);
+      expect(hook).toHaveLength(1);
+      expect(hook[0].checkRun).toMatchObject({
+        name: 'test',
+        output: { title: '2 tests failed' },
+        app: { slug: `whk-ci-${RUN}` },
+      });
+      expect(hook[0].checkRun.output).not.toHaveProperty('text');
+    });
+
+    it('owning-app events skip an installation that no longer covers the repository', async () => {
+      await db
+        .update(schema.appInstallation)
+        .set({ repositorySelection: 'selected' })
+        .where(eq(schema.appInstallation.numericId, ci.installationId));
+      try {
+        const [mine] = await send(
+          'check_run.rerequested',
+          { checkRunId: runId },
+          [ci.endpointId],
+        );
+        expect(mine).toEqual([]);
+      } finally {
+        await db
+          .update(schema.appInstallation)
+          .set({ repositorySelection: 'all' })
+          .where(eq(schema.appInstallation.numericId, ci.installationId));
+      }
+    });
+
+    it('an app without checks gets no check events', async () => {
+      await db
+        .update(schema.appInstallation)
+        .set({ permissions: { metadata: 'read' } })
+        .where(eq(schema.appInstallation.numericId, ci.installationId));
+      try {
+        const [created, rerequested] = await Promise.all([
+          send('check_run.created', { checkRunId: runId }, [ci.endpointId]),
+          send('check_run.rerequested', { checkRunId: runId }, [ci.endpointId]),
+        ]);
+        expect(created[0]).toEqual([]);
+        expect(rerequested[0]).toEqual([]);
+      } finally {
+        await db
+          .update(schema.appInstallation)
+          .set({ permissions: { checks: 'write' } })
+          .where(eq(schema.appInstallation.numericId, ci.installationId));
+      }
+    });
+  });
 });

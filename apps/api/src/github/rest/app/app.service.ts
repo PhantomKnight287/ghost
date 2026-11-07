@@ -1,7 +1,7 @@
 import { type Database, schema } from '@ghost/db';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { DATABASE } from '../../../database/database.module.js';
 import { AppJwtError } from '../../../lib/apps/apps.errors.js';
@@ -22,8 +22,25 @@ export class GithubAppService {
   /** The app the JWT authenticated. Any other caller gets GitHub's answer to a token that is not an app JWT. */
   async authenticated(app: GithubApp | null): Promise<GithubAppDTO> {
     if (!app) throw new AppJwtError();
+    const [found] = await this.select(eq(schema.app.id, app.appId));
+    if (!found) throw new AppJwtError();
+    return found;
+  }
+
+  /** GitHub's app objects by App ID, deleted apps included, for what embeds the app that made it. */
+  async byAppIds(appIds: number[]): Promise<Map<number, GithubAppDTO>> {
+    const apps =
+      appIds.length === 0
+        ? []
+        : await this.select(
+            inArray(schema.app.numericId, [...new Set(appIds)]),
+          );
+    return new Map(apps.map((app) => [app.id, app]));
+  }
+
+  private async select(where: SQL): Promise<GithubAppDTO[]> {
     const origins = githubOrigins(this.config);
-    const [row] = await this.db
+    const rows = await this.db
       .select({
         ghostId: schema.app.id,
         id: schema.app.numericId,
@@ -54,10 +71,8 @@ export class GithubAppService {
         schema.organization,
         eq(schema.organization.id, schema.app.ownerOrganizationId),
       )
-      .where(eq(schema.app.id, app.appId));
-    if (!row) throw new AppJwtError();
-    const { ghostId, owner, installationsCount: _, ...fields } = row;
-    return {
+      .where(where);
+    return rows.map(({ ghostId, owner, installationsCount, ...fields }) => ({
       ...fields,
       node_id: encodeNodeId('App', ghostId),
       owner: toUserRest(
@@ -65,8 +80,8 @@ export class GithubAppService {
         origins,
         owner.isOrganization ? 'Organization' : 'User',
       ),
-      html_url: `${origins.web}/apps/${row.slug}`,
-      installations_count: row.installationsCount,
-    };
+      html_url: `${origins.web}/apps/${fields.slug}`,
+      installations_count: installationsCount,
+    }));
   }
 }

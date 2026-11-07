@@ -28,7 +28,7 @@ import type {
   RulesetVerdict,
   RuleType,
 } from '../../lib/rulesets/rulesets.types.js';
-import { CommitStatusesService } from '../../resources/commit-statuses/commit-statuses.service.js';
+import { CommitChecksService } from '../../resources/checks/commit-checks.service.js';
 import { CommitVerificationService } from '../gpg/commit-verification.service.js';
 
 const NOBODY: RulesetActor = {
@@ -42,7 +42,7 @@ const NOBODY: RulesetActor = {
 export class RulesetVerdictsService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
-    private readonly statuses: CommitStatusesService,
+    private readonly commitChecks: CommitChecksService,
     private readonly verification: CommitVerificationService,
   ) {}
 
@@ -242,7 +242,7 @@ export class RulesetVerdictsService {
         ),
       );
       // Only the repository's own statuses count: a fork's owner can post anything on their fork.
-      const statuses = await this.statuses.requiredCheckStatuses(
+      const statuses = await this.commitChecks.requiredChecks(
         repositoryId,
         tips,
       );

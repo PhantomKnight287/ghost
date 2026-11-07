@@ -111,6 +111,9 @@ type CheckRun implements Node {
   name: String!
   startedAt: DateTime
   status: CheckStatusState!
+  summary: String
+  text: String
+  title: String
 }
 
 enum CheckStatusState {

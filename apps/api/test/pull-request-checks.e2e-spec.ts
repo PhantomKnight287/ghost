@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { hasBackends, signUp, startApp } from './harness.js';
 
-type Commit = { sha: string; status: { state: string } | null };
+type Commit = { sha: string; checks: { state: string } | null };
 
 describe.skipIf(!hasBackends)(
   'commit statuses on pull requests and commit lists',
@@ -130,7 +130,7 @@ describe.skipIf(!hasBackends)(
       expect(await checksOf(withStatus)).toMatchObject({
         sha: same,
         state: 'success',
-        totalCount: 1,
+        checkRuns: [],
         statuses: [
           expect.objectContaining({ context: 'ci', state: 'success' }),
         ],
@@ -151,7 +151,7 @@ describe.skipIf(!hasBackends)(
     it('attaches status to each commit of a pull request and of the commit lists, null where there is none', async () => {
       const commits = await pullCommits(withStatus, upstream.cookie);
       expect(
-        commits.map((commit) => [commit.sha, commit.status?.state ?? null]),
+        commits.map((commit) => [commit.sha, commit.checks?.state ?? null]),
       ).toEqual([[same, 'success']]);
 
       const { body: list } = await api()
@@ -160,7 +160,7 @@ describe.skipIf(!hasBackends)(
       expect(
         (list.commits as Commit[]).map((commit) => [
           commit.sha,
-          commit.status?.state ?? null,
+          commit.checks?.state ?? null,
         ]),
       ).toEqual([
         [same, 'success'],
@@ -170,11 +170,11 @@ describe.skipIf(!hasBackends)(
       const { body: single } = await api()
         .get(`${repos}/commits/${same}`)
         .expect(200);
-      expect(single.status).toMatchObject({ sha: same, state: 'success' });
+      expect(single.checks).toMatchObject({ sha: same, state: 'success' });
       const { body: root } = await api()
         .get(`${repos}/commits/${main}`)
         .expect(200);
-      expect(root.status).toBeNull();
+      expect(root.checks).toBeNull();
     });
 
     it('keeps the base repository’s status when the fork posts the same context', async () => {
@@ -185,7 +185,7 @@ describe.skipIf(!hasBackends)(
       expect(await checksOf(number, upstream.cookie)).toMatchObject({
         sha: spoof,
         state: 'failure',
-        totalCount: 1,
+        checkRuns: [],
         statuses: [
           expect.objectContaining({ context: 'ci', state: 'failure' }),
         ],
@@ -215,7 +215,7 @@ describe.skipIf(!hasBackends)(
       });
       expect(await checksOf(number, upstream.cookie)).toBeNull();
       expect(await checksOf(number)).toBeNull();
-      expect((await pullCommits(number, upstream.cookie))[0].status).toBeNull();
+      expect((await pullCommits(number, upstream.cookie))[0].checks).toBeNull();
     });
     it('counts only the base repository’s statuses toward a required check', async () => {
       const head = branch('fork-only');

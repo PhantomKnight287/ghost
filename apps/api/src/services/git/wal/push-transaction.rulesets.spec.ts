@@ -13,6 +13,7 @@ import {
   RulesetViolationError,
 } from '../../../lib/rulesets/rulesets.errors.js';
 import type { Violation } from '../../../lib/rulesets/rulesets.types.js';
+import { DATABASE } from '../../../database/database.module.js';
 import { PushTransactionService } from './push-transaction.service.js';
 import { WalStoreService } from './wal-store.service.js';
 
@@ -60,6 +61,8 @@ describe('PushTransactionService and rulesets', () => {
       providers: [
         PushTransactionService,
         { provide: WalStoreService, useValue: store },
+        // Check suites are requested off the push's path and never fail it; their own spec covers them.
+        { provide: DATABASE, useValue: {} },
       ],
     }).compile();
     service = module.get(PushTransactionService);

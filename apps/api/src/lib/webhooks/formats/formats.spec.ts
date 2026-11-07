@@ -240,6 +240,37 @@ describe('messageOf', () => {
     targetUrl: 'https://ci.example.com/builds/42' as string | null,
     createdAt: '2026-09-30T00:00:00.000Z',
   };
+  const checkRun = {
+    id: 'crn_1',
+    numericId: 7,
+    suiteId: 'csu_1',
+    name: 'test',
+    headSha: '76bb6d3'.padEnd(40, '0'),
+    status: 'completed' as const,
+    conclusion: 'failure' as
+      | 'success'
+      | 'failure'
+      | 'neutral'
+      | 'cancelled'
+      | 'skipped'
+      | 'timed_out'
+      | 'action_required'
+      | null,
+    detailsUrl: 'https://ci.example.com/runs/7' as string | null,
+    startedAt: '2026-09-30T00:00:00.000Z',
+    completedAt: '2026-09-30T00:01:00.000Z' as string | null,
+    output: { title: '2 tests failed' as string | null, summary: null },
+    app: { slug: 'ghost-ci', name: 'Ghost CI' },
+  };
+  const checkSuite = {
+    id: 'csu_1',
+    numericId: 3,
+    headSha: '76bb6d3'.padEnd(40, '0'),
+    headBranch: 'main' as string | null,
+    status: 'completed' as const,
+    conclusion: 'failure' as const,
+    app: { slug: 'ghost-ci', name: 'Ghost CI' },
+  };
   const label = {
     id: 'label_1',
     name: 'bug',
@@ -490,6 +521,42 @@ describe('messageOf', () => {
       null,
     ],
     [
+      {
+        event: 'check_run.created',
+        checkRun: { ...checkRun, status: 'queued', conclusion: null },
+      },
+      'ada started ghost-ci / test on 76bb6d3',
+      checkRun.detailsUrl,
+      '2 tests failed',
+    ],
+    [
+      { event: 'check_run.completed', checkRun },
+      'ada finished ghost-ci / test on 76bb6d3: failure',
+      checkRun.detailsUrl,
+      '2 tests failed',
+    ],
+    [
+      {
+        event: 'check_run.completed',
+        checkRun: { ...checkRun, detailsUrl: null },
+      },
+      'ada finished ghost-ci / test on 76bb6d3: failure',
+      `${repository.htmlUrl}/commit/${checkRun.headSha}`,
+      '2 tests failed',
+    ],
+    [
+      { event: 'check_suite.completed', checkSuite },
+      'ada finished the ghost-ci checks on 76bb6d3: failure',
+      `${repository.htmlUrl}/commit/${checkSuite.headSha}`,
+      null,
+    ],
+    [
+      { event: 'check_run.completed' },
+      'ada reported a check run',
+      repository.htmlUrl,
+      null,
+    ],
+    [
       { event: 'star.created' },
       'ada starred ada/app',
       repository.htmlUrl,
@@ -613,6 +680,24 @@ describe('messageOf', () => {
     expect(
       messageOf(
         body({ event: 'commit_status.created', status: { ...status, state } }),
+      ).color,
+    ).toBe(color);
+  });
+
+  it.each([
+    ['success', 0x1f883d],
+    ['neutral', 0x59636e],
+    ['skipped', 0x59636e],
+    ['failure', 0xcf222e],
+    ['timed_out', 0xcf222e],
+    ['action_required', 0xcf222e],
+  ] as const)('colours a %s check run', (conclusion, color) => {
+    expect(
+      messageOf(
+        body({
+          event: 'check_run.completed',
+          checkRun: { ...checkRun, conclusion },
+        }),
       ).color,
     ).toBe(color);
   });

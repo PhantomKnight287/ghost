@@ -52,7 +52,12 @@ export async function RepositoryReadme({
       <p className="text-sm text-muted-foreground">
         This README is too large to render.{" "}
         <Link
-          href={rawFileHref({ owner, slug, revision: branch, path: readme.path })}
+          href={rawFileHref({
+            owner,
+            slug,
+            revision: branch,
+            path: readme.path,
+          })}
           className="text-primary underline"
         >
           View the raw file
