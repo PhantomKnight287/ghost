@@ -14,6 +14,56 @@ export const CHANGELOG: {
     body: "Apps can report check runs, GitHub's richer kind of commit status, through `POST /repos/{owner}/{repo}/check-runs` with an installation token that holds the new `checks` permission. A run moves from queued to in progress to completed, carries a markdown summary and log text, line annotations and up to three buttons, and belongs to its app's check suite on the commit. Runs show next to statuses in the merge panel and on every commit's tick, and expand in place into their output; writers can re-run a run, re-run all of an app's checks, or press its buttons, and the app hears `check_run.rerequested`, `check_suite.rerequested` or `check_run.requested_action`. A push asks every installed app with `checks: write` for a suite with `check_suite.requested`. Rulesets accept a run's name as a required check, and `gh pr checks` lists runs and statuses together.",
   },
   {
+    date: "2026-11-04",
+    title: "Smaller Discord previews",
+    body: "Links pasted in Discord take far less of the chat: the title is a bold link, the repository image is gone, bodies stop at 140 characters, and the buttons are a short line of links.",
+  },
+  {
+    date: "2026-11-04",
+    title: "No pull request hint on a first push",
+    body: "The first push into an empty repository no longer suggests a pull request into a branch that does not exist.",
+  },
+  {
+    date: "2026-11-04",
+    title: "Haunted headers",
+    body: "Every API response is now `X-Powered-By: Ectoplasm`, names who haunts it in `X-Haunted-By`, rates its `X-Spookiness` and carries `X-Clacks-Overhead`.",
+  },
+  {
+    date: "2026-11-02",
+    title: "Signed tags",
+    body: `Annotated tags signed with GPG or SSH are verified like commits, and the tags page, release pages and releases list show a Verified or Unverified badge. Release tags Ghost creates are signed with the instance's key. \`GET /repos/{owner}/{repo}/git/tags/{tag_sha}\` returns a tag's verification, and GraphQL serves \`Repository.ref\`, \`Repository.refs\` and \`Release.tag\`. See [Signing commits and tags](${DOCS_URL}/signing/signing-commits-and-tags).`,
+  },
+  {
+    date: "2026-11-02",
+    title: "Polished repository pages",
+    body: "Markdown files render on their file page, with `?plain=1` for the source. A file page splits its last commit from its own details and has a copy button. Repositories list their contributors in the sidebar, and the file listing no longer waits on tab counts. Issues filter by several labels at once, a release picks its tag from the existing ones or creates one, and a profile keeps its tab in the URL.",
+  },
+  {
+    date: "2026-10-31",
+    title: "Ghost Apps: new permissions, GraphQL and scoped tokens",
+    body: `When an app asks for more permissions, each installation keeps what it accepted until an admin reviews the request, and accepting sends \`installation.new_permissions_accepted\`. Installation tokens work on GraphQL, limited to what the app may read and write. Apps can reset a user token or narrow it to some repositories and permissions with GitHub's \`/applications/{client_id}/token\` routes. See [Ghost Apps](${DOCS_URL}/apps), including a guide to porting a Probot app.`,
+  },
+  {
+    date: "2026-10-30",
+    title: "Apps that act for a user",
+    body: `A Ghost App can sign people in on its own website and act for them, with expiring tokens and refresh tokens as on GitHub, only where both the app and the user may act. Anything it does shows as "user via App". Authorized apps in Settings lists Ghost Apps, and revoking one ends its tokens. See [Acting for a user](${DOCS_URL}/apps/user-tokens).`,
+  },
+  {
+    date: "2026-10-30",
+    title: "Webhooks for apps",
+    body: `Installed apps receive the events of the repositories they cover, filtered by the events and permissions each installation accepted, and hear when they are installed, changed, suspended or removed. Pull requests now send \`pull_request.opened\`, \`edited\`, \`closed\` and \`reopened\`. See [App webhooks](${DOCS_URL}/apps/webhooks).`,
+  },
+  {
+    date: "2026-10-29",
+    title: "Installing apps",
+    body: `Install a Ghost App on your account or an organization, on every repository or chosen ones. The app gets one-hour installation tokens at GitHub's paths and acts as its bot, only on those repositories and within the permissions you accepted. Rulesets can pin a required check to an app and let an app bypass them. See [Installing an app](${DOCS_URL}/apps/installing).`,
+  },
+  {
+    date: "2026-10-28",
+    title: "Ghost Apps",
+    body: `Register an app for your account or organization, the way GitHub Apps work: it gets an App ID, private keys and a \`slug[bot]\` user, and Octokit's \`App\` signs in with a JWT. See [Building a Ghost App](${DOCS_URL}/apps).`,
+  },
+  {
     date: "2026-10-27",
     title: "Repositories through GitHub's REST API",
     body: "GitHub's routes to list, edit and delete repositories work against Ghost. `GET /user/repos` lists everything you hold a role on, private repositories included, filtered by `visibility`, `affiliation` or `type`. `GET /users/{username}/repos` lists an account's public repositories, and `GET /orgs/{org}/repos` an organization's. All three sort and page as GitHub does. `PATCH /repos/{owner}/{repo}` renames a repository and changes its description, visibility or default branch, and `DELETE /repos/{owner}/{repo}` deletes it with a token that holds `delete_repo`.",
@@ -367,6 +417,7 @@ export const CHANGELOG: {
 
 /** Newest first. A release holds the entries dated on or before its own date and after the release below it. */
 export const RELEASES: { version: string; date: string }[] = [
+  { version: "v0.5.0", date: "2026-11-09" },
   { version: "v0.4.0", date: "2026-10-27" },
   { version: "v0.3.0", date: "2026-10-13" },
 ];
