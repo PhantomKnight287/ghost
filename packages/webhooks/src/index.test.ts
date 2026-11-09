@@ -34,6 +34,14 @@ describe("WEBHOOK_EVENTS", () => {
       expect(subscribable).not.toContain(event);
   });
 
+  test("issue.deleted is subscribable and needs issues", () => {
+    expect(WEBHOOK_EVENTS["issue.deleted"]).toEqual({
+      label: "An issue is deleted",
+      permission: "issues",
+    });
+    expect(webhookEvents as readonly string[]).toContain("issue.deleted");
+  });
+
   test("check events need checks", () => {
     for (const event of [
       "check_run.created",

@@ -55,11 +55,11 @@ The fix copies GitHub.
   `lib/apps/graphql-permissions.ts`) and the installation covers the
   repository. The bot needs no repository admin role. A token without
   `issues: write`, or narrowed to other repositories, is refused.
-- User-to-server (`ghu_`) tokens get the intersection, as everywhere else in
-  Ghost and on GitHub: the user must be an admin and the app must hold
-  `issues: write`. The bot rule applies only when the actor is an app's bot
-  acting through an installation token. A write collaborator acting through
-  an app is refused. *(Claude's call.)*
+- User-to-server (`ghu_`) tokens cannot delete: Ghost refuses them on all of
+  GraphQL with 403 (`test/app-user-permissions.e2e-spec.ts`), and
+  `deleteIssue` exists only in GraphQL. Nothing changes there. The bot rule
+  applies only when the actor is an app's bot acting through an installation
+  token.
 - The shared service method takes the requester as today. It authorizes with
   the `admin` operation, except when the requester is an app bot, where it
   authorizes with `write` (which only a covering installation grants a bot)

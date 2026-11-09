@@ -22,7 +22,7 @@
 
 1. Deleting the newest issue, then opening one: the new issue must not get the old number. Task 2 tests it.
 2. Two issues opened at the same time after the counter lands: distinct, consecutive numbers. Task 2 tests it.
-3. A write collaborator acting through a `ghu_` token whose app has `issues: write`: refused. Task 3 tests it.
+3. A `ghu_` token: refused, since Ghost refuses `ghu_` on all of GraphQL. Task 3 guards it.
 4. Deleting an issue twice (double click, retry): the second call answers 404, not 500. Task 1 tests it.
 5. An installation token narrowed to another repository: refused even with `issues: write`. Task 3 tests it.
 
@@ -54,7 +54,7 @@
 ### Task 2: Numbers are never reused
 
 **Files:**
-- Test: `apps/api/test/delete-issues.e2e-spec.ts`, `apps/api/src/services/imports/imports.integration.spec.ts`
+- Test: `apps/api/test/delete-issues.e2e-spec.ts` (`numbers` block), `apps/api/src/services/imports/imports.integration.spec.ts`
 - Modify: `packages/db/src/schema/repository.ts` (counter column, builder's choice of place), `apps/api/src/resources/issues/issues.service.ts` (open path), `apps/api/src/resources/pull-requests/…` (wherever a pull request takes a number), `apps/api/src/services/imports/import-writer.service.ts`, generated migration.
 
 - [ ] **Step 1: Write failing tests:**
@@ -70,7 +70,7 @@
 ### Task 3: GraphQL `deleteIssue`, tokens and bots
 
 **Files:**
-- Test: `apps/api/test/github-graphql.e2e-spec.ts` (user path), `apps/api/test/app-permissions.e2e-spec.ts` and `apps/api/test/app-user-permissions.e2e-spec.ts` (bots, `ghu_`)
+- Test: `apps/api/test/delete-issues.e2e-spec.ts` (`GraphQL deleteIssue` and `apps` blocks); existing `app-permissions.e2e-spec.ts` mapping test
 - Modify: `apps/api/src/github/graphql/resolvers/issue-mutations/issue-mutations.resolver.ts`, `…/issue-mutations.service.ts`, `apps/api/src/github/graphql/types/mutations.type.ts`, `apps/api/src/lib/apps/graphql-permissions.ts`, `apps/api/src/resources/issues/issues.service.ts` (bot branch)
 
 **Interfaces:**
@@ -83,7 +83,7 @@
   - `refuses deleteIssue on a pull request id`; the pull request remains.
   - `refuses deleteIssue with a read-only OAuth scope`.
   - app-permissions: `an installation with issues write deletes an issue`; `an installation with issues read is refused`; `a token narrowed to another repository is refused`.
-  - app-user-permissions: `a ghu_ token needs the user to be an admin`: write collaborator + app with `issues: write` → refused; admin + app with `issues: write` → deleted; admin + app with `issues: read` → refused.
+  - `refuses an admin's ghu_ token, as all of GraphQL refuses ghu_ tokens` (403).
   - The existing `every GraphQL type and root field is mapped or denied on purpose` and `schema-conformance.spec.ts` must pass with the new types.
 - [ ] **Step 2: Run** the three e2e files. Expected: FAIL (`Cannot query field "deleteIssue"`).
 - [ ] **Step 3: Commit red.**
@@ -101,9 +101,9 @@
 
 - [ ] **Step 1: Write failing tests:**
   - webhooks package: `issue.deleted needs issues`.
-  - webhook-events e2e: `deleting an issue publishes issue.deleted by the deleter`.
-  - webhooks integration: `an endpoint subscribed to issue.deleted gets the issue as it was`: body `event === 'issue.deleted'`, `issue` has `id, number, title, body, state, author.username, htmlUrl` ending `/issues/<n>`, `sender` is the deleter; `an endpoint not subscribed gets nothing`; `an installation without issues read gets nothing`.
-  - formats: `issue.deleted renders in every chat format` (Slack, Discord, Teams, Google Chat), naming the issue number and title.
+  - delete-issues e2e: `publishes issue.deleted by the deleter, carrying the issue as it was`.
+  - webhooks integration: `sends a deleted issue as it was, from what the event carried` (subscribed endpoint gets it from the payload; an unsubscribed one does not). Installation permission filtering is the existing generic `needs the event's permission at read`.
+  - formats: `messageOf` row `ada deleted issue #7: Bell count`, linking the issue list (the issue page is gone).
   - notifier: `deleting an issue notifies nobody` (no new `notification` rows; put in Task 1's e2e file).
 - [ ] **Step 2: Run** `bun run test` in `packages/webhooks` and `apps/api`, plus the e2e. Expected: FAIL.
 - [ ] **Step 3: Commit red.**

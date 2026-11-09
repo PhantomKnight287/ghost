@@ -974,6 +974,57 @@ describe.skipIf(!CONNECTION)('webhooks', () => {
     expect(bodies['repository.transferred'].from).toBe('someone');
   });
 
+  it('sends a deleted issue as it was, from what the event carried', async () => {
+    const subscribed = await webhooks.create(repositoryOwner, {
+      url: 'https://93.184.216.34/deleted',
+      events: ['issue.deleted'],
+    });
+    const other = await webhooks.create(repositoryOwner, {
+      url: 'https://93.184.216.34/not-deleted',
+      events: ['issue.closed'],
+    });
+
+    // The row is gone by the time the event is handled; only the payload remains.
+    await fanout.handle({
+      id: `evt_whk_issue_deleted_${RUN}`,
+      type: 'issue.deleted',
+      repositoryId: repository.id,
+      actorId: MEMBER,
+      payload: {
+        issue: {
+          id: 'issue_gone',
+          number: 7,
+          title: 'Spam',
+          body: 'Buy now',
+          state: 'open',
+          authorId: OWNER,
+        },
+      },
+      createdAt: new Date(),
+    } as Parameters<WebhookFanoutService['handle']>[0]);
+
+    const [job] = await jobsFor(subscribed.id).then((jobs) =>
+      jobs.filter((job) => (job.payload as { event: string }).event !== 'ping'),
+    );
+    expect((job!.payload as { event: string }).event).toBe('issue.deleted');
+    expect(bodyOf(job!)).toMatchObject({
+      event: 'issue.deleted',
+      repository: { fullName: `${USERNAME}/app` },
+      sender: { id: MEMBER },
+      issue: {
+        id: 'issue_gone',
+        number: 7,
+        title: 'Spam',
+        body: 'Buy now',
+        state: 'open',
+        author: { id: OWNER, username: USERNAME },
+        htmlUrl: `https://ghost.test/${USERNAME}/app/issues/7`,
+      },
+    });
+    expect(bodyOf(job!).pullRequest).toBeUndefined();
+    expect(await eventsFor(other.id)).toEqual(['ping']);
+  });
+
   it('sends a chat service its own message and everyone else Ghost’s JSON', async () => {
     // inserted directly: saving through the API would resolve these hosts
     const [slack, plain] = await db

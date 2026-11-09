@@ -383,6 +383,13 @@ describe('messageOf', () => {
       thread.htmlUrl,
       null,
     ],
+    // The issue's own page is gone, so the message links the issue list.
+    [
+      { event: 'issue.deleted', issue: thread },
+      'ada deleted issue #7: Bell count',
+      'https://ghost.test/ada/app/issues',
+      null,
+    ],
     [
       { event: 'pull_request.ready_for_review', pullRequest: pull },
       'ada marked pull request #7: Bell count ready for review',
