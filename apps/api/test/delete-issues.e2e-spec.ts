@@ -9,7 +9,7 @@ import { App } from '@octokit/app';
 import { Octokit } from '@octokit/core';
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, isNull } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -442,7 +442,23 @@ describe.skipIf(!hasBackends)('Deleting an issue', () => {
     });
 
     it('notifies nobody', async () => {
-      const { number } = await open(writer.cookie, 'Quiet');
+      /** Waits until every event of the repository has been handled, so the notifier has had its turn. */
+      const settled = async () => {
+        for (let i = 0; i < 100; i++) {
+          const [{ n }] = await db
+            .select({ n: count() })
+            .from(schema.outboxEvent)
+            .where(
+              and(
+                eq(schema.outboxEvent.repositoryId, repositoryId),
+                isNull(schema.outboxEvent.processedAt),
+              ),
+            );
+          if (n === 0) return;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        throw new Error('The outbox did not drain');
+      };
       const notifications = async () =>
         (
           await db
@@ -450,12 +466,23 @@ describe.skipIf(!hasBackends)('Deleting an issue', () => {
             .from(schema.notification)
             .where(eq(schema.notification.userId, writer.userId))
         )[0]!.n;
+      const { id, number } = await open(writer.cookie, 'Quiet');
+      await settled();
       const before = await notifications();
 
       await remove(owner.cookie, number).expect(200);
-      // The notifier works off the outbox after the commit; give it a moment.
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await settled();
 
+      const [deleted] = (
+        await db
+          .select()
+          .from(schema.outboxEvent)
+          .where(eq(schema.outboxEvent.type, 'issue.deleted'))
+      ).filter(
+        (row) => (row.payload as { issue: { id: string } }).issue.id === id,
+      );
+      // processedAt is also set after the last failed attempt; a clean run has no error.
+      expect(deleted?.lastError).toBeNull();
       expect(await notifications()).toBe(before);
     });
   });
