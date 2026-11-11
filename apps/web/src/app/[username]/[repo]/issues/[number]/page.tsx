@@ -14,6 +14,7 @@ import { pageLinks } from "@/lib/agent-pages";
 import { atLeast } from "@ghost/permissions";
 
 import { AssigneeEditor } from "./assignee-editor";
+import { DeleteIssueButton } from "./delete-issue-button";
 import { LabelEditor } from "./label-editor";
 
 export async function generateMetadata({
@@ -122,6 +123,15 @@ export default async function IssuePage({
           viewer={viewer}
           canEdit={canTriage}
         />
+        {atLeast(role, "admin") && (
+          <div className="border-t pt-4">
+            <DeleteIssueButton
+              username={username}
+              repo={repo}
+              number={Number(number)}
+            />
+          </div>
+        )}
       </aside>
     </div>
   );

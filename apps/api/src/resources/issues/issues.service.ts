@@ -1,4 +1,5 @@
 import { type Database, schema } from '@ghost/db';
+import type { Role } from '@ghost/permissions';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   and,
@@ -6,9 +7,9 @@ import {
   count,
   desc,
   eq,
-  ilike,
   exists,
   gte,
+  ilike,
   inArray,
   isNotNull,
   ne,
@@ -19,44 +20,44 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 
 import { DATABASE } from '../../database/database.module.js';
+import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
+import type { Executor } from '../../lib/db/executor.js';
+import { keyset } from '../../lib/db/keyset.js';
+import { escapeLike, isoTimestamp, sameName } from '../../lib/db/sql.js';
 import { publishEvent } from '../../lib/events/events.js';
 import { assertNotImporting } from '../../lib/imports/importing.js';
+import { canEditThread } from '../../lib/issues/can-edit-thread.js';
 import { closeIssue } from '../../lib/issues/close-issue.js';
-import type { Executor } from '../../lib/db/executor.js';
+import {
+  CannotDeletePullRequestError,
+  InvalidLabelNameError,
+  IssueCommentNotFoundError,
+  IssueNotFoundError,
+  IssueNotOpenError,
+  LabelAlreadyExistsError,
+  LabelNotFoundError,
+  NotCommentAuthorError,
+  PullRequestReopenError,
+} from '../../lib/issues/issues.errors.js';
+import { touchIssue } from '../../lib/issues/touch-issue.js';
 import {
   pendingReviewRequestFor,
   type ReviewRequested,
 } from '../../lib/pull-requests/review-requested.js';
-import { currentViaAppId, viaAppOf } from '../../lib/apps/via-app.js';
 import { selectReviews } from '../../lib/pull-requests/reviews.js';
-import type { Role } from '@ghost/permissions';
-import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import {
   ownerNameOf,
-  repositoryFullNameOf,
   type Repository,
   type RepositoryOperation,
+  repositoryFullNameOf,
 } from '../../lib/repositories/access/repository-access.js';
+import type { Violation } from '../../lib/rulesets/rulesets.types.js';
+import { RepositoryAccessService } from '../../services/git/repository-access/repository-access.service.js';
 import { IssueReferencesService } from '../../services/issues/issue-references.service.js';
 import { UsersService } from '../../services/users/users.service.js';
-import { escapeLike, isoTimestamp, sameName } from '../../lib/db/sql.js';
-import { keyset } from '../../lib/db/keyset.js';
 import type { CreateIssueRequestDTO } from './dto/create-issue.dto.js';
-import type { LabelDTO } from './dto/label.dto.js';
 import type { GetIssuesQueryDTO } from './dto/issue.dto.js';
-import {
-  IssueCommentNotFoundError,
-  NotCommentAuthorError,
-  IssueNotFoundError,
-  IssueNotOpenError,
-  InvalidLabelNameError,
-  LabelAlreadyExistsError,
-  PullRequestReopenError,
-  LabelNotFoundError,
-} from '../../lib/issues/issues.errors.js';
-import { touchIssue } from '../../lib/issues/touch-issue.js';
-import { canEditThread } from '../../lib/issues/can-edit-thread.js';
-import type { Violation } from '../../lib/rulesets/rulesets.types.js';
+import type { LabelDTO } from './dto/label.dto.js';
 
 // A name with surrounding whitespace would come back different from what was sent, and `.` or `..` in a label's URL is a dot segment clients collapse.
 const LABEL_NAME = /^(?!\.\.?$)\S(?:[\s\S]*\S)?$/;
@@ -225,45 +226,45 @@ export class IssuesService {
       authorId,
       viaAppId: currentViaAppId(),
       isPullRequest,
-      number: sql<number>`(select coalesce(max(${schema.issue.number}), 0) + 1 from ${schema.issue} where ${schema.issue.repositoryId} = ${repository.id})`,
     };
 
-    // Two concurrent opens read the same max; the unique index rejects the loser, whose retry reads the winner's number.
-    for (let attempt = 0; ; attempt++) {
-      try {
-        return await this.db.transaction(async (tx) => {
-          await assertNotImporting(tx, repository.id);
-          const [row] = await tx
-            .insert(schema.issue)
-            .values(values)
-            .returning();
-          if (!row) throw new Error('Issue insert returned no rows');
+    return this.db.transaction(async (tx) => {
+      await assertNotImporting(tx, repository.id);
+      // Bumping the counter row-locks the repository, so concurrent opens take turns; a deleted number is never taken again.
+      const [{ number }] = await tx
+        .update(schema.repository)
+        .set({
+          lastIssueNumber: sql`${schema.repository.lastIssueNumber} + 1`,
+        })
+        .where(eq(schema.repository.id, repository.id))
+        .returning({ number: schema.repository.lastIssueNumber });
+      const [row] = await tx
+        .insert(schema.issue)
+        .values({ ...values, number })
+        .returning();
+      if (!row) throw new Error('Issue insert returned no rows');
 
-          await this.recordEvent(tx, row.id, authorId, 'opened', {});
-          await publishEvent(tx, {
-            type: 'issue.opened',
-            repositoryId: repository.id,
-            actorId: authorId,
-            payload: { issueId: row.id },
-          });
-          await this.references.record(
-            tx,
-            {
-              type: 'issue',
-              id: row.id,
-              repository,
-              issueId: row.id,
-              actorId: authorId,
-            },
-            body,
-          );
-          await extend(tx, row);
-          return row;
-        });
-      } catch (error) {
-        if (!isNumberCollision(error) || attempt === 2) throw error;
-      }
-    }
+      await this.recordEvent(tx, row.id, authorId, 'opened', {});
+      await publishEvent(tx, {
+        type: 'issue.opened',
+        repositoryId: repository.id,
+        actorId: authorId,
+        payload: { issueId: row.id },
+      });
+      await this.references.record(
+        tx,
+        {
+          type: 'issue',
+          id: row.id,
+          repository,
+          issueId: row.id,
+          actorId: authorId,
+        },
+        body,
+      );
+      await extend(tx, row);
+      return row;
+    });
   }
 
   async getIssues(
@@ -557,6 +558,50 @@ export class IssuesService {
     });
 
     return this.expandIssue(updated, params.requesterId, base.viewerRole);
+  }
+
+  /** Deletes an issue and everything hanging off it, for good; its number is never given out again. Admins only, except an app's bot acting through an installation, whose `issues: write` AppPermissionGuard has already checked. Pull requests cannot be deleted. */
+  async deleteIssue(
+    params: IssueRef & { requesterId: string; asInstallation?: boolean },
+  ) {
+    const base = await this.access.authorize({
+      ...params,
+      operation: params.asInstallation ? 'write' : 'admin',
+    });
+
+    await this.db.transaction(async (tx) => {
+      await assertNotImporting(tx, base.id);
+      const [issue] = await tx
+        .select()
+        .from(schema.issue)
+        .where(
+          and(
+            eq(schema.issue.repositoryId, base.id),
+            eq(schema.issue.number, params.number),
+          ),
+        )
+        .for('update');
+      if (!issue) throw new IssueNotFoundError();
+      if (issue.isPullRequest) throw new CannotDeletePullRequestError();
+
+      await tx.delete(schema.issue).where(eq(schema.issue.id, issue.id));
+      await publishEvent(tx, {
+        type: 'issue.deleted',
+        repositoryId: base.id,
+        actorId: params.requesterId,
+        payload: {
+          issue: {
+            id: issue.id,
+            number: issue.number,
+            title: issue.title,
+            body: issue.body,
+            state: issue.state,
+            authorId: issue.authorId,
+          },
+        },
+      });
+    });
+    return { deleted: true };
   }
 
   async closeIssue(params: IssueRef & { requesterId: string }) {
@@ -1483,14 +1528,6 @@ interface IssueRef {
   number: number;
   requesterId?: string;
   operation?: RepositoryOperation;
-}
-
-// Drizzle wraps the driver error, so the constraint name is on `cause`.
-function isNumberCollision(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false;
-  if ((error as { constraint?: string }).constraint === 'issue_repo_number_idx')
-    return true;
-  return isNumberCollision((error as { cause?: unknown }).cause);
 }
 
 function dedupe(names: string[]) {

@@ -1,12 +1,22 @@
 import { schema } from '@ghost/db';
 import { sql } from 'drizzle-orm';
 
-import type { Commit } from '../git/commits/list-commits.js';
 import type { Executor } from '../db/executor.js';
+import type { Commit } from '../git/commits/list-commits.js';
 
 /** What each event carries. Ids only: a consumer reads the rows as they are when it runs, and skips an event whose rows are gone. A deletion carries what it deleted, since there is no row left to read. Issue events cover pull requests too, since a pull request is an issue. */
 export type EventPayloads = {
   'issue.opened': { issueId: string };
+  'issue.deleted': {
+    issue: {
+      id: string;
+      number: number;
+      title: string;
+      body: string | null;
+      state: (typeof schema.issueState.enumValues)[number];
+      authorId: string;
+    };
+  };
   'issue.edited': { issueId: string };
   'issue.closed': { issueId: string };
   'issue.reopened': { issueId: string };

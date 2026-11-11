@@ -1,5 +1,7 @@
 import { createId } from "@paralleldrive/cuid2";
+import { isNotNull, isNull, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   bigint,
   date,
   integer,
@@ -9,10 +11,9 @@ import {
   text,
   timestamp,
   uniqueIndex,
-  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+
 import { organization, user } from "./auth.js";
-import { isNotNull, isNull, sql } from "drizzle-orm";
 
 export const repositoryVisiblity = pgEnum("repository_visibility", [
   "public",
@@ -47,6 +48,7 @@ export const repository = pgTable(
     // Branch name without `refs/heads/`. Null lets the materializer pick main, master or the first branch.
     defaultBranch: text(),
     lastPushedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    lastIssueNumber: integer().notNull().default(0),
     // AnyPgColumn breaks the circular inference a self-reference would otherwise cause
     parentRepositoryId: text().references((): AnyPgColumn => repository.id, {
       onDelete: "set null",

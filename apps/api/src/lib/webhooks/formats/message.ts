@@ -168,6 +168,9 @@ export function messageOf(body: WebhookBody | WebhookPing): WebhookMessage {
     case 'issue.reopened':
     case 'pull_request.reopened':
       return onThread(`reopened ${about}`, GREEN);
+    // Its page is gone, so link the issue list.
+    case 'issue.deleted':
+      return say(`deleted ${about}`, RED, `${repository.htmlUrl}/issues`);
     case 'issue.assigned':
       return onThread(`assigned ${body.assignee?.username} to ${about}`, GREY);
     case 'issue.unassigned':

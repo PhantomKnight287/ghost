@@ -169,6 +169,24 @@ export class IssueMutationsService {
     };
   }
 
+  /** Issues only: `issueRef` resolves an `Issue` id, so a pull request's id fails as an unresolvable node, and GitHub never deletes pull requests either. */
+  async deleteIssue(
+    input: M.DeleteIssueInput,
+    viewer: GithubViewer | null,
+    loaders: Loaders,
+  ) {
+    const signedIn = this.require(viewer, 'DeleteIssue');
+    const { repository, ref } = await this.issueRef(input.issueId, signedIn);
+    requireWriteScope(signedIn, 'deleteIssue', repository);
+    await this.write('DeleteIssue', signedIn.userId, loaders, () =>
+      this.issues.deleteIssue({
+        ...ref,
+        asInstallation: Boolean(signedIn.installation),
+      }),
+    );
+    return { clientMutationId: input.clientMutationId, repository };
+  }
+
   async addComment(
     input: M.AddCommentInput,
     viewer: GithubViewer | null,

@@ -84,6 +84,19 @@ export const closeIssue = actionClient
     revalidatePath(issuePath(username, repo));
   });
 
+export const deleteIssue = actionClient
+  .inputSchema(target)
+  .action(async ({ parsedInput: { username, repo, number } }) => {
+    await callApi((client) =>
+      client.DELETE("/api/repositories/{username}/{repo}/issues/{number}", {
+        params: { path: { username, repo, number } },
+      }),
+    );
+
+    revalidatePath(issuePath(username, repo), "layout");
+    redirect(issuePath(username, repo));
+  });
+
 export const reopenIssue = actionClient
   .inputSchema(target)
   .action(async ({ parsedInput: { username, repo, number } }) => {

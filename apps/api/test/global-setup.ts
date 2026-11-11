@@ -28,9 +28,10 @@ export default async function setup() {
   await redis.flushdb();
   await redis.quit();
 
+  // Not `auto`: RustFS rejects it as a bucket's location constraint, and us-east-1 sends none.
   await new S3Client({
     endpoint: S3_ENDPOINT,
-    region: 'auto',
+    region: 'us-east-1',
     forcePathStyle: true,
     credentials: {
       accessKeyId: s3Credentials.S3_ACCESS_KEY_ID,

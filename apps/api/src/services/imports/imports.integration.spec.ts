@@ -27,8 +27,11 @@ import {
 } from '../../lib/imports/imports.errors.js';
 import { assertNotImporting } from '../../lib/imports/importing.js';
 import { ImportsService } from '../../resources/imports/imports.service.js';
+import { IssuesService } from '../../resources/issues/issues.service.js';
 import type { RepositoriesService } from '../../resources/repositories/repositories.service.js';
 import { RepositoryAccessService } from '../git/repository-access/repository-access.service.js';
+import { IssueReferencesService } from '../issues/issue-references.service.js';
+import { UsersService } from '../users/users.service.js';
 import { ImportDispatcherService } from './import-dispatcher.service.js';
 import { ImportWriterService } from './import-writer.service.js';
 import { MAX_IMPORT_ATTEMPTS } from '../../lib/imports/importing.js';
@@ -429,6 +432,36 @@ describe.skipIf(!CONNECTION)('GitHub imports', () => {
         name: 'One, again',
         authorId: schema.IMPORTER_USER_ID,
       });
+    });
+
+    it('numbers a new issue after the highest imported one, whatever order they came in', async () => {
+      await writer.writeIssues(repositoryId, [
+        { ...issue, number: 9, labels: [] },
+        { ...issue, number: 5, labels: [] },
+      ]);
+      const [repository] = await db
+        .select()
+        .from(schema.repository)
+        .where(eq(schema.repository.id, repositoryId));
+      const issues = new IssuesService(
+        db,
+        new UsersService(db),
+        new RepositoryAccessService(db),
+        new IssueReferencesService(db),
+      );
+
+      const opened = await issues.open(
+        {
+          repository: repository!,
+          title: 'After the import',
+          body: null,
+          authorId: OWNER,
+          isPullRequest: false,
+        },
+        async () => {},
+      );
+
+      expect(opened.number).toBe(10);
     });
 
     it('keeps numbers, credits authors and attaches pull requests', async () => {

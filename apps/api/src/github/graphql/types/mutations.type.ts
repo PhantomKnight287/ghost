@@ -208,6 +208,27 @@ export class CloseIssuePayload extends IssuePayload {}
 @ObjectType('ReopenIssuePayload')
 export class ReopenIssuePayload extends IssuePayload {}
 
+@InputType('DeleteIssueInput')
+export class DeleteIssueInput {
+  @Allow()
+  @Field(() => ID)
+  issueId: string;
+
+  @Allow()
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+}
+
+@ObjectType('DeleteIssuePayload')
+export class DeleteIssuePayload {
+  @Field(() => String, { nullable: true })
+  clientMutationId?: string | null;
+
+  /** The repository the issue was in. */
+  @Field(() => RepositoryNode, { nullable: true })
+  repository: RepositoryNode | null;
+}
+
 @ObjectType('AddCommentPayload')
 export class AddCommentPayload {
   @Field(() => String, { nullable: true })

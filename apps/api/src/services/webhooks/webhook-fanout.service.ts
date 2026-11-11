@@ -64,10 +64,13 @@ export class WebhookFanoutService {
   }
 
   async handle(event: StoredEvent) {
+    // A deleted issue's row is gone; the event carries it as it was.
     const thread =
       'issueId' in event.payload
         ? await this.threadOf(event.payload.issueId)
-        : null;
+        : event.type === 'issue.deleted'
+          ? { ...event.payload.issue, isPullRequest: false }
+          : null;
     if (thread === undefined) return;
     const name = webhookEventOf(event.type, thread?.isPullRequest ?? false);
     if (isOwningAppEvent(name)) return this.owningAppDelivery(event, name);

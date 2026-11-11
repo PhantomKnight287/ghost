@@ -8861,6 +8861,61 @@
         "tags": [
           "Issues"
         ]
+      },
+      "delete": {
+        "operationId": "IssuesController_deleteIssue",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete an issue",
+        "tags": [
+          "Issues"
+        ]
       }
     },
     "/api/repositories/{username}/{repo}/issues/{number}/close": {
@@ -26565,6 +26620,7 @@
           "issue.edited",
           "issue.closed",
           "issue.reopened",
+          "issue.deleted",
           "issue.assigned",
           "issue.unassigned",
           "issue.labeled",
