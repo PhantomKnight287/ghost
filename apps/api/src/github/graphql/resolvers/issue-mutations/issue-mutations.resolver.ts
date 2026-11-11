@@ -48,6 +48,15 @@ export class IssueMutationsResolver {
     return this.mutations.reopenIssue(input, viewer, context.loaders);
   }
 
+  @Mutation(() => M.DeleteIssuePayload, { nullable: true })
+  deleteIssue(
+    @Args('input') input: M.DeleteIssueInput,
+    @Viewer() viewer: GithubViewer | null,
+    @Context() context: GraphqlContext,
+  ) {
+    return this.mutations.deleteIssue(input, viewer, context.loaders);
+  }
+
   @Mutation(() => M.AddCommentPayload, { nullable: true })
   addComment(
     @Args('input') input: M.AddCommentInput,

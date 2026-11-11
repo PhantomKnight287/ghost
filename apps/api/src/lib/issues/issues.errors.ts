@@ -66,3 +66,10 @@ export class PullRequestReopenError extends DomainError {
     super('A closed pull request cannot be reopened');
   }
 }
+
+export class CannotDeletePullRequestError extends DomainError {
+  status = HttpStatus.NOT_FOUND;
+  constructor() {
+    super('A pull request cannot be deleted');
+  }
+}

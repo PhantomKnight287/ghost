@@ -250,6 +250,16 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+input DeleteIssueInput {
+  clientMutationId: String
+  issueId: ID!
+}
+
+type DeleteIssuePayload {
+  clientMutationId: String
+  repository: Repository
+}
+
 enum DiffSide {
   LEFT
   RIGHT
@@ -543,6 +553,7 @@ type Mutation {
   createIssue(input: CreateIssueInput!): CreateIssuePayload
   createPullRequest(input: CreatePullRequestInput!): CreatePullRequestPayload
   createRepository(input: CreateRepositoryInput!): CreateRepositoryPayload
+  deleteIssue(input: DeleteIssueInput!): DeleteIssuePayload
   markPullRequestReadyForReview(input: MarkPullRequestReadyForReviewInput!): MarkPullRequestReadyForReviewPayload
   mergePullRequest(input: MergePullRequestInput!): MergePullRequestPayload
   removeAssigneesFromAssignable(input: RemoveAssigneesFromAssignableInput!): RemoveAssigneesFromAssignablePayload

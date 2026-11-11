@@ -10,6 +10,7 @@ export const WEBHOOK_EVENTS = {
   },
   "issue.closed": { label: "An issue is closed", permission: "issues" },
   "issue.reopened": { label: "An issue is reopened", permission: "issues" },
+  "issue.deleted": { label: "An issue is deleted", permission: "issues" },
   "issue.assigned": { label: "Someone is assigned", permission: "issues" },
   "issue.unassigned": { label: "Someone is unassigned", permission: "issues" },
   "issue.labeled": {

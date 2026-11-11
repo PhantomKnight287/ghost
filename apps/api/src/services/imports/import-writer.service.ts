@@ -140,6 +140,15 @@ export class ImportWriterService {
             set: values,
           });
       }
+
+      // New issues opened on Ghost after the import number after GitHub's highest.
+      const highest = Math.max(...issues.map((issue) => issue.number));
+      await tx
+        .update(schema.repository)
+        .set({
+          lastIssueNumber: sql`greatest(${schema.repository.lastIssueNumber}, ${highest})`,
+        })
+        .where(eq(schema.repository.id, repositoryId));
     });
   }
 

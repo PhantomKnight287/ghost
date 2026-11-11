@@ -2046,7 +2046,8 @@ export interface paths {
         get: operations["IssuesController_getIssue"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete an issue */
+        delete: operations["IssuesController_deleteIssue"];
         options?: never;
         head?: never;
         /** Edit an issue title or description */
@@ -5998,7 +5999,7 @@ export interface components {
             contexts: string[];
         };
         /** @enum {string} */
-        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.opened" | "pull_request.edited" | "pull_request.closed" | "pull_request.reopened" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "pull_request.review_requested" | "pull_request.review_request_removed" | "pull_request.merged" | "commit_status.created" | "check_run.created" | "check_run.completed" | "check_suite.completed" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
+        WebhookEvent: "push" | "issue.opened" | "issue.edited" | "issue.closed" | "issue.reopened" | "issue.deleted" | "issue.assigned" | "issue.unassigned" | "issue.labeled" | "issue.unlabeled" | "issue.commented" | "issue.comment_edited" | "issue.comment_deleted" | "pull_request.opened" | "pull_request.edited" | "pull_request.closed" | "pull_request.reopened" | "pull_request.ready_for_review" | "pull_request.converted_to_draft" | "pull_request.synchronized" | "pull_request.reviewed" | "pull_request.review_dismissed" | "pull_request.review_commented" | "pull_request.review_requested" | "pull_request.review_request_removed" | "pull_request.merged" | "commit_status.created" | "check_run.created" | "check_run.completed" | "check_suite.completed" | "label.created" | "label.edited" | "label.deleted" | "release.created" | "release.published" | "release.edited" | "release.deleted" | "star.created" | "star.deleted" | "watch.started" | "fork.created" | "repository.edited" | "repository.transferred" | "member.added" | "member.removed";
         WebhookDTO: {
             id: string;
             url: string;
@@ -14144,6 +14145,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IssueDetailDTO"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    IssuesController_deleteIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+                repo: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
             404: {
