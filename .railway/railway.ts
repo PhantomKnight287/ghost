@@ -60,6 +60,25 @@ export default defineRailway(() => {
       NEXT_PUBLIC_WEB_APP_URL: preserve(),
     },
   });
+  const landing = service("landing", {
+    source: ghost,
+    build: {
+      buildEnvironment: "V3",
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/landing/Dockerfile",
+      watchPatterns: ["/apps/landing/**"],
+    },
+    replicas: { "asia-southeast1-eqsg3a": 1 },
+    deploy: { sleepApplication: true },
+    env: {
+      NEXT_PUBLIC_WEB_APP_URL: "https://web.ghost.procrastinator.fyi",
+      NEXT_PUBLIC_API_URL: "https://api.ghost.procrastinator.fyi",
+      NEXT_PUBLIC_DOCS_URL: "https://docs.ghost.procrastinator.fyi",
+      NEXT_PUBLIC_LEARN_URL: "https://learn.ghost.procrastinator.fyi",
+      NEXT_PUBLIC_REPOSITORY_URL:
+        "https://web.ghost.procrastinator.fyi/ghost/ghost",
+    },
+  });
   const api = service("api", {
     source: ghost,
     build: {
@@ -148,6 +167,7 @@ export default defineRailway(() => {
     resources: [
       web,
       docs,
+      landing,
       api,
       postgresDatabase,
       delivery,

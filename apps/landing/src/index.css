@@ -1,0 +1,588 @@
+:root {
+  --page: oklch(0.975 0.002 290);
+  --card: oklch(1 0 0);
+  --foreground: oklch(0.24 0.01 290);
+  --muted: oklch(0.52 0.01 290);
+  --border: oklch(0.91 0.004 290);
+  --rail: oklch(0.93 0.004 290);
+  --primary: oklch(0.53 0.15 292);
+  --primary-foreground: oklch(0.985 0.004 292);
+  --primary-soft: oklch(0.95 0.03 292);
+  --good: oklch(0.6 0.15 150);
+  --warn: oklch(0.72 0.15 75);
+  --bad: oklch(0.6 0.2 25);
+  --dark: oklch(0.19 0.006 290);
+  --dark-card: oklch(0.23 0.008 290);
+  --dark-border: oklch(0.3 0.01 290);
+  --width: 46rem;
+  color-scheme: light;
+  font-family: "Geist", system-ui, sans-serif;
+  font-size: 15px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: oklch(0.16 0.005 290);
+    --card: oklch(0.2 0.006 290);
+    --foreground: oklch(0.95 0.005 290);
+    --muted: oklch(0.68 0.01 290);
+    --border: oklch(0.28 0.008 290);
+    --rail: oklch(0.24 0.008 290);
+    --primary: oklch(0.78 0.11 295);
+    --primary-foreground: oklch(0.2 0.04 295);
+    --primary-soft: oklch(0.28 0.05 292);
+    --dark: oklch(0.12 0.004 290);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+code,
+pre,
+.mono {
+  font-family: "Geist Mono", ui-monospace, monospace;
+}
+
+main {
+  max-width: calc(var(--width) + 2px);
+  margin: 0 auto;
+  padding-bottom: 6rem;
+  border-inline: 1px solid var(--rail);
+}
+
+header {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: var(--width);
+  margin: 0.5rem auto 0;
+  padding: 0.5rem 0.5rem 0.5rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: color-mix(in oklch, var(--card) 85%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+}
+
+.brand svg {
+  color: var(--primary);
+}
+
+header nav {
+  display: flex;
+  gap: 1.25rem;
+  margin-inline: auto;
+  color: var(--muted);
+}
+
+header nav a:hover,
+footer nav a:hover {
+  color: var(--foreground);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.button.primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 1rem -0.5rem 0;
+  padding: 5rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  text-align: center;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
+}
+
+.hero h1 {
+  max-width: 15ch;
+  font-size: clamp(2.25rem, 6vw, 3.5rem);
+  line-height: 1.12;
+}
+
+.hero > p {
+  max-width: 28rem;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.chip {
+  display: inline-block;
+  padding: 0 0.3em 0.04em;
+  border: 1px solid var(--border);
+  border-radius: 0.3em;
+  background: var(--page);
+}
+
+.chip.accent {
+  border-color: color-mix(in oklch, var(--primary) 30%, transparent);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.command {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.3rem 0.3rem 0.3rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--page);
+  font-size: 0.85rem;
+}
+
+.command code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command button {
+  flex-shrink: 0;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 2.5rem;
+  border-block: 1px solid var(--rail);
+}
+
+.strip div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1rem;
+  font-size: 0.9rem;
+}
+
+.strip div + div {
+  border-left: 1px solid var(--rail);
+}
+
+.strip span {
+  color: var(--muted);
+}
+
+.block {
+  padding: 6rem 1.5rem 0;
+}
+
+.section-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+
+.section-head h2 {
+  font-size: clamp(1.75rem, 4.5vw, 2.25rem);
+}
+
+.section-head p {
+  max-width: 28rem;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.tag,
+.pill {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--card);
+  font-size: 0.8rem;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.panel {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--card);
+  font-size: 0.85rem;
+}
+
+.panel-row {
+  display: grid;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+.panel-header {
+  border-top: 0;
+  background: var(--page);
+  font-weight: 500;
+}
+
+.pr-row {
+  grid-template-columns: 1fr 3.5rem 3.5rem 4rem;
+}
+
+.check-row {
+  grid-template-columns: 1rem 1fr auto;
+}
+
+.delivery-row {
+  grid-template-columns: 7rem 1fr 3rem 4rem;
+}
+
+.panel-foot {
+  padding: 0.7rem 0.8rem;
+  border-top: 1px solid var(--border);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.good {
+  color: var(--good);
+}
+
+.warn {
+  color: var(--warn);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+.avatars {
+  display: flex;
+}
+
+.avatars span {
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin-right: -0.3rem;
+  border: 2px solid var(--card);
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.55rem;
+  font-weight: 600;
+}
+
+.state {
+  justify-self: start;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.4rem;
+  font-size: 0.75rem;
+}
+
+.state.merged {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.state.open {
+  background: color-mix(in oklch, var(--good) 15%, transparent);
+  color: var(--good);
+}
+
+.connect {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 1.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.dark {
+  background: var(--dark);
+  color: oklch(0.95 0.005 290);
+  --foreground: oklch(0.95 0.005 290);
+  --muted: oklch(0.68 0.01 290);
+  --border: var(--dark-border);
+  --card: var(--dark-card);
+}
+
+.dark-inner {
+  max-width: calc(var(--width) + 2px);
+  margin: 0 auto;
+  padding: 6rem 1.5rem;
+  border-inline: 1px solid var(--dark-border);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  overflow: hidden;
+  border: 1px solid var(--dark-border);
+  border-radius: 0.75rem;
+  background: var(--dark-card);
+}
+
+.steps ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-right: 1px solid var(--dark-border);
+}
+
+.steps li + li {
+  border-top: 1px solid var(--dark-border);
+}
+
+.steps button {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.steps button[aria-expanded="true"] {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.steps .index {
+  color: var(--primary);
+  font-family: "Geist Mono", ui-monospace, monospace;
+}
+
+.steps li p {
+  margin: -0.5rem 0 0;
+  padding: 0 1rem 1rem 2.85rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.terminal {
+  margin: 0;
+  padding: 1.25rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: oklch(0.85 0.01 290);
+  font-size: 0.8rem;
+  line-height: 1.8;
+}
+
+.everything {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.everything li {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  font-size: 0.9rem;
+}
+
+.faq {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--card);
+}
+
+.faq details + details {
+  border-top: 1px solid var(--border);
+}
+
+.faq summary {
+  padding: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.faq details p {
+  margin: 0;
+  padding: 0 1rem 1rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.closing {
+  margin-top: 6rem;
+}
+
+.closing h2 {
+  font-size: clamp(1.75rem, 5vw, 2.75rem);
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: var(--width);
+  margin: 0 auto;
+  padding: 2rem 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+footer .brand {
+  color: var(--foreground);
+}
+
+footer nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+@media (max-width: 760px) {
+  header {
+    margin-inline: 0.5rem;
+  }
+
+  header nav {
+    display: none;
+  }
+
+  header .button {
+    margin-left: auto;
+  }
+
+  .hero {
+    margin-inline: 0.5rem;
+    padding: 3.5rem 1rem;
+  }
+
+  .strip,
+  .panels,
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .strip div + div {
+    border-left: 0;
+    border-top: 1px solid var(--rail);
+  }
+
+  .steps ol {
+    border-right: 0;
+    border-bottom: 1px solid var(--dark-border);
+  }
+
+  .block {
+    padding-inline: 1rem;
+  }
+
+  .pr-row {
+    grid-template-columns: 1fr 4rem;
+  }
+
+  .pr-row > :nth-child(2),
+  .pr-row > :nth-child(3) {
+    display: none;
+  }
+
+  .delivery-row {
+    grid-template-columns: 1fr 3rem;
+  }
+
+  .delivery-row > :nth-child(1),
+  .delivery-row > :nth-child(4) {
+    display: none;
+  }
+
+  footer {
+    flex-direction: column;
+    padding-inline: 1rem;
+  }
+}
