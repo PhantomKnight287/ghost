@@ -36,6 +36,22 @@
 4. **sync.ghost's own writes come back as events** (its push, its copied check run, its comment). None may be copied back. Tests in Tasks 13, 14 and 15.
 5. **Ghost ids differ between webhook and REST.** Webhooks carry UUIDs; REST carries numeric ids and a `node_id`. A comment created on Ghost must be found from its webhook UUID. Test in Task 10.
 
+## Contracts fixed by the tests (2026-11-15)
+
+Claude wrote every task's failing tests up front; they live next to the code they test under `apps/sync/api/src/`. Where a test and a task below disagree, the test wins. Test helpers, already written: `lib/fake-rest.ts`, `lib/fake-store.ts`, `lib/fake-git.ts`, `lib/git-fixture.ts`, `lib/test-context.ts`.
+
+- `SyncContext` also carries `git: GitOps` (`fetchBoth`, `fetchPullHead`, `isAncestor`, `pushRef`, exported as a type from `git.ts`) and `appSlug: Record<Side, string>`. `sync/*` call git only through `ctx.git`.
+- `SyncRow` fields: `id, ownerId, ghostRepoId, ghostFullName, githubRepoId, githubFullName, ghostInstallationId, githubInstallationId, status, lastError, disconnectReason, lastReconciledAt, createdAt, updatedAt`. Installation ids are `number | null` (a new GitHub repository not yet covered has none). `ghostRepoId` is the Ghost repository's UUID: webhooks send it as `repository.id`, REST as the base64url part of `node_id`. `githubRepoId` is GitHub's numeric id as text.
+- `Store` also has `createSync(input): Promise<SyncRow>` (starts `backfilling`), `deleteSync(id)` (with its links, refs and activity), `listActivity(syncId, limit)` (newest first; order by time then insertion), and `listSyncs` takes `ownerId`. `store.ts` exports `ActivityRow`. An activity row's `direction` is the side written to.
+- `RestError.message` is `"<status> <host message>"`, so activity rows read like `404 Not Found`.
+- A copied review's body is `withMarker("<verdict>\n\n<body>", from, author)`, or just the verdict when the body is empty; the marker stays first so echoes are caught. Null `start_line` / `start_side` are left out.
+- A linked pull request merged on its source only gets the merge handling (comment and close, or nothing); otherwise title, body and state are patched.
+- Handlers return data, not closures: `handleGhost(event, payload)` and `handleGitHub(event, payload)` return `{ kind: "job"; repoId; actor; action: SyncAction }`, `{ kind: "installation"; side; installationId; status? ; added?; removed? }` or `null`. `SyncAction` kinds: `refs`, `pull`, `review`, `review_comment`, `issue`, `comment`, `label`, `check_run`, `sync_check`, `reconcile` (shapes in `handlers.test.ts`). `webhookRoutes({ secrets, bots, store, queues, contextFor, runAction })`; `runAction(ctx, action)` is the one dispatcher to `sync/*`.
+- An installation event never reconnects a sync disconnected because its owner lost access.
+- `startReconcileTimer({ store, intervalSeconds, contextFor, ownerCanAdminFor, reconcile })` returns `{ tick(): Promise<void>; stop(): void }`; it reconciles `active`, `backfilling` and `error` syncs, one at a time, logs a failure as activity and carries on, then prunes.
+- Reconcile lists only `/issues?state=all[&since=]` on each side (pull requests come through it with `pull_request` set; GitHub's pull list has no `since`), and copies check runs for open pull request heads only. Default-branch runs come through webhooks.
+- Routes: `setupRoutes(deps)` and `syncRoutes(deps)`, `RouteDeps = { store, currentUser, userRest, appInstallation, installUrl, compareRefs, reconcileNow, removeMirror }` (in `routes/setup.ts`). Another user's sync answers 404, never 403. A new GitHub repository the installation does not cover is created, the sync saved `disconnected`, and the response carries the install link; sync.ghost does not add it to the installation itself. `GET /api/github/owners` lists the user and organizations where their membership role is `admin`.
+
 ## File structure
 
 ```
