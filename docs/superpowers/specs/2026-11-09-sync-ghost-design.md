@@ -59,7 +59,7 @@ These would make the work a failure even if it technically works:
 | Registered by | The operator, once, on Ghost's settings (`/settings/apps/new`) | The operator, once, on GitHub |
 | Writes as | `ghost-sync[bot]` | `<slug>[bot]` |
 | Repository permissions | `contents: write`, `pull_requests: write`, `issues: write`, `checks: write`, `metadata: read` | `contents: write`, `pull_requests: write`, `issues: write`, `checks: write`, `metadata: read`, `administration: write` (to create repositories with the user's token) |
-| Events | `push`, `pull_request.*`, `issue.*`, `label.*`, `check_suite.requested`, `check_suite.rerequested`, `check_run.rerequested`, `installation.*` | Push, Create, Delete, Pull request, Issues, Issue comment, Label, Pull request review, Pull request review comment, Pull request review thread, Check run, Installation, Installation repositories |
+| Events | `push`, `pull_request.*`, `issue.*` (including `issue.deleted`), `label.*`, `check_suite.requested`, `check_suite.rerequested`, `check_run.rerequested`, `installation.*` | Push, Create, Delete, Pull request, Issues, Issue comment, Label, Pull request review, Pull request review comment, Pull request review thread, Check run, Installation, Installation repositories |
 | User sign-in | Yes: this is how users log in | Yes: to link GitHub, list repositories and create a repository |
 | "Request user authorization during installation" | On | On |
 
@@ -141,7 +141,7 @@ Both ways, never with power: a review from one side lands on the other as a comm
 
 ### Issues, comments and labels
 
-- **Issues.** Opened, edited, closed, reopened and deleted, from either side.
+- **Issues.** Opened, edited, closed, reopened and deleted, from either side. Deletion uses the GraphQL `deleteIssue` mutation on both sides (neither REST API deletes issues), with the installation token. Ghost: Ghost #135 / #136 added the mutation, needing `issues: write`, and the `issue.deleted` event. GitHub: the `issues` `deleted` event; whether an installation token with `issues: write` may call `deleteIssue` or it needs more is to be verified, and if GitHub refuses, the counterpart is closed with a "Deleted on GitHub"-style comment and an activity entry. Pull requests are never deleted (neither host allows it).
 - **Comments** on synced issues and pull requests: created, edited and deleted, from either side (user decision, 2026-11-09: deletions people make are copied).
 - **Labels.** Added to and removed from issues and pull requests. A label used on one side is created on the other if missing, same name, color and description. Label edits and deletions sync by name.
 - Conflicting edits to the same field: last write wins, per field.

@@ -175,7 +175,7 @@ test("a refused mint throws with the status", async () => { /* 404 → rejects w
 - Test: `apps/sync/api/src/rest.test.ts`
 
 **Interfaces:**
-- Produces: `createRest(opts: { baseUrl: string; token: () => Promise<string>; fetch: typeof fetch; sleep: (ms: number) => Promise<void> }): Rest` where `type Rest = { request<T>(method: string, path: string, body?: unknown): Promise<T>; paginate<T>(path: string): AsyncGenerator<T> }`; `class RestError extends Error { status: number; body: unknown }`.
+- Produces: `createRest(opts: { baseUrl: string; graphqlUrl: string; token: () => Promise<string>; fetch: typeof fetch; sleep: (ms: number) => Promise<void> }): Rest` where `type Rest = { request<T>(method: string, path: string, body?: unknown): Promise<T>; paginate<T>(path: string): AsyncGenerator<T>; graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> }` (GraphQL URL: `<GHOST_API_URL>/api/graphql` on Ghost, `https://api.github.com/graphql` on GitHub, passed as `graphqlUrl` in opts); `class RestError extends Error { status: number; body: unknown }`.
 
 - [ ] **Step 1: Write the failing tests:**
   - `token()` is called on every request (Review Focus 2) and sent as `Authorization: Bearer`.
@@ -185,6 +185,7 @@ test("a refused mint throws with the status", async () => { /* 404 → rejects w
   - Five 500s → `RestError` status 500, exactly 5 fetches.
   - `paginate` follows `Link: <...>; rel="next"` across two pages and yields every item; a page shaped `{ total_count, <key>: [] }` (as `/user/installations`) yields the array.
   - 204 → resolves `undefined`.
+  - `graphql` POSTs `{ query, variables }` to `graphqlUrl` and returns `data`; a 200 with `errors` throws `RestError` with status 200 and the errors as body.
 - [ ] **Step 2:** Run. Expected: FAIL.
 - [ ] **Step 3:** Implement. Backoff `1000 * 2 ** attempt` unless `Retry-After` is set. `Accept: application/vnd.github+json`.
 - [ ] **Step 4:** Run. Expected: PASS.
@@ -372,7 +373,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
   - Source issue authored by the bot: no calls at all.
   - Source body already carries a marker from the other side: the counterpart is updated with the stripped body (an edit made on the side that holds a copy), never re-marked with the bot as author.
   - Labels: a label on the source missing on the other side is created with the same name, color, description before the issue is patched; labels set to exactly the source's names.
-  - `deleteIssue` on a linked issue deletes the counterpart and the link; on an unlinked one, nothing.
+  - `deleteIssue` on a linked issue calls the GraphQL `deleteIssue(input: { issueId })` mutation on the other side with the counterpart's `node_id` (fetched with `GET .../issues/<n>`), then removes the link; on an unlinked one, nothing. A refusal (GraphQL error or 403) closes the counterpart with the comment `Deleted on <Ghost|GitHub>` and writes an activity entry.
   - `syncComment` on a Ghost comment from its webhook UUID: lists `GET .../issues/<n>/comments`, finds the one whose `ghostKeyOfNodeId(node_id)` is the UUID, saves `ghostRestId` (Review Focus 5).
   - `syncComment` whose issue has no link syncs the issue first.
   - `deleteComment` uses the stored `ghostRestId` / GitHub id; unlinked is a no-op.
@@ -467,7 +468,8 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 | `pull_request.*` | `pull_request` | `syncPull` |
 | `pull_request.reviewed` | `pull_request_review` | `syncReview` |
 | `pull_request.review_commented` | `pull_request_review_comment` | `syncReviewComment` / `deleteReviewComment` |
-| `issue.opened/edited/closed/reopened/labeled/unlabeled` | `issues` | `syncIssue` (`deleted` → `deleteIssue`) |
+| `issue.opened/edited/closed/reopened/labeled/unlabeled` | `issues` | `syncIssue` |
+| `issue.deleted` | `issues` deleted | `deleteIssue` |
 | `issue.commented/comment_edited` | `issue_comment` created/edited | `syncComment` |
 | `issue.comment_deleted` | `issue_comment` deleted | `deleteComment` |
 | `label.created/edited` | `label` created/edited | `syncLabelDefinition` |
@@ -480,7 +482,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 - [ ] **Step 1: Write the failing pipeline tests** (`app.request` with signed bodies): bad signature → 401; stale Ghost timestamp → 401; repeated delivery id → 200, no job; actor `ghost-sync[bot]` → 200, no job; unknown repository → 200; paused sync → 200, no job; valid event → 202 and one job queued; `installation.deleted` → affected sync `disconnected` with the side named.
 - [ ] **Step 2: Write the failing handler tests:** one per table row, asserting the job calls the right function with the right `from`, number and key (spy on the `sync/*` module). Check that Ghost's `repository.id` in a webhook equals `GET /repos/:o/:r` `id`; if it does not, store both on `sync` and match webhooks on the webhook one.
 - [ ] **Step 3:** Run. Expected: FAIL.
-- [ ] **Step 4:** Implement. Read the raw body once with `c.req.arrayBuffer()` before parsing. Ghost sends no `issue.deleted` event today, so an issue deleted on Ghost is not copied; per the spec's non-goal, raise a Ghost issue asking for one instead of working around it, and wire it here once it exists.
+- [ ] **Step 4:** Implement. Read the raw body once with `c.req.arrayBuffer()` before parsing.
 - [ ] **Step 5:** Run. Expected: PASS.
 - [ ] **Step 6:** Commit `feat(sync): webhook pipeline and event handlers`.
 
