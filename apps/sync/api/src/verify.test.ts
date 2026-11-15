@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { verifyGhost, verifyGitHub } from "./verify.ts";
+import { verifyGhost, verifyGitHub } from "./verify";
 
 const secret = "whsec_test";
 const body = new TextEncoder().encode('{"event":"push"}');
