@@ -107,3 +107,44 @@ describe("deleteComment", () => {
     expect(ctx.ghost.calls).toEqual([]);
   });
 });
+
+describe("comment edge cases", () => {
+  test("a create whose answer was lost finds our copy instead of posting twice", async () => {
+    const body = withMarker("yo", "github", "x");
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/comments/9001": { id: 9001, body: "yo", user: { login: "x" } } },
+      ghost: {
+        "POST /repos/acme/app/issues/12/comments": () => {
+          throw new TypeError("fetch failed");
+        },
+        "GET /repos/acme/app/issues/12/comments": [{ id: 302, node_id: ghostNodeId("IC", uuid), body, user: { login: "ghost-sync[bot]" } }],
+      },
+    });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "5" });
+    await syncComment(ctx, "github", 5, "9001");
+    expect(await ctx.store.findLink(ctx.sync.id, "comment", "github", "9001")).toMatchObject({ ghostId: uuid, ghostRestId: "302" });
+  });
+
+  test("a Ghost comment missing from its issue's list is skipped and logged", async () => {
+    const ctx = testContext({ ghost: { "GET /repos/acme/app/issues/12/comments": [] } });
+    await syncComment(ctx, "ghost", 12, uuid);
+    expect(ctx.store.activity).toEqual([expect.objectContaining({ direction: "github", error: expect.stringContaining("404") })]);
+  });
+
+  test("an edit on our copy goes back to the original without a marker", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/comments/9001": { id: 9001, body: withMarker("fixed typo", "ghost", "bob"), user: { login: "ghost-sync[bot]" } } },
+      ghost: { "PATCH /repos/acme/app/issues/comments/301": {} },
+    });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ghostId: uuid, ghostRestId: "301", githubId: "9001" });
+    await syncComment(ctx, "github", 5, "9001");
+    expect(writes(ctx.ghost)[0]?.body).toEqual({ body: "fixed typo" });
+  });
+
+  test("a comment already deleted on the other side still unlinks", async () => {
+    const ctx = testContext();
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "comment", ghostId: uuid, ghostRestId: "301", githubId: "9001" });
+    await deleteComment(ctx, "ghost", uuid);
+    expect(await ctx.store.findLink(ctx.sync.id, "comment", "ghost", uuid)).toBeNull();
+  });
+});

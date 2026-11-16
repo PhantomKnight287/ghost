@@ -8,7 +8,8 @@ export type SyncAction =
   | { kind: "review_comment"; from: Side; pullNumber: number; key: string; deleted: boolean }
   | { kind: "issue"; from: Side; number: number; deleted: boolean }
   | { kind: "comment"; from: Side; issueNumber: number; key: string; deleted: boolean }
-  | { kind: "label"; from: Side; name: string; deleted: boolean }
+  /** `previousName` when the label was renamed; GitHub reports it, Ghost does not. */
+  | { kind: "label"; from: Side; name: string; deleted: boolean; previousName?: string }
   | { kind: "check_run"; from: Side; id: string }
   | { kind: "sync_check"; sha: string }
   | { kind: "reconcile" };

@@ -45,6 +45,8 @@ Claude wrote every task's failing tests up front; they live next to the code the
 - `SyncRow` fields: `id, ownerId, ghostRepoId, ghostFullName, githubRepoId, githubFullName, ghostInstallationId, githubInstallationId, status, lastError, disconnectReason, lastReconciledAt, createdAt, updatedAt`. Installation ids are `number | null` (a new GitHub repository not yet covered has none). `ghostRepoId` is the Ghost repository's UUID: webhooks send it as `repository.id`, REST as the base64url part of `node_id`. `githubRepoId` is GitHub's numeric id as text.
 - `Store` also has `createSync(input): Promise<SyncRow>` (starts `backfilling`), `deleteSync(id)` (with its links, refs and activity), `listActivity(syncId, limit)` (newest first; order by time then insertion), and `listSyncs` takes `ownerId`. `store.ts` exports `ActivityRow`. An activity row's `direction` is the side written to.
 - A flagged branch (diverged or rejected) is announced once per state with a comment on both halves of every linked open pull request headed by it, found through Ghost's pull list. `RefFlag.notified` stays false until every comment lands and `RefFlag.posted` records each `<side>#<number>` as it does; a failed notice is logged as `comment` activity, never stops the other refs, and the next run posts only the missing comments.
+- `syncIssue` returns `number | null`: null when nothing was copied (source gone, an unlinked pull request, which only `syncPull` creates, or our own unlinked copy). Every create goes through `createOnce` (`sync/write.ts`): after a 5xx or a dropped connection it looks for our copy (newest bot-created issues, or the issue's bot comments, matched by exact title and body) before failing, so a lost answer never yields a duplicate. A 4xx is not looked for.
+- A label action may carry `previousName` (GitHub's `changes.name.from` on `label.edited`); the counterpart is then renamed with `new_name` instead of a second label being created. Ghost's `label.edited` event carries only the label id, so a rename made on Ghost reaches GitHub as a new label until Ghost adds the old name to that event.
 - `RestError.message` is `"<status> <host message>"`, so activity rows read like `404 Not Found`.
 - A copied review's body is `withMarker("<verdict>\n\n<body>", from, author)`, or just the verdict when the body is empty; the marker stays first so echoes are caught. Null `start_line` / `start_side` are left out.
 - A linked pull request merged on its source only gets the merge handling (comment and close, or nothing); otherwise title, body and state are patched.
@@ -388,7 +390,7 @@ syncComment(ctx: SyncContext, from: Side, issueNumber: number, commentKey: strin
 deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 ```
 
-- [ ] **Step 1: Write the failing tests** (`fakeRest` both sides, `fakeStore`):
+- [x] **Step 1: Write the failing tests** (`fakeRest` both sides, `fakeStore`):
   - `syncIssue` unlinked: `POST /repos/<o>/<r>/issues` on the other side with `withMarker(body, from, author)`, title, labels; link saved by number; closed issue created then `PATCH state: closed`.
   - Linked: `PATCH` title, body, state; no `POST`.
   - Source issue authored by the bot: no calls at all.
@@ -399,10 +401,10 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
   - `syncComment` whose issue has no link syncs the issue first.
   - `deleteComment` uses the stored `ghostRestId` / GitHub id; unlinked is a no-op.
   - A 404 on the parent writes a skipped `activity` row and does not throw.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. Read current state from the source with REST, never from a webhook payload.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): issues, labels and comments`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement. Read current state from the source with REST, never from a webhook payload.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): issues, labels and comments`.
 
 ### Task 11: Pull requests
 

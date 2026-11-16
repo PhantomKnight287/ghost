@@ -164,3 +164,95 @@ describe("labels", () => {
     await deleteLabelDefinition(ctx, "github", "gone");
   });
 });
+
+describe("a create whose answer was lost", () => {
+  const recent = (issues: unknown[]) => ({ "GET /repos/acme/app/issues?creator=ghost-sync%5Bbot%5D&state=all&sort=created&direction=desc&per_page=30": issues });
+
+  test("finds our copy instead of creating it twice", async () => {
+    const copy = { number: 12, title: "Crash on save", body: withMarker("Steps", "github", "alice"), user: { login: "ghost-sync[bot]" } };
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ labels: [] }) },
+      ghost: {
+        ...recent([{ ...copy, number: 11, title: "Other" }, copy]),
+        "POST /repos/acme/app/issues": () => {
+          throw new RestError(502, { message: "Bad Gateway" });
+        },
+      },
+    });
+    expect(await syncIssue(ctx, "github", 5)).toBe(12);
+    expect(await ctx.store.findLink(ctx.sync.id, "issue", "github", "5")).toMatchObject({ ghostId: "12" });
+  });
+
+  test("fails when no copy landed, so the job can be retried", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ labels: [] }) },
+      ghost: {
+        ...recent([]),
+        "POST /repos/acme/app/issues": () => {
+          throw new TypeError("fetch failed");
+        },
+      },
+    });
+    await expect(syncIssue(ctx, "github", 5)).rejects.toThrow("fetch failed");
+    expect(await ctx.store.findLink(ctx.sync.id, "issue", "github", "5")).toBeNull();
+  });
+
+  test("a refusal is not looked for, since nothing was created", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/issues/5": githubIssue({ labels: [] }) },
+      ghost: {
+        "POST /repos/acme/app/issues": () => {
+          throw new RestError(422, { message: "Validation Failed" });
+        },
+      },
+    });
+    await expect(syncIssue(ctx, "github", 5)).rejects.toMatchObject({ status: 422 });
+    expect(ctx.ghost.calls.map((c) => c.method)).toEqual(["POST"]);
+  });
+});
+
+describe("syncIssue leaves pull requests to syncPull", () => {
+  test("an unlinked pull request is not copied as an issue", async () => {
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/issues/8": githubIssue({ number: 8, pull_request: { url: "x" } }) } });
+    expect(await syncIssue(ctx, "github", 8)).toBeNull();
+    expect(ctx.ghost.calls).toEqual([]);
+  });
+});
+
+describe("deleteIssue when the copy is already gone", () => {
+  test("only the link goes", async () => {
+    const ctx = testContext();
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "issue", ghostId: "12", ghostRestId: null, githubId: "5" });
+    await deleteIssue(ctx, "github", 5);
+    expect(writes(ctx.ghost)).toEqual([]);
+    expect(await ctx.store.findLink(ctx.sync.id, "issue", "github", "5")).toBeNull();
+  });
+});
+
+describe("label edge cases", () => {
+  test("a label already alike is left alone", async () => {
+    const ctx = testContext({ ghost: ghostLabelExists, github: { "GET /repos/acme-gh/app/labels/bug": bug } });
+    await syncLabelDefinition(ctx, "ghost", "bug");
+    expect(writes(ctx.github)).toEqual([]);
+  });
+
+  test("a renamed label renames its counterpart instead of adding a second", async () => {
+    const renamed = { ...bug, name: "defect" };
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/labels/defect": renamed }, ghost: { "GET /repos/acme/app/labels/bug": bug, "PATCH /repos/acme/app/labels/bug": renamed } });
+    await syncLabelDefinition(ctx, "github", "defect", "bug");
+    expect(writes(ctx.ghost)).toEqual([{ method: "PATCH", path: "/repos/acme/app/labels/bug", body: { new_name: "defect", color: "d73a4a", description: "Something is broken" } }]);
+  });
+
+  test("a rename whose old label is missing on the other side creates it", async () => {
+    const renamed = { ...bug, name: "defect" };
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/labels/defect": renamed }, ghost: { "POST /repos/acme/app/labels": renamed } });
+    await syncLabelDefinition(ctx, "github", "defect", "bug");
+    expect(writes(ctx.ghost)).toEqual([{ method: "POST", path: "/repos/acme/app/labels", body: renamed }]);
+  });
+
+  test("a label gone from its source is skipped and logged", async () => {
+    const ctx = testContext();
+    await syncLabelDefinition(ctx, "ghost", "bug");
+    expect(ctx.store.activity).toEqual([expect.objectContaining({ direction: "github", kind: "label", error: expect.stringContaining("404") })]);
+  });
+});
