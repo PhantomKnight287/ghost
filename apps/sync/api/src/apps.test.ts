@@ -78,6 +78,18 @@ test("a refused mint throws with the status and is not cached", async () => {
   expect(requests).toHaveLength(2);
 });
 
+test("callers asking at once share one mint", async () => {
+  const { auth, requests } = setup([token("ghs_a", now0() + 3_600_000)]);
+  expect(await Promise.all([auth.installationToken(42), auth.installationToken(42)])).toEqual(["ghs_a", "ghs_a"]);
+  expect(requests).toHaveLength(1);
+});
+
+test("a mint carries a timeout, and a refusal's error carries the host's answer", async () => {
+  const { auth, requests } = setup([{ status: 401, body: { message: "Bad credentials" } }]);
+  await expect(auth.installationToken(42)).rejects.toThrow(/401.*Bad credentials/);
+  expect(requests[0]?.init.signal).toBeInstanceOf(AbortSignal);
+});
+
 function now0() {
   return 1_800_000_000_000;
 }

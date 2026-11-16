@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { credentialEnv, fetchBoth, fetchPullHead, isAncestor, pushRef } from "./git.ts";
+import { credentialEnv, fetchBoth, fetchPullHead, isAncestor, pushRef, remoteEnv } from "./git.ts";
 import { hostRepo, run, scratchDir } from "./lib/git-fixture.ts";
 
 const remote = (host: { url: string }) => ({ url: host.url, token: null });
@@ -132,6 +132,12 @@ describe("credentials", () => {
       GIT_CONFIG_KEY_0: "http.https://github.com/.extraHeader",
       GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from("x-access-token:ghs_secret").toString("base64")}`,
     });
+  });
+
+  test("transfers give up when stalled, with or without a token", () => {
+    const stall = { GIT_HTTP_LOW_SPEED_LIMIT: "1000", GIT_HTTP_LOW_SPEED_TIME: "60" };
+    expect(remoteEnv({ url: "file:///tmp/x.git", token: null })).toEqual({ GIT_TERMINAL_PROMPT: "0", ...stall });
+    expect(remoteEnv({ url: "https://github.com/acme/app.git", token: "ghs_secret" })).toEqual({ ...credentialEnv("https://github.com", "x-access-token", "ghs_secret"), ...stall });
   });
 
   test("a failing fetch never puts the token in its error", async () => {

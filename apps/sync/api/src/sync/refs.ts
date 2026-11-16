@@ -74,14 +74,20 @@ async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: st
 async function flag(ctx: SyncContext, name: string, current: RefFlag | null, next: RefFlag) {
   const same = current !== null && current.ghost === next.ghost && current.github === next.github && current.reason === next.reason;
   if (same && current.notified !== false) return;
+  let state: RefFlag = same ? current : { ...next, notified: false, posted: [] };
   if (!same) {
-    await ctx.store.flagRef(ctx.sync.id, name, { ...next, notified: false });
+    await ctx.store.flagRef(ctx.sync.id, name, state);
     const summary = `${name} not synced (${next.reason}): Ghost at ${short(next.ghost)}, GitHub at ${short(next.github)}`;
     await ctx.store.addActivity({ syncId: ctx.sync.id, direction: null, kind: "refs", summary, error: next.reason });
   }
+  // Each comment is recorded as it lands, so a retry after a partial failure posts only the ones still missing.
+  const posted = async (target: string) => {
+    state = { ...state, posted: [...(state.posted ?? []), target] };
+    await ctx.store.flagRef(ctx.sync.id, name, state);
+  };
   try {
-    if (name.startsWith("refs/heads/")) await notifyPulls(ctx, name.slice("refs/heads/".length), next);
-    await ctx.store.flagRef(ctx.sync.id, name, { ...next, notified: true });
+    if (name.startsWith("refs/heads/")) await notifyPulls(ctx, name.slice("refs/heads/".length), state, posted);
+    await ctx.store.flagRef(ctx.sync.id, name, { ...state, notified: true });
   } catch (error) {
     // The flag is saved either way; a failed notice must not stop the remaining refs from syncing.
     const message = error instanceof Error ? error.message : String(error);
@@ -89,18 +95,21 @@ async function flag(ctx: SyncContext, name: string, current: RefFlag | null, nex
   }
 }
 
-/** Comments on both halves of every linked pull request headed by `branch`. */
-async function notifyPulls(ctx: SyncContext, branch: string, next: RefFlag) {
-  const ghost = ctx.repo.ghost;
-  const github = ctx.repo.github;
-  const body = `sync.ghost stopped syncing \`${branch}\`: Ghost is at ${short(next.ghost)} and GitHub at ${short(next.github)} (${next.reason}). Make the two sides agree, for example by merging one into the other, and syncing resumes.`;
+/** Comments on both halves of every linked pull request headed by `branch`, skipping targets in `state.posted`. */
+async function notifyPulls(ctx: SyncContext, branch: string, state: RefFlag, posted: (target: string) => Promise<void>) {
+  const body = `sync.ghost stopped syncing \`${branch}\`: Ghost is at ${short(state.ghost)} and GitHub at ${short(state.github)} (${state.reason}). Make the two sides agree, for example by merging one into the other, and syncing resumes.`;
+  const { owner } = ctx.repo.ghost;
   // Linked pull requests exist on both sides, so Ghost's list finds every pair.
-  const pulls = await ctx.rest.ghost.request<{ number: number }[]>("GET", `/repos/${ghost.owner}/${ghost.name}/pulls?state=open&head=${ghost.owner}:${branch}`);
+  const pulls = await ctx.rest.ghost.request<{ number: number }[]>("GET", `/repos/${owner}/${ctx.repo.ghost.name}/pulls?state=open&head=${owner}:${branch}`);
   for (const pull of pulls) {
     const link = await ctx.store.findLink(ctx.sync.id, "pull", "ghost", String(pull.number));
     if (!link) continue;
-    // ponytail: a failure after some comments landed re-posts them on the retry; per-pull notice state if that shows up in practice.
-    await ctx.rest.ghost.request("POST", `/repos/${ghost.owner}/${ghost.name}/issues/${pull.number}/comments`, { body });
-    await ctx.rest.github.request("POST", `/repos/${github.owner}/${github.name}/issues/${link.githubId}/comments`, { body });
+    for (const [side, number] of [["ghost", link.ghostId], ["github", link.githubId]] as const) {
+      const target = `${side}#${number}`;
+      if (state.posted?.includes(target)) continue;
+      const repo = ctx.repo[side];
+      await ctx.rest[side].request("POST", `/repos/${repo.owner}/${repo.name}/issues/${number}/comments`, { body });
+      await posted(target);
+    }
   }
 }

@@ -4,8 +4,8 @@ import type { SyncAction } from "../sync/action.ts";
 
 export type SyncStatus = "backfilling" | "active" | "paused" | "disconnected" | "error";
 export type LinkKind = "issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run";
-/** `notified` is false until the linked pull requests have been told, so a failed notice is retried by the next run. */
-export type RefFlag = { ghost: string | null; github: string | null; reason: string; notified?: boolean };
+/** `notified` is false until every linked pull request has been told; `posted` lists the `<side>#<number>` comments already made, so a retry only posts the missing ones. */
+export type RefFlag = { ghost: string | null; github: string | null; reason: string; notified?: boolean; posted?: string[] };
 
 export const installation = pgTable(
   "installation",

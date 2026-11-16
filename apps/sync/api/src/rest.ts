@@ -1,5 +1,8 @@
 const MAX_ATTEMPTS = 5;
 const BASE_DELAY_MS = 1000;
+/** A wait longer than this fails the request instead: the job is dropped and the next reconcile retries, rather than one job holding its sync's queue. */
+const MAX_WAIT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 export class RestError extends Error {
   constructor(
@@ -17,10 +20,34 @@ export type Rest = {
   graphql: <T>(query: string, variables: Record<string, unknown>) => Promise<T>;
 };
 
-const isSecondaryRateLimit = (status: number, body: unknown) =>
-  status === 403 && /secondary rate limit/i.test((body as { message?: string } | null)?.message ?? "");
-
 const nextLink = (link: string | null) => link?.match(/<([^>]+)>;\s*rel="next"/)?.[1];
+
+/** Error pages from proxies in front of a host are HTML, not JSON. */
+const parse = (text: string): unknown => {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text.slice(0, 200) };
+  }
+};
+
+/** How long the host asked us to wait, or null when it did not say. */
+function hostWait(response: Response, now: number) {
+  const retryAfter = response.headers.get("retry-after");
+  if (retryAfter !== null) {
+    const seconds = Number(retryAfter);
+    return Number.isFinite(seconds) ? seconds * 1000 : Math.max(0, Date.parse(retryAfter) - now);
+  }
+  // GitHub's primary rate limit: the quota is spent until `x-ratelimit-reset` (epoch seconds).
+  if (response.headers.get("x-ratelimit-remaining") === "0") return Math.max(0, Number(response.headers.get("x-ratelimit-reset")) * 1000 - now);
+  return null;
+}
+
+/** The host refused before doing any work, so even a POST is safe to send again. */
+const isRateLimited = (response: Response, body: unknown) =>
+  response.status === 429 ||
+  (response.status === 403 && (response.headers.get("x-ratelimit-remaining") === "0" || /secondary rate limit/i.test((body as { message?: string } | null)?.message ?? "")));
 
 export function createRest({
   baseUrl,
@@ -28,29 +55,43 @@ export function createRest({
   token,
   fetch = globalThis.fetch,
   sleep = (ms) => Bun.sleep(ms),
+  now = Date.now,
 }: {
   baseUrl: string;
   graphqlUrl: string;
   token: () => Promise<string>;
   fetch?: typeof globalThis.fetch;
   sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
 }): Rest {
-  const send = async (method: string, url: string, body?: unknown) => {
+  const send = async (method: string, url: string, body?: unknown, { replayable = method !== "POST" } = {}) => {
     for (let attempt = 1; ; attempt++) {
       const headers: Record<string, string> = {
         authorization: `Bearer ${await token()}`,
         accept: "application/vnd.github+json",
       };
       if (body !== undefined) headers["content-type"] = "application/json";
-      const response = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-      const text = await response.text();
-      const data: unknown = text ? JSON.parse(text) : undefined;
+      const last = attempt === MAX_ATTEMPTS;
+      const backoff = BASE_DELAY_MS * 2 ** (attempt - 1);
+
+      let response: Response;
+      try {
+        response = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      } catch (error) {
+        // A dropped connection or a timeout may have reached the host, so only a request that can be replayed goes again.
+        if (!replayable || last) throw error;
+        await sleep(backoff);
+        continue;
+      }
+      const data = parse(await response.text());
       if (response.ok) return { data, link: response.headers.get("link") };
 
-      const retryable = response.status >= 500 || response.status === 429 || isSecondaryRateLimit(response.status, data);
-      if (!retryable || attempt === MAX_ATTEMPTS) throw new RestError(response.status, data ?? null);
-      const retryAfter = Number(response.headers.get("retry-after"));
-      await sleep(retryAfter > 0 ? retryAfter * 1000 : BASE_DELAY_MS * 2 ** (attempt - 1));
+      const rateLimited = isRateLimited(response, data);
+      // A 5xx on a POST may still have created the item; sending it again could create it twice.
+      if (!(rateLimited || (response.status >= 500 && replayable)) || last) throw new RestError(response.status, data ?? null);
+      const wait = hostWait(response, now()) ?? backoff;
+      if (wait > MAX_WAIT_MS) throw new RestError(response.status, data ?? null);
+      await sleep(wait);
     }
   };
 
@@ -69,7 +110,8 @@ export function createRest({
     },
 
     graphql: async <T>(query: string, variables: Record<string, unknown>) => {
-      const { data } = await send("POST", graphqlUrl, { query, variables });
+      // A query only reads, so it can be sent again; a mutation cannot.
+      const { data } = await send("POST", graphqlUrl, { query, variables }, { replayable: !/^\s*mutation\b/.test(query) });
       const result = data as { data: T; errors?: unknown[] };
       if (result.errors?.length) throw new RestError(200, result.errors);
       return result.data;

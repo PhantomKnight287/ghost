@@ -122,6 +122,28 @@ describe("syncRefs", () => {
     expect(ctx.store.activity.filter((a) => a.kind === "refs")).toHaveLength(1);
   });
 
+  test("a notice that failed halfway posts only the missing comment on the retry", async () => {
+    let githubPosts = 0;
+    const ctx = testContext({
+      git: fakeGit({ ghost: { "refs/heads/feat": "b" }, github: { "refs/heads/feat": "c" } }),
+      ghost: { "GET /repos/acme/app/pulls?state=open&head=acme:feat": [{ number: 3 }], "POST /repos/acme/app/issues/3/comments": { id: 1 } },
+      github: {
+        "POST /repos/acme-gh/app/issues/8/comments": () => {
+          if (++githubPosts === 1) throw new RestError(422, { message: "Validation Failed" });
+          return { id: 2 };
+        },
+      },
+    });
+    await ctx.store.setBase(ctx.sync.id, "refs/heads/feat", "a");
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "pull", ghostId: "3", ghostRestId: null, githubId: "8" });
+    await syncRefs(ctx);
+    await syncRefs(ctx);
+    await syncRefs(ctx);
+    expect(writes(ctx.ghost)).toHaveLength(1);
+    expect(githubPosts).toBe(2);
+    expect((await ctx.store.getRef(ctx.sync.id, "refs/heads/feat"))?.diverged).toMatchObject({ notified: true, posted: ["ghost#3", "github#8"] });
+  });
+
   test("the flag clears once a person makes the sides agree", async () => {
     const ctx = testContext({ git: fakeGit({ ghost: { [main]: "b" }, github: { [main]: "c" } }), ghost: noPulls });
     await ctx.store.setBase(ctx.sync.id, main, "a");

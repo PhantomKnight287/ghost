@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { createRest, RestError } from "./rest.ts";
 
-type Reply = { status: number; body?: unknown; headers?: Record<string, string> };
+type Reply = { status: number; body?: unknown; raw?: string; headers?: Record<string, string> } | { error: Error };
+const NOW = 1_800_000_000_000;
 
 function setup(replies: Reply[]) {
   const requests: { url: string; init: RequestInit }[] = [];
@@ -11,7 +12,8 @@ function setup(replies: Reply[]) {
     requests.push({ url, init });
     const reply = replies.shift();
     if (!reply) throw new Error("unexpected fetch");
-    const body = reply.status === 204 ? null : JSON.stringify(reply.body ?? {});
+    if ("error" in reply) throw reply.error;
+    const body = reply.status === 204 ? null : (reply.raw ?? JSON.stringify(reply.body ?? {}));
     return new Response(body, { status: reply.status, headers: reply.headers });
   }) as unknown as typeof globalThis.fetch;
   const rest = createRest({
@@ -22,6 +24,7 @@ function setup(replies: Reply[]) {
     sleep: async (ms) => {
       sleeps.push(ms);
     },
+    now: () => NOW,
   });
   return { rest, requests, sleeps };
 }
@@ -133,4 +136,68 @@ test("graphql errors in a 200 throw", async () => {
   expect(error).toBeInstanceOf(RestError);
   expect((error as RestError).status).toBe(200);
   expect((error as RestError).body).toEqual(errors);
+});
+
+test("every request carries a timeout", async () => {
+  const { rest, requests } = setup([{ status: 200, body: {} }]);
+  await rest.request("GET", "/x");
+  expect(requests[0]?.init.signal).toBeInstanceOf(AbortSignal);
+});
+
+test("an HTML error page from a proxy is retried, not a crash", async () => {
+  const { rest } = setup([{ status: 502, raw: "<html>Bad Gateway</html>" }, { status: 200, body: { ok: true } }]);
+  expect(await rest.request("GET", "/x")).toEqual({ ok: true });
+});
+
+test("an HTML error page that stays becomes a RestError carrying its text", async () => {
+  const { rest } = setup([{ status: 404, raw: "<html>Not Found</html>" }]);
+  expect((await rest.request("GET", "/x").catch((e: unknown) => e)) as RestError).toMatchObject({ status: 404, message: "404 <html>Not Found</html>" });
+});
+
+test("a dropped connection is retried for a GET", async () => {
+  const { rest, sleeps } = setup([{ error: new TypeError("fetch failed") }, { status: 200, body: { ok: true } }]);
+  expect(await rest.request("GET", "/x")).toEqual({ ok: true });
+  expect(sleeps).toHaveLength(1);
+});
+
+test("a POST is not sent again after a 5xx or a dropped connection, since it may have been created", async () => {
+  const first = setup([{ status: 502 }]);
+  await expect(first.rest.request("POST", "/repos/o/r/issues", { title: "t" })).rejects.toMatchObject({ status: 502 });
+  expect(first.requests).toHaveLength(1);
+  const second = setup([{ error: new TypeError("fetch failed") }]);
+  await expect(second.rest.request("POST", "/repos/o/r/issues", { title: "t" })).rejects.toThrow("fetch failed");
+  expect(second.requests).toHaveLength(1);
+});
+
+test("a POST refused by a rate limit is sent again, since the host did no work", async () => {
+  const { rest, requests } = setup([{ status: 429, headers: { "retry-after": "1" } }, { status: 201, body: { number: 1 } }]);
+  expect(await rest.request("POST", "/repos/o/r/issues", { title: "t" })).toEqual({ number: 1 });
+  expect(requests).toHaveLength(2);
+});
+
+test("GitHub's primary rate limit waits until the quota resets", async () => {
+  const reset = String(NOW / 1000 + 3);
+  const { rest, sleeps } = setup([{ status: 403, body: { message: "API rate limit exceeded" }, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": reset } }, { status: 200, body: {} }]);
+  await rest.request("GET", "/x");
+  expect(sleeps).toEqual([3000]);
+});
+
+test("Retry-After as an HTTP date", async () => {
+  const { rest, sleeps } = setup([{ status: 503, headers: { "retry-after": new Date(NOW + 5000).toUTCString() } }, { status: 200, body: {} }]);
+  await rest.request("GET", "/x");
+  expect(sleeps).toEqual([5000]);
+});
+
+test("a wait longer than a minute fails now instead of holding the sync's queue", async () => {
+  const { rest, sleeps } = setup([{ status: 429, headers: { "retry-after": "3600" } }]);
+  await expect(rest.request("GET", "/x")).rejects.toMatchObject({ status: 429 });
+  expect(sleeps).toEqual([]);
+});
+
+test("a graphql query is retried, a mutation is not", async () => {
+  const query = setup([{ status: 502 }, { status: 200, body: { data: { viewer: { login: "a" } } } }]);
+  expect(await query.rest.graphql("query { viewer { login } }", {})).toEqual({ viewer: { login: "a" } });
+  const mutation = setup([{ status: 502 }]);
+  await expect(mutation.rest.graphql("mutation($id: ID!) { deleteIssue(input: { issueId: $id }) { clientMutationId } }", { id: "I_1" })).rejects.toMatchObject({ status: 502 });
+  expect(mutation.requests).toHaveLength(1);
 });
