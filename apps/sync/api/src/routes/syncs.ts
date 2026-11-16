@@ -21,7 +21,8 @@ export function syncRoutes(deps: RouteDeps) {
   app.get("/api/syncs/:id", async (c) => {
     const id = c.req.param("id");
     const flagged = (await deps.store.listRefs(id)).flatMap((ref) => (ref.diverged ? [{ name: ref.name, ghost: ref.diverged.ghost, github: ref.diverged.github, reason: ref.diverged.reason }] : []));
-    return c.json({ sync: await deps.store.getSync(id), flagged, activity: await deps.store.listActivity(id, RECENT_ACTIVITY) });
+    // The install links let the page offer a fix when an app no longer covers a repository.
+    return c.json({ sync: await deps.store.getSync(id), flagged, activity: await deps.store.listActivity(id, RECENT_ACTIVITY), installUrl: deps.installUrl });
   });
 
   app.post("/api/syncs/:id/pause", async (c) => {

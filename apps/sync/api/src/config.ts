@@ -19,7 +19,7 @@ const configSchema = z.object({
   GITHUB_APP_CLIENT_ID: z.string(),
   GITHUB_APP_CLIENT_SECRET: z.string(),
   GITHUB_APP_WEBHOOK_SECRET: z.string(),
-  SYNC_PORT: z.coerce.number().default(3005),
+  SYNC_PORT: z.coerce.number().default(3006),
   RECONCILE_INTERVAL: z.coerce.number().default(600),
   SYNC_DATA_DIR: z.string().default("/data"),
 });

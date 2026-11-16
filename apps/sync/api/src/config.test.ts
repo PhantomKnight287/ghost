@@ -24,7 +24,7 @@ const valid = {
 
 test("defaults", () => {
   const config = loadConfig(valid);
-  expect(config.SYNC_PORT).toBe(3005);
+  expect(config.SYNC_PORT).toBe(3006);
   expect(config.RECONCILE_INTERVAL).toBe(600);
   expect(config.SYNC_DATA_DIR).toBe("/data");
   expect(config.GHOST_APP_ID).toBe(7);

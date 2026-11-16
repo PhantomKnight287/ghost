@@ -44,6 +44,7 @@ describe("reading", () => {
     expect(body.sync.id).toBe("mine");
     expect(body.flagged).toEqual([{ name: "refs/heads/main", ghost: "b", github: "c", reason: "diverged" }]);
     expect(body.activity.map((a) => a.summary)).toEqual(["second", "first"]);
+    expect((body as unknown as { installUrl: unknown }).installUrl).toEqual({ ghost: "g", github: "h" });
   });
 
   test("another user's sync is 404, signed out is 401", async () => {
