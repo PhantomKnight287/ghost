@@ -6,8 +6,7 @@ import { fakeStore } from "./lib/fake-store.ts";
 import { syncRow, testContext } from "./lib/test-context.ts";
 import { reconcileSync, startReconcileTimer } from "./reconcile.ts";
 import { RestError } from "./rest.ts";
-import type { SyncRow } from "./store.ts";
-import type { SyncContext } from "./sync/context.ts";
+import type { SyncAction } from "./sync/action.ts";
 
 const owner = async () => true;
 const firstList = (repo: string) => `GET /repos/${repo}/issues?state=all`;
@@ -159,50 +158,27 @@ describe("reconcileSync", () => {
 });
 
 describe("startReconcileTimer", () => {
-  test("a tick reconciles live syncs one at a time and prunes", async () => {
+  test("a tick queues a reconcile for each live sync and prunes", async () => {
     const syncs = [syncRow({ id: "a" }), syncRow({ id: "b", status: "paused" }), syncRow({ id: "c", status: "disconnected" }), syncRow({ id: "d", status: "backfilling" }), syncRow({ id: "e", status: "error" })];
     const store = fakeStore({ syncs });
     let pruned = false;
     store.prune = async () => {
       pruned = true;
     };
-    const order: string[] = [];
-    let running = 0;
+    const queued: { syncId: string; action: SyncAction }[] = [];
     const timer = startReconcileTimer({
       store,
       intervalSeconds: 3600,
-      contextFor: async (sync: SyncRow) => ({ sync }) as SyncContext,
-      ownerCanAdminFor: () => owner,
-      reconcile: async (ctx) => {
-        running++;
-        expect(running).toBe(1);
-        order.push(ctx.sync.id);
-        await new Promise((resolve) => setTimeout(resolve, 1));
-        running--;
+      queue: {
+        push: async (syncId, action) => {
+          queued.push({ syncId, action });
+        },
       },
     });
     await timer.tick();
     timer.stop();
-    expect(order.sort()).toEqual(["a", "d", "e"]);
+    expect(queued.map((q) => q.syncId).sort()).toEqual(["a", "d", "e"]);
+    expect(queued.every((q) => q.action.kind === "reconcile")).toBe(true);
     expect(pruned).toBe(true);
-  });
-
-  test("one sync failing does not stop the others", async () => {
-    const store = fakeStore({ syncs: [syncRow({ id: "a" }), syncRow({ id: "b" })] });
-    const done: string[] = [];
-    const timer = startReconcileTimer({
-      store,
-      intervalSeconds: 3600,
-      contextFor: async (sync: SyncRow) => ({ sync }) as SyncContext,
-      ownerCanAdminFor: () => owner,
-      reconcile: async (ctx) => {
-        if (ctx.sync.id === "a") throw new Error("boom");
-        done.push(ctx.sync.id);
-      },
-    });
-    await timer.tick();
-    timer.stop();
-    expect(done).toEqual(["b"]);
-    expect(store.activity.some((a) => a.syncId === "a" && a.error?.includes("boom"))).toBe(true);
   });
 });

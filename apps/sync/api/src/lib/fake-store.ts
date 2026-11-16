@@ -1,5 +1,8 @@
 import type { Side } from "../side.ts";
 import type { ActivityRow, Link, RefRow, Store, SyncRow } from "../store.ts";
+import type { SyncAction } from "../sync/action.ts";
+
+type FakeJob = { id: number; syncId: string; action: SyncAction; claimToken: string | null; lockedUntil: number | null };
 
 export type FakeStore = Store & {
   links: Link[];
@@ -7,18 +10,21 @@ export type FakeStore = Store & {
   syncs: SyncRow[];
   activity: ActivityRow[];
   deliveries: { side: Side; deliveryId: string; receivedAt: Date }[];
+  jobs: FakeJob[];
 };
 
 const idOf = (link: Link, side: Side) => (side === "ghost" ? link.ghostId : link.githubId);
 
 /** The `Store` in memory, for the `sync/*`, pipeline and route tests. `store.test.ts` runs the same assertions against it and the Postgres store. */
 export function fakeStore(seed: { syncs?: SyncRow[] } = {}): FakeStore {
+  let jobIds = 0;
   const store: FakeStore = {
     links: [],
     refs: [],
     syncs: [...(seed.syncs ?? [])],
     activity: [],
     deliveries: [],
+    jobs: [],
     async findLink(syncId, kind, side, id) {
       return store.links.find((l) => l.syncId === syncId && l.kind === kind && idOf(l, side) === id) ?? null;
     },
@@ -84,11 +90,31 @@ export function fakeStore(seed: { syncs?: SyncRow[] } = {}): FakeStore {
       store.links = store.links.filter((l) => l.syncId !== id);
       store.refs = store.refs.filter((r) => r.syncId !== id);
       store.activity = store.activity.filter((a) => a.syncId !== id);
+      store.jobs = store.jobs.filter((j) => j.syncId !== id);
     },
     async prune(now) {
       const day = 24 * 60 * 60 * 1000;
       store.activity = store.activity.filter((a) => now.getTime() - a.at.getTime() <= 30 * day);
       store.deliveries = store.deliveries.filter((d) => now.getTime() - d.receivedAt.getTime() <= 7 * day);
+    },
+    async enqueueJob(syncId, action) {
+      if (store.jobs.some((j) => j.syncId === syncId && j.claimToken === null && Bun.deepEquals(j.action, action))) return;
+      store.jobs.push({ id: ++jobIds, syncId, action: structuredClone(action), claimToken: null, lockedUntil: null });
+    },
+    async claimJob(leaseMs) {
+      const now = Date.now();
+      const free = store.jobs.find((j) => (j.lockedUntil === null || j.lockedUntil < now) && !store.jobs.some((o) => o.syncId === j.syncId && o.id < j.id));
+      if (!free) return null;
+      free.claimToken = crypto.randomUUID();
+      free.lockedUntil = now + leaseMs;
+      return { id: free.id, syncId: free.syncId, action: structuredClone(free.action), claimToken: free.claimToken };
+    },
+    async extendJob(held, leaseMs) {
+      const found = store.jobs.find((j) => j.id === held.id && j.claimToken === held.claimToken);
+      if (found) found.lockedUntil = Date.now() + leaseMs;
+    },
+    async finishJob(held) {
+      store.jobs = store.jobs.filter((j) => !(j.id === held.id && j.claimToken === held.claimToken));
     },
   };
   return store;

@@ -3,26 +3,25 @@ import { createHmac } from "node:crypto";
 import { fakeStore } from "./lib/fake-store.ts";
 import { syncRow } from "./lib/test-context.ts";
 import type { SyncRow } from "./store.ts";
-import type { SyncContext } from "./sync/context.ts";
+import type { SyncAction } from "./sync/action.ts";
 import { webhookRoutes } from "./webhooks.ts";
 
 const secrets = { ghost: "whsec_ghost", github: "whsec_github" };
 
 function setup(syncs: SyncRow[] = [syncRow()]) {
   const store = fakeStore({ syncs });
-  const queued: { syncId: string; job: () => Promise<void> }[] = [];
-  const ran: { syncId: string; action: unknown }[] = [];
+  const queued: { syncId: string; action: SyncAction }[] = [];
   const app = webhookRoutes({
     secrets,
     bots: { ghost: "ghost-sync[bot]", github: "ghost-sync[bot]" },
     store,
-    queues: { push: (syncId, job) => queued.push({ syncId, job }) },
-    contextFor: async (sync) => ({ sync }) as SyncContext,
-    runAction: async (ctx, action) => {
-      ran.push({ syncId: ctx.sync.id, action });
+    queue: {
+      push: async (syncId, action) => {
+        queued.push({ syncId, action });
+      },
     },
   });
-  return { app, store, queued, ran };
+  return { app, store, queued };
 }
 
 function ghostRequest(body: unknown, opts: { event?: string; delivery?: string; timestamp?: number; secret?: string } = {}) {
@@ -50,13 +49,11 @@ const ghostIssue = (sender = "bob") => ({ event: "issue.opened", repository: { i
 const githubIssue = { action: "opened", repository: { id: 4242 }, sender: { login: "alice" }, issue: { number: 5 } };
 
 describe("POST /webhooks/ghost", () => {
-  test("a valid event is accepted and queued on its sync; the job runs the action with that sync's context", async () => {
-    const { app, queued, ran } = setup();
+  test("a valid event is accepted and its action queued on its sync", async () => {
+    const { app, queued } = setup();
     const response = await app.request(ghostRequest(ghostIssue()));
     expect(response.status).toBe(202);
-    expect(queued.map((q) => q.syncId)).toEqual(["sync-1"]);
-    await queued[0]?.job();
-    expect(ran).toEqual([{ syncId: "sync-1", action: { kind: "issue", from: "ghost", number: 12, deleted: false } }]);
+    expect(queued).toEqual([{ syncId: "sync-1", action: { kind: "issue", from: "ghost", number: 12, deleted: false } }]);
   });
 
   test("a bad signature is refused", async () => {
@@ -119,11 +116,10 @@ describe("POST /webhooks/ghost", () => {
   });
 
   test("coverage coming back reconnects and queues a reconcile", async () => {
-    const { app, store, queued, ran } = setup([syncRow({ status: "disconnected", disconnectReason: "Ghost app suspended" })]);
+    const { app, store, queued } = setup([syncRow({ status: "disconnected", disconnectReason: "Ghost app suspended" })]);
     await app.request(ghostRequest({ event: "installation.unsuspended", installation: { id: 11 }, sender: null }));
     expect(await store.getSync("sync-1")).toMatchObject({ status: "active", disconnectReason: null });
-    await queued[0]?.job();
-    expect(ran).toEqual([{ syncId: "sync-1", action: { kind: "reconcile" } }]);
+    expect(queued).toEqual([{ syncId: "sync-1", action: { kind: "reconcile" } }]);
   });
 
   test("an owner who lost access is not reconnected by an installation event", async () => {
@@ -135,10 +131,9 @@ describe("POST /webhooks/ghost", () => {
 
 describe("POST /webhooks/github", () => {
   test("a valid event is accepted and queued", async () => {
-    const { app, queued, ran } = setup();
+    const { app, queued } = setup();
     expect((await app.request(githubRequest("issues", githubIssue))).status).toBe(202);
-    await queued[0]?.job();
-    expect(ran[0]?.action).toEqual({ kind: "issue", from: "github", number: 5, deleted: false });
+    expect(queued).toEqual([{ syncId: "sync-1", action: { kind: "issue", from: "github", number: 5, deleted: false } }]);
   });
 
   test("a bad signature is refused", async () => {

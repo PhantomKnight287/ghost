@@ -114,6 +114,68 @@ function contract(make: () => Promise<Subject>) {
     expect(await store.listActivity(sync.id, 10)).toEqual([]);
   });
 
+  test("jobs on one sync are claimed oldest first, one at a time, with their action intact", async () => {
+    await store.enqueueJob(sync.id, { kind: "issue", from: "github", number: 5, deleted: false });
+    await store.enqueueJob(sync.id, { kind: "refs", refs: ["refs/heads/main"] });
+    const first = await store.claimJob(60_000);
+    expect(first).toMatchObject({ syncId: sync.id, action: { kind: "issue", from: "github", number: 5, deleted: false } });
+    expect(await store.claimJob(60_000)).toBeNull();
+    if (first) await store.finishJob(first);
+    expect((await store.claimJob(60_000))?.action).toEqual({ kind: "refs", refs: ["refs/heads/main"] });
+  });
+
+  test("a job identical to one still waiting is not queued twice, but one behind a running job is", async () => {
+    const action = { kind: "issue", from: "ghost", number: 12, deleted: false } as const;
+    await store.enqueueJob(sync.id, action);
+    await store.enqueueJob(sync.id, { deleted: false, number: 12, from: "ghost", kind: "issue" });
+    const running = await store.claimJob(60_000);
+    await store.enqueueJob(sync.id, action);
+    if (running) await store.finishJob(running);
+    expect((await store.claimJob(60_000))?.action).toEqual(action);
+    expect(await store.claimJob(60_000)).toBeNull();
+  });
+
+  test("another sync's job is claimed while one runs", async () => {
+    const other = await store.createSync(newSync({ ghostRepoId: "g2", githubRepoId: "2" }));
+    await store.enqueueJob(sync.id, { kind: "reconcile" });
+    await store.enqueueJob(sync.id, { kind: "refs", refs: ["refs/heads/main"] });
+    await store.enqueueJob(other.id, { kind: "reconcile" });
+    expect((await store.claimJob(60_000))?.syncId).toBe(sync.id);
+    expect((await store.claimJob(60_000))?.syncId).toBe(other.id);
+    expect(await store.claimJob(60_000)).toBeNull();
+  });
+
+  test("a lapsed lease is claimed again, and the old holder can neither extend nor finish it", async () => {
+    await store.enqueueJob(sync.id, { kind: "reconcile" });
+    const lapsed = await store.claimJob(1);
+    await Bun.sleep(20);
+    const current = await store.claimJob(60_000);
+    expect(current?.id).toBe(lapsed?.id ?? -1);
+    expect(current?.claimToken).not.toBe(lapsed?.claimToken);
+    if (!lapsed || !current) throw new Error("unclaimed");
+    await store.extendJob(lapsed, 1);
+    await store.finishJob(lapsed);
+    await Bun.sleep(20);
+    expect(await store.claimJob(60_000)).toBeNull();
+    await store.finishJob(current);
+    expect(await store.claimJob(1)).toBeNull();
+  });
+
+  test("extendJob keeps a running job held", async () => {
+    await store.enqueueJob(sync.id, { kind: "reconcile" });
+    const held = await store.claimJob(30);
+    if (!held) throw new Error("unclaimed");
+    await store.extendJob(held, 60_000);
+    await Bun.sleep(50);
+    expect(await store.claimJob(60_000)).toBeNull();
+  });
+
+  test("deleteSync drops its queued jobs", async () => {
+    await store.enqueueJob(sync.id, { kind: "reconcile" });
+    await store.deleteSync(sync.id);
+    expect(await store.claimJob(60_000)).toBeNull();
+  });
+
   test("prune drops activity after 30 days and deliveries after 7", async () => {
     await store.addActivity({ syncId: sync.id, direction: null, kind: "refs", summary: "old", error: null });
     await store.claimDelivery("ghost", "old");
@@ -152,7 +214,7 @@ describe.skipIf(!url)("postgres", () => {
     await migrate(db, { migrationsFolder: `${import.meta.dir}/../drizzle` });
   });
   contract(async () => {
-    for (const table of [schema.link, schema.ref, schema.activity, schema.delivery, schema.sync]) await db.delete(table);
+    for (const table of [schema.job, schema.link, schema.ref, schema.activity, schema.delivery, schema.sync]) await db.delete(table);
     return {
       store: createStore(db),
       ageActivity: async (days) => {
@@ -162,5 +224,15 @@ describe.skipIf(!url)("postgres", () => {
         await db.update(schema.delivery).set({ receivedAt: new Date(Date.now() - days * day) });
       },
     };
+  });
+
+  test("workers claiming at once never take two jobs of one sync", async () => {
+    const pool = postgres(url ?? "", { max: 6, onnotice: () => {} });
+    const store = createStore(drizzle(pool, { schema }));
+    const syncs = await Promise.all(["a", "b"].map((id) => store.createSync(newSync({ ghostRepoId: `race-${id}`, githubRepoId: `race-${id}` }))));
+    for (const sync of syncs) for (let i = 0; i < 3; i++) await store.enqueueJob(sync.id, { kind: "refs", refs: [`refs/heads/b${i}`] });
+    const claimed = (await Promise.all(Array.from({ length: 6 }, () => store.claimJob(60_000)))).filter((job) => job !== null);
+    await pool.end();
+    expect(claimed.map((job) => job.syncId).sort()).toEqual(syncs.map((sync) => sync.id).sort());
   });
 });

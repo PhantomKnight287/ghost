@@ -1,14 +1,18 @@
-import { and, desc, eq, inArray, lt, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, notExists, or, type SQL, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import * as schema from "./db/schema.ts";
 import type { LinkKind, RefFlag } from "./db/schema.ts";
 import type { Side } from "./side.ts";
+import type { SyncAction } from "./sync/action.ts";
 
 export type { LinkKind, RefFlag, SyncStatus } from "./db/schema.ts";
 export type SyncRow = typeof schema.sync.$inferSelect;
 export type Link = typeof schema.link.$inferSelect;
 export type RefRow = typeof schema.ref.$inferSelect;
 export type ActivityRow = Omit<typeof schema.activity.$inferSelect, "id">;
+/** A job held by one worker; `claimToken` proves the hold, so a worker whose lease lapsed cannot finish a job someone else now runs. */
+export type ClaimedJob = { id: number; syncId: string; action: SyncAction; claimToken: string };
 
 export type Store = {
   findLink(syncId: string, kind: LinkKind, side: Side, id: string): Promise<Link | null>;
@@ -31,10 +35,18 @@ export type Store = {
   /** Removes the sync with its links, refs and activity. */
   deleteSync(id: string): Promise<void>;
   prune(now: Date): Promise<void>;
+  /** Skips the job when an identical one is still waiting: every action reads current state when it runs, so one run covers both. */
+  enqueueJob(syncId: string, action: SyncAction): Promise<void>;
+  /** The oldest job of a sync with nothing older queued or running, held for `leaseMs`; null when none is free. */
+  claimJob(leaseMs: number): Promise<ClaimedJob | null>;
+  extendJob(job: ClaimedJob, leaseMs: number): Promise<void>;
+  finishJob(job: ClaimedJob): Promise<void>;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const { activity, delivery, link, ref, sync } = schema;
+const { activity, delivery, job, link, ref, sync } = schema;
+const older = alias(job, "older");
+const leaseEnd = (leaseMs: number) => sql`now() + ${leaseMs} * interval '1 millisecond'`;
 
 export function createStore(db: PostgresJsDatabase<typeof schema>): Store {
   const linkOf = (syncId: string, kind: LinkKind, side: Side, id: string) =>
@@ -130,6 +142,42 @@ export function createStore(db: PostgresJsDatabase<typeof schema>): Store {
     async prune(now) {
       await db.delete(activity).where(lt(activity.at, new Date(now.getTime() - 30 * DAY_MS)));
       await db.delete(delivery).where(lt(delivery.receivedAt, new Date(now.getTime() - 7 * DAY_MS)));
+    },
+    async enqueueJob(syncId, action) {
+      const json = JSON.stringify(action);
+      await db.execute(
+        sql`insert into ${job} (sync_id, action) select ${syncId}, ${json}::jsonb where not exists (select 1 from ${job} where sync_id = ${syncId} and action = ${json}::jsonb and claim_token is null)`,
+      );
+    },
+    async claimJob(leaseMs) {
+      const free = db
+        .select({ id: job.id })
+        .from(job)
+        .where(
+          and(
+            or(isNull(job.lockedUntil), lt(job.lockedUntil, sql`now()`)),
+            notExists(db.select({ id: older.id }).from(older).where(and(eq(older.syncId, job.syncId), lt(older.id, job.id)))),
+          ),
+        )
+        .orderBy(job.id)
+        .limit(1)
+        .for("update", { skipLocked: true });
+      const claimToken = crypto.randomUUID();
+      const [claimed] = await db
+        .update(job)
+        .set({ claimToken, lockedUntil: leaseEnd(leaseMs) })
+        .where(inArray(job.id, free))
+        .returning({ id: job.id, syncId: job.syncId, action: job.action });
+      return claimed ? { ...claimed, claimToken } : null;
+    },
+    async extendJob(held, leaseMs) {
+      await db
+        .update(job)
+        .set({ lockedUntil: leaseEnd(leaseMs) })
+        .where(and(eq(job.id, held.id), eq(job.claimToken, held.claimToken)));
+    },
+    async finishJob(held) {
+      await db.delete(job).where(and(eq(job.id, held.id), eq(job.claimToken, held.claimToken)));
     },
   };
 }

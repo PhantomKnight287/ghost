@@ -47,9 +47,10 @@ Claude wrote every task's failing tests up front; they live next to the code the
 - `RestError.message` is `"<status> <host message>"`, so activity rows read like `404 Not Found`.
 - A copied review's body is `withMarker("<verdict>\n\n<body>", from, author)`, or just the verdict when the body is empty; the marker stays first so echoes are caught. Null `start_line` / `start_side` are left out.
 - A linked pull request merged on its source only gets the merge handling (comment and close, or nothing); otherwise title, body and state are patched.
-- Handlers return data, not closures: `handleGhost(event, payload)` and `handleGitHub(event, payload)` return `{ kind: "job"; repoId; actor; action: SyncAction }`, `{ kind: "installation"; side; installationId; status? ; added?; removed? }` or `null`. `SyncAction` kinds: `refs`, `pull`, `review`, `review_comment`, `issue`, `comment`, `label`, `check_run`, `sync_check`, `reconcile` (shapes in `handlers.test.ts`). `webhookRoutes({ secrets, bots, store, queues, contextFor, runAction })`; `runAction(ctx, action)` is the one dispatcher to `sync/*`.
+- Handlers return data, not closures: `handleGhost(event, payload)` and `handleGitHub(event, payload)` return `{ kind: "job"; repoId; actor; action: SyncAction }`, `{ kind: "installation"; side; installationId; status? ; added?; removed? }` or `null`. `SyncAction` kinds: `refs`, `pull`, `review`, `review_comment`, `issue`, `comment`, `label`, `check_run`, `sync_check`, `reconcile` (shapes in `handlers.test.ts`). `SyncAction` lives in `sync/action.ts`. `webhookRoutes({ secrets, bots, store, queue })` only stores the action with `queue.push(syncId, action)` before answering 202; the queue's `run(syncId, action)` builds the context and calls `runAction(ctx, action)`, the one dispatcher to `sync/*`.
 - An installation event never reconnects a sync disconnected because its owner lost access.
-- `startReconcileTimer({ store, intervalSeconds, contextFor, ownerCanAdminFor, reconcile })` returns `{ tick(): Promise<void>; stop(): void }`; it reconciles `active`, `backfilling` and `error` syncs, one at a time, logs a failure as activity and carries on, then prunes.
+- `startReconcileTimer({ store, queue, intervalSeconds })` returns `{ tick(): Promise<void>; stop(): void }`; a tick queues `{ kind: "reconcile" }` for every `active`, `backfilling` and `error` sync, then prunes. Reconciles run as queued jobs, so they never overlap a webhook job on the same sync; the queue's `onError` logs a failure as activity.
+- The queue is a Postgres `job` table (Task 9). `store.enqueueJob` skips a job identical to one still waiting; `claimJob(leaseMs)` takes the oldest job of a sync with nothing older queued or running (`FOR UPDATE SKIP LOCKED`), held by a claim token and a lease the worker renews; `finishJob` deletes it. A failed job is reported and dropped, since reconcile repairs the item.
 - Reconcile lists only `/issues?state=all[&since=]` on each side (pull requests come through it with `pull_request` set; GitHub's pull list has no `since`), and copies check runs for open pull request heads only. Default-branch runs come through webhooks.
 - Routes: `setupRoutes(deps)` and `syncRoutes(deps)`, `RouteDeps = { store, currentUser, userRest, appInstallation, installUrl, compareRefs, reconcileNow, removeMirror }` (in `routes/setup.ts`). Another user's sync answers 404, never 403. A new GitHub repository the installation does not cover is created, the sync saved `disconnected`, and the response carries the install link; sync.ghost does not add it to the installation itself. `GET /api/github/owners` lists the user and organizations where their membership role is `admin`.
 
@@ -71,7 +72,8 @@ apps/sync/api/
     db/schema.ts                     drizzle tables
     store.ts          store.test.ts   all reads and writes the engine needs
     git.ts            git.test.ts
-    queue.ts          queue.test.ts
+    queue.ts          queue.test.ts   durable per-sync jobs (Postgres `job` table)
+    sync/action.ts                   SyncAction
     sync/context.ts                  SyncContext
     sync/refs.ts      sync/refs.test.ts
     sync/issues.ts    sync/issues.test.ts      issues + labels
@@ -349,20 +351,21 @@ test.each(cases)("%s", (_, state, action) => expect(decideRef(state)).toEqual(ac
 - [x] **Step 5:** Run. Expected: PASS.
 - [x] **Step 6:** Commit `feat(sync): three-way ref sync`.
 
-### Task 9: Serial queue per sync
+### Task 9: Durable queue per sync
 
 **Files:**
-- Create: `apps/sync/api/src/queue.ts`
-- Test: `apps/sync/api/src/queue.test.ts`
+- Create: `apps/sync/api/src/queue.ts`, `apps/sync/api/src/sync/action.ts`, `job` table in `src/db/schema.ts`, generated migration
+- Modify: `apps/sync/api/src/store.ts`, `apps/sync/api/src/lib/fake-store.ts`
+- Test: `apps/sync/api/src/queue.test.ts`, job cases in `apps/sync/api/src/store.test.ts`
 
 **Interfaces:**
-- Produces: `createQueues(onError: (syncId: string, error: unknown) => void): { push(syncId: string, job: () => Promise<void>): void; idle(): Promise<void> }`.
+- Produces: `type SyncAction` (data, one variant per handler outcome); `Store.enqueueJob(syncId, action)`, `claimJob(leaseMs): Promise<ClaimedJob | null>`, `extendJob(job, leaseMs)`, `finishJob(job)`; `createQueue({ store, run: (syncId, action) => Promise<void>, onError: (syncId: string | null, error) => void, concurrency?, leaseMs?, pollMs? }): { push(syncId, action): Promise<void>; start(): void; stop(): Promise<void>; idle(): Promise<void> }`.
 
-- [x] **Step 1: Write the failing tests:** jobs on one sync run in order and never overlap; jobs on two syncs run concurrently; a throwing job calls `onError` and the next job still runs; `idle()` resolves after all queued jobs.
+- [x] **Step 1: Write the failing tests:** store (Postgres and fake): jobs of one sync claimed oldest first, one at a time, actions intact; another sync's job claimed meanwhile; an identical waiting job is not queued twice, one behind a running job is; a lapsed lease is reclaimed and the old holder can neither extend nor finish it; `extendJob` keeps a job held; `deleteSync` drops its jobs; six workers claiming at once never take two jobs of one sync (Postgres only). Queue: order without overlap on one sync; two syncs concurrently; at most `concurrency` at once; a throwing job is reported and dropped and the next runs; `idle()` covers jobs queued by jobs; a started queue runs pushed jobs until stopped; jobs left by a previous process run; a job longer than its lease is not run again by another worker; a database failure is reported and the queue recovers.
 - [x] **Step 2:** Run. Expected: FAIL.
-- [x] **Step 3:** Implement as a `Map<string, Promise<void>>` chain. Add `// ponytail: in-memory, one process; a Postgres job table when one instance is not enough`.
-- [x] **Step 4:** Run. Expected: PASS.
-- [x] **Step 5:** Commit `feat(sync): per-sync serial queues`.
+- [x] **Step 3:** Implement. Claim with `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1)` where no older job of the same sync exists; heartbeat every `leaseMs / 3`; `bun run db:generate`.
+- [x] **Step 4:** Run, with `TEST_DATABASE_URL` for the store cases. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): durable per-sync job queue in Postgres`.
 
 ### Task 10: Issues, labels and comments
 
@@ -477,7 +480,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 
 **Interfaces:**
 - Consumes: Tasks 3, 6, 9, 10–13.
-- Produces: `webhookRoutes(deps: { config: Config; store: Store; queues: Queues; contextFor: (sync: SyncRow) => Promise<SyncContext> }): Hono`, mounting `POST /webhooks/ghost` and `POST /webhooks/github`. Handlers: `handleGhost(event: string, payload: unknown): Job | null` and `handleGitHub(event: string, payload: unknown): Job | null`, where `type Job = { repoId: string; actor: string; run: (ctx: SyncContext) => Promise<void> }`.
+- Produces: `webhookRoutes(deps: { secrets; bots; store: Store; queue: Pick<Queue, "push"> }): Hono`, mounting `POST /webhooks/ghost` and `POST /webhooks/github`. Handlers return data (see Contracts): `handleGhost(event, payload)` and `handleGitHub(event, payload)`; `runAction(ctx, action)` dispatches a `SyncAction` to `sync/*` and is what `index.ts` gives the queue as `run`.
 
 | Ghost event | GitHub event | Job |
 | --- | --- | --- |
@@ -510,7 +513,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 - Test: `apps/sync/api/src/reconcile.test.ts`
 
 **Interfaces:**
-- Produces: `reconcileSync(ctx: SyncContext, ownerCanAdmin: () => Promise<boolean>): Promise<void>`; `startReconcileTimer(deps: { store: Store; contextFor; ownerCanAdminFor: (sync: SyncRow) => () => Promise<boolean>; intervalSeconds: number }): () => void` (returns stop).
+- Produces: `reconcileSync(ctx: SyncContext, ownerCanAdmin: () => Promise<boolean>): Promise<void>`; `startReconcileTimer(deps: { store: Store; queue: Pick<Queue, "push">; intervalSeconds: number }): { tick(); stop() }` (queues reconciles; see Contracts).
 
 - [ ] **Step 1: Write the failing tests:**
   - Owner no longer admin on either side → `updateSync(status: "disconnected", disconnectReason: "owner lost access")` and nothing else runs.
@@ -519,7 +522,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
   - Running the first sync twice over the same fakes makes no second create call (Review Focus 3).
   - Items written by our bot are not copied back (Review Focus 4).
   - A `RestError` 401 → `disconnected` with the side; a 5xx after retries → `activity` error, reconcile continues with the next item.
-  - The timer runs syncs one at a time and skips `paused` and `disconnected` ones; it also calls `store.prune`.
+  - A timer tick queues a reconcile for every `active`, `backfilling` and `error` sync (never `paused` or `disconnected`) and calls `store.prune`.
 - [ ] **Step 2:** Run. Expected: FAIL.
 - [ ] **Step 3:** Implement. Owner access: `GET /repos/:o/:r` with the owner's user token on each side, `permissions.admin === true`; a missing user or failed refresh counts as lost.
 - [ ] **Step 4:** Run. Expected: PASS.
@@ -562,7 +565,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
   - Resume runs a reconcile.
   - No response body contains a token (assert on the serialized JSON for `ghu_`, `ghs_`, `gho_`).
 - [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. `index.ts` wires config, store, both `AppAuth`s, both REST factories, queues, `webhookRoutes`, these routes, `GET /health`, and `startReconcileTimer`.
+- [ ] **Step 3:** Implement. `index.ts` wires config, store, both `AppAuth`s, both REST factories, `createQueue({ store, run: (syncId, action) => runAction(contextFor(sync), action), onError })` and `queue.start()`, `webhookRoutes`, these routes (`reconcileNow` = `queue.push(id, { kind: "reconcile" })`), `GET /health`, and `startReconcileTimer`.
 - [ ] **Step 4:** Run. Expected: PASS.
 - [ ] **Step 5:** Commit `feat(sync): setup and sync routes`.
 

@@ -1,5 +1,6 @@
 import { bigint, bigserial, index, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import type { Side } from "../side.ts";
+import type { SyncAction } from "../sync/action.ts";
 
 export type SyncStatus = "backfilling" | "active" | "paused" | "disconnected" | "error";
 export type LinkKind = "issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run";
@@ -70,6 +71,22 @@ export const delivery = pgTable(
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.side, table.deliveryId] })],
+);
+
+export const job = pgTable(
+  "job",
+  {
+    // Also the order jobs on one sync run in.
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    syncId: uuid("sync_id")
+      .notNull()
+      .references(() => sync.id, { onDelete: "cascade" }),
+    action: jsonb("action").$type<SyncAction>().notNull(),
+    claimToken: uuid("claim_token"),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index().on(table.syncId, table.id)],
 );
 
 export const activity = pgTable(
