@@ -19,6 +19,8 @@ export function createAuth(db: Database, config: Config) {
     baseURL: config.BETTER_AUTH_URL,
     basePath: "/api/auth",
     trustedOrigins: [config.SYNC_WEB_URL],
+    // Ghost runs better-auth too; cookies are shared per host, not per port, so the default names would overwrite Ghost's own session.
+    advanced: { cookiePrefix: "ghost-sync" },
     database: drizzleAdapter(db, { provider: "pg", schema: { user: schema.user, session: schema.session, account: schema.account, verification: schema.verification } }),
     account: {
       encryptOAuthTokens: true,
