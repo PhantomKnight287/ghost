@@ -89,6 +89,14 @@ describe("GitHub events", () => {
     expect(handleGitHub(event, payload)).toEqual(expected as never);
   });
 
+  test("a renamed label carries its old name", () => {
+    expect(handleGitHub("label", github("edited", { label: { name: "defect" }, changes: { name: { from: "bug" } } }))).toEqual(h({ kind: "label", from: "github", name: "defect", deleted: false, previousName: "bug" }));
+  });
+
+  test("branches and tags created or deleted on GitHub, but not repositories", () => {
+    expect(handleGitHub("create", github(undefined, { ref: "main", ref_type: "repository" }))).toBeNull();
+  });
+
   test("events sync.ghost does not copy", () => {
     expect(handleGitHub("pull_request", github("assigned", { number: 8 }))).toBeNull();
     expect(handleGitHub("pull_request_review", github("dismissed", { pull_request: { number: 8 }, review: { id: 77 } }))).toBeNull();

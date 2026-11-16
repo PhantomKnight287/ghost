@@ -167,3 +167,48 @@ describe("POST /webhooks/github", () => {
     expect(await store.getSync("sync-1")).toMatchObject({ status: "disconnected", disconnectReason: expect.stringContaining("GitHub") });
   });
 });
+
+describe("pipeline edge cases", () => {
+  test("a delivery whose job could not be stored is processed again on the host's retry", async () => {
+    const { store } = setup();
+    const queued: unknown[] = [];
+    let fail = true;
+    const flaky = webhookRoutes({
+      secrets,
+      bots: { ghost: "ghost-sync[bot]", github: "ghost-sync[bot]" },
+      store,
+      queue: {
+        push: async (syncId, action) => {
+          if (fail) throw new Error("database unreachable");
+          queued.push({ syncId, action });
+        },
+      },
+    });
+    const first = await flaky.request(githubRequest("issues", githubIssue, { delivery: "d-9" }));
+    expect(first.status).toBe(500);
+    fail = false;
+    expect((await flaky.request(githubRequest("issues", githubIssue, { delivery: "d-9" }))).status).toBe(202);
+    expect(queued).toHaveLength(1);
+  });
+
+  test("a delivery without its event or id headers is refused", async () => {
+    const { app } = setup();
+    const raw = JSON.stringify(githubIssue);
+    const request = new Request("http://sync/webhooks/github", { method: "POST", body: raw, headers: { "x-hub-signature-256": `sha256=${createHmac("sha256", secrets.github).update(raw).digest("hex")}` } });
+    expect((await app.request(request)).status).toBe(400);
+  });
+
+  test("a repository added to the GitHub installation records it, reconnects and reconciles", async () => {
+    const { app, store, queued } = setup([syncRow({ status: "disconnected", disconnectReason: "GitHub app no longer covers acme-gh/app", githubInstallationId: null })]);
+    await app.request(githubRequest("installation_repositories", { action: "added", installation: { id: 22 }, repositories_added: [{ id: 4242 }], repositories_removed: [], sender: { login: "alice" } }));
+    expect(await store.getSync("sync-1")).toMatchObject({ status: "active", githubInstallationId: 22, disconnectReason: null });
+    expect(queued).toEqual([{ syncId: "sync-1", action: { kind: "reconcile" } }]);
+  });
+
+  test("the other side's app returning does not reconnect a sync this side disconnected", async () => {
+    const { app, store } = setup([syncRow({ status: "disconnected", disconnectReason: "GitHub app suspended" })]);
+    await app.request(ghostRequest({ event: "installation.unsuspended", installation: { id: 11 }, sender: null }));
+    expect((await store.getSync("sync-1"))?.status).toBe("disconnected");
+  });
+});
+

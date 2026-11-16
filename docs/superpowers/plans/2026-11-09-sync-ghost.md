@@ -50,6 +50,8 @@ Claude wrote every task's failing tests up front; they live next to the code the
 - `syncRefs` returns each side's refs as last fetched (`syncPull` reads `ghost-pr/<n>` from it). A pull request is created only once its head and base agree on both sides; a linked one follows title, body, state, base, draft and labels, and a merge closes the copy with `mergedText` only when the host did not see the merge itself and the base agrees. Creates are found again after a lost answer, as for issues.
 - A review leaves out line comments already linked, and replies, so a review's and its comments' webhooks may arrive in either order without duplicates; replies follow it as their own comments. GitHub's empty `COMMENTED` review around a lone comment posts nothing once its comment is copied. A 422 on a review with comments posts the verdict alone and each comment on its own, so only the unplaceable one is skipped. A copied review is never edited: Ghost's compatibility API has no review edit endpoint (Ghost #138).
 - A copied check run keeps name, status, conclusion and output (title, summary, text) and points `details_url` at the original's `html_url`, which also identifies it when a lost create is looked for. Statuses only Actions may set become `queued`; an update leaves `head_sha` out. A commit the other side lacks (404, or GitHub's 422) is skipped silently for reconcile.
+- The webhook pipeline claims a delivery, then handles it; if anything after the claim fails it answers 500 and `store.releaseDelivery` forgets the claim, so the host's retry is processed. Missing event or delivery headers answer 400. Installation changes live in `installations.ts`: removal, suspension or lost coverage disconnects with a reason naming the side's app (`"<Ghost|GitHub> app …"`); only that side's app returning reconnects, and `installation_repositories.added` also records the installation id on the sync (`updateSync` accepts both installation ids). GitHub's `label.edited` passes `changes.name.from` as `previousName`.
+- `runAction(ctx, action, reconcile)` (`sync/run.ts`) dispatches every `SyncAction`; `reconcile` is injected. A `sync_check` opens "Sync with GitHub", syncs every ref, and fails naming each flagged ref whose Ghost side is that commit; a thrown sync still closes the check as a failure.
 - `RestError.message` is `"<status> <host message>"`, so activity rows read like `404 Not Found`.
 - A copied review's body is `withMarker("<verdict>\n\n<body>", from, author)`, or just the verdict when the body is empty; the marker stays first so echoes are caught. Null `start_line` / `start_side` are left out.
 - A linked pull request merged on its source only gets the merge handling (comment and close, or nothing); otherwise title, body and state are patched.
@@ -505,12 +507,12 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 | `check_run.rerequested`, `check_suite.rerequested` | — | full reconcile of the sync (Task 15), then a fresh sync check |
 | `installation.*` | `installation`, `installation_repositories` | not a job: update `installation` and set affected syncs `disconnected` / back to `active` with a reconcile |
 
-- [ ] **Step 1: Write the failing pipeline tests** (`app.request` with signed bodies): bad signature → 401; stale Ghost timestamp → 401; repeated delivery id → 200, no job; actor `ghost-sync[bot]` → 200, no job; unknown repository → 200; paused sync → 200, no job; valid event → 202 and one job queued; `installation.deleted` → affected sync `disconnected` with the side named.
-- [ ] **Step 2: Write the failing handler tests:** one per table row, asserting the job calls the right function with the right `from`, number and key (spy on the `sync/*` module). Check that Ghost's `repository.id` in a webhook equals `GET /repos/:o/:r` `id`; if it does not, store both on `sync` and match webhooks on the webhook one.
-- [ ] **Step 3:** Run. Expected: FAIL.
-- [ ] **Step 4:** Implement. Read the raw body once with `c.req.arrayBuffer()` before parsing.
-- [ ] **Step 5:** Run. Expected: PASS.
-- [ ] **Step 6:** Commit `feat(sync): webhook pipeline and event handlers`.
+- [x] **Step 1: Write the failing pipeline tests** (`app.request` with signed bodies): bad signature → 401; stale Ghost timestamp → 401; repeated delivery id → 200, no job; actor `ghost-sync[bot]` → 200, no job; unknown repository → 200; paused sync → 200, no job; valid event → 202 and one job queued; `installation.deleted` → affected sync `disconnected` with the side named.
+- [x] **Step 2: Write the failing handler tests:** one per table row, asserting the job calls the right function with the right `from`, number and key (spy on the `sync/*` module). Check that Ghost's `repository.id` in a webhook equals `GET /repos/:o/:r` `id`; if it does not, store both on `sync` and match webhooks on the webhook one.
+- [x] **Step 3:** Run. Expected: FAIL.
+- [x] **Step 4:** Implement. Read the raw body once with `c.req.arrayBuffer()` before parsing.
+- [x] **Step 5:** Run. Expected: PASS.
+- [x] **Step 6:** Commit `feat(sync): webhook pipeline and event handlers`.
 
 ### Task 15: Reconcile, first sync and lifecycle
 

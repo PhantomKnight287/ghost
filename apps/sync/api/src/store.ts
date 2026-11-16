@@ -25,13 +25,15 @@ export type Store = {
   flagRef(syncId: string, name: string, diverged: RefFlag): Promise<void>;
   /** true the first time a side's delivery id is seen. */
   claimDelivery(side: Side, deliveryId: string): Promise<boolean>;
+  /** Forgets a claimed delivery whose handling failed, so the host's retry is processed rather than dropped as a duplicate. */
+  releaseDelivery(side: Side, deliveryId: string): Promise<void>;
   addActivity(entry: Omit<ActivityRow, "at">): Promise<void>;
   listActivity(syncId: string, limit: number): Promise<ActivityRow[]>;
   getSync(id: string): Promise<SyncRow | null>;
   findSyncByRepo(side: Side, repoId: string): Promise<SyncRow | null>;
   listSyncs(filter: { status?: SyncRow["status"][]; ownerId?: string; installation?: { side: Side; id: number } }): Promise<SyncRow[]>;
   createSync(input: Pick<SyncRow, "ownerId" | "ghostRepoId" | "ghostFullName" | "githubRepoId" | "githubFullName" | "ghostInstallationId" | "githubInstallationId">): Promise<SyncRow>;
-  updateSync(id: string, patch: Partial<Pick<SyncRow, "status" | "lastError" | "disconnectReason" | "lastReconciledAt">>): Promise<void>;
+  updateSync(id: string, patch: Partial<Pick<SyncRow, "status" | "lastError" | "disconnectReason" | "lastReconciledAt" | "ghostInstallationId" | "githubInstallationId">>): Promise<void>;
   /** Removes the sync with its links, refs and activity. */
   deleteSync(id: string): Promise<void>;
   prune(now: Date): Promise<void>;
@@ -91,6 +93,9 @@ export function createStore(db: PostgresJsDatabase<typeof schema>): Store {
     async claimDelivery(side, deliveryId) {
       const inserted = await db.insert(delivery).values({ side, deliveryId }).onConflictDoNothing().returning({ deliveryId: delivery.deliveryId });
       return inserted.length > 0;
+    },
+    async releaseDelivery(side, deliveryId) {
+      await db.delete(delivery).where(and(eq(delivery.side, side), eq(delivery.deliveryId, deliveryId)));
     },
     async addActivity(entry) {
       await db.insert(activity).values(entry);

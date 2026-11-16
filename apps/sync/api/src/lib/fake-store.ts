@@ -55,6 +55,9 @@ export function fakeStore(seed: { syncs?: SyncRow[] } = {}): FakeStore {
       store.deliveries.push({ side, deliveryId, receivedAt: new Date() });
       return true;
     },
+    async releaseDelivery(side, deliveryId) {
+      store.deliveries = store.deliveries.filter((d) => !(d.side === side && d.deliveryId === deliveryId));
+    },
     async addActivity(entry) {
       store.activity.push({ ...entry, at: new Date() });
     },

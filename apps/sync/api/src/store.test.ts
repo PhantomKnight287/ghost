@@ -78,6 +78,17 @@ function contract(make: () => Promise<Subject>) {
     expect(await store.claimDelivery("github", "d-1")).toBe(true);
   });
 
+  test("a released delivery can be claimed again", async () => {
+    expect(await store.claimDelivery("github", "d-2")).toBe(true);
+    await store.releaseDelivery("github", "d-2");
+    expect(await store.claimDelivery("github", "d-2")).toBe(true);
+  });
+
+  test("updateSync records an installation that now covers the repository", async () => {
+    await store.updateSync(sync.id, { githubInstallationId: 99 });
+    expect((await store.getSync(sync.id))?.githubInstallationId).toBe(99);
+  });
+
   test("findSyncByRepo on either side", async () => {
     expect((await store.findSyncByRepo("github", "4242"))?.id).toBe(sync.id);
     expect((await store.findSyncByRepo("ghost", "ghost-repo-uuid"))?.id).toBe(sync.id);
