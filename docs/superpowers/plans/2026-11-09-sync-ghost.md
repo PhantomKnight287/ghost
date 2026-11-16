@@ -358,11 +358,11 @@ test.each(cases)("%s", (_, state, action) => expect(decideRef(state)).toEqual(ac
 **Interfaces:**
 - Produces: `createQueues(onError: (syncId: string, error: unknown) => void): { push(syncId: string, job: () => Promise<void>): void; idle(): Promise<void> }`.
 
-- [ ] **Step 1: Write the failing tests:** jobs on one sync run in order and never overlap; jobs on two syncs run concurrently; a throwing job calls `onError` and the next job still runs; `idle()` resolves after all queued jobs.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement as a `Map<string, Promise<void>>` chain. Add `// ponytail: in-memory, one process; a Postgres job table when one instance is not enough`.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): per-sync serial queues`.
+- [x] **Step 1: Write the failing tests:** jobs on one sync run in order and never overlap; jobs on two syncs run concurrently; a throwing job calls `onError` and the next job still runs; `idle()` resolves after all queued jobs.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement as a `Map<string, Promise<void>>` chain. Add `// ponytail: in-memory, one process; a Postgres job table when one instance is not enough`.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): per-sync serial queues`.
 
 ### Task 10: Issues, labels and comments
 
