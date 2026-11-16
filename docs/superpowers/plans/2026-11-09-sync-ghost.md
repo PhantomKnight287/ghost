@@ -550,6 +550,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 - [x] **Step 1:** Configure better-auth: `genericOAuth` provider `ghost` with `authorizationUrl` / `tokenUrl` from Global Constraints, `userInfoUrl: <GHOST_API_URL>/api/v3/user`, client id and secret from config; `socialProviders.github` with the GitHub App's client id and secret; `account.accountLinking` on with `trustedProviders: ["ghost", "github"]`; OAuth token encryption on (check the option name in the installed version: `account.encryptOAuthTokens`). Email/password off. GitHub may only be linked, never used to create a user: refuse sign-up through `github` in a `databaseHooks.user.create.before` hook.
 - [x] **Step 2:** Mount at `/api/auth/*` in `index.ts` with CORS for `SYNC_WEB_URL` and credentials.
 - [ ] **Step 3:** Manually against dev Ghost: register a dev Ghost App with callback `<sync-api>/api/auth/callback/ghost` (better-auth 1.7 serves generic OAuth providers through the core `/sign-in/social` and `/callback/:id` routes), sign in, link GitHub, confirm the `account` rows hold encrypted tokens.
+  - 2026-11-16, Ghost half verified against dev Ghost: sign-in landed on `/api/auth/get-session`; one `user`, an `account` for `ghost` whose access and refresh tokens are stored encrypted; `userToken` returned a `ghu_` token that `GET /api/v3/user` accepted. GitHub linking waits for the GitHub App to be registered.
 - [ ] **Step 4:** Commit `feat(sync): sign in with Ghost, link GitHub`.
 
 ### Task 17: Setup and sync routes
