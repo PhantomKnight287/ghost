@@ -1,10 +1,10 @@
 import { readMarker, withMarker } from "../format.ts";
 import { RestError } from "../rest.ts";
 import { other, SIDE_NAME, type Side } from "../side.ts";
-import type { SyncContext } from "./context.ts";
+import { repoPath, type SyncContext } from "./context.ts";
 import { createOnce, isNotFound, skipped } from "./write.ts";
 
-type Label = { name: string; color: string; description: string | null };
+export type Label = { name: string; color: string; description: string | null };
 type Issue = {
   number: number;
   node_id: string;
@@ -16,7 +16,7 @@ type Issue = {
   pull_request?: unknown;
 };
 
-const path = (ctx: SyncContext, side: Side, rest = "") => `/repos/${ctx.repo[side].owner}/${ctx.repo[side].name}${rest}`;
+const path = (ctx: SyncContext, side: Side, rest = "") => `${repoPath(ctx, side)}${rest}`;
 const labelPath = (ctx: SyncContext, side: Side, name: string) => path(ctx, side, `/labels/${encodeURIComponent(name)}`);
 
 /** `<type prefix>_<base64url UUID>`, as Ghost's REST layer spells `node_id`, back to the UUID its webhooks carry. */
@@ -30,7 +30,7 @@ export function copiedBody(ctx: SyncContext, from: Side, author: string, body: s
   return author === ctx.bot[from] ? text : withMarker(text, from, author);
 }
 
-async function ensureLabel(ctx: SyncContext, to: Side, label: Label) {
+export async function ensureLabel(ctx: SyncContext, to: Side, label: Label) {
   try {
     await ctx.rest[to].request("GET", labelPath(ctx, to, label.name));
   } catch (error) {

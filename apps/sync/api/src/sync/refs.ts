@@ -20,7 +20,7 @@ export function decideRef({ base, ghost, github, ghostHasGithub, githubHasGhost 
 
 const short = (sha: string | null) => sha?.slice(0, 7) ?? "deleted";
 
-/** Brings every branch and tag (or only `only`) into agreement. `ghost-pr/*` heads belong to pull requests. */
+/** Brings every branch and tag (or only `only`) into agreement. `ghost-pr/*` heads belong to pull requests. Returns each side's refs as last fetched. */
 export async function syncRefs(ctx: SyncContext, only?: string[]) {
   const remotes = await ctx.remote();
   let fetched = await ctx.git.fetchBoth(ctx.dir, remotes);
@@ -37,6 +37,7 @@ export async function syncRefs(ctx: SyncContext, only?: string[]) {
       fetched = await ctx.git.fetchBoth(ctx.dir, remotes);
     }
   }
+  return fetched;
 }
 
 async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: string, ghost: string | null, github: string | null) {

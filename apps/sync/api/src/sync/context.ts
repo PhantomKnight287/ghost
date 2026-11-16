@@ -18,3 +18,6 @@ export type SyncContext = {
   appSlug: Record<Side, string>;
   store: Store;
 };
+
+/** `/repos/<owner>/<name>` of the sync's repository on `side`, the prefix of every REST path. */
+export const repoPath = (ctx: SyncContext, side: Side) => `/repos/${ctx.repo[side].owner}/${ctx.repo[side].name}`;

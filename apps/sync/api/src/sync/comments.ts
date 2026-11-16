@@ -1,11 +1,9 @@
 import { other, SIDE_NAME, type Side } from "../side.ts";
-import type { SyncContext } from "./context.ts";
+import { repoPath, type SyncContext } from "./context.ts";
 import { copiedBody, ghostKeyOfNodeId, syncIssue } from "./issues.ts";
 import { createOnce, isNotFound, skipped } from "./write.ts";
 
 type Comment = { id: number; node_id: string; body: string | null; user: { login: string } };
-
-const repoPath = (ctx: SyncContext, side: Side) => `/repos/${ctx.repo[side].owner}/${ctx.repo[side].name}`;
 
 /** The counterpart issue or pull request number of `number` on `from`, syncing the issue first when it has no link yet. */
 async function counterpartOf(ctx: SyncContext, from: Side, number: number) {

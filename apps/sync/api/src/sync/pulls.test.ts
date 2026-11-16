@@ -265,3 +265,75 @@ describe("syncPull, linked", () => {
     expect((await ctx.store.getRef(ctx.sync.id, main))?.diverged).not.toBeNull();
   });
 });
+
+describe("syncPull edge cases", () => {
+  test("a create whose answer was lost finds our copy instead of opening a second", async () => {
+    const copy = { number: 8, title: "Add sync", body: withMarker("Does things", "ghost", "bob"), user: { login: "ghost-sync[bot]" } };
+    const ctx = testContext({
+      git: repos(),
+      ghost: { "GET /repos/acme/app/pulls/3": ghostPull() },
+      github: {
+        "POST /repos/acme-gh/app/pulls": () => {
+          throw new RestError(504, { message: "Gateway Timeout" });
+        },
+        "GET /repos/acme-gh/app/pulls?state=all&head=acme-gh%3Afeat": [copy],
+      },
+    });
+    await ctx.store.setBase(ctx.sync.id, main, "m1");
+    await syncPull(ctx, "ghost", 3);
+    expect(await ctx.store.findLink(ctx.sync.id, "pull", "ghost", "3")).toMatchObject({ githubId: "8" });
+  });
+
+  test("a retargeted pull request moves its copy's base", async () => {
+    const ctx = testContext({
+      git: fakeGit({ ghost: { [feat]: "h1", [main]: "m1", "refs/heads/next": "n1" }, github: { [main]: "m1", "refs/heads/next": "n1" } }),
+      ghost: { "GET /repos/acme/app/pulls/3": ghostPull({ base: { ref: "next", sha: "n1", repo: { id: 1 } } }) },
+      github: { "GET /repos/acme-gh/app/pulls/8": githubPull({ base: { ref: "main" } }), "PATCH /repos/acme-gh/app/pulls/8": {} },
+    });
+    await linked(ctx);
+    await ctx.store.setBase(ctx.sync.id, "refs/heads/next", "n1");
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(ctx.github)[0]?.body).toMatchObject({ base: "next" });
+  });
+
+  test("labels changed on a linked pull request follow", async () => {
+    const bug = { name: "bug", color: "d73a4a", description: null };
+    const ctx = testContext({
+      git: repos(),
+      ghost: { "GET /repos/acme/app/pulls/3": ghostPull({ labels: [bug] }) },
+      github: { "GET /repos/acme-gh/app/pulls/8": githubPull({ labels: [] }), "PATCH /repos/acme-gh/app/pulls/8": {}, "GET /repos/acme-gh/app/labels/bug": bug, "PATCH /repos/acme-gh/app/issues/8": {} },
+    });
+    await linked(ctx);
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(ctx.github).at(-1)).toEqual({ method: "PATCH", path: "/repos/acme-gh/app/issues/8", body: { labels: ["bug"] } });
+  });
+
+  test("merged on one side, closed without merging on the other: left as is", async () => {
+    const ctx = testContext({
+      git: repos(),
+      ghost: { "GET /repos/acme/app/pulls/3": ghostPull({ state: "closed", merged: true }) },
+      github: { "GET /repos/acme-gh/app/pulls/8": githubPull({ state: "closed" }) },
+    });
+    await linked(ctx);
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(ctx.github)).toEqual([]);
+  });
+
+  test("a fork head GitHub refuses leaves the pull request uncopied, with the reason logged", async () => {
+    const git = repos();
+    git.pullHeads.set(3, "fh");
+    git.rejects.set("github refs/heads/ghost-pr/3", "protected");
+    const ctx = testContext({ git, ghost: { "GET /repos/acme/app/pulls/3": ghostPull({ head: { ref: "feat", sha: "fh", repo: { id: 99 } } }) } });
+    await ctx.store.setBase(ctx.sync.id, main, "m1");
+    await syncPull(ctx, "ghost", 3);
+    expect(writes(ctx.github)).toEqual([]);
+    expect(ctx.store.activity.some((a) => a.kind === "pull" && a.error?.includes("protected"))).toBe(true);
+  });
+
+  test("a vanished source is skipped and logged", async () => {
+    const ctx = testContext({ git: repos() });
+    await syncPull(ctx, "ghost", 3);
+    expect(ctx.store.activity).toEqual([expect.objectContaining({ kind: "pull", error: expect.stringContaining("404") })]);
+  });
+});
+

@@ -47,6 +47,7 @@ Claude wrote every task's failing tests up front; they live next to the code the
 - A flagged branch (diverged or rejected) is announced once per state with a comment on both halves of every linked open pull request headed by it, found through Ghost's pull list. `RefFlag.notified` stays false until every comment lands and `RefFlag.posted` records each `<side>#<number>` as it does; a failed notice is logged as `comment` activity, never stops the other refs, and the next run posts only the missing comments.
 - `syncIssue` returns `number | null`: null when nothing was copied (source gone, an unlinked pull request, which only `syncPull` creates, or our own unlinked copy). Every create goes through `createOnce` (`sync/write.ts`): after a 5xx or a dropped connection it looks for our copy (newest bot-created issues, or the issue's bot comments, matched by exact title and body) before failing, so a lost answer never yields a duplicate. A 4xx is not looked for.
 - A label action may carry `previousName` (GitHub's `changes.name.from` on `label.edited`); the counterpart is then renamed with `new_name` instead of a second label being created. Ghost's `label.edited` event carries only the label id, so a rename made on Ghost reaches GitHub as a new label until Ghost adds the old name to that event.
+- `syncRefs` returns each side's refs as last fetched (`syncPull` reads `ghost-pr/<n>` from it). A pull request is created only once its head and base agree on both sides; a linked one follows title, body, state, base, draft and labels, and a merge closes the copy with `mergedText` only when the host did not see the merge itself and the base agrees. Creates are found again after a lost answer, as for issues.
 - `RestError.message` is `"<status> <host message>"`, so activity rows read like `404 Not Found`.
 - A copied review's body is `withMarker("<verdict>\n\n<body>", from, author)`, or just the verdict when the body is empty; the marker stays first so echoes are caught. Null `start_line` / `start_side` are left out.
 - A linked pull request merged on its source only gets the merge handling (comment and close, or nothing); otherwise title, body and state are patched.
@@ -416,7 +417,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 - Consumes: `syncRefs`, `fetchPullHead`, `pushRef` (Tasks 7–8), `syncIssue` labels path (Task 10), `mergedText`.
 - Produces: `syncPull(ctx: SyncContext, from: Side, number: number): Promise<void>`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Unlinked, same-repository head: `syncRefs(ctx, [head, base])` runs first, then `POST .../pulls` with head, base, title, marked body, `draft`; link saved; labels follow.
   - From GitHub to Ghost works the same way (pull requests from either side).
   - GitHub fork pull request (`head.repo.id !== base.repo.id` on GitHub): no calls, one skipped `activity` row.
@@ -427,10 +428,10 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
   - Head or base missing on the other side after `syncRefs` (diverged first sync): skipped `activity`, no `POST`.
   - Host refuses creation (422 "No commits between"): skipped `activity`, no throw (closed pull requests on first sync).
   - Bot-authored source: no calls.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): pull requests both ways`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): pull requests both ways`.
 
 ### Task 12: Reviews and review comments
 
