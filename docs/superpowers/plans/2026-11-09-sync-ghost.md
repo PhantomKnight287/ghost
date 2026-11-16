@@ -312,7 +312,7 @@ syncRefs(ctx: SyncContext, only?: string[]): Promise<void>;
 
   `lib/fake-rest.ts` exports `fakeRest(routes: Record<string, unknown | ((body: unknown) => unknown)>): Rest & { calls: { method: string; path: string; body?: unknown }[] }`, keyed `"GET /repos/o/r/issues/1"`; an unknown route throws `RestError` 404.
 
-- [ ] **Step 1: Write the failing table test** for `decideRef`, one case per spec row, both directions:
+- [x] **Step 1: Write the failing table test** for `decideRef`, one case per spec row, both directions:
 
 ```ts
 const cases: [string, RefState, RefAction][] = [
@@ -335,7 +335,7 @@ test.each(cases)("%s", (_, state, action) => expect(decideRef(state)).toEqual(ac
 ```
 
   Add the mirrored GitHub-side rows for "force-pushed", "deleted" and "new" too.
-- [ ] **Step 2: Write the failing `syncRefs` tests** against two local bare repos (Task 7 style) and `fakeStore()`:
+- [x] **Step 2: Write the failing `syncRefs` tests** against two local bare repos (Task 7 style) and `fakeStore()`:
   - New branch on GitHub appears on Ghost and its base is recorded.
   - Diverged branch: neither repo changes, `flagRef` holds both shas, one `activity` row, and one comment on each linked pull request headed by that branch (not repeated while the flag stays).
   - A flag clears once a person pushes a merge to one side (`setBase` called, `diverged` null).
@@ -343,10 +343,10 @@ test.each(cases)("%s", (_, state, action) => expect(decideRef(state)).toEqual(ac
   - Rejected push: ref flagged with reason `"rejected: <message>"`, other refs still sync.
   - `ghost-pr/*` refs are skipped here (owned by Task 12).
   - A second `syncRefs` right after the first makes no pushes.
-- [ ] **Step 3:** Run `bun test src/sync/refs.test.ts`. Expected: FAIL.
-- [ ] **Step 4:** Implement. `syncRefs` fetches both, takes the union of ref names (plus every stored `ref` row, so deletions are seen), computes `isAncestor` only when both shas exist and differ, applies the action, writes the base only after a push succeeds, and re-runs a ref at most once after a lease failure before flagging it.
-- [ ] **Step 5:** Run. Expected: PASS.
-- [ ] **Step 6:** Commit `feat(sync): three-way ref sync`.
+- [x] **Step 3:** Run `bun test src/sync/refs.test.ts`. Expected: FAIL.
+- [x] **Step 4:** Implement. `syncRefs` fetches both, takes the union of ref names (plus every stored `ref` row, so deletions are seen), computes `isAncestor` only when both shas exist and differ, applies the action, writes the base only after a push succeeds, and re-runs a ref at most once after a lease failure before flagging it.
+- [x] **Step 5:** Run. Expected: PASS.
+- [x] **Step 6:** Commit `feat(sync): three-way ref sync`.
 
 ### Task 9: Serial queue per sync
 
