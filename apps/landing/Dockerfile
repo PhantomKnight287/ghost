@@ -43,6 +43,6 @@ RUN cd apps/landing && tsc --noEmit && vite build
 
 FROM caddy:2 AS runtime
 COPY --from=build /app/apps/landing/dist /srv
-EXPOSE 3006
-ENV PORT=3006
+EXPOSE 3008
+ENV PORT=3008
 CMD ["sh", "-c", "exec caddy file-server --root /srv --listen :$PORT"]
