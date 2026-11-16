@@ -48,6 +48,7 @@ Claude wrote every task's failing tests up front; they live next to the code the
 - `syncIssue` returns `number | null`: null when nothing was copied (source gone, an unlinked pull request, which only `syncPull` creates, or our own unlinked copy). Every create goes through `createOnce` (`sync/write.ts`): after a 5xx or a dropped connection it looks for our copy (newest bot-created issues, or the issue's bot comments, matched by exact title and body) before failing, so a lost answer never yields a duplicate. A 4xx is not looked for.
 - A label action may carry `previousName` (GitHub's `changes.name.from` on `label.edited`); the counterpart is then renamed with `new_name` instead of a second label being created. Ghost's `label.edited` event carries only the label id, so a rename made on Ghost reaches GitHub as a new label until Ghost adds the old name to that event.
 - `syncRefs` returns each side's refs as last fetched (`syncPull` reads `ghost-pr/<n>` from it). A pull request is created only once its head and base agree on both sides; a linked one follows title, body, state, base, draft and labels, and a merge closes the copy with `mergedText` only when the host did not see the merge itself and the base agrees. Creates are found again after a lost answer, as for issues.
+- A review leaves out line comments already linked, and replies, so a review's and its comments' webhooks may arrive in either order without duplicates; replies follow it as their own comments. GitHub's empty `COMMENTED` review around a lone comment posts nothing once its comment is copied. A 422 on a review with comments posts the verdict alone and each comment on its own, so only the unplaceable one is skipped. A copied review is never edited: Ghost's compatibility API has no review edit endpoint (Ghost #138).
 - `RestError.message` is `"<status> <host message>"`, so activity rows read like `404 Not Found`.
 - A copied review's body is `withMarker("<verdict>\n\n<body>", from, author)`, or just the verdict when the body is empty; the marker stays first so echoes are caught. Null `start_line` / `start_side` are left out.
 - A linked pull request merged on its source only gets the merge handling (comment and close, or nothing); otherwise title, body and state are patched.
@@ -443,17 +444,17 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 - Consumes: `syncPull` (Task 11), `verdictText`, `withMarker`.
 - Produces: `syncReview(ctx: SyncContext, from: Side, pullNumber: number, reviewKey: string): Promise<void>`; `syncReviewComment(ctx: SyncContext, from: Side, pullNumber: number, commentKey: string): Promise<void>`; `deleteReviewComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - An `APPROVED` review from GitHub becomes `POST .../pulls/<n>/reviews` on Ghost with `event: "COMMENT"` and a body starting with `verdictText("APPROVED", "github", login)`, followed by the marked original body. Same Ghost → GitHub. Never `APPROVE` or `REQUEST_CHANGES`.
   - Review comments in the review are created with the same `path`, `line`, `side`, `start_line`, `start_side`, `commit_id`.
   - A reply (`in_reply_to_id`) maps to the counterpart's root comment id via its link.
   - Edit updates the counterpart body; delete removes it and the link.
   - A comment whose line left the diff (422): skipped `activity`, no throw.
   - Pull request unlinked: `syncPull` runs first.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. Ghost review and review comment keys come from the webhook UUID, matched through `ghostKeyOfNodeId` as in Task 10.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): reviews and review comments`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement. Ghost review and review comment keys come from the webhook UUID, matched through `ghostKeyOfNodeId` as in Task 10.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): reviews and review comments`.
 
 ### Task 13: Check runs and the sync check
 

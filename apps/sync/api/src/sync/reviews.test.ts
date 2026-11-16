@@ -177,3 +177,93 @@ describe("deleteReviewComment", () => {
     expect(ctx.github.calls).toEqual([]);
   });
 });
+
+describe("review edge cases", () => {
+  const review = (overrides: Record<string, unknown> = {}) => ({ id: 77, state: "COMMENTED", body: "", user: bot, commit_id: "h1", ...overrides });
+
+  test("a comment on a line the copy lacks: the verdict lands, that comment is skipped and logged", async () => {
+    let posts = 0;
+    const ctx = testContext({
+      github: {
+        "GET /repos/acme-gh/app/pulls/8/reviews/77": review({ state: "APPROVED" }),
+        "GET /repos/acme-gh/app/pulls/8/reviews/77/comments": [lineComment],
+        "GET /repos/acme-gh/app/pulls/comments/501": lineComment,
+      },
+      ghost: {
+        "POST /repos/acme/app/pulls/3/reviews": (body: unknown) => {
+          posts++;
+          if ((body as { comments: unknown[] }).comments.length > 0) throw new RestError(422, { message: "line must be part of the diff" });
+          return { id: 900, node_id: ghostNodeId("PRR", reviewUuid) };
+        },
+        "POST /repos/acme/app/pulls/3/comments": () => {
+          throw new RestError(422, { message: "line must be part of the diff" });
+        },
+      },
+    });
+    await linkedPull(ctx);
+    await syncReview(ctx, "github", 8, "77");
+    expect(posts).toBe(2);
+    expect(await ctx.store.findLink(ctx.sync.id, "review", "github", "77")).toMatchObject({ ghostRestId: "900" });
+    expect(ctx.store.activity).toEqual([expect.objectContaining({ kind: "review_comment", error: expect.stringContaining("part of the diff") })]);
+  });
+
+  test("a line comment copied on its own before its review arrives is not copied again", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/pulls/8/reviews/77": review({ body: "see inline" }), "GET /repos/acme-gh/app/pulls/8/reviews/77/comments": [lineComment] },
+      ghost: { "POST /repos/acme/app/pulls/3/reviews": { id: 900, node_id: ghostNodeId("PRR", reviewUuid) } },
+    });
+    await linkedPull(ctx);
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "review_comment", ghostId: commentUuid, ghostRestId: "601", githubId: "501" });
+    await syncReview(ctx, "github", 8, "77");
+    expect((writes(ctx.ghost)[0]?.body as { comments: unknown[] }).comments).toEqual([]);
+  });
+
+  test("GitHub's empty review around a lone comment adds nothing once the comment is copied", async () => {
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/pulls/8/reviews/77": review(), "GET /repos/acme-gh/app/pulls/8/reviews/77/comments": [lineComment] } });
+    await linkedPull(ctx);
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "review_comment", ghostId: commentUuid, ghostRestId: "601", githubId: "501" });
+    await syncReview(ctx, "github", 8, "77");
+    expect(writes(ctx.ghost)).toEqual([]);
+  });
+
+  test("a review whose answer was lost is found instead of posted twice", async () => {
+    const body = withMarker("Approved on GitHub by @coderabbitai[bot]", "github", "coderabbitai[bot]");
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/pulls/8/reviews/77": review({ state: "APPROVED" }), "GET /repos/acme-gh/app/pulls/8/reviews/77/comments": [] },
+      ghost: {
+        "POST /repos/acme/app/pulls/3/reviews": () => {
+          throw new RestError(502, { message: "Bad Gateway" });
+        },
+        "GET /repos/acme/app/pulls/3/reviews": [{ id: 900, node_id: ghostNodeId("PRR", reviewUuid), body, user: { login: "ghost-sync[bot]" } }],
+      },
+    });
+    await linkedPull(ctx);
+    await syncReview(ctx, "github", 8, "77");
+    expect(await ctx.store.findLink(ctx.sync.id, "review", "github", "77")).toMatchObject({ ghostId: reviewUuid });
+  });
+
+  test("a reply on Ghost finds its thread through the pull request's comments", async () => {
+    const root = { ...lineComment, id: 601, node_id: ghostNodeId("PRRC", commentUuid), user: { login: "bob" } };
+    const reply = { ...lineComment, id: 602, node_id: ghostNodeId("PRRC", "reply-uuid"), in_reply_to_id: 601, body: "done", user: { login: "bob" } };
+    const ctx = testContext({ ghost: { "GET /repos/acme/app/pulls/3/comments": [root, reply] }, github: { "POST /repos/acme-gh/app/pulls/8/comments": { id: 503 } } });
+    await linkedPull(ctx);
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "review_comment", ghostId: commentUuid, ghostRestId: "601", githubId: "501" });
+    await syncReviewComment(ctx, "ghost", 3, "reply-uuid");
+    expect(writes(ctx.github)).toEqual([{ method: "POST", path: "/repos/acme-gh/app/pulls/8/comments", body: { body: withMarker("done", "ghost", "bob"), in_reply_to: 501 } }]);
+  });
+
+  test("a reply whose thread was never copied copies the thread first", async () => {
+    let posted = 0;
+    const ctx = testContext({
+      github: {
+        "GET /repos/acme-gh/app/pulls/comments/502": { ...lineComment, id: 502, in_reply_to_id: 501, body: "why?", user: { login: "alice" } },
+        "GET /repos/acme-gh/app/pulls/comments/501": lineComment,
+      },
+      ghost: { "POST /repos/acme/app/pulls/3/comments": () => ({ id: 601 + posted, node_id: ghostNodeId("PRRC", `uuid-${posted++}`) }) },
+    });
+    await linkedPull(ctx);
+    await syncReviewComment(ctx, "github", 8, "502");
+    expect(writes(ctx.ghost).map((c) => (c.body as { in_reply_to?: number }).in_reply_to)).toEqual([undefined, 601]);
+  });
+});
+
