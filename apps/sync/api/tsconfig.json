@@ -1,8 +1,13 @@
 {
   "compilerOptions": {
     "strict": true,
-    "types": ["bun"],
-    "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
+    "noUncheckedIndexedAccess": true,
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["bun"]
   }
 }

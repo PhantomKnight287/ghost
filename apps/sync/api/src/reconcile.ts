@@ -32,8 +32,8 @@ function tagged(side: Side, rest: Rest): Rest {
     return error;
   };
   return {
-    request: (method, path, body) =>
-      rest.request(method, path, body).catch((error) => {
+    request: <T>(method: string, path: string, body?: unknown) =>
+      rest.request<T>(method, path, body).catch((error) => {
         throw mark(error);
       }),
     paginate: async function* <T>(path: string) {
@@ -43,8 +43,8 @@ function tagged(side: Side, rest: Rest): Rest {
         throw mark(error);
       }
     },
-    graphql: (query, variables) =>
-      rest.graphql(query, variables).catch((error) => {
+    graphql: <T>(query: string, variables: Record<string, unknown>) =>
+      rest.graphql<T>(query, variables).catch((error) => {
         throw mark(error);
       }),
   };

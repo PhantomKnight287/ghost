@@ -90,7 +90,7 @@ describe("GitHub events", () => {
   });
 
   test("a renamed label carries its old name", () => {
-    expect(handleGitHub("label", github("edited", { label: { name: "defect" }, changes: { name: { from: "bug" } } }))).toEqual(h({ kind: "label", from: "github", name: "defect", deleted: false, previousName: "bug" }));
+    expect(handleGitHub("label", github("edited", { label: { name: "defect" }, changes: { name: { from: "bug" } } }))).toEqual(h({ kind: "label", from: "github", name: "defect", deleted: false, previousName: "bug" }) as never);
   });
 
   test("branches and tags created or deleted on GitHub, but not repositories", () => {

@@ -175,6 +175,7 @@
     "apps/sync/api": {
       "name": "@ghost/sync-api",
       "dependencies": {
+        "better-auth": "^1.7.16",
         "drizzle-orm": "^0.45.4",
         "hono": "^4.13.16",
         "postgres": "^3.4.7",

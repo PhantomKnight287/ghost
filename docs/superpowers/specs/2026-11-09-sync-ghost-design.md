@@ -59,7 +59,7 @@ These would make the work a failure even if it technically works:
 | Registered by | The operator, once, on Ghost's settings (`/settings/apps/new`) | The operator, once, on GitHub |
 | Writes as | `ghost-sync[bot]` | `<slug>[bot]` |
 | Repository permissions | `contents: write`, `pull_requests: write`, `issues: write`, `checks: write`, `metadata: read` | `contents: write`, `pull_requests: write`, `issues: write`, `checks: write`, `metadata: read`, `administration: write` (to create repositories with the user's token) |
-| Events | `push`, `pull_request.*`, `issue.*` (including `issue.deleted`), `label.*`, `check_suite.requested`, `check_suite.rerequested`, `check_run.rerequested`, `installation.*` | Push, Create, Delete, Pull request, Issues, Issue comment, Label, Pull request review, Pull request review comment, Pull request review thread, Check run, Installation, Installation repositories |
+| Events | `push`, `pull_request.*`, `issue.*` (including `issue.deleted`), `label.*`, `check_suite.requested`, `check_suite.rerequested`, `check_run.created`, `check_run.completed`, `check_run.rerequested`, `installation.*` | Push, Create, Delete, Pull request, Issues, Issue comment, Label, Pull request review, Pull request review comment, Pull request review thread, Check run, Installation, Installation repositories |
 | User sign-in | Yes: this is how users log in | Yes: to link GitHub, list repositories and create a repository |
 | "Request user authorization during installation" | On | On |
 
