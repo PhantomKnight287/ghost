@@ -3,9 +3,9 @@ import { loadConfig } from "./config.ts";
 import { other, SIDE_NAME } from "./side.ts";
 
 const valid = {
-  DATABASE_URL: "postgres://x",
-  BETTER_AUTH_SECRET: "s".repeat(32),
-  BETTER_AUTH_URL: "https://sync-api.example.com",
+  SYNC_DATABASE_URL: "postgres://x",
+  SYNC_AUTH_SECRET: "s".repeat(32),
+  SYNC_API_URL: "https://sync-api.example.com",
   SYNC_WEB_URL: "https://sync.example.com",
   GHOST_API_URL: "https://api.example.com",
   GHOST_APP_ID: "7",
@@ -24,7 +24,7 @@ const valid = {
 
 test("defaults", () => {
   const config = loadConfig(valid);
-  expect(config.PORT).toBe(3005);
+  expect(config.SYNC_PORT).toBe(3005);
   expect(config.RECONCILE_INTERVAL).toBe(600);
   expect(config.SYNC_DATA_DIR).toBe("/data");
   expect(config.GHOST_APP_ID).toBe(7);
@@ -32,8 +32,8 @@ test("defaults", () => {
 });
 
 test("overrides", () => {
-  const config = loadConfig({ ...valid, PORT: "4000", RECONCILE_INTERVAL: "60", SYNC_DATA_DIR: "/tmp/sync" });
-  expect(config.PORT).toBe(4000);
+  const config = loadConfig({ ...valid, SYNC_PORT: "4000", RECONCILE_INTERVAL: "60", SYNC_DATA_DIR: "/tmp/sync" });
+  expect(config.SYNC_PORT).toBe(4000);
   expect(config.RECONCILE_INTERVAL).toBe(60);
   expect(config.SYNC_DATA_DIR).toBe("/tmp/sync");
 });

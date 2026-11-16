@@ -35,9 +35,9 @@ describe.skipIf(!url)("sign in with Ghost", () => {
   const db = drizzle(client, { schema });
   const ghost = fakeGhost();
   const config = loadConfig({
-    DATABASE_URL: url,
-    BETTER_AUTH_SECRET: "s".repeat(32),
-    BETTER_AUTH_URL: "http://sync-api.test",
+    SYNC_DATABASE_URL: url,
+    SYNC_AUTH_SECRET: "s".repeat(32),
+    SYNC_API_URL: "http://sync-api.test",
     SYNC_WEB_URL: "http://sync.test",
     GHOST_API_URL: `http://localhost:${ghost.server.port}`,
     GHOST_APP_ID: "4",

@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 const configSchema = z.object({
-  DATABASE_URL: z.string(),
-  BETTER_AUTH_SECRET: z.string(),
-  BETTER_AUTH_URL: z.string(),
+  SYNC_DATABASE_URL: z.string(),
+  SYNC_AUTH_SECRET: z.string(),
+  SYNC_API_URL: z.string(),
   SYNC_WEB_URL: z.string(),
   GHOST_API_URL: z.string(),
   GHOST_APP_ID: z.coerce.number(),
@@ -18,7 +18,7 @@ const configSchema = z.object({
   GITHUB_APP_CLIENT_ID: z.string(),
   GITHUB_APP_CLIENT_SECRET: z.string(),
   GITHUB_APP_WEBHOOK_SECRET: z.string(),
-  PORT: z.coerce.number().default(3005),
+  SYNC_PORT: z.coerce.number().default(3005),
   RECONCILE_INTERVAL: z.coerce.number().default(600),
   SYNC_DATA_DIR: z.string().default("/data"),
 });

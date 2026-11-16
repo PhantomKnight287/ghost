@@ -261,19 +261,21 @@ Reconcile sees ref deletions through the base, but cannot see deleted issues and
 
 ## Configuration
 
+Every variable sync.ghost reads that Ghost also uses carries a `SYNC_` prefix: the monorepo's dev script loads Ghost's root `.env` first, and an unprefixed `DATABASE_URL` once pointed the sync API at Ghost's own database (2026-11-16). `GHOST_API_URL` is shared on purpose: it names the same API.
+
 Environment of `apps/sync/api` (the builder may rename):
 
 | Variable | |
 | --- | --- |
-| `DATABASE_URL` | sync.ghost's own Postgres |
-| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | better-auth |
+| `SYNC_DATABASE_URL` | sync.ghost's own Postgres |
+| `SYNC_AUTH_SECRET`, `SYNC_API_URL` | better-auth's secret and the API's own URL |
 | `SYNC_WEB_URL` | For redirects and trusted origins |
 | `GHOST_API_URL` | Ghost's API base; REST is under `/api/v3` |
 | `GHOST_APP_ID`, `GHOST_APP_SLUG`, `GHOST_APP_PRIVATE_KEY`, `GHOST_APP_CLIENT_ID`, `GHOST_APP_CLIENT_SECRET`, `GHOST_APP_WEBHOOK_SECRET` | The Ghost App |
 | `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_WEBHOOK_SECRET` | The GitHub App |
 | `SYNC_DATA_DIR` | Bare mirrors, on a volume. Default `/data` |
 | `RECONCILE_INTERVAL` | Seconds, default `600` |
-| `PORT` | |
+| `SYNC_PORT` | |
 
 `apps/sync/web` needs only the API's URL. The API's Dockerfile follows `apps/importer`'s and adds `git`. Bare mirrors grow with the number of syncs; the volume is sized by hand for now.
 

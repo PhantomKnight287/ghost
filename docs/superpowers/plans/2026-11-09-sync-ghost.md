@@ -24,7 +24,7 @@
 - Retries: at most 5 attempts, 30-second timeout per request. Rate limits (429, GitHub's secondary limit, and its primary limit via `x-ratelimit-remaining: 0` until `x-ratelimit-reset`) are retried for every method, honoring `Retry-After` in seconds or as an HTTP date. 5xx and dropped connections are retried only for requests that can be replayed: not a POST, and not a GraphQL mutation, since it may already have taken effect. A wait over 60 seconds fails the request instead of holding the sync's queue; reconcile picks the item up. A non-JSON error page becomes a `RestError` carrying its text.
 - Installation token mints share one in-flight request per installation. Git transfers slower than 1 KB/s for 60 seconds are abandoned (`GIT_HTTP_LOW_SPEED_*`), so a stalled host cannot hold a job forever.
 - Installation tokens last 1 hour; cache until 5 minutes before `expires_at`.
-- `delivery` rows pruned after 7 days, `activity` after 30 days. `RECONCILE_INTERVAL` default `600` seconds. `PORT` default `3005`. `SYNC_DATA_DIR` default `/data`.
+- `delivery` rows pruned after 7 days, `activity` after 30 days. `RECONCILE_INTERVAL` default `600` seconds. `SYNC_PORT` default `3005`. Variables Ghost also uses are `SYNC_`-prefixed (`SYNC_DATABASE_URL`, `SYNC_AUTH_SECRET`, `SYNC_API_URL`, `SYNC_PORT`) so Ghost's root `.env` cannot leak in. `SYNC_DATA_DIR` default `/data`.
 - Ghost fork pull request heads live on GitHub at `ghost-pr/<number>`. GitHub fork pull requests are never synced.
 - Body marker: `<!-- ghost-sync:from=<side> author=<login> -->` then `**@<login>** on <Ghost|GitHub>:`, a blank line, the original body.
 - Check run name for sync health: `Sync with GitHub`.

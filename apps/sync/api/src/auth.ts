@@ -15,8 +15,8 @@ type GhostUser = { id: number | string; login: string; name: string | null; emai
  */
 export function createAuth(db: Database, config: Config) {
   return betterAuth({
-    secret: config.BETTER_AUTH_SECRET,
-    baseURL: config.BETTER_AUTH_URL,
+    secret: config.SYNC_AUTH_SECRET,
+    baseURL: config.SYNC_API_URL,
     basePath: "/api/auth",
     trustedOrigins: [config.SYNC_WEB_URL],
     // Ghost runs better-auth too; cookies are shared per host, not per port, so the default names would overwrite Ghost's own session.
