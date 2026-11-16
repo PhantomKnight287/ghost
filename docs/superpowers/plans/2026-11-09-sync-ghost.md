@@ -103,8 +103,8 @@ apps/sync/web/                       TanStack Start app
 **Interfaces:**
 - Produces: `type Side = "ghost" | "github"`, `other(side: Side): Side`, `SIDE_NAME: Record<Side, "Ghost" | "GitHub">`; `loadConfig(env: Record<string, string | undefined>): Config`, `type Config`.
 
-- [ ] **Step 1:** `package.json` name `@ghost/sync-api`, `"type": "module"`, scripts `dev`, `start`, `test`, `check-types`, `format`, `db:generate`, `db:migrate` like `apps/importer` and `packages/db`. Deps: `hono`, `zod` (same version as importer), `better-auth`, `drizzle-orm`, `postgres`; dev: `@types/bun`, `drizzle-kit`. `tsconfig.json` copies importer's. Add `"apps/sync/*"` to root workspaces; run `bun install` at the root and confirm `bun pm ls | grep sync-api` lists it.
-- [ ] **Step 2: Write the failing test** `config.test.ts`:
+- [x] **Step 1:** `package.json` name `@ghost/sync-api`, `"type": "module"`, scripts `dev`, `start`, `test`, `check-types`, `format`, `db:generate`, `db:migrate` like `apps/importer` and `packages/db`. Deps: `hono`, `zod` (same version as importer), `better-auth`, `drizzle-orm`, `postgres`; dev: `@types/bun`, `drizzle-kit`. `tsconfig.json` copies importer's. Add `"apps/sync/*"` to root workspaces; run `bun install` at the root and confirm `bun pm ls | grep sync-api` lists it.
+- [x] **Step 2: Write the failing test** `config.test.ts`:
 
 ```ts
 const valid = { DATABASE_URL: "postgres://x", BETTER_AUTH_SECRET: "s".repeat(32), BETTER_AUTH_URL: "https://sync-api.example.com", SYNC_WEB_URL: "https://sync.example.com", GHOST_API_URL: "https://api.example.com", GHOST_APP_ID: "7", GHOST_APP_SLUG: "ghost-sync", GHOST_APP_PRIVATE_KEY: "pem", GHOST_APP_CLIENT_ID: "c", GHOST_APP_CLIENT_SECRET: "s", GHOST_APP_WEBHOOK_SECRET: "w", GITHUB_APP_ID: "9", GITHUB_APP_SLUG: "ghost-sync", GITHUB_APP_PRIVATE_KEY: "pem", GITHUB_APP_CLIENT_ID: "c", GITHUB_APP_CLIENT_SECRET: "s", GITHUB_APP_WEBHOOK_SECRET: "w" };
@@ -113,10 +113,10 @@ test("private keys accept \\n-escaped PEMs", () => { expect(loadConfig({ ...vali
 test("missing value names the variable", () => { const { GHOST_API_URL, ...rest } = valid; expect(() => loadConfig(rest)).toThrow(/GHOST_API_URL/); });
 ```
 
-- [ ] **Step 3:** Run `bun test src/config.test.ts` in `apps/sync/api`. Expected: FAIL, `loadConfig` not found.
-- [ ] **Step 4:** Implement `side.ts` and `config.ts` (zod schema shaped like `apps/importer/src/config.ts`; app ids coerced to int; private keys transformed `\\n` → newline because Railway variables are single-line).
-- [ ] **Step 5:** Run the test. Expected: PASS. Add every variable from the spec's Configuration table to `turbo.json` `globalEnv`.
-- [ ] **Step 6:** Commit `feat(sync): sync-api workspace and config`.
+- [x] **Step 3:** Run `bun test src/config.test.ts` in `apps/sync/api`. Expected: FAIL, `loadConfig` not found.
+- [x] **Step 4:** Implement `side.ts` and `config.ts` (zod schema shaped like `apps/importer/src/config.ts`; app ids coerced to int; private keys transformed `\\n` → newline because Railway variables are single-line).
+- [x] **Step 5:** Run the test. Expected: PASS. Add every variable from the spec's Configuration table to `turbo.json` `globalEnv`.
+- [x] **Step 6:** Commit `feat(sync): sync-api workspace and config`.
 
 ### Task 2: Body marker and verdict text
 
@@ -128,7 +128,7 @@ test("missing value names the variable", () => { const { GHOST_API_URL, ...rest 
 - Consumes: `Side`, `SIDE_NAME` (Task 1).
 - Produces: `withMarker(body: string, from: Side, author: string): string`; `readMarker(body: string): { body: string; from: Side | null; author: string | null }`; `verdictText(state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED", from: Side, author: string): string`; `mergedText(on: Side): string`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
 
 ```ts
 test("marker and attribution", () => { expect(withMarker("hi", "github", "coderabbitai")).toBe("<!-- ghost-sync:from=github author=coderabbitai -->\n**@coderabbitai** on GitHub:\n\nhi"); });
@@ -140,10 +140,10 @@ test("verdict", () => { expect(verdictText("APPROVED", "github", "x")).toBe("App
 test("merged", () => { expect(mergedText("ghost")).toBe("Merged on Ghost"); });
 ```
 
-- [ ] **Step 2:** Run `bun test src/format.test.ts`. Expected: FAIL.
-- [ ] **Step 3:** Implement with one regex anchored at the start of the body; `readMarker` also strips the attribution line and the blank line after it.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): body marker and verdict text`.
+- [x] **Step 2:** Run `bun test src/format.test.ts`. Expected: FAIL.
+- [x] **Step 3:** Implement with one regex anchored at the start of the body; `readMarker` also strips the attribution line and the blank line after it.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): body marker and verdict text`.
 
 ### Task 3: Webhook signatures
 
@@ -154,11 +154,11 @@ test("merged", () => { expect(mergedText("ghost")).toBe("Merged on Ghost"); });
 **Interfaces:**
 - Produces: `verifyGhost(secret: string, rawBody: Uint8Array, timestamp: string | null, signature: string | null, nowSeconds: number): boolean`; `verifyGitHub(secret: string, rawBody: Uint8Array, signature: string | null): boolean`.
 
-- [ ] **Step 1: Write the failing tests:** for each side, a body signed in the test with `createHmac` passes; a flipped byte fails; a missing header fails; a signature of different length fails without throwing. Ghost only: `nowSeconds = ts + 301` fails, `ts + 300` passes, `ts - 301` fails.
-- [ ] **Step 2:** Run `bun test src/verify.test.ts`. Expected: FAIL.
-- [ ] **Step 3:** Implement with `createHmac` and `timingSafeEqual` (length check first), following `docs/webhooks.md`'s Node example.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): webhook signature checks`.
+- [x] **Step 1: Write the failing tests:** for each side, a body signed in the test with `createHmac` passes; a flipped byte fails; a missing header fails; a signature of different length fails without throwing. Ghost only: `nowSeconds = ts + 301` fails, `ts + 300` passes, `ts - 301` fails.
+- [x] **Step 2:** Run `bun test src/verify.test.ts`. Expected: FAIL.
+- [x] **Step 3:** Implement with `createHmac` and `timingSafeEqual` (length check first), following `docs/webhooks.md`'s Node example.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): webhook signature checks`.
 
 ### Task 4: App JWT and installation tokens
 
@@ -169,7 +169,7 @@ test("merged", () => { expect(mergedText("ghost")).toBe("Merged on Ghost"); });
 **Interfaces:**
 - Produces: `createAppAuth(opts: { appId: number; privateKey: string; apiUrl: string; fetch: typeof fetch; now: () => number }): AppAuth` where `type AppAuth = { jwt(): string; installationToken(installationId: number): Promise<string> }`. Called once per side in `index.ts`.
 
-- [ ] **Step 1: Write the failing tests** (generate an RSA key pair in the test with `generateKeyPairSync`):
+- [x] **Step 1: Write the failing tests** (generate an RSA key pair in the test with `generateKeyPairSync`):
 
 ```ts
 test("jwt claims", () => { /* decode payload: iss === appId, iat === now-60, exp === now+540; header alg RS256; signature verifies with the public key */ });
@@ -179,10 +179,10 @@ test("refreshes after that", async () => { /* advance now past expires_at - 300s
 test("a refused mint throws with the status", async () => { /* 404 → rejects with /404/ */ });
 ```
 
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. Sign with `node:crypto` `createSign("RSA-SHA256")` over base64url header and payload (no new dependency). `iat` is 60 seconds in the past for clock drift; `exp` 9 minutes after now stays under the 10-minute cap. Cache per installation id in a `Map`.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): app JWT and installation token cache`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement. Sign with `node:crypto` `createSign("RSA-SHA256")` over base64url header and payload (no new dependency). `iat` is 60 seconds in the past for clock drift; `exp` 9 minutes after now stays under the 10-minute cap. Cache per installation id in a `Map`.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): app JWT and installation token cache`.
 
 ### Task 5: REST client
 
@@ -193,7 +193,7 @@ test("a refused mint throws with the status", async () => { /* 404 → rejects w
 **Interfaces:**
 - Produces: `createRest(opts: { baseUrl: string; graphqlUrl: string; token: () => Promise<string>; fetch: typeof fetch; sleep: (ms: number) => Promise<void> }): Rest` where `type Rest = { request<T>(method: string, path: string, body?: unknown): Promise<T>; paginate<T>(path: string): AsyncGenerator<T>; graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> }` (GraphQL URL: `<GHOST_API_URL>/api/graphql` on Ghost, `https://api.github.com/graphql` on GitHub, passed as `graphqlUrl` in opts); `class RestError extends Error { status: number; body: unknown }`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `token()` is called on every request (Review Focus 2) and sent as `Authorization: Bearer`.
   - 502, 502, 200 → resolves, `sleep` called twice with growing delays.
   - 429 with `Retry-After: 7` → `sleep(7000)`.
@@ -202,10 +202,10 @@ test("a refused mint throws with the status", async () => { /* 404 → rejects w
   - `paginate` follows `Link: <...>; rel="next"` across two pages and yields every item; a page shaped `{ total_count, <key>: [] }` (as `/user/installations`) yields the array.
   - 204 → resolves `undefined`.
   - `graphql` POSTs `{ query, variables }` to `graphqlUrl` and returns `data`; a 200 with `errors` throws `RestError` with status 200 and the errors as body.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. Backoff `1000 * 2 ** attempt` unless `Retry-After` is set. `Accept: application/vnd.github+json`.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): GitHub-style REST client with retries`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement. Backoff `1000 * 2 ** attempt` unless `Retry-After` is set. `Accept: application/vnd.github+json`.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): GitHub-style REST client with retries`.
 
 ### Task 6: Schema and store
 
@@ -237,11 +237,11 @@ type Store = {
 ```
 
   `lib/fake-store.ts` exports `fakeStore(): Store & { links: Link[]; refs: RefRow[]; activity: unknown[] }`, an in-memory implementation for the `sync/*` tests.
-- [ ] **Step 1: Write the failing tests** (`describe.skipIf(!process.env.TEST_DATABASE_URL)`, migrate before all): `saveLink` then `findLink` by either side's id; saving the same ghost id twice upserts rather than throws; `setBase(null)` removes the row; `setBase` clears a flag; `claimDelivery` true then false; `findSyncByRepo` by GitHub repo id; `prune` removes a 31-day-old activity and 8-day-old delivery and keeps newer ones. Run the same link, ref and delivery assertions against `fakeStore()` so the fake cannot drift.
-- [ ] **Step 2:** Run `TEST_DATABASE_URL=postgres://postgres:x@localhost:55432/postgres bun test src/store.test.ts`. Expected: FAIL.
-- [ ] **Step 3:** Write `schema.ts`, run `bun run db:generate`, implement `store.ts` and `fake-store.ts`.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): schema and store`.
+- [x] **Step 1: Write the failing tests** (`describe.skipIf(!process.env.TEST_DATABASE_URL)`, migrate before all): `saveLink` then `findLink` by either side's id; saving the same ghost id twice upserts rather than throws; `setBase(null)` removes the row; `setBase` clears a flag; `claimDelivery` true then false; `findSyncByRepo` by GitHub repo id; `prune` removes a 31-day-old activity and 8-day-old delivery and keeps newer ones. Run the same link, ref and delivery assertions against `fakeStore()` so the fake cannot drift.
+- [x] **Step 2:** Run `TEST_DATABASE_URL=postgres://postgres:x@localhost:55432/postgres bun test src/store.test.ts`. Expected: FAIL.
+- [x] **Step 3:** Write `schema.ts`, run `bun run db:generate`, implement `store.ts` and `fake-store.ts`.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): schema and store`.
 
 ### Task 7: Git layer
 
@@ -262,7 +262,7 @@ isAncestor(dir: string, ancestor: string, descendant: string): Promise<boolean>;
 pushRef(dir: string, remote: Remote, ref: string, sha: string | null, expected: string | null): Promise<PushResult>; // sha null deletes; expected null means "must not exist"
 ```
 
-- [ ] **Step 1: Write the failing tests** with two local bare repositories as `file://` remotes and a scratch work tree to make commits:
+- [x] **Step 1: Write the failing tests** with two local bare repositories as `file://` remotes and a scratch work tree to make commits:
   - `fetchBoth` maps `refs/heads/main` and `refs/tags/v1` on each side to their shas, into separate namespaces (`refs/sides/ghost/*`, `refs/sides/github/*`) so one side's fetch never overwrites the other's.
   - `isAncestor` true for parent→child, false for siblings.
   - `pushRef` creates, fast-forwards, force-moves and deletes when `expected` matches.
@@ -270,10 +270,10 @@ pushRef(dir: string, remote: Remote, ref: string, sha: string | null, expected: 
   - `pushRef` with `expected: null` onto an existing ref returns `reason: "lease"`.
   - A remote `pre-receive` hook that exits 1 → `reason: "rejected"` with the hook's message.
   - With a token, the spawned process gets `GIT_CONFIG_*` env and the token appears in neither argv nor the remote URL (assert on a spy around the spawn helper).
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. Push uses `--force-with-lease=<ref>:<expected or empty>` and `<sha or empty>:<ref>`; tell lease failures from rejections by git's `stale info` / `rejected` output. Username `x-access-token`.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): git layer with leased pushes`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement. Push uses `--force-with-lease=<ref>:<expected or empty>` and `<sha or empty>:<ref>`; tell lease failures from rejections by git's `stale info` / `rejected` output. Username `x-access-token`.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): git layer with leased pushes`.
 
 ### Task 8: Refs, the three-way table
 
