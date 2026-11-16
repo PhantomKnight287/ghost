@@ -52,6 +52,7 @@ Claude wrote every task's failing tests up front; they live next to the code the
 - A copied check run keeps name, status, conclusion and output (title, summary, text) and points `details_url` at the original's `html_url`, which also identifies it when a lost create is looked for. Statuses only Actions may set become `queued`; an update leaves `head_sha` out. A commit the other side lacks (404, or GitHub's 422) is skipped silently for reconcile.
 - The webhook pipeline claims a delivery, then handles it; if anything after the claim fails it answers 500 and `store.releaseDelivery` forgets the claim, so the host's retry is processed. Missing event or delivery headers answer 400. Installation changes live in `installations.ts`: removal, suspension or lost coverage disconnects with a reason naming the side's app (`"<Ghost|GitHub> app …"`); only that side's app returning reconnects, and `installation_repositories.added` also records the installation id on the sync (`updateSync` accepts both installation ids). GitHub's `label.edited` passes `changes.name.from` as `previousName`.
 - `runAction(ctx, action, reconcile)` (`sync/run.ts`) dispatches every `SyncAction`; `reconcile` is injected. A `sync_check` opens "Sync with GitHub", syncs every ref, and fails naming each flagged ref whose Ghost side is that commit; a thrown sync still closes the check as a failure.
+- Reconcile: refs, then every item from `/issues?state=all[&since=]` on each side, each with its comments, and for pull requests their reviews, line comments (roots before replies) and, while open, check runs on the head on both sides. `since` is the last run's start minus five minutes; `lastReconciledAt` is this run's start. One item's failure is logged and the run continues; a 401 anywhere, or a 401/403/404 on a list, disconnects the sync naming the side (`RestError.side`, set by a per-side wrapper; token mint failures are `RestError`s too); any other failure sets `error` with `lastError` and keeps the last good `lastReconciledAt`. `ownerIsAdmin(userRest, sync)` answers the owner check with the owner's tokens. No `installation` table (dropped in migration 0002).
 - `RestError.message` is `"<status> <host message>"`, so activity rows read like `404 Not Found`.
 - A copied review's body is `withMarker("<verdict>\n\n<body>", from, author)`, or just the verdict when the body is empty; the marker stays first so echoes are caught. Null `start_line` / `start_side` are left out.
 - A linked pull request merged on its source only gets the merge handling (comment and close, or nothing); otherwise title, body and state are patched.
@@ -225,7 +226,7 @@ test("a refused mint throws with the status", async () => { /* 404 → rejects w
 - Test: `apps/sync/api/src/store.test.ts` (needs `TEST_DATABASE_URL`, a throwaway Postgres: `docker run --rm -e POSTGRES_PASSWORD=x -p 55432:5432 postgres:17`)
 
 **Interfaces:**
-- Produces, in `schema.ts`: tables `installation`, `sync`, `link`, `ref`, `delivery`, `activity` as the spec's Data section lists (better-auth's tables come from `@better-auth/cli generate` in Task 16). `sync.status`: `"backfilling" | "active" | "paused" | "disconnected" | "error"`; `sync.disconnectReason: string | null`. `link.kind`: `"issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run"`. All ids stored as text. `ref` has `(syncId, name)` unique, `baseSha text null`, `diverged jsonb null` (`{ ghost: string | null; github: string | null; reason: string }`).
+- Produces, in `schema.ts`: tables `sync`, `link`, `ref`, `delivery`, `activity` (and `job`, Task 9) as the spec's Data section lists (better-auth's tables come from `@better-auth/cli generate` in Task 16). `sync.status`: `"backfilling" | "active" | "paused" | "disconnected" | "error"`; `sync.disconnectReason: string | null`. `link.kind`: `"issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run"`. All ids stored as text. `ref` has `(syncId, name)` unique, `baseSha text null`, `diverged jsonb null` (`{ ghost: string | null; github: string | null; reason: string }`).
 - Produces, in `store.ts`: `createStore(db): Store` with
 
 ```ts
@@ -505,7 +506,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 | — | `check_run` | `syncCheckRun` |
 | `check_suite.requested` | — | `startSyncCheck` then `syncRefs` then `finishSyncCheck` |
 | `check_run.rerequested`, `check_suite.rerequested` | — | full reconcile of the sync (Task 15), then a fresh sync check |
-| `installation.*` | `installation`, `installation_repositories` | not a job: update `installation` and set affected syncs `disconnected` / back to `active` with a reconcile |
+| `installation.*` | `installation`, `installation_repositories` | not a job: set affected syncs `disconnected` / back to `active` with a reconcile |
 
 - [x] **Step 1: Write the failing pipeline tests** (`app.request` with signed bodies): bad signature → 401; stale Ghost timestamp → 401; repeated delivery id → 200, no job; actor `ghost-sync[bot]` → 200, no job; unknown repository → 200; paused sync → 200, no job; valid event → 202 and one job queued; `installation.deleted` → affected sync `disconnected` with the side named.
 - [x] **Step 2: Write the failing handler tests:** one per table row, asserting the job calls the right function with the right `from`, number and key (spy on the `sync/*` module). Check that Ghost's `repository.id` in a webhook equals `GET /repos/:o/:r` `id`; if it does not, store both on `sync` and match webhooks on the webhook one.
@@ -523,7 +524,7 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 **Interfaces:**
 - Produces: `reconcileSync(ctx: SyncContext, ownerCanAdmin: () => Promise<boolean>): Promise<void>`; `startReconcileTimer(deps: { store: Store; queue: Pick<Queue, "push">; intervalSeconds: number }): { tick(); stop() }` (queues reconciles; see Contracts).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Owner no longer admin on either side → `updateSync(status: "disconnected", disconnectReason: "owner lost access")` and nothing else runs.
   - First run (`lastReconciledAt` null): `status: "backfilling"`, then `syncRefs`, then every issue and pull request on both sides, open and closed (`state=all`), each followed by its comments, reviews, review comments and labels; then `status: "active"` and `lastReconciledAt` set.
   - Later run: `since=<lastReconciledAt>` on both list calls.
@@ -531,10 +532,10 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
   - Items written by our bot are not copied back (Review Focus 4).
   - A `RestError` 401 → `disconnected` with the side; a 5xx after retries → `activity` error, reconcile continues with the next item.
   - A timer tick queues a reconcile for every `active`, `backfilling` and `error` sync (never `paused` or `disconnected`) and calls `store.prune`.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. Owner access: `GET /repos/:o/:r` with the owner's user token on each side, `permissions.admin === true`; a missing user or failed refresh counts as lost.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): reconcile, first sync and owner checks`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement. Owner access: `GET /repos/:o/:r` with the owner's user token on each side, `permissions.admin === true`; a missing user or failed refresh counts as lost.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): reconcile, first sync and owner checks`.
 
 ### Task 16: Auth
 

@@ -7,17 +7,6 @@ export type LinkKind = "issue" | "pull" | "comment" | "review" | "review_comment
 /** `notified` is false until every linked pull request has been told; `posted` lists the `<side>#<number>` comments already made, so a retry only posts the missing ones. */
 export type RefFlag = { ghost: string | null; github: string | null; reason: string; notified?: boolean; posted?: string[] };
 
-export const installation = pgTable(
-  "installation",
-  {
-    side: text("side").$type<Side>().notNull(),
-    installationId: bigint("installation_id", { mode: "number" }).notNull(),
-    accountLogin: text("account_login").notNull(),
-    status: text("status").$type<"active" | "suspended" | "deleted">().notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.side, table.installationId] })],
-);
-
 export const sync = pgTable("sync", {
   id: uuid("id").primaryKey().defaultRandom(),
   ownerId: text("owner_id").notNull(),

@@ -1,4 +1,5 @@
 import { createSign } from "node:crypto";
+import { RestError } from "./rest.ts";
 
 const REFRESH_BEFORE_EXPIRY_MS = 300_000;
 const MINT_TIMEOUT_MS = 30_000;
@@ -37,7 +38,7 @@ export function createAppAuth({
       signal: AbortSignal.timeout(MINT_TIMEOUT_MS),
     });
     const text = await response.text();
-    if (!response.ok) throw new Error(`Minting a token for installation ${installationId} failed with ${response.status}: ${text.slice(0, 200)}`);
+    if (!response.ok) throw new RestError(response.status, { message: `minting a token for installation ${installationId} failed: ${text.slice(0, 200)}` });
     const { token, expires_at } = JSON.parse(text) as { token: string; expires_at: string };
     tokens.set(installationId, { token, expiresAt: Date.parse(expires_at) });
     return token;

@@ -209,7 +209,6 @@ The web talks only to `apps/sync/api`. The split of the web's API into routes is
 Tables in `@ghost/sync-db` (shape is the builder's; this is what must be stored):
 
 - better-auth's own tables (user, session, account with encrypted tokens).
-- `installation`: side (`ghost` / `github`), installation id, account login, status (active / suspended / deleted). Kept current from `installation.*` events.
 - `sync`: owner user, Ghost repository (owner/name and id), GitHub repository (owner/name and id), the two installation ids, status (`backfilling`, `active`, `paused`, `disconnected`, `error`), last error, `last_reconciled_at`, created and updated times. Unique on the Ghost repository id and on the GitHub repository id.
 - `ref`: `(sync, name, base_sha)`, the base for each branch and tag, plus a diverged flag with both sides' commits for the sync page. Written only after a push succeeds or both sides are seen to agree.
 - `link`: `(sync, kind, ghost_id, ghost_rest_id, github_id, updated_at)`, kind one of `issue`, `pull`, `comment`, `review`, `review_comment`, `label`, `check_run`. Unique on `(sync, kind, ghost_id)` and on `(sync, kind, github_id)`. Identity only.
@@ -230,7 +229,7 @@ Both apps have one webhook URL each for every installation.
 
 1. Verify the signature. Ghost: `X-Ghost-Signature-256` over `<timestamp>.<body>`, rejecting a timestamp more than five minutes off (`docs/webhooks.md`). GitHub: `X-Hub-Signature-256` over the body. Failures answer 401.
 2. Delivery id (`X-Ghost-Delivery`, `X-GitHub-Delivery`) already in `delivery`: answer 200, stop.
-3. `installation.*` events update `installation` and any affected syncs' status, then stop.
+3. `installation.*` events update the affected syncs' status (and, when a repository is added, the installation id on its sync), then stop. sync.ghost keeps no table of installations: pickers ask the hosts live with the user's token, and each sync holds the installation ids it uses (decision, 2026-11-16).
 4. Find the sync by repository id. None, or paused: record the delivery, answer 200, stop.
 5. Actor is the bot for that side: record, answer 200, stop.
 6. Record, enqueue on the sync's queue, answer 202. GitHub gives up after 10 seconds and a git push can take longer.

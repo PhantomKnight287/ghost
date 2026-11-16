@@ -4,7 +4,7 @@ import { fakeGit } from "./lib/fake-git.ts";
 import { type Routes, writes } from "./lib/fake-rest.ts";
 import { fakeStore } from "./lib/fake-store.ts";
 import { syncRow, testContext } from "./lib/test-context.ts";
-import { reconcileSync, startReconcileTimer } from "./reconcile.ts";
+import { ownerIsAdmin, reconcileSync, startReconcileTimer } from "./reconcile.ts";
 import { RestError } from "./rest.ts";
 import type { SyncAction } from "./sync/action.ts";
 
@@ -122,13 +122,14 @@ describe("reconcileSync", () => {
     expect(writes(ctx.ghost).map((c) => c.path)).toContain("/repos/acme/app/check-runs");
   });
 
-  test("later runs list only what changed since the last one", async () => {
-    const since = new Date("2026-11-01T00:00:00.000Z");
+  test("later runs list only what changed since a little before the last one began", async () => {
+    const last = new Date("2026-11-01T00:05:00.000Z");
+    const since = "2026-11-01T00:00:00.000Z";
     const ctx = testContext({
       git: fakeGit(),
-      sync: { lastReconciledAt: since },
-      ghost: { [`GET /repos/acme/app/issues?state=all&since=${since.toISOString()}`]: [] },
-      github: { [`GET /repos/acme-gh/app/issues?state=all&since=${since.toISOString()}`]: [] },
+      sync: { lastReconciledAt: last },
+      ghost: { [`GET /repos/acme/app/issues?state=all&since=${since}`]: [] },
+      github: { [`GET /repos/acme-gh/app/issues?state=all&since=${since}`]: [] },
     });
     await reconcileSync(ctx, owner);
     expect((await ctx.store.getSync(ctx.sync.id))?.status).toBe("active");
@@ -154,6 +155,81 @@ describe("reconcileSync", () => {
     expect(ctx.store.activity.some((a) => a.error?.includes("502"))).toBe(true);
     expect(writes(ctx.github).filter((c) => c.method === "POST")).toHaveLength(1);
     expect((await ctx.store.getSync(ctx.sync.id))?.status).toBe("active");
+  });
+});
+
+describe("reconcile failures", () => {
+  test("a repository gone from a side disconnects the sync, naming that side", async () => {
+    const ctx = firstSync({ [firstList("acme/app")]: () => {
+      throw new RestError(404, { message: "Not Found" });
+    } });
+    await reconcileSync(ctx, owner);
+    expect(await ctx.store.getSync(ctx.sync.id)).toMatchObject({ status: "disconnected", disconnectReason: expect.stringContaining("Ghost") });
+  });
+
+  test("a token refused while copying one item stops the run instead of failing every item", async () => {
+    const ctx = firstSync({ "GET /repos/acme/app/issues/12": () => {
+      throw new RestError(401, { message: "Bad credentials" });
+    } });
+    await reconcileSync(ctx, owner);
+    expect(await ctx.store.getSync(ctx.sync.id)).toMatchObject({ status: "disconnected", disconnectReason: expect.stringContaining("Ghost") });
+    expect(writes(ctx.github)).toEqual([]);
+  });
+
+  test("an unexpected failure marks the sync errored and keeps its last good run", async () => {
+    const last = new Date("2026-11-01T00:00:00.000Z");
+    const git = fakeGit();
+    git.fetchBoth = async () => {
+      throw new Error("git fetch timed out");
+    };
+    const ctx = testContext({ git, sync: { lastReconciledAt: last } });
+    await reconcileSync(ctx, owner);
+    expect(await ctx.store.getSync(ctx.sync.id)).toMatchObject({ status: "error", lastError: "git fetch timed out", lastReconciledAt: last });
+    expect(ctx.store.activity).toEqual([expect.objectContaining({ kind: "reconcile", error: "git fetch timed out" })]);
+  });
+
+  test("an errored sync that reconciles cleanly is active again", async () => {
+    const ctx = firstSync();
+    await ctx.store.updateSync(ctx.sync.id, { status: "error", lastError: "earlier" });
+    await reconcileSync(ctx, owner);
+    expect(await ctx.store.getSync(ctx.sync.id)).toMatchObject({ status: "active", lastError: null });
+  });
+
+  test("the next run's window starts from when this run began, not when it ended", async () => {
+    const ctx = firstSync({ "GET /repos/acme/app/issues/13": async () => {
+      await Bun.sleep(30);
+      return issue(13, "bob", { state: "closed" });
+    } });
+    const before = Date.now();
+    await reconcileSync(ctx, owner);
+    expect((await ctx.store.getSync(ctx.sync.id))?.lastReconciledAt?.getTime()).toBeLessThan(before + 30);
+  });
+});
+
+describe("ownerIsAdmin", () => {
+  const repo = (admin: boolean) => ({ permissions: { admin } });
+  const rest = (answer: unknown) => ({
+    request: async () => {
+      if (answer instanceof Error) throw answer;
+      return answer;
+    },
+    paginate: async function* () {},
+    graphql: async () => ({}),
+  }) as never;
+  const sync = { ghostFullName: "acme/app", githubFullName: "acme-gh/app" };
+
+  test("admin on both repositories", async () => {
+    expect(await ownerIsAdmin({ ghost: rest(repo(true)), github: rest(repo(true)) }, sync)).toBe(true);
+  });
+
+  test("not admin, unlinked, or unable to see a repository counts as lost", async () => {
+    expect(await ownerIsAdmin({ ghost: rest(repo(true)), github: rest(repo(false)) }, sync)).toBe(false);
+    expect(await ownerIsAdmin({ ghost: rest(repo(true)), github: null }, sync)).toBe(false);
+    expect(await ownerIsAdmin({ ghost: rest(new RestError(404, { message: "Not Found" })), github: rest(repo(true)) }, sync)).toBe(false);
+  });
+
+  test("a server error is not mistaken for lost access", async () => {
+    await expect(ownerIsAdmin({ ghost: rest(new RestError(502, null)), github: rest(repo(true)) }, sync)).rejects.toMatchObject({ status: 502 });
   });
 });
 

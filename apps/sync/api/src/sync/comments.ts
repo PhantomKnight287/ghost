@@ -3,7 +3,7 @@ import { repoPath, type SyncContext } from "./context.ts";
 import { copiedBody, ghostKeyOfNodeId, syncIssue } from "./issues.ts";
 import { createOnce, isNotFound, skipped } from "./write.ts";
 
-type Comment = { id: number; node_id: string; body: string | null; user: { login: string } };
+export type Comment = { id: number; node_id: string; body: string | null; user: { login: string } };
 
 /** The counterpart issue or pull request number of `number` on `from`, syncing the issue first when it has no link yet. */
 async function counterpartOf(ctx: SyncContext, from: Side, number: number) {
@@ -22,12 +22,12 @@ async function readComment(ctx: SyncContext, from: Side, issueNumber: number, ke
   return null;
 }
 
-/** Brings comment `key` (Ghost UUID or GitHub id) on issue or pull request `issueNumber` into agreement on the other side. */
-export async function syncComment(ctx: SyncContext, from: Side, issueNumber: number, key: string) {
+/** Brings comment `key` (Ghost UUID or GitHub id) on issue or pull request `issueNumber` into agreement on the other side. `known` is the comment when the caller already read it, as reconcile does from a list. */
+export async function syncComment(ctx: SyncContext, from: Side, issueNumber: number, key: string, known?: Comment) {
   const to = other(from);
   let source: Comment | null;
   try {
-    source = await readComment(ctx, from, issueNumber, key);
+    source = known ?? (await readComment(ctx, from, issueNumber, key));
   } catch (error) {
     if (!isNotFound(error)) throw error;
     await skipped(ctx, to, "comment", `${SIDE_NAME[from]} comment on #${issueNumber} is gone`, error);

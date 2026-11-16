@@ -6,8 +6,8 @@ import { copiedBody, ghostKeyOfNodeId } from "./issues.ts";
 import { syncPull } from "./pulls.ts";
 import { createOnce, isNotFound, skipped } from "./write.ts";
 
-type Review = { id: number; node_id: string; state: string; body: string | null; user: { login: string }; commit_id: string };
-type ReviewComment = {
+export type Review = { id: number; node_id: string; state: string; body: string | null; user: { login: string }; commit_id: string };
+export type ReviewComment = {
   id: number;
   node_id: string;
   path: string;
@@ -30,7 +30,7 @@ async function all<T>(pages: AsyncGenerator<T>) {
 }
 
 /** The webhook key of a REST item: Ghost's UUID from `node_id`, GitHub's numeric id. */
-const keyOf = (side: Side, item: { id: number; node_id: string }) => (side === "ghost" ? ghostKeyOfNodeId(item.node_id) : String(item.id));
+export const keyOf = (side: Side, item: { id: number; node_id: string }) => (side === "ghost" ? ghostKeyOfNodeId(item.node_id) : String(item.id));
 
 const linkIds = (from: Side, key: string, source: { id: number }, to: Side, created: { id: number; node_id: string }) =>
   to === "ghost" ? { ghostId: ghostKeyOfNodeId(created.node_id), ghostRestId: String(created.id), githubId: key } : { ghostId: key, ghostRestId: String(source.id), githubId: String(created.id) };
@@ -66,6 +66,12 @@ async function readReview(ctx: SyncContext, from: Side, pullNumber: number, key:
   throw new RestError(404, { message: `Ghost review ${key} not found` });
 }
 
+function fromList(comments: ReviewComment[], from: Side, key: string) {
+  const comment = comments.find((c) => keyOf(from, c) === key);
+  if (!comment) throw new RestError(404, { message: `${SIDE_NAME[from]} review comment ${key} not found` });
+  return { comment, siblings: comments };
+}
+
 async function readReviewComment(ctx: SyncContext, from: Side, pullNumber: number, key: string) {
   if (from === "github") return { comment: await ctx.rest.github.request<ReviewComment>("GET", `${repoPath(ctx, "github")}/pulls/comments/${key}`), siblings: null };
   const siblings = await all(ctx.rest.ghost.paginate<ReviewComment>(`${repoPath(ctx, "ghost")}/pulls/${pullNumber}/comments`));
@@ -77,11 +83,11 @@ async function readReviewComment(ctx: SyncContext, from: Side, pullNumber: numbe
 /**
  * Copies review `key` (Ghost UUID or GitHub id) as a comment-only review stating its verdict: sync.ghost never approves or blocks on anyone's behalf. Line comments already copied on their own are left out, so the review's and its comments' webhooks may arrive in either order.
  */
-export async function syncReview(ctx: SyncContext, from: Side, pullNumber: number, key: string) {
+export async function syncReview(ctx: SyncContext, from: Side, pullNumber: number, key: string, known?: Review) {
   const to = other(from);
   let review: Review;
   try {
-    review = await readReview(ctx, from, pullNumber, key);
+    review = known ?? (await readReview(ctx, from, pullNumber, key));
   } catch (error) {
     if (!isNotFound(error)) throw error;
     await skipped(ctx, to, "review", `${SIDE_NAME[from]} review on #${pullNumber} is gone`, error);
@@ -139,12 +145,12 @@ export async function syncReview(ctx: SyncContext, from: Side, pullNumber: numbe
   for (const comment of [...separately, ...comments.filter((c) => c.in_reply_to_id)]) await syncReviewComment(ctx, from, pullNumber, keyOf(from, comment));
 }
 
-/** Brings review comment `key` into agreement: an edit updates the copy, a reply joins the matching thread, a lone comment keeps its place in the diff. */
-export async function syncReviewComment(ctx: SyncContext, from: Side, pullNumber: number, key: string): Promise<void> {
+/** Brings review comment `key` into agreement: an edit updates the copy, a reply joins the matching thread, a lone comment keeps its place in the diff. `known` is the pull request's comments when the caller already listed them. */
+export async function syncReviewComment(ctx: SyncContext, from: Side, pullNumber: number, key: string, known?: ReviewComment[]): Promise<void> {
   const to = other(from);
   let read: Awaited<ReturnType<typeof readReviewComment>>;
   try {
-    read = await readReviewComment(ctx, from, pullNumber, key);
+    read = known ? fromList(known, from, key) : await readReviewComment(ctx, from, pullNumber, key);
   } catch (error) {
     if (!isNotFound(error)) throw error;
     await skipped(ctx, to, "review_comment", `${SIDE_NAME[from]} review comment on #${pullNumber} is gone`, error);

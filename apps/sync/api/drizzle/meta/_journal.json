@@ -15,6 +15,13 @@
       "when": 1794811672172,
       "tag": "0001_stale_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794814163073,
+      "tag": "0002_flaky_vargas",
+      "breakpoints": true
     }
   ]
 }

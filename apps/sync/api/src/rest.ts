@@ -1,3 +1,5 @@
+import type { Side } from "./side.ts";
+
 const MAX_ATTEMPTS = 5;
 const BASE_DELAY_MS = 1000;
 /** A wait longer than this fails the request instead: the job is dropped and the next reconcile retries, rather than one job holding its sync's queue. */
@@ -5,6 +7,8 @@ const MAX_WAIT_MS = 60_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 
 export class RestError extends Error {
+  /** Which host answered, once a caller that knows has said so. */
+  side?: Side;
   constructor(
     readonly status: number,
     readonly body: unknown,
