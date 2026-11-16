@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fakeGit } from "../lib/fake-git.ts";
 import { writes } from "../lib/fake-rest.ts";
+import { RestError } from "../rest.ts";
 import { testContext } from "../lib/test-context.ts";
 import { decideRef, type RefAction, type RefState, syncRefs } from "./refs.ts";
 
@@ -49,6 +50,7 @@ describe("decideRef", () => {
 
 describe("syncRefs", () => {
   const main = "refs/heads/main";
+  const noPulls = { "GET /repos/acme/app/pulls?state=open&head=acme:main": [] };
 
   test("a branch new on GitHub is created on Ghost and its base recorded", async () => {
     const ctx = testContext({ git: fakeGit({ github: { [main]: "b" } }) });
@@ -81,6 +83,7 @@ describe("syncRefs", () => {
         "GET /repos/acme/app/pulls?state=open&head=acme:feat": [{ number: 3 }],
         "POST /repos/acme/app/issues/3/comments": { id: 1 },
       },
+      github: { "POST /repos/acme-gh/app/issues/8/comments": { id: 2 } },
     });
     await ctx.store.setBase(ctx.sync.id, "refs/heads/feat", "a");
     await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "pull", ghostId: "3", ghostRestId: null, githubId: "8" });
@@ -89,13 +92,38 @@ describe("syncRefs", () => {
     expect(ctx.git.pushes).toEqual([]);
     expect(await ctx.store.getRef(ctx.sync.id, "refs/heads/feat")).toMatchObject({ baseSha: "a", diverged: { ghost: "b", github: "c" } });
     expect(ctx.store.activity.filter((a) => a.kind === "refs")).toHaveLength(1);
-    const comments = writes(ctx.ghost).filter((c) => c.path === "/repos/acme/app/issues/3/comments");
-    expect(comments).toHaveLength(1);
+    const comments = [...writes(ctx.ghost), ...writes(ctx.github)];
+    expect(comments.map((c) => c.path)).toEqual(["/repos/acme/app/issues/3/comments", "/repos/acme-gh/app/issues/8/comments"]);
     expect(JSON.stringify(comments[0]?.body)).toMatch(/diverged/i);
   });
 
+  test("a notice that fails is retried on the next run, and the other refs still sync", async () => {
+    let lookups = 0;
+    const ctx = testContext({
+      git: fakeGit({ ghost: { "refs/heads/feat": "b", "refs/heads/dev": "d" }, github: { "refs/heads/feat": "c" } }),
+      ghost: {
+        "GET /repos/acme/app/pulls?state=open&head=acme:feat": () => {
+          if (++lookups === 1) throw new RestError(502, { message: "Bad Gateway" });
+          return [{ number: 3 }];
+        },
+        "POST /repos/acme/app/issues/3/comments": { id: 1 },
+      },
+      github: { "POST /repos/acme-gh/app/issues/8/comments": { id: 2 } },
+    });
+    await ctx.store.setBase(ctx.sync.id, "refs/heads/feat", "a");
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "pull", ghostId: "3", ghostRestId: null, githubId: "8" });
+    await syncRefs(ctx);
+    expect(ctx.git.repos.github.get("refs/heads/dev")).toBe("d");
+    expect(ctx.store.activity.filter((a) => a.kind === "comment")).toEqual([expect.objectContaining({ error: "502 Bad Gateway" })]);
+    expect([...writes(ctx.ghost), ...writes(ctx.github)]).toEqual([]);
+    await syncRefs(ctx);
+    await syncRefs(ctx);
+    expect([...writes(ctx.ghost), ...writes(ctx.github)]).toHaveLength(2);
+    expect(ctx.store.activity.filter((a) => a.kind === "refs")).toHaveLength(1);
+  });
+
   test("the flag clears once a person makes the sides agree", async () => {
-    const ctx = testContext({ git: fakeGit({ ghost: { [main]: "b" }, github: { [main]: "c" } }) });
+    const ctx = testContext({ git: fakeGit({ ghost: { [main]: "b" }, github: { [main]: "c" } }), ghost: noPulls });
     await ctx.store.setBase(ctx.sync.id, main, "a");
     await syncRefs(ctx);
     ctx.git.repos.github.set(main, "m");
@@ -117,7 +145,7 @@ describe("syncRefs", () => {
       }
       return realPush(dir, remote, ref, sha, expected);
     };
-    const ctx = testContext({ git });
+    const ctx = testContext({ git, ghost: noPulls });
     await ctx.store.setBase(ctx.sync.id, main, "a");
     await syncRefs(ctx);
     expect(git.repos.github.get(main)).toBe("theirs");
@@ -128,7 +156,7 @@ describe("syncRefs", () => {
   test("a rejected push flags that ref and the rest still sync", async () => {
     const git = fakeGit({ ghost: { [main]: "b", "refs/heads/dev": "d" } });
     git.rejects.set(`github ${main}`, "protected branch hook declined");
-    const ctx = testContext({ git });
+    const ctx = testContext({ git, ghost: noPulls });
     await syncRefs(ctx);
     expect((await ctx.store.getRef(ctx.sync.id, main))?.diverged?.reason).toMatch(/^rejected: .*protected branch/);
     expect(git.repos.github.get("refs/heads/dev")).toBe("d");

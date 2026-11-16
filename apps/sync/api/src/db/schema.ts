@@ -3,7 +3,8 @@ import type { Side } from "../side.ts";
 
 export type SyncStatus = "backfilling" | "active" | "paused" | "disconnected" | "error";
 export type LinkKind = "issue" | "pull" | "comment" | "review" | "review_comment" | "label" | "check_run";
-export type RefFlag = { ghost: string | null; github: string | null; reason: string };
+/** `notified` is false until the linked pull requests have been told, so a failed notice is retried by the next run. */
+export type RefFlag = { ghost: string | null; github: string | null; reason: string; notified?: boolean };
 
 export const installation = pgTable(
   "installation",

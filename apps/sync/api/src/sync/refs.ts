@@ -70,26 +70,37 @@ async function syncRef(ctx: SyncContext, remotes: Record<Side, Remote>, name: st
   return "done";
 }
 
-/** Records the flag, and tells people once per distinct state rather than on every run. */
+/** Records the flag and tells people once per distinct state; a notice that failed is retried until it lands. */
 async function flag(ctx: SyncContext, name: string, current: RefFlag | null, next: RefFlag) {
-  if (current && current.ghost === next.ghost && current.github === next.github && current.reason === next.reason) return;
-  await ctx.store.flagRef(ctx.sync.id, name, next);
-  const summary = `${name} not synced (${next.reason}): Ghost at ${short(next.ghost)}, GitHub at ${short(next.github)}`;
-  await ctx.store.addActivity({ syncId: ctx.sync.id, direction: null, kind: "refs", summary, error: next.reason });
-  if (!name.startsWith("refs/heads/")) return;
-
-  // Only Ghost's side gets the notice: our own comments are never copied, and the sync page is on Ghost's side of the pairing.
-  const { owner, name: repo } = ctx.repo.ghost;
-  const branch = name.slice("refs/heads/".length);
+  const same = current !== null && current.ghost === next.ghost && current.github === next.github && current.reason === next.reason;
+  if (same && current.notified !== false) return;
+  if (!same) {
+    await ctx.store.flagRef(ctx.sync.id, name, { ...next, notified: false });
+    const summary = `${name} not synced (${next.reason}): Ghost at ${short(next.ghost)}, GitHub at ${short(next.github)}`;
+    await ctx.store.addActivity({ syncId: ctx.sync.id, direction: null, kind: "refs", summary, error: next.reason });
+  }
   try {
-    const pulls = await ctx.rest.ghost.request<{ number: number }[]>("GET", `/repos/${owner}/${repo}/pulls?state=open&head=${owner}:${branch}`);
-    for (const pull of pulls) {
-      if (!(await ctx.store.findLink(ctx.sync.id, "pull", "ghost", String(pull.number)))) continue;
-      const body = `sync.ghost stopped syncing \`${branch}\`: it has diverged between Ghost (${short(next.ghost)}) and GitHub (${short(next.github)}). Make the two sides agree, for example by merging one into the other, and syncing resumes. Reason: ${next.reason}`;
-      await ctx.rest.ghost.request("POST", `/repos/${owner}/${repo}/issues/${pull.number}/comments`, { body });
-    }
+    if (name.startsWith("refs/heads/")) await notifyPulls(ctx, name.slice("refs/heads/".length), next);
+    await ctx.store.flagRef(ctx.sync.id, name, { ...next, notified: true });
   } catch (error) {
-    // The flag and the activity row already carry the news; a failed notice must not stop the remaining refs from syncing.
-    await ctx.store.addActivity({ syncId: ctx.sync.id, direction: "ghost", kind: "comment", summary: `Could not comment on pull requests from ${branch}`, error: String(error instanceof Error ? error.message : error) });
+    // The flag is saved either way; a failed notice must not stop the remaining refs from syncing.
+    const message = error instanceof Error ? error.message : String(error);
+    await ctx.store.addActivity({ syncId: ctx.sync.id, direction: null, kind: "comment", summary: `Could not comment on pull requests from ${name}`, error: message });
+  }
+}
+
+/** Comments on both halves of every linked pull request headed by `branch`. */
+async function notifyPulls(ctx: SyncContext, branch: string, next: RefFlag) {
+  const ghost = ctx.repo.ghost;
+  const github = ctx.repo.github;
+  const body = `sync.ghost stopped syncing \`${branch}\`: Ghost is at ${short(next.ghost)} and GitHub at ${short(next.github)} (${next.reason}). Make the two sides agree, for example by merging one into the other, and syncing resumes.`;
+  // Linked pull requests exist on both sides, so Ghost's list finds every pair.
+  const pulls = await ctx.rest.ghost.request<{ number: number }[]>("GET", `/repos/${ghost.owner}/${ghost.name}/pulls?state=open&head=${ghost.owner}:${branch}`);
+  for (const pull of pulls) {
+    const link = await ctx.store.findLink(ctx.sync.id, "pull", "ghost", String(pull.number));
+    if (!link) continue;
+    // ponytail: a failure after some comments landed re-posts them on the retry; per-pull notice state if that shows up in practice.
+    await ctx.rest.ghost.request("POST", `/repos/${ghost.owner}/${ghost.name}/issues/${pull.number}/comments`, { body });
+    await ctx.rest.github.request("POST", `/repos/${github.owner}/${github.name}/issues/${link.githubId}/comments`, { body });
   }
 }
