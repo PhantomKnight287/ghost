@@ -643,6 +643,13 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
       (await api().get(`/api/apps/${body.slug}`).expect(200)).body.logoUrl,
     ).toBe(uploaded.body.url);
     expect((await botOf(body.botLogin))?.image).toBe(uploaded.body.url);
+    const consentCard = () =>
+      api()
+        .get('/api/oauth-apps/authorize')
+        .query({ client_id: body.clientId })
+        .set('cookie', owner.cookie)
+        .expect(200);
+    expect((await consentCard()).body.logoUrl).toBe(uploaded.body.url);
 
     await api()
       .delete(`/api/apps/${body.slug}/logo`)
@@ -650,6 +657,7 @@ describe.skipIf(!hasBackends)('Ghost Apps', () => {
       .expect(204);
     expect((await settings(body.slug).expect(200)).body.logoUrl).toBeNull();
     expect((await botOf(body.botLogin))?.image).toBeNull();
+    expect((await consentCard()).body.logoUrl).toBeNull();
   });
 
   it('deletes an app but keeps its bot, App ID and slug', async () => {

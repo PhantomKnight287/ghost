@@ -25,6 +25,8 @@ export type AppClientFields = {
   callbackUrls: string[];
   expireUserTokens: boolean;
   deviceFlowEnabled: boolean;
+  /** Shown on the consent page, which reads the client rather than the app. */
+  logoUrl: string | null;
 };
 
 /** A Ghost App's OAuth client, so its website can sign users in through `/login/oauth/*`. Ghost checks the app's own secrets, of which it may hold several, and speaks to the plugin with `pluginSecretOf`. */
@@ -53,6 +55,7 @@ export class AppClientsService {
         clientId: schema.app.oauthClientId,
         name: schema.app.name,
         homepageUrl: schema.app.homepageUrl,
+        logoUrl: schema.app.logoUrl,
       })
       .from(schema.app)
       .where(eq(schema.app.id, appId));
@@ -67,6 +70,7 @@ export class AppClientsService {
         clientId,
         name: app.name,
         uri: app.homepageUrl,
+        icon: app.logoUrl,
         redirectUris: [],
         applicationType: 'native',
         tokenEndpointAuthMethod: 'client_secret_post',
@@ -99,6 +103,7 @@ export class AppClientsService {
         updatedAt: new Date(),
         ...(fields.name !== undefined && { name: fields.name }),
         ...(fields.homepageUrl !== undefined && { uri: fields.homepageUrl }),
+        ...(fields.logoUrl !== undefined && { icon: fields.logoUrl }),
         ...(fields.callbackUrls !== undefined && {
           redirectUris: fields.callbackUrls,
         }),
