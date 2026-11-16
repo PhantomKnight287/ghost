@@ -6,6 +6,7 @@ const configSchema = z.object({
   SYNC_API_URL: z.string(),
   SYNC_WEB_URL: z.string(),
   GHOST_API_URL: z.string(),
+  GHOST_WEB_URL: z.string(),
   GHOST_APP_ID: z.coerce.number(),
   GHOST_APP_SLUG: z.string(),
   GHOST_APP_PRIVATE_KEY: z.string() .transform((val) => val.replace(/\\n/g, "\n")),

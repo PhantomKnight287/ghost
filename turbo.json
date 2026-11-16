@@ -47,6 +47,7 @@
     "SYNC_API_URL",
     "SYNC_PORT",
     "SYNC_WEB_URL",
+    "GHOST_WEB_URL",
     "GHOST_APP_ID",
     "GHOST_APP_SLUG",
     "GHOST_APP_PRIVATE_KEY",

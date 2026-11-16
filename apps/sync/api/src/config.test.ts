@@ -7,7 +7,7 @@ const valid = {
   SYNC_AUTH_SECRET: "s".repeat(32),
   SYNC_API_URL: "https://sync-api.example.com",
   SYNC_WEB_URL: "https://sync.example.com",
-  GHOST_API_URL: "https://api.example.com",
+  GHOST_API_URL: "https://api.example.com", GHOST_WEB_URL: "https://ghost.example.com",
   GHOST_APP_ID: "7",
   GHOST_APP_SLUG: "ghost-sync",
   GHOST_APP_PRIVATE_KEY: "pem",

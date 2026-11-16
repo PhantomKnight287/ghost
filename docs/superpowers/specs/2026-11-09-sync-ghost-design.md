@@ -268,6 +268,7 @@ Environment of `apps/sync/api` (the builder may rename):
 | Variable | |
 | --- | --- |
 | `SYNC_DATABASE_URL` | sync.ghost's own Postgres |
+| `GHOST_WEB_URL` | Ghost's web app, for the "Install on Ghost" link (`/apps/<slug>/installations/new`) |
 | `SYNC_AUTH_SECRET`, `SYNC_API_URL` | better-auth's secret and the API's own URL |
 | `SYNC_WEB_URL` | For redirects and trusted origins |
 | `GHOST_API_URL` | Ghost's API base; REST is under `/api/v3` |

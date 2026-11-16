@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import postgres from "postgres";
 import { type FakeRest, fakeRest, type Routes } from "../lib/fake-rest.ts";
 import { fakeStore } from "../lib/fake-store.ts";
 import { ghostNodeId, syncRow } from "../lib/test-context.ts";
@@ -175,3 +176,27 @@ describe("POST /api/syncs", () => {
     expect(reconciled).toEqual([]);
   });
 });
+
+describe("setup edge cases", () => {
+  test("two requests pairing the same repository at once: the loser gets 409", async () => {
+    const { call, store } = setup(repoRoutes);
+    store.createSync = async () => {
+      throw Object.assign(new postgres.PostgresError("duplicate key value violates unique constraint"), { code: "23505" });
+    };
+    expect((await call("POST", "/api/syncs", existing)).status).toBe(409);
+  });
+
+  test("the preview refuses a repository the user does not administer", async () => {
+    const { call } = setup({ ghost: { "GET /repos/acme/new": { ...adminRepo.ghost, permissions: { admin: false } } }, github: repoRoutes.github });
+    expect((await call("POST", "/api/syncs/preview", existing)).status).toBe(403);
+  });
+
+  test("a GitHub repository the app does not cover is refused before anything is saved", async () => {
+    const { call, store } = setup({ ...repoRoutes, installations: { github: null } });
+    const response = await call("POST", "/api/syncs", existing);
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ installUrl: "https://github.com/apps/ghost-sync/installations/new" });
+    expect(store.syncs).toHaveLength(1);
+  });
+});
+

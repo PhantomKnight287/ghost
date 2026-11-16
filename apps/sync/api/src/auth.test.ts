@@ -40,6 +40,7 @@ describe.skipIf(!url)("sign in with Ghost", () => {
     SYNC_API_URL: "http://sync-api.test",
     SYNC_WEB_URL: "http://sync.test",
     GHOST_API_URL: `http://localhost:${ghost.server.port}`,
+    GHOST_WEB_URL: "http://ghost.test",
     GHOST_APP_ID: "4",
     GHOST_APP_SLUG: "sync-bot",
     GHOST_APP_PRIVATE_KEY: "pem",

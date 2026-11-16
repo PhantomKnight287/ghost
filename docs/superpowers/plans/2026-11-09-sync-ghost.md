@@ -54,6 +54,7 @@ Claude wrote every task's failing tests up front; they live next to the code the
 - `runAction(ctx, action, reconcile)` (`sync/run.ts`) dispatches every `SyncAction`; `reconcile` is injected. A `sync_check` opens "Sync with GitHub", syncs every ref, and fails naming each flagged ref whose Ghost side is that commit; a thrown sync still closes the check as a failure.
 - Reconcile: refs, then every item from `/issues?state=all[&since=]` on each side, each with its comments, and for pull requests their reviews, line comments (roots before replies) and, while open, check runs on the head on both sides. `since` is the last run's start minus five minutes; `lastReconciledAt` is this run's start. One item's failure is logged and the run continues; a 401 anywhere, or a 401/403/404 on a list, disconnects the sync naming the side (`RestError.side`, set by a per-side wrapper; token mint failures are `RestError`s too); any other failure sets `error` with `lastError` and keeps the last good `lastReconciledAt`. `ownerIsAdmin(userRest, sync)` answers the owner check with the owner's tokens. No `installation` table (dropped in migration 0002).
 - Auth (`auth.ts`): better-auth 1.7 with the drizzle adapter on `user`, `session`, `account`, `verification` (migration 0003). Ghost is a generic OAuth provider whose `getUserInfo` reads `/api/v3/user` (GitHub's shape; a user without an email cannot sign in). GitHub is a social provider with `disableSignUp`, so it only links. `account.encryptOAuthTokens` is on; linking allows a different email. `userToken(auth, db, userId, side)` finds the account row and calls `getAccessToken({ accountId, userId })`, refreshing as needed; null when unlinked or the refresh is refused. Tested end to end against a fake Ghost served with `Bun.serve` (`auth.test.ts`, needs `TEST_DATABASE_URL`).
+- Routes take repositories by full name: `POST /api/syncs` and `/preview` send `{ ghost: { fullName }, github: { fullName } | { create } }`. `RouteDeps.compareRefs(userId, ghostFullName, githubFullName)` fetches with the user's own tokens into a throwaway mirror, since the app may not be installed yet during the preview. Errors answer `{ error, installUrl? }`; a concurrent pairing that hits the unique constraint answers 409. `GHOST_WEB_URL` builds Ghost's install link. `index.ts` wires the queue's `run` to skip a paused, disconnected or deleted sync, and its `onError` to an activity row.
 - `RestError.message` is `"<status> <host message>"`, so activity rows read like `404 Not Found`.
 - A copied review's body is `withMarker("<verdict>\n\n<body>", from, author)`, or just the verdict when the body is empty; the marker stays first so echoes are caught. Null `start_line` / `start_side` are left out.
 - A linked pull request merged on its source only gets the merge handling (comment and close, or nothing); otherwise title, body and state are patched.
@@ -568,17 +569,17 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
   - `POST /api/syncs/preview` `{ ghostRepoId, github: { repoId } }` → `{ branches: { toGhost, toGitHub, diverged }, issues: { toGhost, toGitHub }, pulls: { toGhost, toGitHub } }` (counts; diverged needs a fetch into a temporary bare repo).
   - `POST /api/syncs` `{ ghostRepoId, github: { repoId } | { create: { owner, name, private: boolean } } }` → `{ id }`; queues the first reconcile.
   - `GET /api/syncs`, `GET /api/syncs/:id` (with flagged refs and the last 100 `activity` rows), `POST /api/syncs/:id/pause`, `/resume`, `/resync`, `DELETE /api/syncs/:id`.
-- [ ] **Step 1: Write the failing tests** (`fakeRest` for user-token calls, test DB):
+- [x] **Step 1: Write the failing tests** (`fakeRest` for user-token calls, test DB):
   - `POST /api/syncs` refuses (403) when the user is not admin of either repository, or an installation does not cover it; 409 when either repository is already in a sync.
   - Create-new calls `POST /user/repos` (or `/orgs/:org/repos`) with `private` exactly as sent, `auto_init: false`; then, if the installation covers selected repositories only, adds it to the installation (if GitHub refuses with the user token, the response says to add it in the installation settings, and the sync waits in `disconnected` until `installation_repositories.added`).
   - Only the creator may pause, resume, resync or delete (403 otherwise).
   - Delete removes the sync's links, refs, activity and bare repository directory, and makes no REST call to either side.
   - Resume runs a reconcile.
   - No response body contains a token (assert on the serialized JSON for `ghu_`, `ghs_`, `gho_`).
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement. `index.ts` wires config, store, both `AppAuth`s, both REST factories, `createQueue({ store, run: (syncId, action) => runAction(contextFor(sync), action), onError })` and `queue.start()`, `webhookRoutes`, these routes (`reconcileNow` = `queue.push(id, { kind: "reconcile" })`), `GET /health`, and `startReconcileTimer`.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): setup and sync routes`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement. `index.ts` wires config, store, both `AppAuth`s, both REST factories, `createQueue({ store, run: (syncId, action) => runAction(contextFor(sync), action), onError })` and `queue.start()`, `webhookRoutes`, these routes (`reconcileNow` = `queue.push(id, { kind: "reconcile" })`), `GET /health`, and `startReconcileTimer`.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): setup and sync routes`.
 
 ### Task 18: Web
 
