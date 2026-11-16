@@ -17,6 +17,8 @@ export function hostRepo(name: string) {
   const bare = join(root, "bare.git");
   const work = join(root, "work");
   run(root, "init", "--bare", "--quiet", "--initial-branch=main", bare);
+  // A plain bare repository refuses to delete its HEAD branch; the tests delete `main` to exercise leases, not host policy.
+  run(bare, "config", "receive.denyDeleteCurrent", "ignore");
   run(root, "clone", "--quiet", bare, work);
   return {
     url: `file://${bare}`,
