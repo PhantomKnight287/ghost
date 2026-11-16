@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { writes } from "../lib/fake-rest.ts";
+import { RestError } from "../rest.ts";
 import { testContext } from "../lib/test-context.ts";
 import { finishSyncCheck, startSyncCheck, syncCheckRun } from "./checks.ts";
 
@@ -86,3 +87,70 @@ describe("the sync check", () => {
     expect(writes(ctx.ghost)[0]?.body).toMatchObject({ status: "completed", conclusion: "failure", output: expect.objectContaining({ summary: "refs/heads/main diverged" }) });
   });
 });
+
+describe("check run edge cases", () => {
+  const listed = (runs: unknown[]) => ({ "GET /repos/acme/app/commits/h1/check-runs?check_name=CI+%2F+test": { total_count: runs.length, check_runs: runs } });
+
+  test("an update never tries to move the run to another commit", async () => {
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun() }, ghost: { "PATCH /repos/acme/app/check-runs/55": {} } });
+    await ctx.store.saveLink({ syncId: ctx.sync.id, kind: "check_run", ghostId: "55", ghostRestId: "55", githubId: "1001" });
+    await syncCheckRun(ctx, "github", "1001");
+    expect(writes(ctx.ghost)[0]?.body).not.toHaveProperty("head_sha");
+  });
+
+  test("a status only Actions may set is copied as queued", async () => {
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun({ status: "waiting", conclusion: null }) }, ghost: { ...commitExists, "POST /repos/acme/app/check-runs": { id: 55 } } });
+    await syncCheckRun(ctx, "github", "1001");
+    expect(writes(ctx.ghost)[0]?.body).toMatchObject({ status: "queued" });
+  });
+
+  test("the output's text comes along", async () => {
+    const ctx = testContext({ github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun({ output: { title: "t", summary: "s", text: "details" } }) }, ghost: { ...commitExists, "POST /repos/acme/app/check-runs": { id: 55 } } });
+    await syncCheckRun(ctx, "github", "1001");
+    expect(writes(ctx.ghost)[0]?.body).toMatchObject({ output: { title: "t", summary: "s", text: "details" } });
+  });
+
+  test("GitHub's 422 for an unknown commit means not there yet", async () => {
+    const ctx = testContext({
+      ghost: { "GET /repos/acme/app/check-runs/55": actionsRun({ id: 55, app: { slug: "ghost-ci" } }) },
+      github: {
+        "GET /repos/acme-gh/app/commits/h1": () => {
+          throw new RestError(422, { message: "No commit found for SHA: h1" });
+        },
+      },
+    });
+    await syncCheckRun(ctx, "ghost", "55");
+    expect(writes(ctx.github)).toEqual([]);
+  });
+
+  test("a copy whose answer was lost is found by its link back to the original", async () => {
+    const ctx = testContext({
+      github: { "GET /repos/acme-gh/app/check-runs/1001": actionsRun() },
+      ghost: {
+        ...commitExists,
+        ...listed([
+          { id: 54, name: "CI / test", app: { slug: "ghost-sync" }, details_url: "https://github.com/acme-gh/app/runs/999" },
+          { id: 55, name: "CI / test", app: { slug: "ghost-sync" }, details_url: "https://github.com/acme-gh/app/runs/1001" },
+        ]),
+        "POST /repos/acme/app/check-runs": () => {
+          throw new RestError(502, { message: "Bad Gateway" });
+        },
+      },
+    });
+    await syncCheckRun(ctx, "github", "1001");
+    expect(await ctx.store.findLink(ctx.sync.id, "check_run", "github", "1001")).toMatchObject({ ghostId: "55" });
+  });
+
+  test("a sync check whose answer was lost is found instead of left open twice", async () => {
+    const ctx = testContext({
+      ghost: {
+        "GET /repos/acme/app/commits/h1/check-runs?check_name=Sync+with+GitHub": { total_count: 1, check_runs: [{ id: 77, name: "Sync with GitHub", status: "in_progress", app: { slug: "ghost-sync" } }] },
+        "POST /repos/acme/app/check-runs": () => {
+          throw new TypeError("fetch failed");
+        },
+      },
+    });
+    expect(await startSyncCheck(ctx, "h1")).toBe("77");
+  });
+});
+

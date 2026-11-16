@@ -49,6 +49,7 @@ Claude wrote every task's failing tests up front; they live next to the code the
 - A label action may carry `previousName` (GitHub's `changes.name.from` on `label.edited`); the counterpart is then renamed with `new_name` instead of a second label being created. Ghost's `label.edited` event carries only the label id, so a rename made on Ghost reaches GitHub as a new label until Ghost adds the old name to that event.
 - `syncRefs` returns each side's refs as last fetched (`syncPull` reads `ghost-pr/<n>` from it). A pull request is created only once its head and base agree on both sides; a linked one follows title, body, state, base, draft and labels, and a merge closes the copy with `mergedText` only when the host did not see the merge itself and the base agrees. Creates are found again after a lost answer, as for issues.
 - A review leaves out line comments already linked, and replies, so a review's and its comments' webhooks may arrive in either order without duplicates; replies follow it as their own comments. GitHub's empty `COMMENTED` review around a lone comment posts nothing once its comment is copied. A 422 on a review with comments posts the verdict alone and each comment on its own, so only the unplaceable one is skipped. A copied review is never edited: Ghost's compatibility API has no review edit endpoint (Ghost #138).
+- A copied check run keeps name, status, conclusion and output (title, summary, text) and points `details_url` at the original's `html_url`, which also identifies it when a lost create is looked for. Statuses only Actions may set become `queued`; an update leaves `head_sha` out. A commit the other side lacks (404, or GitHub's 422) is skipped silently for reconcile.
 - `RestError.message` is `"<status> <host message>"`, so activity rows read like `404 Not Found`.
 - A copied review's body is `withMarker("<verdict>\n\n<body>", from, author)`, or just the verdict when the body is empty; the marker stays first so echoes are caught. Null `start_line` / `start_side` are left out.
 - A linked pull request merged on its source only gets the merge handling (comment and close, or nothing); otherwise title, body and state are patched.
@@ -465,17 +466,17 @@ deleteComment(ctx: SyncContext, from: Side, commentKey: string): Promise<void>;
 **Interfaces:**
 - Produces: `syncCheckRun(ctx: SyncContext, from: Side, checkRunId: string): Promise<void>`; `startSyncCheck(ctx: SyncContext, sha: string): Promise<string>` (Ghost run id); `finishSyncCheck(ctx: SyncContext, runId: string, outcome: { ok: true } | { ok: false; reason: string }): Promise<void>`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - A GitHub run on a synced commit is created on Ghost (`POST .../check-runs`) with the same `name`, `head_sha`, `status`, `conclusion`, `output.title`, `output.summary`, and `details_url` = the GitHub run's `html_url`; linked.
   - A second call after GitHub's run completes `PATCH`es the same Ghost run.
   - Ghost → GitHub the same.
   - A run whose `app.slug` is our own app on that side is never copied (Review Focus 4).
   - Commit not on the other side yet: skipped, retried by reconcile.
   - `startSyncCheck` creates `Sync with GitHub`, `in_progress`; `finishSyncCheck` completes `success`, or `failure` with the reason as `output.summary`.
-- [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Implement.
-- [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(sync): check runs both ways and the sync check`.
+- [x] **Step 2:** Run. Expected: FAIL.
+- [x] **Step 3:** Implement.
+- [x] **Step 4:** Run. Expected: PASS.
+- [x] **Step 5:** Commit `feat(sync): check runs both ways and the sync check`.
 
 ### Task 14: Webhook pipeline and handlers
 
