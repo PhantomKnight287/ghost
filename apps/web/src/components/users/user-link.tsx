@@ -60,11 +60,7 @@ export function UserLink({
         />
       )}
       {username}
-      {bot && (
-        <Badge variant="outline" className="px-1 py-0 text-[10px]">
-          bot
-        </Badge>
-      )}
+
     </Link>
   );
 }
