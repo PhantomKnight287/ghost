@@ -514,6 +514,7 @@ export class AppsService {
         .set({ image: url })
         .where(eq(schema.user.id, botUserId));
     });
+    await this.clients.sync(id, { logoUrl: url });
   }
 
   /** A live app the user owns, or one of an organization they administer. Someone else's personal app is a 404, as GitHub hides it. */

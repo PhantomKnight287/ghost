@@ -124,7 +124,9 @@ apps/api      NestJS API and the git HTTP transport
 apps/web      Next.js frontend
 apps/docs     Fumadocs user guide, e.g. how to sign commits (port 3003)
 apps/learn    How Ghost works inside, a course for maintainers and contributors (port 3005)
-apps/landing  Marketing page linking out to the app, docs and source (port 3006)
+apps/landing  Marketing page linking out to the app, docs and source (port 3008)
+apps/sync/api Ghost Sync's API: two-way sync between Ghost and GitHub (port 3006)
+apps/sync/web Ghost Sync's web app (port 3009)
 packages/db   Drizzle schema and migrations
 docker/       Self-hosting: compose file, Caddyfile, setup scripts
 docs/         Design decisions, one file each

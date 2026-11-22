@@ -1,0 +1,10 @@
+# deps
+node_modules/
+
+# build
+.output/
+.tanstack/
+dist/
+
+# local settings
+.env

@@ -6,7 +6,7 @@ Ghost #135 · GitHub #165 · 2026-11-09
 
 Ghost cannot delete an issue. No route exists in Ghost's own API or in the
 GitHub compatibility layer, and no `issue.deleted` event exists. This blocks
-sync.ghost (`2026-11-09-sync-ghost-design.md`): an issue deleted on GitHub has
+Ghost Sync (`2026-11-09-sync-ghost-design.md`): an issue deleted on GitHub has
 nothing to map to on Ghost, and Ghost never produces a deletion to send back.
 
 The fix copies GitHub.
